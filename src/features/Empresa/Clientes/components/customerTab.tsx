@@ -15,10 +15,12 @@ function CustomerTab({
   customers,
   provinces,
   areas,
+  savedFilters,
 }: {
   customers: Cliente[];
   provinces: any[];
   areas: Awaited<ReturnType<typeof fetchAreasWithProvinces>>;
+  savedFilters: string[];
 }) {
   const [selectedArea, setSelectedArea] = useState<any>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
@@ -40,6 +42,7 @@ function CustomerTab({
         <ResizablePanel defaultSize={60}>
           <AreaTable
             areas={areas}
+            savedFilters={savedFilters}
             selectedArea={selectedArea}
             setSelectedArea={setSelectedArea}
             setMode={setMode}

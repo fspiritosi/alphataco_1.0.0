@@ -9,6 +9,7 @@ import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import Viewcomponent from '@/components/ViewComponent';
 import { buttonVariants } from '@/components/ui/button';
 import { getRole } from '@/lib/utils/getRole';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import EquipmentTabs from '../document/documentComponents/EquipmentTabs';
@@ -26,6 +27,9 @@ export default async function Equipment({ searchParams }: { searchParams: { tab:
   const equiposCargados = await fetchAllEquipmentWithRelations();
 
   const role = await getRole();
+  const cookiesStore = cookies();
+  const savedVisibility = cookiesStore.get('document_type_employees')?.value;
+  const savedFilters = cookiesStore.get('document_type_employees-filters')?.value;
   const document_types = await fetchAllDocumentTypes();
   const viewData = {
     defaultValue: searchParams?.tab || 'equipos',
@@ -86,6 +90,8 @@ export default async function Equipment({ searchParams }: { searchParams: { tab:
           ),
           component: (
             <TypesDocumentsView
+              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
               equipos
               employeeMockValues={EmployeesOptionsData}
               vehicleMockValues={VehicleOptionsData}

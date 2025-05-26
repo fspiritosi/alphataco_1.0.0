@@ -56,6 +56,9 @@ export default async function page({
 
   const documentTypes = await fetchAllDocumentTypes();
 
+  const savedVisibility = cookiesStore.get(`document_type_employees`)?.value;
+  const savedFilters = cookiesStore.get(`document_type_employees-filters`)?.value;
+
   const viewData = {
     defaultValue: params.tab || 'Documentos de empleados',
     path: '/dashboard/document',
@@ -136,6 +139,8 @@ export default async function page({
           component: (
             <TypesDocumentsView
               equipos
+              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : undefined}
+              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
               empresa
               personas
               employeeMockValues={EmployeesOptionsData}

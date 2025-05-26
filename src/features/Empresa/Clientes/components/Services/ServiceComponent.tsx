@@ -30,6 +30,7 @@ interface ServiceComponentProps {
   itemsList: any[];
   measureUnitsList: any[];
   company_id: string;
+  savedFilter: string[];
 }
 
 export default function ServiceComponent({
@@ -41,15 +42,13 @@ export default function ServiceComponent({
   services,
   items,
   company_id,
+  savedFilter,
 }: ServiceComponentProps) {
-  // const URL = process.env.NEXT_PUBLIC_BASE_URL;
-
-  const service = services?.find((s: any) => s.id === id);
-
   return (
     <div>
       {services ? (
         <ServiceTable
+          savedFilter={savedFilter}
           services={services}
           customers={filterCustomers}
           company_id={company_id}

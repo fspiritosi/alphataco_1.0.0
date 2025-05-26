@@ -5,6 +5,7 @@ import {
   fetchServiceItems,
 } from '@/app/server/GET/actions';
 import { cn } from '@/lib/utils';
+import { cookies } from 'next/headers';
 import BackButton from '../../../../../../components/BackButton';
 import CustomerComponent from '../../../../../../components/CustomerComponent';
 
@@ -23,6 +24,9 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
       service_validity: service.termination_date || '',
     }));
   console.log(items, employees, filteredServices);
+  const cookiesStore = cookies();
+  const savedVisibility = cookiesStore.get('equipment-table-equipment')?.value;
+  const savedFilters = cookiesStore.get('equipment-table-equipment-filters')?.value;
   return (
     <section className="grid grid-cols-2 xl:grid-cols-2 gap-2 py-4 justify-start">
       <div className="flex gap-2 col-start-2 justify-end mr-6">
@@ -41,6 +45,8 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
           items={items}
           employees={employees}
           services={filteredServices}
+          savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+          savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
         />
         <div></div>
       </div>

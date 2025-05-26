@@ -12,6 +12,8 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
   const cookiesStore = cookies();
   const savedVisibilityMonthly = cookiesStore.get(`monthly-documents-employees`)?.value;
   const savedVisibilityPermanent = cookiesStore.get(`permanent-documents-employees`)?.value;
+  const savedFiltersMonthly = cookiesStore.get(`monthly-documents-employees-filters`)?.value;
+  const savedFiltersPermanent = cookiesStore.get(`permanent-documents-employees-filters`)?.value;
   const viewData = {
     defaultValue: subtab || 'permanentes',
     path: path,
@@ -43,6 +45,7 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
               <PermanentDocuments
                 permanentDocuments={permanentDocuments}
                 savedVisibility={savedVisibilityPermanent ? JSON.parse(savedVisibilityPermanent) : undefined}
+                savedFilters={savedFiltersPermanent ? JSON.parse(savedFiltersPermanent) : []}
               />
             </>
           ),
@@ -75,6 +78,7 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
               <MonthlyDocuments
                 monthlyDocuments={monthlyDocuments}
                 savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : undefined}
+                savedFilters={savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : []}
               />
             </>
           ),

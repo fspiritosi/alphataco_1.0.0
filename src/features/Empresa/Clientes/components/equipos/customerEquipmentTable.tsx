@@ -81,6 +81,7 @@ function CustomerEquipmentTable({
   };
   const cookies = Cookies.get('areaTable');
   const savedVisibility = cookies ? JSON.parse(cookies) : {};
+  const savedFilter = Cookies.get('areaTable-filters');
 
   const names = createFilterOptions(customerEquipments, (customerEquipment) => customerEquipment.name);
   const clients = createFilterOptions(
@@ -97,6 +98,7 @@ function CustomerEquipmentTable({
         savedVisibility={savedVisibility}
         tableId="areaTable"
         toolbarOptions={{
+          initialVisibleFilters: savedFilter ? JSON.parse(savedFilter) : [],
           filterableColumns: [
             {
               columnId: 'Nombre',

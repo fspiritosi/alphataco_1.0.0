@@ -7,9 +7,11 @@ import CostCenterTable from './CostCenterTable';
 function CostCenterTab({
   costCenters,
   savedVisibility,
+  savedFilter,
 }: {
   costCenters: CostCenter[];
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const [costCenter, setCostCenter] = useState<CostCenter | null>(null);
   return (
@@ -21,7 +23,12 @@ function CostCenterTab({
         <ResizableHandle withHandle />
 
         <ResizablePanel defaultSize={60}>
-          <CostCenterTable savedVisibility={savedVisibility} costCenters={costCenters} onEdit={setCostCenter} />
+          <CostCenterTable
+            savedVisibility={savedVisibility}
+            costCenters={costCenters}
+            onEdit={setCostCenter}
+            savedFilter={savedFilter}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

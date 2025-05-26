@@ -19,6 +19,7 @@ export default async function RecursoHumanos({ company_id, contractTypes = [] }:
   const allContractTypes = await fetchAllContractTypes();
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('contract-type-table')?.value;
+  const savedFilter = cookiesStore.get('contract-type-table-filter')?.value;
   return (
     <div className=" ">
       <Tabs defaultValue="contract-types" className="w-full">
@@ -28,6 +29,7 @@ export default async function RecursoHumanos({ company_id, contractTypes = [] }:
 
         <TabsContent value="contract-types" className="">
           <ContractTypesTab
+            savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
             allContractTypes={allContractTypes}
             savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
           />

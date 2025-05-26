@@ -9,9 +9,11 @@ import { VisibilityState } from '@tanstack/react-table';
 function PermanentDocumentsEquipment({
   permanentDocuments,
   savedVisibility,
+  savedFilter,
 }: {
   permanentDocuments: ReturnType<typeof formatVehiculesDocuments>[];
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const employeeName = createFilterOptions(permanentDocuments, (employee) => employee.resource);
   const documentName = createFilterOptions(permanentDocuments, (document) => document.documentName);
@@ -29,6 +31,7 @@ function PermanentDocumentsEquipment({
         columns={ExpiredColums}
         data={permanentDocuments}
         toolbarOptions={{
+          initialVisibleFilters: savedFilter || [],
           filterableColumns: [
             {
               columnId: 'Empleado',

@@ -139,7 +139,7 @@ export function EmployeesTableReusable({
       savedVisibility={savedVisibility}
       toolbarOptions={{
         showFilterOptions: true,
-        initialVisibleFilters: savedFilters,
+        initialVisibleFilters: savedFilters || [],
         filterableColumns: [
           {
             columnId: 'Nombre',

@@ -12,6 +12,7 @@ interface PositionsClientProps {
   hierarchicalPositions: any[];
   aptitudes: any[];
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }
 
 export default function PositionsClient({
@@ -19,6 +20,7 @@ export default function PositionsClient({
   hierarchicalPositions,
   aptitudes,
   savedVisibility,
+  savedFilter,
 }: PositionsClientProps) {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
@@ -38,6 +40,7 @@ export default function PositionsClient({
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={60}>
           <PositionsTable
+            savedFilter={savedFilter}
             savedVisibility={savedVisibility}
             positions={positions}
             hierarchicalPositions={hierarchicalPositions}

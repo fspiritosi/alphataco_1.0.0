@@ -46,10 +46,12 @@ export function CostCenterTable({
   costCenters,
   onEdit,
   savedVisibility,
+  savedFilter,
 }: {
   costCenters: CostCenter[];
   onEdit: (costCenter: CostCenter) => void;
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const [filteredData, setFilteredData] = useState<CostCenter[]>(costCenters);
 
@@ -72,6 +74,7 @@ export function CostCenterTable({
           data={filteredData}
           tableId="cost-center-table"
           toolbarOptions={{
+            initialVisibleFilters: savedFilter || [],
             filterableColumns: [
               {
                 columnId: 'Nombre',

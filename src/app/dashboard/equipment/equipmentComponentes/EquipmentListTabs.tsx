@@ -32,6 +32,9 @@ async function EquipmentListTabs({
   const onlyNoVehicles = equipments?.filter((v) => v.types_of_vehicles.id == '2');
   // const data = setVehiclesToShow(equipments);
 
+  const savedVisibility = cookiesStore.get(`equipment-table-equipment`)?.value;
+  const savedFilters = cookiesStore.get(`equipment-table-equipment-filters`)?.value;
+
   const viewData: ViewDataObj = {
     defaultValue: subtab || 'all',
     path: '/dashboard/equipment',
@@ -56,7 +59,15 @@ async function EquipmentListTabs({
           title: 'Todos los equipos',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          component: <EquipmentTable role={role} columns={EquipmentColums || []} data={equipments || []} />,
+          component: (
+            <EquipmentTable
+              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+              role={role}
+              columns={EquipmentColums || []}
+              data={equipments || []}
+            />
+          ),
         },
       },
       {
@@ -77,7 +88,15 @@ async function EquipmentListTabs({
             </div>
           ),
           buttonActioRestricted: [''],
-          component: <EquipmentTable role={role} columns={EquipmentColums || []} data={onlyVehicles || []} />,
+          component: (
+            <EquipmentTable
+              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+              role={role}
+              columns={EquipmentColums || []}
+              data={onlyVehicles || []}
+            />
+          ),
         },
       },
       {
@@ -98,7 +117,15 @@ async function EquipmentListTabs({
             </div>
           ),
           buttonActioRestricted: [''],
-          component: <EquipmentTable role={role} columns={EquipmentColums || []} data={onlyNoVehicles || []} />,
+          component: (
+            <EquipmentTable
+              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+              role={role}
+              columns={EquipmentColums || []}
+              data={onlyNoVehicles || []}
+            />
+          ),
         },
       },
     ],

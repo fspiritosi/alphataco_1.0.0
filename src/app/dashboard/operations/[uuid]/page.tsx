@@ -16,6 +16,7 @@ async function page({ params }: { params: { uuid: string } }) {
   const dailyReport = await getDailyReportById(params.uuid);
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('dailyReportTableDetail')?.value;
+  const savedFilter = cookiesStore.get('dailyReportTableDetail-filters')?.value;
   const customers = await getCustomers();
   const employees = await getActiveEmployeesForDailyReport();
   const equipments = await getActiveEquipmentsForDailyReport();
@@ -35,6 +36,7 @@ async function page({ params }: { params: { uuid: string } }) {
         <BackButton />
       </div>
       <DayliReportDetailTable
+        savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
         dailyReportId={params.uuid}
         customers={customers}
         dailyReport={dailyReport}

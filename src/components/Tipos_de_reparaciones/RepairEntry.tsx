@@ -123,6 +123,7 @@ export default function RepairNewEntry({
   employee_id,
   onReturn,
   savedVisibility,
+  savedFilters,
 }: {
   tipo_de_mantenimiento: TypeOfRepair;
   equipment: ReturnType<typeof setVehiclesToShow>;
@@ -132,6 +133,7 @@ export default function RepairNewEntry({
   employee_id?: string | undefined;
   onReturn?: () => void;
   savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   const router = useRouter();
   const [allRepairs, setAllRepairs] = useState<FormValues>([]);
@@ -643,6 +645,7 @@ export default function RepairNewEntry({
             tableId="repair-entry-table"
             savedVisibility={savedVisibility}
             toolbarOptions={{
+              initialVisibleFilters: savedFilters || [],
               filterableColumns: [
                 {
                   columnId: 'Dominio',

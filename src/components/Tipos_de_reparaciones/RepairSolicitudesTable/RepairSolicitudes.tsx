@@ -1,5 +1,6 @@
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+import { VisibilityState } from '@tanstack/react-table';
 import { fetchAllRepairSolicitudes } from '../actions/actions';
 import { repairSolicitudesColums } from './components/columns';
 import { mechanicColums } from './components/mechanicColumns';
@@ -7,9 +8,13 @@ import { mechanicColums } from './components/mechanicColumns';
 export default async function RepairSolicitudes({
   mechanic,
   default_equipment_id,
+  savedFilters,
+  savedVisibility,
 }: {
   mechanic?: boolean;
   default_equipment_id?: string;
+  savedFilters: string[];
+  savedVisibility: VisibilityState;
 }) {
   const repair_solicitudes = await fetchAllRepairSolicitudes();
 
@@ -94,8 +99,10 @@ export default async function RepairSolicitudes({
       <BaseDataTable
         data={(repairsFormatted as any) || []}
         columns={mechanic ? mechanicColums : repairSolicitudesColums}
-        savedVisibility={{}}
+        savedVisibility={savedVisibility}
+        tableId="repair-solicitudes-table"
         toolbarOptions={{
+          initialVisibleFilters: savedFilters || [],
           filterableColumns: [
             {
               columnId: 'Titulo',

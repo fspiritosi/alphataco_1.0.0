@@ -435,6 +435,7 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
 export function DayliReportDetailTable({
   dailyReport,
   savedVisibility,
+  savedFilter,
   customers,
   employees,
   equipments,
@@ -443,6 +444,7 @@ export function DayliReportDetailTable({
   dailyReportId: string;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   savedVisibility: VisibilityState;
+  savedFilter: string[];
   customers: Awaited<ReturnType<typeof getCustomers>>;
   employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
   equipments: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
@@ -499,6 +501,7 @@ export function DayliReportDetailTable({
         savedVisibility={savedVisibility}
         tableId="dailyReportTableDetail"
         toolbarOptions={{
+          initialVisibleFilters: savedFilter || [],
           bulkAction: {
             enabled: true,
             label: 'Editar',

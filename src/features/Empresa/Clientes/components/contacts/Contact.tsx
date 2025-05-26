@@ -30,6 +30,7 @@ export default async function Contact() {
   const actualCompany = coockiesStore.get('actualComp')?.value;
   const saved = coockiesStore.get('contactTable')?.value;
   const savedVisibility = saved ? JSON.parse(saved) : {};
+  const savedFilters = coockiesStore.get('contactTable-filters')?.value;
   const contacts = await fetchContacts();
 
   const contractorCompanies = (contacts
@@ -53,6 +54,7 @@ export default async function Contact() {
       savedVisibility={savedVisibility}
       tableId="contactTable"
       toolbarOptions={{
+        initialVisibleFilters: savedFilters ? JSON.parse(savedFilters) : [],
         filterableColumns: [
           {
             columnId: 'Nombre',

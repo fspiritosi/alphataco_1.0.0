@@ -6,6 +6,7 @@ import {
 } from '@/app/server/GET/actions';
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { VisibilityState } from '@tanstack/react-table';
 import { useState } from 'react';
 import DocumentsTable from './DocumentsTable'; // Asumo que este componente existe
 import FilterHeader from './FilterComponent';
@@ -23,6 +24,8 @@ function TypesDocumentsView({
   vehicles,
   role,
   document_types,
+  savedVisibility,
+  savedFilters,
 }: {
   personas?: boolean;
   equipos?: boolean;
@@ -35,6 +38,8 @@ function TypesDocumentsView({
   vehicles: Awaited<ReturnType<typeof fetchAllEquipmentWithRelations>>;
   role?: string;
   document_types?: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
+  savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   // const document_types = useCountriesStore((state) => state.companyDocumentTypes);
 
@@ -131,6 +136,8 @@ function TypesDocumentsView({
               vehicleMockValues={vehicleMockValues}
               employees={employees}
               vehicles={vehicles}
+              savedFilters={savedFilters}
+              savedVisibility={savedVisibility}
             >
               <FilterHeader
                 filters={filters.personas}
@@ -143,6 +150,8 @@ function TypesDocumentsView({
         {equipos && (
           <TabsContent value="Equipos">
             <DocumentsTable
+              savedVisibility={savedVisibility}
+              savedFilters={savedFilters}
               data={filteredDocEquipos || []}
               filters={filters.equipos}
               employeeMockValues={employeeMockValues}
@@ -161,6 +170,8 @@ function TypesDocumentsView({
         {empresa && (
           <TabsContent value="Empresa">
             <DocumentsTable
+              savedVisibility={savedVisibility}
+              savedFilters={savedFilters}
               data={filteredDocEmpresa || []}
               filters={filters.empresa}
               employeeMockValues={employeeMockValues}

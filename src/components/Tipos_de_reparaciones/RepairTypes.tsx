@@ -55,7 +55,13 @@ async function RepairTypes({
     : setVehiclesToShow(equipments) || [];
 
   const savedVisibility = coockiesStore.get('repair-type-table')?.value;
+  const savedVisibilityFilters = coockiesStore.get('repair-type-table-filters')?.value;
+
   const savedVisibility2 = coockiesStore.get('repair-entry-table')?.value;
+  const savedVisibilityFilters2 = coockiesStore.get('repair-entry-table-filters')?.value;
+
+  const savedVisibility3 = coockiesStore.get('repair-solicitudes-table')?.value;
+  const filters = coockiesStore.get('repair-solicitudes-table-filters')?.value;
 
   const message =
     'El kilometraje de las unidades seleccionadas no se podran modificar durante la carga multiple, si desea cargar el kilometraje de las unidades seleccionadas, por favor haga la carga individual de cada una de ellas.';
@@ -73,7 +79,14 @@ async function RepairTypes({
           title: mechanic ? 'Solicitudes activas' : 'Solicitudes de mantenimiento',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          component: <RepairSolicitudes mechanic={mechanic} default_equipment_id={equipment_id} />,
+          component: (
+            <RepairSolicitudes
+              mechanic={mechanic}
+              default_equipment_id={equipment_id}
+              savedFilters={filters ? JSON.parse(filters) : []}
+              savedVisibility={savedVisibility3 ? JSON.parse(savedVisibility3) : []}
+            />
+          ),
         },
       },
       {
@@ -89,6 +102,7 @@ async function RepairTypes({
             <RepairTypeForm
               types_of_repairs={types_of_repairs}
               savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+              savedFilters={savedVisibilityFilters ? JSON.parse(savedVisibilityFilters) : []}
             />
           ),
         },
@@ -116,6 +130,7 @@ async function RepairTypes({
                   tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
                   default_equipment_id={equipment_id}
                   savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
+                  savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
                 />
               </TabsContent>
               <TabsContent value="carga_multiple">
@@ -126,6 +141,7 @@ async function RepairTypes({
                   equipment={vehiclesFormatted}
                   tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
                   default_equipment_id={equipment_id}
+                  savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
                   savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
                 />
               </TabsContent>

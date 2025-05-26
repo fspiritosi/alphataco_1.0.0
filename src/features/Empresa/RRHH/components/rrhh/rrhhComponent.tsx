@@ -2,11 +2,7 @@ import CovenantTreeFile from '@/app/dashboard/company/actualCompany/covenant/Cov
 import { fetchDiagramsTypes } from '@/app/server/GET/actions';
 import DiagramTypeComponent from '@/components/Diagrams/DiagramTypeComponent';
 import ViewComponentInternal from '@/components/ViewComponentInternal';
-import {
-  fetchAllContractTypes,
-  fetchAllHierarchicalPositions,
-  fetchAllPositions,
-} from '@/features/Empresa/RRHH/actions/actions';
+import { fetchAllContractTypes } from '@/features/Empresa/RRHH/actions/actions';
 import ContractTypesTab from '@/features/Empresa/RRHH/components/ContractTypeTab';
 import DiagramTypesTab from '@/features/Empresa/RRHH/components/rrhh/diagramTypesTab';
 import { cookies } from 'next/headers';
@@ -19,12 +15,12 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
   const diagrams_types = await fetchDiagramsTypes();
   const allContractTypes = await fetchAllContractTypes();
   const diagrams = await fetchAllWorkDiagrams();
-  const positions = await fetchAllPositions();
-  const hierarchicalPositions = await fetchAllHierarchicalPositions();
   const savedVisibilityDiagramTypes = cookiesStore.get('diagram-table-empresa')?.value;
+  const savedFilterDiagramTypes = cookiesStore.get('diagram-table-empresa-filter')?.value;
   const tipesNovelties = cookiesStore.get('novelty-types-table-empresa')?.value;
+  const savedFilterNovelties = cookiesStore.get('novelty-types-table-empresa-filter')?.value;
   const savedVisibilityContractTypes = cookiesStore.get('contract-type-table')?.value;
-  const savedVisibilityPositions = cookiesStore.get('positions-table')?.value;
+  const savedVisibilityContractTypesFilter = cookiesStore.get('contract-type-table-filter')?.value;
   const viewData = {
     defaultValue: subtab || 'listado',
     path: '/dashboard/company/actualCompany',
@@ -40,6 +36,7 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
           buttonAction: '',
           component: (
             <DiagramTypesTab
+              savedFilter={savedFilterDiagramTypes ? JSON.parse(savedFilterDiagramTypes) : []}
               data={diagrams}
               diagrams_types={diagrams_types}
               savedVisibility={savedVisibilityDiagramTypes ? JSON.parse(savedVisibilityDiagramTypes) : {}}
@@ -58,6 +55,7 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
           buttonAction: '',
           component: (
             <DiagramTypeComponent
+              savedFilters={savedFilterNovelties ? JSON.parse(savedFilterNovelties) : []}
               diagrams_types={diagrams_types}
               savedVisibility={tipesNovelties ? JSON.parse(tipesNovelties) : {}}
             />
@@ -87,6 +85,7 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
           buttonAction: '',
           component: (
             <ContractTypesTab
+              savedFilter={savedVisibilityContractTypesFilter ? JSON.parse(savedVisibilityContractTypesFilter) : []}
               allContractTypes={allContractTypes}
               savedVisibility={savedVisibilityContractTypes ? JSON.parse(savedVisibilityContractTypes) : {}}
             />
