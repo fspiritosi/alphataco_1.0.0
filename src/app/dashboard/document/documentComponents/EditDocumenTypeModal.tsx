@@ -1038,7 +1038,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                   </TooltipProvider>
                 </div>
                 {form.getValues('special') === true && (
-                  <div className="mt-4 border rounded-lg p-4 bg-slate-50 dark:bg-slate-950">
+                  <div className="mt-4 border rounded-lg p-4 ">
                     <div className="flex justify-between flex-col items-center mb-4">
                       <h3 className="font-semibold text-lg mb-2">Condiciones Especiales</h3>
                       <div className="flex justify-around w-full">
@@ -1188,7 +1188,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                                       return (
                                         <div
                                           key={crypto.randomUUID()}
-                                          className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md"
+                                          className="flex items-center gap-2 p-2 rounded-md"
                                         >
                                           {form.getValues('applies') === 'Persona' ? (
                                             <Avatar>
