@@ -16,11 +16,11 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
   const allContractTypes = await fetchAllContractTypes();
   const diagrams = await fetchAllWorkDiagrams();
   const savedVisibilityDiagramTypes = cookiesStore.get('diagram-table-empresa')?.value;
-  const savedFilterDiagramTypes = cookiesStore.get('diagram-table-empresa-filter')?.value;
+  const savedFilterDiagramTypes = cookiesStore.get('diagram-table-empresa-filters')?.value;
   const tipesNovelties = cookiesStore.get('novelty-types-table-empresa')?.value;
-  const savedFilterNovelties = cookiesStore.get('novelty-types-table-empresa-filter')?.value;
+  const savedFilterNovelties = cookiesStore.get('novelty-types-table-empresa-filters')?.value;
   const savedVisibilityContractTypes = cookiesStore.get('contract-type-table')?.value;
-  const savedVisibilityContractTypesFilter = cookiesStore.get('contract-type-table-filter')?.value;
+  const savedVisibilityContractTypesFilter = cookiesStore.get('contract-type-table-filters')?.value;
   const viewData = {
     defaultValue: subtab || 'listado',
     path: '/dashboard/company/actualCompany',

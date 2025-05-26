@@ -6,7 +6,7 @@ export default async function PositionsTab() {
   const { positions, hierarchicalPositions, aptitudes } = await getPositionsData();
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('positions-table')?.value;
-  const savedFilter = cookiesStore.get('positions-table-filter')?.value;
+  const savedFilter = cookiesStore.get('positions-table-filters')?.value;
   return (
     <PositionsClient
       positions={positions as any}

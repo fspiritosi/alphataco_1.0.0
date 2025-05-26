@@ -19,7 +19,7 @@ export default async function RecursoHumanos({ company_id, contractTypes = [] }:
   const allContractTypes = await fetchAllContractTypes();
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('contract-type-table')?.value;
-  const savedFilter = cookiesStore.get('contract-type-table-filter')?.value;
+  const savedFilter = cookiesStore.get('contract-type-table-filters')?.value;
   return (
     <div className=" ">
       <Tabs defaultValue="contract-types" className="w-full">

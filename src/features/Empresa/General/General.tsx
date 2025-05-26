@@ -31,9 +31,9 @@ async function General({ tabValue, subtab }: { subtab?: string; tabValue: string
   const role = await getRole();
 
   const savedVisibilityCostCenter = coockiesStore.get('cost-center-table')?.value;
-  const savedFilterCostCenter = coockiesStore.get('cost-center-table-filter')?.value;
+  const savedFilterCostCenter = coockiesStore.get('cost-center-table-filters')?.value;
   const savedVisibilityOrganigram = coockiesStore.get('organigram-table')?.value;
-  const savedFilterOrganigram = coockiesStore.get('organigram-table-filter')?.value;
+  const savedFilterOrganigram = coockiesStore.get('organigram-table-filters')?.value;
 
   const viewData = {
     defaultValue: subtab || 'company',

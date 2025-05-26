@@ -138,6 +138,7 @@ export default async function page({
           ),
           component: (
             <TypesDocumentsView
+              optionChildrenProp="all"
               equipos
               savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : undefined}
               savedFilters={savedFilters ? JSON.parse(savedFilters) : []}

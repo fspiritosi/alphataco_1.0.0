@@ -60,7 +60,7 @@ export function CostCenterTable({
     (document) => document.name
     // FileText // Icono para documentos
   );
-
+  console.log(savedFilter);
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
@@ -75,6 +75,7 @@ export function CostCenterTable({
           tableId="cost-center-table"
           toolbarOptions={{
             initialVisibleFilters: savedFilter || [],
+            showFilterOptions: true,
             filterableColumns: [
               {
                 columnId: 'Nombre',

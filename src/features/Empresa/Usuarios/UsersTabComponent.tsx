@@ -76,9 +76,9 @@ export default async function UsersTabComponent() {
 
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('users-employ-table')?.value;
-  const savedFilter = cookiesStore.get('users-employ-table-filter')?.value;
+  const savedFilter = cookiesStore.get('users-employ-table-filters')?.value;
   const savedVisibilityGuests = cookiesStore.get('users-guests-table')?.value;
-  const savedFilterGuests = cookiesStore.get('users-guests-table-filter')?.value;
+  const savedFilterGuests = cookiesStore.get('users-guests-table-filters')?.value;
 
   return (
     <div>

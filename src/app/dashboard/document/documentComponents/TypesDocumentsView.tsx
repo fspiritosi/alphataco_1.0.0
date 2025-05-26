@@ -26,6 +26,7 @@ function TypesDocumentsView({
   document_types,
   savedVisibility,
   savedFilters,
+  optionChildrenProp,
 }: {
   personas?: boolean;
   equipos?: boolean;
@@ -40,6 +41,7 @@ function TypesDocumentsView({
   document_types?: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
   savedVisibility: VisibilityState;
   savedFilters: string[];
+  optionChildrenProp?: string;
 }) {
   // const document_types = useCountriesStore((state) => state.companyDocumentTypes);
 
@@ -123,7 +125,7 @@ function TypesDocumentsView({
               empleadosCargados={employees}
               equiposCargados={vehicles}
               role={role || ''}
-              optionChildrenProp={equipos ? 'Equipos' : 'Persona'}
+              optionChildrenProp={optionChildrenProp ? optionChildrenProp : equipos ? 'Equipos' : 'Persona'}
             />
           </div>
         </div>
