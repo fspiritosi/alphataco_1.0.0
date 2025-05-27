@@ -160,8 +160,6 @@ export default function ServicesForm({
   const router = useRouter();
   const [view, setView] = useState(false);
   const [isEditing, setIsEditing] = useState(!!editingService);
-  // console.log(editingService, 'editingService');
-  // console.log(isEditing, 'isEditing');
 
   // Efecto para cargar los datos cuando cambia el servicio a editar
   useEffect(() => {
@@ -176,23 +174,25 @@ export default function ServicesForm({
         setFilteredAreas(filteredAreas);
 
         // 2. Filtrar sectores por el cliente
-        const filteredSectors =
-          sectors?.filter((sector: any) =>
-            sector.sector_customer?.some((sc: any) => sc.customer_id === editingService.customer_id)
-          ) || [];
+        const newFilteredSectors =
+          sectors
+            ?.filter((sector: any) => sector.customer_id === editingService.customer_id)
+            .map((sector: any) => sector.sectors) || [];
 
         // 3. Asegurarse de que los sectores seleccionados estén en la lista
         if (sectorIds.length > 0) {
-          const missingSectors = sectorIds.filter((id: string) => !filteredSectors.some((s: any) => s.id === id));
+          const missingSectors = sectorIds.filter((id: string) => !newFilteredSectors.some((s: any) => s.id === id));
 
           if (missingSectors.length > 0) {
-            const additionalSectors = (sectors || []).filter((s: any) => missingSectors.includes(s.id));
-            setFilteredSectors([...filteredSectors, ...additionalSectors]);
+            const additionalSectors = (sectors || [])
+              .filter((s: any) => missingSectors.includes(s.id))
+              .map((s: any) => s.sectors || s);
+            setFilteredSectors([...newFilteredSectors, ...additionalSectors]);
           } else {
-            setFilteredSectors(filteredSectors);
+            setFilteredSectors(newFilteredSectors);
           }
         } else {
-          setFilteredSectors(filteredSectors);
+          setFilteredSectors(newFilteredSectors);
         }
 
         // 4. Crear el objeto de datos después de que las áreas y sectores estén listos
@@ -273,9 +273,7 @@ export default function ServicesForm({
 
       // Filtrar sectores por el cliente seleccionado
       const filteredSectorsByCustomer =
-        sectors?.filter((sector: any) => {
-          return sector.sector_customer?.some((sc: any) => sc.customer_id === customerId);
-        }) || [];
+        sectors?.filter((sector: any) => sector.customer_id === customerId).map((sector: any) => sector.sectors) || [];
 
       setFilteredSectors(filteredSectorsByCustomer);
     } else {
@@ -543,7 +541,6 @@ export default function ServicesForm({
                     <FormItem>
                       <FormLabel>Area</FormLabel>
                       <MultiSelectCombobox
-                        key={`area-select-${selectedValues.join('-')}`} // Forzar recreación cuando cambian los valores
                         options={areaOptions}
                         placeholder="Elegir areas"
                         emptyMessage="No se encontraron areas"
