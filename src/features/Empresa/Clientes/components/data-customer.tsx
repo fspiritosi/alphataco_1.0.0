@@ -166,7 +166,7 @@ export function DataCustomers<TData extends Customer, TValue>({
               {selectedCustomer ? (
                 <ServiceTable
                   services={services.filter((service) => service.customer_id === selectedCustomer.id)}
-                  customers={[selectedCustomer]}
+                  customers={[selectedCustomer] as any}
                   company_id={company_id}
                   areas={areas}
                   sectors={sectors}

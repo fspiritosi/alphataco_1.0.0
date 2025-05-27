@@ -43,7 +43,7 @@ async function ComercialTab({
   const contractorSectors = await fetchAllContractorSectorBySectorIds(sectors?.map((sector) => sector.id) || []);
 
   const services = await fetchServices(actualCompany || '');
-  const serviceItems = await fetchServiceItems();
+  const serviceItems = await fetchServiceItems('');
   const measure_units = await fetchMeasureUnits();
   const equipmentsCustomers = await fetchEquipmentsCustomers();
 
