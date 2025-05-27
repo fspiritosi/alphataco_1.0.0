@@ -1,4 +1,5 @@
 'use client';
+import { fetchDiagramsTypes } from '@/app/server/GET/actions';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/toaster';
 import ListDiagrams from '@/features/Empresa/RRHH/components/rrhh/listDiagrams';
@@ -13,15 +14,19 @@ function diagramTypesTab({
   savedVisibility,
   savedFilter,
 }: {
-  diagrams_types: DiagramType[];
+  diagrams_types: Awaited<ReturnType<typeof fetchDiagramsTypes>>;
   data: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>;
   savedVisibility: VisibilityState;
   savedFilter: string[];
 }) {
-  const [selectedDiagram, setSelectedDiagram] = useState<Diagram | []>([]);
+  const [selectedDiagram, setSelectedDiagram] = useState<
+    Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number] | null
+  >(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
-  // console.log(diagrams_types, 'diagrams_types');
-  // console.log(selectedDiagram, 'selectedDiagram');
+
+  const handleEdit = (diagram: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]) => {
+    setSelectedDiagram(diagram);
+  };
 
   return (
     <div>
@@ -34,7 +39,7 @@ function diagramTypesTab({
           <ListDiagrams
             data={data}
             diagramsTypes={diagrams_types}
-            onEdit={setSelectedDiagram}
+            onEdit={handleEdit}
             onModeChange={setMode}
             savedVisibility={savedVisibility}
             savedFilter={savedFilter}

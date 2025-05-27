@@ -1,7 +1,6 @@
 'use client';
 
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
-import { DataTableExportExcel } from '@/shared/components/data-table/base/data-table-export-excel';
 import { VisibilityState } from '@tanstack/react-table';
 import { BadgeCheck, Briefcase, Building, ClipboardSignature, CreditCard, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -272,7 +271,6 @@ export function EmployeesTableReusable({
             options: affiliateStatus,
           },
         ],
-        extraActions: (table) => <DataTableExportExcel table={table} />,
         // searchableColumns: [{ columnId: 'Nombre', placeholder: 'Buscar empleado...' }],
         showViewOptions: true,
       }}

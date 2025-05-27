@@ -87,6 +87,13 @@ declare global {
 
   //! EXPORTAR TIPOS CON RELACIONES
 
+  // Tipo para la consulta de work_diagram con las relaciones especificadas explícitamente
+  interface WorkDiagramWithRelations extends Omit<WorkflowDiagram, 'active_novelty' | 'inactive_novelty'> {
+    active_novelty: DiagramType;
+    inactive_novelty: DiagramType;
+  }
+
+  // Este tipo es compatible con la consulta que utiliza nombres específicos de claves foráneas
   interface workDiagramWithNovelty extends Omit<Diagram, 'active_novelty' | 'inactive_novelty'> {
     active_novelty: DiagramType;
     inactive_novelty: DiagramType;

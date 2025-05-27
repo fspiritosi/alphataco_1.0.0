@@ -87,9 +87,9 @@ export default async function UsersTabComponent() {
           <TabsTrigger value="employ" className="text-gh_orange font-semibold">
             Empleados
           </TabsTrigger>
-          <TabsTrigger value="guests" className="text-gh_orange font-semibold">
+          {/* <TabsTrigger value="guests" className="text-gh_orange font-semibold">
             Invitados
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
         <TabsContent value="employ">
           <div className="py-2">

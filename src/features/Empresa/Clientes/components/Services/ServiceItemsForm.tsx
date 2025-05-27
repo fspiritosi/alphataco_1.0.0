@@ -4,7 +4,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { handleSubmit } from '@/features/Empresa/Clientes/actions/itemsService';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -12,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { RadioGroup, RadioGroupItem } from '../../../../../components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../../components/ui/select';
+import { fetchServiceItems } from '../../actions/items';
 
 const ItemsSchema = z.object({
   customer_id: z.string().optional(),
@@ -40,47 +40,19 @@ const EditItemSchema = z.object({
   is_active: z.boolean().optional(),
 });
 
-interface Item {
-  id: string;
-  item_name: string;
-  item_description: string | null;
-  item_measure_units: { id: string };
-  item_price: number;
-  is_active: boolean;
-  code_item: string | null;
-  item_number: string | null;
-  customer_id: { id: string; name: string };
-  customer_service_id: { customer_id: { id: string; name: string } };
-  company_id: string;
-}
-
-type Customer = {
-  id: string;
-  name: string;
-};
-
-interface MeasureUnit {
-  id: number;
-  unit: string;
-  simbol: string;
-  tipo: string;
-}
-
 interface ServiceItemsFormProps {
   measure_units: MeasureUnit[];
   customers: Customer[];
   services: any[];
   company_id: string;
   editService: (service: any) => void;
-  editingService?: any;
+  editingService?: Awaited<ReturnType<typeof fetchServiceItems>>[number] | null;
   open?: boolean;
   onSuccess?: () => void;
 }
 
 export default function ServiceItemsForm({
   measure_units,
-  customers,
-  services,
   company_id,
   editingService,
   editService,
@@ -88,25 +60,17 @@ export default function ServiceItemsForm({
   onSuccess,
 }: ServiceItemsFormProps) {
   const [isEditing, setIsEditing] = useState(!!editingService);
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const supabase = supabaseBrowser();
 
   const form = useForm<z.infer<typeof ItemsSchema>>({
     resolver: zodResolver(isEditing ? EditItemSchema : ItemsSchema),
     defaultValues: {
-      item_name: '',
-      item_description: '',
       item_price: 0,
-      item_measure_units: '',
-      code_item: '',
-      item_number: '',
       is_active: true,
     },
   });
 
-  const { reset, watch, setValue } = form;
+  const { reset } = form;
   const router = useRouter();
-  const currentStatus = watch('is_active');
 
   useEffect(() => {
     if (editingService) {
@@ -114,7 +78,7 @@ export default function ServiceItemsForm({
         item_name: editingService.item_name || '',
         item_description: editingService.item_description || '',
         item_price: editingService.item_price || 0,
-        item_measure_units: editingService.item_measure_units?.id || '',
+        item_measure_units: editingService.measure_units?.id?.toString() || '',
         code_item: editingService.code_item || '',
         item_number: editingService.item_number || '',
         is_active: editingService.is_active ?? true,
@@ -181,7 +145,7 @@ export default function ServiceItemsForm({
                 <FormItem>
                   <FormLabel>Nombre del Item*</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input placeholder="Ingrese el nombre del item" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -196,7 +160,7 @@ export default function ServiceItemsForm({
                 <FormItem>
                   <FormLabel>Código</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ''} />
+                    <Input placeholder="Ingrese el código del item" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -211,7 +175,14 @@ export default function ServiceItemsForm({
                 <FormItem>
                   <FormLabel>Número</FormLabel>
                   <FormControl>
-                    <Input value={value ?? ''} onChange={onChange} onBlur={onBlur} ref={ref} name={name} />
+                    <Input
+                      placeholder="Ingrese el número del item"
+                      value={value ?? ''}
+                      onChange={onChange}
+                      onBlur={onBlur}
+                      ref={ref}
+                      name={name}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -226,7 +197,7 @@ export default function ServiceItemsForm({
                 <FormItem>
                   <FormLabel>Precio*</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" placeholder="Ingrese el precio del item" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -267,7 +238,7 @@ export default function ServiceItemsForm({
                 <FormItem className="col-span-2">
                   <FormLabel>Descripción</FormLabel>
                   <FormControl>
-                    <Textarea {...field} value={field.value || ''} />
+                    <Textarea placeholder="Ingrese la descripción del item" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
