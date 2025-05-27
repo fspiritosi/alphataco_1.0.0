@@ -8,7 +8,6 @@ import { DiagramNewTypeForm } from './DiagramNewTypeForm';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { DataTableExportExcel } from '@/shared/components/data-table/base/data-table-export-excel';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Badge } from '../ui/badge';
 
@@ -156,7 +155,6 @@ function DiagramTypeComponent({
                 options: descriptionShort,
               },
             ],
-            extraActions: (table) => <DataTableExportExcel table={table} />,
           }}
         />
         {/* <BtnXlsDownload fn={createDataToDownload} dataToDownload={diagrams_types} nameFile={'Tipos_de_Diagrama'} /> */}

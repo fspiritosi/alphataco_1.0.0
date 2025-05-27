@@ -1,34 +1,18 @@
+import { fechAllCustomers, fetchAllContractorSectorBySectorIds, fetchAreasWithProvinces } from '../../actions/create';
+import { fetchServiceItems } from '../../actions/items';
+import { fetchMeasureUnits } from '../../actions/meassure';
+import { fetchServices } from '../../actions/service';
 import ServiceTable from './ServiceTable';
-
-interface measure_unit {
-  id: number;
-  unit: string;
-  simbol: string;
-  tipo: string;
-}
-interface customer {
-  id: string;
-  name: string;
-  is_active: boolean | null;
-  address: string | null;
-  client_email: string | null;
-  client_phone: number | null;
-  company_id: string;
-  created_at: string;
-  cuit: number;
-  reason_for_termination: string | null;
-  termination_date: string | null;
-}
 interface ServiceComponentProps {
   id?: string;
-  customers: Customer[];
-  areas: any[];
-  sectors: any[];
-  measure_units: any[];
-  services: any[];
-  items: any[];
-  itemsList: any[];
-  measureUnitsList: any[];
+  customers: Awaited<ReturnType<typeof fechAllCustomers>>;
+  areas: Awaited<ReturnType<typeof fetchAreasWithProvinces>>;
+  sectors: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>;
+  measure_units: Awaited<ReturnType<typeof fetchMeasureUnits>>;
+  services: Awaited<ReturnType<typeof fetchServices>>;
+  items: Awaited<ReturnType<typeof fetchServiceItems>>;
+  itemsList: Awaited<ReturnType<typeof fetchServiceItems>>;
+  measureUnitsList: Awaited<ReturnType<typeof fetchMeasureUnits>>;
   company_id: string;
   savedFilter: string[];
 }

@@ -6,6 +6,7 @@ import { Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
 import { BulkActionProps } from '../base/data-table';
+import { DataTableExportExcel } from '../base/data-table-export-excel';
 import { DataTableFilterOptions } from '../base/data-table-filter-options';
 import { DataTableViewOptions } from '../base/data-table-view-options';
 import { DataTableDatePicker } from '../filters/data-table-date-picker';
@@ -45,6 +46,7 @@ interface DataTableToolbarProps<TData> {
   showFilterOptions?: boolean; // Opción para mostrar selector de filtros
   initialVisibleFilters?: string[]; // Filtros inicialmente visibles
   extraActions?: React.ReactNode | ((table: Table<TData>) => React.ReactNode);
+  showExport?: boolean;
   tableId?: string; // Añadimos tableId para persistencia
   bulkAction?: BulkActionProps<TData>;
 }
@@ -57,6 +59,7 @@ export function DataTableToolbarBase<TData>({
   showFilterOptions = true,
   initialVisibleFilters,
   extraActions,
+  showExport = true,
   tableId, // Recibimos tableId
   bulkAction,
 }: DataTableToolbarProps<TData>) {
@@ -214,6 +217,7 @@ export function DataTableToolbarBase<TData>({
       </div>
       <div className="flex items-center space-x-2 flex-wrap">
         {typeof extraActions === 'function' ? extraActions(table) : extraActions}
+        {showExport && <DataTableExportExcel table={table} />}
         {showFilterOptions && filterableColumns.length > 0 && (
           <DataTableFilterOptions
             filterableColumns={filterableColumns}

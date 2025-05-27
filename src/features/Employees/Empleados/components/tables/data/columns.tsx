@@ -405,7 +405,7 @@ export const employeeColumns: ColumnDef<ReturnType<typeof formatEmployeesForTabl
     cell: ({ row }) => {
       const fullName = `${row.original.fullName}`;
       return (
-        <div className="font-medium flex gap-2 items-center w-[200px]">
+        <div className="font-medium flex gap-2 items-center w-[200px] capitalize">
           <PersonIcon />
           {fullName}
         </div>

@@ -12,6 +12,10 @@ import { ColumnDef } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
+import { fechAllCustomers, fetchAllContractorSectorBySectorIds, fetchAreasWithProvinces } from '../../actions/create';
+import { fetchServiceItems } from '../../actions/items';
+import { fetchMeasureUnits } from '../../actions/meassure';
+import { fetchServices } from '../../actions/service';
 import ServiceItemsTable from './ServiceItemsTable';
 import ServicesForm from './ServicesForm';
 import ContractDocuments from './contractDocuments';
@@ -55,14 +59,14 @@ type Customer = {
 };
 
 interface ServiceTableProps {
-  services: Service[];
-  customers: Customer[];
-  areas: any[];
+  services: Awaited<ReturnType<typeof fetchServices>>;
+  customers: Awaited<ReturnType<typeof fechAllCustomers>>;
+  areas: Awaited<ReturnType<typeof fetchAreasWithProvinces>>;
+  sectors: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>;
   company_id: string;
-  sectors: any[];
+  itemsList: Awaited<ReturnType<typeof fetchServiceItems>>;
+  measureUnitsList: Awaited<ReturnType<typeof fetchMeasureUnits>>;
   id?: string;
-  itemsList: any[];
-  measureUnitsList: any[];
   hideCreateButton?: boolean;
   savedFilter: string[];
 }
@@ -274,7 +278,7 @@ const ServiceTable = ({
   // Filtros para las columnas
   const serviceNameFilter = createFilterOptions(servicesData || [], (service) => service.service_name || '');
 
-  const customerFilter = createFilterOptions(servicesData || [], (service) => service.customer || '');
+  const customerFilter = createFilterOptions(servicesData || [], (service) => service.customers?.name || '');
 
   const contractNumberFilter = createFilterOptions(servicesData || [], (service) => service.contract_number || '');
 
@@ -344,7 +348,7 @@ const ServiceTable = ({
       ...service,
       customer: areas.find((area) => area.customers?.id === service.customer_id)?.customers?.name,
       area: areas.find((area) => area.id === service.service_areas?.[0]?.area_id)?.nombre,
-      sector: sectors.find((sector) => sector.id === service.service_sectors?.[0]?.sector_id)?.name,
+      sector: sectors.find((sector) => sector.id === service.service_sectors?.[0]?.sector_id)?.sectors?.name,
     }));
   }, [filteredServices, areas, sectors]);
 
@@ -358,8 +362,8 @@ const ServiceTable = ({
   const handleOpenDetail = (service: ServiceTableProps['services'][number]) => {
     setEditingService(service);
     setOpenDetail(true);
+    //Agregar una query a la url
   };
-
   // Get customer_service_id from editingService
   const customerServiceId = editingService?.id || '';
   const savedVisibility = cookies ? JSON.parse(cookies) : {};
@@ -452,7 +456,7 @@ const ServiceTable = ({
                   </TabsContent>
                   <TabsContent value="items">
                     <ServiceItemsTable
-                      editService={(editingService as any) || null}
+                      editService={editingService || null}
                       measure_units={measureUnitsList || []}
                       customers={customers || []}
                       services={(services as any) || []}
@@ -465,9 +469,9 @@ const ServiceTable = ({
               </div>
             ) : (
               <div className="w-full overflow-x-auto max-h-96 overflow-y-auto mt-4">
-                <BaseDataTable<ServiceTableItem, any>
+                <BaseDataTable
                   columns={getServiceColumns((service) => handleOpenDetail(service as any), customers)}
-                  data={servicesData || []}
+                  data={servicesData as any}
                   tableId="services-table"
                   savedVisibility={savedVisibility}
                   onRowClick={(row) => handleOpenDetail(row as any)}

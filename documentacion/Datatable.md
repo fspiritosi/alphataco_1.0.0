@@ -87,6 +87,7 @@ const data = [
     extraActions: <DataTableExportExcel table={table} />,
   }}
   tableId="clientes-table"
+  ks
   savedVisibility={{ nombre: true, estado: true }}
 />;
 ```
