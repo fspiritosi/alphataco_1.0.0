@@ -9,9 +9,11 @@ import ContractTypeTable from './ContractTypeTable';
 export default function ContractTypesTab({
   allContractTypes,
   savedVisibility,
+  savedFilter,
 }: {
   allContractTypes: ContractType[];
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const [editingContractType, setEditingContractType] = useState<ContractType | null>(null);
 
@@ -26,6 +28,7 @@ export default function ContractTypesTab({
 
         <ResizablePanel defaultSize={60}>
           <ContractTypeTable
+            savedFilter={savedFilter}
             contractTypes={allContractTypes}
             onEdit={setEditingContractType}
             savedVisibility={savedVisibility}

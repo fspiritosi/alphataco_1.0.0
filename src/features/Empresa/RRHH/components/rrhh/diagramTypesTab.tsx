@@ -11,10 +11,12 @@ function diagramTypesTab({
   diagrams_types,
   data,
   savedVisibility,
+  savedFilter,
 }: {
   diagrams_types: DiagramType[];
   data: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>;
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const [selectedDiagram, setSelectedDiagram] = useState<Diagram | []>([]);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
@@ -35,6 +37,7 @@ function diagramTypesTab({
             onEdit={setSelectedDiagram}
             onModeChange={setMode}
             savedVisibility={savedVisibility}
+            savedFilter={savedFilter}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

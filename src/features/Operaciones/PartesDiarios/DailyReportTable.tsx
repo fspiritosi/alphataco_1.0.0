@@ -131,9 +131,11 @@ export const reportColumnas: ColumnDef<Awaited<ReturnType<typeof getDailyReports
 
 function DailyReportTable({
   savedVisibility,
+  savedFilter,
   dailyReports,
 }: {
   savedVisibility: VisibilityState;
+  savedFilter: string[];
   dailyReports: Awaited<ReturnType<typeof getDailyReportsForCurrentMonth>>;
 }) {
   const statusOptions = createFilterOptions(dailyReports, (dailyReport) => dailyReport.status);
@@ -248,6 +250,7 @@ function DailyReportTable({
         savedVisibility={savedVisibility}
         onColumnFiltersChange={(data) => handleColumnFiltersChange(data)}
         toolbarOptions={{
+          initialVisibleFilters: savedFilter || [],
           filterableColumns: [
             {
               columnId: 'Fecha',

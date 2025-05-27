@@ -9,6 +9,7 @@ import DocumentNav from '@/components/DocumentNav';
 import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
 import Viewcomponent from '@/components/ViewComponent';
 import { getRole } from '@/lib/utils/getRole';
+import { cookies } from 'next/headers';
 import { Suspense } from 'react';
 import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile';
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
@@ -20,6 +21,10 @@ import TypesDocumentAction, {
 import TypesDocumentsView from '../document/documentComponents/TypesDocumentsView';
 
 const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
+  const cookiesStore = cookies();
+  const savedVisibility = cookiesStore.get(`document_type_employees`)?.value;
+  const savedFilters = cookiesStore.get(`document_type_employees-filters`)?.value;
+
   const EmployeesOptionsData = await setEmployeeDataOptions();
   const VehicleOptionsData = await setVehicleDataOptions();
 
@@ -100,6 +105,8 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
           ),
           component: (
             <TypesDocumentsView
+              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
+              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
               personas
               employeeMockValues={EmployeesOptionsData}
               vehicleMockValues={VehicleOptionsData}

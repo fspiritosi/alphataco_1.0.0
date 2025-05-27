@@ -82,6 +82,7 @@ function SectorTable({
 
   const cookies = Cookies.get('areaTable');
   const savedVisibility = cookies ? JSON.parse(cookies) : {};
+  const savedFilter = Cookies.get('areaTable-filters');
 
   const names = createFilterOptions(contractorSectors, (sector) => sector.sectors?.name);
   const clients = createFilterOptions(contractorSectors, (sector) => sector.customers?.name);
@@ -95,6 +96,7 @@ function SectorTable({
         savedVisibility={savedVisibility}
         tableId="areaTable"
         toolbarOptions={{
+          initialVisibleFilters: savedFilter ? JSON.parse(savedFilter) : [],
           filterableColumns: [
             {
               columnId: 'Nombre',

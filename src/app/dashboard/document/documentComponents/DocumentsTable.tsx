@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { EditModal } from './EditDocumenTypeModal';
 
 interface DocumentsTableProps {
@@ -21,6 +21,8 @@ interface DocumentsTableProps {
   vehicleMockValues: Record<string, string[] | []>;
   employees: EmployeeDetailed[];
   vehicles: VehicleWithBrand[];
+  savedFilters: string[];
+  savedVisibility: VisibilityState;
 }
 
 export function getDocumentColumns(
@@ -132,12 +134,12 @@ export function getDocumentColumns(
 
 const DocumentsTable = ({
   data,
-  filters,
-  children,
   employeeMockValues,
   vehicleMockValues,
   employees,
   vehicles,
+  savedVisibility,
+  savedFilters,
 }: DocumentsTableProps) => {
   const multiresourceOptions = createFilterOptions(data, (doc) => (doc.multiresource ? 'Si' : 'No'));
 
@@ -154,52 +156,24 @@ const DocumentsTable = ({
   const nameOptions = createFilterOptions(data, (doc) => doc.name);
 
   return (
-    <>
-      {/* <Table>
-        <TableHeader>
-          <TableRow>{children}</TableRow>
-        </TableHeader>
-        <TableBody>
-          {data?.map((doc) => (
-            <TableRow key={doc.id}>
-              <TableCell>{doc.name}</TableCell>
-              <TableCell className="text-center">{doc.multiresource ? 'Si' : 'No'}</TableCell>
-              <TableCell className="text-center">{doc.special ? 'Si' : 'No'}</TableCell>
-              <TableCell className="text-center">{doc.is_it_montlhy ? 'Si' : 'No'}</TableCell>
-              <TableCell className="text-center">{doc.explired ? 'Si' : 'No'}</TableCell>
-              <TableCell className="text-center">{doc.mandatory ? 'Si' : 'No'}</TableCell>
-              <TableCell className="text-center">{doc.private ? 'Si' : 'No'}</TableCell>
-              <TableCell className="text-center">
-                <EditModal
-                  Equipo={doc}
-                  employeeMockValues={employeeMockValues}
-                  vehicleMockValues={vehicleMockValues}
-                  employees={employees}
-                  vehicles={vehicles}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table> */}
-      <BaseDataTable
-        columns={getDocumentColumns(employeeMockValues, vehicleMockValues, employees, vehicles)}
-        data={data}
-        savedVisibility={{}}
-        toolbarOptions={{
-          filterableColumns: [
-            { columnId: 'Nombre', title: 'Nombre', options: nameOptions },
-            { columnId: 'Multirecurso', title: 'Multirecurso', options: multiresourceOptions },
-            { columnId: 'Especial', title: 'Especial', options: specialOptions },
-            { columnId: 'Mensual', title: 'Mensual', options: monthlyOptions },
-            { columnId: 'Vence', title: 'Vence', options: expiredOptions },
-            { columnId: 'Mandatorio', title: 'Mandatorio', options: mandatoryOptions },
-            { columnId: 'Privado', title: 'Privado', options: privateOptions },
-          ],
-        }}
-        tableId="document_type_employees"
-      />
-    </>
+    <BaseDataTable
+      columns={getDocumentColumns(employeeMockValues, vehicleMockValues, employees, vehicles)}
+      data={data}
+      savedVisibility={savedVisibility}
+      toolbarOptions={{
+        initialVisibleFilters: savedFilters || [],
+        filterableColumns: [
+          { columnId: 'Nombre', title: 'Nombre', options: nameOptions },
+          { columnId: 'Multirecurso', title: 'Multirecurso', options: multiresourceOptions },
+          { columnId: 'Especial', title: 'Especial', options: specialOptions },
+          { columnId: 'Mensual', title: 'Mensual', options: monthlyOptions },
+          { columnId: 'Vence', title: 'Vence', options: expiredOptions },
+          { columnId: 'Mandatorio', title: 'Mandatorio', options: mandatoryOptions },
+          { columnId: 'Privado', title: 'Privado', options: privateOptions },
+        ],
+      }}
+      tableId="document_type_employees"
+    />
   );
 };
 

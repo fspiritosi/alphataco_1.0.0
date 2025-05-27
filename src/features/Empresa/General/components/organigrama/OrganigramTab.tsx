@@ -10,7 +10,15 @@ interface Sector {
   name: string;
   is_active: boolean;
 }
-function organigramTab({ sectors, savedVisibility }: { sectors: Sector[]; savedVisibility: VisibilityState }) {
+function organigramTab({
+  sectors,
+  savedVisibility,
+  savedFilter,
+}: {
+  sectors: Sector[];
+  savedVisibility: VisibilityState;
+  savedFilter: string[];
+}) {
   const [sector, setSector] = useState<Sector | null>(null);
   return (
     <div>
@@ -23,7 +31,12 @@ function organigramTab({ sectors, savedVisibility }: { sectors: Sector[]; savedV
 
           <ResizablePanel defaultSize={60}>
             {/* <CostCenterTable costCenters={costCenters} onEdit={setCostCenter} /> */}
-            <OrganigramTable sectors={sectors} onEdit={setSector} savedVisibility={savedVisibility} />
+            <OrganigramTable
+              savedFilter={savedFilter}
+              sectors={sectors}
+              onEdit={setSector}
+              savedVisibility={savedVisibility}
+            />
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

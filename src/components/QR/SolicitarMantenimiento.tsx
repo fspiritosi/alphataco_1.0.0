@@ -17,6 +17,7 @@ function SolicitarMantenimiento({
   employee_id,
   user,
   savedVisibility,
+  savedFilters,
 }: {
   onReturn: () => void;
   tipo_de_mantenimiento: TypeOfRepair;
@@ -24,6 +25,7 @@ function SolicitarMantenimiento({
   default_equipment_id?: string;
   employee_id: string | undefined;
   savedVisibility: VisibilityState;
+  savedFilters: string[];
   user: User | null;
 }) {
   const router = useRouter();
@@ -48,6 +50,7 @@ function SolicitarMantenimiento({
         </Button>
       </div>
       <RepairNewEntry
+        savedFilters={savedFilters}
         onReturn={onReturn}
         user_id={user?.id}
         employee_id={employee_id}

@@ -122,12 +122,14 @@ export default function ListDiagrams({
   onModeChange,
   data,
   savedVisibility,
+  savedFilter,
 }: {
   diagramsTypes: DiagramType[];
   onEdit: (diagram: Diagram) => void;
   onModeChange: (mode: 'create' | 'edit') => void;
   data: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>;
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const [showActive, setShowActive] = useState(true);
   const [filteredData, setFilteredData] = useState<Awaited<ReturnType<typeof fetchAllWorkDiagrams>>>(
@@ -162,6 +164,7 @@ export default function ListDiagrams({
             data={filteredData}
             tableId="diagram-table-empresa"
             toolbarOptions={{
+              initialVisibleFilters: savedFilter || [],
               filterableColumns: [
                 {
                   columnId: 'Nombre',

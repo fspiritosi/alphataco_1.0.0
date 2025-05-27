@@ -85,9 +85,11 @@ export function getDiagramColumns(onEdit: (diagram: DiagramType) => void): Colum
 function DiagramTypeComponent({
   diagrams_types,
   savedVisibility,
+  savedFilters,
 }: {
   diagrams_types: DiagramType[];
   savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   const [selectDiagramType, setSelectDiagramType] = useState<{}>({});
   const [diagramToEdit, setDiagramToEdit] = useState(false);
@@ -141,6 +143,7 @@ function DiagramTypeComponent({
           savedVisibility={savedVisibility}
           tableId="novelty-types-table-empresa"
           toolbarOptions={{
+            initialVisibleFilters: savedFilters || [],
             filterableColumns: [
               {
                 columnId: 'Nombre',

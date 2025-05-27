@@ -41,7 +41,6 @@ async function ComercialTab({
   const areas = await fetchAreasWithProvinces();
   const sectors = await fetchAllSectors();
   const contractorSectors = await fetchAllContractorSectorBySectorIds(sectors?.map((sector) => sector.id) || []);
-  console.log('contractorSectors', contractorSectors);
 
   const services = await fetchServices(actualCompany || '');
   const serviceItems = await fetchServiceItems('');
@@ -49,6 +48,11 @@ async function ComercialTab({
   const equipmentsCustomers = await fetchEquipmentsCustomers();
 
   const savedCustomers = coockiesStore.get('customers-table')?.value;
+  const savedCustomersFilters = coockiesStore.get('customers-table-filters')?.value;
+  const savedCustomersFiltersEquipmentTable = coockiesStore.get('equipment-table-equipment-filters')?.value;
+  const savedVisibilityEquipmentTable = coockiesStore.get('equipment-table-equipment')?.value;
+  const savedCustomersFiltersServiceTable = coockiesStore.get('services-table-filters')?.value;
+  const savedCustomersFiltersAreaTable = coockiesStore.get('areaTable-filters')?.value;
   const employees = await fetchAllEmployees();
   const formattedEmployees = formatEmployeesForTable(employees);
   const equipments = await fetchAllEquipment();
@@ -69,6 +73,16 @@ async function ComercialTab({
           component: (
             <div>
               <DataCustomers
+                savedVisibilityEquipment={
+                  savedVisibilityEquipmentTable ? JSON.parse(savedVisibilityEquipmentTable) : []
+                }
+                savedFilters={savedCustomersFilters ? JSON.parse(savedCustomersFilters) : []}
+                savedFiltersEquipmentTable={
+                  savedCustomersFiltersEquipmentTable ? JSON.parse(savedCustomersFiltersEquipmentTable) : []
+                }
+                savedFiltersServiceTable={
+                  savedCustomersFiltersServiceTable ? JSON.parse(savedCustomersFiltersServiceTable) : []
+                }
                 columns={columnsCustomers}
                 data={contractorCompanies || []}
                 company_id={actualCompany || ''}
@@ -96,7 +110,14 @@ async function ComercialTab({
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: <CustomerTab customers={customers || []} provinces={provinces || []} areas={areas || []} />,
+          component: (
+            <CustomerTab
+              savedFilters={savedCustomersFiltersAreaTable ? JSON.parse(savedCustomersFiltersAreaTable) : []}
+              customers={customers || []}
+              provinces={provinces || []}
+              areas={areas || []}
+            />
+          ),
         },
       },
       {
@@ -165,7 +186,7 @@ async function ComercialTab({
           buttonAction: [''],
           component: (
             <ServiceComponent
-              // id={id}
+              savedFilter={savedCustomersFiltersServiceTable ? JSON.parse(savedCustomersFiltersServiceTable) : []}
               customers={contractorCompanies || []}
               areas={areas || []}
               sectors={contractorSectors}

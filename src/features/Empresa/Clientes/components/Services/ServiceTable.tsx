@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -65,6 +64,7 @@ interface ServiceTableProps {
   itemsList: any[];
   measureUnitsList: any[];
   hideCreateButton?: boolean;
+  savedFilter: string[];
 }
 
 interface ServiceTableItem {
@@ -257,10 +257,9 @@ const ServiceTable = ({
   itemsList,
   measureUnitsList,
   hideCreateButton = false,
+  savedFilter,
 }: ServiceTableProps) => {
   const cookies = Cookies.get('servicesTable');
-  const supabase = supabaseBrowser();
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
   const [servicesData, setServicesData] = useState<ServiceTableProps['services']>([]);
   const [loading, setLoading] = useState(true);
   const [editingService, setEditingService] = useState<ServiceTableProps['services'][number] | null>(null);
@@ -268,8 +267,6 @@ const ServiceTable = ({
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [filteredServices, setFilteredServices] = useState<ServiceTableProps['services']>([]);
   const [editing, setEditing] = useState(false);
-  const [filteredData, setFilteredData] = useState<ServiceTableProps['services']>(services || []);
-  const modified_company_id = company_id?.replace(/"/g, '');
   const [internalItemsList, setInternalItemsList] = useState<any[]>([]);
   // const [measureUnitsList, setMeasureUnitsList] = useState<any[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
@@ -475,6 +472,7 @@ const ServiceTable = ({
                   savedVisibility={savedVisibility}
                   onRowClick={(row) => handleOpenDetail(row as any)}
                   toolbarOptions={{
+                    initialVisibleFilters: savedFilter || [],
                     filterableColumns: [
                       {
                         columnId: 'Nombre',

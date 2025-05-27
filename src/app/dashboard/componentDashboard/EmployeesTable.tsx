@@ -27,6 +27,7 @@ async function EmployeesTable() {
 
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get(`dashboard-employees-table-expiring-documents`)?.value;
+  const savedFilters = cookiesStore.get(`dashboard-employees-table-expiring-documents-filters`)?.value;
 
   return (
     <div className="px-4 pb-4">
@@ -37,6 +38,7 @@ async function EmployeesTable() {
         tableId="dashboard-employees-table-expiring-documents"
         savedVisibility={JSON.parse(savedVisibility || '{}') as VisibilityState}
         toolbarOptions={{
+          initialVisibleFilters: JSON.parse(savedFilters || '[]'),
           filterableColumns: [
             {
               columnId: 'Documentos',
