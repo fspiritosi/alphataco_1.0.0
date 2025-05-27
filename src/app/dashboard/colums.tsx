@@ -549,6 +549,7 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'intern_number',
+    id: 'Numero Interno',
     header: ({ column, table, header }) => {
       const rowId = column.id; // Suponiendo que props.column.id contiene el id de la fila
       const row = table.getRowModel().rows.some((e) => e.original.intern_number);
@@ -570,11 +571,13 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'id_document_types'.replaceAll('_', ' '),
+    id: 'Tipo de Documento',
     header: undefined,
   },
 
   {
     accessorKey: 'allocated_to',
+    id: 'Afectado a',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Afectado a" />,
     cell: ({ row }) => {
       const values = row.original.allocated_to;
@@ -619,10 +622,12 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
 
   {
     accessorKey: 'mandatory',
+    id: 'Mandatorio',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Mandatorio" />,
   },
   {
     accessorKey: 'state',
+    id: 'Estado',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const variants: {
@@ -639,6 +644,7 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'multiresource',
+    id: 'Multirecurso',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Multirecurso" />,
   },
   {
@@ -663,6 +669,7 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'date',
+    id: 'Fecha',
     sortingFn: 'datetime',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Subido el" />,
 
@@ -680,6 +687,7 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'id',
+    id: 'Revisar documento',
     header: 'Revisar documento',
     cell: ({ row }) => {
       const isNoPresented = row.getValue('state') === 'pendiente';

@@ -21,18 +21,20 @@ import { Button } from './ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { Input } from './ui/input';
 
+interface AddCovenantModalProps {
+  guildInfo: { name: string; id: string };
+  fromEmployee?: boolean;
+  company_id?: string;
+}
+
 export default function AddCovenantModal({
   guildInfo,
   fromEmployee = false,
-}: {
-  guildInfo: { name: string; id: string };
-  fromEmployee?: boolean;
-}) {
+  company_id: propCompanyId,
+}: AddCovenantModalProps) {
   const router = useRouter();
-
-  //console.log(guildInfo, 'guildInfo');
-
-  const company_id = useLoggedUserStore((state) => state.actualCompany?.id);
+  const storeCompanyId = useLoggedUserStore((state) => state.actualCompany?.id);
+  const company_id = propCompanyId ?? storeCompanyId;
   const supabase = supabaseBrowser();
   const formSchema = z.object({
     name: z.string({ required_error: 'El nombre es requerido' }).min(2, {

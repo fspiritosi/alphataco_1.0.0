@@ -2,9 +2,9 @@
 import AddCategoryModal from '@/components/AddCategoryModal';
 import AddCovenantModal from '@/components/AddCovenantModal';
 import AddGuildModal from '@/components/AddGuildModal';
+import Cookies from 'js-cookie';
 import { ChevronDown, ChevronRight, FileText, FolderClosed, FolderOpen } from 'lucide-react';
 import React, { useState } from 'react';
-
 export interface TreeNodeData {
   name: string;
   id: string;
@@ -19,6 +19,7 @@ interface TreeNodeProps {
 
 export const TreeNode: React.FC<TreeNodeProps> = ({ node, level }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const company_id = Cookies.get('actualComp');
 
   const toggleOpen = () => setIsOpen(!isOpen);
 
@@ -47,9 +48,13 @@ export const TreeNode: React.FC<TreeNodeProps> = ({ node, level }) => {
           </div>
 
           <div className="">
-            {node.type === 'sindicatoPadre' && <AddGuildModal />}
-            {node.type === 'sindicato' && <AddCovenantModal guildInfo={{ name: node.name, id: node.id }} />}
-            {node.type === 'convenio' && <AddCategoryModal covenantInfo={{ name: node.name, id: node.id }} />}
+            {node.type === 'sindicatoPadre' && <AddGuildModal company_id={company_id} />}
+            {node.type === 'sindicato' && (
+              <AddCovenantModal company_id={company_id} guildInfo={{ name: node.name, id: node.id }} />
+            )}
+            {node.type === 'convenio' && (
+              <AddCategoryModal company_id={company_id} covenantInfo={{ name: node.name, id: node.id }} />
+            )}
           </div>
         </div>
       </div>
