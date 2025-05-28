@@ -404,7 +404,7 @@ const ServiceTable = ({
                   </Button>
                 )}
               </DialogTrigger>
-              <DialogContent className="max-w-4xl space-y-6">
+              <DialogContent className="max-w-4xl">
                 <DialogTitle>Crear Contrato</DialogTitle>
 
                 <ServicesForm
