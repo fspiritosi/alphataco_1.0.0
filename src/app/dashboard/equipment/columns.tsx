@@ -399,14 +399,14 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     },
   },
   {
-    accessorKey: 'type',
+    accessorKey: 'type.name',
     id: 'Tipo',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
-    },
     cell: ({ row }) => {
       return <Badge>{row.original.type.name}</Badge>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
     },
   },
   {
@@ -472,7 +472,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'condition',
-    id: 'Condición',
+    id: 'Condicion',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Condición" />,
     cell: ({ row }) => {
       const variants = {

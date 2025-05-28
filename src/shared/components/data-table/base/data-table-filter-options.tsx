@@ -73,6 +73,9 @@ export function DataTableFilterOptions({
     saveVisibilityState(newVisibleFilters);
   };
 
+  console.log('visibleFilters', visibleFilters);
+  console.log('filterableColumns', filterableColumns);
+
   return (
     <div className="relative" ref={menuRef}>
       {/* Botón para abrir/cerrar el menú */}
@@ -96,7 +99,10 @@ export function DataTableFilterOptions({
               // Filtrar para mostrar solo opciones de columnas visibles
               .filter((column) => columnVisibility[column.columnId] !== false)
               .map((column) => (
-                <div key={column.columnId} className="flex items-center space-x-2 p-1 hover:bg-gray-100 rounded-md">
+                <div
+                  key={column.columnId}
+                  className="flex items-center space-x-2 p-1 dark:hover:bg-gray-700 hover:bg-gray-100 rounded-md"
+                >
                   <Checkbox
                     id={`filter-${column.columnId}`}
                     checked={visibleFilters?.includes(column.columnId)}
