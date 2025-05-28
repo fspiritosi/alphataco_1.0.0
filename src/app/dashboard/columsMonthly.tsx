@@ -694,7 +694,7 @@ export const ColumnsMonthly: ColumnDef<Colum>[] = [
     accessorKey: 'id',
     header: 'Revisar documento',
     cell: ({ row }) => {
-      const isNoPresented = row.getValue('state') === 'pendiente';
+      const isNoPresented = row.original.state === 'pendiente';
       const role = useLoggedUserStore?.getState?.().roleActualCompany;
 
       const [open, setOpen] = useState(false);

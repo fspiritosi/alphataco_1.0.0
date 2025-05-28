@@ -1,16 +1,13 @@
 import { fetchAllProvinces } from '@/app/server/GET/actions';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
-import { buttonVariants } from '@/components/ui/button';
 import { formatEmployeesForTable } from '@/features/Employees/Empleados/components/utils/utils';
 import ServiceComponent from '@/features/Empresa/Clientes/components/Services/ServiceComponent';
-import Contacts from '@/features/Empresa/Clientes/components/contacts/Contact';
 import CustomerTab from '@/features/Empresa/Clientes/components/customerTab';
 import CustomerEquipmentTab from '@/features/Empresa/Clientes/components/equipos/customerEquipmentTab';
 import SectorTabs from '@/features/Empresa/Clientes/components/sector_clientes/sectorTabs';
 import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 import {
   fechAllCustomers,
   fetchAllContractorSectorBySectorIds,
@@ -154,26 +151,26 @@ async function ComercialTab({
           ),
         },
       },
-      {
-        value: 'contacts',
-        name: 'Contactos',
-        restricted: [''],
-        tab: tabValue,
-        content: {
-          title: 'Contactos',
-          //description: 'Información de la empresa',
-          buttonActioRestricted: [''],
-          buttonAction: (
-            <Link
-              href={'/dashboard/company/contact/action?action=new'}
-              className={buttonVariants({ variant: 'gh_orange', size: 'sm', className: 'font-semibold' })}
-            >
-              Registrar Contacto
-            </Link>
-          ),
-          component: <Contacts />,
-        },
-      },
+      // {
+      //   value: 'contacts',
+      //   name: 'Contactos',
+      //   restricted: [''],
+      //   tab: tabValue,
+      //   content: {
+      //     title: 'Contactos',
+      //     //description: 'Información de la empresa',
+      //     buttonActioRestricted: [''],
+      //     buttonAction: (
+      //       <Link
+      //         href={'/dashboard/company/contact/action?action=new'}
+      //         className={buttonVariants({ variant: 'gh_orange', size: 'sm', className: 'font-semibold' })}
+      //       >
+      //         Registrar Contacto
+      //       </Link>
+      //     ),
+      //     component: <Contacts />,
+      //   },
+      // },
       {
         value: 'service',
         name: 'Contratos',

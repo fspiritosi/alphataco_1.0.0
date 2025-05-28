@@ -2,6 +2,7 @@ import {
   fetchAllCategories,
   fetchAllEmployeesWithRelations,
   fetchAllEquipmentWithRelations,
+  fetchCompanyPositions,
   fetchCovenants,
   fetchCustomers,
   fetchGuilds,
@@ -51,6 +52,7 @@ export const setEmployeeDataOptions = async () => {
   const hierarchicalPositions = await fetchHierrarchicalPositions();
   const customers = await fetchCustomers();
   const provinces = await fetchProvinces();
+  const companyPositions = await fetchCompanyPositions();
 
   return {
     workflow_diagram: workDiagrams.map((diagram) => diagram.name),
@@ -66,6 +68,7 @@ export const setEmployeeDataOptions = async () => {
     document_type: ['DNI', 'LE', 'LC', 'PASAPORTE'],
     level_of_education: ['Primario', 'Secundario', 'Terciario', 'Posgrado', 'Universitario'],
     status: ['Avalado', 'Completo', 'Incompleto', 'No avalado', 'Completo con doc vencida'],
+    company_position: companyPositions.map((position) => position.name || ''),
     type_of_contract: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
   };
 };
@@ -86,7 +89,7 @@ export default function TypesDocumentAction({
   role: string;
 }) {
   // const role = await getRole();
-
+  console.log(empleadosCargados);
   // const EmployeesOptionsData = await setEmployeeDataOptions();
   // const VehicleOptionsData = await setVehicleDataOptions();
 

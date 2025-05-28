@@ -117,9 +117,10 @@ export function EmployeesTableReusable({
   const diagram = createFilterOptions(employees, (employee) => employee?.work_diagram?.name);
   const normalHours = createFilterOptions(employees, (employee) => employee?.normal_hours);
   const costCenter = createFilterOptions(employees, (employee) => employee?.cost_center_name);
+  const provinces = createFilterOptions(employees, (employee) => employee?.provinces?.name);
   const affiliateStatus = createFilterOptions(employees, (employee) => employee?.affiliate_status);
   const status = createFilterOptions(employees, (employee) => employee?.affiliate_status);
-  const nombres = createFilterOptions(employees, (employee) => employee?.firstname + ' ' + employee?.lastname);
+  const nombres = createFilterOptions(employees, (employee) => employee?.lastname + ' ' + employee?.firstname);
   const handleRowClick = (employee: EmployeeTableData) => {
     if (onRowClick) {
       onRowClick(employee);
@@ -264,6 +265,11 @@ export function EmployeesTableReusable({
             columnId: 'Estado',
             title: 'Estado',
             options: status,
+          },
+          {
+            columnId: 'Provincia',
+            title: 'Provincia',
+            options: provinces,
           },
           {
             columnId: 'Estado de afiliación',

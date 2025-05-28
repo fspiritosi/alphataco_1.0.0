@@ -32,7 +32,7 @@ export function EquipmentTable<TData, TValue>({
   const modelOptions = createFilterOptions(data, (doc) => doc.model.name);
   const statusOptions = createFilterOptions(data, (doc) => doc.status);
   const conditionOptions = createFilterOptions(data, (doc) => doc.condition);
-  const typeOptions = createFilterOptions(data, (doc) => doc.type);
+  const typeOptions = createFilterOptions(data, (doc) => doc.type.name);
   const afectacionesOpciones = createNestedFilterOptions(
     data,
     (employee) =>
@@ -86,8 +86,8 @@ export function EquipmentTable<TData, TValue>({
               options: yearOptions,
             },
             {
-              columnId: 'Condición',
-              title: 'Condición',
+              columnId: 'Condicion',
+              title: 'Condicion',
               options: conditionOptions,
             },
             {
@@ -101,18 +101,13 @@ export function EquipmentTable<TData, TValue>({
               options: modelOptions,
             },
             {
-              columnId: 'Status',
-              title: 'Status',
+              columnId: 'Estado',
+              title: 'Estado',
               options: statusOptions,
             },
             {
-              columnId: 'Condition',
-              title: 'Condition',
-              options: conditionOptions,
-            },
-            {
-              columnId: 'Type',
-              title: 'Type',
+              columnId: 'Tipo',
+              title: 'Tipo',
               options: typeOptions,
             },
           ],

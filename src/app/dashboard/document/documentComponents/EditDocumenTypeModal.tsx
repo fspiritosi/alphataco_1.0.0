@@ -46,9 +46,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useCountriesStore } from '@/store/countries';
-import { useLoggedUserStore } from '@/store/loggedUser';
 import { Equipo } from '@/zodSchemas/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
+import cookies from 'js-cookie';
 import { PlusCircle, Truck, User, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -69,7 +69,8 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   const [allResources, setAllResources] = useState<any[]>([]);
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
-  const actualCompany = useLoggedUserStore((state) => state.actualCompany);
+  const actualCompany = cookies.get('actualComp');
+  console.log(actualCompany);
   const [showEmployeePreview, setShowEmployeePreview] = useState(false);
   const [showVehiclePreview, setShowVehiclePreview] = useState(false);
   const [showAlertsUpdateModal, setShowAlertsUpdateModal] = useState(false);
@@ -382,10 +383,12 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     };
 
     try {
+      console.log(formattedValues);
       // 2. Actualizar el documento
       const { error: updateError } = await supabase.from('document_types').update(formattedValues).eq('id', Equipo.id);
 
       if (updateError) {
+        console.log(updateError);
         throw new Error(handleSupabaseError(updateError.message));
       }
 
@@ -471,7 +474,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       }
 
       // 4. Actualizar la interfaz
-      fetchDocumentTypes(actualCompany?.id);
+      fetchDocumentTypes(actualCompany);
       toast.success('Documento actualizado correctamente');
       document.getElementById('cerrar-editor-modal')?.click();
       router.refresh();
@@ -502,7 +505,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
         if (error) {
           throw new Error(handleSupabaseError(error.message));
         }
-        fetchDocumentTypes(actualCompany?.id);
+        fetchDocumentTypes(actualCompany);
       },
       {
         loading: 'Actualizando...',
@@ -515,7 +518,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
         },
       }
     );
-    fetchDocumentTypes(actualCompany?.id);
+    fetchDocumentTypes(actualCompany);
     router.refresh();
   }
 
@@ -546,7 +549,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
         loading: 'Eliminando...',
         success: (data) => {
           document.getElementById('close_document_modal')?.click();
-          fetchDocumentTypes(actualCompany?.id);
+          fetchDocumentTypes(actualCompany);
 
           return 'El documento se ha eliminado correctamente';
         },
@@ -562,7 +565,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       const { data, error } = await supabase
         .from('employees')
         .select('firstname,lastname, cuil,id')
-        .eq('company_id', actualCompany?.id || '');
+        .eq('company_id', actualCompany || '');
 
       if (error) {
         console.error('Error al obtener datos adicionales:', error);
@@ -573,7 +576,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       const { data, error } = await supabase
         .from('vehicles')
         .select('domain, serie, intern_number,id')
-        .eq('company_id', actualCompany?.id || '');
+        .eq('company_id', actualCompany || '');
 
       if (error) {
         console.error('Error al obtener datos adicionales:', error);
@@ -592,11 +595,14 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     };
     const table = tableNames[Equipo.applies as 'Equipos' | 'Persona'];
 
+    console.log(actualCompany);
+    console.log(Equipo.id);
+
     const { data: existingEntries, error: existingEntriesError } = await supabase
       .from(table as 'documents_equipment' | 'documents_employees')
       .select('applies(*),id')
       .eq('id_document_types', Equipo.id)
-      .eq('applies.company_id', actualCompany?.id || '')
+      .eq('applies.company_id', actualCompany || '')
       .not('applies', 'is', null);
 
     if (existingEntriesError) {
@@ -665,7 +671,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       {
         loading: 'Generando alertas...',
         success: (data) => {
-          fetchDocumentTypes(actualCompany?.id);
+          fetchDocumentTypes(actualCompany);
           return 'Se han generado las alertas!';
         },
         error: (error) => {
@@ -727,7 +733,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       }
 
       // Si llegamos aquí, la operación fue exitosa
-      fetchDocumentTypes(actualCompany?.id);
+      fetchDocumentTypes(actualCompany);
       router.refresh();
 
       // Cerrar el modal de eliminación de alertas

@@ -3,7 +3,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabaseServer } from '@/lib/supabase/server';
 import { getActualRole } from '@/lib/utils';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 
 interface ViewDataObj {
   defaultValue: string;
@@ -42,7 +41,8 @@ export default async function Viewcomponent({ viewData }: { viewData: ViewDataOb
                 id={tab.value}
                 className={`text-gh_orange font-semibold`}
               >
-                <Link href={`${viewData.path}?tab=${tab.value}`}>{tab.name}</Link>
+                {/* <Link href={`${viewData.path}?tab=${tab.value}`}>{tab.name}</Link> */}
+                <div>{tab.name}</div>
               </TabsTrigger>
             );
           })}

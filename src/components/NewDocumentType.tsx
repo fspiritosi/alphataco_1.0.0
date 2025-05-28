@@ -45,6 +45,7 @@ export const baseEmployeePropertiesConfig = [
   { label: 'Gremio', accessor_key: 'guild' }, // Puede ser null o un objeto con propiedad name
   { label: 'Convenio', accessor_key: 'covenant' }, // Puede ser null o un objeto con propiedad name
   { label: 'Categoría', accessor_key: 'category' }, // Puede ser null o un objeto con propiedad name
+  { label: 'Posición en la Empresa', accessor_key: 'company_position' }, // Puede ser null o un objeto con propiedad name
 
   // Array de objetos anidados
   { label: 'Clientes', accessor_key: 'contractor_employee' }, // Array de objetos donde cada uno tiene customers.name
@@ -122,6 +123,10 @@ export const relationMeta: Record<string, any> = {
     relation_type: 'one_to_many',
     filter_column: 'workflow_diagram',
   },
+  company_position: {
+    relation_type: 'one_to_many',
+    filter_column: 'company_position',
+  },
   birthplace: {
     relation_type: 'one_to_many',
     filter_column: 'birthplace',
@@ -172,7 +177,7 @@ export function getEmployeePropertyValue(employee: any, accessor_key: string): s
   } else if (typeof value === 'boolean') {
     // Valores booleanos
     result = value ? 'Sí' : 'No';
-  } else if (value === null && ['guild', 'covenant', 'category'].includes(accessor_key)) {
+  } else if (value === null && ['guild', 'covenant', 'category', 'company_position'].includes(accessor_key)) {
     // Propiedades especiales que pueden ser null
     result = 'No asignado';
   } else {
@@ -326,6 +331,18 @@ export default function NewDocumentType({
         const resultado = condition.values.some((v: string) => {
           // Usar normalizeString para una comparación más robusta
           const match = normalizeString(employeeValue) === normalizeString(v);
+          // Log para depurar company_position
+          if (propertyConfig.accessor_key === 'company_position') {
+            console.log('Filtro company_position:', {
+              empleadoId: employee.id,
+              nombreEmpleado: `${employee.lastname} ${employee.firstname}`,
+              valorBuscado: v,
+              valorEmpleado: employeeValue,
+              valorEmpleadoNormalizado: normalizeString(employeeValue),
+              valorBuscadoNormalizado: normalizeString(v),
+              coincide: match,
+            });
+          }
           return match;
         });
 
@@ -436,6 +453,7 @@ export default function NewDocumentType({
           'guild',
           'covenant',
           'city',
+          'company_position',
         ].includes(propConfig.accessor_key);
 
         // Tipo especial para contractor_employee (array de relaciones)
@@ -564,7 +582,6 @@ export default function NewDocumentType({
     };
 
     console.log('formattedValues', formattedValues);
-
     toast.promise(
       async () => {
         const { data, error } = await supabase.from('document_types').insert(formattedValues).select();
