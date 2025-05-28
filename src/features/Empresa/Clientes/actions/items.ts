@@ -6,12 +6,15 @@ export async function fetchServiceItems(customer_service_id: string) {
   const supabase = supabaseServer();
 
   try {
-    const { data: items, error } = await supabase.from('service_items').select(
-      `
+    const { data: items, error } = await supabase
+      .from('service_items')
+      .select(
+        `
         *,
         measure_units (*)
       `
-    );
+      )
+      .eq('customer_service_id', customer_service_id);
 
     console.log(items);
 

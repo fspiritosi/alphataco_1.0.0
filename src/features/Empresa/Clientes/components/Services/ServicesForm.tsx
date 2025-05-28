@@ -470,18 +470,20 @@ export default function ServicesForm({
   return (
     <div>
       {/* {view && ( */}
-      <div className="flex justify-end space-x-4 mr-2">
-        <Button onClick={() => setView(!view)}>{view ? 'Habilitar Edicion' : 'Ver'}</Button>
+      {editingService && (
+        <div className="flex justify-end space-x-4 mr-2">
+          <Button onClick={() => setView(!view)}>{view ? 'Habilitar Edicion' : 'Ver'}</Button>
 
-        {/* <Link href="/dashboard/company/actualCompany?tab=comerce&subtab=service">
-            <Button>Volver</Button>
-          </Link> */}
-      </div>
+          {/* <Link href="/dashboard/company/actualCompany?tab=comerce&subtab=service">
+              <Button>Volver</Button>
+            </Link> */}
+        </div>
+      )}
       {/* )} */}
-      <Card className="w-full mt-2">
-        <div className="grid grid-cols-2 gap-4 p-4">
+      <Card className="w-full mt-2 overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 w-full min-w-0">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="contents">
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="contents w-full">
               <FormField
                 control={form.control}
                 name="customer_id"
@@ -499,7 +501,7 @@ export default function ServicesForm({
                       value={field.value || editingService?.customer_id}
                     >
                       <FormControl>
-                        <SelectTrigger className="w-[400px]">
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Elegir cliente" />
                         </SelectTrigger>
                       </FormControl>
@@ -602,7 +604,7 @@ export default function ServicesForm({
                         disabled={view}
                         type="text"
                         {...field}
-                        className="input w-[400px]"
+                        className="input w-full"
                         placeholder="Título del contrato"
                       />
                     </FormControl>
@@ -616,7 +618,7 @@ export default function ServicesForm({
                 name="service_start"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="flex gap-4 items-center w-[400px] justify-between">
+                    <div className="flex gap-4 items-center w-full justify-between">
                       <FormLabel>Inicio del Contrato</FormLabel>
                       <FormControl>
                         <Popover>
@@ -656,22 +658,23 @@ export default function ServicesForm({
                 name="service_validity"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="flex gap-4 items-center w-[400px] justify-between">
+                    <div className="flex gap-4 items-center w-full justify-between">
                       <FormLabel>Validez del Contrato</FormLabel>
                       <FormControl>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button
-                              disabled={view}
-                              variant={'outline'}
-                              className={cn(
-                                'w-[240px] pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? field.value.toLocaleDateString() : 'Elegir fecha'}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
+                            <div className="relative w-full">
+                              <Button
+                                variant={'outline'}
+                                className={cn(
+                                  'w-full justify-start text-left font-normal',
+                                  !field.value && 'text-muted-foreground'
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {field.value ? field.value.toLocaleDateString() : 'Elegir fecha'}
+                              </Button>
+                            </div>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0">
                             <Calendar
@@ -701,7 +704,7 @@ export default function ServicesForm({
                         disabled={view}
                         type="text"
                         {...field}
-                        className="input w-[400px]"
+                        className="input w-full"
                         placeholder="Número de contrato"
                       />
                     </FormControl>

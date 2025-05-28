@@ -155,6 +155,7 @@ export default function ServiceItemsTable({
 
     try {
       const serviceItems = await fetchServiceItems(customer_service_id);
+      console.log(serviceItems);
       if (serviceItems) {
         // Actualizamos los items locales sin afectar los items que vienen por props
         setFilteredItems(serviceItems);
