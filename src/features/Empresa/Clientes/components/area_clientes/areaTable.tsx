@@ -15,6 +15,7 @@ export interface AreaTableProp {
   setSelectedArea: (area: AreaTableProp['areas'][number] | null) => void;
   setMode: (mode: 'create' | 'edit') => void;
   mode: 'create' | 'edit';
+  savedFilters: string[];
 }
 
 export function getAreaColums(
@@ -133,7 +134,7 @@ export function getAreaColums(
 //   },
 // ]
 
-function AreaTable({ areas, selectedArea, setSelectedArea, setMode, mode }: AreaTableProp) {
+function AreaTable({ areas, savedFilters, selectedArea, setSelectedArea, setMode, mode }: AreaTableProp) {
   const cookies = Cookies.get('areaTable');
   const handleEdit = (area: AreaTableProp['areas'][number]) => {
     setSelectedArea(area);
@@ -171,6 +172,7 @@ function AreaTable({ areas, selectedArea, setSelectedArea, setMode, mode }: Area
         savedVisibility={savedVisibility}
         tableId="areaTable"
         toolbarOptions={{
+          initialVisibleFilters: savedFilters || [],
           filterableColumns: [
             {
               columnId: 'Nombre',

@@ -14,16 +14,22 @@ import { useLoggedUserStore } from '@/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { Button } from './ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { Input } from './ui/input';
-import { FormEvent } from 'react';
 
-export default function AddGuildModal({ fromEmployee: fromEmployee = false }) {
-  const company_id = useLoggedUserStore((state) => state.actualCompany?.id);
+interface AddGuildModalProps {
+  fromEmployee?: boolean;
+  company_id?: string;
+}
+
+export default function AddGuildModal({ fromEmployee = false, company_id: propCompanyId }: AddGuildModalProps) {
+  const storeCompanyId = useLoggedUserStore((state) => state.actualCompany?.id);
+  const company_id = propCompanyId ?? storeCompanyId;
   const supabase = supabaseBrowser();
   const router = useRouter();
   const formSchema = z.object({

@@ -3,8 +3,6 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { getActualRole } from '@/lib/utils';
 import { cookies } from 'next/headers';
 
-import Link from 'next/link';
-
 export interface ViewDataObj {
   defaultValue: string;
   path: string;
@@ -44,7 +42,8 @@ export default async function ViewcomponentInternal({ viewData }: { viewData: Vi
                 id={tab.value}
                 className={`text-gh_orange font-semibold`}
               >
-                <Link href={`${viewData.path}?tab=${tab.tab}&subtab=${tab.value}`}>{tab.name}</Link>
+                {/* <Link href={`${viewData.path}?tab=${tab.tab}&subtab=${tab.value}`}>{tab.name}</Link> */}
+                <div>{tab.name}</div>
               </TabsTrigger>
             );
           })}

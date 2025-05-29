@@ -9,9 +9,11 @@ import { VisibilityState } from '@tanstack/react-table';
 function MonthlyDocumentsEquipment({
   monthlyDocuments,
   savedVisibility,
+  savedFilter,
 }: {
   monthlyDocuments: ReturnType<typeof formatVehiculesDocuments>[];
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const employeeName = createFilterOptions(monthlyDocuments, (employee) => employee.resource);
   const documentName = createFilterOptions(monthlyDocuments, (document) => document.documentName);
@@ -24,6 +26,7 @@ function MonthlyDocumentsEquipment({
       data={monthlyDocuments}
       savedVisibility={savedVisibility}
       toolbarOptions={{
+        initialVisibleFilters: savedFilter || [],
         filterableColumns: [
           {
             columnId: 'Empleado',

@@ -12,6 +12,8 @@ async function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabV
   const cookiesStore = cookies();
   const savedVisibilityPermanent = cookiesStore.get('permanent-documents-vehicles')?.value;
   const savedVisibilityMonthly = cookiesStore.get('monthly-documents-vehicles')?.value;
+  const savedFiltersPermanent = cookiesStore.get('permanent-documents-vehicles-filters')?.value;
+  const savedFiltersMonthly = cookiesStore.get('monthly-documents-vehicles-filters')?.value;
   const viewData: ViewDataObj = {
     defaultValue: subtab || 'permanentes',
     path: path,
@@ -44,6 +46,7 @@ async function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabV
               <PermanentDocumentsEquipment
                 permanentDocuments={permanentDocuments}
                 savedVisibility={savedVisibilityPermanent ? JSON.parse(savedVisibilityPermanent) : undefined}
+                savedFilter={savedFiltersPermanent ? JSON.parse(savedFiltersPermanent) : []}
               />
             </>
           ),
@@ -77,6 +80,7 @@ async function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabV
               <MonthlyDocumentsEquipment
                 monthlyDocuments={monthlyDocuments}
                 savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : undefined}
+                savedFilter={savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : []}
               />
             </>
           ),

@@ -69,7 +69,7 @@ export const useCountriesStore = create<State>((set, get) => {
     }
   };
   const fetchworkDiagram = async () => {
-    const { data: workDiagram, error } = await supabase.from('work-diagram').select('*');
+    const { data: workDiagram, error } = await supabase.from('work_diagram').select('*');
 
     if (error) {
       console.error('Error al obtener el diagrama de trabajo:', error);

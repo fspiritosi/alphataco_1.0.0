@@ -9,6 +9,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { supabaseBrowser } from '@/lib/supabase/browser';
+import { useLoggedUserStore } from '@/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -20,14 +21,20 @@ import { Button } from './ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { Input } from './ui/input';
 
-export default function AddCategoryModal({
-  covenantInfo,
-  fromEmployee,
-}: {
+interface AddCategoryModalProps {
   covenantInfo: { name: string; id: string };
   fromEmployee?: boolean;
-}) {
+  company_id?: string;
+}
+
+export default function AddCategoryModal({
+  covenantInfo,
+  fromEmployee = false,
+  company_id: propCompanyId,
+}: AddCategoryModalProps) {
   const router = useRouter();
+  const storeCompanyId = useLoggedUserStore((state) => state.actualCompany?.id);
+  const company_id = propCompanyId ?? storeCompanyId;
 
   const supabase = supabaseBrowser();
   const formSchema = z.object({

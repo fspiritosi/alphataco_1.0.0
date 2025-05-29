@@ -11,6 +11,7 @@ interface ContractTypeTableProps {
   contractTypes: ContractType[];
   onEdit: (contractType: ContractType) => void;
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }
 
 export function getContractTypeColumns(onEdit: (contractType: ContractType) => void): ColumnDef<ContractType>[] {
@@ -56,7 +57,12 @@ export function getContractTypeColumns(onEdit: (contractType: ContractType) => v
   ];
 }
 
-export default function ContractTypeTable({ contractTypes, onEdit, savedVisibility }: ContractTypeTableProps) {
+export default function ContractTypeTable({
+  contractTypes,
+  onEdit,
+  savedVisibility,
+  savedFilter,
+}: ContractTypeTableProps) {
   const [isActiveFilter, setIsActiveFilter] = useState(true);
   const [filteredContractTypes, setFilteredContractTypes] = useState<ContractType[]>([]);
 
@@ -127,6 +133,7 @@ export default function ContractTypeTable({ contractTypes, onEdit, savedVisibili
           savedVisibility={savedVisibility}
           tableId="contract-type-table"
           toolbarOptions={{
+            initialVisibleFilters: savedFilter || [],
             filterableColumns: [
               {
                 columnId: 'Nombre',

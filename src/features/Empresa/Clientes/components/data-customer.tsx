@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createFilterOptions, formatEmployeesForTable } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { useState } from 'react';
 import { fechAllCustomers } from '../actions/create';
 import { CustomerForm } from './CustomerForm';
@@ -42,6 +42,10 @@ interface DataCustomersProps<TData, TValue> {
   sectors?: any[];
   itemsList?: any[];
   measureUnitsList?: any[];
+  savedFilters: string[];
+  savedFiltersEquipmentTable: string[];
+  savedFiltersServiceTable: string[];
+  savedVisibilityEquipment: VisibilityState;
 }
 
 export function DataCustomers<TData extends Customer, TValue>({
@@ -57,6 +61,10 @@ export function DataCustomers<TData extends Customer, TValue>({
   sectors = [],
   itemsList = [],
   measureUnitsList = [],
+  savedFilters,
+  savedFiltersEquipmentTable,
+  savedFiltersServiceTable,
+  savedVisibilityEquipment,
 }: DataCustomersProps<TData, TValue>) {
   const [selectedCustomer, setSelectedCustomer] = useState<TData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -143,7 +151,12 @@ export function DataCustomers<TData extends Customer, TValue>({
             <div className=" p-6 rounded-lg border">
               <h3 className="text-xl font-semibold mb-6">Equipos del Cliente</h3>
               <p className="text-muted-foreground">Módulo de equipos en desarrollo...</p>
-              <EquipmentTable columns={EquipmentColums || []} data={customerEquipments || []} />
+              <EquipmentTable
+                savedFilters={savedFiltersEquipmentTable}
+                columns={EquipmentColums || []}
+                data={customerEquipments || []}
+                savedVisibility={savedVisibilityEquipment}
+              />
             </div>
           </TabsContent>
 
@@ -153,13 +166,14 @@ export function DataCustomers<TData extends Customer, TValue>({
               {selectedCustomer ? (
                 <ServiceTable
                   services={services.filter((service) => service.customer_id === selectedCustomer.id)}
-                  customers={[selectedCustomer]}
+                  customers={[selectedCustomer] as any}
                   company_id={company_id}
                   areas={areas}
                   sectors={sectors}
                   itemsList={itemsList}
                   measureUnitsList={measureUnitsList}
                   hideCreateButton={false}
+                  savedFilter={savedFiltersServiceTable}
                 />
               ) : (
                 <p className="text-muted-foreground">Seleccione un cliente para ver sus contratos</p>
@@ -199,6 +213,7 @@ export function DataCustomers<TData extends Customer, TValue>({
         tableId="customers-table"
         onRowClick={handleRowClick}
         toolbarOptions={{
+          initialVisibleFilters: savedFilters || [],
           filterableColumns: [
             {
               columnId: 'Nombre',

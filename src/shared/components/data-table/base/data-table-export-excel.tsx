@@ -126,7 +126,13 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" title="Exportar a Excel" className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          title="Exportar a Excel"
+          className="flex items-center gap-2"
+          disabled={rows.length === 0}
+        >
           <FileSpreadsheet className="w-4 h-4" />
           Excel
         </Button>

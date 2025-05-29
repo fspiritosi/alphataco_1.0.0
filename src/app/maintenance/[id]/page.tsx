@@ -74,6 +74,7 @@ export default async function Home({
   }));
   const currentEquipment = equipmentsForComboBox.find((equipment) => equipment.value === params.id);
   const savedVisibility = cookiesStore.get('repair-entry-table')?.value;
+  const savedFilters = cookiesStore.get('repair-entry-table-filters')?.value;
 
   return (
     <QrActionSelector
@@ -83,6 +84,7 @@ export default async function Home({
       tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
       default_equipment_id={params.id}
       savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
+      savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
       role={role}
       pendingRequests={data as any}
       checkList={

@@ -155,6 +155,7 @@ function DiagramFormUpdated({
 
     setErrorsDiagrams(errors);
     setSuccesDiagrams(successes);
+    router.refresh();
   };
 
   const updateDiagram = async (diagramToUpdate: ErrorToCreate) => {
@@ -172,9 +173,9 @@ function DiagramFormUpdated({
     );
     //Eliminar el diagrama de la lista de errores
     setErrorsDiagrams((prev) => prev.filter((d) => d.prev_diagram_entry_id !== diagramToUpdate.prev_diagram_entry_id));
-    if (defaultId) {
-      router.refresh();
-    }
+    // if (defaultId) {
+    router.refresh();
+    // }
   };
 
   const updateAll = async (diagramsToUpdate: ErrorToCreate[]) => {
@@ -194,9 +195,7 @@ function DiagramFormUpdated({
     );
     //Eliminar todos los diagramas de la lista de errores
     setErrorsDiagrams([]);
-    if (defaultId) {
-      router.refresh();
-    }
+    router.refresh();
   };
 
   const createDiagram = (diagramToCreate: DiagramaToCreate) => {
@@ -224,9 +223,9 @@ function DiagramFormUpdated({
         (d) => !(d.day === diagramToCreate.day && d.month === diagramToCreate.month && d.year === diagramToCreate.year)
       )
     );
-    if (defaultId) {
-      router.refresh();
-    }
+    // if (defaultId) {
+    router.refresh();
+    // }
   };
 
   const createAll = (diagramsToCreate: DiagramaToCreate[]) => {
@@ -248,9 +247,7 @@ function DiagramFormUpdated({
       }
     );
     setSuccesDiagrams([]);
-    if (defaultId) {
-      router.refresh();
-    }
+    router.refresh();
   };
 
   const descartarOne = (diagram: any, index: number, type: 'e' | 's') => {

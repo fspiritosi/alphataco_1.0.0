@@ -30,6 +30,7 @@ export default function QrActionSelector({
   checkList,
   equipmentsForComboBox,
   savedVisibility,
+  savedFilters,
 }: {
   empleado_name: string | undefined;
   user: User | null;
@@ -51,6 +52,7 @@ export default function QrActionSelector({
     intern_number: string;
   }[];
   savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const supabase = supabaseBrowser();
@@ -85,6 +87,7 @@ export default function QrActionSelector({
         employee_id={employee_id}
         user={user}
         savedVisibility={savedVisibility}
+        savedFilters={savedFilters}
       />
     );
   }

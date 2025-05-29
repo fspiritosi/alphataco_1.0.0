@@ -1,6 +1,6 @@
 'use client';
 
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 
 import { createNestedFilterOptions } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
@@ -11,9 +11,17 @@ interface DataEquipmentProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[] | any;
   data: VehicleWithBrand[];
   role?: string | null;
+  savedFilters: string[];
+  savedVisibility: VisibilityState;
 }
 
-export function EquipmentTable<TData, TValue>({ columns, data, role }: DataEquipmentProps<TData, TValue>) {
+export function EquipmentTable<TData, TValue>({
+  columns,
+  data,
+  role,
+  savedFilters,
+  savedVisibility,
+}: DataEquipmentProps<TData, TValue>) {
   const internNumberOptions = createFilterOptions(data, (doc) => doc.intern_number);
   const domainOptions = createFilterOptions(data, (doc) => doc.domain);
   const chassisOptions = createFilterOptions(data, (doc) => doc.chassis);
@@ -24,7 +32,7 @@ export function EquipmentTable<TData, TValue>({ columns, data, role }: DataEquip
   const modelOptions = createFilterOptions(data, (doc) => doc.model.name);
   const statusOptions = createFilterOptions(data, (doc) => doc.status);
   const conditionOptions = createFilterOptions(data, (doc) => doc.condition);
-  const typeOptions = createFilterOptions(data, (doc) => doc.type);
+  const typeOptions = createFilterOptions(data, (doc) => doc.type.name);
   const afectacionesOpciones = createNestedFilterOptions(
     data,
     (employee) =>
@@ -37,9 +45,10 @@ export function EquipmentTable<TData, TValue>({ columns, data, role }: DataEquip
       <BaseDataTable
         columns={columns}
         data={data}
-        savedVisibility={{}}
+        savedVisibility={savedVisibility || {}}
         tableId="equipment-table-equipment"
         toolbarOptions={{
+          initialVisibleFilters: savedFilters || [],
           filterableColumns: [
             {
               columnId: 'Numero interno',
@@ -77,8 +86,8 @@ export function EquipmentTable<TData, TValue>({ columns, data, role }: DataEquip
               options: yearOptions,
             },
             {
-              columnId: 'Condición',
-              title: 'Condición',
+              columnId: 'Condicion',
+              title: 'Condicion',
               options: conditionOptions,
             },
             {
@@ -92,18 +101,13 @@ export function EquipmentTable<TData, TValue>({ columns, data, role }: DataEquip
               options: modelOptions,
             },
             {
-              columnId: 'Status',
-              title: 'Status',
+              columnId: 'Estado',
+              title: 'Estado',
               options: statusOptions,
             },
             {
-              columnId: 'Condition',
-              title: 'Condition',
-              options: conditionOptions,
-            },
-            {
-              columnId: 'Type',
-              title: 'Type',
+              columnId: 'Tipo',
+              title: 'Tipo',
               options: typeOptions,
             },
           ],

@@ -61,28 +61,27 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
       is_active: diagram?.is_active ?? true,
       active_working_days: diagram?.active_working_days || 0,
       inactive_working_days: diagram?.inactive_working_days || 0,
-      active_novelty: diagramsTypes?.find((t) => t.name === diagram?.active_novelty)?.id || '',
-      inactive_novelty: diagramsTypes?.find((t) => t.name === diagram?.inactive_novelty)?.id || '',
+      active_novelty: diagram?.active_novelty?.id || '',
+      inactive_novelty: diagram?.inactive_novelty?.id || '',
     },
   });
   const { reset } = form;
   const router = useRouter();
 
+  console.log(diagram, 'diagram');
+  console.log(diagramsTypes, 'diagramsTypes');
+
   const isViewMode = false;
 
   useEffect(() => {
     if (diagram && diagramsTypes) {
-      const activeNoveltyId = diagramsTypes.find((t) => t.name === diagram.active_novelty)?.id;
-
-      const inactiveNoveltyId = diagramsTypes.find((t) => t.name === diagram.inactive_novelty)?.id;
-
       form.reset({
         name: diagram.name,
         is_active: diagram.is_active,
         active_working_days: diagram.active_working_days,
         inactive_working_days: diagram.inactive_working_days,
-        active_novelty: activeNoveltyId ?? '',
-        inactive_novelty: inactiveNoveltyId ?? '',
+        active_novelty: diagram.active_novelty?.id || '',
+        inactive_novelty: diagram.inactive_novelty?.id || '',
       });
     }
   }, [diagram, diagramsTypes, form]);

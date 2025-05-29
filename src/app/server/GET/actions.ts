@@ -55,6 +55,9 @@ export const fetchAllEmployeesWithRelations = async () => {
   hierarchical_position(
     *
   ),
+  company_position(
+    *
+  ),
   birthplace(
     *
   ),
@@ -617,6 +620,20 @@ export const fetchTypeVehicles = async () => {
 
   if (error) {
     console.error('Error fetching vehicle types:', error);
+    return [];
+  }
+  return data;
+};
+export const fetchCompanyPositions = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  const { data, error } = await supabase.from('company_positions').select('*');
+
+  if (error) {
+    console.error('Error fetching company positions:', error);
     return [];
   }
   return data;

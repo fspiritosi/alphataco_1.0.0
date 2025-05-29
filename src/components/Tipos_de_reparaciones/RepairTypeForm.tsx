@@ -115,9 +115,11 @@ export function getRepairTypeColumns(onEdit: (repair: TypeOfRepair) => void): Co
 export function RepairTypeForm({
   types_of_repairs,
   savedVisibility,
+  savedFilters,
 }: {
   types_of_repairs: TypeOfRepair[];
   savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   const company_id = useLoggedUserStore((state) => state.actualCompany)?.id;
   const [selectedRepair, setSelectedRepair] = useState<TypeOfRepair | null>(null);
@@ -344,6 +346,7 @@ export function RepairTypeForm({
           data={types_of_repairs}
           tableId="repair-type-table"
           toolbarOptions={{
+            initialVisibleFilters: savedFilters || [],
             filterableColumns: [
               {
                 columnId: 'Nombre',

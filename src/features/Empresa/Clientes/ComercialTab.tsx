@@ -1,16 +1,13 @@
 import { fetchAllProvinces } from '@/app/server/GET/actions';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
-import { buttonVariants } from '@/components/ui/button';
 import { formatEmployeesForTable } from '@/features/Employees/Empleados/components/utils/utils';
 import ServiceComponent from '@/features/Empresa/Clientes/components/Services/ServiceComponent';
-import Contacts from '@/features/Empresa/Clientes/components/contacts/Contact';
 import CustomerTab from '@/features/Empresa/Clientes/components/customerTab';
 import CustomerEquipmentTab from '@/features/Empresa/Clientes/components/equipos/customerEquipmentTab';
 import SectorTabs from '@/features/Empresa/Clientes/components/sector_clientes/sectorTabs';
 import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 import {
   fechAllCustomers,
   fetchAllContractorSectorBySectorIds,
@@ -41,7 +38,6 @@ async function ComercialTab({
   const areas = await fetchAreasWithProvinces();
   const sectors = await fetchAllSectors();
   const contractorSectors = await fetchAllContractorSectorBySectorIds(sectors?.map((sector) => sector.id) || []);
-  console.log('contractorSectors', contractorSectors);
 
   const services = await fetchServices(actualCompany || '');
   const serviceItems = await fetchServiceItems('');
@@ -49,6 +45,11 @@ async function ComercialTab({
   const equipmentsCustomers = await fetchEquipmentsCustomers();
 
   const savedCustomers = coockiesStore.get('customers-table')?.value;
+  const savedCustomersFilters = coockiesStore.get('customers-table-filters')?.value;
+  const savedCustomersFiltersEquipmentTable = coockiesStore.get('equipment-table-equipment-filters')?.value;
+  const savedVisibilityEquipmentTable = coockiesStore.get('equipment-table-equipment')?.value;
+  const savedCustomersFiltersServiceTable = coockiesStore.get('services-table-filters')?.value;
+  const savedCustomersFiltersAreaTable = coockiesStore.get('areaTable-filters')?.value;
   const employees = await fetchAllEmployees();
   const formattedEmployees = formatEmployeesForTable(employees);
   const equipments = await fetchAllEquipment();
@@ -69,6 +70,16 @@ async function ComercialTab({
           component: (
             <div>
               <DataCustomers
+                savedVisibilityEquipment={
+                  savedVisibilityEquipmentTable ? JSON.parse(savedVisibilityEquipmentTable) : []
+                }
+                savedFilters={savedCustomersFilters ? JSON.parse(savedCustomersFilters) : []}
+                savedFiltersEquipmentTable={
+                  savedCustomersFiltersEquipmentTable ? JSON.parse(savedCustomersFiltersEquipmentTable) : []
+                }
+                savedFiltersServiceTable={
+                  savedCustomersFiltersServiceTable ? JSON.parse(savedCustomersFiltersServiceTable) : []
+                }
                 columns={columnsCustomers}
                 data={contractorCompanies || []}
                 company_id={actualCompany || ''}
@@ -96,7 +107,14 @@ async function ComercialTab({
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: <CustomerTab customers={customers || []} provinces={provinces || []} areas={areas || []} />,
+          component: (
+            <CustomerTab
+              savedFilters={savedCustomersFiltersAreaTable ? JSON.parse(savedCustomersFiltersAreaTable) : []}
+              customers={customers || []}
+              provinces={provinces || []}
+              areas={areas || []}
+            />
+          ),
         },
       },
       {
@@ -133,26 +151,26 @@ async function ComercialTab({
           ),
         },
       },
-      {
-        value: 'contacts',
-        name: 'Contactos',
-        restricted: [''],
-        tab: tabValue,
-        content: {
-          title: 'Contactos',
-          //description: 'Información de la empresa',
-          buttonActioRestricted: [''],
-          buttonAction: (
-            <Link
-              href={'/dashboard/company/contact/action?action=new'}
-              className={buttonVariants({ variant: 'gh_orange', size: 'sm', className: 'font-semibold' })}
-            >
-              Registrar Contacto
-            </Link>
-          ),
-          component: <Contacts />,
-        },
-      },
+      // {
+      //   value: 'contacts',
+      //   name: 'Contactos',
+      //   restricted: [''],
+      //   tab: tabValue,
+      //   content: {
+      //     title: 'Contactos',
+      //     //description: 'Información de la empresa',
+      //     buttonActioRestricted: [''],
+      //     buttonAction: (
+      //       <Link
+      //         href={'/dashboard/company/contact/action?action=new'}
+      //         className={buttonVariants({ variant: 'gh_orange', size: 'sm', className: 'font-semibold' })}
+      //       >
+      //         Registrar Contacto
+      //       </Link>
+      //     ),
+      //     component: <Contacts />,
+      //   },
+      // },
       {
         value: 'service',
         name: 'Contratos',
@@ -165,7 +183,7 @@ async function ComercialTab({
           buttonAction: [''],
           component: (
             <ServiceComponent
-              // id={id}
+              savedFilter={savedCustomersFiltersServiceTable ? JSON.parse(savedCustomersFiltersServiceTable) : []}
               customers={contractorCompanies || []}
               areas={areas || []}
               sectors={contractorSectors}

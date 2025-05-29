@@ -17,6 +17,7 @@ interface PositionsTableProps {
   setMode: (mode: 'create' | 'edit') => void;
   mode: 'create' | 'edit';
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }
 
 export function getPositionsColumns(
@@ -111,6 +112,7 @@ function PositionsTable({
   setMode,
   mode,
   savedVisibility,
+  savedFilter,
 }: PositionsTableProps) {
   const [filteredData, setFilteredData] = useState<PositionsTableProps['positions']>(
     positions.filter((p) => p.is_active)
@@ -245,6 +247,7 @@ function PositionsTable({
         savedVisibility={savedVisibility}
         tableId="positions-table"
         toolbarOptions={{
+          initialVisibleFilters: savedFilter || [],
           filterableColumns: [
             {
               columnId: 'Nombre',

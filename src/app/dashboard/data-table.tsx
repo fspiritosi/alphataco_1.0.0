@@ -234,7 +234,7 @@ export function ExpiredDataTable<TData, TValue>({
     }
   };
   const getColorForRow = (row: any) => {
-    const isNoPresented = row.getValue('state') === 'pendiente';
+    const isNoPresented = row.original.state === 'pendiente';
     if (isNoPresented) {
       return; // Clase por defecto si no está vencido
     } else {

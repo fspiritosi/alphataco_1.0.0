@@ -8,7 +8,6 @@ import { DiagramNewTypeForm } from './DiagramNewTypeForm';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { DataTableExportExcel } from '@/shared/components/data-table/base/data-table-export-excel';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Badge } from '../ui/badge';
 
@@ -85,9 +84,11 @@ export function getDiagramColumns(onEdit: (diagram: DiagramType) => void): Colum
 function DiagramTypeComponent({
   diagrams_types,
   savedVisibility,
+  savedFilters,
 }: {
   diagrams_types: DiagramType[];
   savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   const [selectDiagramType, setSelectDiagramType] = useState<{}>({});
   const [diagramToEdit, setDiagramToEdit] = useState(false);
@@ -141,6 +142,7 @@ function DiagramTypeComponent({
           savedVisibility={savedVisibility}
           tableId="novelty-types-table-empresa"
           toolbarOptions={{
+            initialVisibleFilters: savedFilters || [],
             filterableColumns: [
               {
                 columnId: 'Nombre',
@@ -153,7 +155,6 @@ function DiagramTypeComponent({
                 options: descriptionShort,
               },
             ],
-            extraActions: (table) => <DataTableExportExcel table={table} />,
           }}
         />
         {/* <BtnXlsDownload fn={createDataToDownload} dataToDownload={diagrams_types} nameFile={'Tipos_de_Diagrama'} /> */}

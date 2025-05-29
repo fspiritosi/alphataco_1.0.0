@@ -105,6 +105,7 @@ export default function RepairNewEntryMultiple({
   employee_id,
   onReturn,
   savedVisibility,
+  savedFilters,
 }: {
   tipo_de_mantenimiento: TypeOfRepair;
   equipment: ReturnType<typeof setVehiclesToShow>;
@@ -114,6 +115,7 @@ export default function RepairNewEntryMultiple({
   employee_id?: string | undefined;
   onReturn?: () => void;
   savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   const URL = process.env.NEXT_PUBLIC_BASE_URL;
   const router = useRouter();
@@ -523,6 +525,7 @@ export default function RepairNewEntryMultiple({
             tableId="repair-entry-table2"
             savedVisibility={savedVisibility}
             toolbarOptions={{
+              initialVisibleFilters: savedFilters || [],
               filterableColumns: [
                 {
                   columnId: 'Dominio',

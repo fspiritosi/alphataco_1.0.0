@@ -128,7 +128,9 @@ export const RegisterWithRole = () => {
       }
     };
     getRoles();
-    fetchCustomers();
+    if (company?.id) {
+      fetchCustomers();
+    }
   }, []);
 
   const FetchSharedUsers = useLoggedUserStore((state) => state.FetchSharedUsers);
@@ -283,7 +285,7 @@ export const RegisterWithRole = () => {
               Agregar Usuario
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogTrigger asChild>
+          {/* <AlertDialogTrigger asChild>
             <Button
               variant="gh_orange"
               className="ml-2 font-semibold"
@@ -292,7 +294,7 @@ export const RegisterWithRole = () => {
             >
               Agregar Invitado
             </Button>
-          </AlertDialogTrigger>
+          </AlertDialogTrigger> */}
           <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
             <AlertDialogTitle>Compartir acceso a la empresa</AlertDialogTitle>
             <Tabs

@@ -1,7 +1,6 @@
 'use client';
 
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
-import { DataTableExportExcel } from '@/shared/components/data-table/base/data-table-export-excel';
 import { VisibilityState } from '@tanstack/react-table';
 import { BadgeCheck, Briefcase, Building, ClipboardSignature, CreditCard, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -118,9 +117,10 @@ export function EmployeesTableReusable({
   const diagram = createFilterOptions(employees, (employee) => employee?.work_diagram?.name);
   const normalHours = createFilterOptions(employees, (employee) => employee?.normal_hours);
   const costCenter = createFilterOptions(employees, (employee) => employee?.cost_center_name);
+  const provinces = createFilterOptions(employees, (employee) => employee?.provinces?.name);
   const affiliateStatus = createFilterOptions(employees, (employee) => employee?.affiliate_status);
   const status = createFilterOptions(employees, (employee) => employee?.affiliate_status);
-  const nombres = createFilterOptions(employees, (employee) => employee?.firstname + ' ' + employee?.lastname);
+  const nombres = createFilterOptions(employees, (employee) => employee?.lastname + ' ' + employee?.firstname);
   const handleRowClick = (employee: EmployeeTableData) => {
     if (onRowClick) {
       onRowClick(employee);
@@ -139,7 +139,7 @@ export function EmployeesTableReusable({
       savedVisibility={savedVisibility}
       toolbarOptions={{
         showFilterOptions: true,
-        initialVisibleFilters: savedFilters,
+        initialVisibleFilters: savedFilters || [],
         filterableColumns: [
           {
             columnId: 'Nombre',
@@ -267,12 +267,16 @@ export function EmployeesTableReusable({
             options: status,
           },
           {
+            columnId: 'Provincia',
+            title: 'Provincia',
+            options: provinces,
+          },
+          {
             columnId: 'Estado de afiliación',
             title: 'Estado de afiliado',
             options: affiliateStatus,
           },
         ],
-        extraActions: (table) => <DataTableExportExcel table={table} />,
         // searchableColumns: [{ columnId: 'Nombre', placeholder: 'Buscar empleado...' }],
         showViewOptions: true,
       }}

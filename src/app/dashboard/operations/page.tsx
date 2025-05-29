@@ -7,6 +7,7 @@ import { cookies } from 'next/headers';
 async function OperationsPage() {
   const cookiesStore = cookies();
   const dailyReportTableSavedColumns = cookiesStore.get('dailyReportTable')?.value;
+  const dailyReportTableSavedFilter = cookiesStore.get('dailyReportTable-filters')?.value;
   const dailyReports = await getDailyReportsForCurrentMonth();
   const viewData = {
     defaultValue: 'dailyReportsTable',
@@ -34,6 +35,7 @@ async function OperationsPage() {
                   <ResizablePanel defaultSize={75} className="p-4">
                     <DailyReportTable
                       savedVisibility={dailyReportTableSavedColumns ? JSON.parse(dailyReportTableSavedColumns) : {}}
+                      savedFilter={dailyReportTableSavedFilter ? JSON.parse(dailyReportTableSavedFilter) : []}
                       dailyReports={dailyReports}
                     />
                   </ResizablePanel>

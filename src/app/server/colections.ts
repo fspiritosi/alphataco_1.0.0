@@ -79,6 +79,7 @@ declare global {
   type customers = DB['public']['Tables']['customers']['Row'];
   type ShareCompanyUsers = DB['public']['Tables']['share_company_users']['Row'];
   type EquipmentsClient = DB['public']['Tables']['equipos_clientes']['Row'];
+  type company_position = DB['public']['Tables']['company_positions']['Row'];
 
   //! Enums
   type RepairStatusEnum = DB['public']['Enums']['repair_state']; // Anteriormente: EnumOfRepairStatus
@@ -87,6 +88,13 @@ declare global {
 
   //! EXPORTAR TIPOS CON RELACIONES
 
+  // Tipo para la consulta de work_diagram con las relaciones especificadas explícitamente
+  interface WorkDiagramWithRelations extends Omit<WorkflowDiagram, 'active_novelty' | 'inactive_novelty'> {
+    active_novelty: DiagramType;
+    inactive_novelty: DiagramType;
+  }
+
+  // Este tipo es compatible con la consulta que utiliza nombres específicos de claves foráneas
   interface workDiagramWithNovelty extends Omit<Diagram, 'active_novelty' | 'inactive_novelty'> {
     active_novelty: DiagramType;
     inactive_novelty: DiagramType;
@@ -145,7 +153,13 @@ declare global {
   interface EmployeeDetailed
     extends Omit<
       Employee,
-      'city' | 'province' | 'workflow_diagram' | 'hierarchical_position' | 'birthplace' | 'contractor_employee'
+      | 'city'
+      | 'province'
+      | 'workflow_diagram'
+      | 'hierarchical_position'
+      | 'birthplace'
+      | 'contractor_employee'
+      | 'company_position'
     > {
     // Anteriormente: EmployeeWithRelations
     city: City; // Anteriormente: City
@@ -153,7 +167,10 @@ declare global {
     workflow_diagram: WorkflowDiagram; // Anteriormente: WorkflowDiagram
     hierarchical_position: HierarchicalPosition; // Anteriormente: HierarchicalPosition
     birthplace: City; // Anteriormente: City
-    contractor_employee: ContractorEmployeeWithCustomer[]; // Anteriormente: ContractorWithCustomers[]
+    contractor_employee: ContractorEmployeeWithCustomer[]; //
+    // Anteriormente: ContractorWithCustomers[]
+    company_position: company_position[]; //
+    // Anteriormente: ContractorWithCustomers[]
   }
   interface EmployeeWithCompany extends Omit<EmployeeDetailed, 'company_id'> {
     // Anteriormente: EmployeeWithRelationsWithCompany

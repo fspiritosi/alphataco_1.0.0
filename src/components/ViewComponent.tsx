@@ -3,7 +3,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabaseServer } from '@/lib/supabase/server';
 import { getActualRole } from '@/lib/utils';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 
 interface ViewDataObj {
   defaultValue: string;
@@ -42,14 +41,15 @@ export default async function Viewcomponent({ viewData }: { viewData: ViewDataOb
                 id={tab.value}
                 className={`text-gh_orange font-semibold`}
               >
-                <Link href={`${viewData.path}?tab=${tab.value}`}>{tab.name}</Link>
+                {/* <Link href={`${viewData.path}?tab=${tab.value}`}>{tab.name}</Link> */}
+                <div>{tab.name}</div>
               </TabsTrigger>
             );
           })}
         </TabsList>
         {viewData.tabsValues.map((tab, index) => (
           <TabsContent key={crypto.randomUUID()} value={tab.value}>
-            <Card className="overflow-hidden">
+            <Card className="overflow-visible">
               {/* <CardHeader className="w-full flex bg-gh dark:bg-muted/50 border-b-2 flex-row justify-between items-center">
                 <div className="w-fit">
                   <CardTitle className="text-lg font-bold tracking-tight w-fit">{tab.content.title}</CardTitle>
@@ -61,7 +61,7 @@ export default async function Viewcomponent({ viewData }: { viewData: ViewDataOb
                   {tab.content.buttonActioRestricted?.includes(role) ? false : tab.content.buttonAction}
                 </div>
               </CardHeader> */}
-              <CardContent className="py-4 px-4 ">{tab.content.component}</CardContent>
+              <CardContent className="py-4 px-4 relative">{tab.content.component}</CardContent>
               <CardFooter className="flex flex-row items-center border-t bg-gh/70 dark:bg-muted/50 px-6 py-3"></CardFooter>
             </Card>
           </TabsContent>

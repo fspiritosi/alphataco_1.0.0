@@ -76,7 +76,9 @@ export default async function UsersTabComponent() {
 
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('users-employ-table')?.value;
+  const savedFilter = cookiesStore.get('users-employ-table-filters')?.value;
   const savedVisibilityGuests = cookiesStore.get('users-guests-table')?.value;
+  const savedFilterGuests = cookiesStore.get('users-guests-table-filters')?.value;
 
   return (
     <div>
@@ -85,9 +87,9 @@ export default async function UsersTabComponent() {
           <TabsTrigger value="employ" className="text-gh_orange font-semibold">
             Empleados
           </TabsTrigger>
-          <TabsTrigger value="guests" className="text-gh_orange font-semibold">
+          {/* <TabsTrigger value="guests" className="text-gh_orange font-semibold">
             Invitados
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
         <TabsContent value="employ">
           <div className="py-2">
@@ -97,6 +99,7 @@ export default async function UsersTabComponent() {
               tableId="users-employ-table"
               savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
               toolbarOptions={{
+                initialVisibleFilters: savedFilter ? JSON.parse(savedFilter) : [],
                 filterableColumns: [
                   {
                     columnId: 'Nombre',
@@ -121,6 +124,7 @@ export default async function UsersTabComponent() {
               tableId="users-guests-table"
               savedVisibility={savedVisibilityGuests ? JSON.parse(savedVisibilityGuests) : {}}
               toolbarOptions={{
+                initialVisibleFilters: savedFilterGuests ? JSON.parse(savedFilterGuests) : [],
                 filterableColumns: [
                   {
                     columnId: 'Nombre',

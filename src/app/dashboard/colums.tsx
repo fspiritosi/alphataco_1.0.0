@@ -546,9 +546,13 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
     accessorKey: 'documentName',
     id: 'Documento',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Documento" />,
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
   },
   {
     accessorKey: 'intern_number',
+    id: 'Numero Interno',
     header: ({ column, table, header }) => {
       const rowId = column.id; // Suponiendo que props.column.id contiene el id de la fila
       const row = table.getRowModel().rows.some((e) => e.original.intern_number);
@@ -567,14 +571,22 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
       if (!isHide) return null;
       return <p>{row.original.intern_number}</p>;
     },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
   },
   {
     accessorKey: 'id_document_types'.replaceAll('_', ' '),
+    id: 'Tipo de Documento',
     header: undefined,
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
   },
 
   {
     accessorKey: 'allocated_to',
+    id: 'Afectado a',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Afectado a" />,
     cell: ({ row }) => {
       const values = row.original.allocated_to;
@@ -619,10 +631,15 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
 
   {
     accessorKey: 'mandatory',
+    id: 'Mandatorio',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Mandatorio" />,
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
   },
   {
     accessorKey: 'state',
+    id: 'Estado',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const variants: {
@@ -636,10 +653,17 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
       };
       return <Badge variant={variants[row.original.state || '']}>{row.original.state}</Badge>;
     },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
   },
   {
     accessorKey: 'multiresource',
+    id: 'Multirecurso',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Multirecurso" />,
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
   },
   {
     accessorKey: 'validity',
@@ -647,7 +671,7 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
     filterFn: dateRangeFilter,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Vencimiento" />,
     cell: ({ row }) => {
-      const isNoPresented = row.getValue('state') === 'pendiente';
+      const isNoPresented = row.original.state === 'pendiente';
       //console.log(row.original.validity, 'row.original.validity');
 
       if (isNoPresented) {
@@ -663,11 +687,12 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'date',
+    id: 'Fecha',
     sortingFn: 'datetime',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Subido el" />,
 
     cell: ({ row }) => {
-      const isNoPresented = row.getValue('state') === 'pendiente';
+      const isNoPresented = row.original.state === 'pendiente';
 
       if (isNoPresented) {
         return 'No disponible';
@@ -680,9 +705,10 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'id',
+    id: 'Revisar documento',
     header: 'Revisar documento',
     cell: ({ row }) => {
-      const isNoPresented = row.getValue('state') === 'pendiente';
+      const isNoPresented = row.original.state === 'pendiente';
       const role = useLoggedUserStore?.getState?.().roleActualCompany;
 
       const [open, setOpen] = useState(false);

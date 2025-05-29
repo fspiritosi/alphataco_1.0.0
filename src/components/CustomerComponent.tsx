@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { setEmployeesToShow } from '@/lib/utils/utils';
+import { VisibilityState } from '@tanstack/react-table';
 import cookie from 'js-cookie';
 import moment from 'moment';
 import { Badge } from './ui/badge';
@@ -47,12 +48,16 @@ export default function ClientRegister({
   items,
   employees,
   services,
+  savedFilters,
+  savedVisibility,
 }: {
   id: string;
   equipment: VehicleWithBrand[];
   items: ServiceItem[];
   employees: Employee[];
   services: Service[];
+  savedFilters: string[];
+  savedVisibility: VisibilityState;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -388,6 +393,8 @@ export default function ClientRegister({
               <Card>
                 <CardContent>
                   <EquipmentTable
+                    savedFilters={savedFilters}
+                    savedVisibility={savedVisibility}
                     columns={columns1 || []}
                     data={filteredCustomersEquipment || []}
                     // allCompany={allCompany}

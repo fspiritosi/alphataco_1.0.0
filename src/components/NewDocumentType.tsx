@@ -17,7 +17,7 @@ import { useLoggedUserStore } from '@/store/loggedUser';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { PlusCircle, Truck, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../supabase/supabase';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
@@ -45,6 +45,7 @@ export const baseEmployeePropertiesConfig = [
   { label: 'Gremio', accessor_key: 'guild' }, // Puede ser null o un objeto con propiedad name
   { label: 'Convenio', accessor_key: 'covenant' }, // Puede ser null o un objeto con propiedad name
   { label: 'Categoría', accessor_key: 'category' }, // Puede ser null o un objeto con propiedad name
+  { label: 'Posición en la Empresa', accessor_key: 'company_position' }, // Puede ser null o un objeto con propiedad name
 
   // Array de objetos anidados
   { label: 'Clientes', accessor_key: 'contractor_employee' }, // Array de objetos donde cada uno tiene customers.name
@@ -122,6 +123,10 @@ export const relationMeta: Record<string, any> = {
     relation_type: 'one_to_many',
     filter_column: 'workflow_diagram',
   },
+  company_position: {
+    relation_type: 'one_to_many',
+    filter_column: 'company_position',
+  },
   birthplace: {
     relation_type: 'one_to_many',
     filter_column: 'birthplace',
@@ -172,7 +177,7 @@ export function getEmployeePropertyValue(employee: any, accessor_key: string): s
   } else if (typeof value === 'boolean') {
     // Valores booleanos
     result = value ? 'Sí' : 'No';
-  } else if (value === null && ['guild', 'covenant', 'category'].includes(accessor_key)) {
+  } else if (value === null && ['guild', 'covenant', 'category', 'company_position'].includes(accessor_key)) {
     // Propiedades especiales que pueden ser null
     result = 'No asignado';
   } else {
@@ -241,72 +246,55 @@ export default function NewDocumentType({
   const fetchDocuments = useLoggedUserStore((state) => state.documetsFetch);
   const [items, setItems] = useState(defaultValues);
 
-  // Estado para mantener las propiedades con sus valores dinámicos
-  const [employeePropertiesConfig, setEmployeePropertiesConfig] = useState(
-    baseEmployeePropertiesConfig.map((prop) => ({ ...prop, values: [] as string[] }))
-  );
-  const [vehiclePropertiesConfig, setVehiclePropertiesConfig] = useState(
-    baseVehiclePropertiesConfig.map((prop) => ({ ...prop, values: [] as string[] }))
-  );
+  // Estado para actualizar forzadamente las configuraciones cuando sea necesario
+  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0);
 
   // Devuelve el valor de la propiedad del vehículo
 
-  // Este useEffect se ha fusionado con el principal para reducir la cantidad total
+  // Las configuraciones y listas filtradas ahora se calculan con useMemo para mejor rendimiento
 
   const [conditions, setConditions] = useState<Condition[]>([]);
 
   // ======== BLOQUE PRINCIPAL DE GESTIÓN DE EMPLEADOS Y FILTROS ========
-  // Función principal que inicializa y maneja todo lo relacionado con empleados
+  // Disparar la actualización de configuraciones
   useEffect(() => {
-    // 1. Cargar empleados (solo una vez al montar el componente)
-    const fetchAndSetupEmployees = async () => {
-      try {
-        // Extraer valores únicos para cada propiedad
-        const updatedConfig = baseEmployeePropertiesConfig.map((prop) => {
-          const defaultVals = employeeMockValues[prop.accessor_key] || [];
-          const values =
-            defaultVals.length > 0
-              ? defaultVals
-              : Array.from(
-                  new Set(
-                    employees
-                      .map((employee) => getEmployeePropertyValue(employee, prop.accessor_key))
-                      .filter((v) => v !== undefined && v !== null && v !== '')
-                  )
-                );
-          return { ...prop, values };
-        });
-
-        // Actualizar configuración de propiedades
-        setEmployeePropertiesConfig(updatedConfig);
-
-        // Inicialmente, todos los empleados coinciden (no hay filtros)
-        setMatchingEmployees(employees);
-      } catch (error) {
-        console.error('Error al cargar empleados:', error);
-      }
-    };
-
-    // 1.5. Cargar vehículos (solo una vez al montar el componente)
-    const fetchAndSetupVehicles = async () => {
-      const updated = baseVehiclePropertiesConfig.map((prop) => {
-        const defaultVals = vehicleMockValues[prop.accessor_key] || [];
-        const vals =
-          defaultVals.length > 0
-            ? defaultVals
-            : Array.from(new Set(vehicles.map((v) => getVehiclePropertyValue(v, prop.accessor_key)).filter((v) => v)));
-        return { ...prop, values: vals };
-      });
-      setVehiclePropertiesConfig(updated);
-      setMatchingVehicles(vehicles);
-    };
-
-    fetchAndSetupEmployees();
-    fetchAndSetupVehicles();
+    // Forzar actualización de configuraciones una vez al montar el componente
+    setConfigUpdateTrigger((prev) => prev + 1);
   }, []);
 
-  // 2. Función que filtra empleados según las condiciones
-  function filterEmployeesByConditions(empleados: any[], condiciones: any[], propConfig: any[]) {
+  // Memoizar la configuración de propiedades de empleados
+  const employeePropertiesConfig = useMemo(() => {
+    // Extraer valores únicos para cada propiedad
+    return baseEmployeePropertiesConfig.map((prop) => {
+      const defaultVals = employeeMockValues[prop.accessor_key] || [];
+      const values =
+        defaultVals.length > 0
+          ? defaultVals
+          : Array.from(
+              new Set(
+                employees
+                  .map((employee) => getEmployeePropertyValue(employee, prop.accessor_key))
+                  .filter((v) => v !== undefined && v !== null && v !== '')
+              )
+            );
+      return { ...prop, values };
+    });
+  }, [employees, employeeMockValues, configUpdateTrigger]);
+
+  // Memoizar la configuración de propiedades de vehículos
+  const vehiclePropertiesConfig = useMemo(() => {
+    return baseVehiclePropertiesConfig.map((prop) => {
+      const defaultVals = vehicleMockValues[prop.accessor_key] || [];
+      const vals =
+        defaultVals.length > 0
+          ? defaultVals
+          : Array.from(new Set(vehicles.map((v) => getVehiclePropertyValue(v, prop.accessor_key)).filter((v) => v)));
+      return { ...prop, values: vals };
+    });
+  }, [vehicles, vehicleMockValues, configUpdateTrigger]);
+
+  // 2. Función que filtra empleados según las condiciones - memoizada para evitar recálculos innecesarios
+  const filterEmployeesByConditions = useCallback((empleados: any[], condiciones: any[], propConfig: any[]) => {
     // Si no hay condiciones, mostrar todos los empleados
     if (!condiciones.length) return empleados;
 
@@ -343,6 +331,18 @@ export default function NewDocumentType({
         const resultado = condition.values.some((v: string) => {
           // Usar normalizeString para una comparación más robusta
           const match = normalizeString(employeeValue) === normalizeString(v);
+          // Log para depurar company_position
+          if (propertyConfig.accessor_key === 'company_position') {
+            console.log('Filtro company_position:', {
+              empleadoId: employee.id,
+              nombreEmpleado: `${employee.lastname} ${employee.firstname}`,
+              valorBuscado: v,
+              valorEmpleado: employeeValue,
+              valorEmpleadoNormalizado: normalizeString(employeeValue),
+              valorBuscadoNormalizado: normalizeString(v),
+              coincide: match,
+            });
+          }
           return match;
         });
 
@@ -351,10 +351,10 @@ export default function NewDocumentType({
 
       return cumple;
     });
-  }
+  }, []);
 
-  // 2.5. Función que filtra vehículos según las condiciones
-  function filterVehiclesByConditions(vehs: any[], condiciones: Condition[], propConfig: any[]) {
+  // 2.5. Función que filtra vehículos según las condiciones - memoizada para evitar recálculos innecesarios
+  const filterVehiclesByConditions = useCallback((vehs: any[], condiciones: Condition[], propConfig: any[]) => {
     if (!condiciones.length) return vehs;
     return vehs.filter((v) =>
       condiciones.every((c) => {
@@ -365,19 +365,19 @@ export default function NewDocumentType({
         return c.values.some((x) => normalizeString(val) === normalizeString(x));
       })
     );
-  }
+  }, []);
 
-  // 3. Aplicar filtros cuando cambien las condiciones
-  useEffect(() => {
-    // Solo aplicar filtros si ya se han cargado empleados
-    if (employees?.length > 0) {
-      const filtered = filterEmployeesByConditions(employees, conditions, employeePropertiesConfig);
-      setMatchingEmployees(filtered);
-    }
-    if (vehicles?.length > 0) {
-      setMatchingVehicles(filterVehiclesByConditions(vehicles, conditions, vehiclePropertiesConfig));
-    }
-  }, [conditions, employees, employeePropertiesConfig, vehicles, vehiclePropertiesConfig]);
+  // Memoizar los empleados filtrados
+  const matchingEmployees = useMemo(() => {
+    if (!employees?.length) return [];
+    return filterEmployeesByConditions(employees, conditions, employeePropertiesConfig);
+  }, [employees, conditions, employeePropertiesConfig, filterEmployeesByConditions]);
+
+  // Memoizar los vehículos filtrados
+  const matchingVehicles = useMemo(() => {
+    if (!vehicles?.length) return [];
+    return filterVehiclesByConditions(vehicles, conditions, vehiclePropertiesConfig);
+  }, [vehicles, conditions, vehiclePropertiesConfig, filterVehiclesByConditions]);
 
   const selectOptions = optionChildrenProp === 'all' ? 'Personas, Equipos o Empresa' : optionChildrenProp;
 
@@ -453,6 +453,7 @@ export default function NewDocumentType({
           'guild',
           'covenant',
           'city',
+          'company_position',
         ].includes(propConfig.accessor_key);
 
         // Tipo especial para contractor_employee (array de relaciones)
@@ -581,7 +582,6 @@ export default function NewDocumentType({
     };
 
     console.log('formattedValues', formattedValues);
-
     toast.promise(
       async () => {
         const { data, error } = await supabase.from('document_types').insert(formattedValues).select();
@@ -628,8 +628,6 @@ export default function NewDocumentType({
   }
 
   const [down, setDown] = useState(false);
-  const [matchingEmployees, setMatchingEmployees] = useState<EmployeeDetailed[]>([]);
-  const [matchingVehicles, setMatchingVehicles] = useState<VehicleWithBrand[]>([]);
   const [showEmployeePreview, setShowEmployeePreview] = useState(false);
   const [showVehiclePreview, setShowVehiclePreview] = useState(false);
 
@@ -849,7 +847,7 @@ export default function NewDocumentType({
           </TooltipProvider>
         </div>
         {special && (
-          <div className="mt-4 border rounded-lg p-4 bg-slate-50">
+          <div className="mt-4 border rounded-lg p-4 ">
             <div className="flex justify-between flex-col items-center mb-4">
               <h3 className="font-semibold text-lg mb-2">Condiciones Especiales</h3>
               <div className="flex justify-around w-full">
@@ -995,10 +993,7 @@ export default function NewDocumentType({
                           {(form.getValues('applies') === 'Persona' ? matchingEmployees : matchingVehicles).map(
                             (employee: any) => {
                               return (
-                                <div
-                                  key={crypto.randomUUID()}
-                                  className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md"
-                                >
+                                <div key={crypto.randomUUID()} className="flex items-center gap-2 p-2 rounded-md">
                                   {form.getValues('applies') === 'Persona' ? (
                                     <Avatar>
                                       <AvatarImage

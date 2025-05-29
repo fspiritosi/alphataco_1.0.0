@@ -5,7 +5,6 @@ import {
   fetchEmployeeDiagrams,
   fetchEmployeesByCompany,
 } from '@/app/server/GET/actions';
-import { supabaseServer } from '@/lib/supabase/server';
 import { setEmployeesToShow } from '@/lib/utils/utils';
 import { cookies } from 'next/headers';
 import ViewcomponentInternal from '../ViewComponentInternal';
@@ -14,13 +13,7 @@ import DiagramFormUpdated from './DiagramFormUpdated';
 import DiagramTypeComponent from './DiagramTypeComponent';
 
 async function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const supabase = supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   const coockiesStore = cookies();
-  const company_id = coockiesStore.get('actualComp')?.value;
   const employees = await fetchEmployeesByCompany();
   const activeEmploees = setEmployeesToShow(employees?.filter((e: any) => e.is_active));
   const diagrams = await fetchEmployeeDiagrams();
@@ -30,6 +23,7 @@ async function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue
   const diagrams_types = await fetchDiagramsTypes();
 
   const visibilityState = coockiesStore.get('novelty-types-table-empresa')?.value;
+  const filtersState = coockiesStore.get('novelty-types-table-empresa-filters')?.value;
 
   const viewData = {
     defaultValue: subtab || 'old',
@@ -73,6 +67,7 @@ async function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue
             <DiagramTypeComponent
               diagrams_types={diagrams_types}
               savedVisibility={visibilityState ? JSON.parse(visibilityState) : {}}
+              savedFilters={filtersState ? JSON.parse(filtersState) : []}
             />
           ),
         },

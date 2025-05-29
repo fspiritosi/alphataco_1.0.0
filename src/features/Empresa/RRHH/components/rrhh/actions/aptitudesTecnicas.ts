@@ -104,7 +104,7 @@ export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
 
     // Obtenemos todos los puestos para asegurarnos de tener sus nombres
     const { data: todosLosPuestos, error: errorPuestos } = await supabase
-      .from('company_position' as any)
+      .from('company_positions' as any)
       .select('*')
       .eq('is_active', true);
 

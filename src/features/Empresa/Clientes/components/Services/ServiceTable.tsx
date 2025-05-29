@@ -6,13 +6,16 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
-import { supabaseBrowser } from '@/lib/supabase/browser';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
+import { fechAllCustomers, fetchAllContractorSectorBySectorIds, fetchAreasWithProvinces } from '../../actions/create';
+import { fetchServiceItems } from '../../actions/items';
+import { fetchMeasureUnits } from '../../actions/meassure';
+import { fetchServices } from '../../actions/service';
 import ServiceItemsTable from './ServiceItemsTable';
 import ServicesForm from './ServicesForm';
 import ContractDocuments from './contractDocuments';
@@ -56,15 +59,16 @@ type Customer = {
 };
 
 interface ServiceTableProps {
-  services: Service[];
-  customers: Customer[];
-  areas: any[];
+  services: Awaited<ReturnType<typeof fetchServices>>;
+  customers: Awaited<ReturnType<typeof fechAllCustomers>>;
+  areas: Awaited<ReturnType<typeof fetchAreasWithProvinces>>;
+  sectors: Awaited<ReturnType<typeof fetchAllContractorSectorBySectorIds>>;
   company_id: string;
-  sectors: any[];
+  itemsList: Awaited<ReturnType<typeof fetchServiceItems>>;
+  measureUnitsList: Awaited<ReturnType<typeof fetchMeasureUnits>>;
   id?: string;
-  itemsList: any[];
-  measureUnitsList: any[];
   hideCreateButton?: boolean;
+  savedFilter: string[];
 }
 
 interface ServiceTableItem {
@@ -257,10 +261,9 @@ const ServiceTable = ({
   itemsList,
   measureUnitsList,
   hideCreateButton = false,
+  savedFilter,
 }: ServiceTableProps) => {
   const cookies = Cookies.get('servicesTable');
-  const supabase = supabaseBrowser();
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
   const [servicesData, setServicesData] = useState<ServiceTableProps['services']>([]);
   const [loading, setLoading] = useState(true);
   const [editingService, setEditingService] = useState<ServiceTableProps['services'][number] | null>(null);
@@ -268,8 +271,6 @@ const ServiceTable = ({
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [filteredServices, setFilteredServices] = useState<ServiceTableProps['services']>([]);
   const [editing, setEditing] = useState(false);
-  const [filteredData, setFilteredData] = useState<ServiceTableProps['services']>(services || []);
-  const modified_company_id = company_id?.replace(/"/g, '');
   const [internalItemsList, setInternalItemsList] = useState<any[]>([]);
   // const [measureUnitsList, setMeasureUnitsList] = useState<any[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
@@ -277,7 +278,7 @@ const ServiceTable = ({
   // Filtros para las columnas
   const serviceNameFilter = createFilterOptions(servicesData || [], (service) => service.service_name || '');
 
-  const customerFilter = createFilterOptions(servicesData || [], (service) => service.customer || '');
+  const customerFilter = createFilterOptions(servicesData || [], (service) => service.customers?.name || '');
 
   const contractNumberFilter = createFilterOptions(servicesData || [], (service) => service.contract_number || '');
 
@@ -347,7 +348,7 @@ const ServiceTable = ({
       ...service,
       customer: areas.find((area) => area.customers?.id === service.customer_id)?.customers?.name,
       area: areas.find((area) => area.id === service.service_areas?.[0]?.area_id)?.nombre,
-      sector: sectors.find((sector) => sector.id === service.service_sectors?.[0]?.sector_id)?.name,
+      sector: sectors.find((sector) => sector.id === service.service_sectors?.[0]?.sector_id)?.sectors?.name,
     }));
   }, [filteredServices, areas, sectors]);
 
@@ -361,8 +362,8 @@ const ServiceTable = ({
   const handleOpenDetail = (service: ServiceTableProps['services'][number]) => {
     setEditingService(service);
     setOpenDetail(true);
+    //Agregar una query a la url
   };
-
   // Get customer_service_id from editingService
   const customerServiceId = editingService?.id || '';
   const savedVisibility = cookies ? JSON.parse(cookies) : {};
@@ -403,7 +404,7 @@ const ServiceTable = ({
                   </Button>
                 )}
               </DialogTrigger>
-              <DialogContent className="max-w-4xl space-y-6">
+              <DialogContent className="max-w-4xl">
                 <DialogTitle>Crear Contrato</DialogTitle>
 
                 <ServicesForm
@@ -455,7 +456,7 @@ const ServiceTable = ({
                   </TabsContent>
                   <TabsContent value="items">
                     <ServiceItemsTable
-                      editService={(editingService as any) || null}
+                      editService={editingService || null}
                       measure_units={measureUnitsList || []}
                       customers={customers || []}
                       services={(services as any) || []}
@@ -468,13 +469,14 @@ const ServiceTable = ({
               </div>
             ) : (
               <div className="w-full overflow-x-auto max-h-96 overflow-y-auto mt-4">
-                <BaseDataTable<ServiceTableItem, any>
+                <BaseDataTable
                   columns={getServiceColumns((service) => handleOpenDetail(service as any), customers)}
-                  data={servicesData || []}
+                  data={servicesData as any}
                   tableId="services-table"
                   savedVisibility={savedVisibility}
                   onRowClick={(row) => handleOpenDetail(row as any)}
                   toolbarOptions={{
+                    initialVisibleFilters: savedFilter || [],
                     filterableColumns: [
                       {
                         columnId: 'Nombre',

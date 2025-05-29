@@ -60,7 +60,7 @@ interface ToolbarOptions<TData> {
   searchableColumns?: SearchableColumn[];
   showViewOptions?: boolean;
   showFilterOptions?: boolean; // Nueva opción para mostrar el selector de filtros
-  initialVisibleFilters?: string[]; // Filtros inicialmente visibles
+  initialVisibleFilters: string[]; // Filtros inicialmente visibles
   extraActions?: React.ReactNode | ((table: TableType<TData>) => React.ReactNode);
   bulkAction?: BulkActionProps<TData>;
 }

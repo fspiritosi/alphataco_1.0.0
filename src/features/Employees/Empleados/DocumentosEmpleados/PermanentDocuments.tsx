@@ -9,9 +9,11 @@ import { PermanentDocumentsDownloadButton } from './PermanentDocumentsDownloadBu
 function PermanentDocuments({
   permanentDocuments,
   savedVisibility,
+  savedFilters,
 }: {
   permanentDocuments: ReturnType<typeof formatEmployeeDocuments>[];
   savedVisibility: VisibilityState;
+  savedFilters: string[];
 }) {
   const employeeName = createFilterOptions(permanentDocuments, (employee) => employee.resource);
   const documentName = createFilterOptions(permanentDocuments, (document) => document.documentName);
@@ -29,6 +31,7 @@ function PermanentDocuments({
         columns={ExpiredColums}
         data={permanentDocuments}
         toolbarOptions={{
+          initialVisibleFilters: savedFilters || [],
           filterableColumns: [
             {
               columnId: 'Empleado',

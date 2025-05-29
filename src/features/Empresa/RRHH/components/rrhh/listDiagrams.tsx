@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 // import { columns, type Diagram } from './column';
 // import { DataTable } from './data-table';
+import { fetchDiagramsTypes } from '@/app/server/GET/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
@@ -49,7 +50,9 @@ interface Diagram {
 // <TableHead className="w-[180px]">Novedad inactiva</TableHead>
 // <TableHead>Acciones</TableHead>
 
-export function getDiagramColumns(onEdit: (diagram: Diagram) => void): ColumnDef<Diagram>[] {
+export function getDiagramColumns(
+  onEdit: (diagram: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]) => void
+): ColumnDef<Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]>[] {
   return [
     {
       accessorKey: 'name',
@@ -122,12 +125,14 @@ export default function ListDiagrams({
   onModeChange,
   data,
   savedVisibility,
+  savedFilter,
 }: {
-  diagramsTypes: DiagramType[];
-  onEdit: (diagram: Diagram) => void;
+  diagramsTypes: Awaited<ReturnType<typeof fetchDiagramsTypes>>;
+  onEdit: (diagram: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]) => void;
   onModeChange: (mode: 'create' | 'edit') => void;
   data: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>;
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const [showActive, setShowActive] = useState(true);
   const [filteredData, setFilteredData] = useState<Awaited<ReturnType<typeof fetchAllWorkDiagrams>>>(
@@ -143,7 +148,12 @@ export default function ListDiagrams({
   const activeNovelties = createFilterOptions(filteredData, (document) => document.active_novelty?.name);
   const inactiveNovelties = createFilterOptions(filteredData, (document) => document.inactive_novelty?.name);
 
-  // console.log(filteredData, 'filteredData');
+  const handleEdit = (diagram: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]) => {
+    onEdit(diagram);
+    onModeChange('edit');
+  };
+
+  console.log(filteredData, 'filteredData');
   return (
     <div className="mx-auto ml-4">
       <div className="flex flex-col">
@@ -158,10 +168,11 @@ export default function ListDiagrams({
         <div className="overflow-x-auto max-h-96 overflow-y-auto w-full">
           <BaseDataTable
             savedVisibility={savedVisibility}
-            columns={getDiagramColumns(onEdit) as any}
+            columns={getDiagramColumns(handleEdit)}
             data={filteredData}
             tableId="diagram-table-empresa"
             toolbarOptions={{
+              initialVisibleFilters: savedFilter || [],
               filterableColumns: [
                 {
                   columnId: 'Nombre',

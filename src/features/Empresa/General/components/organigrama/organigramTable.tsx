@@ -51,10 +51,12 @@ export function OrganigramTable({
   sectors,
   onEdit,
   savedVisibility,
+  savedFilter,
 }: {
   sectors: Sector[];
   onEdit: (sector: Sector) => void;
   savedVisibility: VisibilityState;
+  savedFilter: string[];
 }) {
   const [filteredData, setFilteredData] = useState<Sector[]>(sectors);
 
@@ -73,6 +75,7 @@ export function OrganigramTable({
           data={filteredData}
           tableId="organigram-table"
           toolbarOptions={{
+            initialVisibleFilters: savedFilter || [],
             filterableColumns: [
               {
                 columnId: 'Nombre',

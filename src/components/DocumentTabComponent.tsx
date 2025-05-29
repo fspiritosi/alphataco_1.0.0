@@ -96,6 +96,7 @@ export default async function DocumentTabComponent() {
 
   const savedVisibility = cookiesStore.get('documents-company-table')?.value;
   const savedVisibility2 = savedVisibility ? JSON.parse(savedVisibility) : {};
+  const savedFilters = cookiesStore.get('documents-company-table-filters')?.value;
   return (
     <div>
       <div className="py-8 pt-0">
@@ -105,6 +106,7 @@ export default async function DocumentTabComponent() {
           columns={columnsDocuments}
           tableId="documents-company-table"
           toolbarOptions={{
+            initialVisibleFilters: JSON.parse(savedFilters || '[]'),
             filterableColumns: [
               {
                 columnId: 'Nombre',
