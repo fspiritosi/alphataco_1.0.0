@@ -61,12 +61,12 @@ export async function handleServiceSubmit(
       .single();
 
     if (error) {
-      throw new Error(`Error al crear el servicio: ${error.message}`);
+      throw new Error(`Error al crear el contrato: ${error.message}`);
     }
 
     const serviceId = serviceData?.id;
     if (!serviceId) {
-      throw new Error('No se pudo obtener el ID del servicio creado');
+      throw new Error('No se pudo obtener el ID del contrato creado');
     }
 
     // 2. Crear relaciones de áreas
@@ -97,13 +97,13 @@ export async function handleServiceSubmit(
       }
     }
 
-    toast.success('Servicio creado correctamente');
+    toast.success('Contrato creado correctamente');
     resetForm();
     router.refresh();
     return true;
   } catch (error) {
-    console.error('Error al crear el servicio:', error);
-    toast.error('Error al crear el servicio');
+    console.error('Error al crear el contrato:', error);
+    toast.error('Error al crear el contrato');
     return false;
   }
 }
@@ -117,7 +117,7 @@ export async function handleServiceUpdate(
   const supabase = supabaseBrowser();
 
   try {
-    // 1. Actualizar el servicio
+    // 1. Actualizar datos principales del servicio
     const { error: updateError } = await supabase
       .from('customer_services')
       .update({
@@ -131,58 +131,129 @@ export async function handleServiceUpdate(
       .eq('id', editing_service_id);
 
     if (updateError) {
-      throw new Error(`Error al actualizar el servicio: ${updateError.message}`);
+      throw new Error(`Error al actualizar el contrato: ${updateError.message}`);
     }
 
-    // 2. Eliminar relaciones de áreas existentes
-    const { error: deleteAreasError } = await supabase
-      .from('service_areas' as any)
-      .delete()
-      .eq('service_id', editing_service_id);
+    // 2. Manejo optimizado de áreas
+    if (values.area_id) {
+      // Obtener áreas actuales
+      const { data: currentAreas, error: fetchAreasError } = await supabase
+        .from('service_areas')
+        .select('area_id')
+        .eq('service_id', editing_service_id);
 
-    if (deleteAreasError) {
-      throw new Error(`Error al eliminar relaciones de áreas: ${deleteAreasError.message}`);
+      if (fetchAreasError) {
+        throw new Error(`Error al obtener áreas actuales: ${fetchAreasError.message}`);
+      }
+
+      const currentAreaIds = currentAreas?.map((a) => a.area_id) || [];
+      const newAreaIds = values.area_id || [];
+
+      // Encontrar áreas a eliminar (están en current pero no en new)
+      const areasToDelete = currentAreaIds.filter((id) => !newAreaIds.includes(id));
+      // Encontrar áreas a agregar (están en new pero no en current)
+      const areasToAdd = newAreaIds.filter((id: string) => !currentAreaIds.includes(id));
+
+      // Eliminar solo las áreas que ya no están en la selección
+      if (areasToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('service_areas')
+          .delete()
+          .eq('service_id', editing_service_id)
+          .in('area_id', areasToDelete);
+
+        if (deleteError) {
+          // Preservar el error original
+          deleteError.message = `Error al eliminar relaciones de áreas: ${deleteError.message}`;
+          throw deleteError;
+        }
+      }
+
+      // Agregar solo las áreas nuevas
+      if (areasToAdd.length > 0) {
+        const areaInserts = areasToAdd.map((area_id: string) => ({
+          service_id: editing_service_id,
+          area_id,
+        }));
+
+        const { error: insertError } = await supabase.from('service_areas').insert(areaInserts);
+
+        if (insertError) {
+          throw new Error(`Error al agregar nuevas áreas: ${insertError.message}`);
+        }
+      }
     }
 
-    // 3. Insertar nuevas relaciones de áreas
-    if (values.area_id?.length) {
-      const areaInserts = values.area_id.map((area_id) => ({
-        service_id: editing_service_id,
-        area_id,
-      }));
+    // 3. Manejo optimizado de sectores
+    if (values.sector_id) {
+      // Obtener sectores actuales
+      const { data: currentSectors, error: fetchSectorsError } = await supabase
+        .from('service_sectors')
+        .select('sector_id')
+        .eq('service_id', editing_service_id);
 
-      const { error: areaError } = await supabase.from('service_areas' as any).insert(areaInserts);
+      if (fetchSectorsError) {
+        throw new Error(`Error al obtener sectores actuales: ${fetchSectorsError.message}`);
+      }
 
-      if (areaError) throw new Error(`Error al actualizar áreas: ${areaError.message}`);
+      const currentSectorIds = currentSectors?.map((s) => s.sector_id) || [];
+      const newSectorIds = values.sector_id || [];
+
+      // Encontrar sectores a eliminar
+      const sectorsToDelete = currentSectorIds.filter((id) => !newSectorIds.includes(id));
+      // Encontrar sectores a agregar
+      const sectorsToAdd = newSectorIds.filter((id: string) => !currentSectorIds.includes(id));
+
+      // Eliminar solo los sectores que ya no están en la selección
+      if (sectorsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('service_sectors')
+          .delete()
+          .eq('service_id', editing_service_id)
+          .in('sector_id', sectorsToDelete);
+
+        if (deleteError) {
+          // Preservar el error original
+          deleteError.message = `Error al eliminar relaciones de sectores: ${deleteError.message}`;
+          throw deleteError;
+        }
+      }
+
+      // Agregar solo los sectores nuevos
+      if (sectorsToAdd.length > 0) {
+        const sectorInserts = sectorsToAdd.map((sector_id: string) => ({
+          service_id: editing_service_id,
+          sector_id,
+        }));
+
+        const { error: insertError } = await supabase.from('service_sectors').insert(sectorInserts);
+
+        if (insertError) {
+          throw new Error(`Error al agregar nuevos sectores: ${insertError.message}`);
+        }
+      }
     }
 
-    // 4. Eliminar relaciones de sectores existentes
-    const { error: deleteSectorsError } = await supabase
-      .from('service_sectors' as any)
-      .delete()
-      .eq('service_id', editing_service_id);
-
-    if (deleteSectorsError) {
-      throw new Error(`Error al eliminar relaciones de sectores: ${deleteSectorsError.message}`);
-    }
-
-    // 5. Insertar nuevas relaciones de sectores
-    if (values.sector_id?.length) {
-      const sectorInserts = values.sector_id.map((sector_id) => ({
-        service_id: editing_service_id,
-        sector_id,
-      }));
-
-      const { error: sectorError } = await supabase.from('service_sectors' as any).insert(sectorInserts);
-
-      if (sectorError) throw new Error(`Error al actualizar sectores: ${sectorError.message}`);
-    }
-
-    toast.success('Servicio actualizado correctamente');
+    toast.success('Contrato actualizado correctamente');
     resetForm();
     router.refresh();
-  } catch (error) {
-    console.error('Error al actualizar el servicio:', error);
-    toast.error('Error al actualizar el servicio');
+  } catch (error: any) {
+    console.error('Error al actualizar el contrato:', error);
+
+    // Verificar si es un error de restricción de clave foránea
+    const errorMessage = error.message || '';
+    const isForeignKeyError =
+      error.code === '23503' ||
+      errorMessage.includes('violates foreign key constraint') ||
+      errorMessage.includes('dailyreportrows_areas_service_id_fkey');
+
+    if (isForeignKeyError) {
+      toast.error('No se pueden quitar áreas o sectores que están siendo utilizados en partes diarios');
+    } else if (errorMessage) {
+      // Mostrar el mensaje de error original si existe
+      toast.error(`Error al actualizar el contrato: ${errorMessage}`);
+    } else {
+      toast.error('Error al actualizar el contrato');
+    }
   }
 }
