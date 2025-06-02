@@ -1,11 +1,15 @@
 'use server';
 import { supabaseServer } from '@/lib/supabase/server';
-
+import { cookies } from 'next/headers';
 export async function FetchTypeOfVehicles() {
   const supabase = supabaseServer();
-
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
   try {
-    let { data: vehicle_type, error } = await supabase.from('types_of_vehicles').select('*');
+    let { data: vehicle_type, error } = await supabase
+      .from('type')
+      .select('*')
+      .eq('company_id', company_id ?? '');
 
     if (error) {
       console.error('Error fetching vehicle types:', error);
@@ -20,12 +24,15 @@ export async function FetchTypeOfVehicles() {
 }
 export async function createTypeOfVehicle({ name, is_active = false }: { name: string; is_active?: boolean }) {
   const supabase = supabaseServer();
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
   try {
     let { data: vehicle_type, error } = await supabase
-      .from('types_of_vehicles')
+      .from('type')
       .insert({
         name,
         is_active,
+        company_id,
       })
       .select()
       .single();
@@ -41,27 +48,20 @@ export async function createTypeOfVehicle({ name, is_active = false }: { name: s
     return [];
   }
 }
-export async function updateTypeOfVehicle({ id, name, is_active }: { id: number; name: string; is_active?: boolean }) {
+export async function updateTypeOfVehicle({ id, name, is_active }: { id: string; name: string; is_active?: boolean }) {
   const supabase = supabaseServer();
-  console.log('Datos recibidos para actualizar:', { id, name, is_active });
 
   try {
     // Preparamos los datos a actualizar
     const updateData: { name: string; is_active?: boolean } = { name };
 
     // Solo incluimos is_active si se proporciona explícitamente
-    if (is_active !== undefined) {
-      updateData.is_active = is_active;
-    }
-
-    console.log('Datos que se enviarán a la actualización:', updateData);
+    // if (is_active !== undefined) {
+    //   updateData.is_active = is_active;
+    // }
 
     // Primero verificamos si el registro existe
-    const { data: existing, error: findError } = await supabase
-      .from('types_of_vehicles')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data: existing, error: findError } = await supabase.from('type').select('*').eq('id', id).single();
 
     if (findError || !existing) {
       console.error('Error: El tipo de vehículo no existe', { id });
@@ -69,7 +69,7 @@ export async function updateTypeOfVehicle({ id, name, is_active }: { id: number;
     }
 
     // Realizamos la actualización sin esperar datos de retorno
-    const { error: updateError } = await supabase.from('types_of_vehicles').update(updateData).eq('id', id);
+    const { error: updateError } = await supabase.from('type').update(updateData).eq('id', id);
 
     if (updateError) {
       console.error('Error en la actualización:', updateError);
@@ -77,18 +77,13 @@ export async function updateTypeOfVehicle({ id, name, is_active }: { id: number;
     }
 
     // Obtenemos el registro actualizado
-    const { data: updated, error: fetchError } = await supabase
-      .from('types_of_vehicles')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data: updated, error: fetchError } = await supabase.from('type').select('*').eq('id', id).single();
 
     if (fetchError || !updated) {
       console.error('Error obteniendo el registro actualizado:', fetchError);
       throw new Error('No se pudo verificar la actualización');
     }
 
-    console.log('Tipo de vehículo actualizado exitosamente:', updated);
     return updated;
   } catch (error) {
     console.error('Error en updateTypeOfVehicle:', error);
@@ -115,7 +110,7 @@ export async function FetchBrandOfVehicles() {
 }
 export async function createBrandOfVehicle({ name, is_active = false }: { name: string; is_active?: boolean }) {
   const supabase = supabaseServer();
-  console.log('Datos recibidos para crear:', { name, is_active });
+
   try {
     let { data: brand_of_vehicle, error } = await supabase
       .from('brand_vehicles')
@@ -139,7 +134,6 @@ export async function createBrandOfVehicle({ name, is_active = false }: { name: 
 }
 export async function updateBrandOfVehicle({ id, name, is_active }: { id: number; name: string; is_active?: boolean }) {
   const supabase = supabaseServer();
-  console.log('Datos recibidos para actualizar:', { id, name, is_active });
 
   try {
     // Preparamos los datos a actualizar
@@ -149,8 +143,6 @@ export async function updateBrandOfVehicle({ id, name, is_active }: { id: number
     if (is_active !== undefined) {
       updateData.is_active = is_active;
     }
-
-    console.log('Datos que se enviarán a la actualización:', updateData);
 
     // Primero verificamos si el registro existe
     const { data: existing, error: findError } = await supabase
@@ -219,7 +211,6 @@ export async function createModelOfVehicle({
   is_active?: boolean;
 }) {
   const supabase = supabaseServer();
-  console.log('Datos recibidos para crear:', { name, is_active });
   try {
     let { data: model_of_vehicle, error } = await supabase
       .from('model_vehicles')
@@ -254,7 +245,6 @@ export async function updateModelOfVehicle({
   is_active?: boolean;
 }) {
   const supabase = supabaseServer();
-  console.log('Datos recibidos para actualizar:', { id, name, is_active, brand });
 
   try {
     // Preparamos los datos a actualizar
@@ -264,8 +254,6 @@ export async function updateModelOfVehicle({
     // if (is_active !== undefined) {
     //     updateData.is_active = is_active;
     // }
-
-    console.log('Datos que se enviarán a la actualización:', updateData);
 
     // Primero verificamos si el registro existe
     const { data: existing, error: findError } = await supabase

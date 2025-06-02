@@ -19,7 +19,7 @@ interface EquipmentTypesFormProps {
 
 // Esquema de validación con Zod
 const formSchema = z.object({
-  id: z.number().optional(),
+  id: z.string().optional(),
   name: z.string().min(1, 'El nombre es requerido'),
   is_active: z.boolean().default(true),
 });
@@ -47,7 +47,7 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
     if (initialData) {
       // Aseguramos que el ID sea un número
       reset({
-        id: Number(initialData.id),
+        id: initialData.id,
         name: initialData.name,
         is_active: initialData.is_active ?? true,
       });
@@ -63,7 +63,7 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
     try {
       if (isEditing && data.id) {
         await updateTypeOfVehicle({
-          id: Number(data.id),
+          id: data.id,
           name: data.name,
           is_active: data.is_active,
         });
