@@ -477,6 +477,7 @@ export function DayliReportDetailTable({
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DailyReportRow[]>([]);
   const router = useRouter();
+  console.log(dailyReport);
   return (
     <>
       <div
@@ -486,7 +487,7 @@ export function DayliReportDetailTable({
           customers={customers}
           employees={employees}
           equipments={equipments}
-          dailyReportId={dailyReportId}
+          dailyReport={dailyReport}
           selectedRow={selectedRow}
           setSelectedRow={setSelectedRow}
           defaultValues={selectedRow}
