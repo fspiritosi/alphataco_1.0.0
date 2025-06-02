@@ -3,9 +3,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { createBrandOfVehicle, updateBrandOfVehicle } from '../actions/actions';
 
 interface EquipmentBrandsFormProps {
@@ -15,14 +17,18 @@ interface EquipmentBrandsFormProps {
   onSuccess?: () => void;
 }
 
-function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, onSuccess }: EquipmentBrandsFormProps) {
-  type FormData = {
-    id?: string;
-    name: string;
-    is_active: boolean;
-  };
+// Esquema de validación con Zod
+const formSchema = z.object({
+  id: z.number().optional(),
+  name: z.string().min(1, 'El nombre es requerido'),
+  is_active: z.boolean().default(true),
+});
 
+type FormData = z.infer<typeof formSchema>;
+
+function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, onSuccess }: EquipmentBrandsFormProps) {
   const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       is_active: true,
@@ -126,12 +132,12 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
                 <FormControl>
                   <Input
                     type="text"
-                    {...register('name', { required: 'El nombre es requerido' })}
+                    {...form.register('name')}
                     placeholder="Nombre de la marca de unidad"
-                    className="w-[300px]"
+                    className={`w-[300px] ${form.formState.errors.name ? 'border-red-500' : ''}`}
                   />
                 </FormControl>
-                {errors.name && <FormMessage className="text-red-500">{errors.name.message}</FormMessage>}
+                <FormMessage />
               </FormItem>
             )}
           />

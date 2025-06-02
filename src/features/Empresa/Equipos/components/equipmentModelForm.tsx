@@ -4,9 +4,11 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { createModelOfVehicle, updateModelOfVehicle } from '../actions/actions';
 
 interface EquipmentModelFormProps {
@@ -17,6 +19,21 @@ interface EquipmentModelFormProps {
   brands: any[];
 }
 
+// Esquema de validación con Zod
+const formSchema = z.object({
+  id: z.number().optional(),
+  name: z
+    .string()
+    .min(1, 'El nombre es requerido')
+    .refine((value) => value.trim() !== '', {
+      message: 'El nombre no puede estar vacío',
+    }),
+  brand: z.string().min(1, 'Debe seleccionar una marca'),
+  is_active: z.boolean().default(true),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
 function EquipmentModelForm({
   brands,
   initialData = null,
@@ -24,14 +41,8 @@ function EquipmentModelForm({
   isEditing = false,
   onSuccess,
 }: EquipmentModelFormProps) {
-  type FormData = {
-    id?: string;
-    name: string;
-    brand: string;
-    is_active: boolean;
-  };
-
   const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       brand: '',
@@ -42,10 +53,9 @@ function EquipmentModelForm({
   });
 
   const {
-    register,
     handleSubmit,
     reset,
-    formState: { isSubmitting, errors },
+    formState: { isSubmitting },
     watch,
     setValue,
   } = form;
@@ -56,7 +66,7 @@ function EquipmentModelForm({
   useEffect(() => {
     if (initialData) {
       reset({
-        id: initialData.id,
+        id: Number(initialData.id),
         name: initialData.name,
         brand: initialData.brand?.toString() || '',
         is_active: initialData.is_active ?? true,
@@ -71,16 +81,7 @@ function EquipmentModelForm({
   }, [initialData, reset]);
 
   const onSubmit = async (data: FormData) => {
-    // Validación manual adicional
-    if (!data.name?.trim() || !data.brand) {
-      if (!data.name?.trim()) {
-        form.setError('name', { type: 'manual', message: 'El nombre es requerido' });
-      }
-      if (!data.brand) {
-        form.setError('brand', { type: 'manual', message: 'Debe seleccionar una marca' });
-      }
-      return;
-    }
+    // La validación ahora es manejada por Zod, no se necesita validación manual
     try {
       if (isEditing && data.id) {
         await updateModelOfVehicle({
@@ -149,11 +150,10 @@ function EquipmentModelForm({
               <FormItem>
                 <FormLabel>Marca</FormLabel>
                 <FormControl>
-                  <div className={`relative ${errors.brand ? 'border border-red-500 rounded-md' : ''}`}>
+                  <div className={`relative ${form.formState.errors.brand ? 'border border-red-500 rounded-md' : ''}`}>
                     <Select
                       onValueChange={(value) => setValue('brand', value, { shouldValidate: true })}
                       value={watch('brand')}
-                      {...register('brand', { required: 'Debe seleccionar una marca' })}
                     >
                       <SelectTrigger className="w-[300px]">
                         <SelectValue placeholder="Seleccione una marca" />
@@ -168,7 +168,7 @@ function EquipmentModelForm({
                     </Select>
                   </div>
                 </FormControl>
-                {errors.brand && <FormMessage className="text-red-500">{errors.brand.message}</FormMessage>}
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -180,14 +180,11 @@ function EquipmentModelForm({
                 <FormControl>
                   <Input
                     placeholder="Ingrese el nombre del modelo"
-                    {...register('name', {
-                      required: 'El nombre es requerido',
-                      validate: (value) => value.trim() !== '' || 'El nombre no puede estar vacío',
-                    })}
-                    className={errors.name ? 'border-red-500' : ''}
+                    {...form.register('name')}
+                    className={form.formState.errors.name ? 'border-red-500' : ''}
                   />
                 </FormControl>
-                {errors.name && <FormMessage className="text-red-500">{errors.name.message}</FormMessage>}
+                <FormMessage />
               </FormItem>
             )}
           />

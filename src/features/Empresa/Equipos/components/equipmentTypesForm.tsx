@@ -3,9 +3,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { createTypeOfVehicle, updateTypeOfVehicle } from '../actions/actions';
 
 interface EquipmentTypesFormProps {
@@ -15,14 +17,18 @@ interface EquipmentTypesFormProps {
   onSuccess?: () => void;
 }
 
-interface FormData {
-  id?: string;
-  name: string;
-  is_active: boolean;
-}
+// Esquema de validación con Zod
+const formSchema = z.object({
+  id: z.number().optional(),
+  name: z.string().min(1, 'El nombre es requerido'),
+  is_active: z.boolean().default(true),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, onSuccess }: EquipmentTypesFormProps) {
   const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       is_active: true,
@@ -31,17 +37,17 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
 
   const router = useRouter();
   const {
-    register,
     handleSubmit,
     reset,
-    formState: { isSubmitting, errors },
+    formState: { isSubmitting },
   } = form;
 
   // Resetear el formulario cuando cambia initialData
   useEffect(() => {
     if (initialData) {
+      // Aseguramos que el ID sea un número
       reset({
-        id: initialData.id,
+        id: Number(initialData.id),
         name: initialData.name,
         is_active: initialData.is_active ?? true,
       });
@@ -122,11 +128,11 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
                 <FormControl>
                   <Input
                     placeholder="Ingrese el nombre del tipo de vehículo"
-                    {...register('name', { required: 'El nombre es requerido' })}
-                    className={errors.name ? 'border-red-500' : ''}
+                    {...form.register('name')}
+                    className={form.formState.errors.name ? 'border-red-500' : ''}
                   />
                 </FormControl>
-                {errors.name && <FormMessage className="text-red-500">{errors.name.message}</FormMessage>}
+                <FormMessage />
               </FormItem>
             )}
           />
