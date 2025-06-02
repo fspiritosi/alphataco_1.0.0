@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 // import Customers from '../../../../features/Empresa/Clientes/Customers';
 import ComercialTab from '@/features/Empresa/Clientes/ComercialTab';
+import EquipmentsTabs from '@/features/Empresa/Equipos/equipmentsTabs';
 
 export default async function CompanyPage({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const viewData = {
@@ -54,6 +55,17 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           buttonActioRestricted: [''],
           buttonAction: '',
           component: <RrhhComponent tabValue="rrhh" subtab={searchParams?.subtab} />,
+        },
+      },
+      {
+        value: 'vehicles',
+        name: 'Equipos',
+        restricted: [''],
+        content: {
+          title: 'Equipos',
+          buttonActioRestricted: [''],
+          buttonAction: '',
+          component: <EquipmentsTabs />,
         },
       },
     ],
