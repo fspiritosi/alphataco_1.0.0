@@ -10,14 +10,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DropdownMenuCheckboxItemProps } from '@radix-ui/react-dropdown-menu';
-import { FileDown } from 'lucide-react';
+import { FileDown, RefreshCcwIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
 import { z } from 'zod';
 import InfoComponent from '../InfoComponent';
 import { Button } from '../ui/button';
+import { CardDescription } from '../ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '../ui/command';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormMessage } from '../ui/form';
 
@@ -46,6 +49,7 @@ function DiagramEmployeeView({
   const [filteredResources, setFilteredResources] = useState(activeEmployees);
   const [initialResources, setInitialResources] = useState(activeEmployees);
   const [inputValue, setInputValue] = useState<string>('');
+  const [reloadMenssage, setReloadMenssage] = useState<string>('');
 
   /*---------------------INICIO ESQUEMA EMPLEADOS---------------------------*/
   const formSchema = z.object({
@@ -109,7 +113,13 @@ function DiagramEmployeeView({
     }
     return acc;
   }, {});
-
+  const supabase = supabaseBrowser();
+  const channels = supabase
+    .channel('custom-all-channel')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'employees_diagram' }, (payload) => {
+      setReloadMenssage('Recargar (Cambios pendientes)');
+    })
+    .subscribe();
   /*---------------------INICIO DESCARGA DE ARCHIVO ---------------------------*/
 
   useEffect(() => {
@@ -202,137 +212,152 @@ function DiagramEmployeeView({
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result ? `FF${result[1]}${result[2]}${result[3]}` : 'FFFFFFFF'; // Blanco por defecto en caso de error
   }
+  const router = useRouter();
 
   return (
     <div>
-      <div className="py-2 w-full flex justify-start gap-4">
-        <>
-          <div>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <FormField
-                  control={form.control}
-                  name="resources"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn('justify-between', !field.value && 'text-muted-foreground')}
-                            >
-                              {`${selectedResources?.length || '0'} empleados seleccionados`}
-                              <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className=" p-0">
-                          <Command>
-                            <CommandInput
-                              placeholder="Buscar recursos..."
-                              className="h-9"
-                              onFocus={() => {
-                                setFilteredResources(activeEmployees);
-                              }}
-                              onInput={(e) => {
-                                const inputValue = (e.target as HTMLInputElement).value.toLowerCase();
-                                setInputValue(inputValue);
-                                const isNumberInput = /^\d+$/.test(inputValue);
+      <div className="py-2 w-full flex justify-between gap-4 items-center">
+        <div className="flex gap-4">
+          <>
+            <div>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                  <FormField
+                    control={form.control}
+                    name="resources"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                              >
+                                {`${selectedResources?.length || '0'} empleados seleccionados`}
+                                <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className=" p-0">
+                            <Command>
+                              <CommandInput
+                                placeholder="Buscar recursos..."
+                                className="h-9"
+                                onFocus={() => {
+                                  setFilteredResources(activeEmployees);
+                                }}
+                                onInput={(e) => {
+                                  const inputValue = (e.target as HTMLInputElement).value.toLowerCase();
+                                  setInputValue(inputValue);
+                                  const isNumberInput = /^\d+$/.test(inputValue);
 
-                                const filteredresources = activeEmployees?.filter((person: any) => {
-                                  if (isNumberInput) {
-                                    return person.document.includes(inputValue);
-                                  } else {
+                                  const filteredresources = activeEmployees?.filter((person: any) => {
+                                    if (isNumberInput) {
+                                      return person.document.includes(inputValue);
+                                    } else {
+                                      return (
+                                        person.name?.toLowerCase().includes(inputValue) ||
+                                        person.document.includes(inputValue)
+                                      );
+                                    }
+                                  });
+                                  setFilteredResources(filteredresources);
+                                }}
+                              />
+                              <CommandEmpty>No se encontraron recursos con ese nombre o documento</CommandEmpty>
+                              <CommandGroup className="overflow-auto max-h-[60vh]">
+                                {filteredResources
+                                  ?.sort((a: any, b: any) => a.full_name.localeCompare(b.full_name))
+                                  ?.map((person: any) => {
+                                    const key = /^\d+$/.test(inputValue) ? person.id : person.full_name;
+                                    const value = /^\d+$/.test(inputValue) ? person.id : person.full_name;
                                     return (
-                                      person.name?.toLowerCase().includes(inputValue) ||
-                                      person.document.includes(inputValue)
+                                      <CommandItem
+                                        value={value}
+                                        key={key}
+                                        onSelect={() => {
+                                          const updatedResources = selectedResources.includes(person.id)
+                                            ? selectedResources.filter((resource) => resource !== person.id)
+                                            : [...selectedResources, person.id];
+                                          setSelectedResources(updatedResources);
+                                          form.setValue('resources', updatedResources);
+                                        }}
+                                      >
+                                        {person.full_name}
+                                        <CheckIcon
+                                          className={cn(
+                                            'ml-auto h-4 w-4',
+                                            selectedResources.includes(person.id) ? 'opacity-100' : 'opacity-0'
+                                          )}
+                                        />
+                                      </CommandItem>
                                     );
-                                  }
-                                });
-                                setFilteredResources(filteredresources);
-                              }}
-                            />
-                            <CommandEmpty>No se encontraron recursos con ese nombre o documento</CommandEmpty>
-                            <CommandGroup className="overflow-auto max-h-[60vh]">
-                              {filteredResources
-                                ?.sort((a: any, b: any) => a.full_name.localeCompare(b.full_name))
-                                ?.map((person: any) => {
-                                  const key = /^\d+$/.test(inputValue) ? person.id : person.full_name;
-                                  const value = /^\d+$/.test(inputValue) ? person.id : person.full_name;
-                                  return (
-                                    <CommandItem
-                                      value={value}
-                                      key={key}
-                                      onSelect={() => {
-                                        const updatedResources = selectedResources.includes(person.id)
-                                          ? selectedResources.filter((resource) => resource !== person.id)
-                                          : [...selectedResources, person.id];
-                                        setSelectedResources(updatedResources);
-                                        form.setValue('resources', updatedResources);
-                                      }}
-                                    >
-                                      {person.full_name}
-                                      <CheckIcon
-                                        className={cn(
-                                          'ml-auto h-4 w-4',
-                                          selectedResources.includes(person.id) ? 'opacity-100' : 'opacity-0'
-                                        )}
-                                      />
-                                    </CommandItem>
-                                  );
-                                })}
-                            </CommandGroup>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        <InfoComponent size="sm" message={'Selecciona al menos 1 recurso para ver su diagrama.'} />
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </form>
-            </Form>
-          </div>
-        </>
-        <div className={cn('grid gap-2', className)}>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                id="date"
-                variant={'outline'}
-                className={cn('w-[300px] justify-start text-left font-normal', !date && 'text-muted-foreground')}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, 'dd/MM/yyyyy', { locale: es })} -{' '}
-                      {format(date.to, 'dd/MM/yyyyy', { locale: es })}
-                    </>
+                                  })}
+                              </CommandGroup>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormDescription>
+                          <InfoComponent size="sm" message={'Selecciona al menos 1 recurso para ver su diagrama.'} />
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </div>
+          </>
+          <div className={cn('grid gap-2', className)}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="date"
+                  variant={'outline'}
+                  className={cn('w-[300px] justify-start text-left font-normal', !date && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, 'dd/MM/yyyyy', { locale: es })} -{' '}
+                        {format(date.to, 'dd/MM/yyyyy', { locale: es })}
+                      </>
+                    ) : (
+                      format(date.from, 'dd/MM/yyyyy', { locale: es })
+                    )
                   ) : (
-                    format(date.from, 'dd/MM/yyyyy', { locale: es })
-                  )
-                ) : (
-                  <span>Seleccionar fecha</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-          <InfoComponent size="sm" message={'La selección maxima es de 30 días'} />
+                    <span>Seleccionar fecha</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={setDate}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+            <InfoComponent size="sm" message={'La selección maxima es de 30 días'} />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          {reloadMenssage && (
+            <CardDescription>
+              Cambios pendientes <span className="text-red-500">*</span>
+            </CardDescription>
+          )}
+
+          <Button onClick={() => router.refresh()} className="flex items-center">
+            <RefreshCcwIcon className="mr-2 h-4 w-4" />
+            Recargar diagramas
+          </Button>
         </div>
       </div>
       <Table>
