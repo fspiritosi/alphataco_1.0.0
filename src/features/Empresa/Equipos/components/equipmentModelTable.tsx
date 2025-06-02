@@ -150,6 +150,11 @@ function EquipmentModelTable({
         { label: 'Inactivo', value: 'false' },
       ],
     },
+    {
+      columnId: 'Marca',
+      title: 'Marca',
+      options: brandOptions,
+    },
   ];
 
   return (
