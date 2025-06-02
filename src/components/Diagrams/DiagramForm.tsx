@@ -124,7 +124,7 @@ export function DiagramForm({
           diagram.day !== data.day
       )
     );
-    router.refresh();
+    // router.refresh();
   }
   //CREA TODOS LOS REGISTROS EN LA BASE DE DATOS
   function createAll(data: DiagramaToCreate[]) {
@@ -137,7 +137,7 @@ export function DiagramForm({
         // console.log(error);
       }
     });
-    router.refresh();
+    // router.refresh();
   }
 
   //ACTUALIZA UN REGISTRO EN LA BASE DE DATOS
@@ -167,7 +167,7 @@ export function DiagramForm({
           diagram.day !== data.day
       )
     );
-    router.refresh();
+    // router.refresh();
   }
 
   //ACTUALIZA TODOS LOS REGISTROS EN LA BASE DE DATOS
@@ -180,7 +180,7 @@ export function DiagramForm({
         // console.log(error);
       }
     });
-    router.refresh();
+    // router.refresh();
   }
   //DESCARTAR UN SOLO REGISTRO DEL ARRAY CORRESPONDIENTE
   function descartarOne(data: any, index: number, from: string) {
@@ -427,7 +427,7 @@ export function DiagramForm({
       <ResizableHandle withHandle />
       <ResizablePanel className="pl-6 min-w-[600px] flex flex-col gap-4" defaultSize={70}>
         {errorsDiagrams?.length > 0 && (
-          <Card className="bg-red-50">
+          <Card className="bg-red-50 dark:bg-red-950">
             <CardHeader>
               <CardTitle>Diagramas duplicados</CardTitle>
             </CardHeader>

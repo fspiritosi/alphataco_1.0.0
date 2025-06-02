@@ -76,5 +76,8 @@ export const CreateDiagrams = async (diagramData: EmployeeDiagramInsert[]) => {
   });
 
   const results = await Promise.all(promises);
+
+  // revalidatePath('/dashboard/employee');
+
   return results;
 };

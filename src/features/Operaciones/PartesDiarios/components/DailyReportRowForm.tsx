@@ -25,6 +25,7 @@ import {
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
   getCustomers,
+  getDailyReportById,
   updateDailyReportRow,
 } from '../actions/actions';
 
@@ -55,7 +56,7 @@ type DailyReportFormProps = {
   // service_items: Awaited<ReturnType<typeof getServiceItems>>;
   employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
   equipments: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
-  dailyReportId: string;
+  dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   selectedRow?: ReturnType<typeof transformDailyReports>[number] | null;
   setSelectedRow: (row: ReturnType<typeof transformDailyReports>[number] | null) => void;
   disabled?: boolean;
@@ -161,8 +162,9 @@ export function DailyReportForm({
   equipments,
   selectedRow,
   disabled,
-  dailyReportId,
+  dailyReport,
 }: DailyReportFormProps) {
+  console.log(dailyReport);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
@@ -195,7 +197,7 @@ export function DailyReportForm({
       start_time: data.start_time || null,
       end_time: data.end_time || null,
       description: data.description,
-      daily_report_id: dailyReportId,
+      daily_report_id: dailyReport[0].id,
       status: (data.status as DailyReportRowStatus) || 'pendiente',
       areas_service_id: data.areas_service_id,
       sector_service_id: data.sector_service_id,
@@ -1144,7 +1146,15 @@ export function DailyReportForm({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem className="hover:bg-accent" value="ejecutado">
+                              <SelectItem
+                                className="hover:bg-accent"
+                                value="ejecutado"
+                                disabled={
+                                  field.value === 'sin_recursos_asignados' ||
+                                  //Si la fecha del aprte es para mañana, no se puede pasar a ejecutado
+                                  moment(dailyReport[0].date).isSameOrAfter(moment().add(1, 'day'))
+                                }
+                              >
                                 Ejecutado
                               </SelectItem>
                               <SelectItem className="hover:bg-accent" value="reprogramado">
