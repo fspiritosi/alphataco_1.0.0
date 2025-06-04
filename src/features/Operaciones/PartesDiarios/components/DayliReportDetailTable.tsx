@@ -35,7 +35,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
     cancel_reason: row.cancel_reason,
     employees: row.dailyreportemployeerelations.map((rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname),
     equipment:
-      row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.intern_number || rel.vehicles?.domain) || [],
+      row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
     customer_equipment:
       row.dailyreport_customer_equipment_relations.map((rel) => {
         return {
@@ -63,7 +63,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
       id: rel.employees?.id,
     })),
     equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
-      name: rel.vehicles?.intern_number || rel.vehicles?.domain,
+      name: rel.vehicles?.domain || rel.vehicles?.intern_number,
       id: rel.vehicles?.id,
     })),
     data_to_clone: {
@@ -477,6 +477,7 @@ export function DayliReportDetailTable({
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DailyReportRow[]>([]);
   const router = useRouter();
+  console.log(dailyReport);
   return (
     <>
       <div
@@ -486,7 +487,7 @@ export function DayliReportDetailTable({
           customers={customers}
           employees={employees}
           equipments={equipments}
-          dailyReportId={dailyReportId}
+          dailyReport={dailyReport}
           selectedRow={selectedRow}
           setSelectedRow={setSelectedRow}
           defaultValues={selectedRow}

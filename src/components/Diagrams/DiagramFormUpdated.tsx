@@ -155,7 +155,7 @@ function DiagramFormUpdated({
 
     setErrorsDiagrams(errors);
     setSuccesDiagrams(successes);
-    router.refresh();
+    // router.refresh();
   };
 
   const updateDiagram = async (diagramToUpdate: ErrorToCreate) => {
@@ -174,7 +174,7 @@ function DiagramFormUpdated({
     //Eliminar el diagrama de la lista de errores
     setErrorsDiagrams((prev) => prev.filter((d) => d.prev_diagram_entry_id !== diagramToUpdate.prev_diagram_entry_id));
     // if (defaultId) {
-    router.refresh();
+    // router.refresh();
     // }
   };
 
@@ -195,7 +195,7 @@ function DiagramFormUpdated({
     );
     //Eliminar todos los diagramas de la lista de errores
     setErrorsDiagrams([]);
-    router.refresh();
+    // router.refresh();
   };
 
   const createDiagram = (diagramToCreate: DiagramaToCreate) => {
@@ -224,7 +224,7 @@ function DiagramFormUpdated({
       )
     );
     // if (defaultId) {
-    router.refresh();
+    // router.refresh();
     // }
   };
 
@@ -247,7 +247,7 @@ function DiagramFormUpdated({
       }
     );
     setSuccesDiagrams([]);
-    router.refresh();
+    // router.refresh();
   };
 
   const descartarOne = (diagram: any, index: number, type: 'e' | 's') => {
@@ -427,7 +427,7 @@ function DiagramFormUpdated({
       <ResizableHandle withHandle />
       <ResizablePanel className="pl-6 min-w-[600px] flex flex-col gap-4" defaultSize={70}>
         {errorsDiagrams?.length > 0 && (
-          <Card className="bg-red-50">
+          <Card className="bg-red-50 dark:bg-red-950">
             <CardHeader>
               <CardTitle>Diagramas duplicados</CardTitle>
             </CardHeader>

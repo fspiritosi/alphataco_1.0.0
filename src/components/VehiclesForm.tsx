@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { useCountriesStore } from '@/store/countries';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CaretSortIcon, CheckIcon, PlusCircledIcon } from '@radix-ui/react-icons';
+import { CaretSortIcon, CheckIcon } from '@radix-ui/react-icons';
 import { toPng } from 'html-to-image';
 import { AlertTriangle, CheckCircle, Copy, Download, Info, Printer, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -28,7 +28,7 @@ import { ImageHander } from './ImageHandler';
 import { Modal } from './Modal';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { CardDescription, CardHeader, CardTitle } from './ui/card';
+import { CardHeader, CardTitle } from './ui/card';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { Input } from './ui/input';
 require('dotenv').config();
@@ -36,7 +36,6 @@ require('dotenv').config();
 import { fetchContractorCompanies } from '@/app/dashboard/employee/action/actions/actions';
 import Cookies from 'js-cookie';
 import QRCode from 'react-qr-code';
-import AddTypeModal from './AddTypeModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 type VehicleType = {
   year: string;
@@ -682,18 +681,18 @@ export default function VehiclesForm2({
               </div>
             ) : (
               <div>
-                <CardTitle className="font-bold tracking-tight text-3xl">
+                <CardTitle className="text-3xl">
                   {accion === 'edit'
                     ? 'Editar equipo'
                     : accion === 'view'
                       ? `Equipo ${vehicle?.type_of_vehicle} ${vehicle?.intern_number}`
                       : 'Agregar equipo'}
                 </CardTitle>
-                <CardDescription className="text-muted-foreground text-xl">
+                {/* <CardDescription className="text-muted-foreground text-xl">
                   {accion === 'edit' || accion === 'view'
                     ? `${readOnly ? 'Vista previa de equipo' : ' En esta vista puedes editar los datos del equipo'}`
                     : 'En esta vista puedes agregar un nuevo equipo'}
-                </CardDescription>
+                </CardDescription> */}
               </div>
             )}
 
@@ -825,7 +824,8 @@ export default function VehiclesForm2({
                             <CommandInput disabled={readOnly} placeholder="Buscar marca..." className="h-9" />
                             <CommandEmpty className="py-2 px-2">
                               <Modal modal="addBrand" fetchData={fetchData}>
-                                <Button
+                                <p>Marca no encontrada</p>
+                                {/* <Button
                                   disabled={readOnly}
                                   variant="outline"
                                   role="combobox"
@@ -833,7 +833,7 @@ export default function VehiclesForm2({
                                 >
                                   Agregar marca
                                   <PlusCircledIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
+                                </Button> */}
                               </Modal>
                             </CommandEmpty>
                             <CommandGroup>
@@ -892,7 +892,8 @@ export default function VehiclesForm2({
                             <CommandInput disabled={readOnly} placeholder="Buscar modelo..." className="h-9" />
                             <CommandEmpty className="py-2 px-2">
                               <Modal modal="addModel" fetchModels={fetchModels} brandOptions={brand_vehicles}>
-                                <Button
+                                <p>Modelo no encontrado</p>
+                                {/* <Button
                                   disabled={readOnly}
                                   variant="outline"
                                   role="combobox"
@@ -900,7 +901,7 @@ export default function VehiclesForm2({
                                 >
                                   Agregar modelo
                                   <PlusCircledIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
+                                </Button> */}
                               </Modal>
                             </CommandEmpty>
                             <CommandGroup>
@@ -924,7 +925,7 @@ export default function VehiclesForm2({
                                 ))}
                               </>
                               <>
-                                <Modal modal="addModel" fetchModels={fetchModels} brandOptions={brand_vehicles}>
+                                {/* <Modal modal="addModel" fetchModels={fetchModels} brandOptions={brand_vehicles}>
                                   <Button
                                     disabled={readOnly}
                                     variant="outline"
@@ -934,7 +935,7 @@ export default function VehiclesForm2({
                                     Agregar modelo
                                     <PlusCircledIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                   </Button>
-                                </Modal>
+                                </Modal> */}
                               </>
                             </CommandGroup>
                           </Command>
@@ -1046,7 +1047,8 @@ export default function VehiclesForm2({
                               className="h-9"
                             />
                             <CommandEmpty className="p-1">
-                              <AddTypeModal company_id={actualCompany ?? ''} value={type ?? ''} />
+                              <p>No se encontro el tipo</p>
+                              {/* <AddTypeModal company_id={actualCompany ?? ''} value={type ?? ''} /> */}
                             </CommandEmpty>
                             <CommandGroup>
                               {vehicleType?.map((option) => (
