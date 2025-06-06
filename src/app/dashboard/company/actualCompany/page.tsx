@@ -1,10 +1,8 @@
-import CompanySkeleton from '@/components/Skeletons/CompanySkeleton';
 import Viewcomponent from '@/components/ViewComponent';
 import { buttonVariants } from '@/components/ui/button';
 import General from '@/features/Empresa/General/General';
 import RrhhComponent from '@/features/Empresa/RRHH/components/rrhh/rrhhComponent';
 import Link from 'next/link';
-import { Suspense } from 'react';
 // import Customers from '../../../../features/Empresa/Clientes/Customers';
 import ComercialTab from '@/features/Empresa/Clientes/ComercialTab';
 import EquipmentsTabs from '@/features/Empresa/Equipos/equipmentsTabs';
@@ -22,7 +20,11 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           title: 'Empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: <General tabValue="general" subtab={searchParams?.subtab} />,
+          component: (
+            // <Suspense fallback={<Skeleton />}>
+            <General tabValue="general" subtab={searchParams?.subtab} />
+            // </Suspense>
+          ),
         },
       },
       {
@@ -41,7 +43,9 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
             </Link>
           ),
           component: (
+            // <Suspense fallback={<Skeleton />}>
             <ComercialTab tabValue="comerce" subtab={searchParams?.subtab} localStorageName="customersColumns" />
+            // </Suspense>
           ),
         },
       },
@@ -54,7 +58,11 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           title: 'RRHH',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: <RrhhComponent tabValue="rrhh" subtab={searchParams?.subtab} />,
+          component: (
+            // <Suspense fallback={<Skeleton />}>
+            <RrhhComponent tabValue="rrhh" subtab={searchParams?.subtab} />
+            // </Suspense>
+          ),
         },
       },
       {
@@ -65,15 +73,19 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           title: 'Equipos',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: <EquipmentsTabs />,
+          component: (
+            // <Suspense fallback={<Skeleton />}>
+            <EquipmentsTabs />
+            // </Suspense>
+          ),
         },
       },
     ],
   };
 
   return (
-    <Suspense fallback={<CompanySkeleton />}>
-      <Viewcomponent viewData={viewData} />
-    </Suspense>
+    // <Suspense fallback={<CompanySkeleton />}>
+    <Viewcomponent viewData={viewData} />
+    // </Suspense>
   );
 }
