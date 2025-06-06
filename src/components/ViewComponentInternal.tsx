@@ -1,7 +1,8 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabaseServer } from '@/lib/supabase/server';
 import { getActualRole } from '@/lib/utils';
 import { cookies } from 'next/headers';
+import type React from 'react';
+import { TabsControllerInternal } from './tabs-controller-internal';
 
 export interface ViewDataObj {
   defaultValue: string;
@@ -22,43 +23,36 @@ export interface ViewDataObj {
   }[];
 }
 
-export default async function ViewcomponentInternal({ viewData }: { viewData: ViewDataObj }) {
+export default async function ViewComponentInternal({ viewData }: { viewData: ViewDataObj }) {
   const supabase = supabaseServer();
   const user = await supabase.auth.getUser();
   const cookiesStore = cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
   const role = await getActualRole(actualCompany as string, user?.data?.user?.id as string);
 
+  // Preparar los datos para el componente cliente
+  // Filtrar las tabs restringidas en el servidor
+  const clientTabsData = viewData.tabsValues.map((tab) => ({
+    ...tab,
+    restricted: tab.restricted.includes(role),
+    content: {
+      ...tab.content,
+      buttonActioRestricted: tab.content.buttonActioRestricted.includes(role),
+    },
+  }));
+
+  // Determinar el valor por defecto considerando las restricciones
+  let effectiveDefaultValue = viewData.defaultValue;
+
+  // Si el subtab por defecto está restringido, seleccionar el primer subtab no restringido
+  if (clientTabsData.find((tab) => tab.value === effectiveDefaultValue)?.restricted) {
+    const firstAllowedTab = clientTabsData.find((tab) => !tab.restricted);
+    if (firstAllowedTab) {
+      effectiveDefaultValue = firstAllowedTab.value;
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-6 py-1 h-full ">
-      <Tabs defaultValue={viewData.defaultValue}>
-        <TabsList className="flex gap-1 justify-start w-fit bg-gh_contrast/50 dark:bg-slate-900">
-          {viewData.tabsValues.map((tab, index) => {
-            if (tab.restricted.includes(role)) return;
-            return (
-              <TabsTrigger
-                key={crypto.randomUUID()}
-                value={tab.value}
-                id={tab.value}
-                className={`text-gh_orange font-semibold`}
-              >
-                {/* <Link href={`${viewData.path}?tab=${tab.tab}&subtab=${tab.value}`}>{tab.name}</Link> */}
-                <div>{tab.name}</div>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-        {viewData.tabsValues.map((tab, index) => (
-          <TabsContent key={crypto.randomUUID()} value={tab.value}>
-            {tab.content.buttonAction && (
-              <div className="flex gap-4 py-2 flex-wrap justify-start">
-                {tab.content.buttonActioRestricted?.includes(role) ? false : tab.content.buttonAction}
-              </div>
-            )}
-            <div className="py-2">{tab.content.component}</div>
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+    <TabsControllerInternal defaultValue={effectiveDefaultValue} tabsValues={clientTabsData} path={viewData.path} />
   );
 }
