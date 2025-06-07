@@ -1,3 +1,4 @@
+'use client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
@@ -5,7 +6,8 @@ import { VerActivosButton } from '@/features/Empresa/RRHH/components/rrhh/verAct
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { useState } from 'react';
+import { use, useState } from 'react';
+import { useCostCenterStore } from './store/costCenter.store';
 
 export function getCostCenterColumns(onEdit: (costCenter: CostCenter) => void): ColumnDef<CostCenter>[] {
   return [
@@ -44,28 +46,29 @@ export function getCostCenterColumns(onEdit: (costCenter: CostCenter) => void): 
 
 export function CostCenterTable({
   costCenters,
-  onEdit,
+  // onEdit,
   savedVisibility,
   savedFilter,
 }: {
-  costCenters: CostCenter[];
-  onEdit: (costCenter: CostCenter) => void;
+  costCenters: Promise<CostCenter[]>;
+  // onEdit: (costCenter: CostCenter) => void;
   savedVisibility: VisibilityState;
   savedFilter: string[];
 }) {
-  const [filteredData, setFilteredData] = useState<CostCenter[]>(costCenters);
+  const costCentersData = use(costCenters);
+  const onEdit = useCostCenterStore((state) => state.setCostCenter);
+  const [filteredData, setFilteredData] = useState<CostCenter[]>(costCentersData);
 
   const names = createFilterOptions(
     filteredData,
     (document) => document.name
     // FileText // Icono para documentos
   );
-  console.log(savedFilter);
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Centros de Costo</h2>
-        <VerActivosButton data={costCenters} filterKey="is_active" onFilteredChange={setFilteredData} />
+        <VerActivosButton data={costCentersData} filterKey="is_active" onFilteredChange={setFilteredData} />
       </div>
       <div className="overflow-x-auto max-h-96 overflow-y-auto w-full">
         <BaseDataTable

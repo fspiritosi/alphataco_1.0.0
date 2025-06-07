@@ -6,37 +6,42 @@ import { cookies } from 'next/headers';
 // General Actions
 
 export async function getCompany() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
-  const { data, error } = await supabase
-    .from('company')
-    .select(
-      `
-    *,
-    cities (
-      name
-    ),
-    provinces(
-      name
-    )
-  `
-    )
-    .eq('id', company_id)
-    .returns<Company[]>();
+  try {
+    const cookiesStore = cookies();
+    const supabase = supabaseServer();
+    const company_id = cookiesStore.get('actualComp')?.value;
+    if (!company_id) return null;
+    const { data, error } = await supabase
+      .from('company')
+      .select(
+        `
+      *,
+      cities (
+        name
+      ),
+      provinces(
+        name
+      )
+    `
+      )
+      .eq('id', company_id);
 
-  if (error) {
-    console.error('Error fetching cost centers:', error);
-    return [];
+    if (error) {
+      console.error('Error fetching cost centers:', error);
+      return null;
+    }
+    return data[0];
+  } catch (error) {
+    return null;
   }
-  return data;
 }
 
 // Cost Center Actions
 
 export async function fetchAllCostCenters() {
   const cookiesStore = cookies();
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];

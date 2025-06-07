@@ -1,4 +1,5 @@
 import { ItemCompany } from '@/app/dashboard/company/actualCompany/components/itemCompany';
+import { getCompany } from '../../actions/actions';
 
 interface Company {
   id: string;
@@ -21,23 +22,21 @@ interface Company {
 }
 [];
 
-export default async function CompanyComponent({ company }: { company: Company }) {
-  //const companyData = await getCompany();
+export default async function CompanyComponent() {
+  const company = await getCompany();
 
   return (
     <div>
-      {company && (
-        <div>
-          <ItemCompany name="Razón Social" info={company.company_name} />
-          <ItemCompany name="CUIT" info={company.company_cuit} />
-          <ItemCompany name="Dirección" info={company.address} />
-          <ItemCompany name="Pais" info={company.country} />
-          <ItemCompany name="Ciudad" info={company.cities?.name} />
-          <ItemCompany name="Industria" info={company.industry} />
-          <ItemCompany name="Teléfono de contacto" info={company.contact_phone} />
-          <ItemCompany name="Email de contacto" info={company.contact_email} />
-        </div>
-      )}
+      <div>
+        <ItemCompany name="Razón Social" info={company?.company_name || ''} />
+        <ItemCompany name="CUIT" info={company?.company_cuit || ''} />
+        <ItemCompany name="Dirección" info={company?.address || ''} />
+        <ItemCompany name="Pais" info={company?.country || ''} />
+        <ItemCompany name="Ciudad" info={company?.cities?.name || ''} />
+        <ItemCompany name="Industria" info={company?.industry || ''} />
+        <ItemCompany name="Teléfono de contacto" info={company?.contact_phone || ''} />
+        <ItemCompany name="Email de contacto" info={company?.contact_email || ''} />
+      </div>
     </div>
   );
 }
