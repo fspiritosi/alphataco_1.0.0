@@ -6,11 +6,9 @@ import {
 
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
-import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
 import Viewcomponent from '@/components/ViewComponent';
 import { getRole } from '@/lib/utils/getRole';
 import { cookies } from 'next/headers';
-import { Suspense } from 'react';
 import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile';
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
@@ -19,19 +17,19 @@ import TypesDocumentAction, {
   setVehicleDataOptions,
 } from '../document/documentComponents/TypesDocumentAction';
 import TypesDocumentsView from '../document/documentComponents/TypesDocumentsView';
+import CreatedForm from '../forms/components/CreatedForm';
 
 const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get(`document_type_employees`)?.value;
   const savedFilters = cookiesStore.get(`document_type_employees-filters`)?.value;
 
-  const EmployeesOptionsData = await setEmployeeDataOptions();
-  const VehicleOptionsData = await setVehicleDataOptions();
-
-  const empleadosCargados = await fetchAllEmployeesWithRelations();
-  const equiposCargados = await fetchAllEquipmentWithRelations();
-  const document_types = await fetchAllDocumentTypes();
-  const role = await getRole();
+  const EmployeesOptionsData = setEmployeeDataOptions();
+  const VehicleOptionsData = setVehicleDataOptions();
+  const empleadosCargados = fetchAllEmployeesWithRelations();
+  const equiposCargados = fetchAllEquipmentWithRelations();
+  const document_types = fetchAllDocumentTypes();
+  const role = getRole();
 
   const viewData = {
     defaultValue: searchParams?.tab || 'employees',
@@ -46,9 +44,9 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
           description: 'Aquí encontrarás todos empleados',
           buttonActioRestricted: ['Invitado'],
           component: (
-            <div>
-              <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />
-            </div>
+            // <Suspense fallback={<PageTableSkeleton />}>
+            <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />
+            // </Suspense>
           ),
         },
       },
@@ -96,11 +94,11 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
           buttonAction: (
             <TypesDocumentAction
               optionChildrenProp="Persona"
-              EmployeesOptionsData={EmployeesOptionsData}
-              VehicleOptionsData={VehicleOptionsData}
-              empleadosCargados={empleadosCargados}
-              equiposCargados={equiposCargados}
-              role={role}
+              EmployeesOptionsDataPromise={EmployeesOptionsData}
+              VehicleOptionsDataPromise={VehicleOptionsData}
+              empleadosCargadosPromise={empleadosCargados}
+              equiposCargadosPromise={equiposCargados}
+              rolePromise={role}
             />
           ),
           component: (
@@ -108,11 +106,11 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
               savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
               savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
               personas
-              employeeMockValues={EmployeesOptionsData}
-              vehicleMockValues={VehicleOptionsData}
-              employees={empleadosCargados}
-              vehicles={equiposCargados}
-              document_types={document_types}
+              employeeMockValuesPromise={EmployeesOptionsData}
+              vehicleMockValuesPromise={VehicleOptionsData}
+              employeesPromise={empleadosCargados}
+              vehiclesPromise={equiposCargados}
+              document_typesPromise={document_types}
             />
           ),
         },
@@ -128,24 +126,24 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
           component: <CovenantTreeFile />,
         },
       },
-      // {
-      //   value: 'forms',
-      //   name: 'Formularios',
-      //   restricted: [],
-      //   content: {
-      //     title: 'Formularios',
-      //     description: 'Formularios de empleados',
-      //     buttonActioRestricted: [''],
-      //     component: <CreatedForm />,
-      //   },
-      // },
+      {
+        value: 'forms',
+        name: 'Formularios',
+        restricted: [],
+        content: {
+          title: 'Formularios',
+          description: 'Formularios de empleados',
+          buttonActioRestricted: [''],
+          component: <CreatedForm />,
+        },
+      },
     ],
   };
 
   return (
-    <Suspense fallback={<PageTableSkeleton />}>
-      <Viewcomponent viewData={viewData} />
-    </Suspense>
+    // <Suspense fallback={<PageTableSkeleton />}>
+    <Viewcomponent viewData={viewData} />
+    // </Suspense>
   );
 };
 

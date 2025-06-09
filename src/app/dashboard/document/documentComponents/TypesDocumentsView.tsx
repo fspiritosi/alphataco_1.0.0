@@ -7,7 +7,7 @@ import {
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisibilityState } from '@tanstack/react-table';
-import { useState } from 'react';
+import { use, useState } from 'react';
 import DocumentsTable from './DocumentsTable'; // Asumo que este componente existe
 import FilterHeader from './FilterComponent';
 import TypesDocumentAction, { setEmployeeDataOptions, setVehicleDataOptions } from './TypesDocumentAction';
@@ -18,12 +18,12 @@ function TypesDocumentsView({
   empresa,
   tabValue,
   subtab,
-  employeeMockValues,
-  vehicleMockValues,
-  employees,
-  vehicles,
+  employeeMockValuesPromise,
+  vehicleMockValuesPromise,
+  employeesPromise,
+  vehiclesPromise,
   role,
-  document_types,
+  document_typesPromise,
   savedVisibility,
   savedFilters,
   optionChildrenProp,
@@ -33,17 +33,22 @@ function TypesDocumentsView({
   empresa?: boolean;
   tabValue?: string;
   subtab?: string;
-  employeeMockValues: Awaited<ReturnType<typeof setEmployeeDataOptions>>;
-  vehicleMockValues: Awaited<ReturnType<typeof setVehicleDataOptions>>;
-  employees: Awaited<ReturnType<typeof fetchAllEmployeesWithRelations>>;
-  vehicles: Awaited<ReturnType<typeof fetchAllEquipmentWithRelations>>;
+  employeeMockValuesPromise: ReturnType<typeof setEmployeeDataOptions>;
+  vehicleMockValuesPromise: ReturnType<typeof setVehicleDataOptions>;
+  employeesPromise: ReturnType<typeof fetchAllEmployeesWithRelations>;
+  vehiclesPromise: ReturnType<typeof fetchAllEquipmentWithRelations>;
   role?: string;
-  document_types?: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
+  document_typesPromise: ReturnType<typeof fetchAllDocumentTypes>;
   savedVisibility: VisibilityState;
   savedFilters: string[];
   optionChildrenProp?: string;
 }) {
   // const document_types = useCountriesStore((state) => state.companyDocumentTypes);
+  const document_types = use(document_typesPromise);
+  const employeeMockValues = use(employeeMockValuesPromise);
+  const vehicleMockValues = use(vehicleMockValuesPromise);
+  const employees = use(employeesPromise);
+  const vehicles = use(vehiclesPromise);
 
   const doc_personas = document_types?.filter((doc) => doc.applies === 'Persona').filter((e) => e.is_active);
   const doc_equipos = document_types?.filter((doc) => doc.applies === 'Equipos').filter((e) => e.is_active);
@@ -120,11 +125,11 @@ function TypesDocumentsView({
           </TabsList>
           <div>
             <TypesDocumentAction
-              EmployeesOptionsData={employeeMockValues}
-              VehicleOptionsData={vehicleMockValues}
-              empleadosCargados={employees}
-              equiposCargados={vehicles}
-              role={role || ''}
+              EmployeesOptionsDataPromise={employeeMockValues as any}
+              VehicleOptionsDataPromise={vehicleMockValues as any}
+              empleadosCargadosPromise={employees as any}
+              equiposCargadosPromise={vehicles as any}
+              rolePromise={role as any}
               optionChildrenProp={optionChildrenProp ? optionChildrenProp : equipos ? 'Equipos' : 'Persona'}
             />
           </div>

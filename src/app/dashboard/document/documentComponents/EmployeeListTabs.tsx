@@ -1,10 +1,7 @@
-import { fetchAllEmployees } from '@/app/server/GET/actions';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
 import { buttonVariants } from '@/components/ui/button';
 import EmpleadosInactivosTable from '@/features/Employees/Empleados/EmpleadosInactivos/EmpleadosInactivosTable';
 import EmployeeTable from '@/features/Employees/Empleados/components/employee_table';
-import { getRole } from '@/lib/utils/getRole';
-import { setEmployeesToShow } from '@/lib/utils/utils';
 import Link from 'next/link';
 
 async function EmployeeListTabs({
@@ -18,11 +15,6 @@ async function EmployeeListTabs({
   subtab?: string;
   tabValue: string;
 }) {
-  const role = await getRole();
-  const employees = await fetchAllEmployees(role);
-  const activeEmploees = setEmployeesToShow(employees?.filter((e) => e.is_active));
-  const inactiveEmploees = setEmployeesToShow(employees?.filter((e: any) => !e.is_active));
-
   const viewData = {
     defaultValue: subtab || 'Empleados activos',
     path: '/dashboard/employee',

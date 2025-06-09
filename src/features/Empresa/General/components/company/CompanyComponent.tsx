@@ -24,7 +24,7 @@ interface Company {
 
 export default async function CompanyComponent() {
   const company = await getCompany();
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // await new Promise((resolve) => setTimeout(resolve, 2000));
 
   return (
     <div>

@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { getRole } from '@/lib/utils/getRole';
 import ButtonTypeRefetch from './ButtonTypeRefetch';
 
 export const setVehicleDataOptions = async () => {
@@ -73,23 +74,22 @@ export const setEmployeeDataOptions = async () => {
   };
 };
 
-export default function TypesDocumentAction({
+export default async function TypesDocumentAction({
   optionChildrenProp,
-  EmployeesOptionsData,
-  VehicleOptionsData,
-  empleadosCargados,
-  equiposCargados,
-  role,
+  EmployeesOptionsDataPromise,
+  VehicleOptionsDataPromise,
+  empleadosCargadosPromise,
+  equiposCargadosPromise,
+  rolePromise,
 }: {
   optionChildrenProp: string;
-  EmployeesOptionsData: Awaited<ReturnType<typeof setEmployeeDataOptions>>;
-  VehicleOptionsData: Awaited<ReturnType<typeof setVehicleDataOptions>>;
-  empleadosCargados: Awaited<ReturnType<typeof fetchAllEmployeesWithRelations>>;
-  equiposCargados: Awaited<ReturnType<typeof fetchAllEquipmentWithRelations>>;
-  role: string;
+  EmployeesOptionsDataPromise: ReturnType<typeof setEmployeeDataOptions>;
+  VehicleOptionsDataPromise: ReturnType<typeof setVehicleDataOptions>;
+  empleadosCargadosPromise: ReturnType<typeof fetchAllEmployeesWithRelations>;
+  equiposCargadosPromise: ReturnType<typeof fetchAllEquipmentWithRelations>;
+  rolePromise: ReturnType<typeof getRole>;
 }) {
-  // const role = await getRole();
-  console.log(empleadosCargados);
+  const role = await rolePromise;
   // const EmployeesOptionsData = await setEmployeeDataOptions();
   // const VehicleOptionsData = await setVehicleDataOptions();
 
@@ -107,10 +107,10 @@ export default function TypesDocumentAction({
             <NewDocumentType
               codeControlClient
               optionChildrenProp={optionChildrenProp}
-              employeeMockValues={EmployeesOptionsData}
-              vehicleMockValues={VehicleOptionsData}
-              employees={empleadosCargados}
-              vehicles={equiposCargados}
+              employeeMockValuesPromise={EmployeesOptionsDataPromise}
+              vehicleMockValuesPromise={VehicleOptionsDataPromise}
+              employeesPromise={empleadosCargadosPromise}
+              vehiclesPromise={equiposCargadosPromise}
             />
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -14,7 +14,6 @@ import ServiceTable from './Services/ServiceTable'; // Importación por defecto 
 import { EquipmentColums } from '@/app/dashboard/equipment/columns';
 import { EquipmentTable } from '@/app/dashboard/equipment/data-equipment';
 import { fetchAllEquipment } from '@/app/server/GET/actions';
-import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 interface Customer {
   id: string;
   name: string;
@@ -139,11 +138,11 @@ export function DataCustomers<TData extends Customer, TValue>({
             <div className=" p-6 rounded-lg border">
               <h3 className="text-xl font-semibold mb-6">Empleados del Cliente</h3>
               <p className="text-muted-foreground">Módulo de empleados en desarrollo...</p>
-              <EmployeesTableReusable
+              {/* <EmployeesTableReusable
                 employees={customerEmployees as any}
                 tableId="employees-table"
                 savedVisibility={savedVisibility}
-              />
+              /> */}
             </div>
           </TabsContent>
 

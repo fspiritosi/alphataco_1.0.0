@@ -40,7 +40,7 @@ export async function getCompany() {
 
 export async function fetchAllCostCenters() {
   const cookiesStore = cookies();
-  await new Promise((resolve) => setTimeout(resolve, 5000));
+  // await new Promise((resolve) => setTimeout(resolve, 5000));
 
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
