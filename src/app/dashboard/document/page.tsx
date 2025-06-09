@@ -13,11 +13,7 @@ import { Suspense } from 'react';
 import CompanyTabs from './documentComponents/CompanyTabs';
 import EmployeeDocumentsTabs from './documentComponents/EmployeeDocumentsTabs';
 import EquipmentTabs from './documentComponents/EquipmentTabs';
-import TypesDocumentAction, {
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from './documentComponents/TypesDocumentAction';
-import TypesDocumentsView from './documentComponents/TypesDocumentsView';
+import { setEmployeeDataOptions, setVehicleDataOptions } from './documentComponents/TypesDocumentAction';
 
 export default async function page({
   params,
@@ -118,41 +114,41 @@ export default async function page({
           ),
         },
       },
-      {
-        value: 'Tipos de documentos',
-        name: 'Tipos de documentos',
-        restricted: ['Invitado'],
-        content: {
-          title: 'Tipos de documentos',
-          description: 'Tipos de documentos auditables',
-          buttonActioRestricted: [''],
-          buttonAction: (
-            <TypesDocumentAction
-              optionChildrenProp="all"
-              EmployeesOptionsData={EmployeesOptionsData}
-              VehicleOptionsData={VehicleOptionsData}
-              empleadosCargados={empleadosCargados}
-              equiposCargados={equiposCargados}
-              role={role || ''}
-            />
-          ),
-          component: (
-            <TypesDocumentsView
-              optionChildrenProp="all"
-              equipos
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : undefined}
-              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-              empresa
-              personas
-              employeeMockValues={EmployeesOptionsData}
-              vehicleMockValues={VehicleOptionsData}
-              employees={empleadosCargados}
-              vehicles={equiposCargados}
-              document_types={documentTypes}
-            />
-          ),
-        },
-      },
+      // {
+      //   value: 'Tipos de documentos',
+      //   name: 'Tipos de documentos',
+      //   restricted: ['Invitado'],
+      //   content: {
+      //     title: 'Tipos de documentos',
+      //     description: 'Tipos de documentos auditables',
+      //     buttonActioRestricted: [''],
+      //     buttonAction: (
+      //       <TypesDocumentAction
+      //         optionChildrenProp="all"
+      //         EmployeesOptionsData={EmployeesOptionsData}
+      //         VehicleOptionsData={VehicleOptionsData}
+      //         empleadosCargados={empleadosCargados}
+      //         equiposCargados={equiposCargados}
+      //         role={role || ''}
+      //       />
+      //     ),
+      //     component: (
+      //       <TypesDocumentsView
+      //         optionChildrenProp="all"
+      //         equipos
+      //         savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : undefined}
+      //         savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+      //         empresa
+      //         personas
+      //         employeeMockValues={EmployeesOptionsData}
+      //         vehicleMockValues={VehicleOptionsData}
+      //         employees={empleadosCargados}
+      //         vehicles={equiposCargados}
+      //         document_types={documentTypes}
+      //       />
+      //     ),
+      //   },
+      // },
       // {
       //   value: 'forms',
       //   name: 'Formularios',

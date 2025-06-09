@@ -1,12 +1,12 @@
+import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
 import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { VisibilityState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
+import { Suspense } from 'react';
 import { EmployeesTableReusable } from './tables/data/employees-table';
-import { formatEmployeesForTable } from './utils/utils';
 
 async function EmployeeTable() {
-  const employees = await fetchAllEmployees();
-  const formattedEmployees = formatEmployeesForTable(employees);
+  const employees = fetchAllEmployees();
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get(`employees-table`)?.value;
   const savedFilters = cookiesStore.get(`employees-table-filters`)?.value;
@@ -14,14 +14,14 @@ async function EmployeeTable() {
   // console.log(savedVisibility, 'savedVisibility');
 
   return (
-    <div>
+    <Suspense fallback={<PageTableSkeleton />}>
       <EmployeesTableReusable
-        employees={formattedEmployees}
+        employeesPromise={employees}
         tableId="employees-table"
         savedVisibility={JSON.parse(savedVisibility || '{}') as VisibilityState}
         savedFilters={JSON.parse(savedFilters || '[]')}
       />
-    </div>
+    </Suspense>
   );
 }
 

@@ -13,11 +13,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import EquipmentTabs from '../document/documentComponents/EquipmentTabs';
-import TypesDocumentAction, {
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from '../document/documentComponents/TypesDocumentAction';
-import TypesDocumentsView from '../document/documentComponents/TypesDocumentsView';
+import { setEmployeeDataOptions, setVehicleDataOptions } from '../document/documentComponents/TypesDocumentAction';
 import EquipmentListTabs from './equipmentComponentes/EquipmentListTabs';
 export default async function Equipment({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const EmployeesOptionsData = await setEmployeeDataOptions();
@@ -70,38 +66,38 @@ export default async function Equipment({ searchParams }: { searchParams: { tab:
           ),
         },
       },
-      {
-        value: 'Tipos de documentos',
-        name: 'Tipos de documentos',
-        restricted: ['Invitado'],
-        content: {
-          title: 'Tipos de documentos',
-          buttonActioRestricted: [''],
-          description: 'Tipos de documentos auditables',
-          buttonAction: (
-            <TypesDocumentAction
-              EmployeesOptionsData={EmployeesOptionsData}
-              VehicleOptionsData={VehicleOptionsData}
-              empleadosCargados={empleadosCargados}
-              equiposCargados={equiposCargados}
-              role={role}
-              optionChildrenProp="Equipos"
-            />
-          ),
-          component: (
-            <TypesDocumentsView
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
-              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-              equipos
-              employeeMockValues={EmployeesOptionsData}
-              vehicleMockValues={VehicleOptionsData}
-              employees={empleadosCargados}
-              vehicles={equiposCargados}
-              document_types={document_types}
-            />
-          ),
-        },
-      },
+      // {
+      //   value: 'Tipos de documentos',
+      //   name: 'Tipos de documentos',
+      //   restricted: ['Invitado'],
+      //   content: {
+      //     title: 'Tipos de documentos',
+      //     buttonActioRestricted: [''],
+      //     description: 'Tipos de documentos auditables',
+      //     buttonAction: (
+      //       <TypesDocumentAction
+      //         EmployeesOptionsData={EmployeesOptionsData}
+      //         VehicleOptionsData={VehicleOptionsData}
+      //         empleadosCargados={empleadosCargados}
+      //         equiposCargados={equiposCargados}
+      //         role={role}
+      //         optionChildrenProp="Equipos"
+      //       />
+      //     ),
+      //     component: (
+      //       <TypesDocumentsView
+      //         savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+      //         savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+      //         equipos
+      //         employeeMockValues={EmployeesOptionsData}
+      //         vehicleMockValues={VehicleOptionsData}
+      //         employees={empleadosCargados}
+      //         vehicles={equiposCargados}
+      //         document_types={document_types}
+      //       />
+      //     ),
+      //   },
+      // },
       {
         value: 'type_of_repairs',
         name: 'Mantenimiento',
