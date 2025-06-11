@@ -116,7 +116,7 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
     }
   };
   return (
-    <div className="flex space-y-8 max-w-[300px]">
+    <div className="flex space-y-8 max-w-[400px]">
       <Form {...form}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <h2 className="text-xl font-bold mb-4">{isEditing ? 'Editar' : 'Crear'} Tipo de Unidad</h2>
@@ -129,7 +129,7 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
                   <Input
                     placeholder="Ingrese el nombre del tipo de vehículo"
                     {...form.register('name')}
-                    className={form.formState.errors.name ? 'border-red-500' : ''}
+                    className={`w-[400px] ${form.formState.errors.name ? 'border-red-500' : ''}`}
                   />
                 </FormControl>
                 <FormMessage />

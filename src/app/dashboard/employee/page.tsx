@@ -6,6 +6,7 @@ import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
+import CreatedForm from '../forms/components/CreatedForm';
 
 const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
   const cookiesStore = cookies();
@@ -23,9 +24,9 @@ const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: 
           description: 'Aquí encontrarás todos empleados',
           buttonActioRestricted: ['Invitado'],
           component: (
-            <div>
-              <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />
-            </div>
+            // <Suspense fallback={<PageTableSkeleton />}>
+            <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />
+            // </Suspense>
           ),
         },
       },
@@ -85,17 +86,17 @@ const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: 
           component: <CovenantTreeFile />,
         },
       },
-      // {
-      //   value: 'forms',
-      //   name: 'Formularios',
-      //   restricted: [],
-      //   content: {
-      //     title: 'Formularios',
-      //     description: 'Formularios de empleados',
-      //     buttonActioRestricted: [''],
-      //     component: <CreatedForm />,
-      //   },
-      // },
+      {
+        value: 'forms',
+        name: 'Formularios',
+        restricted: [],
+        content: {
+          title: 'Formularios',
+          description: 'Formularios de empleados',
+          buttonActioRestricted: [''],
+          component: <CreatedForm />,
+        },
+      },
     ],
   };
 

@@ -1,6 +1,4 @@
-import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { fetchAllEmployeesInactives } from '@/shared/actions/employees.actions';
-import { VisibilityState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
 import { formatEmployeesForTable } from '../components/utils/utils';
 
@@ -14,12 +12,12 @@ async function EmpleadosInactivosTable() {
 
   return (
     <div>
-      <EmployeesTableReusable
+      {/* <EmployeesTableReusable
         row_classname="text-red-500"
         employees={formattedEmployees}
         tableId="employees-inactivos-table"
         savedVisibility={JSON.parse(savedVisibility || '{}') as VisibilityState}
-      />
+      /> */}
     </div>
   );
 }

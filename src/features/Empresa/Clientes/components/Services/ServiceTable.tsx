@@ -1,5 +1,5 @@
 'use client';
-import Loading from '@/app/loading';
+// import Loading from '@/app/loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -371,7 +371,8 @@ const ServiceTable = ({
   return (
     <div>
       {loading ? (
-        <Loading />
+        // <Loading />
+        <p>Cargando...</p>
       ) : (
         <>
           {id !== undefined && (

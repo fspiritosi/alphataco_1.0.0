@@ -15,7 +15,6 @@ async function EmployeeListTabs({
   subtab?: string;
   tabValue: string;
 }) {
-  console.log('[EMPLOYEE-LIST-TABS] Iniciando renderizado');
   const viewData = {
     defaultValue: subtab || 'Empleados activos',
     path: '/dashboard/employee',
