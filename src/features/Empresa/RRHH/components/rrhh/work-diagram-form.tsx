@@ -35,16 +35,6 @@ const WorkDiagramSchema = z.object({
   inactive_novelty: z.string().optional(),
 });
 
-// interface DiagramType {
-//   id: string;
-//   created_at: string;
-//   name: string;
-//   company_id: string;
-//   color: string;
-//   short_description: string;
-//   work_active: boolean;
-// }
-
 type WorkDiagramFormValues = z.infer<typeof WorkDiagramSchema>;
 
 interface WorkDiagramFormProps {
@@ -70,7 +60,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
   const router = useRouter();
   const fixedOptions =
     diagramsTypes
-      ?.filter((opt) => opt.work_active) // Solo incluir novedades activas
+      ?.filter((opt) => opt.work_active)
       .map((opt) => ({
         value: opt.id,
         label: opt.name ?? 'Sin nombre',
@@ -88,7 +78,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
         is_active: diagram.is_active,
         active_working_days: diagram.active_working_days,
         inactive_working_days: diagram.inactive_working_days,
-        active_novelty: activeNoveltyIds, // Asegurarse de que sea un array de strings
+        active_novelty: activeNoveltyIds,
         inactive_novelty: diagram.inactive_novelty?.id || '',
       });
     }
@@ -237,23 +227,6 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
                 <FormItem className="w-[215px]">
                   <FormLabel>Novedad Activa</FormLabel>
                   <FormControl>
-                    {/* <Select onValueChange={field.onChange} value={field.value ?? ''} disabled={isViewMode}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Tipo de Novedad" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Novedad</SelectLabel>
-                          {diagramsTypes
-                            ?.filter((diagramType) => diagramType.work_active)
-                            .map((diagramType) => (
-                              <SelectItem key={diagramType.id} value={diagramType.id}>
-                                {diagramType.name}
-                              </SelectItem>
-                            ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select> */}
                     <MultiSelectCombobox
                       options={fixedOptions}
                       selectedValues={Array.isArray(field.value) ? field.value : []}
