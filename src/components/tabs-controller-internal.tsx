@@ -56,19 +56,19 @@ export function TabsControllerInternal({ defaultValue, tabsValues, path }: TabsC
   const handleSubTabChange = (value: string) => {
     setActiveSubTab(value);
 
-    // Actualizar la URL manteniendo el parámetro tab principal
-    const params = new URLSearchParams(searchParams.toString());
+    // // Actualizar la URL manteniendo el parámetro tab principal
+    // const params = new URLSearchParams(searchParams.toString());
 
-    if (value === defaultValue) {
-      params.delete('subtab');
-    } else {
-      params.set('subtab', value);
-    }
+    // if (value === defaultValue) {
+    //   params.delete('subtab');
+    // } else {
+    //   params.set('subtab', value);
+    // }
 
-    const queryString = params.toString();
-    const url = queryString ? `${path}?${queryString}` : path;
+    // const queryString = params.toString();
+    // const url = queryString ? `${path}?${queryString}` : path;
 
-    router.replace(url, { scroll: false });
+    // router.replace(url, { scroll: false });
   };
 
   return (
