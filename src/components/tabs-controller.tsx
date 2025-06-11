@@ -59,10 +59,9 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
     // router.replace(url, { scroll: false });
   };
 
-  console.log(tabsValues);
-
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <div></div>
       <TabsList className="flex gap-1 justify-start w-fit bg-gh dark:bg-slate-950">
         {tabsValues.map((tab) => (
           <TabsTrigger key={tab.value} value={tab.value} id={tab.value} className="text-gh_orange font-semibold">

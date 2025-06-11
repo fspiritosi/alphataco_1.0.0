@@ -1,15 +1,12 @@
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
 import ViewComponent from '@/components/ViewComponent';
-import { cookies } from 'next/headers';
 import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile';
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
 
 const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
-  const cookiesStore = cookies();
-  const role = cookiesStore.get('guestRole')?.value;
   const viewData = {
     defaultValue: searchParams?.tab || 'employees',
     path: '/dashboard/employee',
@@ -22,11 +19,7 @@ const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: 
           title: 'Empleados',
           description: 'Aquí encontrarás todos empleados',
           buttonActioRestricted: ['Invitado'],
-          component: (
-            // <Suspense fallback={<PageTableSkeleton />}>
-            <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />
-            // </Suspense>
-          ),
+          component: <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />,
         },
       },
       {
@@ -99,13 +92,7 @@ const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: 
     ],
   };
 
-  console.log('[LISTO] DynamicContent - Datos preparados');
-  return (
-    <ViewComponent viewData={viewData} />
-    // <Suspense fallback={<div>Cargando...</div>}>
-    //   <DelayedComponent />
-    // </Suspense>
-  );
+  return <ViewComponent viewData={viewData} />;
 };
 
 export default EmployeePage;

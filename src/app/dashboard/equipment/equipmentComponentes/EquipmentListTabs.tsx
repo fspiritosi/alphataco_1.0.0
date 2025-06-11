@@ -23,7 +23,6 @@ export default function EquipmentListTabs({
         name: 'Todos los equipos',
         restricted: [''],
         tab: tabValue,
-
         content: {
           buttonAction: (
             <div className="flex flex-wrap">
