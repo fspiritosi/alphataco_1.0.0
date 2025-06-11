@@ -75,31 +75,25 @@ export function TabsControllerInternal({ defaultValue, tabsValues, path }: TabsC
     <div className="flex flex-col gap-6 py-1 h-full">
       <Tabs value={activeSubTab} onValueChange={handleSubTabChange}>
         <TabsList className="flex gap-1 justify-start w-fit bg-gh_contrast/50 dark:bg-slate-900">
-          {tabsValues.map(
-            (tab) =>
-              !tab.restricted && (
-                <TabsTrigger key={tab.value} value={tab.value} id={tab.value} className="text-gh_orange font-semibold">
-                  <div>{tab.name}</div>
-                </TabsTrigger>
-              )
-          )}
+          {tabsValues.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} id={tab.value} className="text-gh_orange font-semibold">
+              <div>{tab.name}</div>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {tabsValues.map(
-          (tab) =>
-            !tab.restricted && (
-              <TabsContent key={tab.value} value={tab.value}>
-                <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
-                  {tab.content.buttonAction && !tab.content.buttonActioRestricted && (
-                    <div className="flex gap-4 py-2 flex-wrap justify-start">{tab.content.buttonAction}</div>
-                  )}
-                </Suspense>
-                <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
-                  <div className="py-2">{tab.content.component}</div>
-                </Suspense>
-              </TabsContent>
-            )
-        )}
+        {tabsValues.map((tab) => (
+          <TabsContent key={tab.value} value={tab.value}>
+            <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
+              {tab.content.buttonAction && !tab.content.buttonActioRestricted && (
+                <div className="flex gap-4 py-2 flex-wrap justify-start">{tab.content.buttonAction}</div>
+              )}
+            </Suspense>
+            <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
+              <div className="py-2">{tab.content.component}</div>
+            </Suspense>
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

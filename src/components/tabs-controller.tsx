@@ -59,32 +59,28 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
     router.replace(url, { scroll: false });
   };
 
+  console.log(tabsValues);
+
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange}>
       <TabsList className="flex gap-1 justify-start w-fit bg-gh dark:bg-slate-950">
-        {tabsValues.map(
-          (tab) =>
-            !tab.restricted && (
-              <TabsTrigger key={tab.value} value={tab.value} id={tab.value} className="text-gh_orange font-semibold">
-                <div>{tab.name}</div>
-              </TabsTrigger>
-            )
-        )}
+        {tabsValues.map((tab) => (
+          <TabsTrigger key={tab.value} value={tab.value} id={tab.value} className="text-gh_orange font-semibold">
+            <div>{tab.name}</div>
+          </TabsTrigger>
+        ))}
       </TabsList>
 
-      {tabsValues.map(
-        (tab) =>
-          !tab.restricted && (
-            <TabsContent key={tab.value} value={tab.value}>
-              <Card className="overflow-visible">
-                <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
-                  <CardContent className="py-4 px-4 relative">{tab.content.component}</CardContent>
-                </Suspense>
-                <CardFooter className="flex flex-row items-center border-t bg-gh/70 dark:bg-muted/50 px-6 py-3"></CardFooter>
-              </Card>
-            </TabsContent>
-          )
-      )}
+      {tabsValues.map((tab) => (
+        <TabsContent key={tab.value} value={tab.value}>
+          <Card className="overflow-visible">
+            <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
+              <CardContent className="py-4 px-4 relative">{tab.content.component}</CardContent>
+            </Suspense>
+            <CardFooter className="flex flex-row items-center border-t bg-gh/70 dark:bg-muted/50 px-6 py-3"></CardFooter>
+          </Card>
+        </TabsContent>
+      ))}
     </Tabs>
   );
 }
