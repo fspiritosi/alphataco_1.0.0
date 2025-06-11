@@ -26,8 +26,6 @@ export async function createContractType(contractType: { name: string; descripti
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
-  // console.log(contractType, 'contractType');
-
   const { data, error } = await supabase.from('types_of_contract').insert(contractType).returns<ContractType[]>();
 
   if (error) {
@@ -80,12 +78,34 @@ export async function deleteContractType(contractType: { id: string }) {
   return data;
 }
 
+// export async function createWorkDiagram(workDiagram: {
+//   name: string;
+//   is_active: boolean;
+//   active_working_days: number;
+//   inactive_working_days: number;
+//   active_novelty: string;
+//   inactive_novelty: string;
+// }) {
+//   const cookiesStore = cookies();
+//   const supabase = supabaseServer();
+//   const company_id = cookiesStore.get('actualComp')?.value;
+//   if (!company_id) throw new Error('No company ID found');
+
+//   const { data, error } = await supabase.from('work_diagram').insert(workDiagram).returns<WorkDiagram[]>();
+
+//   if (error) {
+//     console.error('Error creating work diagram:', error);
+//     throw new Error('Error creating work diagram');
+//   }
+//   return data;
+// }
+
 export async function createWorkDiagram(workDiagram: {
   name: string;
   is_active: boolean;
   active_working_days: number;
   inactive_working_days: number;
-  active_novelty: string;
+  active_novelty: string[]; // Cambiado a array de strings
   inactive_novelty: string;
 }) {
   const cookiesStore = cookies();
@@ -93,14 +113,91 @@ export async function createWorkDiagram(workDiagram: {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
-  const { data, error } = await supabase.from('work_diagram').insert(workDiagram).returns<WorkDiagram[]>();
+  // 1. Crear el work_diagram
+  const { data: workDiagramData, error: workDiagramError } = await supabase
+    .from('work_diagram')
+    .insert({
+      name: workDiagram.name,
+      is_active: workDiagram.is_active,
+      active_working_days: workDiagram.active_working_days,
+      inactive_working_days: workDiagram.inactive_working_days,
+      inactive_novelty: workDiagram.inactive_novelty,
+    })
+    .select()
+    .single();
 
-  if (error) {
-    console.error('Error creating work diagram:', error);
+  if (workDiagramError) {
+    console.error('Error creating work diagram:', workDiagramError);
     throw new Error('Error creating work diagram');
   }
-  return data;
+
+  // 2. Si hay active_novelty, insertar en work_diagram_active_novelties
+  if (workDiagram.active_novelty && workDiagram.active_novelty.length > 0) {
+    const { error: noveltiesError } = await supabase.from('work_diagram_active_novelties' as any).insert(
+      workDiagram.active_novelty.map((diagramTypeId) => ({
+        work_diagram_id: workDiagramData.id,
+        diagram_type_id: diagramTypeId,
+      }))
+    );
+
+    if (noveltiesError) {
+      console.error('Error creating work diagram novelties:', noveltiesError);
+      // Opcional: Podrías querer eliminar el work_diagram creado si falla esto
+      throw new Error('Error creating work diagram novelties');
+    }
+  }
+
+  // 3. Obtener el work_diagram con sus relaciones si es necesario
+  const { data: fullWorkDiagram, error: fetchError } = await supabase
+    .from('work_diagram')
+    .select(
+      `
+      *,
+      work_diagram_active_novelties (
+        id,
+        diagram_type_id,
+        created_at
+      )
+    `
+    )
+    .eq('id', workDiagramData.id)
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching work diagram with relations:', fetchError);
+    // Aún así retornamos el work_diagram aunque falle cargar las relaciones
+    return workDiagramData;
+  }
+
+  return fullWorkDiagram || workDiagramData;
 }
+
+// export async function updateWorkDiagram(workDiagram: {
+//   id: string;
+//   name: string;
+//   is_active: boolean;
+//   active_working_days: number;
+//   inactive_working_days: number;
+//   active_novelty: string;
+//   inactive_novelty: string;
+// }) {
+//   const cookiesStore = cookies();
+//   const supabase = supabaseServer();
+//   const company_id = cookiesStore.get('actualComp')?.value;
+//   if (!company_id) throw new Error('No company ID found');
+
+//   const { data, error } = await supabase
+//     .from('work_diagram')
+//     .update(workDiagram)
+//     .eq('id', workDiagram.id)
+//     .returns<WorkDiagram[]>();
+
+//   if (error) {
+//     console.error('Error updating work diagram:', error);
+//     throw new Error('Error updating work diagram');
+//   }
+//   return data;
+// }
 
 export async function updateWorkDiagram(workDiagram: {
   id: string;
@@ -108,25 +205,79 @@ export async function updateWorkDiagram(workDiagram: {
   is_active: boolean;
   active_working_days: number;
   inactive_working_days: number;
-  active_novelty: string;
+  active_novelty: string[]; // Array de diagram_type_id
   inactive_novelty: string;
 }) {
-  const cookiesStore = cookies();
   const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) throw new Error('No company ID found');
 
-  const { data, error } = await supabase
+  // 1. Actualizar el work_diagram
+  const { data: updatedWorkDiagram, error: updateError } = await supabase
     .from('work_diagram')
-    .update(workDiagram)
+    .update({
+      name: workDiagram.name,
+      is_active: workDiagram.is_active,
+      active_working_days: workDiagram.active_working_days,
+      inactive_working_days: workDiagram.inactive_working_days,
+      inactive_novelty: workDiagram.inactive_novelty,
+      // updated_at: new Date().toISOString()
+    })
     .eq('id', workDiagram.id)
-    .returns<WorkDiagram[]>();
+    .select()
+    .single();
 
-  if (error) {
-    console.error('Error updating work diagram:', error);
+  if (updateError) {
+    console.error('Error updating work diagram:', updateError);
     throw new Error('Error updating work diagram');
   }
-  return data;
+
+  // 2. Eliminar las relaciones existentes
+  const { error: deleteError } = await supabase
+    .from('work_diagram_active_novelties' as any)
+    .delete()
+    .eq('work_diagram_id', workDiagram.id);
+
+  if (deleteError) {
+    console.error('Error deleting work diagram novelties:', deleteError);
+    throw new Error('Error updating work diagram novelties');
+  }
+
+  // 3. Insertar las nuevas relaciones si hay active_novelty
+  if (workDiagram.active_novelty && workDiagram.active_novelty.length > 0) {
+    const { error: insertError } = await supabase.from('work_diagram_active_novelties' as any).insert(
+      workDiagram.active_novelty.map((diagramTypeId) => ({
+        work_diagram_id: workDiagram.id,
+        diagram_type_id: diagramTypeId,
+      }))
+    );
+
+    if (insertError) {
+      console.error('Error creating work diagram novelties:', insertError);
+      throw new Error('Error creating work diagram novelties');
+    }
+  }
+
+  // 4. Obtener el work_diagram actualizado con sus relaciones
+  const { data: fullWorkDiagram, error: fetchError } = await supabase
+    .from('work_diagram')
+    .select(
+      `
+      *,
+      work_diagram_active_novelties (
+        id,
+        diagram_type_id,
+        created_at
+      )
+    `
+    )
+    .eq('id', workDiagram.id)
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching updated work diagram:', fetchError);
+    return updatedWorkDiagram;
+  }
+
+  return fullWorkDiagram || updatedWorkDiagram;
 }
 
 export async function deleteWorkDiagram(workDiagram: { id: string }) {
