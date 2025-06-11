@@ -1,8 +1,7 @@
 import { supabaseServer } from '@/lib/supabase/server';
 
-export async function getUserProfile() {
+export async function getUserProfile(email: string) {
   const supabase = supabaseServer();
-  const session = await supabase.auth.getSession();
   const { data } = await supabase
     .from('profile')
     .select(
@@ -12,8 +11,10 @@ export async function getUserProfile() {
     share_company_users(company_id, role)
   `
     )
-    .eq('email', session.data.session?.user.email || '')
+    .eq('email', email)
     .single();
+
+  if (!data) return null;
 
   return data;
 }

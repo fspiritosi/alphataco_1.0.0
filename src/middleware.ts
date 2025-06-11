@@ -1,3 +1,4 @@
+'use server';
 // import { NextResponse, type NextRequest } from 'next/server';
 // import { supabaseServer } from './lib/supabase/server';
 
@@ -134,16 +135,16 @@
 //   matcher: ['/dashboard/:path*', '/admin/:path*'],
 // };
 
+import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseServer } from './lib/supabase/server';
 import { getUserProfile } from './shared/actions/middleware.actions';
 
-// Sistema de caché simple con TTL
-const cache = new Map();
-const CACHE_TTL = 60 * 1000; // 1 minuto (ajustable según necesidad)
-
 export async function middleware(req: NextRequest) {
   const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const actualCompany = cookiesStore.get('actualComp')?.value;
+  const guestRole = cookiesStore.get('guestRole')?.value;
   const response = NextResponse.next({
     request: { headers: req.headers },
   });
@@ -156,25 +157,23 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  // Generar clave de caché única para este usuario
-  const cacheKey = `user_${session.user.email}`;
-
   // Verificar si tenemos datos en caché
-  let profileWithRelations: Awaited<ReturnType<typeof getUserProfile>>;
-  if (cache.has(cacheKey) && cache.get(cacheKey).expires > Date.now()) {
-    profileWithRelations = cache.get(cacheKey).data;
-  } else {
-    // 2. Obtener perfil, compañías propias y compartidas en una sola consulta
+  let profileWithRelations = await getUserProfile(session.user.email || '');
+  // 2. Obtener perfil, compañías propias y compartidas en una sola consulta
 
-    profileWithRelations = await getUserProfile();
+  const isInSharedCompany = profileWithRelations?.share_company_users?.some(
+    (company) => company.company_id === actualCompany
+  );
 
-    // Guardar en caché si tenemos datos
-    if (profileWithRelations) {
-      cache.set(cacheKey, {
-        data: profileWithRelations,
-        expires: Date.now() + CACHE_TTL,
-      });
+  if (isInSharedCompany) {
+    const role = profileWithRelations?.share_company_users?.find(
+      (company) => company.company_id === actualCompany
+    )?.role;
+    if (role !== guestRole) {
+      response.cookies.set('guestRole', role || '');
     }
+  } else {
+    response.cookies.set('guestRole', 'Owner');
   }
 
   // Si no tenemos perfil, redirigir al login

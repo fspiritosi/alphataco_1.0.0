@@ -125,6 +125,7 @@ export function Sidebar({ role, userModules }: SidebarProps) {
       <ul className="mt-[27px]">
         {filteredLinks.map((link) => (
           <Link
+            prefetch={true}
             key={link.name}
             href={link.href}
             className={cn(

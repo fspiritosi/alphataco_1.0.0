@@ -1,5 +1,3 @@
-import { supabaseServer } from '@/lib/supabase/server';
-import { getActualRole } from '@/lib/utils';
 import { cookies } from 'next/headers';
 import type React from 'react';
 import { TabsControllerInternal } from './tabs-controller-internal';
@@ -23,21 +21,18 @@ export interface ViewDataObj {
   }[];
 }
 
-export default async function ViewComponentInternal({ viewData }: { viewData: ViewDataObj }) {
-  const supabase = supabaseServer();
-  const user = await supabase.auth.getUser();
+export default function ViewComponentInternal({ viewData }: { viewData: ViewDataObj }) {
   const cookiesStore = cookies();
-  const actualCompany = cookiesStore.get('actualComp')?.value;
-  const role = await getActualRole(actualCompany as string, user?.data?.user?.id as string);
+  const role = cookiesStore.get('guestRole')?.value;
 
   // Preparar los datos para el componente cliente
   // Filtrar las tabs restringidas en el servidor
   const clientTabsData = viewData.tabsValues.map((tab) => ({
     ...tab,
-    restricted: tab.restricted.includes(role),
+    restricted: tab.restricted.includes(role || ''),
     content: {
       ...tab.content,
-      buttonActioRestricted: tab.content.buttonActioRestricted.includes(role),
+      buttonActioRestricted: tab.content.buttonActioRestricted.includes(role || ''),
     },
   }));
 

@@ -7,8 +7,9 @@ import { cookies } from 'next/headers';
 export const fetchAllEmployees = async (role?: string) => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+
   const company_id = cookiesStore.get('actualComp')?.value;
-  const user = await fetchCurrentUser();
   // console.log(company_id, 'company_id');
   if (!company_id) return [];
 

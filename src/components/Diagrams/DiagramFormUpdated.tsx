@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchAllActivesEmployees } from '@/app/server/GET/actions';
 import { CreateDiagrams, UpdateDiagramsById } from '@/app/server/UPDATE/actions';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -46,7 +47,7 @@ function DiagramFormUpdated({
   diagrams_types,
   defaultId,
 }: {
-  employees: Employee[];
+  employees: Awaited<ReturnType<typeof fetchAllActivesEmployees>>;
   diagrams: EmployeeDiagramWithDiagramType[];
   diagrams_types: DiagramType[];
   defaultId?: string;
