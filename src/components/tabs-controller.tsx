@@ -5,7 +5,8 @@ import type React from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { FormTableResizableSkeleton } from './Skeletons/ResizablePanelSkeleton';
 
 interface TabsControllerProps {
   defaultValue: string;
@@ -76,7 +77,9 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
           !tab.restricted && (
             <TabsContent key={tab.value} value={tab.value}>
               <Card className="overflow-visible">
-                <CardContent className="py-4 px-4 relative">{tab.content.component}</CardContent>
+                <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
+                  <CardContent className="py-4 px-4 relative">{tab.content.component}</CardContent>
+                </Suspense>
                 <CardFooter className="flex flex-row items-center border-t bg-gh/70 dark:bg-muted/50 px-6 py-3"></CardFooter>
               </Card>
             </TabsContent>

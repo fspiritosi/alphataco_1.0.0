@@ -1,36 +1,16 @@
-import {
-  fetchAllDocumentTypes,
-  fetchAllEmployeesWithRelations,
-  fetchAllEquipmentWithRelations,
-} from '@/app/server/GET/actions';
-
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
-import Viewcomponent from '@/components/ViewComponent';
-import { getRole } from '@/lib/utils/getRole';
+import ViewComponent from '@/components/ViewComponent';
 import { cookies } from 'next/headers';
 import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile';
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
-import TypesDocumentAction, {
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from '../document/documentComponents/TypesDocumentAction';
-import TypesDocumentsView from '../document/documentComponents/TypesDocumentsView';
+import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
 import CreatedForm from '../forms/components/CreatedForm';
 
-const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
+const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
   const cookiesStore = cookies();
-  const savedVisibility = cookiesStore.get(`document_type_employees`)?.value;
-  const savedFilters = cookiesStore.get(`document_type_employees-filters`)?.value;
-
-  const EmployeesOptionsData = setEmployeeDataOptions();
-  const VehicleOptionsData = setVehicleDataOptions();
-  const empleadosCargados = fetchAllEmployeesWithRelations();
-  const equiposCargados = fetchAllEquipmentWithRelations();
-  const document_types = fetchAllDocumentTypes();
-  const role = getRole();
-
+  const role = cookiesStore.get('guestRole')?.value;
   const viewData = {
     defaultValue: searchParams?.tab || 'employees',
     path: '/dashboard/employee',
@@ -91,28 +71,8 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
           title: 'Tipos de documentos',
           description: 'Tipos de documentos auditables',
           buttonActioRestricted: [''],
-          buttonAction: (
-            <TypesDocumentAction
-              optionChildrenProp="Persona"
-              EmployeesOptionsDataPromise={EmployeesOptionsData}
-              VehicleOptionsDataPromise={VehicleOptionsData}
-              empleadosCargadosPromise={empleadosCargados}
-              equiposCargadosPromise={equiposCargados}
-              rolePromise={role}
-            />
-          ),
-          component: (
-            <TypesDocumentsView
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-              personas
-              employeeMockValuesPromise={EmployeesOptionsData}
-              vehicleMockValuesPromise={VehicleOptionsData}
-              employeesPromise={empleadosCargados}
-              vehiclesPromise={equiposCargados}
-              document_typesPromise={document_types}
-            />
-          ),
+          // El botón ahora se pasa automáticamente desde TypesDocumentsViewWrapper
+          component: <TypesDocumentsViewWrapper optionChildrenProp="Persona" />,
         },
       },
       {
@@ -140,9 +100,11 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
     ],
   };
 
+  console.log('[LISTO] DynamicContent - Datos preparados');
   return (
-    // <Suspense fallback={<PageTableSkeleton />}>
-    <Viewcomponent viewData={viewData} />
+    <ViewComponent viewData={viewData} />
+    // <Suspense fallback={<div>Cargando...</div>}>
+    //   <DelayedComponent />
     // </Suspense>
   );
 };

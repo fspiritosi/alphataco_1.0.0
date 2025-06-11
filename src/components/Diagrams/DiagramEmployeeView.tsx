@@ -12,7 +12,6 @@ import { useEffect, useState } from 'react';
 
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { DropdownMenuCheckboxItemProps } from '@radix-ui/react-dropdown-menu';
 import { FileDown, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -23,14 +22,6 @@ import { Button } from '../ui/button';
 import { CardDescription } from '../ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '../ui/command';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormMessage } from '../ui/form';
-
-type Checked = DropdownMenuCheckboxItemProps['checked'];
-type DiamgramParsed = {
-  name: string;
-  lastName: string;
-  diagram_type: string;
-  date: string;
-};
 
 function DiagramEmployeeView({
   diagrams,

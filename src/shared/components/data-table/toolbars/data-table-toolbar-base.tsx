@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PermanentDocumentsDownloadButton } from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocumentsDownloadButton';
 import { Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
@@ -47,6 +48,7 @@ interface DataTableToolbarProps<TData> {
   initialVisibleFilters?: string[]; // Filtros inicialmente visibles
   extraActions?: React.ReactNode | ((table: Table<TData>) => React.ReactNode);
   showExport?: boolean;
+  showDocumentDownload?: boolean;
   tableId?: string; // Añadimos tableId para persistencia
   bulkAction?: BulkActionProps<TData>;
 }
@@ -60,6 +62,7 @@ export function DataTableToolbarBase<TData>({
   initialVisibleFilters,
   extraActions,
   showExport = true,
+  showDocumentDownload = false,
   tableId, // Recibimos tableId
   bulkAction,
 }: DataTableToolbarProps<TData>) {
@@ -217,6 +220,7 @@ export function DataTableToolbarBase<TData>({
       </div>
       <div className="flex items-center space-x-2 flex-wrap">
         {typeof extraActions === 'function' ? extraActions(table) : extraActions}
+        {showDocumentDownload && <PermanentDocumentsDownloadButton table={table} />}
         {showExport && <DataTableExportExcel table={table} />}
         {showFilterOptions && filterableColumns.length > 0 && (
           <DataTableFilterOptions

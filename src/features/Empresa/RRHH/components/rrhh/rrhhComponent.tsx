@@ -1,26 +1,12 @@
 import CovenantTreeFile from '@/app/dashboard/company/actualCompany/covenant/CovenantTreeFile';
-import { fetchDiagramsTypes } from '@/app/server/GET/actions';
-import DiagramTypeComponent from '@/components/Diagrams/DiagramTypeComponent';
 import ViewComponentInternal from '@/components/ViewComponentInternal';
-import { fetchAllContractTypes } from '@/features/Empresa/RRHH/actions/actions';
-import ContractTypesTab from '@/features/Empresa/RRHH/components/ContractTypeTab';
-import DiagramTypesTab from '@/features/Empresa/RRHH/components/rrhh/diagramTypesTab';
-import { cookies } from 'next/headers';
+import ContractTypeTabWrapper from '@/features/Empresa/RRHH/components/ContractTypeTabWrapper';
+import DiagramTypeComponentWrapper from '@/features/Empresa/RRHH/components/Diagrams/DiagramTypeComponentWrapper';
 import PositionsTab from '../rrhh/company_positions/positionsTab';
-import { fetchAllWorkDiagrams } from './actions/actions';
 import AptitudesTab from './aptitudesTecnicas/aptitudesTab';
+import DiagramTypesTabWrapper from './diagramTypesTab/DiagramTypesTabWrapper';
 
-export default async function RrhhComponent({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
-  const cookiesStore = cookies();
-  const diagrams_types = await fetchDiagramsTypes();
-  const allContractTypes = await fetchAllContractTypes();
-  const diagrams = await fetchAllWorkDiagrams();
-  const savedVisibilityDiagramTypes = cookiesStore.get('diagram-table-empresa')?.value;
-  const savedFilterDiagramTypes = cookiesStore.get('diagram-table-empresa-filters')?.value;
-  const tipesNovelties = cookiesStore.get('novelty-types-table-empresa')?.value;
-  const savedFilterNovelties = cookiesStore.get('novelty-types-table-empresa-filters')?.value;
-  const savedVisibilityContractTypes = cookiesStore.get('contract-type-table')?.value;
-  const savedVisibilityContractTypesFilter = cookiesStore.get('contract-type-table-filters')?.value;
+export default function RrhhComponent({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
   const viewData = {
     defaultValue: subtab || 'listado',
     path: '/dashboard/company/actualCompany',
@@ -34,14 +20,7 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
           title: 'Tipos de Diagramas',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            <DiagramTypesTab
-              savedFilter={savedFilterDiagramTypes ? JSON.parse(savedFilterDiagramTypes) : []}
-              data={diagrams}
-              diagrams_types={diagrams_types}
-              savedVisibility={savedVisibilityDiagramTypes ? JSON.parse(savedVisibilityDiagramTypes) : {}}
-            />
-          ),
+          component: <DiagramTypesTabWrapper />,
         },
       },
       {
@@ -53,13 +32,7 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
           title: 'Tipos de Novedades',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            <DiagramTypeComponent
-              savedFilters={savedFilterNovelties ? JSON.parse(savedFilterNovelties) : []}
-              diagrams_types={diagrams_types}
-              savedVisibility={tipesNovelties ? JSON.parse(tipesNovelties) : {}}
-            />
-          ),
+          component: <DiagramTypeComponentWrapper />,
         },
       },
       {
@@ -83,13 +56,7 @@ export default async function RrhhComponent({ tabValue, subtab }: { subtab?: str
           title: 'Tipos de Contrato',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            <ContractTypesTab
-              savedFilter={savedVisibilityContractTypesFilter ? JSON.parse(savedVisibilityContractTypesFilter) : []}
-              allContractTypes={allContractTypes}
-              savedVisibility={savedVisibilityContractTypes ? JSON.parse(savedVisibilityContractTypes) : {}}
-            />
-          ),
+          component: <ContractTypeTabWrapper />,
         },
       },
       {

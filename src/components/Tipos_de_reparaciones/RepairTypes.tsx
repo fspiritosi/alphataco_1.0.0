@@ -1,21 +1,10 @@
-import { fetchAllEquipmentWithBrand } from '@/app/server/GET/actions';
-import { supabaseServer } from '@/lib/supabase/server';
-import { setVehiclesToShow } from '@/lib/utils/utils';
-import { TypeOfRepair } from '@/types/types';
-import { cookies } from 'next/headers';
-import InfoComponent from '../InfoComponent';
 import ViewcomponentInternal, { ViewDataObj } from '../ViewComponentInternal';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import RepairNewEntry from './RepairEntry';
-import RepairNewEntryMultiple from './RepairEntryMultiple';
-import RepairSolicitudes from './RepairSolicitudesTable/RepairSolicitudes';
-import { RepairTypeForm } from './RepairTypeForm';
-import { fetchAllTypesOfRepairs } from './actions/actions';
+import RepairEntryWrapper from './RepairEntryWrapper';
+import RepairSolicitudesWrapper from './RepairSolicitudesWrapper';
+import RepairTypeFormWrapper from './RepairTypeFormWrapper';
 
-async function RepairTypes({
+function RepairTypes({
   type_of_repair_new_entry,
-  // type_of_repair_new_entry2,
-  // type_of_repair_new_entry3,
   created_solicitudes,
   type_of_repair,
   defaultValue,
@@ -37,35 +26,6 @@ async function RepairTypes({
   tabValue: string;
   path?: string;
 }) {
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const supabase = supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const coockiesStore = cookies();
-  const company_id = coockiesStore.get('actualComp')?.value;
-  // const { types_of_repairs } = await fetch(`${URL}/api/repairs?actual=${company_id}`).then((res) => res.json());
-  const types_of_repairs = await fetchAllTypesOfRepairs();
-  // const { equipments } = await fetch(`${URL}/api/equipment?actual=${company_id}&user=${user?.id}`).then((e) =>
-  //   e.json()
-  // );
-  const equipments = await fetchAllEquipmentWithBrand();
-  const vehiclesFormatted = equipment_id
-    ? setVehiclesToShow(equipments?.filter((e: any) => e.id === equipment_id)) || []
-    : setVehiclesToShow(equipments) || [];
-
-  const savedVisibility = coockiesStore.get('repair-type-table')?.value;
-  const savedVisibilityFilters = coockiesStore.get('repair-type-table-filters')?.value;
-
-  const savedVisibility2 = coockiesStore.get('repair-entry-table')?.value;
-  const savedVisibilityFilters2 = coockiesStore.get('repair-entry-table-filters')?.value;
-
-  const savedVisibility3 = coockiesStore.get('repair-solicitudes-table')?.value;
-  const filters = coockiesStore.get('repair-solicitudes-table-filters')?.value;
-
-  const message =
-    'El kilometraje de las unidades seleccionadas no se podran modificar durante la carga multiple, si desea cargar el kilometraje de las unidades seleccionadas, por favor haga la carga individual de cada una de ellas.';
-
   const viewData: ViewDataObj = {
     defaultValue: subtab || 'created_solicitudes',
     path: path || '/dashboard/equipment',
@@ -79,14 +39,7 @@ async function RepairTypes({
           title: mechanic ? 'Solicitudes activas' : 'Solicitudes de mantenimiento',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          component: (
-            <RepairSolicitudes
-              mechanic={mechanic}
-              default_equipment_id={equipment_id}
-              savedFilters={filters ? JSON.parse(filters) : []}
-              savedVisibility={savedVisibility3 ? JSON.parse(savedVisibility3) : []}
-            />
-          ),
+          component: <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />,
         },
       },
       {
@@ -98,13 +51,7 @@ async function RepairTypes({
           buttonActioRestricted: [''],
           title: 'Tipos de reparaciones creados',
           //description: 'Información de la empresa',
-          component: (
-            <RepairTypeForm
-              types_of_repairs={types_of_repairs}
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
-              savedFilters={savedVisibilityFilters ? JSON.parse(savedVisibilityFilters) : []}
-            />
-          ),
+          component: <RepairTypeFormWrapper />,
         },
       },
       {
@@ -116,37 +63,7 @@ async function RepairTypes({
           buttonActioRestricted: [''],
           title: 'Solicitud de mantenimiento',
           //description: 'Información de la empresa',
-          component: (
-            <Tabs defaultValue="carga_simple" className="">
-              <TabsList>
-                <TabsTrigger value="carga_simple">Carga individual</TabsTrigger>
-                <TabsTrigger value="carga_multiple">Carga multiple</TabsTrigger>
-              </TabsList>
-              <TabsContent value="carga_simple">
-                {' '}
-                <RepairNewEntry
-                  user_id={user?.id}
-                  equipment={vehiclesFormatted}
-                  tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
-                  default_equipment_id={equipment_id}
-                  savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
-                  savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
-                />
-              </TabsContent>
-              <TabsContent value="carga_multiple">
-                {' '}
-                <InfoComponent size="lg" message={message} />
-                <RepairNewEntryMultiple
-                  user_id={user?.id}
-                  equipment={vehiclesFormatted}
-                  tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
-                  default_equipment_id={equipment_id}
-                  savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
-                  savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
-                />
-              </TabsContent>
-            </Tabs>
-          ),
+          component: <RepairEntryWrapper equipment_id={equipment_id} />,
         },
       },
     ],
@@ -162,19 +79,6 @@ async function RepairTypes({
     //       </TabsTrigger>
     //     )}
     //     {type_of_repair_new_entry && (
-    //       <TabsTrigger value="type_of_repair_new_entry">Solicitud de mantenimiento</TabsTrigger>
-    //     )}
-
-    //     {type_of_repair && <TabsTrigger value="type_of_repair">Tipos de reparaciones creados</TabsTrigger>}
-    //   </TabsList>
-    //   <TabsContent value="type_of_repair">
-    //     <RepairTypeForm types_of_repairs={types_of_repairs} />
-    //   </TabsContent>
-    //   <TabsContent value="type_of_repair_new_entry">
-    //     <Tabs defaultValue="carga_simple" className="">
-    //       <TabsList>
-    //         <TabsTrigger value="carga_simple">Carga individual</TabsTrigger>
-    //         <TabsTrigger value="carga_multiple">Carga multiple</TabsTrigger>
     //       </TabsList>
     //       <TabsContent value="carga_simple">
     //         {' '}

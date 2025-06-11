@@ -17,7 +17,7 @@ import { useLoggedUserStore } from '@/store/loggedUser';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { PlusCircle, Truck, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../supabase/supabase';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
@@ -228,22 +228,18 @@ export type Condition = {
 export default function NewDocumentType({
   codeControlClient,
   optionChildrenProp,
-  employeeMockValuesPromise,
-  vehicleMockValuesPromise,
-  employeesPromise,
-  vehiclesPromise,
+  employeeMockValues,
+  vehicleMockValues,
+  employees,
+  vehicles,
 }: {
   codeControlClient?: boolean;
   optionChildrenProp: string;
-  employeeMockValuesPromise: Promise<Record<string, string[] | []>>;
-  vehicleMockValuesPromise: Promise<Record<string, string[] | []>>;
-  employeesPromise: Promise<EmployeeDetailed[]>;
-  vehiclesPromise: Promise<VehicleWithBrand[]>;
+  employeeMockValues: Record<string, string[] | []>;
+  vehicleMockValues: Record<string, string[] | []>;
+  employees: EmployeeDetailed[];
+  vehicles: VehicleWithBrand[];
 }) {
-  const employeeMockValues = use(employeeMockValuesPromise);
-  const vehicleMockValues = use(vehicleMockValuesPromise);
-  const employees = use(employeesPromise);
-  const vehicles = use(vehiclesPromise);
   const [special, setSpecial] = useState(false);
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);

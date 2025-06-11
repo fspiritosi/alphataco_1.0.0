@@ -1,25 +1,16 @@
+import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
+import DocumentTabComponent from '@/components/DocumentTabComponent';
 import EditCompanyButton from '@/components/EditCompanyButton';
-import CompanyComponent from '@/features/Empresa/General/components/company/CompanyComponent';
-// import DangerZoneComponent from '@/features/Empresa/General/components/company/DangerZoneComponent';
-
+import { RegisterWithRole } from '@/components/RegisterWithRole';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
-
 import { cookies } from 'next/headers';
-import { Suspense } from 'react';
+import UsersTabComponent from '../Usuarios/UsersTabComponent';
+import CompanyComponent from './components/company/CompanyComponent';
 import CostCenterTab from './components/cost-center/CostCenterTab';
-async function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
-  const coockiesStore = cookies();
-  const company_id = coockiesStore.get('actualComp')?.value;
-  // const sectors = await fetchAllSectors();
-  // const EmployeesOptionsData = await setEmployeeDataOptions();
-  // const VehicleOptionsData = await setVehicleDataOptions();
-
-  // const empleadosCargados = await fetchAllEmployeesWithRelations();
-  // const equiposCargados = await fetchAllEquipmentWithRelations();
-  // const role = await getRole();
-
-  const savedVisibilityOrganigram = coockiesStore.get('organigram-table')?.value;
-  const savedFilterOrganigram = coockiesStore.get('organigram-table-filters')?.value;
+import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
+function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
 
   const viewData = {
     defaultValue: subtab || 'company',
@@ -35,11 +26,7 @@ async function General({ tabValue, subtab }: { subtab?: string; tabValue: string
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
           buttonAction: <EditCompanyButton companyId={company_id?.toString() ?? ''} />,
-          component: (
-            <Suspense fallback={<p>Loading...</p>}>
-              <CompanyComponent />
-            </Suspense>
-          ),
+          component: <CompanyComponent />,
         },
       },
       {
@@ -52,72 +39,55 @@ async function General({ tabValue, subtab }: { subtab?: string; tabValue: string
           //description: 'Lista de documentos a nombre de la empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            // <Suspense fallback={<p>Loading...</p>}>
-            <CostCenterTab />
-            // </Suspense>
-          ),
+          component: <CostCenterTab />,
         },
       },
-      // {
-      //   value: 'organigrama',
-      //   name: 'Organigrama',
-      //   restricted: [''],
-      //   tab: tabValue,
-      //   content: {
-      //     title: 'Organigrama',
-      //     //description: 'Lista de usuarios de la empresa',
-      //     buttonActioRestricted: [''],
-      //     buttonAction: '',
-      //     component: (
-      //       <OrganigramTab
-      //         sectors={sectors}
-      //         savedVisibility={savedVisibilityOrganigram ? JSON.parse(savedVisibilityOrganigram) : {}}
-      //         savedFilter={savedFilterOrganigram ? JSON.parse(savedFilterOrganigram) : []}
-      //       />
-      //     ),
-      //   },
-      // },
-      // {
-      //   value: 'users',
-      //   name: 'Usuarios',
-      //   restricted: [''],
-      //   tab: tabValue,
-      //   //options:[{value:"employees", label:"Empleados"}, {value:"no-employees", label:"Invitados"}],
-      //   content: {
-      //     title: 'Usuarios',
-      //     //description: 'Lista de usuarios de la empresa',
-      //     buttonActioRestricted: [''],
-      //     buttonAction: <RegisterWithRole />,
-      //     //component: <CompanyUserTab />,
-      //     component: <UsersTabComponent />,
-      //   },
-      // },
-      // {
-      //   value: '"documentacion"',
-      //   name: 'Documentacion',
-      //   restricted: [''],
-      //   tab: tabValue,
-      //   content: {
-      //     title: 'Documentos empresa',
-      //     //description: 'Lista de documentos a nombre de la empresa',
-      //     tab: tabValue,
-      //     buttonActioRestricted: [''],
-      //     buttonAction: (
-      //       <div className="flex gap-4 flex-wrap ">
-      //         <TypesDocumentAction
-      //           EmployeesOptionsData={EmployeesOptionsData}
-      //           VehicleOptionsData={VehicleOptionsData}
-      //           empleadosCargados={empleadosCargados}
-      //           equiposCargados={equiposCargados}
-      //           role={role}
-      //           optionChildrenProp="Empresa"
-      //         />
-      //       </div>
-      //     ),
-      //     component: <DocumentTabComponent />,
-      //   },
-      // },
+      {
+        value: 'organigrama',
+        name: 'Organigrama',
+        restricted: [''],
+        tab: tabValue,
+        content: {
+          title: 'Organigrama',
+          //description: 'Lista de usuarios de la empresa',
+          buttonActioRestricted: [''],
+          buttonAction: '',
+          component: <OrganigramTabWrapper />,
+        },
+      },
+      {
+        value: 'users',
+        name: 'Usuarios',
+        restricted: [''],
+        tab: tabValue,
+        //options:[{value:"employees", label:"Empleados"}, {value:"no-employees", label:"Invitados"}],
+        content: {
+          title: 'Usuarios',
+          //description: 'Lista de usuarios de la empresa',
+          buttonActioRestricted: [''],
+          buttonAction: <RegisterWithRole />,
+          //component: <CompanyUserTab />,
+          component: <UsersTabComponent />,
+        },
+      },
+      {
+        value: '"documentacion"',
+        name: 'Documentacion',
+        restricted: [''],
+        tab: tabValue,
+        content: {
+          title: 'Documentos empresa',
+          //description: 'Lista de documentos a nombre de la empresa',
+          tab: tabValue,
+          buttonActioRestricted: [''],
+          buttonAction: (
+            <div className="flex gap-4 flex-wrap ">
+              <TypesDocumentAction optionChildrenProp="Empresa" />
+            </div>
+          ),
+          component: <DocumentTabComponent />,
+        },
+      },
     ],
   };
 

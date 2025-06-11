@@ -1,32 +1,26 @@
-'use client';
 import { ColumnsMonthly } from '@/app/dashboard/columsMonthly';
+import { fetchEmployeeMonthlyDocuments } from '@/app/server/GET/actions';
 import { formatEmployeeDocuments } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
-import { VisibilityState } from '@tanstack/react-table';
+import { cookies } from 'next/headers';
 import { createFilterOptions } from '../components/utils/utils';
-import { PermanentDocumentsDownloadButton } from './PermanentDocumentsDownloadButton';
 
-function MonthlyDocuments({
-  monthlyDocuments,
-  savedVisibility,
-  savedFilters,
-}: {
-  monthlyDocuments: ReturnType<typeof formatEmployeeDocuments>[];
-  savedVisibility: VisibilityState;
-  savedFilters: string[];
-}) {
+async function MonthlyDocuments({}) {
+  const monthlyDocuments = (await fetchEmployeeMonthlyDocuments()).map(formatEmployeeDocuments);
+  const cookiesStore = cookies();
+  const savedVisibilityMonthly = cookiesStore.get(`monthly-documents-employees`)?.value;
+  const savedFiltersMonthly = cookiesStore.get(`monthly-documents-employees-filters`)?.value;
   const employeeName = createFilterOptions(monthlyDocuments, (employee) => employee.resource);
   const documentName = createFilterOptions(monthlyDocuments, (document) => document.documentName);
 
-  // console.log(monthlyDocuments[0], 'monthlyDocuments');
   return (
     <BaseDataTable
       tableId="monthly-documents-employees"
       columns={ColumnsMonthly}
       data={monthlyDocuments}
-      savedVisibility={savedVisibility}
+      savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : []}
       toolbarOptions={{
-        initialVisibleFilters: savedFilters || [],
+        initialVisibleFilters: savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : [],
         filterableColumns: [
           {
             columnId: 'Empleado',
@@ -48,7 +42,8 @@ function MonthlyDocuments({
             showTo: true,
           },
         ],
-        extraActions: (table) => <PermanentDocumentsDownloadButton table={table} />,
+        showExport: false,
+        showDocumentDownload: true,
         // extraActions: <div>keloke</div>,
       }}
     />

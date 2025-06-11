@@ -39,7 +39,11 @@ async function EmployeeListTabs({
             </div>
           ),
           // component: <EmployeesTable role={role} columns={EmployeesListColumns} data={activeEmploees || []} />,
-          component: <EmployeeTable />,
+          component: (
+            // <Suspense fallback={<div>Cargando tabla de empleados...</div>}>
+            <EmployeeTable />
+            // </Suspense>
+          ),
         },
       },
       {
@@ -61,31 +65,17 @@ async function EmployeeListTabs({
               </Link>
             </div>
           ),
-          component: <EmpleadosInactivosTable />,
+          component: (
+            // <Suspense fallback={<div>Cargando tabla de empleados...</div>}>
+            <EmpleadosInactivosTable />
+            // </Suspense>
+          ),
         },
       },
     ],
   };
-
-  return (
-    <ViewcomponentInternal viewData={viewData} />
-    // <Tabs defaultValue="Empleados activos">
-    //   <CardContent>
-    //     <TabsList>
-    //       {actives && <TabsTrigger value="Empleados activos">Empleados activos</TabsTrigger>}{' '}
-    //       {inactives && role !== 'Invitado' && (
-    //         <TabsTrigger value="Empleados inactivos">Empleados inactivos</TabsTrigger>
-    //       )}{' '}
-    //     </TabsList>
-    //   </CardContent>
-    //   <TabsContent value="Empleados activos">
-    //     <EmployeesTable role={role} columns={EmployeesListColumns} data={activeEmploees || []} />
-    //   </TabsContent>
-    //   <TabsContent value="Empleados inactivos">
-    //     <EmployeesTable role={role} columns={EmployeesListColumns} data={inactiveEmploees || []} />
-    //   </TabsContent>
-    // </Tabs>
-  );
+  console.log('[EMPLOYEE-LIST-TABS] Datos de pestañas preparados, renderizando ViewComponentInternal');
+  return <ViewcomponentInternal viewData={viewData} />;
 }
 
 export default EmployeeListTabs;
