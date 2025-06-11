@@ -10,21 +10,22 @@ export async function fetchAllWorkDiagrams() {
     const company_id = cookiesStore.get('actualComp')?.value;
     if (!company_id) return [];
 
-    // Usamos la sintaxis según el ejemplo de Stack Overflow
     const { data, error } = await supabase
       .from('work_diagram')
       .select(
-        '*, active_novelty:diagram_type!work-diagram_active_novelty_fkey(*), inactive_novelty:diagram_type!work-diagram_inactive_novelty_fkey(*)'
+        `
+        *,
+        work_diagram_active_novelties(
+          id,
+          created_at,
+          diagram_type:diagram_type_id(*)
+        ),
+        inactive_novelty:diagram_type!work-diagram_inactive_novelty_fkey(*)
+      `
       )
-      //! .eq('active_novelty.company_id', company_id)
-      //! .eq('inactive_novelty.company_id', company_id)
+      // .eq('company_id', company_id)
       .returns<WorkDiagramWithRelations[]>();
 
-    console.log(data);
-
-    // Nota: Estamos seleccionando directamente las relaciones por sus nombres de columna
-    // Esto funciona si la columna active_novelty y inactive_novelty ya están definidas como claves foráneas
-    // que apuntan a la tabla diagram_type
     if (error) {
       console.error('Error fetching work diagrams:', error);
       return [];
