@@ -40,23 +40,23 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
   const handleTabChange = (value: string) => {
     setActiveTab(value);
 
-    // Actualizar la URL sin recargar la página
-    const params = new URLSearchParams(searchParams.toString());
+    // // Actualizar la URL sin recargar la página
+    // const params = new URLSearchParams(searchParams.toString());
 
-    if (value === defaultValue) {
-      params.delete('tab');
-    } else {
-      params.set('tab', value);
-    }
+    // if (value === defaultValue) {
+    //   params.delete('tab');
+    // } else {
+    //   params.set('tab', value);
+    // }
 
-    // IMPORTANTE: Resetear subtabs cuando cambia el tab principal
-    params.delete('subtab');
-    params.delete('nestedtab'); // Por si implementas el tercer nivel
+    // // IMPORTANTE: Resetear subtabs cuando cambia el tab principal
+    // params.delete('subtab');
+    // params.delete('nestedtab'); // Por si implementas el tercer nivel
 
-    const queryString = params.toString();
-    const url = queryString ? `${path}?${queryString}` : path;
+    // const queryString = params.toString();
+    // const url = queryString ? `${path}?${queryString}` : path;
 
-    router.replace(url, { scroll: false });
+    // router.replace(url, { scroll: false });
   };
 
   console.log(tabsValues);
