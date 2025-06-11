@@ -5,8 +5,8 @@ import { RegisterWithRole } from '@/components/RegisterWithRole';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
 import { cookies } from 'next/headers';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
-import CompanyComponentWrapper from './components/company/CompanyComponentWrapper';
-import CostCenterTabWrapper from './components/cost-center/CostCenterTabWrapper';
+import CompanyComponent from './components/company/CompanyComponent';
+import CostCenterTab from './components/cost-center/CostCenterTab';
 import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
 function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
   const cookiesStore = cookies();
@@ -26,7 +26,7 @@ function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
           buttonAction: <EditCompanyButton companyId={company_id?.toString() ?? ''} />,
-          component: <CompanyComponentWrapper />,
+          component: <CompanyComponent />,
         },
       },
       {
@@ -39,7 +39,7 @@ function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
           //description: 'Lista de documentos a nombre de la empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: <CostCenterTabWrapper />,
+          component: <CostCenterTab />,
         },
       },
       {

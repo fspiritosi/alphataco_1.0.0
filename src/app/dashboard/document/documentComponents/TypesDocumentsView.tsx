@@ -9,7 +9,7 @@ import {
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisibilityState } from '@tanstack/react-table';
-import { ReactNode, use, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import DocumentsTable from './DocumentsTable';
 import FilterHeader from './FilterComponent';
 
@@ -19,12 +19,12 @@ function TypesDocumentsView({
   empresa,
   tabValue,
   subtab,
-  employeeMockValuesPromise,
-  vehicleMockValuesPromise,
-  employeesPromise,
-  vehiclesPromise,
+  employeeMockValues,
+  vehicleMockValues,
+  employees,
+  vehicles,
   role,
-  document_typesPromise,
+  document_types,
   savedVisibility,
   savedFilters,
   optionChildrenProp,
@@ -35,23 +35,23 @@ function TypesDocumentsView({
   empresa?: boolean;
   tabValue?: string;
   subtab?: string;
-  employeeMockValuesPromise: ReturnType<typeof setEmployeeDataOptions>;
-  vehicleMockValuesPromise: ReturnType<typeof setVehicleDataOptions>;
-  employeesPromise: ReturnType<typeof fetchAllEmployeesWithRelations>;
-  vehiclesPromise: ReturnType<typeof fetchAllEquipmentWithRelations>;
+  employeeMockValues: Awaited<ReturnType<typeof setEmployeeDataOptions>>;
+  vehicleMockValues: Awaited<ReturnType<typeof setVehicleDataOptions>>;
+  employees: Awaited<ReturnType<typeof fetchAllEmployeesWithRelations>>;
+  vehicles: Awaited<ReturnType<typeof fetchAllEquipmentWithRelations>>;
   role?: string;
-  document_typesPromise: ReturnType<typeof fetchAllDocumentTypes>;
+  document_types: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
   savedVisibility: VisibilityState;
   savedFilters: string[];
   optionChildrenProp?: string;
   actionComponent?: ReactNode;
 }) {
   // const document_types = useCountriesStore((state) => state.companyDocumentTypes);
-  const document_types = use(document_typesPromise);
-  const employeeMockValues = use(employeeMockValuesPromise);
-  const vehicleMockValues = use(vehicleMockValuesPromise);
-  const employees = use(employeesPromise);
-  const vehicles = use(vehiclesPromise);
+  // const document_types = use(document_typesPromise);
+  // const employeeMockValues = use(employeeMockValuesPromise);
+  // const vehicleMockValues = use(vehicleMockValuesPromise);
+  // const employees = use(employeesPromise);
+  // const vehicles = use(vehiclesPromise);
 
   const doc_personas = document_types?.filter((doc) => doc.applies === 'Persona').filter((e) => e.is_active);
   const doc_equipos = document_types?.filter((doc) => doc.applies === 'Equipos').filter((e) => e.is_active);
