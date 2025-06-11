@@ -33,13 +33,15 @@ async function EquipmentTableWrapper({ filterType = 'all' }: EquipmentTableWrapp
   const savedFilters = cookiesStore.get(`equipment-table-equipment-filters`)?.value;
 
   return (
-    <EquipmentTable
-      savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-      savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
-      role={role}
-      columns={EquipmentColums || []}
-      data={filteredData || []}
-    />
+    <>
+      <EquipmentTable
+        savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+        savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+        role={role}
+        columns={EquipmentColums || []}
+        data={filteredData || []}
+      />
+    </>
   );
 }
 

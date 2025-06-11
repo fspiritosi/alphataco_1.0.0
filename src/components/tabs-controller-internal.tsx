@@ -70,6 +70,7 @@ export function TabsControllerInternal({ defaultValue, tabsValues, path }: TabsC
 
     // router.replace(url, { scroll: false });
   };
+  console.log(tabsValues);
 
   return (
     <div className="flex flex-col gap-6 py-1 h-full">
@@ -85,7 +86,7 @@ export function TabsControllerInternal({ defaultValue, tabsValues, path }: TabsC
         {tabsValues.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
-              {tab.content.buttonAction && !tab.content.buttonActioRestricted && (
+              {tab.content.buttonAction && (
                 <div className="flex gap-4 py-2 flex-wrap justify-start">{tab.content.buttonAction}</div>
               )}
             </Suspense>
