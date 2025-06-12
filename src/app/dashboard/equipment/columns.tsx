@@ -35,6 +35,7 @@ import {
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -378,6 +379,13 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     accessorKey: 'domain',
     id: 'Dominio',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
+    cell: ({ row }) => {
+      return (
+        <Link href={`/dashboard/equipment/action?action=view&id=${row.original.id}`} className="hover:underline">
+          {row.original.domain}
+        </Link>
+      );
+    },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
@@ -442,10 +450,41 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     accessorKey: 'allocated_to',
     id: 'Afectado a',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Afectado a" />,
+    // cell: ({ row }) => {
+    //   return row.original.contractor_equipment?.map((contractor) => {
+    //     return <Badge key={contractor.contractor_id.id}>{contractor.contractor_id.name}</Badge>;
+    //   });
+    // },
+
     cell: ({ row }) => {
-      return row.original.contractor_equipment?.map((contractor) => {
-        return <Badge key={contractor.contractor_id.id}>{contractor.contractor_id.name}</Badge>;
-      });
+      const contractors: string[] = row.original.contractor_equipment?.map(
+        (contractor) => contractor.contractor_id.name
+      );
+      if (!contractors || contractors.length === 0) return null;
+      const [first, ...rest] = contractors;
+      if (rest.length === 0) {
+        return <Badge variant="default">{first}</Badge>;
+      }
+      return (
+        <>
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="default" className="cursor-pointer select-none">
+                  {first} +{rest.length}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="flex flex-col gap-1">
+                  {rest.map((contractor) => (
+                    <p key={contractor}>{contractor}</p>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </>
+      );
     },
     filterFn: (row, columnId, filterValue) => {
       // Filtrar por numero intenro o dominio

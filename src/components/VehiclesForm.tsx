@@ -262,16 +262,7 @@ export default function VehiclesForm2({
             message: 'La serie debe tener al menos 2 caracteres.',
           })
           .max(30, { message: 'La serie debe tener menos de 3- caracteres.' }),
-    intern_number: z
-      .string({
-        required_error: 'El número interno es requerido',
-      })
-      .min(2, {
-        message: 'El número interno debe tener al menos 2 caracteres.',
-      })
-      .max(30, {
-        message: 'El número interno debe tener menos de 30 caracteres.',
-      }),
+    intern_number: z.string().optional(),
     picture: z.string().optional(),
     type: hideInput ? z.string().optional() : z.string({ required_error: 'El tipo es requerido' }),
     allocated_to: z.array(z.string()).optional(),
@@ -1163,10 +1154,7 @@ export default function VehiclesForm2({
                     name="intern_number"
                     render={({ field }) => (
                       <FormItem className="flex flex-col min-w-[250px]">
-                        <FormLabel>
-                          Número interno del equipo
-                          <span style={{ color: 'red' }}>*</span>
-                        </FormLabel>
+                        <FormLabel>Número interno del equipo</FormLabel>
                         <Input
                           {...field}
                           disabled={readOnly}

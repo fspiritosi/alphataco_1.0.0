@@ -5,7 +5,6 @@ import { Suspense } from 'react';
 import CompanyTabsWrapper from './documentComponents/CompanyTabsWrapper';
 import EmployeeDocumentsTabs from './documentComponents/EmployeeDocumentsTabs';
 import EquipmentTabs from './documentComponents/EquipmentTabs';
-import TypesDocumentAction from './documentComponents/TypesDocumentAction';
 import TypesDocumentsViewWrapper from './documentComponents/TypesDocumentsViewWrapper';
 
 export default function page({
@@ -78,7 +77,6 @@ export default function page({
           title: 'Tipos de documentos',
           description: 'Tipos de documentos auditables',
           buttonActioRestricted: [''],
-          buttonAction: <TypesDocumentAction optionChildrenProp="all" />,
           component: (
             <TypesDocumentsViewWrapper optionChildrenProp="all" equipos={true} empresa={true} personas={true} />
           ),
