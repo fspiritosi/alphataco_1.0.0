@@ -1,30 +1,9 @@
-import {
-  fetchAllActivesEmployees,
-  fetchDiagrams,
-  fetchDiagramsTypes,
-  fetchEmployeeDiagrams,
-  fetchEmployeesByCompany,
-} from '@/app/server/GET/actions';
-import { setEmployeesToShow } from '@/lib/utils/utils';
-import { cookies } from 'next/headers';
 import ViewcomponentInternal from '../ViewComponentInternal';
-import DiagramEmployeeView from './DiagramEmployeeView';
-import DiagramFormUpdated from './DiagramFormUpdated';
-import DiagramTypeComponent from './DiagramTypeComponent';
+import DiagramFormUpdatedWrapper from './DiagramFormUpdatedWrapper';
+import DiagramTypeComponentWrapper from './DiagramTypeComponentWrapper';
+import EmployesDiagramWrapper from './EmployesDiagramWrapper';
 
-async function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
-  const coockiesStore = cookies();
-  const employees = await fetchEmployeesByCompany();
-  const activeEmploees = setEmployeesToShow(employees?.filter((e: any) => e.is_active));
-  const diagrams = await fetchEmployeeDiagrams();
-  const employees2 = await fetchAllActivesEmployees();
-  const diagrams2 = await fetchDiagrams();
-
-  const diagrams_types = await fetchDiagramsTypes();
-
-  const visibilityState = coockiesStore.get('novelty-types-table-empresa')?.value;
-  const filtersState = coockiesStore.get('novelty-types-table-empresa-filters')?.value;
-
+function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
   const viewData = {
     defaultValue: subtab || 'old',
     path: '/dashboard/employee',
@@ -38,7 +17,7 @@ async function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue
           title: 'Diagrama Cargados',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          component: <DiagramEmployeeView diagrams={diagrams} activeEmployees={activeEmploees} />,
+          component: <EmployesDiagramWrapper />,
         },
       },
       {
@@ -50,7 +29,7 @@ async function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue
           title: 'Cargar Diagrama',
           //description: 'Lista de documentos a nombre de la empresa',
           buttonActioRestricted: [''],
-          component: <DiagramFormUpdated employees={employees2} diagrams={diagrams2} diagrams_types={diagrams_types} />,
+          component: <DiagramFormUpdatedWrapper />,
         },
       },
       {
@@ -63,13 +42,7 @@ async function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue
           //description: 'Lista de usuarios de la empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            <DiagramTypeComponent
-              diagrams_types={diagrams_types}
-              savedVisibility={visibilityState ? JSON.parse(visibilityState) : {}}
-              savedFilters={filtersState ? JSON.parse(filtersState) : []}
-            />
-          ),
+          component: <DiagramTypeComponentWrapper />,
         },
       },
     ],

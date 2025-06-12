@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseServer } from './lib/supabase/server';
+import { getUserProfile } from './shared/actions/middleware.actions';
 
 export async function middleware(req: NextRequest) {
   // await updateSession(req)
@@ -14,35 +15,17 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const { data } = await supabase
-    .from('profile')
-    .select('*')
-    .eq('email', session?.user.email || '');
+  if (!session?.access_token) {
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
 
-  const { data: Companies, error } = await supabase
-    .from('company')
-    .select(`*`)
-    .eq('owner_id', data?.[0]?.id || '');
+  let profileWithRelations = await getUserProfile(session.user.email || '');
 
-  let { data: share_company_users, error: sharedError } = await supabase
-    .from('share_company_users')
-    .select(`*`)
-    .eq('profile_id', data?.[0]?.id || '');
-
-  const actualNoOwnerValue: string | null = req.cookies.get('actualComp')?.value ?? null;
-
-  const actualNoOwner = actualNoOwnerValue ? actualNoOwnerValue.replace(/^"|"$/g, '') : null;
-
-  const actualNow = actualNoOwner; //!== null ? parseInt(actualNoOwner as string, 10) : null
-  const { data: guestRole } = await supabase
-    .from('share_company_users')
-    .select('role')
-    .eq('profile_id ', data?.[0]?.id || '')
-    .eq('company_id', actualNow || '');
-
-  //response.cookies.set('guestRole', guestRole?.[0]?.role)
-
-  if (!Companies?.length && !share_company_users?.length && !req.url.includes('/dashboard/company/new')) {
+  if (
+    !profileWithRelations?.company?.length &&
+    !profileWithRelations?.share_company_users?.length &&
+    !req.url.includes('/dashboard/company/new')
+  ) {
     return NextResponse.redirect(new URL('/dashboard/company/new', req.url));
   }
 
@@ -50,7 +33,7 @@ export async function middleware(req: NextRequest) {
   //const actualCompanyId = req.cookies.get('actialCompanyId')
   // const actualNoOwner :string | null = req.cookies.get('actualComp')?.value
 
-  const userRole = data?.[0]?.role;
+  const userRole = profileWithRelations?.role;
 
   const guestUser = [
     '/dashboard/employee/action?action=edit&',
@@ -66,7 +49,7 @@ export async function middleware(req: NextRequest) {
   const administradorUser = ['admin/auditor'];
   const codeControlClientUser = ['admin/auditor'];
 
-  const isAuditor = data?.[0]?.role === 'Auditor';
+  const isAuditor = profileWithRelations?.role === 'Auditor';
 
   if (!session) {
     return NextResponse.redirect(new URL('/login', req.url));
@@ -87,21 +70,19 @@ export async function middleware(req: NextRequest) {
       redirectUrl.pathname = '/dashboard';
       return NextResponse.redirect(redirectUrl.toString());
     }
-    //response.cookies.set('guestRole', guestRole?.[0]?.role)
     if (userRole === 'CodeControlClient' && codeControlClientUser.some((url) => req.url.includes(url))) {
       redirectUrl.pathname = '/dashboard';
       return NextResponse.redirect(redirectUrl.toString());
     }
-    // if (guestRole?.[0]?.role === 'Invitado' && !req.url.includes('/dashboard/document')) {
-    //   redirectUrl.pathname = '/dashboard/document';
-    //   return NextResponse.redirect(redirectUrl.toString());
-    // }
-
-    // if (guestRole?.[0]?.role === 'Invitado' && guestUser.some((url) => req.url.includes(url))) {
-    //   redirectUrl.pathname = '/dashboard/document/';
-    //   return NextResponse.redirect(redirectUrl.toString());
-    // }
-    if (guestRole?.[0]?.role === 'Invitado') {
+    if (userRole === 'Invitado' && !req.url.includes('/dashboard/document')) {
+      redirectUrl.pathname = '/dashboard/document';
+      return NextResponse.redirect(redirectUrl.toString());
+    }
+    if (userRole === 'Invitado' && guestUser.some((url) => req.url.includes(url))) {
+      redirectUrl.pathname = '/dashboard/document/';
+      return NextResponse.redirect(redirectUrl.toString());
+    }
+    if (userRole === 'Invitado') {
       // Si el usuario está en una ruta permitida, permitir la navegación
       const isAllowedPath = allowedPathsguestUser.some((path) => req.url.startsWith(path));
 
@@ -118,11 +99,11 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    if (guestRole?.[0]?.role === 'Administrador' && administradorUser.some((url) => req.url.includes(url))) {
+    if (userRole === 'Administrador' && administradorUser.some((url) => req.url.includes(url))) {
       redirectUrl.pathname = '/dashboard';
       return NextResponse.redirect(redirectUrl.toString());
     }
-    if (guestRole?.[0]?.role === 'Usuario' && usuarioUser.some((url) => req.url.includes(url))) {
+    if (userRole === 'Usuario' && usuarioUser.some((url) => req.url.includes(url))) {
       redirectUrl.pathname = '/dashboard';
       return NextResponse.redirect(redirectUrl.toString());
     }
@@ -133,3 +114,134 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: ['/dashboard/:path*', '/admin/:path*'],
 };
+
+// import { cookies } from 'next/headers';
+// import { NextResponse, type NextRequest } from 'next/server';
+// import { supabaseServer } from './lib/supabase/server';
+// import { getUserProfile } from './shared/actions/middleware.actions';
+
+// export async function middleware(req: NextRequest) {
+//   const supabase = supabaseServer();
+//   const cookiesStore = await cookies();
+//   const actualCompany = cookiesStore.get('actualComp')?.value;
+//   const guestRole = cookiesStore.get('guestRole')?.value;
+//   const response = NextResponse.next({
+//     request: { headers: req.headers },
+//   });
+
+//   // 1. Verificar sesión (siempre necesario)
+//   const {
+//     data: { session },
+//   } = await supabase.auth.getSession();
+//   if (!session) {
+//     return NextResponse.redirect(new URL('/login', req.url));
+//   }
+
+//   // Verificar si tenemos datos en caché
+//   let profileWithRelations = await getUserProfile(session.user.email || '');
+//   // 2. Obtener perfil, compañías propias y compartidas en una sola consulta
+
+//   const isInSharedCompany = profileWithRelations?.share_company_users?.some(
+//     (company) => company.company_id === actualCompany
+//   );
+
+//   if (isInSharedCompany) {
+//     const role = profileWithRelations?.share_company_users?.find(
+//       (company) => company.company_id === actualCompany
+//     )?.role;
+//     if (role !== guestRole) {
+//       response.cookies.set('guestRole', role || '');
+//     }
+//   } else {
+//     response.cookies.set('guestRole', 'Owner');
+//   }
+
+//   // Si no tenemos perfil, redirigir al login
+//   if (!profileWithRelations) {
+//     return NextResponse.redirect(new URL('/login', req.url));
+//   }
+
+//   // Extraer datos relevantes
+//   const userRole = profileWithRelations.role;
+//   const ownedCompanies = profileWithRelations.company || [];
+//   const sharedCompanies = profileWithRelations.share_company_users || [];
+
+//   // Si el usuario es Admin, permitir acceso a todo
+//   if (userRole === 'Admin') {
+//     return response;
+//   }
+
+//   // Verificar si es Auditor
+//   if (userRole === 'Auditor') {
+//     if (!req.url.includes('admin/auditor')) {
+//       return NextResponse.redirect(new URL('/auditor', req.url));
+//     }
+//     return response;
+//   } else if (req.url.includes('admin/auditor')) {
+//     return NextResponse.redirect(new URL('/dashboard', req.url));
+//   }
+
+//   // Verificar si el usuario tiene acceso a alguna compañía
+//   if (ownedCompanies.length === 0 && sharedCompanies.length === 0 && !req.url.includes('/dashboard/company/new')) {
+//     return NextResponse.redirect(new URL('/dashboard/company/new', req.url));
+//   }
+
+//   // Obtener la compañía actual de las cookies
+//   const actualComp = req.cookies.get('actualComp')?.value?.replace(/^"|"$/g, '') || '';
+
+//   // Determinar el rol en la compañía actual
+//   let currentCompanyRole = null;
+
+//   // Verificar si es propietario
+//   if (ownedCompanies.some((company) => company.id === actualComp)) {
+//     currentCompanyRole = 'owner';
+//   } else {
+//     // Verificar si es usuario compartido
+//     const sharedCompany = sharedCompanies.find((company) => company.company_id === actualComp);
+//     if (sharedCompany) {
+//       currentCompanyRole = sharedCompany.role;
+//     }
+//   }
+
+//   // Restricciones para invitados
+//   if (currentCompanyRole === 'Invitado') {
+//     const restrictedPaths = [
+//       '/dashboard/employee/action?action=edit',
+//       '/dashboard/employee/action?action=new',
+//       '/dashboard/equipment/action?action=edit',
+//       '/dashboard/equipment/action?action=new',
+//       '/dashboard/company/new',
+//       '/dashboard/company/actualCompany',
+//     ];
+
+//     // Si la URL actual está restringida, redirigir
+//     if (restrictedPaths.some((path) => req.url.includes(path))) {
+//       return NextResponse.redirect(new URL('/dashboard/document', req.url));
+//     }
+
+//     // Permitir acceso solo a rutas específicas
+//     const allowedPaths = ['/dashboard/document', '/dashboard/employees', '/dashboard/equipment'];
+//     if (!allowedPaths.some((path) => req.url.includes(path))) {
+//       return NextResponse.redirect(new URL('/dashboard/document', req.url));
+//     }
+//   }
+
+//   // Restricciones para Administrador
+//   if (currentCompanyRole === 'Administrador' && req.url.includes('admin/auditor')) {
+//     return NextResponse.redirect(new URL('/dashboard', req.url));
+//   }
+
+//   // Restricciones para Usuario
+//   if (
+//     currentCompanyRole === 'Usuario' &&
+//     (req.url.includes('/dashboard/company/actualCompany') || req.url.includes('admin/auditor'))
+//   ) {
+//     return NextResponse.redirect(new URL('/dashboard', req.url));
+//   }
+
+//   return response;
+// }
+
+// export const config = {
+//   matcher: ['/dashboard/:path*', '/admin/:path*'],
+// };

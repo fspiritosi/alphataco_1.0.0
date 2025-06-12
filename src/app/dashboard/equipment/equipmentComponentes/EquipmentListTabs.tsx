@@ -1,14 +1,9 @@
-import { fetchAllEquipment } from '@/app/server/GET/actions';
 import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentInternal';
 import { buttonVariants } from '@/components/ui/button';
-import { supabaseServer } from '@/lib/supabase/server';
-import { getActualRole } from '@/lib/utils';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { EquipmentColums } from '../columns';
-import { EquipmentTable } from '../data-equipment';
+import EquipmentTableWrapper from './EquipmentTableWrapper';
 
-async function EquipmentListTabs({
+export default function EquipmentListTabs({
   inactives,
   actives,
   tabValue,
@@ -19,22 +14,6 @@ async function EquipmentListTabs({
   tabValue: string;
   subtab: string | undefined;
 }) {
-  const equipments = await fetchAllEquipment();
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  const role = await getActualRole(company_id as string, user?.id as string);
-
-  const onlyVehicles = equipments?.filter((v) => v.types_of_vehicles.id == '1');
-  const onlyNoVehicles = equipments?.filter((v) => v.types_of_vehicles.id == '2');
-  // const data = setVehiclesToShow(equipments);
-
-  const savedVisibility = cookiesStore.get(`equipment-table-equipment`)?.value;
-  const savedFilters = cookiesStore.get(`equipment-table-equipment-filters`)?.value;
-
   const viewData: ViewDataObj = {
     defaultValue: subtab || 'all',
     path: '/dashboard/equipment',
@@ -44,7 +23,6 @@ async function EquipmentListTabs({
         name: 'Todos los equipos',
         restricted: [''],
         tab: tabValue,
-
         content: {
           buttonAction: (
             <div className="flex flex-wrap">
@@ -59,15 +37,7 @@ async function EquipmentListTabs({
           title: 'Todos los equipos',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          component: (
-            <EquipmentTable
-              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
-              role={role}
-              columns={EquipmentColums || []}
-              data={equipments || []}
-            />
-          ),
+          component: <EquipmentTableWrapper filterType="all" />,
         },
       },
       {
@@ -88,15 +58,7 @@ async function EquipmentListTabs({
             </div>
           ),
           buttonActioRestricted: [''],
-          component: (
-            <EquipmentTable
-              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
-              role={role}
-              columns={EquipmentColums || []}
-              data={onlyVehicles || []}
-            />
-          ),
+          component: <EquipmentTableWrapper filterType="vehicles" />,
         },
       },
       {
@@ -117,15 +79,7 @@ async function EquipmentListTabs({
             </div>
           ),
           buttonActioRestricted: [''],
-          component: (
-            <EquipmentTable
-              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
-              role={role}
-              columns={EquipmentColums || []}
-              data={onlyNoVehicles || []}
-            />
-          ),
+          component: <EquipmentTableWrapper filterType="others" />,
         },
       },
     ],
@@ -155,5 +109,3 @@ async function EquipmentListTabs({
     </div>
   );
 }
-
-export default EquipmentListTabs;

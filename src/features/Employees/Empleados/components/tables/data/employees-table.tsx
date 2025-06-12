@@ -1,9 +1,11 @@
 'use client';
 
+import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { VisibilityState } from '@tanstack/react-table';
 import { BadgeCheck, Briefcase, Building, ClipboardSignature, CreditCard, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { use } from 'react';
 import { createFilterOptions, formatEmployeesForTable } from '../../utils/utils';
 import { employeeColumns } from './columns';
 import { EmployeeTableData } from './types';
@@ -11,7 +13,7 @@ import { EmployeeTableData } from './types';
 interface EmployeesTableProps {
   onRowClick?: (employee: EmployeeTableData) => void;
   className?: string;
-  employees?: ReturnType<typeof formatEmployeesForTable>;
+  employeesPromise: ReturnType<typeof fetchAllEmployees>;
   tableId?: string;
   savedVisibility: VisibilityState;
   row_classname?: string;
@@ -43,13 +45,16 @@ export const createNestedFilterOptions = <T extends any>(
 export function EmployeesTableReusable({
   onRowClick,
   className,
-  employees,
+  employeesPromise,
   tableId = 'employees-table',
   savedVisibility,
   row_classname,
   savedFilters,
 }: EmployeesTableProps) {
   const router = useRouter();
+  const employees2 = use(employeesPromise);
+
+  const employees = formatEmployeesForTable(employees2);
 
   // Generar todas las opciones de filtro utilizando las funciones utilitarias
   const positions = createFilterOptions(

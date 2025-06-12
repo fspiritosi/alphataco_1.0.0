@@ -1,13 +1,9 @@
+import { fetchCustomForms } from '@/app/server/GET/actions';
 import { checkListColumns } from './tables/checkListColumns';
 import { TypesOfCheckListTable } from './tables/data-table';
 
-export default async function ChecklistTable({
-  checklists,
-  vehicles,
-}: {
-  checklists: CheckListWithAnswer[];
-  vehicles: VehicleWithBrand[];
-}) {
+export default async function ChecklistTable() {
+  const checklists = await fetchCustomForms();
   // const viewData = {
   //   defaultValue: 'formularios',
   //   path: '/dashboard/forms',

@@ -1,19 +1,9 @@
-import { fetchMonthlyDocumentsEquipment, fetchPermanentDocumentsEquipment } from '@/app/server/GET/actions';
 import DocumentNav from '@/components/DocumentNav';
 import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentInternal';
-import MonthlyDocumentsEquipment from '@/features/Equipos/DocumentosEquipos/MonthlyDocuments';
-import PermanentDocumentsEquipment from '@/features/Equipos/DocumentosEquipos/PermanentDocuments';
-import { formatVehiculesDocuments } from '@/lib/utils';
-import { cookies } from 'next/headers';
+import MonthlyDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/MonthlyDocumentsWrapper';
+import PermanentDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/PermanentDocumentsWrapper';
 
-async function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabValue: string; path: string }) {
-  const monthlyDocuments = (await fetchMonthlyDocumentsEquipment()).map(formatVehiculesDocuments);
-  const permanentDocuments = (await fetchPermanentDocumentsEquipment()).map(formatVehiculesDocuments);
-  const cookiesStore = cookies();
-  const savedVisibilityPermanent = cookiesStore.get('permanent-documents-vehicles')?.value;
-  const savedVisibilityMonthly = cookiesStore.get('monthly-documents-vehicles')?.value;
-  const savedFiltersPermanent = cookiesStore.get('permanent-documents-vehicles-filters')?.value;
-  const savedFiltersMonthly = cookiesStore.get('monthly-documents-vehicles-filters')?.value;
+export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabValue: string; path: string }) {
   const viewData: ViewDataObj = {
     defaultValue: subtab || 'permanentes',
     path: path,
@@ -34,20 +24,7 @@ async function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabV
           ),
           component: (
             <>
-              {/* <ExpiredDataTable
-                data={permanentDocuments || []}
-                columns={ExpiredColums}
-                pending={true}
-                vehicles
-                defaultVisibleColumnsCustom={['resource', 'documentName', 'validity', 'id', 'mandatory', 'state']}
-                localStorageName={'dashboardVehiculosPermanentes'}
-                permanent
-              /> */}
-              <PermanentDocumentsEquipment
-                permanentDocuments={permanentDocuments}
-                savedVisibility={savedVisibilityPermanent ? JSON.parse(savedVisibilityPermanent) : undefined}
-                savedFilter={savedFiltersPermanent ? JSON.parse(savedFiltersPermanent) : []}
-              />
+              <PermanentDocumentsWrapper />
             </>
           ),
         },
@@ -68,20 +45,7 @@ async function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabV
           ),
           component: (
             <>
-              {/* <ExpiredDataTable
-                data={monthlyDocuments || []}
-                columns={ColumnsMonthly}
-                pending={true}
-                vehicles
-                defaultVisibleColumnsCustom={['resource', 'documentName', 'validity', 'id', 'mandatory', 'state']}
-                localStorageName={'dashboardVehiculosMensuales'}
-                monthly
-              /> */}
-              <MonthlyDocumentsEquipment
-                monthlyDocuments={monthlyDocuments}
-                savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : undefined}
-                savedFilter={savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : []}
-              />
+              <MonthlyDocumentsWrapper />
             </>
           ),
         },
@@ -122,5 +86,3 @@ async function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabV
     // </Tabs>
   );
 }
-
-export default EquipmentTabs;

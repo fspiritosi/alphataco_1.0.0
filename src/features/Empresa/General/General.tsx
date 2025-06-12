@@ -1,39 +1,16 @@
-import TypesDocumentAction, {
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
+import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
 import DocumentTabComponent from '@/components/DocumentTabComponent';
 import EditCompanyButton from '@/components/EditCompanyButton';
 import { RegisterWithRole } from '@/components/RegisterWithRole';
-import CompanyComponent from '@/features/Empresa/General/components/company/CompanyComponent';
-// import DangerZoneComponent from '@/features/Empresa/General/components/company/DangerZoneComponent';
-import { fetchAllEmployeesWithRelations, fetchAllEquipmentWithRelations } from '@/app/server/GET/actions';
-
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
-
-import { getRole } from '@/lib/utils/getRole';
 import { cookies } from 'next/headers';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
-import { fetchAllCostCenters, fetchAllSectors, getCompany } from './actions/actions';
+import CompanyComponent from './components/company/CompanyComponent';
 import CostCenterTab from './components/cost-center/CostCenterTab';
-import OrganigramTab from './components/organigrama/OrganigramTab';
-async function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
-  const coockiesStore = cookies();
-  const company_id = coockiesStore.get('actualComp')?.value;
-  const costCenters = await fetchAllCostCenters();
-  const companyData = await getCompany();
-  const sectors = await fetchAllSectors();
-  const EmployeesOptionsData = await setEmployeeDataOptions();
-  const VehicleOptionsData = await setVehicleDataOptions();
-
-  const empleadosCargados = await fetchAllEmployeesWithRelations();
-  const equiposCargados = await fetchAllEquipmentWithRelations();
-  const role = await getRole();
-
-  const savedVisibilityCostCenter = coockiesStore.get('cost-center-table')?.value;
-  const savedFilterCostCenter = coockiesStore.get('cost-center-table-filters')?.value;
-  const savedVisibilityOrganigram = coockiesStore.get('organigram-table')?.value;
-  const savedFilterOrganigram = coockiesStore.get('organigram-table-filters')?.value;
+import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
+function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
 
   const viewData = {
     defaultValue: subtab || 'company',
@@ -49,7 +26,7 @@ async function General({ tabValue, subtab }: { subtab?: string; tabValue: string
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
           buttonAction: <EditCompanyButton companyId={company_id?.toString() ?? ''} />,
-          component: <CompanyComponent company={companyData[0] as any} />,
+          component: <CompanyComponent />,
         },
       },
       {
@@ -62,13 +39,7 @@ async function General({ tabValue, subtab }: { subtab?: string; tabValue: string
           //description: 'Lista de documentos a nombre de la empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            <CostCenterTab
-              savedFilter={savedFilterCostCenter ? JSON.parse(savedFilterCostCenter) : []}
-              costCenters={costCenters}
-              savedVisibility={savedVisibilityCostCenter ? JSON.parse(savedVisibilityCostCenter) : {}}
-            />
-          ),
+          component: <CostCenterTab />,
         },
       },
       {
@@ -81,13 +52,7 @@ async function General({ tabValue, subtab }: { subtab?: string; tabValue: string
           //description: 'Lista de usuarios de la empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            <OrganigramTab
-              sectors={sectors}
-              savedVisibility={savedVisibilityOrganigram ? JSON.parse(savedVisibilityOrganigram) : {}}
-              savedFilter={savedFilterOrganigram ? JSON.parse(savedFilterOrganigram) : []}
-            />
-          ),
+          component: <OrganigramTabWrapper />,
         },
       },
       {
@@ -117,14 +82,7 @@ async function General({ tabValue, subtab }: { subtab?: string; tabValue: string
           buttonActioRestricted: [''],
           buttonAction: (
             <div className="flex gap-4 flex-wrap ">
-              <TypesDocumentAction
-                EmployeesOptionsData={EmployeesOptionsData}
-                VehicleOptionsData={VehicleOptionsData}
-                empleadosCargados={empleadosCargados}
-                equiposCargados={equiposCargados}
-                role={role}
-                optionChildrenProp="Empresa"
-              />
+              <TypesDocumentAction optionChildrenProp="Empresa" />
             </div>
           ),
           component: <DocumentTabComponent />,

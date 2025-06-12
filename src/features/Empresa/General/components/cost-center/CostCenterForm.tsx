@@ -1,3 +1,4 @@
+'use client';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -9,13 +10,15 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { createCostCenter, updateCostCenter } from '../../actions/actions';
+import { useCostCenterStore } from './store/costCenter.store';
 const CostCenterSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: 'Debe ingresar el nombre del centro de costo' }),
   is_active: z.boolean().optional(),
 });
 
-function CostCenterForm({ editingCostCenter }: { editingCostCenter: CostCenter | null }) {
+function CostCenterForm() {
+  const editingCostCenter = useCostCenterStore((state) => state.costCenter);
   const form = useForm<z.infer<typeof CostCenterSchema>>({
     resolver: zodResolver(CostCenterSchema),
     defaultValues: {

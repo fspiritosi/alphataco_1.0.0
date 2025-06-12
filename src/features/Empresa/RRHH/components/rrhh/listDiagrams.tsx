@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { fetchDiagramsTypes } from '@/app/server/GET/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -31,6 +32,18 @@ import { fetchAllWorkDiagrams } from './actions/actions';
 //   active_novelty: string;
 //   inactive_novelty: string;
 // }
+
+// interface Diagram {
+//   id: string;
+//   created_at: string;
+//   name: string;
+//   is_active: boolean;
+//   active_working_days: number;
+//   inactive_working_days: number;
+//   active_novelty: string;
+//   inactive_novelty: string;
+// }
+
 interface Diagram {
   id: string;
   created_at: string;
@@ -38,8 +51,18 @@ interface Diagram {
   is_active: boolean;
   active_working_days: number;
   inactive_working_days: number;
-  active_novelty: string;
-  inactive_novelty: string;
+  work_diagram_active_novelties: Array<{
+    id: string;
+    created_at: string;
+    diagram_type: {
+      id: string;
+      name: string;
+    };
+  }>;
+  inactive_novelty: {
+    id: string;
+    name: string;
+  };
 }
 
 // <TableHead className="w-[180px]">Nombre</TableHead>
@@ -50,9 +73,7 @@ interface Diagram {
 // <TableHead className="w-[180px]">Novedad inactiva</TableHead>
 // <TableHead>Acciones</TableHead>
 
-export function getDiagramColumns(
-  onEdit: (diagram: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]) => void
-): ColumnDef<Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]>[] {
+export function getDiagramColumns(onEdit: (diagram: Diagram) => void): ColumnDef<Diagram>[] {
   return [
     {
       accessorKey: 'name',
@@ -91,11 +112,46 @@ export function getDiagramColumns(
       ),
     },
     {
-      accessorKey: 'active_novelty.name',
+      accessorKey: 'work_diagram_active_novelties',
       id: 'Novedad activa',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Novedad activa" />,
+      cell: ({ row }) => {
+        const activeNovelties = row.original.work_diagram_active_novelties || [];
+        const firstNovelty = activeNovelties[0]?.diagram_type?.name;
+        const remainingCount = Math.max(0, activeNovelties.length - 1);
+
+        return (
+          <div className="flex items-center gap-2">
+            {firstNovelty && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 cursor-pointer">
+                      <Badge className="whitespace-nowrap">
+                        {firstNovelty}
+                        {remainingCount > 0 && ` +${remainingCount}`}
+                      </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="space-y-1">
+                      <h4 className="font-medium">Novedades activas</h4>
+                      {activeNovelties.map((novelty, index) => (
+                        <div key={index} className="text-sm">
+                          {novelty.diagram_type?.name}
+                        </div>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        );
+      },
       filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
+        const novelties = row.original.work_diagram_active_novelties || [];
+        return novelties.some((novelty) => value.includes(novelty.diagram_type?.name));
       },
     },
     {
@@ -148,12 +204,11 @@ export default function ListDiagrams({
   const activeNovelties = createFilterOptions(filteredData, (document) => document.active_novelty?.name);
   const inactiveNovelties = createFilterOptions(filteredData, (document) => document.inactive_novelty?.name);
 
-  const handleEdit = (diagram: Awaited<ReturnType<typeof fetchAllWorkDiagrams>>[number]) => {
-    onEdit(diagram);
+  const handleEdit = (diagram: Diagram) => {
+    onEdit(diagram as any);
     onModeChange('edit');
   };
 
-  console.log(filteredData, 'filteredData');
   return (
     <div className="mx-auto ml-4">
       <div className="flex flex-col">
@@ -169,7 +224,7 @@ export default function ListDiagrams({
           <BaseDataTable
             savedVisibility={savedVisibility}
             columns={getDiagramColumns(handleEdit)}
-            data={filteredData}
+            data={filteredData as any}
             tableId="diagram-table-empresa"
             toolbarOptions={{
               initialVisibleFilters: savedFilter || [],

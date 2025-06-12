@@ -1,20 +1,17 @@
-'use client';
 import { ExpiredColums } from '@/app/dashboard/colums';
+import { fetchEmployeePermanentDocuments } from '@/app/server/GET/actions';
 import { formatEmployeeDocuments } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { VisibilityState } from '@tanstack/react-table';
+import { cookies } from 'next/headers';
 import { createFilterOptions } from '../components/utils/utils';
-import { PermanentDocumentsDownloadButton } from './PermanentDocumentsDownloadButton';
 
-function PermanentDocuments({
-  permanentDocuments,
-  savedVisibility,
-  savedFilters,
-}: {
-  permanentDocuments: ReturnType<typeof formatEmployeeDocuments>[];
-  savedVisibility: VisibilityState;
-  savedFilters: string[];
-}) {
+async function PermanentDocuments() {
+  const permanentDocuments = (await fetchEmployeePermanentDocuments()).map(formatEmployeeDocuments);
+  const cookiesStore = cookies();
+  const savedVisibilityPermanent = cookiesStore.get(`permanent-documents-employees`)?.value;
+  const savedFiltersPermanent = cookiesStore.get(`permanent-documents-employees-filters`)?.value;
+
   const employeeName = createFilterOptions(permanentDocuments, (employee) => employee.resource);
   const documentName = createFilterOptions(permanentDocuments, (document) => document.documentName);
 
@@ -31,7 +28,7 @@ function PermanentDocuments({
         columns={ExpiredColums}
         data={permanentDocuments}
         toolbarOptions={{
-          initialVisibleFilters: savedFilters || [],
+          initialVisibleFilters: JSON.parse(savedFiltersPermanent || '[]'),
           filterableColumns: [
             {
               columnId: 'Empleado',
@@ -53,10 +50,12 @@ function PermanentDocuments({
               showTo: true,
             },
           ],
-          extraActions: (table) => <PermanentDocumentsDownloadButton table={table} />,
+          showDocumentDownload: true,
+          showExport: false,
+          // extraActions: (table) => <PermanentDocumentsDownloadButton table={table} />,
           // extraActions: <div>keloke</div>,
         }}
-        savedVisibility={savedVisibility}
+        savedVisibility={JSON.parse(savedVisibilityPermanent || '{}') as VisibilityState}
       />
     </div>
   );

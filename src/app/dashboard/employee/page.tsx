@@ -1,38 +1,12 @@
-import {
-  fetchAllDocumentTypes,
-  fetchAllEmployeesWithRelations,
-  fetchAllEquipmentWithRelations,
-} from '@/app/server/GET/actions';
-
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
-import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
-import Viewcomponent from '@/components/ViewComponent';
-import { getRole } from '@/lib/utils/getRole';
-import { cookies } from 'next/headers';
-import { Suspense } from 'react';
+import ViewComponent from '@/components/ViewComponent';
 import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile';
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
-import TypesDocumentAction, {
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from '../document/documentComponents/TypesDocumentAction';
-import TypesDocumentsView from '../document/documentComponents/TypesDocumentsView';
+import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
 
-const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
-  const cookiesStore = cookies();
-  const savedVisibility = cookiesStore.get(`document_type_employees`)?.value;
-  const savedFilters = cookiesStore.get(`document_type_employees-filters`)?.value;
-
-  const EmployeesOptionsData = await setEmployeeDataOptions();
-  const VehicleOptionsData = await setVehicleDataOptions();
-
-  const empleadosCargados = await fetchAllEmployeesWithRelations();
-  const equiposCargados = await fetchAllEquipmentWithRelations();
-  const document_types = await fetchAllDocumentTypes();
-  const role = await getRole();
-
+const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
   const viewData = {
     defaultValue: searchParams?.tab || 'employees',
     path: '/dashboard/employee',
@@ -45,11 +19,7 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
           title: 'Empleados',
           description: 'Aquí encontrarás todos empleados',
           buttonActioRestricted: ['Invitado'],
-          component: (
-            <div>
-              <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />
-            </div>
-          ),
+          component: <EmployeeListTabs tabValue="employees" subtab={searchParams?.subtab} actives inactives />,
         },
       },
       {
@@ -93,28 +63,8 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
           title: 'Tipos de documentos',
           description: 'Tipos de documentos auditables',
           buttonActioRestricted: [''],
-          buttonAction: (
-            <TypesDocumentAction
-              optionChildrenProp="Persona"
-              EmployeesOptionsData={EmployeesOptionsData}
-              VehicleOptionsData={VehicleOptionsData}
-              empleadosCargados={empleadosCargados}
-              equiposCargados={equiposCargados}
-              role={role}
-            />
-          ),
-          component: (
-            <TypesDocumentsView
-              savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-              savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-              personas
-              employeeMockValues={EmployeesOptionsData}
-              vehicleMockValues={VehicleOptionsData}
-              employees={empleadosCargados}
-              vehicles={equiposCargados}
-              document_types={document_types}
-            />
-          ),
+          // El botón ahora se pasa automáticamente desde TypesDocumentsViewWrapper
+          component: <TypesDocumentsViewWrapper optionChildrenProp="Persona" />,
         },
       },
       {
@@ -142,11 +92,7 @@ const EmployeePage = async ({ searchParams }: { searchParams: { tab: string; sub
     ],
   };
 
-  return (
-    <Suspense fallback={<PageTableSkeleton />}>
-      <Viewcomponent viewData={viewData} />
-    </Suspense>
-  );
+  return <ViewComponent viewData={viewData} />;
 };
 
 export default EmployeePage;

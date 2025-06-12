@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import {
   Select,
   SelectContent,
@@ -27,22 +28,12 @@ const WorkDiagramSchema = z.object({
   active_working_days: z.number().int().min(0, {
     message: 'Active days must be a positive number.',
   }),
-  active_novelty: z.string().optional(),
+  active_novelty: z.array(z.string()).optional(),
   inactive_working_days: z.number().int().min(0, {
     message: 'Inactive days must be a positive number.',
   }),
   inactive_novelty: z.string().optional(),
 });
-
-// interface DiagramType {
-//   id: string;
-//   created_at: string;
-//   name: string;
-//   company_id: string;
-//   color: string;
-//   short_description: string;
-//   work_active: boolean;
-// }
 
 type WorkDiagramFormValues = z.infer<typeof WorkDiagramSchema>;
 
@@ -67,24 +58,31 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
   });
   const { reset } = form;
   const router = useRouter();
-
-  console.log(diagram, 'diagram');
-  console.log(diagramsTypes, 'diagramsTypes');
+  const fixedOptions =
+    diagramsTypes
+      ?.filter((opt) => opt.work_active)
+      .map((opt) => ({
+        value: opt.id,
+        label: opt.name ?? 'Sin nombre',
+      })) || [];
 
   const isViewMode = false;
 
   useEffect(() => {
-    if (diagram && diagramsTypes) {
+    if (diagram) {
+      // Extraer los IDs de las novedades activas
+      const activeNoveltyIds = diagram.work_diagram_active_novelties?.map((n: any) => n.diagram_type.id) || [];
+
       form.reset({
         name: diagram.name,
         is_active: diagram.is_active,
         active_working_days: diagram.active_working_days,
         inactive_working_days: diagram.inactive_working_days,
-        active_novelty: diagram.active_novelty?.id || '',
+        active_novelty: activeNoveltyIds,
         inactive_novelty: diagram.inactive_novelty?.id || '',
       });
     }
-  }, [diagram, diagramsTypes, form]);
+  }, [diagram, form]);
 
   const onSubmit = async (values: z.infer<typeof WorkDiagramSchema>) => {
     toast.promise(
@@ -94,7 +92,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
           is_active: values.is_active,
           active_working_days: values.active_working_days,
           inactive_working_days: values.inactive_working_days,
-          active_novelty: values.active_novelty || '',
+          active_novelty: values.active_novelty || [],
           inactive_novelty: values.inactive_novelty || '',
         });
       },
@@ -124,7 +122,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
           is_active: values.is_active,
           active_working_days: values.active_working_days,
           inactive_working_days: values.inactive_working_days,
-          active_novelty: values.active_novelty || '',
+          active_novelty: values.active_novelty || [],
           inactive_novelty: values.inactive_novelty || '',
         });
       },
@@ -147,7 +145,7 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
       is_active: false,
       active_working_days: 0,
       inactive_working_days: 0,
-      active_novelty: '',
+      active_novelty: [],
       inactive_novelty: '',
     });
     setMode('create');
@@ -226,26 +224,19 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
               control={form.control}
               name="active_novelty"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="w-[215px]">
                   <FormLabel>Novedad Activa</FormLabel>
                   <FormControl>
-                    <Select onValueChange={field.onChange} value={field.value ?? ''} disabled={isViewMode}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Tipo de Novedad" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Novedad</SelectLabel>
-                          {diagramsTypes
-                            ?.filter((diagramType) => diagramType.work_active)
-                            .map((diagramType) => (
-                              <SelectItem key={diagramType.id} value={diagramType.id}>
-                                {diagramType.name}
-                              </SelectItem>
-                            ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <MultiSelectCombobox
+                      options={fixedOptions}
+                      selectedValues={Array.isArray(field.value) ? field.value : []}
+                      onChange={(selected) => {
+                        field.onChange(selected);
+                      }}
+                      placeholder="Tipo de Novedades"
+                      disabled={isViewMode}
+                      emptyMessage="No hay novedades disponibles"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

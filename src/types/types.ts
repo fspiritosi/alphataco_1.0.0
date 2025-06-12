@@ -711,6 +711,27 @@ export type WorkDiagram = {
   company_id: string;
   created_at: string;
 };
+export type WorkDiagramWithRelations = {
+  id: string;
+  created_at: string;
+  name: string;
+  is_active: boolean;
+  active_working_days: number;
+  inactive_working_days: number;
+  work_diagram_active_novelties: Array<{
+    id: string;
+    created_at: string;
+    diagram_type: {
+      id: string;
+      name: string;
+    };
+  }>;
+  active_novelty?: any;
+  inactive_novelty: {
+    id: string;
+    name: string;
+  };
+};
 export type Position = {
   id?: string;
   created_at?: string;

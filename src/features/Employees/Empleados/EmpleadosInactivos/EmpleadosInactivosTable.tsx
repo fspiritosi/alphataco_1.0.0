@@ -1,22 +1,18 @@
-import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { fetchAllEmployeesInactives } from '@/shared/actions/employees.actions';
 import { VisibilityState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
-import { formatEmployeesForTable } from '../components/utils/utils';
+import { EmployeesTableReusable } from '../components/tables/data/employees-table';
 
 async function EmpleadosInactivosTable() {
-  const employees = await fetchAllEmployeesInactives();
-  const formattedEmployees = formatEmployeesForTable(employees);
+  const employees = fetchAllEmployeesInactives();
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get(`employees-inactivos-table`)?.value;
-
-  // console.log(savedVisibility, 'savedVisibility');
 
   return (
     <div>
       <EmployeesTableReusable
         row_classname="text-red-500"
-        employees={formattedEmployees}
+        employeesPromise={employees}
         tableId="employees-inactivos-table"
         savedVisibility={JSON.parse(savedVisibility || '{}') as VisibilityState}
       />

@@ -3,14 +3,15 @@ import {
   fetchAllDocumentTypes,
   fetchAllEmployeesWithRelations,
   fetchAllEquipmentWithRelations,
+  setEmployeeDataOptions,
+  setVehicleDataOptions,
 } from '@/app/server/GET/actions';
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisibilityState } from '@tanstack/react-table';
-import { useState } from 'react';
-import DocumentsTable from './DocumentsTable'; // Asumo que este componente existe
+import { ReactNode, useState } from 'react';
+import DocumentsTable from './DocumentsTable';
 import FilterHeader from './FilterComponent';
-import TypesDocumentAction, { setEmployeeDataOptions, setVehicleDataOptions } from './TypesDocumentAction';
 
 function TypesDocumentsView({
   personas,
@@ -27,6 +28,7 @@ function TypesDocumentsView({
   savedVisibility,
   savedFilters,
   optionChildrenProp,
+  actionComponent,
 }: {
   personas?: boolean;
   equipos?: boolean;
@@ -38,12 +40,18 @@ function TypesDocumentsView({
   employees: Awaited<ReturnType<typeof fetchAllEmployeesWithRelations>>;
   vehicles: Awaited<ReturnType<typeof fetchAllEquipmentWithRelations>>;
   role?: string;
-  document_types?: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
+  document_types: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
   savedVisibility: VisibilityState;
   savedFilters: string[];
   optionChildrenProp?: string;
+  actionComponent?: ReactNode;
 }) {
   // const document_types = useCountriesStore((state) => state.companyDocumentTypes);
+  // const document_types = use(document_typesPromise);
+  // const employeeMockValues = use(employeeMockValuesPromise);
+  // const vehicleMockValues = use(vehicleMockValuesPromise);
+  // const employees = use(employeesPromise);
+  // const vehicles = use(vehiclesPromise);
 
   const doc_personas = document_types?.filter((doc) => doc.applies === 'Persona').filter((e) => e.is_active);
   const doc_equipos = document_types?.filter((doc) => doc.applies === 'Equipos').filter((e) => e.is_active);
@@ -118,16 +126,7 @@ function TypesDocumentsView({
             {equipos && <TabsTrigger value="Equipos">Equipos ({filteredDocEquipos?.length || 0})</TabsTrigger>}
             {empresa && <TabsTrigger value="Empresa">Empresa ({filteredDocEmpresa?.length || 0})</TabsTrigger>}
           </TabsList>
-          <div>
-            <TypesDocumentAction
-              EmployeesOptionsData={employeeMockValues}
-              VehicleOptionsData={vehicleMockValues}
-              empleadosCargados={employees}
-              equiposCargados={vehicles}
-              role={role || ''}
-              optionChildrenProp={optionChildrenProp ? optionChildrenProp : equipos ? 'Equipos' : 'Persona'}
-            />
-          </div>
+          <div>{actionComponent}</div>
         </div>
         {personas && (
           <TabsContent value="Personas">
