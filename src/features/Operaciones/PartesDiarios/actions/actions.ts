@@ -768,7 +768,8 @@ export async function updateDailyReportRow(
         const recordsToUpdate = historyRecords.filter(
           (record) =>
             tablesToFilter.includes(record.related_table || '') &&
-            (record.action_type === 'LINK' || record.action_type === 'UNLINK')
+            (record.action_type === 'LINK' || record.action_type === 'UNLINK') &&
+            !record.reassignment_reason
         );
 
         // Actualizar cada registro con la razón de reasignación
