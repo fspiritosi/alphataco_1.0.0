@@ -126,7 +126,7 @@ export default function ViewDailysReports() {
       id: report.id,
       date: report.date,
       status: report.status, // Asumiendo que todos los reportes están abiertos por defecto
-      dailyreportrows: report.dailyreportrows.map((row: any) => ({
+      dailyreportrows: report.dailyreportrows?.map((row: any) => ({
         id: row.id,
         date: report.date,
         customer: row.customer_id?.id,

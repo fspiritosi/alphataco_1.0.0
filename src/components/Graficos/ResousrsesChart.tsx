@@ -1,20 +1,9 @@
 'use client';
 import { Label, Pie, PieChart } from 'recharts';
 
-import { fetchAllEquipmentWithBrand } from '@/app/server/GET/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { fetchAllEmployees } from '@/shared/actions/employees.actions';
-import cookie from 'js-cookie';
-import { useEffect, useState } from 'react';
-
-const chartData = [
-  { browser: 'chrome', visitors: 275, fill: 'var(--color-chrome)' },
-  { browser: 'safari', visitors: 200, fill: 'var(--color-safari)' },
-  { browser: 'firefox', visitors: 287, fill: 'var(--color-firefox)' },
-  { browser: 'edge', visitors: 173, fill: 'var(--color-edge)' },
-  { browser: 'other', visitors: 190, fill: 'var(--color-other)' },
-];
+import { use } from 'react';
 
 const chartConfig = {
   visitors: {
@@ -30,48 +19,27 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-type ChartData = {
-  totalResourses: any;
-  employees: any;
-  vehicles: any;
-};
+export function ResoursesChart({ employees, equipments }: { employees: Promise<number>; equipments: Promise<number> }) {
+  // const [data, setData] = useState<ChartData>();
 
-export function ResoursesChart() {
-  const URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const [data, setData] = useState<ChartData>();
-
-  const company_id = cookie.get('actualComp');
+  const employeesCount = use(employees);
+  const equipmentsCount = use(equipments);
+  console.log(employeesCount, equipmentsCount);
 
   const dataChart = [
     {
       browser: 'empleados',
-      visitors: data?.employees,
+      visitors: employeesCount,
       fill: '#8DB9D7',
     },
     {
       browser: 'equipos',
-      visitors: data?.vehicles,
+      visitors: equipmentsCount,
       fill: '#1F4A67',
     },
   ];
 
   const today = new Date().toLocaleDateString();
-
-  useEffect(() => {
-    async function getResources() {
-      // const { employees } = await fetch(`${URL}/api/employees?actual=${company_id}`).then((e) => e.json());
-      const employees = await fetchAllEmployees();
-      // const { equipments } = await fetch(`${URL}/api/equipment?actual=${company_id}`).then((e) => e.json());
-      const equipments = await fetchAllEquipmentWithBrand();
-
-      setData({
-        totalResourses: employees?.length + equipments?.length,
-        employees: employees?.length,
-        vehicles: equipments?.length,
-      });
-    }
-    getResources();
-  }, [company_id]);
 
   return (
     <Card className="flex flex-col">
@@ -90,7 +58,7 @@ export function ResoursesChart() {
                     return (
                       <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
                         <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl font-bold">
-                          {data?.totalResourses}
+                          {employeesCount + equipmentsCount}
                         </tspan>
                         <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 24} className="fill-muted-foreground">
                           Recursos Totales

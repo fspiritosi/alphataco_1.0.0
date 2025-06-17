@@ -1,15 +1,34 @@
 'use client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, ColumnFiltersState, FilterFn, Row, Updater, VisibilityState } from '@tanstack/react-table';
 import { endOfMonth, format, startOfMonth } from 'date-fns';
+import { Trash2 } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { fetchDailyReportsWithFilters, getDailyReports, getDailyReportsForCurrentMonth } from './actions/actions';
+import { toast } from 'sonner';
+import {
+  deleteDailyReport,
+  fetchDailyReportsWithFilters,
+  getDailyReports,
+  getDailyReportsForCurrentMonth,
+} from './actions/actions';
 import { dailyReportStatus } from './utils/utils';
 
 const dateRangeFilter: FilterFn<Awaited<ReturnType<typeof getDailyReports>>[number]> = (
@@ -127,6 +146,57 @@ export const reportColumnas: ColumnDef<Awaited<ReturnType<typeof getDailyReports
       </Link>
     ),
   },
+  {
+    id: 'delete',
+    header: () => null, // Sin encabezado
+    cell: ({ row }) => {
+      const router = useRouter();
+      const hasRows = row.original.dailyreportrows.length > 0;
+
+      const handleDelete = async () => {
+        toast.promise(
+          async () => {
+            const result = await deleteDailyReport(row.original.id);
+          },
+          {
+            loading: 'Eliminando parte diario...',
+            success: 'Parte diario eliminado correctamente',
+            error: 'Error al eliminar el parte diario',
+          }
+        );
+        router.refresh();
+      };
+
+      return (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              disabled={hasRows}
+              title={hasRows ? 'No se puede eliminar un parte con registros' : 'Eliminar parte diario'}
+            >
+              <Trash2 className={hasRows ? 'text-gray-400' : 'text-red-500'} size={16} />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Está seguro de eliminar este parte diario?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. El parte diario será eliminado permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      );
+    },
+  },
 ];
 
 function DailyReportTable({
@@ -155,6 +225,10 @@ function DailyReportTable({
 
   // Estado para indicar carga
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setDailyRows(dailyReports);
+  }, [dailyReports]);
 
   // Función para cargar datos basados en filtros
   const fetchFilteredData = useCallback(async () => {

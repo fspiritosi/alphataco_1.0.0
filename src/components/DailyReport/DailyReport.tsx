@@ -1305,7 +1305,7 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
                             <MultiSelect
                               multiEmp={customerEquipment.map((eq) => ({
                                 id: eq.id,
-                                intern_number: eq.intern_number.toString(),
+                                intern_number: eq?.intern_number?.toString(),
                               }))}
                               placeholder="Seleccione equipos"
                               selectedItems={field.value}
