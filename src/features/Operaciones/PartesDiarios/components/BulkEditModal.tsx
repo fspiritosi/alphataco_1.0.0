@@ -162,7 +162,11 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
               {selectedRows.map((row) => (
                 <li key={row.id} className="p-2 bg-muted rounded-md flex justify-between">
                   <span>{row.customer}</span>
-                  <span className="text-muted-foreground">Estado actual: {row.status}</span>
+                  <span className="text-muted-foreground">
+                    {/* Separa en guiones con el split y con en mayuscula la primera */}
+                    Estado actual:{' '}
+                    {row.status.split('_').join(' ')[0].toUpperCase() + row.status.split('_').join(' ').slice(1)}
+                  </span>
                 </li>
               ))}
             </ul>
