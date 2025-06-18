@@ -325,6 +325,24 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       },
     },
     {
+      accessorKey: 'start_time',
+      id: 'Hora de inicio',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de inicio" />,
+      cell: ({ row }) => <span className="font-medium capitalize">{row.original.start_time}</span>,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'end_time',
+      id: 'Hora de fin',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de fin" />,
+      cell: ({ row }) => <span className="font-medium capitalize">{row.original.end_time}</span>,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'status',
       id: 'Estado',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,

@@ -204,16 +204,14 @@ export function DailyReportForm({
   // If arrays have different lengths, they've changed
   // If arrays have same length, check if any item is different
   const equipmentHasChanged = selectedRow?.equipment_references
-    ? selectedRow.equipment_references.length !== currentEquipmentWatch?.length ||
+    ? selectedRow.equipment_references.length > (currentEquipmentWatch?.length || 0) ||
       !selectedRow.equipment_references.every((equipment) => currentEquipmentWatch?.includes(equipment.id!))
     : false;
 
-  //Verificar que TODOS los ids sean iguales y esteen en el array
   const employeeHasChanged = selectedRow?.employees_references
-    ? selectedRow.employees_references.length !== currentEmployeesWatch?.length ||
+    ? selectedRow.employees_references.length > (currentEmployeesWatch?.length || 0) ||
       !selectedRow.employees_references.every((employee) => currentEmployeesWatch?.includes(employee.id!))
     : false;
-
   const onSubmit = async (data: DailyReportFormValues) => {
     //Si equipmentHasChanged o employeeHasChanged es true y reasigment_reason es null, mostrar error
     if (equipmentHasChanged || employeeHasChanged) {
@@ -435,6 +433,8 @@ export function DailyReportForm({
       form.setValue('document_path', defaultValues.document_path || '');
       form.setValue('type_service', defaultValues.type_service as 'mensual' | 'adicional');
       form.setValue('cancel_reason', defaultValues.cancel_reason || '');
+      form.setValue('start_time', defaultValues.start_time?.substring(0, 5) || '');
+      form.setValue('end_time', defaultValues.end_time?.substring(0, 5) || '');
 
       // Establecer sector
       if (defaultValues.sector_customer_id) {
@@ -602,6 +602,7 @@ export function DailyReportForm({
     { label: 'Jornada 8 horas', value: 'jornada 8 horas' },
     { label: 'Jornada 12 horas', value: 'jornada 12 horas' },
     { label: 'Jornada 24 horas', value: 'jornada 24 horas' },
+    { label: 'Por horario', value: 'por horario' },
   ];
 
   const handleOpenChange = (open: boolean) => {
@@ -917,12 +918,11 @@ export function DailyReportForm({
                         //         }))
                         //     )
                         //   ) || [];
-
                         const customerSectors = Array.from(
                           new Set(
                             selectedCustomer?.customer_services
                               ?.flatMap((service) => service.service_sectors || [])
-                              .filter((sector) => sector.sectors)
+                              .filter((sector) => sector.sectors && sector.service_id === selectedServiceId)
                               .map((sector) => ({
                                 sector_id: sector.sectors?.id,
                                 id: sector.id,
@@ -1026,7 +1026,7 @@ export function DailyReportForm({
                           new Set(
                             selectedCustomer?.customer_services
                               ?.flatMap((service) => service.service_areas || [])
-                              .filter((area) => area.areas_cliente)
+                              .filter((area) => area.areas_cliente && area.service_id === selectedServiceId)
                               .map((area) => {
                                 return {
                                   id: area.id,
@@ -1046,6 +1046,8 @@ export function DailyReportForm({
                               .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente
                               ?.descripcion_corta || '',
                         }));
+
+                        console.log(customerAreas);
 
                         // Encontrar el área seleccionada
                         const selectedArea = customerAreas.find((area) => area.id === field.value);
@@ -1609,7 +1611,7 @@ export function DailyReportForm({
                 />
 
                 {/* Horario (condicional) */}
-                {/* {form.watch('working_day') === 'por horario' && (
+                {form.watch('working_day') === 'por horario' && (
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -1634,7 +1636,7 @@ export function DailyReportForm({
                       )}
                     />
                   </div>
-                )} */}
+                )}
 
                 {/* Tipo de servicio */}
                 <FormField

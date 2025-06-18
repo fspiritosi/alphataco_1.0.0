@@ -741,15 +741,16 @@ export async function updateDailyReportRow(
     try {
       // Obtener la hora actual menos algunos segundos para asegurarnos de capturar los cambios recientes
       const recientTimestamp = new Date();
-      recientTimestamp.setSeconds(recientTimestamp.getSeconds() - 30); // 30 segundos atrás
 
+      //espear de 1.5 segundos para que se guarde el historial
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       // Buscar registros relacionados con cambios en equipos o empleados para esta fila de reporte
       const { data: historyRecords } = await supabase
         .from('dailyreportrows_history')
         .select('id, daily_report_row_id, related_table, action_type, created_at, reassignment_reason')
         .eq('daily_report_row_id', id)
-        .gt('created_at', recientTimestamp.toISOString())
-        .order('created_at', { ascending: false });
+        .is('reassignment_reason', null)
+        .eq('action_type', 'UNLINK');
 
       if (historyRecords && historyRecords.length > 0) {
         console.log('Registros de historial encontrados:', historyRecords);
