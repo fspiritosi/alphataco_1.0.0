@@ -848,6 +848,23 @@ export const fetchAllEquipmentWithBrand = async () => {
   }
   return equipments || [];
 };
+export const fetchAllEquipmentBasicData = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  let { data: equipments, error } = await supabase
+    .from('vehicles')
+    .select(`id, domain, serie, intern_number`)
+    .eq('company_id', company_id);
+
+  if (error) {
+    console.error('Error fetching equipment:', error);
+    return [];
+  }
+  return equipments || [];
+};
 
 export const fetchAllEquipment = async (company_equipment_id?: string) => {
   const cookiesStore = cookies();

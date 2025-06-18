@@ -36,6 +36,17 @@ import RepairModal from './RepairModal';
 
 export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
   {
+    accessorKey: 'domain',
+    id: 'Dominio',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
+    cell: ({ row }) => {
+      return <div className="flex items-center">{row.original.domain}</div>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
     accessorKey: 'title',
     id: 'Titulo',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Titulo" className="ml-2" />,
@@ -126,22 +137,22 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
       return value.includes(row.getValue(id));
     },
   },
+
   {
-    accessorKey: 'domain',
-    id: 'Dominio',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
+    accessorKey: 'fecha',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.domain}</div>;
+      return <div className="flex items-center">{moment(row.original.created_at).format('DD/MM/YYYY')}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
   },
   {
-    accessorKey: 'fecha',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
+    accessorKey: 'updated_at',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de modificacion" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{moment(row.original.created_at).format('DD/MM/YYYY')}</div>;
+      return <div className="flex items-center">{moment(row.original.updated_at).format('DD/MM/YYYY HH:mm')}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
