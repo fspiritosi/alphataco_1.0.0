@@ -12,12 +12,9 @@ export const fetchCurrentCompany = async () => {
 
   // <<<<<<< Updated upstream
   if (!company_id) {
-    console.log('qui');
     const user = await getCurrentUserProfile();
-    console.log(user);
     const { allCompanies, sharedCompanies } = await fetchUserCompanies(user?.id || '');
     const firstCompany = allCompanies[0] || sharedCompanies[0];
-    console.log(firstCompany);
     if (firstCompany) {
       console.log(firstCompany.id);
       // Establecer cookie desde el servidor

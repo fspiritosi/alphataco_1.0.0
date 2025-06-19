@@ -14,6 +14,7 @@ export interface DailyReportRowHistoryRecord {
   related_table: string;
   related_id: string;
   changed_data?: any;
+  reassignment_reason?: string | null;
 }
 
 // También definimos un tipo para el historial procesado que retornamos
@@ -30,6 +31,7 @@ export interface ProcessedHistoryEntry {
   relatedTable: string;
   relatedId: string;
   message: string;
+  reassignment_reason: string | null | undefined;
   displayTime: string;
 }
 // EXPORTAR TIPOS GLOBALES

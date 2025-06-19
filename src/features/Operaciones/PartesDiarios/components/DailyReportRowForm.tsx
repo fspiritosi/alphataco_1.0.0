@@ -73,7 +73,7 @@ export const dailyReportSchema = z
     equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
     type_service: z
-      .enum(['mensual', 'adicional'], {
+      .enum(['mensual', 'adicional', 'adicional_permanente'], {
         required_error: 'Debe seleccionar un tipo de servicio',
         invalid_type_error: 'Debe seleccionar un tipo de servicio',
       })
@@ -89,6 +89,7 @@ export const dailyReportSchema = z
     remit_number: z.string().optional(),
     cancel_reason: z.string().optional(),
     reprogram_date: z.date().optional(),
+    reasigment_reason: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -164,7 +165,6 @@ export function DailyReportForm({
   disabled,
   dailyReport,
 }: DailyReportFormProps) {
-  console.log(dailyReport);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
@@ -174,7 +174,56 @@ export function DailyReportForm({
   // Filtros de clientes
   const activeCustomers = customers?.filter((c) => c.is_active) || [];
 
+  const form = useForm<DailyReportFormValues>({
+    resolver: zodResolver(dailyReportSchema),
+    defaultValues: {
+      customer: '',
+      services: '',
+      item: '',
+      employees: [],
+      equipment: [],
+      working_day: '',
+      start_time: '',
+      end_time: '',
+      status: '',
+      description: '',
+      document_path: '',
+      sector_service_id: '',
+      areas_service_id: '',
+      remit_number: '',
+      equipos_cliente: [],
+      cancel_reason: '',
+      type_service: defaultValues?.type_service || undefined,
+      // ...defaultValues,
+    },
+  });
+
+  const currentEmployeesWatch = form.watch('employees');
+  const currentEquipmentWatch = form.watch('equipment');
+
+  // If arrays have different lengths, they've changed
+  // If arrays have same length, check if any item is different
+  const equipmentHasChanged = selectedRow?.equipment_references
+    ? selectedRow.equipment_references.length > (currentEquipmentWatch?.length || 0) ||
+      !selectedRow.equipment_references.every((equipment) => currentEquipmentWatch?.includes(equipment.id!))
+    : false;
+
+  const employeeHasChanged = selectedRow?.employees_references
+    ? selectedRow.employees_references.length > (currentEmployeesWatch?.length || 0) ||
+      !selectedRow.employees_references.every((employee) => currentEmployeesWatch?.includes(employee.id!))
+    : false;
   const onSubmit = async (data: DailyReportFormValues) => {
+    //Si equipmentHasChanged o employeeHasChanged es true y reasigment_reason es null, mostrar error
+    if (equipmentHasChanged || employeeHasChanged) {
+      if (!data.reasigment_reason) {
+        form.setError('reasigment_reason', {
+          type: 'manual',
+          message: 'Debe ingresar un motivo de reasignación',
+        });
+        return;
+      }
+    }
+
     // Asegurarse de que los empleados sean un array de IDs
     const employeeIds = Array.isArray(data.employees)
       ? data.employees.filter((emp): emp is string => typeof emp === 'string')
@@ -197,7 +246,7 @@ export function DailyReportForm({
       start_time: data.start_time || null,
       end_time: data.end_time || null,
       description: data.description,
-      daily_report_id: dailyReport[0].id,
+      daily_report_id: dailyReport[0]?.id,
       status: (data.status as DailyReportRowStatus) || 'pendiente',
       areas_service_id: data.areas_service_id,
       sector_service_id: data.sector_service_id,
@@ -220,7 +269,12 @@ export function DailyReportForm({
             rowData,
             employeeIdsUpdated,
             equipmentIdsUpdated,
-            data?.equipos_cliente || []
+            data?.equipos_cliente || [],
+            {
+              equipmentHasChanged,
+              employeeHasChanged,
+              reassignmentReason: data.reasigment_reason || '',
+            }
           );
           if (rowData.status === 'reprogramado') {
             const existingReports = await checkDailyReportExists([format(data.reprogram_date!, 'yyyy-MM-dd')]);
@@ -268,7 +322,6 @@ export function DailyReportForm({
         }
 
         // Actualizar la lista
-        router.refresh();
 
         // Cerrar el modal y limpiar
         document.getElementById('close-button-daily-report')?.click();
@@ -299,6 +352,7 @@ export function DailyReportForm({
         // Restablecer los estados locales
         setSelectedCustomerId(null);
         setSelectedServiceId(null);
+        router.refresh();
       },
       {
         loading: selectedRow ? 'Actualizando parte diario...' : 'Creando parte diario...',
@@ -307,30 +361,6 @@ export function DailyReportForm({
       }
     );
   };
-
-  const form = useForm<DailyReportFormValues>({
-    resolver: zodResolver(dailyReportSchema),
-    defaultValues: {
-      customer: '',
-      services: '',
-      item: '',
-      employees: [],
-      equipment: [],
-      working_day: '',
-      start_time: '',
-      end_time: '',
-      status: '',
-      description: '',
-      document_path: '',
-      sector_service_id: '',
-      areas_service_id: '',
-      remit_number: '',
-      equipos_cliente: [],
-      cancel_reason: '',
-      type_service: defaultValues?.type_service || undefined,
-      // ...defaultValues,
-    },
-  });
 
   useEffect(() => {
     // Si hay valores por defecto pero no hay cliente seleccionado
@@ -345,7 +375,7 @@ export function DailyReportForm({
     }
     // Si hay valores por defecto, establecer type_service inmediatamente
     if (defaultValues?.type_service) {
-      form.setValue('type_service', defaultValues.type_service as 'mensual' | 'adicional');
+      form.setValue('type_service', defaultValues.type_service as 'mensual' | 'adicional' | 'adicional_permanente');
     }
     if (defaultValues?.status) {
       form.setValue(
@@ -403,6 +433,8 @@ export function DailyReportForm({
       form.setValue('document_path', defaultValues.document_path || '');
       form.setValue('type_service', defaultValues.type_service as 'mensual' | 'adicional');
       form.setValue('cancel_reason', defaultValues.cancel_reason || '');
+      form.setValue('start_time', defaultValues.start_time?.substring(0, 5) || '');
+      form.setValue('end_time', defaultValues.end_time?.substring(0, 5) || '');
 
       // Establecer sector
       if (defaultValues.sector_customer_id) {
@@ -421,9 +453,7 @@ export function DailyReportForm({
       }
 
       if (defaultValues.customer_equipment) {
-        console.log(defaultValues.customer_equipment);
         const equipos_clienteIds = defaultValues.customer_equipment.map((eq) => eq.id || '');
-        console.log(equipos_clienteIds);
         form.setValue('equipos_cliente', equipos_clienteIds);
       }
 
@@ -571,6 +601,8 @@ export function DailyReportForm({
   const workingDayOptions = [
     { label: 'Jornada 8 horas', value: 'jornada 8 horas' },
     { label: 'Jornada 12 horas', value: 'jornada 12 horas' },
+    { label: 'Jornada 24 horas', value: 'jornada 24 horas' },
+    { label: 'Por horario', value: 'por horario' },
   ];
 
   const handleOpenChange = (open: boolean) => {
@@ -873,15 +905,41 @@ export function DailyReportForm({
                       name="sector_service_id"
                       render={({ field }) => {
                         // Filtrar sectores del cliente seleccionado
-                        const customerSectors =
-                          selectedCustomer?.customer_services
-                            ?.flatMap((service) => service.service_sectors || [])
-                            .filter((sector) => sector.sectors)
-                            .map((sector) => ({
-                              id: sector.id,
-                              name: sector.sectors?.name || '',
-                              description: sector.sectors?.descripcion_corta || '',
-                            })) || [];
+                        // const customerSectors =
+                        //   Array.from(
+                        //     new Set(
+                        //       selectedCustomer?.customer_services
+                        //         ?.flatMap((service) => service.service_sectors || [])
+                        //         .filter((sector) => sector.sectors)
+                        //         .map((sector) => ({
+                        //           id: sector.id,
+                        //           name: sector.sectors?.name || '',
+                        //           description: sector.sectors?.descripcion_corta || '',
+                        //         }))
+                        //     )
+                        //   ) || [];
+                        const customerSectors = Array.from(
+                          new Set(
+                            selectedCustomer?.customer_services
+                              ?.flatMap((service) => service.service_sectors || [])
+                              .filter((sector) => sector.sectors && sector.service_id === selectedServiceId)
+                              .map((sector) => ({
+                                sector_id: sector.sectors?.id,
+                                id: sector.id,
+                              }))
+                          )
+                        ).map((data) => ({
+                          id: data.id,
+                          name:
+                            selectedCustomer?.customer_services
+                              ?.flatMap((service) => service.service_sectors || [])
+                              .find((sector) => sector.sectors?.id === data.sector_id)?.sectors?.name || '',
+                          description:
+                            selectedCustomer?.customer_services
+                              ?.flatMap((service) => service.service_sectors || [])
+                              .find((sector) => sector.sectors?.id === data.sector_id)?.sectors?.descripcion_corta ||
+                            '',
+                        }));
 
                         // Encontrar el sector seleccionado
                         const selectedSector = customerSectors.find((sector) => sector.id === field.value);
@@ -964,15 +1022,32 @@ export function DailyReportForm({
                       name="areas_service_id"
                       render={({ field }) => {
                         // Filtrar áreas del cliente seleccionado
-                        const customerAreas =
-                          selectedCustomer?.customer_services
-                            ?.flatMap((service) => service.service_areas || [])
-                            .filter((area) => area.areas_cliente)
-                            .map((area) => ({
-                              id: area.id,
-                              name: area.areas_cliente?.nombre || '',
-                              description: area.areas_cliente?.descripcion_corta || '',
-                            })) || [];
+                        const customerAreas = Array.from(
+                          new Set(
+                            selectedCustomer?.customer_services
+                              ?.flatMap((service) => service.service_areas || [])
+                              .filter((area) => area.areas_cliente && area.service_id === selectedServiceId)
+                              .map((area) => {
+                                return {
+                                  id: area.id,
+                                  area_id: area.areas_cliente?.id,
+                                };
+                              })
+                          )
+                        ).map((data) => ({
+                          id: data.id,
+                          name:
+                            selectedCustomer?.customer_services
+                              ?.flatMap((service) => service.service_areas || [])
+                              .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente?.nombre || '',
+                          description:
+                            selectedCustomer?.customer_services
+                              ?.flatMap((service) => service.service_areas || [])
+                              .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente
+                              ?.descripcion_corta || '',
+                        }));
+
+                        console.log(customerAreas);
 
                         // Encontrar el área seleccionada
                         const selectedArea = customerAreas.find((area) => area.id === field.value);
@@ -1440,7 +1515,7 @@ export function DailyReportForm({
                                             field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
                                           )}
                                         />
-                                        {equipment.intern_number || equipment.domain}
+                                        {equipment.domain || equipment.intern_number}
                                       </div>
                                     </CommandItem>
                                   ))}
@@ -1454,6 +1529,24 @@ export function DailyReportForm({
                     </FormItem>
                   )}
                 />
+
+                {/* reasigment_reason */}
+
+                {(equipmentHasChanged || employeeHasChanged) && (
+                  <FormField
+                    control={form.control}
+                    name="reasigment_reason"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Motivo de reasignación</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ingrese el motivo de la reasignación" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 {/* Jornada */}
                 <FormField
@@ -1518,7 +1611,7 @@ export function DailyReportForm({
                 />
 
                 {/* Horario (condicional) */}
-                {/* {form.watch('working_day') === 'por horario' && (
+                {form.watch('working_day') === 'por horario' && (
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -1543,7 +1636,7 @@ export function DailyReportForm({
                       )}
                     />
                   </div>
-                )} */}
+                )}
 
                 {/* Tipo de servicio */}
                 <FormField
@@ -1577,6 +1670,16 @@ export function DailyReportForm({
                               />
                             </FormControl>
                             <FormLabel className="font-normal">Adicional</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem
+                                defaultValue={field.value}
+                                defaultChecked={field.value === 'adicional_permanente'}
+                                value="adicional_permanente"
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">Adicional Permanente</FormLabel>
                           </FormItem>
                         </RadioGroup>
                       </FormControl>

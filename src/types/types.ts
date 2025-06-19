@@ -619,6 +619,7 @@ export type FormattedSolicitudesRepair = {
   solicitud_status: string;
   type_of_maintenance: string;
   type_of_equipment: string;
+  updated_at: string | null;
   user_images: string[];
   intern_number: string;
   vehicle_id: string;

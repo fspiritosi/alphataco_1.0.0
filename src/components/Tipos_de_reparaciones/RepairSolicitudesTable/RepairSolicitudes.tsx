@@ -69,11 +69,7 @@ export default async function RepairSolicitudes({
     (repair) => repair.state
     // FileText // Icono para documentos
   );
-  const priority = createFilterOptions(
-    repairsFormatted,
-    (repair) => repair.priority
-    // FileText // Icono para documentos
-  );
+
   const Criticidad = createFilterOptions(
     repairsFormatted,
     (repair) => repair.priority
@@ -91,7 +87,7 @@ export default async function RepairSolicitudes({
     (repair) => repair.domain
     // FileText // Icono para documentos
   );
-  // console.log(repairsFormatted, 'repairsFormatted');
+  console.log(repairsFormatted, 'repairsFormatted');
 
   return (
     <>
@@ -117,7 +113,7 @@ export default async function RepairSolicitudes({
             {
               columnId: 'Criticidad',
               title: 'Criticidad',
-              options: priority,
+              options: Criticidad,
             },
             {
               columnId: 'Numero interno',

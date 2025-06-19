@@ -27,7 +27,7 @@ import DocumentViewerModal from './DocumentViewerFixed';
 import HistoryModal from './HistoryModal';
 export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDailyReportById>>) => {
   const report = reports[0];
-  return report.dailyreportrows.map((row) => ({
+  return report?.dailyreportrows?.map((row) => ({
     id: row.id,
     date: report.date,
     type_service: row.type_service,
@@ -74,6 +74,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
       start_time: row.start_time,
       end_time: row.end_time,
       description: row.description,
+      type_service: row.type_service,
       // daily_report_id: row.id,
       areas_service_id: row.areas_service_id,
       sector_service_id: row.sector_service_id,
@@ -90,6 +91,7 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       header: ({ table }) => (
         <div className="w-[20px]">
           <Checkbox
+            disabled={table.getRowModel().rows.every((row) => !row.getCanSelect())}
             checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
             onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
             aria-label="Select all"
@@ -97,14 +99,17 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
           />
         </div>
       ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-          className="translate-y-[2px]"
-        />
-      ),
+      cell: ({ row }) => {
+        return (
+          <Checkbox
+            disabled={!row.getCanSelect()}
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+            className="translate-y-[2px]"
+          />
+        );
+      },
       enableSorting: false,
       enableHiding: false,
     },
@@ -173,7 +178,7 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de servicio" />,
       cell: ({ row }) => {
         return row.original.type_service ? (
-          <Badge className="font-medium capitalize">{row.original.type_service}</Badge>
+          <Badge className="font-medium capitalize">{row.original.type_service.replaceAll('_', ' ')}</Badge>
         ) : null;
       },
       filterFn: (row, id, value) => {
@@ -320,6 +325,24 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       },
     },
     {
+      accessorKey: 'start_time',
+      id: 'Hora de inicio',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de inicio" />,
+      cell: ({ row }) => <span className="font-medium capitalize">{row.original.start_time}</span>,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'end_time',
+      id: 'Hora de fin',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de fin" />,
+      cell: ({ row }) => <span className="font-medium capitalize">{row.original.end_time}</span>,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'status',
       id: 'Estado',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
@@ -373,13 +396,48 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       id: 'actions',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
       cell: ({ row }) => {
-        // Si el estado es 'ejecutado' y hay un documento, mostrar botón para verlo
+        // Comprobamos si la fecha es hoy
+        const isToday = moment(row.original.date).isSame(moment(), 'day');
+
+        // Si el estado es 'ejecutado'
         if (row.original.status === 'ejecutado') {
-          return row.original.document_path ? (
+          const documentComponent = row.original.document_path ? (
             <DocumentViewerModal documentUrl={row.original.document_path} documentData={row.original} />
           ) : (
             <DocumentUploadModal documentData={row.original} />
           );
+
+          // Si es de hoy, añadir también un botón de editar
+          if (isToday) {
+            return (
+              <div className="flex items-center gap-1">
+                {documentComponent}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 hover:text-blue-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(row.original);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Editar</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            );
+          }
+
+          // Si no es de hoy, solo mostrar el componente de documento
+          return documentComponent;
         }
 
         // Para otros estados, mostrar botones de editar/eliminar
@@ -453,12 +511,12 @@ export function DayliReportDetailTable({
   const customerOptions = createFilterOptions(formattedData, (area) => area.customer);
   const servicesOptions = createFilterOptions(formattedData, (area) => area.services);
   const itemsOptions = createFilterOptions(formattedData, (area) => area.item);
-  const allEmployeesName = formattedData.flatMap((area) => area.employees).filter(Boolean);
+  const allEmployeesName = formattedData?.flatMap((area) => area.employees).filter(Boolean);
   const employeesOptions = createFilterOptions(allEmployeesName, (name) => name);
-  const allEquipmentName = formattedData.flatMap((area) => area.equipment).filter(Boolean);
+  const allEquipmentName = formattedData?.flatMap((area) => area.equipment).filter(Boolean);
   const equipmentOptions = createFilterOptions(allEquipmentName, (name) => name);
   const allCustomerEquipmentName = formattedData
-    .flatMap((area) => area.customer_equipment.map((eq) => eq.name))
+    ?.flatMap((area) => area.customer_equipment.map((eq) => eq.name))
     .filter(Boolean);
   const customerEquipmentOptions = createFilterOptions(allCustomerEquipmentName, (name) => name);
 
@@ -477,11 +535,10 @@ export function DayliReportDetailTable({
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DailyReportRow[]>([]);
   const router = useRouter();
-  console.log(dailyReport);
   return (
     <>
       <div
-        className={cn('flex justify-between items-center', dailyReport[0].status !== 'abierto' ? 'justify-end' : '')}
+        className={cn('flex justify-between items-center', dailyReport[0]?.status !== 'abierto' ? 'justify-end' : '')}
       >
         <DailyReportForm
           customers={customers}
@@ -491,15 +548,16 @@ export function DayliReportDetailTable({
           selectedRow={selectedRow}
           setSelectedRow={setSelectedRow}
           defaultValues={selectedRow}
-          disabled={dailyReport[0].status !== 'abierto'}
+          disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
         />
-        <ClonarRegistrosButton formattedData={formattedData.filter((row) => row.type_service === 'mensual')} />
+        <ClonarRegistrosButton formattedData={formattedData} />
       </div>
       <BaseDataTable
         className="mt-4"
         columns={getDailyReportColumns(handleEditRow)}
         data={formattedData || []}
         savedVisibility={savedVisibility}
+        enableRowSelection={(row) => row.original.status !== 'ejecutado'}
         tableId="dailyReportTableDetail"
         toolbarOptions={{
           initialVisibleFilters: savedFilter || [],

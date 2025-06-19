@@ -13,11 +13,12 @@ import { EmployeeTableData } from './types';
 interface EmployeesTableProps {
   onRowClick?: (employee: EmployeeTableData) => void;
   className?: string;
-  employeesPromise: ReturnType<typeof fetchAllEmployees>;
+  employeesPromise?: ReturnType<typeof fetchAllEmployees>;
   tableId?: string;
   savedVisibility: VisibilityState;
   row_classname?: string;
   savedFilters?: string[];
+  transformedEmployees?: Awaited<ReturnType<typeof fetchAllEmployees>>;
 }
 
 // Función especial para propiedades anidadas complejas como las afectaciones
@@ -49,12 +50,14 @@ export function EmployeesTableReusable({
   tableId = 'employees-table',
   savedVisibility,
   row_classname,
+  transformedEmployees,
+
   savedFilters,
 }: EmployeesTableProps) {
   const router = useRouter();
-  const employees2 = use(employeesPromise);
+  const employees2 = employeesPromise ? use(employeesPromise) : transformedEmployees;
 
-  const employees = formatEmployeesForTable(employees2);
+  const employees = formatEmployeesForTable(employees2 as any);
 
   // Generar todas las opciones de filtro utilizando las funciones utilitarias
   const positions = createFilterOptions(
