@@ -1,20 +1,28 @@
 'use client';
 
+import React from 'react';
+
 import { EquipmentColums } from '@/app/dashboard/equipment/columns';
 import { EquipmentTable } from '@/app/dashboard/equipment/data-equipment';
 import { fetchAllEquipment } from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions, formatEmployeesForTable } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { assignEmployeesToCustomer, assignEquipmentsToCustomer } from '../actions';
 import { fechAllCustomers } from '../actions/create';
 import { CustomerForm } from './CustomerForm';
-import ServiceTable from './Services/ServiceTable'; // Importación por defecto corregida
+import ServiceTable from './Services/ServiceTable';
+
 // Form related imports removed for simplicity
 
 interface Customer {
@@ -68,61 +76,191 @@ export function DataCustomers<TData extends Customer, TValue>({
   savedFiltersServiceTable,
   savedVisibilityEquipment,
 }: DataCustomersProps<TData, TValue>) {
+  const router = useRouter();
   const [selectedCustomer, setSelectedCustomer] = useState<TData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // Estado para manejar los empleados seleccionados
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
-  const [dialogSelectedEmployees, setDialogSelectedEmployees] = useState<string[]>([]);
+  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
+  const [isEquipmentDialogOpen, setIsEquipmentDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  // Opciones para el MultiSelectCombobox
-  const employeeOptions = (employees ?? []).map((emp) => ({
-    label: emp.fullName || 'Sin nombre',
-    value: String(emp.id),
-  }));
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // State for form reset when dialog closes
 
-  // Filtrar empleados asignados al cliente seleccionado
-  const customerEmployees =
-    employees?.filter((employee) => {
-      const isAssigned =
+  // Memoize the customer employees filter
+  const customerEmployees = React.useMemo(() => {
+    if (!employees || !selectedCustomer) {
+      console.log('No employees or selected customer');
+      return [];
+    }
+
+    console.log('Selected customer ID:', selectedCustomer.id);
+    console.log('Employees sample:', employees.slice(0, 1)); // Mostrar solo el primer empleado para ver su estructura
+
+    const filtered = employees.filter((employee) => {
+      const hasMatchingContractor =
         employee.contractor_employee?.some((contractor: any) => {
           const contractorId = contractor.contractor_id?.id || contractor.contractor_id;
-          const isMatch = contractorId === selectedCustomer?.id;
-          if (isMatch) {
-            console.log('Empleado asignado:', employee.id, 'al cliente:', selectedCustomer?.id);
-          }
-          return isMatch;
+          console.log('Checking contractor:', {
+            employeeId: employee.id,
+            contractorId,
+            selectedCustomerId: selectedCustomer.id,
+            matches: contractorId === selectedCustomer.id,
+          });
+          return contractorId === selectedCustomer.id;
         }) || false;
 
-      console.log('Empleado:', employee.id, 'está asignado:', isAssigned);
-      return isAssigned;
-    }) || [];
+      console.log(`Employee ${employee.id} has matching contractor:`, hasMatchingContractor);
+      return hasMatchingContractor;
+    });
 
-  // Sincronizar empleados seleccionados del cliente solo al abrir el modal
+    console.log('Filtered customer employees:', filtered);
+    return filtered;
+  }, [employees, selectedCustomer]);
+  // Formulario para empleados
+  const form = useForm({
+    defaultValues: {
+      employees: [] as string[],
+      customer_id: '',
+    },
+  });
+
+  // Obtener IDs de equipos asignados al cliente actual a través de contractor_equipment
+  const assignedEquipmentIds = React.useMemo(() => {
+    if (!selectedCustomer || !equipments) return [];
+
+    return equipments
+      .filter((equip) => {
+        return equip.contractor_equipment?.some(
+          (contractor: any) =>
+            (typeof contractor.contractor_id === 'object' && contractor.contractor_id?.id === selectedCustomer.id) ||
+            contractor.contractor_id === selectedCustomer.id
+        );
+      })
+      .map((equip) => String(equip.id));
+  }, [selectedCustomer, equipments]);
+
+  // Formulario para equipos
+  const equipmentForm = useForm({
+    defaultValues: {
+      equipments: [] as string[],
+    },
+  });
+
+  // Obtener IDs de empleados asignados al cliente actual a través de contractor_employee
+  const assignedEmployeeIds = React.useMemo(() => {
+    if (!selectedCustomer || !employees) return [];
+
+    return employees
+      .filter((emp) => {
+        return emp.contractor_employee?.some(
+          (contractor: any) =>
+            (typeof contractor.contractor_id === 'object' && contractor.contractor_id?.id === selectedCustomer.id) ||
+            contractor.contractor_id === selectedCustomer.id
+        );
+      })
+      .map((emp) => String(emp.id));
+  }, [selectedCustomer, employees]);
+
+  // Sincronizar empleados seleccionados cuando se abre el diálogo
   useEffect(() => {
-    if (isDialogOpen) {
-      setDialogSelectedEmployees(customerEmployees.map((emp) => String(emp.id)));
+    if (isEmployeeDialogOpen && selectedCustomer) {
+      console.log('Sincronizando empleados asignados:', {
+        assignedEmployeeIds,
+        customerId: selectedCustomer.id,
+      });
+
+      // Actualizar el formulario con los IDs de empleados asignados
+      form.setValue('employees', assignedEmployeeIds, { shouldValidate: true });
     }
-  }, [isDialogOpen, customerEmployees]);
+  }, [isEmployeeDialogOpen, selectedCustomer, assignedEmployeeIds, form]);
 
-  // Manejar la apertura/cierre del diálogo
-  const handleOpenChange = (open: boolean) => {
-    setIsDialogOpen(open);
+  // Reset form when dialog is closed
+  useEffect(() => {
+    if (!isDialogOpen) {
+      form.reset({ employees: [] });
+    }
+  }, [isDialogOpen, form]);
+
+  // Manejar la apertura/cierre del diálogo de empleados
+  const handleEmployeeDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setIsEmployeeDialogOpen(false);
+      form.reset({ employees: [] });
+    } else {
+      // Establecer los empleados ya asignados cuando se abre el diálogo
+      form.reset({ employees: assignedEmployeeIds });
+      setIsEmployeeDialogOpen(true);
+    }
   };
-  const handleSubmit = (data: any) => {
-    console.log(data);
+
+  // Manejar la apertura/cierre del diálogo de equipos
+  const handleEquipmentDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setIsEquipmentDialogOpen(false);
+      equipmentForm.reset({ equipments: [] });
+    } else {
+      // Establecer los equipos ya asignados cuando se abre el diálogo
+      equipmentForm.reset({ equipments: assignedEquipmentIds });
+      setIsEquipmentDialogOpen(true);
+    }
   };
-  // Guardar empleados seleccionados (persistente y server action)
-  const handleSaveEmployees = async () => {
+
+  // Manejador para enviar los equipos seleccionados
+  const handleEquipmentSubmit = async (formData: { equipments: string[] }) => {
     if (!selectedCustomer) return;
-    await asignarEmpleadosACliente(selectedCustomer.id, dialogSelectedEmployees);
-    setSelectedEmployees(dialogSelectedEmployees);
-    setIsDialogOpen(false);
+
+    try {
+      const equipmentIds = Array.isArray(formData.equipments) ? formData.equipments.filter(Boolean) : [];
+
+      // Asignar los equipos al cliente
+      await assignEquipmentsToCustomer(selectedCustomer.id, equipmentIds);
+
+      toast.success('Equipos asignados correctamente');
+      setIsEquipmentDialogOpen(false);
+      equipmentForm.reset({ equipments: [] });
+
+      // Refrescar la lista de equipos
+      router.refresh();
+    } catch (error) {
+      console.error('Error al asignar equipos:', error);
+      toast.error('Error al asignar los equipos');
+    }
   };
 
-  // Ejemplo de server action (puedes mover esto a otro archivo)
+  const handleSubmit = async (formData: { employees: string[] }) => {
+    if (!selectedCustomer) return;
+
+    try {
+      const employeeIds = Array.isArray(formData.employees) ? formData.employees.filter(Boolean) : [];
+
+      // Asignar los empleados al cliente
+      await assignEmployeesToCustomer(selectedCustomer.id, employeeIds);
+
+      toast.success('Empleados asignados correctamente');
+      setIsEmployeeDialogOpen(false);
+      form.reset({ employees: [] });
+
+      // Refrescar la lista de empleados
+      router.refresh();
+    } catch (error) {
+      console.error('Error al guardar empleados:', error);
+      toast.error('Error al actualizar los empleados');
+    }
+  };
+
+  // Server action para asignar empleados a un cliente
   async function asignarEmpleadosACliente(clienteId: string, empleadosIds: string[]) {
-    // Lógica para actualizar la tabla contractor_employee
+    try {
+      const response = await assignEmployeesToCustomer(clienteId, empleadosIds);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Error desconocido al asignar empleados');
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Error en asignarEmpleadosACliente:', error);
+      throw error;
+    }
   }
 
   const [showForm, setShowForm] = useState(false);
@@ -132,61 +270,59 @@ export function DataCustomers<TData extends Customer, TValue>({
     setShowForm(true);
     setIsEditing(false);
   };
-  console.log(employees);
-  const transformEmployeeData = (employee: any) => ({
-    ...employee,
-    city: employee.city ? parseInt(employee.city) : null,
-    province: employee.province ? parseInt(employee.province) : null,
-    company_position: employee.company_position || null,
-    hierarchical_position: employee.hierarchical_position || null,
-    workflow_diagram: employee.workflow_diagram || null,
-  });
 
-  // Depuración: Ver estructura de los empleados y sus relaciones
-  console.log('Todos los empleados:', employees);
-  console.log('Cliente seleccionado:', selectedCustomer?.id);
+  const transformEmployeeData = React.useCallback(
+    (employee: any) => ({
+      ...employee,
+      city: employee.city ? parseInt(employee.city) : null,
+      province: employee.province ? parseInt(employee.province) : null,
+      company_position: employee.company_position || null,
+      hierarchical_position: employee.hierarchical_position || null,
+      workflow_diagram: employee.workflow_diagram || null,
+    }),
+    []
+  );
 
-  // Transformar los datos de los empleados
-  const transformedEmployees = customerEmployees.map(transformEmployeeData);
-  console.log('Empleados transformados:', transformedEmployees);
+  // Memoize transformed employees (completo para la tabla)
+  const transformedEmployees = React.useMemo(() => {
+    return customerEmployees.map(transformEmployeeData);
+  }, [customerEmployees, transformEmployeeData]);
+  console.log(transformedEmployees);
+  // Datos optimizados para el multiselect - siempre mostrar todos los empleados
+  const multiselectEmployees = React.useMemo(() => {
+    if (!employees) return [];
 
-  // Efecto para depuración
-  // useEffect(() => {
-  //   console.log('selectedEmployees actualizado:', selectedEmployees);
-  //   console.log('customerEmployees:', customerEmployees);
-
-  //   // Verificar que los empleados seleccionados sean válidos
-  //   if (selectedEmployees.some(id => typeof id !== 'string')) {
-  //     console.error('Error: Algunos IDs de empleados no son strings', selectedEmployees);
-  //   }
-  // }, [selectedEmployees, customerEmployees]);
+    return employees.map((emp) => ({
+      value: String(emp.id),
+      label: `${emp.lastname ? emp.lastname.charAt(0).toUpperCase() + emp.lastname.slice(1) : ''} ${emp.firstname ? emp.firstname.charAt(0).toUpperCase() + emp.firstname.slice(1) : ''}`,
+    }));
+  }, [employees]);
+  console.log(multiselectEmployees);
+  console.log(customerEmployees);
+  // Using the memoized version of assignedEmployeeIds from above
   const names = createFilterOptions(data, (customer) => customer.name);
   const cuit = createFilterOptions(data, (customer) => customer.cuit);
   const client_email = createFilterOptions(data, (customer) => customer.client_email);
   const client_phone = createFilterOptions(data, (customer) => customer.client_phone);
   const savedVisibility = savedCustomers ? JSON.parse(savedCustomers) : {};
-  // Esta variable ya no es necesaria porque la movimos arriba
-  const customerEquipments = equipments?.filter((equipment) => {
-    // Verifica si el equipo está asignado directamente al cliente
-    const isDirectlyAllocated = equipment.allocated_to
-      ? equipment.allocated_to.includes(selectedCustomer?.id || '')
-      : false;
+  // Memoize customer equipments filter
+  console.log(equipments);
+  const customerEquipments = React.useMemo(() => {
+    if (!equipments || !selectedCustomer) return [];
 
-    // Verifica si el equipo está vinculado a través de contractor_equipment
-    const isContractorEquipment = equipment.contractor_equipment?.some(
-      (contractor) => contractor.contractor_id?.id === selectedCustomer?.id
-    );
-
-    return isDirectlyAllocated || isContractorEquipment;
-  });
-  const employeeOptions1 = (employees || []).map((emp) => {
-    const id = emp?.id ? String(emp.id) : '';
-    return {
-      value: id,
-      label: `${emp.firstname || ''} ${emp.lastname || ''} (${emp.document_number || 'Sin documento'})`,
-      ...emp,
-    };
-  });
+    return equipments.filter((equipment) => {
+      // Verifica si el equipo está vinculado a través de contractor_equipment
+      return (
+        equipment.contractor_equipment?.some(
+          (contractor) =>
+            contractor.contractor_id?.id === selectedCustomer.id || contractor.contractor_id === selectedCustomer.id
+        ) || false
+      );
+    });
+  }, [equipments, selectedCustomer]);
+  // Usar los datos optimizados para el multiselect
+  // Esto evita pasar todo el objeto del empleado al componente
+  const employeeOptions1 = multiselectEmployees;
   // Si estamos viendo/editar un cliente existente (pestañas)
   if (showForm) {
     return (
@@ -239,44 +375,45 @@ export function DataCustomers<TData extends Customer, TValue>({
                     </DialogHeader>
                     <div className="py-4">
                       <div className="space-y-4 w-full">
-                        <MultiSelectCombobox
-                          options={employeeOptions1}
-                          selectedValues={selectedEmployees}
-                          onChange={(values) => {
-                            console.log('Nueva selección de empleados:', values);
-                            if (Array.isArray(values)) {
-                              // Crear un nuevo array con valores únicos
-                              const uniqueValues = Array.from(new Set(values));
-                              setSelectedEmployees(uniqueValues);
-                            }
-                          }}
-                          placeholder="Buscar empleados..."
-                          emptyMessage="No se encontraron empleados"
-                        />
-                      </div>
-
-                      <div className="flex justify-end space-x-2 mt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            console.log('Cancel button clicked');
-                            setIsDialogOpen(false);
-                          }}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button
-                          onClick={async () => {
-                            // TODO: Implement save functionality
-                            console.log('Saving employees:', selectedEmployees);
-                            // TODO: Implement save functionality here
-                            console.log('Save button clicked');
-                            setIsDialogOpen(false);
-                          }}
-                          disabled={selectedEmployees.length === 0}
-                        >
-                          Guardar ({selectedEmployees.length})
-                        </Button>
+                        <Form {...form}>
+                          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
+                            {selectedCustomer && (
+                              <input type="hidden" {...form.register('customer_id')} value={selectedCustomer.id} />
+                            )}
+                            <FormField
+                              control={form.control}
+                              name="employees"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Empleados</FormLabel>
+                                  <FormControl>
+                                    <MultiSelectCombobox
+                                      options={multiselectEmployees}
+                                      emptyMessage="No se encontraron empleados"
+                                      selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
+                                      onChange={(values) => {
+                                        // console.log('Empleados seleccionados:', values);
+                                        field.onChange(values);
+                                      }}
+                                      placeholder="Buscar empleados..."
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <div className="flex justify-end space-x-2 pt-4">
+                              <DialogClose asChild>
+                                <Button type="button" variant="outline">
+                                  Cancelar
+                                </Button>
+                              </DialogClose>
+                              <Button type="submit" variant="default">
+                                Asignar empleados
+                              </Button>
+                            </div>
+                          </form>
+                        </Form>
                       </div>
                     </div>
                   </DialogContent>
@@ -297,9 +434,68 @@ export function DataCustomers<TData extends Customer, TValue>({
           </TabsContent>
 
           <TabsContent value="equipos">
-            <div className=" p-6 rounded-lg border">
-              <h3 className="text-xl font-semibold mb-6">Equipos del Cliente</h3>
-              <p className="text-muted-foreground">Módulo de equipos en desarrollo...</p>
+            <div className="p-6 rounded-lg border">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold">Equipos del Cliente</h3>
+                <Dialog open={isEquipmentDialogOpen} onOpenChange={handleEquipmentDialogOpenChange}>
+                  <DialogTrigger asChild>
+                    <Button variant="gh_orange">Asignar Equipos</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Seleccionar Equipos</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <div className="space-y-4 w-full">
+                        <Form {...equipmentForm}>
+                          <form
+                            onSubmit={equipmentForm.handleSubmit(handleEquipmentSubmit)}
+                            className="space-y-4 w-[300px]"
+                          >
+                            {selectedCustomer && <input type="hidden" name="customer_id" value={selectedCustomer.id} />}
+                            <FormField
+                              control={equipmentForm.control}
+                              name="equipments"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Equipos</FormLabel>
+                                  <FormControl>
+                                    <MultiSelectCombobox
+                                      options={
+                                        equipments?.map((equip) => ({
+                                          value: String(equip.id),
+                                          label: equip.domain as string,
+                                        })) || []
+                                      }
+                                      emptyMessage="No se encontraron equipos"
+                                      selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
+                                      onChange={(values) => {
+                                        field.onChange(values);
+                                      }}
+                                      placeholder="Buscar equipos..."
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <div className="flex justify-end space-x-2 pt-4">
+                              <DialogClose asChild>
+                                <Button type="button" variant="outline">
+                                  Cancelar
+                                </Button>
+                              </DialogClose>
+                              <Button type="submit" variant="gh_orange">
+                                Guardar
+                              </Button>
+                            </div>
+                          </form>
+                        </Form>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <EquipmentTable
                 savedFilters={savedFiltersEquipmentTable}
                 columns={EquipmentColums || []}
