@@ -148,6 +148,7 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
         hour: '2-digit',
         minute: '2-digit',
       }),
+      reassignment_reason: record.reassignment_reason,
     };
 
     // Get user info for message - asignar "Sistema" si no hay usuario
@@ -670,21 +671,30 @@ interface EquipmentRelation {
   created_at?: string;
 }
 
-// Tipo para la fila del reporte diario
-interface DailyReportRowData {
+import { Database } from '../../../../../database.types';
+
+type DailyReportRowStatus = Database['public']['Enums']['daily_report_status'];
+type DailyReportTypeEnum = Database['public']['Enums']['daily_report_type_enum'];
+
+export interface DailyReportRowData {
   id?: string;
-  daily_report_id: string;
-  customer_id: string;
-  service_id: string;
-  item_id: string;
-  working_day: string;
+  daily_report_id: string | null;
+  customer_id: string | null;
+  service_id: string | null;
+  item_id: string | null;
+  working_day: string | null;
   start_time?: string | null;
   end_time?: string | null;
   description?: string | null;
-  areas_customer_id?: string;
-  sector_customer_id?: string;
-  type_service?: 'mensual' | 'adicional';
+  areas_service_id?: string | null;
+  sector_service_id?: string | null;
+  type_service?: DailyReportTypeEnum | null;
   status: DailyReportRowStatus;
+  document_path?: string | null;
+  remit_number?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  cancel_reason?: string | null;
 }
 
 export async function updateDailyReportRow(
@@ -692,7 +702,12 @@ export async function updateDailyReportRow(
   data: Partial<DailyReportRowData>,
   employeeIds: string[],
   equipmentIds: string[],
-  equipos_clienteIds: string[]
+  equipos_clienteIds: string[],
+  {
+    equipmentHasChanged = false,
+    employeeHasChanged = false,
+    reassignmentReason = '',
+  }: { equipmentHasChanged: boolean; employeeHasChanged: boolean; reassignmentReason: string }
 ) {
   const supabase = supabaseServer();
 
@@ -703,18 +718,6 @@ export async function updateDailyReportRow(
   await updateEquipmentRelations(id, equipmentIds);
 
   await updateEquiposClienteRelations(id, equipos_clienteIds);
-
-  console.log({
-    ...data,
-    status:
-      data.status === 'cancelado' ||
-      data.status === 'reprogramado' ||
-      data.status === 'ejecutado' ||
-      employeeIds.length > 0 ||
-      equipmentIds.length > 0
-        ? data.status
-        : 'sin_recursos_asignados',
-  });
 
   const { data: updatedRow, error: updateError } = await supabase
     .from('dailyreportrows')
@@ -733,6 +736,63 @@ export async function updateDailyReportRow(
     .select()
     .single();
 
+  // Después de que se complete la actualización principal y modificaciones de relaciones
+  if ((equipmentHasChanged || employeeHasChanged) && reassignmentReason) {
+    try {
+      // Obtener la hora actual menos algunos segundos para asegurarnos de capturar los cambios recientes
+      const recientTimestamp = new Date();
+
+      //espear de 1.5 segundos para que se guarde el historial
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Buscar registros relacionados con cambios en equipos o empleados para esta fila de reporte
+      const { data: historyRecords } = await supabase
+        .from('dailyreportrows_history')
+        .select('id, daily_report_row_id, related_table, action_type, created_at, reassignment_reason')
+        .eq('daily_report_row_id', id)
+        .is('reassignment_reason', null)
+        .eq('action_type', 'UNLINK');
+
+      if (historyRecords && historyRecords.length > 0) {
+        console.log('Registros de historial encontrados:', historyRecords);
+
+        // Construir dinámicamente los filtros basados en qué ha cambiado
+        let tablesToFilter = [];
+        if (equipmentHasChanged) {
+          tablesToFilter.push('dailyreportequipmentrelations');
+        }
+        if (employeeHasChanged) {
+          tablesToFilter.push('dailyreportemployeerelations');
+        }
+
+        // Filtrar registros que involucran cambios en equipos o empleados según lo que haya cambiado
+        // y que sean específicamente operaciones de LINK o UNLINK
+        const recordsToUpdate = historyRecords.filter(
+          (record) =>
+            tablesToFilter.includes(record.related_table || '') &&
+            (record.action_type === 'LINK' || record.action_type === 'UNLINK') &&
+            !record.reassignment_reason
+        );
+
+        // Actualizar cada registro con la razón de reasignación
+        if (recordsToUpdate.length > 0) {
+          console.log('Actualizando registros con motivo:', reassignmentReason);
+
+          const updatePromises = recordsToUpdate.map((record) =>
+            supabase
+              .from('dailyreportrows_history')
+              .update({ reassignment_reason: reassignmentReason })
+              .eq('id', record.id)
+          );
+
+          await Promise.all(updatePromises);
+        }
+      } else {
+        console.log('No se encontraron registros recientes para actualizar');
+      }
+    } catch (error) {
+      console.error('Error al actualizar la razón de reasignación:', error);
+    }
+  }
   if (updateError) {
     console.error('Error al actualizar la fila:', updateError);
     throw updateError;
@@ -1025,4 +1085,44 @@ export async function getCustomersSectors(customerIds: string[]) {
     return [];
   }
   return data;
+}
+
+/**
+ * Elimina un parte diario si está completamente vacío (no tiene filas asociadas)
+ * @param reportId ID del parte diario a eliminar
+ * @returns Objeto con estado de la operación y mensaje
+ */
+export async function deleteDailyReport(reportId: string) {
+  const supabase = supabaseServer();
+
+  try {
+    // Primero verificar que no tenga filas asociadas
+    const { data: rows, error: rowsError } = await supabase
+      .from('dailyreportrows')
+      .select('id')
+      .eq('daily_report_id', reportId);
+
+    if (rowsError) {
+      console.error('Error verificando filas del parte diario:', rowsError);
+      return { success: false, message: 'Error al verificar si el parte diario está vacío' };
+    }
+
+    // Si tiene filas, no permitir la eliminación
+    if (rows && rows.length > 0) {
+      return { success: false, message: 'No se puede eliminar un parte diario que contiene registros' };
+    }
+
+    // Si no tiene filas, eliminar el parte diario
+    const { error: deleteError } = await supabase.from('dailyreport').delete().eq('id', reportId);
+
+    if (deleteError) {
+      console.error('Error eliminando parte diario:', deleteError);
+      return { success: false, message: 'Error al eliminar el parte diario' };
+    }
+
+    return { success: true, message: 'Parte diario eliminado correctamente' };
+  } catch (error) {
+    console.error('Error en la función deleteDailyReport:', error);
+    return { success: false, message: 'Error inesperado al procesar la solicitud' };
+  }
 }

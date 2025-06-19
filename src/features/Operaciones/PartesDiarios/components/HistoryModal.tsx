@@ -292,6 +292,16 @@ export default function HistoryModal({
                                   <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
                                     {item.actionType === 'LINK' ? 'Vehículo vinculado:' : 'Vehículo desvinculado:'}
                                   </h4>
+                                  {item.reassignment_reason && (
+                                    <div className="mb-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2 rounded-md">
+                                      <p className="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-1">
+                                        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <span>
+                                          <strong className="font-medium">Motivo:</strong> {item.reassignment_reason}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  )}
                                   <div className="bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-700 flex flex-col gap-2">
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs text-slate-500 dark:text-slate-400">Dominio:</span>
@@ -323,6 +333,16 @@ export default function HistoryModal({
                                   <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
                                     {item.actionType === 'LINK' ? 'Empleado vinculado:' : 'Empleado desvinculado:'}
                                   </h4>
+                                  {item.reassignment_reason && (
+                                    <div className="mb-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2 rounded-md">
+                                      <p className="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-1">
+                                        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <span>
+                                          <strong className="font-medium">Motivo:</strong> {item.reassignment_reason}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  )}
                                   <div className="bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-700 flex flex-col gap-2">
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs text-slate-500 dark:text-slate-400">Nombre:</span>

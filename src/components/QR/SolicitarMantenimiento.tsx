@@ -36,7 +36,7 @@ function SolicitarMantenimiento({
     <Card className="p-4 m-4 bg-white">
       <CardHeader className="space-y-1">
         <div className="flex items-center justify-center mb-4">
-          <Image src="/logoLetrasNegras.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
+          <Image src="/gh_logo.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
         </div>
         <CardDescription className="text-center text-gray-600">
           Sistema de Checklist y Mantenimiento de Equipos

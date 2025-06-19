@@ -9,17 +9,16 @@ function AutenticationLight() {
           <div className="absolute  bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_500px_at_50%_200px,rgba(255,167,38,0.30),transparent)]"></div>
         </div>
       </div>
-      <div className="bg-zinc-900 h-full">
-        <Link className="relative z-20 flex items-center font-bold text-2xl dark:text-white mt-20" href="/">
-          <Image
-            src="/gh_logo.png"
-            alt="Logo de codecontrol"
-            className="mr-4 w-full relative z-40"
-            width={120}
-            height={120}
-          />
-        </Link>
-      </div>
+      <Link className="relative z-20 flex items-center font-bold text-2xl dark:text-white" href="/">
+        <Image
+          src="/gh_logo.png"
+          alt="Logo de codecontrol"
+          className="mr-4 relative z-40 w-40"
+          width={100}
+          height={100}
+        />
+        Grupo Horizonte
+      </Link>
       <div className=" z-20 mt-auto h-auto">
         <blockquote className="space-y-2">
           <p className="text-xl bg-transparent text-pretty dark:text-white">

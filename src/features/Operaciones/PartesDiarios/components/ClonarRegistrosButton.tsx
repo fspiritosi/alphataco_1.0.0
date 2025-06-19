@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { Calendar } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { checkDailyReportExists, createDailyReport, createDailyReportRow } from '../actions/actions';
 import { transformDailyReports } from './DayliReportDetailTable';
@@ -26,14 +26,48 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
   const [open, setOpen] = useState(false);
   const [fechasSeleccionadas, setFechasSeleccionadas] = useState<Date[]>([]);
   const [loading, setLoading] = useState(false);
-  const [irARegistros, setIrARegistros] = useState(true);
+
+  // Estado para los checkbox y su disponibilidad
+  const [mensualesExist, setMensualesExist] = useState(false);
+  const [adicionalesExist, setAdicionalesExist] = useState(false);
+  const [adicionalesPermanentesExist, setAdicionalesPermanentesExist] = useState(false);
+
+  const [incluirMensuales, setIncluirMensuales] = useState(false);
+  const [incluirAdicionales, setIncluirAdicionales] = useState(false);
+  const [incluirAdicionalesPermanentes, setIncluirAdicionalesPermanentes] = useState(false);
+
   const router = useRouter();
+
+  // Inicializar irARegistros basado en la cantidad de registros
+  const [irARegistros, setIrARegistros] = useState(fechasSeleccionadas.length > 1);
+
+  // Verificar la existencia de cada tipo de registro al cargar o cuando cambia formattedData
+  useEffect(() => {
+    // Buscar registros por tipo
+    const hasMensuales = formattedData?.some((row) => row.type_service === 'mensual');
+    const hasAdicionales = formattedData?.some((row) => row.type_service === 'adicional');
+    const hasAdicionalesPermanentes = formattedData?.some((row) => row.type_service === 'adicional_permanente');
+
+    // Actualizar estado de existencia
+    setMensualesExist(hasMensuales);
+    setAdicionalesExist(hasAdicionales);
+    setAdicionalesPermanentesExist(hasAdicionalesPermanentes);
+
+    // Actualizar checkboxes basados en la existencia
+    setIncluirMensuales(hasMensuales);
+    setIncluirAdicionales(hasAdicionales);
+    setIncluirAdicionalesPermanentes(hasAdicionalesPermanentes);
+  }, [formattedData]);
 
   const handleClonar = async () => {
     toast.promise(
       async () => {
         if (fechasSeleccionadas.length === 0) {
           throw new Error('Debes seleccionar al menos una fecha para clonar los registros');
+        }
+
+        if (!incluirMensuales && !incluirAdicionales && !incluirAdicionalesPermanentes) {
+          throw new Error('Debes seleccionar al menos un tipo de registro a clonar');
         }
         setLoading(true);
 
@@ -56,7 +90,15 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
         const allReports = [...(existingReports || []), ...(createdReports || [])];
         // Para cada reporte (nuevo o existente), clonar las filas
         for (const report of allReports) {
-          const formattedRows = formattedData.map((row) => ({
+          // Filtrar los registros según las opciones seleccionadas
+          const filteredData = formattedData.filter((row) => {
+            if (row.type_service === 'mensual' && incluirMensuales) return true;
+            if (row.type_service === 'adicional' && incluirAdicionales) return true;
+            if (row.type_service === 'adicional_permanente' && incluirAdicionalesPermanentes) return true;
+            return false;
+          });
+
+          const formattedRows = filteredData.map((row) => ({
             customer_id: row.data_to_clone.customer_id!,
             service_id: row.data_to_clone.service_id!,
             item_id: row.data_to_clone.item_id!,
@@ -68,6 +110,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
             status: 'sin_recursos_asignados' as any,
             areas_service_id: row.data_to_clone.areas_service_id,
             sector_service_id: row.data_to_clone.sector_service_id,
+            type_service: row.data_to_clone.type_service!,
           }));
 
           await createDailyReportRow(formattedRows);
@@ -96,6 +139,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
         },
       }
     );
+    router.refresh();
   };
 
   const removeFecha = (fecha: Date) => {
@@ -104,7 +148,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} className="flex items-center gap-2">
+      <Button onClick={() => setOpen(true)} className="flex items-center gap-2 ml-2">
         <Calendar className="h-4 w-4" />
         Clonar Registros
       </Button>
@@ -129,7 +173,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
                   <CalendarComponent
                     mode="multiple"
                     selected={fechasSeleccionadas}
-                    disabled={(date) => moment(date).isBefore(moment().subtract(1, 'days'))}
+                    disabled={(date) => moment(date).isBefore(moment().subtract(2, 'days'))}
                     onSelect={(dates: Date[] | undefined) => {
                       if (!dates) return;
                       // Actualizamos todas las fechas seleccionadas
@@ -187,13 +231,105 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
               )}
             </div>
 
-            <div className="flex items-center space-x-2 mt-4">
-              <Checkbox
-                id="ir-registros"
-                checked={irARegistros}
-                onCheckedChange={(checked) => setIrARegistros(checked as boolean)}
-              />
-              <Label htmlFor="ir-registros">Ir a los registros clonados al finalizar</Label>
+            <div className="flex flex-col space-y-2 mt-4">
+              <div className="text-sm font-medium mb-1">Tipos de registros a clonar:</div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="incluir-mensuales"
+                  checked={incluirMensuales}
+                  disabled={!mensualesExist}
+                  onCheckedChange={(checked) => {
+                    const newValue = checked as boolean;
+                    setIncluirMensuales(newValue);
+                    // Si hay más de 2 registros después de este cambio, deshabilitar irARegistros
+                    const updatedTooMany =
+                      formattedData.filter(
+                        (row) =>
+                          (row.type_service === 'mensual' && newValue) ||
+                          (row.type_service === 'adicional' && incluirAdicionales) ||
+                          (row.type_service === 'adicional_permanente' && incluirAdicionalesPermanentes)
+                      ).length > 2;
+
+                    if (updatedTooMany) {
+                      setIrARegistros(false);
+                    }
+                  }}
+                />
+                <Label htmlFor="incluir-mensuales" className={!mensualesExist ? 'text-gray-400' : ''}>
+                  Incluir registros Mensuales {!mensualesExist && '(No hay registros)'}
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="incluir-adicionales"
+                  checked={incluirAdicionales}
+                  disabled={!adicionalesExist}
+                  onCheckedChange={(checked) => {
+                    const newValue = checked as boolean;
+                    setIncluirAdicionales(newValue);
+                    // Si hay más de 2 registros después de este cambio, deshabilitar irARegistros
+                    const updatedTooMany =
+                      formattedData.filter(
+                        (row) =>
+                          (row.type_service === 'mensual' && incluirMensuales) ||
+                          (row.type_service === 'adicional' && newValue) ||
+                          (row.type_service === 'adicional_permanente' && incluirAdicionalesPermanentes)
+                      ).length > 2;
+
+                    if (updatedTooMany) {
+                      setIrARegistros(false);
+                    }
+                  }}
+                />
+                <Label htmlFor="incluir-adicionales" className={!adicionalesExist ? 'text-gray-400' : ''}>
+                  Incluir registros Adicionales {!adicionalesExist && '(No hay registros)'}
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="incluir-adicionales-permanentes"
+                  checked={incluirAdicionalesPermanentes}
+                  disabled={!adicionalesPermanentesExist}
+                  onCheckedChange={(checked) => {
+                    const newValue = checked as boolean;
+                    setIncluirAdicionalesPermanentes(newValue);
+                    // Si hay más de 2 registros después de este cambio, deshabilitar irARegistros
+                    const updatedTooMany =
+                      formattedData.filter(
+                        (row) =>
+                          (row.type_service === 'mensual' && incluirMensuales) ||
+                          (row.type_service === 'adicional' && incluirAdicionales) ||
+                          (row.type_service === 'adicional_permanente' && newValue)
+                      ).length > 2;
+
+                    if (updatedTooMany) {
+                      setIrARegistros(false);
+                    }
+                  }}
+                />
+                <Label
+                  htmlFor="incluir-adicionales-permanentes"
+                  className={!adicionalesPermanentesExist ? 'text-gray-400' : ''}
+                >
+                  Incluir registros Adicionales Permanentes {!adicionalesPermanentesExist && '(No hay registros)'}
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id="ir-registros"
+                  checked={irARegistros}
+                  disabled={fechasSeleccionadas.length > 1}
+                  onCheckedChange={(checked) => setIrARegistros(checked as boolean)}
+                />
+                <Label htmlFor="ir-registros" className={fechasSeleccionadas.length > 1 ? 'text-muted-foreground' : ''}>
+                  Ir a los registros clonados al finalizar
+                  {fechasSeleccionadas.length > 1 && ' (deshabilitado por tener más de 2 fechas seleccionadas)'}
+                </Label>
+              </div>
             </div>
           </div>
 

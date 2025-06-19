@@ -69,7 +69,7 @@ export default async function Home({
     kilometer: equipment.kilometer ?? '0',
     model: equipment.model.name,
     brand: equipment.brand.name,
-    intern_number: equipment.intern_number,
+    intern_number: equipment.intern_number || '',
     vehicle_type: equipment.type.name,
   }));
   const currentEquipment = equipmentsForComboBox.find((equipment) => equipment.value === params.id);

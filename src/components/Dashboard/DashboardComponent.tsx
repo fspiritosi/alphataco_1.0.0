@@ -5,12 +5,12 @@ import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
 import { InteractiveChart } from '../Graficos/InteractiveChart';
 
 export default async function DashboardComponent() {
-  // const data = await fetchAllEmployeesJUSTEXAMPLE();
-  // const data2 = await fetchAllEquipmentJUSTEXAMPLE();
-  // const data3 = await fetchAllRepairsJUSTEXAMPLE();
+  const employees = fetchAllEmployeesCount();
+  const equipments = fetchAllVehiclesCount();
   return (
     <div className="">
       <section className="grid sm:grid-cols-2 grid-cols-1 gap-6 mx-7">
@@ -26,7 +26,7 @@ export default async function DashboardComponent() {
         <TabsContent className="w-full" value="Principal">
           <section className="md:mx-7 grid grid-cols-1 mt-6 xl:grid-cols-4 gap-3 mb-4 ">
             <section className="flex flex-col gap-4 w-full">
-              <ResoursesChart />
+              <ResoursesChart employees={employees} equipments={equipments} />
               <InteractiveChart />
               <MissingDocumentList />
             </section>

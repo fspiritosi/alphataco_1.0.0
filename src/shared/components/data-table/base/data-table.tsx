@@ -47,7 +47,7 @@ interface SearchableColumn {
 }
 
 import { cn } from '@/lib/utils';
-import type { Table as TableType, Updater } from '@tanstack/react-table';
+import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
 export interface BulkActionProps<TData> {
   enabled?: boolean; // Activar/desactivar funcionalidad
   label?: string; // Etiqueta del botón
@@ -69,6 +69,7 @@ interface ToolbarOptions<TData> {
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
+  enableRowSelection?: boolean | ((row: Row<TData>) => boolean) | undefined;
   data: TData[];
   onRowClick?: (row: TData) => void;
   toolbarOptions?: ToolbarOptions<TData>;
@@ -93,6 +94,7 @@ export function BaseDataTable<TData, TValue>({
   savedVisibility,
   row_classname,
   onColumnFiltersChange,
+  enableRowSelection = true,
 }: DataTableProps<TData, TValue>) {
   // Intentar cargar la visibilidad guardada antes del renderizado inicial si hay tableId
   // const savedVisibility = savedColumns
@@ -113,7 +115,6 @@ export function BaseDataTable<TData, TValue>({
       rowSelection,
       columnFilters,
     },
-    enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     // En BaseDataTable.tsx, modificar la llamada al callback:
@@ -129,6 +130,7 @@ export function BaseDataTable<TData, TValue>({
     onColumnVisibilityChange: (visibility) => {
       setColumnVisibility(visibility);
     },
+    enableRowSelection: enableRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

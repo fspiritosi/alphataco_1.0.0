@@ -47,6 +47,35 @@ export const fetchAllEmployees = async (role?: string) => {
   return data;
 };
 
+export const fetchAllEmployeesCount = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return 0;
+  const { count, error } = await supabase
+    .from('employees')
+    .select('count', { count: 'exact' })
+    .eq('company_id', company_id);
+
+  if (error) return 0;
+
+  return count || 0;
+};
+export const fetchAllVehiclesCount = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return 0;
+  const { count, error } = await supabase
+    .from('vehicles')
+    .select('count', { count: 'exact' })
+    .eq('company_id', company_id);
+
+  if (error) return 0;
+
+  return count || 0;
+};
+
 export const fetchAllEmployeesInactives = async (role?: string) => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();

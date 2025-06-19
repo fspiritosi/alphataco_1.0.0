@@ -1018,6 +1018,13 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
+            foreignKeyName: 'dailyreportrows_service_id_fkey';
+            columns: ['service_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_services';
+            referencedColumns: ['id'];
+          },
+          {
             foreignKeyName: 'public_dailyreportrows_customer_id_fkey';
             columns: ['customer_id'];
             isOneToOne: false;
@@ -1029,13 +1036,6 @@ export type Database = {
             columns: ['item_id'];
             isOneToOne: false;
             referencedRelation: 'service_items';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'public_dailyreportrows_service_id_fkey';
-            columns: ['service_id'];
-            isOneToOne: false;
-            referencedRelation: 'customer_services';
             referencedColumns: ['id'];
           },
         ];
@@ -1050,6 +1050,7 @@ export type Database = {
           daily_report_row_id: string;
           id: string;
           metadata: Json | null;
+          reassignment_reason: string | null;
           related_id: string | null;
           related_table: string | null;
         };
@@ -1062,6 +1063,7 @@ export type Database = {
           daily_report_row_id: string;
           id?: string;
           metadata?: Json | null;
+          reassignment_reason?: string | null;
           related_id?: string | null;
           related_table?: string | null;
         };
@@ -1074,6 +1076,7 @@ export type Database = {
           daily_report_row_id?: string;
           id?: string;
           metadata?: Json | null;
+          reassignment_reason?: string | null;
           related_id?: string | null;
           related_table?: string | null;
         };
@@ -1598,7 +1601,7 @@ export type Database = {
           cuil: string;
           date_of_admission: string;
           document_number: string;
-          document_type: Database['public']['Enums']['document_type_enum'];
+          document_type: Database['public']['Enums']['document_type_enum'] | null;
           email: string | null;
           file: string;
           firstname: string;
@@ -1610,7 +1613,7 @@ export type Database = {
           lastname: string;
           level_of_education: Database['public']['Enums']['level_of_education_enum'] | null;
           marital_status: Database['public']['Enums']['marital_status_enum'] | null;
-          nationality: Database['public']['Enums']['nationality_enum'];
+          nationality: Database['public']['Enums']['nationality_enum'] | null;
           normal_hours: string | null;
           phone: string;
           picture: string | null;
@@ -1639,7 +1642,7 @@ export type Database = {
           cuil: string;
           date_of_admission: string;
           document_number: string;
-          document_type: Database['public']['Enums']['document_type_enum'];
+          document_type?: Database['public']['Enums']['document_type_enum'] | null;
           email?: string | null;
           file: string;
           firstname: string;
@@ -1651,7 +1654,7 @@ export type Database = {
           lastname: string;
           level_of_education?: Database['public']['Enums']['level_of_education_enum'] | null;
           marital_status?: Database['public']['Enums']['marital_status_enum'] | null;
-          nationality: Database['public']['Enums']['nationality_enum'];
+          nationality?: Database['public']['Enums']['nationality_enum'] | null;
           normal_hours?: string | null;
           phone: string;
           picture?: string | null;
@@ -1680,7 +1683,7 @@ export type Database = {
           cuil?: string;
           date_of_admission?: string;
           document_number?: string;
-          document_type?: Database['public']['Enums']['document_type_enum'];
+          document_type?: Database['public']['Enums']['document_type_enum'] | null;
           email?: string | null;
           file?: string;
           firstname?: string;
@@ -1692,7 +1695,7 @@ export type Database = {
           lastname?: string;
           level_of_education?: Database['public']['Enums']['level_of_education_enum'] | null;
           marital_status?: Database['public']['Enums']['marital_status_enum'] | null;
-          nationality?: Database['public']['Enums']['nationality_enum'];
+          nationality?: Database['public']['Enums']['nationality_enum'] | null;
           normal_hours?: string | null;
           phone?: string;
           picture?: string | null;
@@ -2224,6 +2227,7 @@ export type Database = {
           reparation_type: string;
           scheduled: string | null;
           state: Database['public']['Enums']['repair_state'];
+          updated_at: string | null;
           user_description: string | null;
           user_id: string | null;
           user_images: string[] | null;
@@ -2241,6 +2245,7 @@ export type Database = {
           reparation_type: string;
           scheduled?: string | null;
           state: Database['public']['Enums']['repair_state'];
+          updated_at?: string | null;
           user_description?: string | null;
           user_id?: string | null;
           user_images?: string[] | null;
@@ -2258,6 +2263,7 @@ export type Database = {
           reparation_type?: string;
           scheduled?: string | null;
           state?: Database['public']['Enums']['repair_state'];
+          updated_at?: string | null;
           user_description?: string | null;
           user_id?: string | null;
           user_images?: string[] | null;
@@ -2454,14 +2460,14 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'fk_area';
+            foreignKeyName: 'service_areas_area_id_fkey';
             columns: ['area_id'];
             isOneToOne: false;
             referencedRelation: 'areas_cliente';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'fk_service';
+            foreignKeyName: 'service_areas_service_id_fkey';
             columns: ['service_id'];
             isOneToOne: false;
             referencedRelation: 'customer_services';
@@ -2693,6 +2699,24 @@ export type Database = {
           },
         ];
       };
+      type_operative: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
       types_of_contract: {
         Row: {
           created_at: string;
@@ -2797,7 +2821,7 @@ export type Database = {
           domain: string | null;
           engine: string;
           id: string;
-          intern_number: string;
+          intern_number: string | null;
           is_active: boolean | null;
           kilometer: string | null;
           model: number | null;
@@ -2808,6 +2832,7 @@ export type Database = {
           termination_date: string | null;
           type: string;
           type_of_vehicle: number;
+          type_operative_id: string | null;
           user_id: string | null;
           year: string;
         };
@@ -2822,7 +2847,7 @@ export type Database = {
           domain?: string | null;
           engine: string;
           id?: string;
-          intern_number: string;
+          intern_number?: string | null;
           is_active?: boolean | null;
           kilometer?: string | null;
           model?: number | null;
@@ -2833,6 +2858,7 @@ export type Database = {
           termination_date?: string | null;
           type: string;
           type_of_vehicle: number;
+          type_operative_id?: string | null;
           user_id?: string | null;
           year: string;
         };
@@ -2847,7 +2873,7 @@ export type Database = {
           domain?: string | null;
           engine?: string;
           id?: string;
-          intern_number?: string;
+          intern_number?: string | null;
           is_active?: boolean | null;
           kilometer?: string | null;
           model?: number | null;
@@ -2858,6 +2884,7 @@ export type Database = {
           termination_date?: string | null;
           type?: string;
           type_of_vehicle?: number;
+          type_operative_id?: string | null;
           user_id?: string | null;
           year?: string;
         };
@@ -2905,6 +2932,13 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
+            foreignKeyName: 'vehicles_type_operative_id_fkey';
+            columns: ['type_operative_id'];
+            isOneToOne: false;
+            referencedRelation: 'type_operative';
+            referencedColumns: ['id'];
+          },
+          {
             foreignKeyName: 'vehicles_user_id_fkey';
             columns: ['user_id'];
             isOneToOne: false;
@@ -2915,7 +2949,6 @@ export type Database = {
       };
       work_diagram: {
         Row: {
-          active_novelty: string | null;
           active_working_days: number | null;
           created_at: string;
           id: string;
@@ -2925,7 +2958,6 @@ export type Database = {
           name: string;
         };
         Insert: {
-          active_novelty?: string | null;
           active_working_days?: number | null;
           created_at?: string;
           id?: string;
@@ -2935,7 +2967,6 @@ export type Database = {
           name: string;
         };
         Update: {
-          active_novelty?: string | null;
           active_working_days?: number | null;
           created_at?: string;
           id?: string;
@@ -2946,17 +2977,46 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'work-diagram_active_novelty_fkey';
-            columns: ['active_novelty'];
+            foreignKeyName: 'work-diagram_inactive_novelty_fkey';
+            columns: ['inactive_novelty'];
+            isOneToOne: false;
+            referencedRelation: 'diagram_type';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      work_diagram_active_novelties: {
+        Row: {
+          created_at: string;
+          diagram_type_id: string;
+          id: string;
+          work_diagram_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          diagram_type_id: string;
+          id?: string;
+          work_diagram_id: string;
+        };
+        Update: {
+          created_at?: string;
+          diagram_type_id?: string;
+          id?: string;
+          work_diagram_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'work_diagram_active_novelties_diagram_type_id_fkey';
+            columns: ['diagram_type_id'];
             isOneToOne: false;
             referencedRelation: 'diagram_type';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'work-diagram_inactive_novelty_fkey';
-            columns: ['inactive_novelty'];
+            foreignKeyName: 'work_diagram_active_novelties_work_diagram_id_fkey';
+            columns: ['work_diagram_id'];
             isOneToOne: false;
-            referencedRelation: 'diagram_type';
+            referencedRelation: 'work_diagram';
             referencedColumns: ['id'];
           },
         ];
@@ -2979,7 +3039,7 @@ export type Database = {
         Returns: string;
       };
       build_employee_where_alias: {
-        Args: { _conditions: Json; table_alias?: string };
+        Args: { _conditions: Json; table_alias: string };
         Returns: string;
       };
       build_vehicle_where: {
@@ -3025,7 +3085,7 @@ export type Database = {
           cuil: string;
           date_of_admission: string;
           document_number: string;
-          document_type: Database['public']['Enums']['document_type_enum'];
+          document_type: Database['public']['Enums']['document_type_enum'] | null;
           email: string | null;
           file: string;
           firstname: string;
@@ -3037,7 +3097,7 @@ export type Database = {
           lastname: string;
           level_of_education: Database['public']['Enums']['level_of_education_enum'] | null;
           marital_status: Database['public']['Enums']['marital_status_enum'] | null;
-          nationality: Database['public']['Enums']['nationality_enum'];
+          nationality: Database['public']['Enums']['nationality_enum'] | null;
           normal_hours: string | null;
           phone: string;
           picture: string | null;
@@ -3064,6 +3124,7 @@ export type Database = {
           related_table: string;
           related_id: string;
           metadata: Json;
+          reassignment_reason: string;
         }[];
       };
       migrate_document: {
@@ -3100,6 +3161,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
+      set_reassignment_reason: {
+        Args: { reason: string };
+        Returns: undefined;
+      };
       verificar_documentos_vencidos_prueba: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
@@ -3117,7 +3182,7 @@ export type Database = {
         | 'cancelado'
         | '.'
         | '..';
-      daily_report_type_enum: 'mensual' | 'adicional';
+      daily_report_type_enum: 'mensual' | 'adicional' | 'adicional_permanente';
       document_applies: 'Persona' | 'Equipos' | 'Empresa';
       document_type_enum: 'DNI' | 'LE' | 'LC' | 'PASAPORTE';
       gender_enum: 'Masculino' | 'Femenino' | 'No Declarado';
@@ -3265,7 +3330,7 @@ export const Constants = {
       condition_enum: ['operativo', 'no operativo', 'en reparación', 'operativo condicionado'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
-      daily_report_type_enum: ['mensual', 'adicional'],
+      daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
       document_applies: ['Persona', 'Equipos', 'Empresa'],
       document_type_enum: ['DNI', 'LE', 'LC', 'PASAPORTE'],
       gender_enum: ['Masculino', 'Femenino', 'No Declarado'],

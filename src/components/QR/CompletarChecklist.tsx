@@ -48,7 +48,7 @@ function CompletarChecklist({
     <Card className="space-y-4 p-4">
       <CardHeader className="flex justify-center">
         <div className="flex items-center justify-center mb-4">
-          <Image src="/logoLetrasNegras.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
+          <Image src="/gh_logo.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
         </div>
         <CardDescription className="text-center text-gray-600">
           Sistema de Checklist y Mantenimiento de Equipos

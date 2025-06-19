@@ -51,6 +51,7 @@ async function TypesDocumentsViewWrapper({
       vehicles={equiposCargados}
       document_types={document_types}
       role={role}
+      actionComponent={<TypesDocumentAction optionChildrenProp="all" />}
     />
   );
 }
