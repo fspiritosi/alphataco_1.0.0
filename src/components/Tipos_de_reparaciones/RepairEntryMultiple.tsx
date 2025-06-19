@@ -33,6 +33,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resi
 import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
 import { criticidad } from './RepairSolicitudesTable/data';
+import { createRepairSolicitud } from './actions/actions';
 type FormValues = {
   description: string;
   repair: string;
@@ -288,13 +289,14 @@ export default function RepairNewEntryMultiple({
           }
 
           // Enviar las reparaciones a la API
-          await fetch(`${URL}/api/repair_solicitud`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-          });
+          // await fetch(`${URL}/api/repair_solicitud`, {
+          //   method: 'POST',
+          //   headers: {
+          //     'Content-Type': 'application/json',
+          //   },
+          //   body: JSON.stringify(data),
+          // });
+          await createRepairSolicitud(data);
 
           // Refrescar la página y limpiar el formulario
           router.refresh();

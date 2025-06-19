@@ -15,7 +15,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 import { ReaderIcon } from '@radix-ui/react-icons';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiTool } from 'react-icons/fi';
 import { toast } from 'sonner';
@@ -45,6 +45,7 @@ import { createFilterOptions } from '@/features/Employees/Empleados/components/u
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { createRepairSolicitud } from './actions/actions';
 
 export function getRepairEntryColumns(
   tipo_de_mantenimiento: TypeOfRepair,
@@ -189,8 +190,42 @@ export default function RepairNewEntry({
       kilometer: selectedEquipment?.kilometer || '0',
     },
   });
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Memorizar la lista de equipos para evitar recálculos innecesarios
+  const memoizedEquipment = useMemo(() => equipment || [], [equipment]);
+
+  // Función de filtrado optimizada con memoización
+  const filteredEquipment = useMemo(() => {
+    if (!searchTerm) return memoizedEquipment.slice(0, 50); // Inicialmente mostramos solo 50 elementos
+
+    return memoizedEquipment.filter((equip) => {
+      const searchValue = searchTerm.toLowerCase();
+      const domain = (equip.domain || '').toLowerCase();
+      const serie = (equip.serie || '').toLowerCase();
+      const internNumber = String(equip.intern_number || '').toLowerCase();
+
+      return domain.includes(searchValue) || serie.includes(searchValue) || internNumber.includes(searchValue);
+    });
+  }, [memoizedEquipment, searchTerm]);
+
+  // Función para manejar la selección de un equipo (evita recrear la función en cada render)
+  const handleSelectEquipment = useCallback(
+    (equip: any) => () => {
+      form.setValue('vehicle_id', equip.id);
+      form.setValue('domain', equip.domain || equip.serie || '');
+      form.setValue('kilometer', equip.kilometer || '');
+
+      setTypeOfEquipment(equip.types_of_vehicles || '');
+      setSelectedEquipment(equip);
+    },
+    [form]
+  );
+
   const [images, setImages] = useState<(string | null)[]>([null, null, null]);
   const [files, setFiles] = useState<(File | undefined)[]>([undefined, undefined, undefined]);
+
+  console.log('equipment', equipment?.[0]);
 
   const verifyIfExistOpenRepairSolicitud = async (repairTypeId: string) => {
     const vehicle_id = equipment?.find(
@@ -370,6 +405,7 @@ export default function RepairNewEntry({
           //   },
           //   body: JSON.stringify(data),
           // });
+          await createRepairSolicitud(data);
 
           allRepairs.forEach(async (e) => {
             e.files
@@ -453,23 +489,19 @@ export default function RepairNewEntry({
                         </PopoverTrigger>
                         <PopoverContent className=" p-0">
                           <Command>
-                            <CommandInput placeholder="Buscar equipo..." />
-                            <CommandList>
+                            <CommandInput
+                              placeholder="Buscar equipo..."
+                              onValueChange={(value) => setSearchTerm(value)}
+                            />
+                            <CommandList className="max-h-[300px] overflow-auto">
                               <CommandEmpty>No se encontro el equipo</CommandEmpty>
                               <CommandGroup>
-                                {equipment?.map((equip) => {
+                                {filteredEquipment.map((equip) => {
                                   return (
                                     <CommandItem
                                       value={equip.domain || equip.serie || ''}
                                       key={equip.intern_number}
-                                      onSelect={() => {
-                                        form.setValue('vehicle_id', equip.id);
-                                        form.setValue('domain', equip.domain || equip.serie || '');
-                                        form.setValue('kilometer', equip.kilometer || '');
-
-                                        setTypeOfEquipment(equip.types_of_vehicles || '');
-                                        setSelectedEquipment(equip);
-                                      }}
+                                      onSelect={handleSelectEquipment(equip)}
                                     >
                                       <Check
                                         className={cn(
@@ -477,7 +509,7 @@ export default function RepairNewEntry({
                                           equip.id === field.value ? 'opacity-100' : 'opacity-0'
                                         )}
                                       />
-                                      {`${equip.domain ?? equip.serie} (Nº${equip.intern_number})`}
+                                      {`${equip.domain ?? equip.serie} ${equip.intern_number ? ' (Nº' + equip.intern_number + ')' : ''}`}
                                     </CommandItem>
                                   );
                                 })}

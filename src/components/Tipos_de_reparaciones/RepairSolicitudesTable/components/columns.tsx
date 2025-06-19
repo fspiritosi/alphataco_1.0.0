@@ -11,6 +11,17 @@ import RepairModal from './RepairModal';
 
 export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
   {
+    accessorKey: 'domain',
+    id: 'Dominio',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
+    cell: ({ row }) => {
+      return <div className="flex items-center">{row.original.domain}</div>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
     accessorKey: 'title',
     id: 'Titulo',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Titulo" className="ml-2" />,
@@ -97,32 +108,32 @@ export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[]
     },
   },
   {
-    accessorKey: 'intern_number',
-    id: 'Numero interno',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Numero interno" />,
+    accessorKey: 'serie',
+    id: 'Serie',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Serie" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.intern_number}</div>;
+      return <div className="flex items-center">{row.original.serie}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
   },
-  {
-    accessorKey: 'domain',
-    id: 'Dominio',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
-    cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.domain}</div>;
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
-    },
-  },
+
   {
     accessorKey: 'fecha',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
       return <div className="flex items-center">{moment(row.original.created_at).format('DD/MM/YYYY')}</div>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: 'updated_at',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de modificacion" />,
+    cell: ({ row }) => {
+      return <div className="flex items-center">{moment(row.original.updated_at).format('DD/MM/YYYY')}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));

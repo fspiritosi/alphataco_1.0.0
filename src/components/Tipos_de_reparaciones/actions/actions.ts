@@ -117,11 +117,37 @@ export async function fetchAllRepairSolicitudes() {
         '*,user_id(*),employees(*),vehicles(*,type(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
       )
       .not('equipment_id', 'is', null);
+
+    console.log(data, 'data');
+
+    if (error) {
+      console.log(error);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    // console.log(error);
+    return [];
+  }
+}
+
+export async function createRepairSolicitud(data: any) {
+  const supabase = supabaseServer();
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+
+  if (!company_id) {
+    return [];
+  }
+
+  try {
+    const { data: repair_solicitudes, error } = await supabase.from('repair_solicitudes').insert(data).select();
+
     if (error) {
       // console.log(error);
       return [];
     }
-    return data || [];
+    return repair_solicitudes || [];
   } catch (error) {
     // console.log(error);
     return [];

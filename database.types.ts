@@ -2227,6 +2227,7 @@ export type Database = {
           reparation_type: string;
           scheduled: string | null;
           state: Database['public']['Enums']['repair_state'];
+          updated_at: string | null;
           user_description: string | null;
           user_id: string | null;
           user_images: string[] | null;
@@ -2244,6 +2245,7 @@ export type Database = {
           reparation_type: string;
           scheduled?: string | null;
           state: Database['public']['Enums']['repair_state'];
+          updated_at?: string | null;
           user_description?: string | null;
           user_id?: string | null;
           user_images?: string[] | null;
@@ -2261,6 +2263,7 @@ export type Database = {
           reparation_type?: string;
           scheduled?: string | null;
           state?: Database['public']['Enums']['repair_state'];
+          updated_at?: string | null;
           user_description?: string | null;
           user_id?: string | null;
           user_images?: string[] | null;
@@ -3121,6 +3124,7 @@ export type Database = {
           related_table: string;
           related_id: string;
           metadata: Json;
+          reassignment_reason: string;
         }[];
       };
       migrate_document: {
