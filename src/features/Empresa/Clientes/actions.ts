@@ -151,7 +151,7 @@ export async function assignEmployeesToCustomer(customerId: string, employeeIds:
     // Obtener asignaciones actuales
     const { data: currentAssignments, error: fetchError } = await supabase
       .from('contractor_employee')
-      .select('contractor_id')
+      .select('employee_id')
       .eq('contractor_id', customerId);
 
     if (fetchError) {
@@ -159,7 +159,7 @@ export async function assignEmployeesToCustomer(customerId: string, employeeIds:
       throw fetchError;
     }
 
-    const currentEmployeeIds = new Set(currentAssignments?.map((a) => a.contractor_id) || []);
+    const currentEmployeeIds = new Set(currentAssignments?.map((a) => a.employee_id) || []);
     const newEmployeeIds = new Set(employeeIds);
 
     // Identificar asignaciones a eliminar (están en current pero no en new)

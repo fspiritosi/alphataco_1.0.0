@@ -1,4 +1,3 @@
-import { formatEmployeesForTable } from '@/features/Employees/Empleados/components/utils/utils';
 import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
 import { cookies } from 'next/headers';
@@ -26,7 +25,6 @@ export default async function DataCustomersWrapper() {
   const services = await fetchServices(actualCompany || '');
   const measure_units = await fetchMeasureUnits();
   const employees = await fetchAllEmployees();
-  const formattedEmployees = formatEmployeesForTable(employees);
   const equipments = await fetchAllEquipment();
 
   // Get cookies
@@ -48,7 +46,7 @@ export default async function DataCustomersWrapper() {
       data={contractorCompanies || []}
       company_id={actualCompany || ''}
       savedCustomers={savedCustomers}
-      employees={formattedEmployees}
+      employeesData={employees}
       equipments={equipments}
       services={services || []}
       areas={areas || []}

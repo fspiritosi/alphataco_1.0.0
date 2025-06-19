@@ -11,7 +11,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
-import { createFilterOptions, formatEmployeesForTable } from '@/features/Employees/Empleados/components/utils/utils';
+import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { useRouter } from 'next/navigation';
@@ -44,7 +45,7 @@ interface DataCustomersProps<TData, TValue> {
   savedCustomers?: string;
   company_id: string;
   id?: string;
-  employees?: ReturnType<typeof formatEmployeesForTable>;
+  // employees?: ReturnType<typeof formatEmployeesForTable>;
   equipments?: Awaited<ReturnType<typeof fetchAllEquipment>>;
   // Nuevas props para servicios
   services?: any[];
@@ -56,6 +57,7 @@ interface DataCustomersProps<TData, TValue> {
   savedFiltersEquipmentTable: string[];
   savedFiltersServiceTable: string[];
   savedVisibilityEquipment: VisibilityState;
+  employeesData: Awaited<ReturnType<typeof fetchAllEmployees>>;
 }
 
 export function DataCustomers<TData extends Customer, TValue>({
@@ -64,7 +66,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   savedCustomers,
   company_id,
   id,
-  employees,
+  // employees,
   equipments,
   services = [],
   areas = [],
@@ -74,6 +76,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   savedFilters,
   savedFiltersEquipmentTable,
   savedFiltersServiceTable,
+  employeesData,
   savedVisibilityEquipment,
 }: DataCustomersProps<TData, TValue>) {
   const router = useRouter();
@@ -83,7 +86,13 @@ export function DataCustomers<TData extends Customer, TValue>({
   const [isEquipmentDialogOpen, setIsEquipmentDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [employees, setEmployees] = useState<Awaited<ReturnType<typeof fetchAllEmployees>>>(employeesData || []);
   // State for form reset when dialog closes
+
+  const fetchEmployees = async () => {
+    const employees = await fetchAllEmployees();
+    setEmployees(employees);
+  };
 
   // Memoize the customer employees filter
   const customerEmployees = React.useMemo(() => {
@@ -92,8 +101,7 @@ export function DataCustomers<TData extends Customer, TValue>({
       return [];
     }
 
-    console.log('Selected customer ID:', selectedCustomer.id);
-    console.log('Employees sample:', employees.slice(0, 1)); // Mostrar solo el primer empleado para ver su estructura
+    console.log('memo customer');
 
     const filtered = employees.filter((employee) => {
       const hasMatchingContractor =
@@ -114,7 +122,7 @@ export function DataCustomers<TData extends Customer, TValue>({
 
     console.log('Filtered customer employees:', filtered);
     return filtered;
-  }, [employees, selectedCustomer]);
+  }, [employees, selectedCustomer, isEmployeeDialogOpen]);
   // Formulario para empleados
   const form = useForm({
     defaultValues: {
@@ -126,6 +134,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Obtener IDs de equipos asignados al cliente actual a través de contractor_equipment
   const assignedEquipmentIds = React.useMemo(() => {
     if (!selectedCustomer || !equipments) return [];
+    console.log('memo equipment');
 
     return equipments
       .filter((equip) => {
@@ -148,6 +157,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Obtener IDs de empleados asignados al cliente actual a través de contractor_employee
   const assignedEmployeeIds = React.useMemo(() => {
     if (!selectedCustomer || !employees) return [];
+    console.log('memo employee');
 
     return employees
       .filter((emp) => {
@@ -162,12 +172,16 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // Sincronizar empleados seleccionados cuando se abre el diálogo
   useEffect(() => {
-    if (isEmployeeDialogOpen && selectedCustomer) {
+    console.log('useEffect employee');
+    console.log('isEmployeeDialogOpen', isEmployeeDialogOpen);
+    console.log('selectedCustomer', selectedCustomer);
+    if (selectedCustomer) {
       console.log('Sincronizando empleados asignados:', {
         assignedEmployeeIds,
         customerId: selectedCustomer.id,
       });
 
+      console.log('assignedEmployeeIds', assignedEmployeeIds);
       // Actualizar el formulario con los IDs de empleados asignados
       form.setValue('employees', assignedEmployeeIds, { shouldValidate: true });
     }
@@ -175,14 +189,16 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // Reset form when dialog is closed
   useEffect(() => {
+    console.log('useEffect employee');
     if (!isDialogOpen) {
       form.reset({ employees: [] });
     }
   }, [isDialogOpen, form]);
 
-  // Manejar la apertura/cierre del diálogo de empleados
-  const handleEmployeeDialogOpenChange = (open: boolean) => {
-    if (!open) {
+  // // Manejar la apertura/cierre del diálogo de empleados
+  const handleEmployeeDialogOpenChange = () => {
+    console.log('handleEmployeeDialogOpenChange');
+    if (isEmployeeDialogOpen) {
       setIsEmployeeDialogOpen(false);
       form.reset({ employees: [] });
     } else {
@@ -194,6 +210,7 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // Manejar la apertura/cierre del diálogo de equipos
   const handleEquipmentDialogOpenChange = (open: boolean) => {
+    console.log('handleEquipmentDialogOpenChange');
     if (!open) {
       setIsEquipmentDialogOpen(false);
       equipmentForm.reset({ equipments: [] });
@@ -207,6 +224,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Manejador para enviar los equipos seleccionados
   const handleEquipmentSubmit = async (formData: { equipments: string[] }) => {
     if (!selectedCustomer) return;
+    console.log('handleEquipmentSubmit');
 
     try {
       const equipmentIds = Array.isArray(formData.equipments) ? formData.equipments.filter(Boolean) : [];
@@ -228,7 +246,6 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   const handleSubmit = async (formData: { employees: string[] }) => {
     if (!selectedCustomer) return;
-
     try {
       const employeeIds = Array.isArray(formData.employees) ? formData.employees.filter(Boolean) : [];
 
@@ -240,28 +257,29 @@ export function DataCustomers<TData extends Customer, TValue>({
       form.reset({ employees: [] });
 
       // Refrescar la lista de empleados
-      router.refresh();
     } catch (error) {
       console.error('Error al guardar empleados:', error);
       toast.error('Error al actualizar los empleados');
     }
+    router.refresh();
+    await fetchEmployees();
   };
 
-  // Server action para asignar empleados a un cliente
-  async function asignarEmpleadosACliente(clienteId: string, empleadosIds: string[]) {
-    try {
-      const response = await assignEmployeesToCustomer(clienteId, empleadosIds);
+  // // Server action para asignar empleados a un cliente
+  // async function asignarEmpleadosACliente(clienteId: string, empleadosIds: string[]) {
+  //   try {
+  //     const response = await assignEmployeesToCustomer(clienteId, empleadosIds);
 
-      if (!response.success) {
-        throw new Error(response.error || 'Error desconocido al asignar empleados');
-      }
+  //     if (!response.success) {
+  //       throw new Error(response.error || 'Error desconocido al asignar empleados');
+  //     }
 
-      return response;
-    } catch (error) {
-      console.error('Error en asignarEmpleadosACliente:', error);
-      throw error;
-    }
-  }
+  //     return response;
+  //   } catch (error) {
+  //     console.error('Error en asignarEmpleadosACliente:', error);
+  //     throw error;
+  //   }
+  // }
 
   const [showForm, setShowForm] = useState(false);
 
@@ -271,34 +289,35 @@ export function DataCustomers<TData extends Customer, TValue>({
     setIsEditing(false);
   };
 
-  const transformEmployeeData = React.useCallback(
-    (employee: any) => ({
+  const transformEmployeeData = React.useCallback((employee: any) => {
+    console.log('transformEmployeeData');
+
+    return {
       ...employee,
       city: employee.city ? parseInt(employee.city) : null,
       province: employee.province ? parseInt(employee.province) : null,
       company_position: employee.company_position || null,
       hierarchical_position: employee.hierarchical_position || null,
       workflow_diagram: employee.workflow_diagram || null,
-    }),
-    []
-  );
+    };
+  }, []);
 
   // Memoize transformed employees (completo para la tabla)
   const transformedEmployees = React.useMemo(() => {
+    console.log('transformedEmployees');
+    console.log(customerEmployees);
     return customerEmployees.map(transformEmployeeData);
-  }, [customerEmployees, transformEmployeeData]);
-  console.log(transformedEmployees);
+  }, [customerEmployees, isEmployeeDialogOpen, employees]);
   // Datos optimizados para el multiselect - siempre mostrar todos los empleados
   const multiselectEmployees = React.useMemo(() => {
     if (!employees) return [];
+    console.log('multiselectEmployees');
 
     return employees.map((emp) => ({
       value: String(emp.id),
       label: `${emp.lastname ? emp.lastname.charAt(0).toUpperCase() + emp.lastname.slice(1) : ''} ${emp.firstname ? emp.firstname.charAt(0).toUpperCase() + emp.firstname.slice(1) : ''}`,
     }));
   }, [employees]);
-  console.log(multiselectEmployees);
-  console.log(customerEmployees);
   // Using the memoized version of assignedEmployeeIds from above
   const names = createFilterOptions(data, (customer) => customer.name);
   const cuit = createFilterOptions(data, (customer) => customer.cuit);
@@ -306,17 +325,15 @@ export function DataCustomers<TData extends Customer, TValue>({
   const client_phone = createFilterOptions(data, (customer) => customer.client_phone);
   const savedVisibility = savedCustomers ? JSON.parse(savedCustomers) : {};
   // Memoize customer equipments filter
-  console.log(equipments);
   const customerEquipments = React.useMemo(() => {
+    console.log('customerEquipments');
     if (!equipments || !selectedCustomer) return [];
 
     return equipments.filter((equipment) => {
       // Verifica si el equipo está vinculado a través de contractor_equipment
       return (
-        equipment.contractor_equipment?.some(
-          (contractor) =>
-            contractor.contractor_id?.id === selectedCustomer.id || contractor.contractor_id === selectedCustomer.id
-        ) || false
+        equipment.contractor_equipment?.some((contractor) => contractor.contractor_id?.id === selectedCustomer.id) ||
+        false
       );
     });
   }, [equipments, selectedCustomer]);
@@ -324,6 +341,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Esto evita pasar todo el objeto del empleado al componente
   const employeeOptions1 = multiselectEmployees;
   // Si estamos viendo/editar un cliente existente (pestañas)
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   if (showForm) {
     return (
       <div className="space-y-6">
@@ -365,7 +383,7 @@ export function DataCustomers<TData extends Customer, TValue>({
             <div className=" p-6 rounded-lg border">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold">Empleados del Cliente</h3>
-                <Dialog>
+                <Dialog open={isEmployeeDialogOpen} onOpenChange={() => handleEmployeeDialogOpenChange()}>
                   <DialogTrigger asChild>
                     <Button variant="gh_orange">Cargar empleados</Button>
                   </DialogTrigger>
@@ -392,7 +410,7 @@ export function DataCustomers<TData extends Customer, TValue>({
                                       emptyMessage="No se encontraron empleados"
                                       selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
                                       onChange={(values) => {
-                                        // console.log('Empleados seleccionados:', values);
+                                        console.log('Empleados seleccionados:', values);
                                         field.onChange(values);
                                       }}
                                       placeholder="Buscar empleados..."
@@ -420,16 +438,34 @@ export function DataCustomers<TData extends Customer, TValue>({
                 </Dialog>
               </div>
 
-              {transformedEmployees.length > 0 ? (
-                <EmployeesTableReusable
-                  onRowClick={(employee) => handleRowClick(employee as any)}
-                  employeesPromise={Promise.resolve(transformedEmployees)}
-                  tableId="employees-table"
-                  savedVisibility={savedVisibility}
-                />
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">No hay empleados asignados a este cliente.</div>
-              )}
+              {/* {transformedEmployees.length > 0 ? ( */}
+              <EmployeesTableReusable
+                onRowClick={(employee) => handleRowClick(employee as any)}
+                // employeesPromise={Promise.resolve(transformedEmployees)}
+                transformedEmployees={
+                  (employees?.filter((employee) => {
+                    const hasMatchingContractor =
+                      employee.contractor_employee?.some((contractor: any) => {
+                        const contractorId = contractor.contractor_id?.id || contractor.contractor_id;
+                        console.log('Checking contractor:', {
+                          employeeId: employee.id,
+                          contractorId,
+                          selectedCustomerId: selectedCustomer?.id,
+                          matches: contractorId === selectedCustomer?.id,
+                        });
+                        return contractorId === selectedCustomer?.id;
+                      }) || false;
+
+                    console.log(`Employee ${employee.id} has matching contractor:`, hasMatchingContractor);
+                    return hasMatchingContractor;
+                  }) as any) || []
+                }
+                tableId="employees-table"
+                savedVisibility={savedVisibility}
+              />
+              {/* ) : ( */}
+              {/* <div className="text-center py-4 text-muted-foreground">No hay empleados asignados a este cliente.</div> */}
+              {/* )} */}
             </div>
           </TabsContent>
 
