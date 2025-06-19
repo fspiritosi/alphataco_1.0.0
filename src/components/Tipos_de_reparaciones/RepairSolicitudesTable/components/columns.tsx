@@ -87,7 +87,8 @@ export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[]
     id: 'Criticidad',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Criticidad" />,
     cell: ({ row }) => {
-      const priority = criticidad.find((priority) => priority.value === row.getValue('priority'));
+      console.log(row.original, 'sasasasa');
+      const priority = criticidad.find((priority) => priority.value === row.original.priority);
       const label = labels.find((label) => label.value === row.original.priority);
       if (!priority) {
         return null;
