@@ -387,7 +387,7 @@ export function DataCustomers<TData extends Customer, TValue>({
                   <DialogTrigger asChild>
                     <Button variant="gh_orange">Cargar empleados</Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Seleccionar empleados</DialogTitle>
                     </DialogHeader>
@@ -414,6 +414,7 @@ export function DataCustomers<TData extends Customer, TValue>({
                                         field.onChange(values);
                                       }}
                                       placeholder="Buscar empleados..."
+                                      showSelectAll={true}
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -477,7 +478,7 @@ export function DataCustomers<TData extends Customer, TValue>({
                   <DialogTrigger asChild>
                     <Button variant="gh_orange">Asignar Equipos</Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Seleccionar Equipos</DialogTitle>
                     </DialogHeader>
@@ -509,6 +510,7 @@ export function DataCustomers<TData extends Customer, TValue>({
                                         field.onChange(values);
                                       }}
                                       placeholder="Buscar equipos..."
+                                      showSelectAll={true}
                                     />
                                   </FormControl>
                                   <FormMessage />
