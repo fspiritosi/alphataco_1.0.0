@@ -40,6 +40,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 // import { useLoggedUserStore } from '@/store/loggedUser';
 // import { zodResolver } from '@hookform/resolvers/zod';
 // import { DotsVerticalIcon } from '@radix-ui/react-icons';
+import { Badge } from '@/components/ui/badge';
 import { ColumnDef } from '@tanstack/react-table';
 // import { format } from 'date-fns';
 // import { es } from 'date-fns/locale';
@@ -462,16 +463,22 @@ export const columnsCustomers: ColumnDef<Colum>[] = [
   },
   {
     accessorKey: 'is_active',
-    id: 'is_active', // Usamos 'is_active' como ID para que coincida con el nombre de la columna
+    id: 'Estado', // Usamos 'is_active' como ID para que coincida con el nombre de la columna
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const isActive = row.original.is_active;
-      return <div>{isActive ? 'Activo' : 'Inactivo'}</div>;
+      return (
+        <Badge variant={isActive ? 'success' : 'destructive'} className="text-white">
+          {isActive ? 'Activo' : 'Inactivo'}
+        </Badge>
+      );
     },
     filterFn: (row, id, value) => {
       if (!value || value.length === 0) return true;
-      const isActive = Boolean(row.original.is_active);
-      return value.includes(String(isActive));
+      const isActive = row.original.is_active;
+      // Convertir el valor del filtro a booleano para la comparación
+      const filterValue = value[0] === 'Activo';
+      return isActive === filterValue;
     },
   },
   // {
