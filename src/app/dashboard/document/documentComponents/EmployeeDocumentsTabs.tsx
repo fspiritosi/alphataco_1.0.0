@@ -2,6 +2,7 @@ import DocumentNav from '@/components/DocumentNav';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
 import MonthlyDocuments from '@/features/Employees/Empleados/DocumentosEmpleados/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocuments';
+import { Suspense } from 'react';
 
 async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: string; subtab?: string; path: string }) {
   const viewData = {
@@ -23,9 +24,9 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
             </div>
           ),
           component: (
-            <>
+            <Suspense fallback={<div>Loading...</div>}>
               <PermanentDocuments />
-            </>
+            </Suspense>
           ),
         },
       },
@@ -44,9 +45,9 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
             </div>
           ),
           component: (
-            <>
+            <Suspense fallback={<div>Loading...</div>}>
               <MonthlyDocuments />
-            </>
+            </Suspense>
           ),
         },
       },

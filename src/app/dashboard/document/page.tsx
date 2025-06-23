@@ -1,7 +1,5 @@
 import DocumentNav from '@/components/DocumentNav';
-import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
 import Viewcomponent from '@/components/ViewComponent';
-import { Suspense } from 'react';
 import CompanyTabsWrapper from './documentComponents/CompanyTabsWrapper';
 import EmployeeDocumentsTabs from './documentComponents/EmployeeDocumentsTabs';
 import EquipmentTabs from './documentComponents/EquipmentTabs';
@@ -97,9 +95,5 @@ export default function page({
     ],
   };
 
-  return (
-    <Suspense fallback={<PageTableSkeleton />}>
-      <Viewcomponent viewData={viewData} />
-    </Suspense>
-  );
+  return <Viewcomponent viewData={viewData} />;
 }
