@@ -461,8 +461,26 @@ export const columnsCustomers: ColumnDef<Colum>[] = [
     },
   },
   {
-    accessorKey: 'showUnavaliableContacts',
-    id: 'Ver clientes dados de baja',
-    header: 'Ver clientes dados de baja',
+    accessorKey: 'is_active',
+    id: 'is_active', // Usamos 'is_active' como ID para que coincida con el nombre de la columna
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+    cell: ({ row }) => {
+      const isActive = row.original.is_active;
+      return <div>{isActive ? 'Activo' : 'Inactivo'}</div>;
+    },
+    filterFn: (row, id, value) => {
+      if (!value || value.length === 0) return true;
+      const isActive = Boolean(row.original.is_active);
+      return value.includes(String(isActive));
+    },
   },
+  // {
+  //   accessorKey: 'showUnavaliableContacts',
+  //   id: 'Ver clientes dados de baja',
+  //   // header: 'Ver clientes dados de baja',
+  //   header: ({ column }) => <DataTableColumnHeader column={column} title="Ver clientes dados de baja" />,
+  //   filterFn: (row, id, value) => {
+  //     return value.includes(row.getValue(id));
+  //   },
+  // },
 ];
