@@ -1,5 +1,5 @@
 import NewDocumentMulti from './Documents/NewDocumentMulti';
-import NewDocumentNoMulti from './Documents/NewDocumentNoMulti';
+
 export default function DocumentNav({
   onlyEmployees,
   onlyNoMultiresource,
@@ -18,9 +18,9 @@ export default function DocumentNav({
   return (
     <div className="flex gap-2">
       {!onlyNoMultiresource && <NewDocumentMulti onlyEmployees={onlyEmployees} onlyEquipment={onlyEquipment} />}
-      {!onlyMultiresource && (
+      {/* {!onlyMultiresource && (
         <NewDocumentNoMulti id_user={id_user} onlyEmployees={onlyEmployees} onlyEquipment={onlyEquipment} />
-      )}
+      )} */}
     </div>
   );
 }

@@ -1,10 +1,4 @@
-import {
-  fetchAllDocumentTypes,
-  fetchAllEmployees,
-  fetchAllEquipment,
-  fetchCurrentCompany,
-  fetchCurrentUser,
-} from '@/app/server/GET/actions';
+import { fetchAllDocumentTypes, fetchCurrentUser } from '@/app/server/GET/actions';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -15,6 +9,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { fetchCurrentCompany } from '@/shared/actions/company.actions';
+import { fetchSimpleDataEmployee } from '@/shared/actions/employees.actions';
+import { fetchSimpleDataEquipment } from '@/shared/actions/equipment.actions';
 import InfoComponent from '../InfoComponent';
 import UploadDocumentMultiEmployee from './UploadDocumentMultiEmployee';
 import UploadDocumentMultiEquipment from './UploadDocumentMultiEquipment';
@@ -26,16 +23,16 @@ async function NewDocumentMulti({
   onlyEquipment?: boolean;
 }) {
   // const cookiesStore = cookies();
-  const employees = (await fetchAllEmployees()).map((employee) => ({
+  const employees = (await fetchSimpleDataEmployee()).map((employee) => ({
     label: `${employee.firstname} ${employee.lastname}`,
     value: employee.id,
     cuit: employee.cuil,
   }));
 
-  const equipments = (await fetchAllEquipment()).map((equipment) => ({
+  const equipments = (await fetchSimpleDataEquipment()).map((equipment) => ({
     label: equipment.domain
-      ? `${equipment.domain} - ${equipment.intern_number}`
-      : `${equipment.serie} - ${equipment.intern_number}`,
+      ? `${equipment.domain} - ${equipment.intern_number || equipment.serie}`
+      : `${equipment.serie} - ${equipment.intern_number || equipment.serie}`,
     value: equipment.id,
   }));
 

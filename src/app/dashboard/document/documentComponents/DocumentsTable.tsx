@@ -84,7 +84,7 @@ export function getDocumentColumns(
       id: 'Vence',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Vence" />,
       cell: ({ row }) => (
-        <Badge variant={row.original.expired ? 'success' : 'default'}>{row.original.expired ? 'Si' : 'No'}</Badge>
+        <Badge variant={row.original.explired ? 'success' : 'default'}>{row.original.explired ? 'Si' : 'No'}</Badge>
       ),
       filterFn: (row, id, value) => {
         const val = row.getValue(id) ? 'Si' : 'No';

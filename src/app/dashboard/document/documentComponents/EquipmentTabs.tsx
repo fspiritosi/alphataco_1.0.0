@@ -2,6 +2,7 @@ import DocumentNav from '@/components/DocumentNav';
 import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentInternal';
 import MonthlyDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/MonthlyDocumentsWrapper';
 import PermanentDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/PermanentDocumentsWrapper';
+import { Suspense } from 'react';
 
 export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabValue: string; path: string }) {
   const viewData: ViewDataObj = {
@@ -23,9 +24,9 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
             </div>
           ),
           component: (
-            <>
+            <Suspense fallback={<div>Loading...</div>}>
               <PermanentDocumentsWrapper />
-            </>
+            </Suspense>
           ),
         },
       },
@@ -38,15 +39,15 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
           title: 'Solo vehículos',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          buttonAction: (
-            <div className="flex gap-4 flex-wrap">
-              <DocumentNav onlyEquipment />
-            </div>
-          ),
+          // buttonAction: (
+          //   <div className="flex gap-4 flex-wrap">
+          //     <DocumentNav onlyEquipment />
+          //   </div>
+          // ),
           component: (
-            <>
+            <Suspense fallback={<div>Loading...</div>}>
               <MonthlyDocumentsWrapper />
-            </>
+            </Suspense>
           ),
         },
       },

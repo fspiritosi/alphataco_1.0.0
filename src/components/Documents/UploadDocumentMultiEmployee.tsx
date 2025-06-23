@@ -10,6 +10,7 @@ import {
   uploadDocument,
   uploadDocumentFile,
 } from '@/lib/utils';
+import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { Check, ChevronsUpDown } from 'lucide-react';
@@ -32,7 +33,7 @@ function UploadDocumentMultiEmployee({
 }: {
   employees: { label: string; value: string; cuit: string }[];
   allDocumentTypes: DocumentTypes[];
-  currentCompany: Company[];
+  currentCompany: Awaited<ReturnType<typeof fetchCurrentCompany>>;
   user_id?: string;
 }) {
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
@@ -277,8 +278,8 @@ function UploadDocumentMultiEmployee({
                             const hasExpiredDate = expiredDate || period || 'v0';
 
                             const documentUrl = calculateNameOFDocument(
-                              currentCompany[0].company_name,
-                              currentCompany[0].company_cuit,
+                              currentCompany?.[0].company_name || '',
+                              currentCompany?.[0].company_cuit || '',
                               'persona',
                               documentName,
                               hasExpiredDate,

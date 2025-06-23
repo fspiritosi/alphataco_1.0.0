@@ -38,3 +38,20 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
   }
   return data;
 };
+export const fetchSimpleDataEquipment = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('domain,serie,intern_number,id')
+    .eq('company_id', company_id);
+  if (error) {
+    console.error('Error fetching equipment:', error);
+
+    return [];
+  }
+  return data;
+};
