@@ -37,6 +37,8 @@ async function TypesDocumentsViewWrapper({
 
   // Preparamos el componente TypesDocumentAction que se pasará como children
 
+  console.log(document_types, 'document_types');
+
   return (
     <TypesDocumentsView
       optionChildrenProp={optionChildrenProp}

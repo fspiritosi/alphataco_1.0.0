@@ -323,6 +323,8 @@ export function DataCustomers<TData extends Customer, TValue>({
   const cuit = createFilterOptions(data, (customer) => customer.cuit);
   const client_email = createFilterOptions(data, (customer) => customer.client_email);
   const client_phone = createFilterOptions(data, (customer) => customer.client_phone);
+  const active_customer = createFilterOptions(data, (customer) => (customer.is_active ? 'Activo' : 'Inactivo'));
+
   const savedVisibility = savedCustomers ? JSON.parse(savedCustomers) : {};
   // Memoize customer equipments filter
   const customerEquipments = React.useMemo(() => {
@@ -617,6 +619,11 @@ export function DataCustomers<TData extends Customer, TValue>({
               columnId: 'Telefono',
               title: 'Telefono',
               options: client_phone,
+            },
+            {
+              columnId: 'Estado',
+              title: 'Estado',
+              options: active_customer,
             },
           ],
         }}

@@ -1,8 +1,8 @@
 'use client';
-import { ColumnsMonthly } from '@/app/dashboard/columsMonthly';
+import { ExpiredColumsEquipmentDocument } from '@/app/dashboard/columsEquipmentDocument';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { PermanentDocumentsDownloadButton } from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocumentsDownloadButton';
-import { formatVehiculesDocuments } from '@/lib/utils';
+import { formatSimpleVehiculesDocuments } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { VisibilityState } from '@tanstack/react-table';
 
@@ -11,32 +11,68 @@ function MonthlyDocumentsEquipment({
   savedVisibility,
   savedFilter,
 }: {
-  monthlyDocuments: ReturnType<typeof formatVehiculesDocuments>[];
+  monthlyDocuments: ReturnType<typeof formatSimpleVehiculesDocuments>[];
   savedVisibility: VisibilityState;
   savedFilter: string[];
 }) {
-  const employeeName = createFilterOptions(monthlyDocuments, (employee) => employee.resource);
+  const equipmentName = createFilterOptions(monthlyDocuments, (equipment) => equipment.resource);
   const documentName = createFilterOptions(monthlyDocuments, (document) => document.documentName);
+
+  // Use the new allocated_to_names field which already contains the names as strings
+  const allocatedTo = createFilterOptions(
+    monthlyDocuments.flatMap((doc) => doc.allocated_to_names || []),
+    (name) => name
+  );
 
   // console.log(monthlyDocuments[0], 'monthlyDocuments');
   return (
     <BaseDataTable
       tableId="monthly-documents-vehicles"
-      columns={ColumnsMonthly}
+      columns={ExpiredColumsEquipmentDocument}
       data={monthlyDocuments}
       savedVisibility={savedVisibility}
       toolbarOptions={{
         initialVisibleFilters: savedFilter || [],
         filterableColumns: [
           {
-            columnId: 'Empleado',
-            title: 'Empleado',
-            options: employeeName,
+            columnId: 'Equipo',
+            title: 'Equipo',
+            options: equipmentName,
           },
           {
             columnId: 'Documento',
             title: 'Documento',
             options: documentName,
+          },
+          {
+            columnId: 'Serie',
+            title: 'Serie',
+            options: createFilterOptions(monthlyDocuments, (doc) => doc.serie || ''),
+          },
+          {
+            columnId: 'Tipo de Documento',
+            title: 'Tipo de Documento',
+            options: createFilterOptions(monthlyDocuments, (doc) => doc.id_document_types || ''),
+          },
+          {
+            columnId: 'Afectado a',
+            title: 'Afectado a',
+            options: allocatedTo,
+          },
+          {
+            columnId: 'Mandatorio',
+            title: 'Mandatorio',
+            options: createFilterOptions(monthlyDocuments, (doc) => doc.mandatory || ''),
+          },
+          {
+            columnId: 'Estado',
+            title: 'Estado',
+            options: createFilterOptions(monthlyDocuments, (doc) => doc.state || ''),
+          },
+          {
+            columnId: 'Multirecurso',
+            title: 'Multirecurso',
+            options: createFilterOptions(monthlyDocuments, (doc) => doc.multiresource || ''),
           },
           {
             columnId: 'Periodo',

@@ -13,23 +13,6 @@ export const fetchAllEmployees = async (role?: string) => {
   // console.log(company_id, 'company_id');
   if (!company_id) return [];
 
-  // console.log(user, 'user');
-
-  // if (role === 'Invitado') {
-  //   const { data, error } = await supabase
-  //     .from('share_company_users')
-  //     .select(
-  //       `*,customer_id(*,contractor_employee(*,employee_id(*,hierarchical_position(*),city(*),province(*),workflow_diagram(*),birthplace(*))))`
-  //     )
-  //     .eq('profile_id', user?.id || '')
-  //     .eq('company_id', company_id)
-  //     // .returns<ShareCompanyUsersWithRelations[]>();
-
-  //   const employees = data?.[0].customer_id[0].
-  //   const allEmployees = employees?.map((employee: any) => employee.employee_id) as EmployeeDetailed[];
-  //   return allEmployees || [];
-  // }
-
   const { data, error } = await supabase
     .from('employees')
     .select(
@@ -37,8 +20,25 @@ export const fetchAllEmployees = async (role?: string) => {
     )
     .eq('company_id', company_id);
 
+  if (error) {
+    console.error('Error fetching employees:', error);
+    return [];
+  }
+  return data;
+};
+
+export const fetchSimpleDataEmployee = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select('id,firstname,lastname,cuil')
+    .eq('company_id', company_id);
+
   console.log(data, 'data');
-  // .returns<EmployeeDetailed[]>();
 
   if (error) {
     console.error('Error fetching employees:', error);

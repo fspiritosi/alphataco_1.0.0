@@ -1,8 +1,8 @@
 'use client';
-import { ExpiredColums } from '@/app/dashboard/colums';
+import { ExpiredColumsEquipmentDocument } from '@/app/dashboard/columsEquipmentDocument';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { PermanentDocumentsDownloadButton } from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocumentsDownloadButton';
-import { formatVehiculesDocuments } from '@/lib/utils';
+import { formatSimpleVehiculesDocuments } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { VisibilityState } from '@tanstack/react-table';
 
@@ -11,13 +11,20 @@ function PermanentDocumentsEquipment({
   savedVisibility,
   savedFilter,
 }: {
-  permanentDocuments: ReturnType<typeof formatVehiculesDocuments>[];
+  permanentDocuments: ReturnType<typeof formatSimpleVehiculesDocuments>[];
   savedVisibility: VisibilityState;
   savedFilter: string[];
 }) {
-  const employeeName = createFilterOptions(permanentDocuments, (employee) => employee.resource);
+  const equipmentName = createFilterOptions(permanentDocuments, (equipment) => equipment.resource);
   const documentName = createFilterOptions(permanentDocuments, (document) => document.documentName);
 
+  // Use the new allocated_to_names field which already contains the names as strings
+  const allocatedTo = createFilterOptions(
+    permanentDocuments.flatMap((doc) => doc.allocated_to_names || []),
+    (name) => name
+  );
+
+  console.log(permanentDocuments);
   return (
     <div>
       {/* <EmployeesTableReusable
@@ -28,20 +35,50 @@ function PermanentDocumentsEquipment({
       /> */}
       <BaseDataTable
         tableId="permanent-documents-vehicles"
-        columns={ExpiredColums}
+        columns={ExpiredColumsEquipmentDocument}
         data={permanentDocuments}
         toolbarOptions={{
           initialVisibleFilters: savedFilter || [],
           filterableColumns: [
             {
-              columnId: 'Empleado',
-              title: 'Empleado',
-              options: employeeName,
+              columnId: 'Equipo',
+              title: 'Equipo',
+              options: equipmentName,
             },
             {
               columnId: 'Documento',
               title: 'Documento',
               options: documentName,
+            },
+            {
+              columnId: 'Serie',
+              title: 'Serie',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.serie || ''),
+            },
+            {
+              columnId: 'Tipo de Documento',
+              title: 'Tipo de Documento',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.id_document_types || ''),
+            },
+            {
+              columnId: 'Afectado a',
+              title: 'Afectado a',
+              options: allocatedTo,
+            },
+            {
+              columnId: 'Mandatorio',
+              title: 'Mandatorio',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.mandatory || ''),
+            },
+            {
+              columnId: 'Estado',
+              title: 'Estado',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.state || ''),
+            },
+            {
+              columnId: 'Multirecurso',
+              title: 'Multirecurso',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.multiresource || ''),
             },
             {
               columnId: 'Vencimiento',

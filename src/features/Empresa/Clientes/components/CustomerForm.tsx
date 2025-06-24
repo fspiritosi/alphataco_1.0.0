@@ -65,13 +65,15 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
     defaultValues: customer
       ? {
           ...customer,
-          // Convertir a string para el formulario
+          // Convertir a los tipos correctos para el formulario
           cuit: customer.cuit ? String(customer.cuit) : '',
           client_phone: customer.client_phone ? String(customer.client_phone) : '',
           client_email: customer.client_email || '',
           address: customer.address || '',
           reason_for_termination: customer.reason_for_termination || '',
           is_active: customer.is_active ?? true,
+          // Convertir string de fecha a objeto Date si existe
+          termination_date: customer.termination_date ? new Date(customer.termination_date) : null,
         }
       : {
           name: '',
@@ -87,6 +89,12 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
 
   const onSubmit = async (values: z.infer<typeof customerFormSchema>) => {
     try {
+      // Si el cliente está activo, limpiamos los campos de baja
+      if (values.is_active) {
+        values.termination_date = null;
+        values.reason_for_termination = '';
+      }
+
       // Preparar los datos para la base de datos
       const customerData: CustomerDB = {
         name: values.name,
@@ -96,8 +104,8 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
         address: values.address || null,
         is_active: values.is_active,
         company_id,
-        reason_for_termination: values.reason_for_termination || null,
-        termination_date: values.termination_date?.toISOString() || null,
+        reason_for_termination: values.is_active ? null : values.reason_for_termination || null,
+        termination_date: values.is_active ? null : values.termination_date?.toISOString() || null,
       };
 
       if (isEditing && customer) {
@@ -106,7 +114,6 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
 
         if (error) throw error;
         toast.success('Cliente actualizado correctamente');
-        router.refresh();
       } else {
         // Crear nuevo cliente
         const { error } = await supabase.from('customers').insert([customerData]);
@@ -114,6 +121,9 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
         if (error) throw error;
         toast.success('Cliente creado correctamente');
       }
+
+      // Refrescar la página para ver los cambios
+      router.refresh();
 
       // Limpiar el formulario y cerrar el diálogo
       if (onSuccess) onSuccess();
@@ -232,6 +242,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
                     value={field.value ? 'true' : 'false'}
                     className="flex space-x-4"
                     disabled={readOnly}
+                    defaultValue={field.value ? 'true' : 'false'}
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="true" id="active-true" />
@@ -277,7 +288,11 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
                       <Input
                         type="date"
                         {...field}
-                        value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                        value={field.value ? field.value.toISOString().split('T')[0] : ''}
+                        onChange={(e) => {
+                          const date = e.target.value ? new Date(e.target.value) : null;
+                          field.onChange(date);
+                        }}
                         readOnly={readOnly}
                         className={readOnly ? 'bg-muted' : ''}
                       />

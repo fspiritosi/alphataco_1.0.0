@@ -24,7 +24,7 @@ interface TabsControllerProps {
 export function TabsController({ defaultValue, tabsValues, path }: TabsControllerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || defaultValue);
+  const [activeTab, setActiveTab] = useState<string>(defaultValue);
 
   // Actualizar el estado cuando cambia la URL
   useEffect(() => {

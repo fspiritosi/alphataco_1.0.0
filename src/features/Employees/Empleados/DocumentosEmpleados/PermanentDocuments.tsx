@@ -1,20 +1,24 @@
-import { ExpiredColums } from '@/app/dashboard/colums';
+import { columnsEmployeeDocument } from '@/app/dashboard/columsEmployeeDocument';
 import { fetchEmployeePermanentDocuments } from '@/app/server/GET/actions';
-import { formatEmployeeDocuments } from '@/lib/utils';
+import { formatEmployeeDocumentsSimple } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { VisibilityState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
 import { createFilterOptions } from '../components/utils/utils';
 
 async function PermanentDocuments() {
-  const permanentDocuments = (await fetchEmployeePermanentDocuments()).map(formatEmployeeDocuments);
+  const permanentDocuments = (await fetchEmployeePermanentDocuments()).map(formatEmployeeDocumentsSimple);
   const cookiesStore = cookies();
   const savedVisibilityPermanent = cookiesStore.get(`permanent-documents-employees`)?.value;
   const savedFiltersPermanent = cookiesStore.get(`permanent-documents-employees-filters`)?.value;
 
   const employeeName = createFilterOptions(permanentDocuments, (employee) => employee.resource);
   const documentName = createFilterOptions(permanentDocuments, (document) => document.documentName);
-
+  // Use the new allocated_to_names field which already contains the names as strings
+  const allocatedTo = createFilterOptions(
+    permanentDocuments.flatMap((doc) => doc.allocated_to_names || []),
+    (name) => name
+  );
   return (
     <div>
       {/* <EmployeesTableReusable
@@ -25,7 +29,7 @@ async function PermanentDocuments() {
       /> */}
       <BaseDataTable
         tableId="permanent-documents-employees"
-        columns={ExpiredColums}
+        columns={columnsEmployeeDocument}
         data={permanentDocuments}
         toolbarOptions={{
           initialVisibleFilters: JSON.parse(savedFiltersPermanent || '[]'),
@@ -39,6 +43,31 @@ async function PermanentDocuments() {
               columnId: 'Documento',
               title: 'Documento',
               options: documentName,
+            },
+            {
+              columnId: 'Tipo de Documento',
+              title: 'Tipo de Documento',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.id_document_types || ''),
+            },
+            {
+              columnId: 'Afectado a',
+              title: 'Afectado a',
+              options: allocatedTo,
+            },
+            {
+              columnId: 'Mandatorio',
+              title: 'Mandatorio',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.mandatory || ''),
+            },
+            {
+              columnId: 'Estado',
+              title: 'Estado',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.state || ''),
+            },
+            {
+              columnId: 'Multirecurso',
+              title: 'Multirecurso',
+              options: createFilterOptions(permanentDocuments, (doc) => doc.multiresource || ''),
             },
             {
               columnId: 'Vencimiento',

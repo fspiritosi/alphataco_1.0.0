@@ -22,11 +22,7 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
               <DocumentNav onlyEmployees />
             </div>
           ),
-          component: (
-            <>
-              <PermanentDocuments />
-            </>
-          ),
+          component: <PermanentDocuments />,
         },
       },
       {
@@ -43,11 +39,7 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
               <DocumentNav onlyEmployees />
             </div>
           ),
-          component: (
-            <>
-              <MonthlyDocuments />
-            </>
-          ),
+          component: <MonthlyDocuments />,
         },
       },
     ],

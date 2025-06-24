@@ -22,11 +22,7 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
               <DocumentNav onlyEquipment />
             </div>
           ),
-          component: (
-            <>
-              <PermanentDocumentsWrapper />
-            </>
-          ),
+          component: <PermanentDocumentsWrapper />,
         },
       },
       {
@@ -38,16 +34,12 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
           title: 'Solo vehículos',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          buttonAction: (
-            <div className="flex gap-4 flex-wrap">
-              <DocumentNav onlyEquipment />
-            </div>
-          ),
-          component: (
-            <>
-              <MonthlyDocumentsWrapper />
-            </>
-          ),
+          // buttonAction: (
+          //   <div className="flex gap-4 flex-wrap">
+          //     <DocumentNav onlyEquipment />
+          //   </div>
+          // ),
+          component: <MonthlyDocumentsWrapper />,
         },
       },
     ],
