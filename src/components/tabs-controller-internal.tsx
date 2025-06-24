@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { FormTableResizableSkeleton } from './Skeletons/ResizablePanelSkeleton';
+import { Skeleton } from './ui/skeleton';
 
 interface TabsControllerInternalProps {
   defaultValue: string;
@@ -85,7 +86,7 @@ export function TabsControllerInternal({ defaultValue, tabsValues, path }: TabsC
 
         {tabsValues.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
+            <Suspense fallback={<Skeleton className="h-16"></Skeleton>}>
               {tab.content.buttonAction && (
                 <div className="flex gap-4 py-2 flex-wrap justify-start">{tab.content.buttonAction}</div>
               )}

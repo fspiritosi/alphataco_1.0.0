@@ -49,7 +49,7 @@ export default function ViewComponent({
 
   return (
     <div className="flex flex-col gap-6 py-1 px-6 h-full">
-      <TabsController defaultValue={effectiveDefaultValue} tabsValues={clientTabsData} path={viewData.path} />
+      <TabsController defaultValue={viewData.defaultValue} tabsValues={clientTabsData} path={viewData.path} />
     </div>
   );
 }

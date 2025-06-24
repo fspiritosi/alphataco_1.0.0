@@ -2,7 +2,6 @@ import DocumentNav from '@/components/DocumentNav';
 import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentInternal';
 import MonthlyDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/MonthlyDocumentsWrapper';
 import PermanentDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/PermanentDocumentsWrapper';
-import { Suspense } from 'react';
 
 export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabValue: string; path: string }) {
   const viewData: ViewDataObj = {
@@ -23,11 +22,7 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
               <DocumentNav onlyEquipment />
             </div>
           ),
-          component: (
-            <Suspense fallback={<div>Loading...</div>}>
-              <PermanentDocumentsWrapper />
-            </Suspense>
-          ),
+          component: <PermanentDocumentsWrapper />,
         },
       },
       {
@@ -44,11 +39,7 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
           //     <DocumentNav onlyEquipment />
           //   </div>
           // ),
-          component: (
-            <Suspense fallback={<div>Loading...</div>}>
-              <MonthlyDocumentsWrapper />
-            </Suspense>
-          ),
+          component: <MonthlyDocumentsWrapper />,
         },
       },
     ],

@@ -14,7 +14,7 @@ export default function page({
   };
 }) {
   const viewData = {
-    defaultValue: params.tab || 'Documentos de empleados',
+    defaultValue: 'Documentos de empleados',
     path: '/dashboard/document',
     tabsValues: [
       {
