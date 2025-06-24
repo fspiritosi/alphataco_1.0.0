@@ -152,7 +152,7 @@ export async function fechAllCustomers() {
     const { data, error } = await supabase
       .from('customers')
       .select('*')
-      .eq('is_active', true)
+      // .eq('is_active', true)
       .eq('company_id', actualCompany || '');
 
     if (error) {
