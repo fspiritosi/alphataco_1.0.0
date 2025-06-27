@@ -1543,3 +1543,20 @@ export async function fetchEmployeeDiagrams(employeeId?: string) {
     throw error;
   }
 }
+
+export async function getCompanyDetails(companyId: string) {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from('company')
+    .select('id, company_name, website, contact_email, company_logo')
+    .eq('id', companyId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching company details:', error);
+    return null;
+  }
+
+  return data;
+}
