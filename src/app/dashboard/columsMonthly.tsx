@@ -703,7 +703,7 @@ export const ColumnsMonthly: ColumnDef<Colum>[] = [
 
       if (isNoPresented) {
         return (
-          <AlertDialog>
+          <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
               {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
             </AlertDialogTrigger>

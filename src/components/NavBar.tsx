@@ -81,6 +81,7 @@ export default function NavBar() {
 
   const handleNewCompany = async (company: Company[0]) => {
     Cookies.set('actualComp', company.id);
+    Cookies.set('actualCompName', company.company_name);
     await setNewCompanyUserMetadata(company.id);
     setNewDefectCompany(company);
     setActualCompany(company);

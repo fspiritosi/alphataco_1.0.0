@@ -40,7 +40,7 @@ async function MonthlyDocuments({}) {
           {
             columnId: 'Tipo de Documento',
             title: 'Tipo de Documento',
-            options: createFilterOptions(monthlyDocuments, (doc) => doc.id_document_types || ''),
+            options: createFilterOptions(monthlyDocuments, (doc) => doc.documentName || ''),
           },
           {
             columnId: 'Afectado a',

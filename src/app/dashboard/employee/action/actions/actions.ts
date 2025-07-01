@@ -39,7 +39,7 @@ export async function fetchAllCompanyPositon() {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('company_positions' as any).select('*');
+  const { data, error } = await supabase.from('company_positions').select('*');
 
   if (error) {
     console.error('Error fetching company positions:', error);

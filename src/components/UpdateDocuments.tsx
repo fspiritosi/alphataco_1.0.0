@@ -81,32 +81,55 @@ export default function UpdateDocuments({
     toast.promise(
       async () => {
         const versionRegex = /\(v(\d+)\)/;
-        const dateRegex = /\((\d{2}-\d{2}-\d{4})\)\./;
+        const dateRegex = /\(((\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})[\s\S]*?)\)/;
         const periodRegex = /\((\d{4}-\d{2})\)/;
 
         let newDocumentName = documentName;
         const newExtension = file.name.split('.').pop();
+        console.log(newExtension);
+        console.log(file);
 
         if (versionRegex.test(documentName)) {
           const match = documentName.match(versionRegex);
+          console.log(match, 'match');
           if (match) {
             const currentVersion = parseInt(match[1], 10);
             const newVersion = currentVersion + 1;
             const name = documentName.split('.')[0];
+            console.log(name.replace(versionRegex, `(v${newVersion})`) + `.${newExtension}`, 'newDocumentName');
             newDocumentName = name.replace(versionRegex, `(v${newVersion})`) + `.${newExtension}`;
           }
         } else if (dateRegex.test(documentName)) {
+          console.log(filename.validity, 'filename.validity');
           const newDate = moment(filename.validity).format('DD-MM-YYYY');
-          newDocumentName = documentName.replace(dateRegex, `(${newDate})` + `.${newExtension}`);
+
+          // Extraer la parte antes de la extensión y la extensión por separado
+          const parts = documentName.split('.');
+          const baseNameWithoutExt = parts.slice(0, -1).join('.');
+
+          // Reemplazar solo la fecha en el nombre base
+          const newBaseName = baseNameWithoutExt.replace(dateRegex, `(${newDate})`);
+
+          // Construir el nuevo nombre con la nueva extensión
+          newDocumentName = `${newBaseName}.${newExtension}`;
+          console.log(newDocumentName, 'newDocumentName');
         } else if (periodRegex.test(documentName)) {
           const newPeriod = filename.period;
+          console.log(newPeriod, 'newPeriod');
+          console.log(documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`, 'newPeriod');
           newDocumentName = documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`;
         }
+
+        console.log(documentName);
+        console.log(newDocumentName);
+        console.log(montly, 'montly');
 
         if (montly) {
           const { error: newDocumentError, data } = await supabase.storage
             .from('document-files')
             .upload(newDocumentName, file, { upsert: true });
+
+          console.log(data, 'data');
 
           const { error: updateError } = await supabase
             .from(tableName)
@@ -118,48 +141,57 @@ export default function UpdateDocuments({
             })
             .eq('document_path', documentName);
 
+          console.log(updateError, 'updateError');
+
           if (updateError) {
-            //console.log(updateError);
+            console.log(updateError);
             throw new Error(handleSupabaseError(updateError.message));
           }
 
           if (newDocumentError) {
-            // console.log(newDocumentError);
+            console.log(newDocumentError);
             throw new Error(handleSupabaseError(newDocumentError.message));
           }
           return;
         }
 
-        //console.log(documentName);
-
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('document-files')
           .download(documentName);
+        console.log(fileData);
 
         if (downloadError) {
-          // console.log(downloadError);
+          console.log(downloadError);
           throw new Error(handleSupabaseError(downloadError.message));
         }
 
-        const { error: uploadError } = await supabase.storage
-          .from('document-files_expired')
+        const { error: uploadError, data: finalDocument2 } = await supabase.storage
+          .from('document-files-expired')
           .upload(documentName, fileData, { upsert: true });
+        console.log(finalDocument2);
 
         if (uploadError) {
-          // console.log(uploadError);
+          console.log(uploadError);
           throw new Error(handleSupabaseError(uploadError.message));
         }
 
-        const { error: deleteError } = await supabase.storage.from('document-files').remove([documentName]);
+        const { error: deleteError, data: deletedDocument } = await supabase.storage
+          .from('document-files')
+          .remove([documentName]);
+        console.log(deletedDocument);
 
         if (deleteError) {
-          //  console.log(deleteError);
+          console.log(deleteError);
           throw new Error(handleSupabaseError(deleteError.message));
         }
+
+        console.log(newDocumentName);
 
         const { error: newDocumentError, data: finalDocument } = await supabase.storage
           .from('document-files')
           .upload(newDocumentName, file, { upsert: true });
+
+        console.log(finalDocument);
 
         const { error: updateError } = await supabase
           .from(tableName)
@@ -172,11 +204,11 @@ export default function UpdateDocuments({
           .eq('id', id);
 
         if (updateError) {
-          //console.log(updateError);
+          console.log(updateError);
           throw new Error(handleSupabaseError(updateError.message));
         }
         if (newDocumentError) {
-          // console.log(newDocumentError);
+          console.log(newDocumentError);
           throw new Error(handleSupabaseError(newDocumentError.message));
         }
 
@@ -201,6 +233,7 @@ export default function UpdateDocuments({
           return 'Documento renovado correctamente';
         },
         error: (error) => {
+          console.log(error);
           return error;
         },
       }
@@ -210,7 +243,7 @@ export default function UpdateDocuments({
   return (
     <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>
       <DialogTrigger asChild>
-        <Button>Renovar </Button>
+        <Button>Renovar</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] dark:bg-slate-950">
         <DialogHeader>

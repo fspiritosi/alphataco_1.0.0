@@ -36,6 +36,7 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
 
     if (!actualCompany) {
       Cookies.set('actualComp', allCompanies[0]?.id || sharedCompanies[0]?.id);
+      Cookies.set('actualCompName', allCompanies[0]?.company_name || sharedCompanies[0]?.company_name);
     }
 
     // if (!selectedCompany && (allCompanies?.length > 0 || sharedCompanies?.length > 0)) {
@@ -51,6 +52,7 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
 
   const handleNewCompany = async (company: Company) => {
     Cookies.set('actualComp', company.id);
+    Cookies.set('actualCompName', company.company_name);
     await setNewCompanyUserMetadata(company.id);
     setSelectedCompany(company);
     setOpen(false);

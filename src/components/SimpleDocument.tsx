@@ -20,8 +20,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { formatDocumentTypeName } from '@/lib/utils/utils';
+import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { es } from 'date-fns/locale';
+import moment from 'moment';
 import { toast } from 'sonner';
 import { supabase } from '../../supabase/supabase';
 import { AlertDialogCancel } from './ui/alert-dialog';
@@ -42,11 +44,10 @@ export default function SimpleDocument({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
   const router = useRouter();
   const documentDrawerEmployees = useLoggedUserStore((state) => state.documentDrawerEmployees);
   const documentDrawerVehicles = useLoggedUserStore((state) => state.documentDrawerVehicles);
-  const actualCompany = useLoggedUserStore((state) => state.actualCompany);
+  const [actualCompany, setActualCompany] = useState<Awaited<ReturnType<typeof fetchCurrentCompany>>>(null);
   const [employees, setEmployees] = useState<any[] | null>([]);
   const [vehicles, setVehicles] = useState<any[] | null>([]);
   const [documenTypes, setDocumentTypes] = useState<any[] | null>([]);
@@ -54,6 +55,16 @@ export default function SimpleDocument({
   const documentResource = searchParams.get('document');
   const id = searchParams.get('id');
   const user = useLoggedUserStore((state) => state.credentialUser?.id);
+
+  useEffect(() => {
+    if (!actualCompany) {
+      fetchCurrentCompany().then((data) => {
+        if (data) {
+          setActualCompany(data);
+        }
+      });
+    }
+  }, [actualCompany]);
 
   const idAppliesUser: any =
     (employees?.find(
@@ -130,7 +141,7 @@ export default function SimpleDocument({
         const updateEntry = {
           applies: formData.applies || idApplies,
           id_document_types: formData.id_document_types,
-          validity: formData.validity ? new Date(formData.validity).toISOString() : null,
+          validity: formData.validity ? moment(formData.validity).utc().format('YYYY-MM-DD HH:mm:ss+00') : null,
           user_id: user,
           created_at: new Date(),
           period: formData.period,
@@ -157,7 +168,7 @@ export default function SimpleDocument({
         const period = formData.period;
         const hasExpiredDate = updateEntry?.validity?.replace(/\//g, '-') || period || 'v0';
         const documetType = documenTypes?.find((e) => e.id === formData.id_document_types);
-        const formatedCompanyName = actualCompany?.company_name.toLowerCase().replace(/ /g, '-');
+        const formatedCompanyName = actualCompany?.[0]?.company_name.toLowerCase().replace(/ /g, '-');
         const formatedAppliesName = appliesName
           ? `${appliesName?.name.toLowerCase().replace(/ /g, '-').replace('ñ', 'n')}-(${appliesName?.document})`
           : `${idAppliesUser?.name.toLowerCase().replace(/ /g, '-').replace('ñ', 'n')}-(${idAppliesUser?.document})`;
@@ -167,7 +178,7 @@ export default function SimpleDocument({
         // Verificar si el documento ya existe
         const { data, error: errorList } = await supabase.storage
           .from('document-files')
-          .list(`${formatedCompanyName}-(${actualCompany?.company_cuit})/${formatedAppliesPath}/`, {
+          .list(`${formatedCompanyName}-(${actualCompany?.[0]?.company_cuit})/${formatedAppliesPath}/`, {
             search: `${formatedAppliesName}/${formatedDocumentTypeName}`,
           });
 
@@ -176,23 +187,36 @@ export default function SimpleDocument({
         }
 
         if (data?.length && data?.length > 0) {
-          setError('id_document_types', {
-            message: 'El documento ya ha sido subido anteriormente',
-            type: 'validate',
-          });
-          setLoading(false);
-          throw new Error('El documento ya ha sido subido anteriormente');
+          //revisar si esta siendo usado en la tabla de documentos
+          const { data: document, error: errorDocument } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq(
+              'document_path',
+              `${formatedCompanyName}-(${actualCompany?.[0]?.company_cuit})/${formatedAppliesPath}/${formatedAppliesName}/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`
+            );
+
+          console.log(document, 'document');
+
+          if (document?.length) {
+            setError('id_document_types', {
+              message: 'El documento ya ha sido subido anteriormente',
+              type: 'validate',
+            });
+            setLoading(false);
+            throw new Error('El documento ya ha sido subido anteriormente');
+          }
         }
 
         // Subir el archivo
         const { data: response, error } = await supabase.storage
           .from('document-files')
           .upload(
-            `${formatedCompanyName}-(${actualCompany?.company_cuit})/${formatedAppliesPath}/${formatedAppliesName}/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`,
+            `${formatedCompanyName}-(${actualCompany?.[0]?.company_cuit})/${formatedAppliesPath}/${formatedAppliesName}/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`,
             selectedFile,
             {
-              cacheControl: '3600',
-              upsert: false,
+              cacheControl: '0',
+              upsert: true,
             }
           );
 
@@ -208,10 +232,11 @@ export default function SimpleDocument({
           const data = {
             validity: updateEntry.validity,
             document_path: response?.path,
-            created_at: new Date(),
             state: 'presentado',
             period: updateEntry.period || null,
           };
+
+          console.log(data, 'data');
 
           console.log(idApplies, 'idApplies');
           console.log(updateEntry.applies, 'updateEntry.applies');
@@ -225,6 +250,8 @@ export default function SimpleDocument({
           if (error) {
             setLoading(false);
             console.log(error);
+            //Eliminar el documento
+            await supabase.storage.from('document-files').remove([response?.path]);
             throw new Error('Hubo un error al subir los documentos a la base de datos');
           }
         } else {
@@ -242,6 +269,8 @@ export default function SimpleDocument({
           if (error) {
             setLoading(false);
             console.log(error);
+            //Eliminar el documento
+            await supabase.storage.from('document-files').remove([response?.path]);
             throw new Error('Hubo un error al guardar el documento');
           }
         }
@@ -275,6 +304,7 @@ export default function SimpleDocument({
         },
       }
     );
+    //cerrar el modal
   };
 
   const fetchDocumentTypes = async () => {

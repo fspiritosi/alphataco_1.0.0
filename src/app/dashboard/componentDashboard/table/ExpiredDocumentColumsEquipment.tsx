@@ -5,13 +5,13 @@ import SimpleDocument from '@/components/SimpleDocument';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useLoggedUserStore } from '@/store/loggedUser';
-import { ExclamationTriangleIcon, PersonIcon } from '@radix-ui/react-icons';
+import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { ColumnDef } from '@tanstack/react-table';
+import { Truck } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { useState } from 'react';
 import { DataTableOptions } from './data-table-options';
-import { Truck } from 'lucide-react';
 
 type Colum = {
   vehicle_id?: string | undefined;
@@ -44,12 +44,7 @@ export const ExpiredDocumentColumsEquipment: ColumnDef<Colum>[] = [
     id: 'Equipment',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Equipos" />,
     cell: ({ row }) => (
-      <Link
-        href={
-           `/dashboard/equipment/action?action=view&id=${row.original.vehicle_id}`
-        }
-        className="hover:underline"
-      >
+      <Link href={`/dashboard/equipment/action?action=view&id=${row.original.vehicle_id}`} className="hover:underline">
         <div className="flex gap-2">
           <Truck size={20} />
           {row.getValue('Equipment')}
@@ -121,7 +116,7 @@ export const ExpiredDocumentColumsEquipment: ColumnDef<Colum>[] = [
 
       if (isNoPresented) {
         return (
-          <AlertDialog>
+          <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
               {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
             </AlertDialogTrigger>

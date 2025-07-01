@@ -143,8 +143,8 @@ export type Employee = {
   hierarchical_position: string | undefined; //!si
   company_position: string; //!si
   workflow_diagram: string;
-  normal_hours: string; //!si
-  type_of_contract: string | undefined; //!si
+  normal_hours?: string | undefined | null; //!si
+  type_of_contract?: string | undefined | null; //!si
   allocated_to?: any; //!si
   date_of_admission: Date | undefined | string;
   full_name?: string; //!si
