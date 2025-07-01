@@ -1511,35 +1511,88 @@ export async function fetchEmployeesByCompany() {
 export async function fetchEmployeeDiagrams(employeeId?: string) {
   try {
     const supabase = supabaseServer();
+    const PAGE_SIZE = 1000; // Tamaño máximo de página de Supabase
+    let allDiagrams: any[] = [];
+    let page = 0;
+    let hasMore = true;
 
     if (employeeId) {
-      const { data: employeeDiagrams, error } = await supabase
+      // Consulta paginada para un empleado específico
+      while (hasMore) {
+        const {
+          data: employeeDiagrams,
+          error,
+          count,
+        } = await supabase
+          .from('employees_diagram')
+          .select('*, diagram_type(*)', { count: 'exact' })
+          .eq('employee_id', employeeId)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (error) {
+          throw error;
+        }
+
+        if (employeeDiagrams) {
+          allDiagrams = [...allDiagrams, ...employeeDiagrams];
+        }
+
+        // Verificar si hay más páginas
+        hasMore = employeeDiagrams?.length === PAGE_SIZE;
+        page++;
+      }
+
+      return allDiagrams;
+    }
+
+    // Consulta paginada para todos los empleados
+    while (hasMore) {
+      const { data: diagramsPage, error } = await supabase
         .from('employees_diagram')
-        .select('*, diagram_type(*)')
-        .eq('employee_id', employeeId);
+        .select(
+          `
+          *,
+          employee_id,
+          employees(*),
+          diagram_type(*)
+        `
+        )
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       if (error) {
         throw error;
       }
 
-      return employeeDiagrams || [];
+      if (diagramsPage) {
+        allDiagrams = [...allDiagrams, ...diagramsPage];
+      }
+
+      // Verificar si hay más páginas
+      hasMore = diagramsPage?.length === PAGE_SIZE;
+      page++;
     }
 
-    // Si no hay employeeId, obtener todos los diagramas con relaciones
-    const { data: allDiagrams, error } = await supabase.from('employees_diagram').select(`
-        *,
-        employee_id,
-        employees(*),
-        diagram_type(*)
-      `);
-
-    if (error) {
-      throw error;
-    }
-
-    return allDiagrams || [];
+    console.log(`Se recuperaron ${allDiagrams.length} diagramas de empleados`);
+    return allDiagrams;
   } catch (error) {
     console.error('Error fetching employee diagrams:', error);
     throw error;
   }
+}
+
+export async function getCompanyDetails(companyId: string) {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from('company')
+    .select('id, company_name, website, contact_email, company_logo')
+    .eq('id', companyId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching company details:', error);
+    return null;
+  }
+
+  return data;
 }

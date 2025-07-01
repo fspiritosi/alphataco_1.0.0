@@ -55,22 +55,60 @@ export async function POST(request: NextRequest) {
   const bodyData = await request.json();
 
   try {
-    const { data, error } = await supabase.from('employees_diagram').insert([
-      {
-        employee_id: bodyData.employee,
-        diagram_type: bodyData.event_diagram,
-        day: bodyData.day,
-        month: bodyData.month,
-        year: bodyData.year,
-      },
-    ]);
+    // Primero verificamos si ya existe un registro para este empleado en esta fecha
+    const { data: existingDiagrams, error: fetchError } = await supabase
+      .from('employees_diagram')
+      .select('id')
+      .eq('employee_id', bodyData.employee)
+      .eq('day', bodyData.day)
+      .eq('month', bodyData.month)
+      .eq('year', bodyData.year);
 
-    if (!error) {
-      return Response.json(data);
+    if (fetchError) {
+      console.error('Error al verificar diagrama existente:', fetchError);
+      throw fetchError;
     }
-    console.log(error, 'este es el error');
+
+    // Si ya existe un registro, lo actualizamos
+    if (existingDiagrams && existingDiagrams.length > 0) {
+      const { data: updatedData, error: updateError } = await supabase
+        .from('employees_diagram')
+        .update({
+          diagram_type: bodyData.event_diagram,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingDiagrams[0].id);
+
+      if (updateError) {
+        console.error('Error al actualizar diagrama existente:', updateError);
+        throw updateError;
+      }
+      return Response.json(updatedData);
+    }
+    // Si no existe, insertamos uno nuevo
+    else {
+      const { data: newData, error: insertError } = await supabase
+        .from('employees_diagram')
+        .insert([
+          {
+            employee_id: bodyData.employee,
+            diagram_type: bodyData.event_diagram,
+            day: bodyData.day,
+            month: bodyData.month,
+            year: bodyData.year,
+          },
+        ])
+        .select();
+
+      if (insertError) {
+        console.error('Error al insertar nuevo diagrama:', insertError);
+        throw insertError;
+      }
+      return Response.json(newData);
+    }
   } catch (error) {
-    console.log(error, 'este es el error');
+    console.error('Error en POST /api/employees/diagrams:', error);
+    return Response.json({ error: 'Error al procesar la solicitud' }, { status: 500 });
   }
 }
 
