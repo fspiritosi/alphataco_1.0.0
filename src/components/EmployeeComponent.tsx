@@ -144,6 +144,7 @@ export default function EmployeeComponent({
   const router = useRouter();
   const url = process.env.NEXT_PUBLIC_PROJECT_URL;
   const mandatoryDocuments = useCountriesStore((state) => state.mandatoryDocuments);
+  console.log(user);
   const form = useForm<z.infer<typeof accordionSchema>>({
     resolver: zodResolver(accordionSchema),
     defaultValues: user
@@ -208,7 +209,9 @@ export default function EmployeeComponent({
   // Efecto para cargar los datos iniciales del empleado una sola vez
   useEffect(() => {
     if (!datosInicialesCargados && user?.company_position && company_positions) {
-      const position = company_positions.find((p) => p.name === user.company_position);
+      const position = company_positions.find(
+        (p) => p.name === user.company_position || p.id === user.company_position
+      );
       if (position) {
         // Actualizar el formulario con el ID del puesto
         form.setValue('company_position', user.company_position);
@@ -461,6 +464,7 @@ export default function EmployeeComponent({
       placeholder: 'Legajo',
       name: 'file',
       pattern: '[0-9]+',
+      required: true,
     },
     {
       label: 'Sector',
@@ -468,6 +472,7 @@ export default function EmployeeComponent({
       placeholder: 'Sector',
       options: hierarchyOptions,
       name: 'hierarchical_position',
+      required: true,
     },
     {
       label: 'Puesto en la empresa',
@@ -481,6 +486,7 @@ export default function EmployeeComponent({
         company_positions,
         currentId: user?.company_position,
       },
+      required: true,
     },
 
     {
@@ -489,6 +495,7 @@ export default function EmployeeComponent({
       placeholder: 'Diagrama de trabajo',
       options: workDiagramOptions,
       name: 'workflow_diagram',
+      required: true,
     },
     {
       label: 'Horas normales',
@@ -497,6 +504,7 @@ export default function EmployeeComponent({
       name: 'normal_hours',
       pattern: '[0-9]+',
       inputMode: 'numeric',
+      required: false,
     },
     {
       label: 'Tipo de contrato',
@@ -504,6 +512,7 @@ export default function EmployeeComponent({
       placeholder: 'Tipo de contrato',
       options: contract_types.map((contractType) => contractType.name),
       name: 'type_of_contract',
+      required: false,
     },
     {
       label: 'Afectado A',
@@ -511,12 +520,14 @@ export default function EmployeeComponent({
       placeholder: 'Afectado A',
       options: contractorCompanies,
       name: 'allocated_to',
+      required: false,
     },
     {
       label: 'Fecha de ingreso',
 
       placeholder: 'Fecha de ingreso',
       name: 'date_of_admission',
+      required: false,
     },
     {
       label: 'Sindicato',
@@ -524,6 +535,7 @@ export default function EmployeeComponent({
       placeholder: 'Sindicato',
       options: guild,
       name: 'guild_id',
+      required: false,
     },
     {
       label: 'Convenio',
@@ -538,6 +550,7 @@ export default function EmployeeComponent({
           };
         }),
       name: 'covenants_id',
+      required: false,
     },
     {
       label: 'Categoria',
@@ -552,6 +565,7 @@ export default function EmployeeComponent({
           };
         }),
       name: 'category_id',
+      required: false,
     },
     {
       label: 'Centro de costo',
@@ -562,6 +576,7 @@ export default function EmployeeComponent({
         value: e.id,
       })),
       name: 'cost_center_id',
+      required: false,
     },
   ];
 
@@ -1894,7 +1909,7 @@ export default function EmployeeComponent({
                             <FormItem>
                               <FormLabel>
                                 {data.label}
-                                <span style={{ color: 'red' }}> *</span>
+                                {data.required && <span style={{ color: 'red' }}> *</span>}
                               </FormLabel>
                               <FormControl>
                                 <Input

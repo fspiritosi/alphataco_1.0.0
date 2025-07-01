@@ -535,7 +535,7 @@ export default async function page({
                         resource={resource}
                         documentName={documentName}
                         expires={documents_employees?.[0]?.document_types?.explired}
-                        montly={documents_employees?.[0]?.document_types?.is_it_montlhy}
+                        montly={documents_employees?.[0]?.document_types?.is_it_montlhy ?? false}
                       />
                       <ReplaceDocument
                         id={params.id}

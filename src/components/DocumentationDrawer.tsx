@@ -199,7 +199,7 @@ export const DocumentationDrawer = ({ resource, document, id }: Props) => {
                   </p>
                 </div>
                 {doc.state === 'pendiente' && (
-                  <AlertDialog>
+                  <AlertDialog open={open} onOpenChange={setOpen}>
                     <AlertDialogTrigger asChild>
                       {role !== 'Invitado' && (
                         <Button

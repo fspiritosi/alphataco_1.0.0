@@ -575,7 +575,7 @@ export const columnsEmployeeDocument: ColumnDef<ReturnType<typeof formatEmployee
     },
   },
   {
-    accessorKey: 'id_document_types'.replaceAll('_', ' '),
+    accessorKey: 'documentName',
     id: 'Tipo de Documento',
     header: undefined,
     filterFn: (row, id, value) => {
@@ -712,7 +712,7 @@ export const columnsEmployeeDocument: ColumnDef<ReturnType<typeof formatEmployee
 
       if (isNoPresented) {
         return (
-          <AlertDialog>
+          <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
               {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
             </AlertDialogTrigger>

@@ -118,7 +118,12 @@ function PositionsTable({
     positions.filter((p) => p.is_active)
   );
   const handleEdit = (position: PositionsTableProps['positions'][number]) => {
-    setSelectedPosition(position);
+    setSelectedPosition({
+      ...position,
+      hierarchical_position_id: position?.hierarchical_position_id?.map(
+        (h) => hierarchicalPositions.find((hp) => hp.name === h)?.id
+      ),
+    });
     setMode('edit');
   };
 

@@ -410,12 +410,8 @@ export const accordionSchema = z
     workflow_diagram: z.string({
       required_error: 'El diagrama de trabajo es requerido',
     }),
-    normal_hours: z
-      .string({ required_error: 'Las horas normales son requeridas' })
-      .max(3, { message: 'La compañia debe tener menos de 3 caracteres.' }),
-    type_of_contract: z.string({
-      required_error: 'El tipo de contrato es requerido',
-    }),
+    normal_hours: z.string().optional().nullable(),
+    type_of_contract: z.string().optional().nullable(),
     allocated_to: z.array(z.string().optional()).optional().nullable(),
     guild_id: z.string().optional(),
     covenants_id: z.string().optional(),

@@ -20,6 +20,7 @@ export async function getPositionsData() {
       return { ...position, aptitudes: positionAptitudes };
     })
   );
+  console.log(positionsWithAptitudes);
 
   return { positions: positionsWithAptitudes, hierarchicalPositions, aptitudes };
 }

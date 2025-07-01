@@ -408,6 +408,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     set({ actualCompany: company });
 
     cookies.set('actualComp', company.id);
+    cookies.set('actualCompName', company.company_name);
     setNewCompanyUserMetadata(company.id);
     useCountriesStore.getState().documentTypes(company?.id);
     setActivesEmployees();

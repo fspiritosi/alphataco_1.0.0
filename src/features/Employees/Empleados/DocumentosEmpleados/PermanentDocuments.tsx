@@ -47,7 +47,7 @@ async function PermanentDocuments() {
             {
               columnId: 'Tipo de Documento',
               title: 'Tipo de Documento',
-              options: createFilterOptions(permanentDocuments, (doc) => doc.id_document_types || ''),
+              options: createFilterOptions(permanentDocuments, (doc) => doc.documentName || ''),
             },
             {
               columnId: 'Afectado a',

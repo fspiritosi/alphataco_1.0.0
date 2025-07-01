@@ -545,7 +545,7 @@ export const ExpiredColumsEquipmentDocument: ColumnDef<ReturnType<typeof formatS
     },
   },
   {
-    accessorKey: 'id_document_types'.replaceAll('_', ' '),
+    accessorKey: 'documentName',
     id: 'Tipo de Documento',
     header: undefined,
     filterFn: (row, id, value) => {
@@ -683,7 +683,7 @@ export const ExpiredColumsEquipmentDocument: ColumnDef<ReturnType<typeof formatS
 
       if (isNoPresented) {
         return (
-          <AlertDialog>
+          <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
               {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
             </AlertDialogTrigger>
