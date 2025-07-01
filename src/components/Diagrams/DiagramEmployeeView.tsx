@@ -8,7 +8,7 @@ import { DateRange } from 'react-day-picker';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -94,16 +94,84 @@ function DiagramEmployeeView({
 
   /*---------------------FIN FILTROS DE FECHA --------------------------------- */
 
-  const groupedDiagrams = diagrams?.reduce((acc: any, diagram: any) => {
-    const employee = activeEmployees.find((emp: any) => emp.id === diagram.employee_id);
-    if (employee) {
+  const groupedDiagrams = useMemo(() => {
+    if (!diagrams || !activeEmployees) return {};
+
+    console.log('=== INICIO DE DEPURACIÓN DE DIAGRAMAS ===');
+    console.log('Total de diagramas recibidos:', diagrams.length);
+
+    // Primero ordenamos los diagramas por fecha de creación (más reciente primero)
+    const sortedDiagrams = [...diagrams].sort(
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    // Creamos un mapa para acceder rápidamente al nombre del empleado
+    const employeeNameMap = activeEmployees.reduce((acc: any, emp: any) => {
+      acc[emp.id] = emp.name || '';
+      return acc;
+    }, {});
+
+    // Luego agrupamos por empleado y por fecha, manteniendo solo el más reciente
+    const groupedByEmployee = sortedDiagrams.reduce((acc: any, diagram: any) => {
       if (!acc[diagram.employee_id]) {
-        acc[diagram.employee_id] = [];
+        acc[diagram.employee_id] = {
+          employeeName: employeeNameMap[diagram.employee_id] || 'Sin nombre',
+          diagrams: [],
+        };
       }
-      acc[diagram.employee_id].push(diagram);
-    }
-    return acc;
-  }, {});
+
+      // Verificar si ya existe un diagrama para este día
+      const existingIndex = acc[diagram.employee_id].diagrams.findIndex(
+        (d: any) => d.day === diagram.day && d.month === diagram.month && d.year === diagram.year
+      );
+
+      // Si no existe un diagrama para este día, lo agregamos
+      if (existingIndex === -1) {
+        acc[diagram.employee_id].diagrams.push({
+          ...diagram,
+          dateString: `${diagram.day}/${diagram.month}/${diagram.year}`,
+        });
+      }
+
+      return acc;
+    }, {});
+
+    // Convertir a array, ordenar alfabéticamente por nombre de empleado y volver a objeto
+    const sortedEmployees = Object.entries(groupedByEmployee)
+      .sort(([idA, dataA]: [string, any], [idB, dataB]: [string, any]) =>
+        dataA.employeeName.localeCompare(dataB.employeeName)
+      )
+      .reduce((acc: any, [id, data]: [string, any]) => {
+        acc[id] = data.diagrams;
+        return acc;
+      }, {});
+
+    // Log detallado por empleado
+    Object.entries(groupedByEmployee).forEach(([empId, empData]: [string, any]) => {
+      console.log(`\n=== Empleado: ${empData.employeeName} (ID: ${empId}) ===`);
+      console.log(`Total de diagramas: ${empData.diagrams.length}`);
+
+      // Mostrar fechas de los diagramas para este empleado
+      console.log('Fechas de diagramas:', empData.diagrams.map((d: any) => d.dateString).join(', '));
+
+      // Ordenar los diagramas por fecha para el registro
+      const sortedByDate = [...empData.diagrams].sort(
+        (a: any, b: any) =>
+          new Date(b.year, b.month - 1, b.day).getTime() - new Date(a.year, a.month - 1, a.day).getTime()
+      );
+      console.log(
+        'Diagramas ordenados por fecha:',
+        sortedByDate.map((d: any) => ({
+          date: d.dateString,
+          type: d.diagram_type?.short_description || 'Sin tipo',
+          created: d.created_at,
+        }))
+      );
+    });
+
+    return sortedEmployees;
+  }, [diagrams, activeEmployees]);
+
   const supabase = supabaseBrowser();
   const channels = supabase
     .channel('custom-all-channel')
@@ -374,19 +442,36 @@ function DiagramEmployeeView({
                         {employee.lastname}, {employee.firstname}
                       </TableCell>
                       {mes?.map((day, dayIndex) => {
-                        const diagram = employeeDiagrams.find(
-                          (diagram: any) =>
-                            diagram.day === day.getDate() &&
-                            diagram.month === day.getMonth() + 1 &&
-                            diagram.year === day.getFullYear()
-                        );
+                        const dayNum = day.getDate();
+                        const monthNum = day.getMonth() + 1;
+                        const yearNum = day.getFullYear();
+
+                        // Convertir a números para asegurar la comparación
+                        const diagram = employeeDiagrams.find((d: any) => {
+                          const dia = Number(d.day);
+                          const mes = Number(d.month);
+                          const anio = Number(d.year);
+                          return dia === dayNum && mes === monthNum && anio === yearNum;
+                        });
+
+                        // Debug: Mostrar información cuando no se encuentra un diagrama
+                        if (!diagram) {
+                          console.log(
+                            `No se encontró diagrama para ${employee.firstname} ${employee.lastname} en ${dayNum}/${monthNum}/${yearNum}`
+                          );
+                        }
+
                         return (
                           <TableCell
                             key={dayIndex}
                             className="text-center border"
-                            style={{ backgroundColor: diagram?.diagram_type.color }}
+                            style={{
+                              backgroundColor: diagram?.diagram_type?.color || 'transparent',
+                              color: diagram?.diagram_type?.color ? '#fff' : 'inherit',
+                            }}
+                            title={diagram?.diagram_type?.name || 'Sin diagrama'}
                           >
-                            {diagram?.diagram_type.short_description}
+                            {diagram?.diagram_type?.short_description || ''}
                           </TableCell>
                         );
                       })}
@@ -404,19 +489,36 @@ function DiagramEmployeeView({
                         {employee.lastname}, {employee.firstname}
                       </TableCell>
                       {mes?.map((day, dayIndex) => {
-                        const diagram = employeeDiagrams.find(
-                          (diagram: any) =>
-                            diagram.day === day.getDate() &&
-                            diagram.month === day.getMonth() + 1 &&
-                            diagram.year === day.getFullYear()
-                        );
+                        const dayNum = day.getDate();
+                        const monthNum = day.getMonth() + 1;
+                        const yearNum = day.getFullYear();
+
+                        // Convertir a números para asegurar la comparación
+                        const diagram = employeeDiagrams.find((d: any) => {
+                          const dia = Number(d.day);
+                          const mes = Number(d.month);
+                          const anio = Number(d.year);
+                          return dia === dayNum && mes === monthNum && anio === yearNum;
+                        });
+
+                        // Debug: Mostrar información cuando no se encuentra un diagrama
+                        if (!diagram) {
+                          console.log(
+                            `No se encontró diagrama para ${employee.firstname} ${employee.lastname} en ${dayNum}/${monthNum}/${yearNum}`
+                          );
+                        }
+
                         return (
                           <TableCell
                             key={dayIndex}
                             className="text-center border"
-                            style={{ backgroundColor: diagram?.diagram_type.color }}
+                            style={{
+                              backgroundColor: diagram?.diagram_type?.color || 'transparent',
+                              color: diagram?.diagram_type?.color ? '#fff' : 'inherit',
+                            }}
+                            title={diagram?.diagram_type?.name || 'Sin diagrama'}
                           >
-                            {diagram?.diagram_type.short_description}
+                            {diagram?.diagram_type?.short_description || ''}
                           </TableCell>
                         );
                       })}
