@@ -126,7 +126,7 @@ function ComercialTab({
 
   return (
     <div className="px-0">
-      <ViewcomponentInternal viewData={viewData} />
+      <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
     </div>
   );
 }

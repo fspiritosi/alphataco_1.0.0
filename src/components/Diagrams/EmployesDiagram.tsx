@@ -1,6 +1,5 @@
 import ViewcomponentInternal from '../ViewComponentInternal';
 import DiagramFormUpdatedWrapper from './DiagramFormUpdatedWrapper';
-import DiagramTypeComponentWrapper from './DiagramTypeComponentWrapper';
 import EmployesDiagramWrapper from './EmployesDiagramWrapper';
 
 function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
@@ -32,23 +31,23 @@ function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: stri
           component: <DiagramFormUpdatedWrapper />,
         },
       },
-      {
-        value: 'newsTypes',
-        name: 'Tipos de Novedades',
-        restricted: [''],
-        tab: tabValue,
-        content: {
-          title: 'Tipos de Novedades',
-          //description: 'Lista de usuarios de la empresa',
-          buttonActioRestricted: [''],
-          buttonAction: '',
-          component: <DiagramTypeComponentWrapper />,
-        },
-      },
+      // {
+      //   value: 'newsTypes',
+      //   name: 'Tipos de Novedades',
+      //   restricted: [''],
+      //   tab: tabValue,
+      //   content: {
+      //     title: 'Tipos de Novedades',
+      //     //description: 'Lista de usuarios de la empresa',
+      //     buttonActioRestricted: [''],
+      //     buttonAction: '',
+      //     component: <DiagramTypeComponentWrapper />,
+      //   },
+      // },
     ],
   };
   return (
-    <ViewcomponentInternal viewData={viewData} />
+    <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
     // <Tabs defaultValue="old">
     //   <TabsList>
     //     <TabsTrigger value="old">Diagrama Cargados</TabsTrigger>

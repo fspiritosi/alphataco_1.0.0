@@ -95,7 +95,7 @@ export default function RrhhComponent({ tabValue, subtab }: { subtab?: string; t
   };
   return (
     <div>
-      <ViewComponentInternal viewData={viewData} />
+      <ViewComponentInternal currentMainTab={tabValue} viewData={viewData} />
     </div>
   );
 }

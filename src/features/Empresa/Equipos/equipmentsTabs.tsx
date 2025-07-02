@@ -3,7 +3,7 @@ import EquipmentBrandsWrapper from './components/EquipmentBrandsWrapper';
 import EquipmentTypesWrapper from './components/EquipmentTypesWrapper';
 import EquipmentsModelWrapper from './components/EquipmentsModelWrapper';
 
-function EquipmentsTabs() {
+function EquipmentsTabs({ tabValue }: { tabValue: string }) {
   const viewData = {
     defaultValue: 'tipos',
     path: '/dashboard/company/actualCompany',
@@ -44,7 +44,7 @@ function EquipmentsTabs() {
     ],
   };
 
-  return <ViewcomponentInternal viewData={viewData} />;
+  return <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />;
 }
 
 export default EquipmentsTabs;

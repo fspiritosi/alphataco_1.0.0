@@ -493,7 +493,7 @@ export function DailyReportForm({
         (employee) =>
           employee.is_active &&
           employee.contractor_employee?.some((ce) => ce.contractor_id === selectedCustomerId) &&
-          employee.workflow_diagram // Verificar si tiene diagrama de trabajo
+          (employee.workflow_diagram || employee.employees_diagram?.length > 0) // Verificar si tiene diagrama de trabajo
       ) || []
     );
   }, [employees, selectedCustomerId]);
@@ -1415,11 +1415,19 @@ export function DailyReportForm({
                                       <div className="flex items-center">
                                         <Check
                                           className={cn(
-                                            'mr-2 h-4 w-4',
+                                            'mr-2 h-4 w-4 capitalize',
                                             field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
                                           )}
                                         />
-                                        {employee.firstname + ' ' + employee.lastname}
+                                        {employee.lastname.replace(
+                                          /\w\S*/g,
+                                          (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                        ) +
+                                          ' ' +
+                                          employee.firstname.replace(
+                                            /\w\S*/g,
+                                            (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                          )}
                                       </div>
                                     </CommandItem>
                                   ))}

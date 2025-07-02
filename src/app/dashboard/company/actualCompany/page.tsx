@@ -75,7 +75,7 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           buttonAction: '',
           component: (
             // <Suspense fallback={<Skeleton />}>
-            <EquipmentsTabs />
+            <EquipmentsTabs tabValue="vehicles" />
             // </Suspense>
           ),
         },

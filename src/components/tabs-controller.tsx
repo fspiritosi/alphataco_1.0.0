@@ -1,12 +1,11 @@
 'use client';
 
-import type React from 'react';
-
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { setMainTabCookie } from '@/shared/actions/actions';
+import type React from 'react';
 import { Suspense, useEffect, useState } from 'react';
-import { FormTableResizableSkeleton } from './Skeletons/ResizablePanelSkeleton';
 
 interface TabsControllerProps {
   defaultValue: string;
@@ -22,41 +21,19 @@ interface TabsControllerProps {
 }
 
 export function TabsController({ defaultValue, tabsValues, path }: TabsControllerProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>(defaultValue);
 
-  // Actualizar el estado cuando cambia la URL
+  // Inicializar con el valor por defecto
   useEffect(() => {
-    const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && tabsValues.some((tab) => tab.value === tabFromUrl && !tab.restricted)) {
-      setActiveTab(tabFromUrl);
-    } else if (!tabFromUrl && defaultValue) {
-      setActiveTab(tabFromUrl || defaultValue);
-    }
-  }, [searchParams, defaultValue, tabsValues]);
+    setActiveTab(defaultValue);
+  }, [defaultValue]);
 
-  // Manejar el cambio de tab
+  // Manejar el cambio de tab principal
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-
-    // // Actualizar la URL sin recargar la página
-    // const params = new URLSearchParams(searchParams.toString());
-
-    // if (value === defaultValue) {
-    //   params.delete('tab');
-    // } else {
-    //   params.set('tab', value);
-    // }
-
-    // // IMPORTANTE: Resetear subtabs cuando cambia el tab principal
-    // params.delete('subtab');
-    // params.delete('nestedtab'); // Por si implementas el tercer nivel
-
-    // const queryString = params.toString();
-    // const url = queryString ? `${path}?${queryString}` : path;
-
-    // router.replace(url, { scroll: false });
+    // ✅ USAR FUNCIÓN ESPECÍFICA PARA PESTAÑAS PRINCIPALES
+    setMainTabCookie(path, value);
+    console.log(`🔵 Main tab cookie set: main_tab_${path.replace(/\//g, '_')} = ${value}`);
   };
 
   return (
@@ -73,7 +50,7 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
       {tabsValues.map((tab) => (
         <TabsContent key={tab.value} value={tab.value}>
           <Card className="overflow-visible">
-            <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
+            <Suspense fallback={<Skeleton className="h-32 w-full" />}>
               <CardContent className="py-4 px-4 relative">{tab.content.component}</CardContent>
             </Suspense>
             <CardFooter className="flex flex-row items-center border-t bg-gh/70 dark:bg-muted/50 px-6 py-3"></CardFooter>

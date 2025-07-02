@@ -177,6 +177,7 @@ function UploadDocumentMultiEmployee({
                 <FormLabel>Empleados</FormLabel>
                 <FormControl>
                   <MultiSelectCombobox
+                    showSelectAll
                     selectedResourceDocuments={selectedResourceDocuments}
                     options={employees.map((employee) => ({
                       value: employee.value,

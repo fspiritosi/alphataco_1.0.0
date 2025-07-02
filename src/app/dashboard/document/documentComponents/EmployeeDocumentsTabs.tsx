@@ -46,7 +46,7 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
   };
 
   return (
-    <ViewcomponentInternal viewData={viewData} />
+    <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
     // <Tabs defaultValue="permanentes">
     //   <CardContent>
     //     <TabsList>

@@ -93,7 +93,7 @@ function General({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
 
   return (
     <div className=" ">
-      <ViewcomponentInternal viewData={viewData} />
+      <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
       {/* <Tabs defaultValue="company" className="w-full">
         <TabsList className="mb-2 bg-gh_contrast/50">
           <TabsTrigger className="text-gh_orange font-semibold" value="company">

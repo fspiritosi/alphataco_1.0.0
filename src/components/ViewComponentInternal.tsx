@@ -1,3 +1,4 @@
+import { getSubTabCookie } from '@/shared/actions/actions';
 import { cookies } from 'next/headers';
 import type React from 'react';
 import { TabsControllerInternal } from './tabs-controller-internal';
@@ -21,12 +22,20 @@ export interface ViewDataObj {
   }[];
 }
 
-export default function ViewComponentInternal({ viewData }: { viewData: ViewDataObj }) {
-  const cookiesStore = cookies();
+export default async function ViewComponentInternal({
+  viewData,
+  currentMainTab,
+}: {
+  viewData: ViewDataObj;
+  currentMainTab?: string;
+}) {
+  const cookiesStore = await cookies();
   const role = cookiesStore.get('guestRole')?.value;
 
+  // ✅ OBTENER SOLO LA SUB-PESTAÑA PARA LA PESTAÑA PRINCIPAL ACTUAL
+  const savedSubTab = currentMainTab ? await getSubTabCookie(viewData.path, currentMainTab) : null;
+
   // Preparar los datos para el componente cliente
-  // Filtrar las tabs restringidas en el servidor
   const clientTabsData = viewData.tabsValues.map((tab) => ({
     ...tab,
     restricted: tab.restricted.includes(role || ''),
@@ -36,8 +45,13 @@ export default function ViewComponentInternal({ viewData }: { viewData: ViewData
     },
   }));
 
-  // Determinar el valor por defecto considerando las restricciones
+  // Determinar el valor por defecto
   let effectiveDefaultValue = viewData.defaultValue;
+
+  // Si hay una sub-pestaña guardada para esta pestaña principal, usarla
+  if (savedSubTab) {
+    effectiveDefaultValue = savedSubTab;
+  }
 
   // Si el subtab por defecto está restringido, seleccionar el primer subtab no restringido
   if (clientTabsData.find((tab) => tab.value === effectiveDefaultValue)?.restricted) {
@@ -48,6 +62,11 @@ export default function ViewComponentInternal({ viewData }: { viewData: ViewData
   }
 
   return (
-    <TabsControllerInternal defaultValue={effectiveDefaultValue} tabsValues={clientTabsData} path={viewData.path} />
+    <TabsControllerInternal
+      defaultValue={effectiveDefaultValue}
+      tabsValues={clientTabsData}
+      path={viewData.path}
+      currentMainTab={currentMainTab || viewData.defaultValue}
+    />
   );
 }

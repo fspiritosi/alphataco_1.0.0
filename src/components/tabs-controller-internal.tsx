@@ -1,12 +1,10 @@
 'use client';
 
-import type React from 'react';
-
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { setSubTabCookie } from '@/shared/actions/actions';
+import type React from 'react';
 import { Suspense, useEffect, useState } from 'react';
-import { FormTableResizableSkeleton } from './Skeletons/ResizablePanelSkeleton';
-import { Skeleton } from './ui/skeleton';
 
 interface TabsControllerInternalProps {
   defaultValue: string;
@@ -21,57 +19,33 @@ interface TabsControllerInternalProps {
     };
   }[];
   path: string;
+  currentMainTab?: string;
 }
 
-export function TabsControllerInternal({ defaultValue, tabsValues, path }: TabsControllerInternalProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [activeSubTab, setActiveSubTab] = useState<string>(searchParams.get('subtab') || defaultValue);
+export function TabsControllerInternal({
+  defaultValue,
+  tabsValues,
+  path,
+  currentMainTab,
+}: TabsControllerInternalProps) {
+  const [activeSubTab, setActiveSubTab] = useState<string>(defaultValue);
 
-  // Actualizar el estado cuando cambia la URL
+  // Inicializar con el valor por defecto
   useEffect(() => {
-    const subtabFromUrl = searchParams.get('subtab');
-
-    // Si hay un subtab en la URL y existe en las tabs actuales, usarlo
-    if (subtabFromUrl && tabsValues.some((tab) => tab.value === subtabFromUrl && !tab.restricted)) {
-      setActiveSubTab(subtabFromUrl);
-    } else {
-      // Si no hay subtab en la URL o no existe en las tabs actuales, usar el default
-      setActiveSubTab(defaultValue);
-    }
-  }, [searchParams, defaultValue, tabsValues]);
-
-  // IMPORTANTE: Resetear cuando cambia el tab principal
-  useEffect(() => {
-    const currentTab = searchParams.get('tab');
-    const currentSubtab = searchParams.get('subtab');
-
-    // Si no hay subtab en la URL (fue eliminado por el cambio de tab principal)
-    // resetear al valor por defecto
-    if (!currentSubtab) {
-      setActiveSubTab(defaultValue);
-    }
-  }, [searchParams.get('tab'), defaultValue]);
+    setActiveSubTab(defaultValue);
+  }, [defaultValue]);
 
   // Manejar el cambio de subtab
   const handleSubTabChange = (value: string) => {
     setActiveSubTab(value);
-
-    // // Actualizar la URL manteniendo el parámetro tab principal
-    // const params = new URLSearchParams(searchParams.toString());
-
-    // if (value === defaultValue) {
-    //   params.delete('subtab');
-    // } else {
-    //   params.set('subtab', value);
-    // }
-
-    // const queryString = params.toString();
-    // const url = queryString ? `${path}?${queryString}` : path;
-
-    // router.replace(url, { scroll: false });
+    // ✅ USAR FUNCIÓN ESPECÍFICA PARA SUB-PESTAÑAS
+    if (currentMainTab) {
+      setSubTabCookie(path, currentMainTab, value);
+      console.log(
+        `🟢 Sub tab cookie set: sub_tab_${path.replace(/\//g, '_')}_${currentMainTab.replace(/\s+/g, '_')} = ${value}`
+      );
+    }
   };
-  console.log(tabsValues);
 
   return (
     <div className="flex flex-col gap-6 py-1 h-full">
@@ -86,12 +60,13 @@ export function TabsControllerInternal({ defaultValue, tabsValues, path }: TabsC
 
         {tabsValues.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            <Suspense fallback={<Skeleton className="h-16"></Skeleton>}>
+            <Suspense fallback={<Skeleton className="h-16 w-full" />}>
               {tab.content.buttonAction && (
                 <div className="flex gap-4 py-2 flex-wrap justify-start">{tab.content.buttonAction}</div>
               )}
             </Suspense>
-            <Suspense fallback={<FormTableResizableSkeleton formRows={6} tableRows={10} />}>
+
+            <Suspense fallback={<Skeleton className="h-32 w-full" />}>
               <div className="py-2">{tab.content.component}</div>
             </Suspense>
           </TabsContent>

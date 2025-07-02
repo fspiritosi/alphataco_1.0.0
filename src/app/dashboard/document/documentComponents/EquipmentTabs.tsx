@@ -45,7 +45,7 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
     ],
   };
   return (
-    <ViewcomponentInternal viewData={viewData} />
+    <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
     // <Tabs defaultValue="permanentes">
     //   <CardContent>
     //     <TabsList>
