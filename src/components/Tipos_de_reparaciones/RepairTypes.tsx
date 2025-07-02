@@ -70,7 +70,7 @@ function RepairTypes({
   };
 
   return (
-    <ViewcomponentInternal viewData={viewData} />
+    <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
     // <Tabs defaultValue={defaultValue || 'created_solicitudes'}>
     //   <TabsList>
     //     {created_solicitudes && (

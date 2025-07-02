@@ -183,7 +183,7 @@ function DiagramEmployeeView({
 
   useEffect(() => {
     form.reset();
-    setSelectedResources([]);
+    // setSelectedResources([]);
   }, [activeEmployees, form]);
 
   useEffect(() => {
@@ -314,11 +314,11 @@ function DiagramEmployeeView({
 
                                   const filteredresources = activeEmployees?.filter((person: any) => {
                                     if (isNumberInput) {
-                                      return person.document.includes(inputValue);
+                                      return person.document?.includes(inputValue);
                                     } else {
                                       return (
                                         person.name?.toLowerCase().includes(inputValue) ||
-                                        person.document.includes(inputValue)
+                                        person.document?.includes(inputValue)
                                       );
                                     }
                                   });

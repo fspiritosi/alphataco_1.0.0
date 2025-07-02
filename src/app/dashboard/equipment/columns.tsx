@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useCountriesStore } from '@/store/countries';
 import { useLoggedUserStore } from '@/store/loggedUser';
+import { termination_reason_enum } from '@/types/enums';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DotsVerticalIcon } from '@radix-ui/react-icons';
 import { ColumnDef, FilterFn, Row } from '@tanstack/react-table';
@@ -54,6 +55,7 @@ import { RiToolsFill } from 'react-icons/ri';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { supabase } from '../../../../supabase/supabase';
+
 const formSchema = z.object({
   reason_for_termination: z.string({
     required_error: 'La razón de la baja es requerida.',
@@ -245,9 +247,14 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="Venta del vehículo">Venta del vehículo</SelectItem>
+                                  {/* <SelectItem value="Venta del vehículo">Venta del vehículo</SelectItem>
                                   <SelectItem value="Destrucción Total">Destrucción Total</SelectItem>
-                                  <SelectItem value="Fundido">Fundido</SelectItem>
+                                  <SelectItem value="Fundido">Fundido</SelectItem> */}
+                                  {termination_reason_enum.map((reason) => (
+                                    <SelectItem key={reason} value={reason}>
+                                      {reason}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                               <FormDescription>Elige la razón por la que deseas dar de baja el equipo</FormDescription>

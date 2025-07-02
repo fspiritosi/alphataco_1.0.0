@@ -1,3 +1,4 @@
+import { getMainTabCookie } from '@/shared/actions/actions';
 import { cookies } from 'next/headers';
 import type React from 'react';
 import { TabsController } from './tabs-controller';
@@ -19,25 +20,34 @@ interface ViewDataObj {
   }[];
 }
 
-export default function ViewComponent({
+export default async function ViewComponent({
   viewData,
   searchParams,
 }: {
   viewData: ViewDataObj;
   searchParams?: { tab?: string };
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const role = cookiesStore.get('guestRole')?.value;
 
+  // ✅ OBTENER SOLO LA PESTAÑA PRINCIPAL
+  const savedMainTab = await getMainTabCookie(viewData.path);
+
   // Preparar los datos para el componente cliente
-  // Filtrar las tabs restringidas en el servidor
   const clientTabsData = viewData.tabsValues.map((tab) => ({
     ...tab,
     restricted: tab.restricted.includes(role || ''),
   }));
 
-  // Determinar el valor por defecto considerando las restricciones
+  // Determinar el valor por defecto
   let effectiveDefaultValue = viewData.defaultValue;
+
+  // Prioridad: searchParams > cookie > defaultValue
+  if (searchParams?.tab) {
+    effectiveDefaultValue = searchParams.tab;
+  } else if (savedMainTab) {
+    effectiveDefaultValue = savedMainTab;
+  }
 
   // Si el tab por defecto está restringido, seleccionar el primer tab no restringido
   if (clientTabsData.find((tab) => tab.value === effectiveDefaultValue)?.restricted) {
@@ -49,7 +59,7 @@ export default function ViewComponent({
 
   return (
     <div className="flex flex-col gap-6 py-1 px-6 h-full">
-      <TabsController defaultValue={viewData.defaultValue} tabsValues={clientTabsData} path={viewData.path} />
+      <TabsController defaultValue={effectiveDefaultValue} tabsValues={clientTabsData} path={viewData.path} />
     </div>
   );
 }

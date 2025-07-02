@@ -177,6 +177,7 @@ function UploadDocumentMultiEquipment({
                 <FormLabel>Equipos</FormLabel>
                 <FormControl>
                   <MultiSelectCombobox
+                    showSelectAll
                     selectedResourceDocuments={selectedResourceDocuments}
                     options={equipments.map((equipment) => ({
                       value: equipment.value,

@@ -27,6 +27,80 @@ export const setNewCompanyUserMetadata = async (company_id: string) => {
   return;
 };
 
+export const updateDocumentType = async (id: string, data: any) => {
+  const supabase = supabaseServer();
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return;
+
+  const { error } = await supabase.from('document_types').update(data).eq('id', id);
+
+  if (error) {
+    return error;
+  }
+
+  return null;
+};
+
+export const fetchallResources = async (applies: string) => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  if (applies === 'Persona') {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('firstname,lastname, cuil,id')
+      .eq('company_id', company_id || '');
+
+    if (error) {
+      console.error('Error al obtener datos adicionales:', error);
+    } else {
+      return data;
+    }
+  } else if (applies === 'Equipos') {
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('domain, serie, intern_number,id')
+      .eq('company_id', company_id || '');
+
+    if (error) {
+      console.error('Error al obtener datos adicionales:', error);
+    } else {
+      return data;
+    }
+  }
+};
+
+export const fettchExistingEntries = async (applies: string, id_document_types: string) => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+  const tableNames = {
+    Equipos: 'documents_equipment',
+    Persona: 'documents_employees',
+  };
+  const table = tableNames[applies as 'Equipos' | 'Persona'];
+
+  console.log(company_id);
+  console.log(id_document_types);
+
+  const { data: existingEntries, error: existingEntriesError } = await supabase
+    .from(table as 'documents_equipment' | 'documents_employees')
+    .select('applies(*),id')
+    .eq('id_document_types', id_document_types)
+    .eq('applies.company_id', company_id || '')
+    .not('applies', 'is', null);
+
+  if (existingEntriesError) {
+    console.error('Error al obtener los recursos con documentos:', existingEntriesError);
+    return;
+  }
+  return existingEntries;
+};
+
 export const fetchAllEmployeesWithRelations = async () => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();

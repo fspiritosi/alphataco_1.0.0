@@ -1,8 +1,9 @@
 'use client';
+import { fetchallResources, fettchExistingEntries, updateDocumentType } from '@/app/server/GET/actions';
 import {
+  Condition,
   baseEmployeePropertiesConfig,
   baseVehiclePropertiesConfig,
-  Condition,
   getEmployeePropertyValue,
   getVehiclePropertyValue,
   normalizeString,
@@ -314,7 +315,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     let resourcesToRemoveAlert: any[] = [];
 
     // Obtenemos las entradas existentes
-    await fettchExistingEntries();
+    const existingEntries: any = await fettchExistingEntries(Equipo.applies, Equipo.id);
 
     if (Equipo.applies === 'Persona') {
       // Determinar qué empleados necesitan alertas y cuáles necesitan eliminarlas
@@ -385,7 +386,8 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     try {
       console.log(formattedValues);
       // 2. Actualizar el documento
-      const { error: updateError } = await supabase.from('document_types').update(formattedValues).eq('id', Equipo.id);
+      // const { error: updateError } = await supabase.from('document_types').update(formattedValues).eq('id', Equipo.id);
+      const updateError = await updateDocumentType(Equipo.id, formattedValues);
 
       if (updateError) {
         console.log(updateError);
@@ -489,21 +491,10 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     // Este método se mantiene por compatibilidad, pero ahora usamos performUpdate
     toast.promise(
       async () => {
-        const { error } = await supabase
-          .from('document_types')
-          .update({
-            ...values,
-            name: formatName(values.name),
-            description: formatDescription(values.description),
-            conditions:
-              form.getValues('applies') === 'Equipos'
-                ? prepareVehicleConditionsForStorage()
-                : prepareConditionsForStorage(),
-          })
-          .eq('id', Equipo.id);
+        const error = await updateDocumentType(Equipo.id, values);
 
         if (error) {
-          throw new Error(handleSupabaseError(error.message));
+          throw new Error(error.message);
         }
         fetchDocumentTypes(actualCompany);
       },
@@ -538,7 +529,10 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   async function handleDeleteDocumentType() {
     toast.promise(
       async () => {
-        const { error } = await supabase.from('document_types').update({ is_active: false }).eq('id', Equipo.id);
+        // const { error } = await supabase.from('document_types').update({ is_active: false }).eq('id', Equipo.id);
+
+        const error = await updateDocumentType(Equipo.id, { is_active: false });
+
         await handleDeleteAlerts(); //!probar
 
         if (error) {
@@ -560,57 +554,57 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     );
   }
 
-  async function fetchallResources() {
-    if (Equipo.applies === 'Persona') {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('firstname,lastname, cuil,id')
-        .eq('company_id', actualCompany || '');
+  // async function fetchallResources() {
+  //   if (Equipo.applies === 'Persona') {
+  //     const { data, error } = await supabase
+  //       .from('employees')
+  //       .select('firstname,lastname, cuil,id')
+  //       .eq('company_id', actualCompany || '');
 
-      if (error) {
-        console.error('Error al obtener datos adicionales:', error);
-      } else {
-        setAllResources(data);
-      }
-    } else if (Equipo.applies === 'Equipos') {
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('domain, serie, intern_number,id')
-        .eq('company_id', actualCompany || '');
+  //     if (error) {
+  //       console.error('Error al obtener datos adicionales:', error);
+  //     } else {
+  //       setAllResources(data);
+  //     }
+  //   } else if (Equipo.applies === 'Equipos') {
+  //     const { data, error } = await supabase
+  //       .from('vehicles')
+  //       .select('domain, serie, intern_number,id')
+  //       .eq('company_id', actualCompany || '');
 
-      if (error) {
-        console.error('Error al obtener datos adicionales:', error);
-      } else {
-        setAllResources(data);
-      }
-    }
-  }
+  //     if (error) {
+  //       console.error('Error al obtener datos adicionales:', error);
+  //     } else {
+  //       setAllResources(data);
+  //     }
+  //   }
+  // }
   const [existingEntries, setExistingEntries] = useState<any[]>([]);
   const [selectedDeleteMode, setSelectedDeleteMode] = useState<'all' | 'nonMatching'>('all');
 
-  async function fettchExistingEntries() {
-    const tableNames = {
-      Equipos: 'documents_equipment',
-      Persona: 'documents_employees',
-    };
-    const table = tableNames[Equipo.applies as 'Equipos' | 'Persona'];
+  // async function fettchExistingEntries() {
+  //   const tableNames = {
+  //     Equipos: 'documents_equipment',
+  //     Persona: 'documents_employees',
+  //   };
+  //   const table = tableNames[Equipo.applies as 'Equipos' | 'Persona'];
 
-    console.log(actualCompany);
-    console.log(Equipo.id);
+  //   console.log(actualCompany);
+  //   console.log(Equipo.id);
 
-    const { data: existingEntries, error: existingEntriesError } = await supabase
-      .from(table as 'documents_equipment' | 'documents_employees')
-      .select('applies(*),id')
-      .eq('id_document_types', Equipo.id)
-      .eq('applies.company_id', actualCompany || '')
-      .not('applies', 'is', null);
+  //   const { data: existingEntries, error: existingEntriesError } = await supabase
+  //     .from(table as 'documents_equipment' | 'documents_employees')
+  //     .select('applies(*),id')
+  //     .eq('id_document_types', Equipo.id)
+  //     .eq('applies.company_id', actualCompany || '')
+  //     .not('applies', 'is', null);
 
-    if (existingEntriesError) {
-      console.error('Error al obtener los recursos con documentos:', existingEntriesError);
-      return;
-    }
-    setExistingEntries(existingEntries);
-  }
+  //   if (existingEntriesError) {
+  //     console.error('Error al obtener los recursos con documentos:', existingEntriesError);
+  //     return;
+  //   }
+  //   setExistingEntries(existingEntries);
+  // }
   // Filtrar los recursos que no tienen una entrada en la tabla correspondiente
   const existingResourceIds = existingEntries.map((entry: any) => entry.applies.id);
   let filteredResources: any[] = allResources;
@@ -747,7 +741,10 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       );
 
       // Actualizar la lista de entradas existentes después de eliminar
-      await fettchExistingEntries();
+      const existingEntries2 = await fettchExistingEntries(Equipo.applies, Equipo.id);
+      if (existingEntries2) {
+        setExistingEntries(existingEntries2);
+      }
     } catch (error: any) {
       toast.error(error.message || 'Error al eliminar alertas');
     }
@@ -903,8 +900,12 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       <SheetTrigger asChild>
         <Button
           onClick={async () => {
-            await fetchallResources();
-            await fettchExistingEntries();
+            const data = await fetchallResources(Equipo.applies);
+            setAllResources(data as any[]);
+            const existingEntries = await fettchExistingEntries(Equipo.applies, Equipo.id);
+            if (existingEntries) {
+              setExistingEntries(existingEntries);
+            }
           }}
           id="close-edit-modal-documentypes"
           variant="outline"

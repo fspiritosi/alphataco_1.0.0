@@ -135,7 +135,7 @@ function CompanyTabs({
     ],
   };
   return (
-    <ViewcomponentInternal viewData={viewData} />
+    <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
     // <Tabs defaultValue="permanentes">
     //   <CardContent className="px-0 pt-1">
     //     <TabsList>

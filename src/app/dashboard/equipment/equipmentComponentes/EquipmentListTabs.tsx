@@ -87,7 +87,7 @@ export default function EquipmentListTabs({
 
   return (
     <div className=" max-w-full">
-      <ViewcomponentInternal viewData={viewData} />
+      <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
       {/* <Tabs defaultValue="all">
         <CardContent className="pl-0 pb-0">
           <TabsList>
