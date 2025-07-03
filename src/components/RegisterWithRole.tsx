@@ -10,11 +10,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { registerUserWithRole } from '@/app/actions/register-user';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { handleSupabaseError } from '@/lib/errorHandler';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { EyeClosedIcon, EyeOpenIcon } from '@radix-ui/react-icons';
+import cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -26,13 +27,15 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Toggle } from './ui/toggle';
 export const RegisterWithRole = () => {
+  // const cookiesStore = cookies();
+  const company = cookies.get('actualComp');
   const [showPasswords, setShowPasswords] = useState(false);
   const [open, setOpen] = useState(false);
   const ownerUser = useLoggedUserStore((state) => state.profile);
   const [activeTab, setActiveTab] = useState('InviteUser');
   const [clientData, setClientData] = useState<any>(null);
   const [selectedRole, setSelectedRole] = useState('');
-  const company = useLoggedUserStore((state) => state.actualCompany);
+  // const company = useLoggedUserStore((state) => state.actualCompany);
   const [userType, setUserType] = useState<'Usuario' | 'Invitado' | null>(null);
   const passwordSchema = z
     .string()
@@ -120,7 +123,7 @@ export const RegisterWithRole = () => {
         .from('customers')
         .select('*')
         .eq('is_active', true)
-        .eq('company_id', company?.id);
+        .eq('company_id', company);
       if (error) {
         console.error('Error fetching customers:', error);
       } else {
@@ -128,7 +131,7 @@ export const RegisterWithRole = () => {
       }
     };
     getRoles();
-    if (company?.id) {
+    if (company) {
       fetchCustomers();
     }
   }, []);
@@ -136,125 +139,35 @@ export const RegisterWithRole = () => {
   const FetchSharedUsers = useLoggedUserStore((state) => state.FetchSharedUsers);
   const router = useRouter();
 
-  function onSubmit(values: z.infer<typeof registerSchemaWithRole>) {
-    if (values?.email?.trim().toLocaleLowerCase() === ownerUser?.[0].email.toLocaleLowerCase()) {
+  const onSubmit = async (values: z.infer<typeof registerSchemaWithRole>) => {
+    if (values?.email?.trim().toLowerCase() === ownerUser?.[0].email.toLowerCase()) {
       toast.error('No puedes compartir la empresa contigo mismo');
       return;
     }
 
-    toast.promise(
-      async () => {
-        if (!company?.id) {
-          throw new Error('No se encontró la empresa');
-        }
+    if (!company) {
+      toast.error('No se encontró la empresa');
+      return;
+    }
 
-        let { data: profile, error } = await supabase.from('profile').select('*').eq('email', values.email);
+    const toastId = toast.loading('Procesando solicitud...');
 
-        if (error) {
-          throw new Error(handleSupabaseError(error.message));
-        }
+    try {
+      const result = await registerUserWithRole(values, company);
 
-        if (profile && profile?.length > 0) {
-          const { error: duplicatedError, data: sharedCompany } = await supabase
-            .from('share_company_users')
-            .select('*')
-            .eq('profile_id', profile[0].id)
-            .eq('company_id', company?.id);
-
-          if (sharedCompany && sharedCompany?.length > 0) {
-            throw new Error('El usuario ya tiene acceso a la empresa');
-          }
-
-          //Compartir la empresa con el usuario
-          const { data, error } = await supabase.from('share_company_users').insert([
-            {
-              company_id: company?.id,
-              profile_id: profile[0].id,
-              role: values?.role,
-              customer_id: values?.customer ? values?.customer : null,
-            },
-          ]);
-
-          if (error) {
-            throw new Error(handleSupabaseError(error.message));
-          }
-
-          return 'Usuario registrado correctamente';
-        }
-
-        if (activeTab === 'InviteUser') {
-          throw new Error('No se encontró un usuario con ese correo');
-        }
-        if (!profile || profile?.length === 0) {
-          // const { data, error } = await supabase.auth.signUp({
-          //   email: values.email,
-          //   password: values.password!,
-
-          // });
-
-          const { data, error } = await supabase.auth.admin.createUser({
-            email: values.email,
-            password: values.password!,
-            email_confirm: true,
-          });
-
-          if (error) {
-            throw new Error(handleSupabaseError(error.message));
-          }
-
-          if (data) {
-            const { data: user, error } = await supabase
-              .from('profile')
-              .insert([
-                {
-                  id: data.user?.id,
-                  email: values.email,
-                  fullname: `${values.firstname} ${values.lastname}`,
-                  role: 'CodeControlClient',
-                  credential_id: data.user?.id,
-                },
-              ])
-              .select();
-
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
-
-            if (user) {
-              const { data, error } = await supabase.from('share_company_users').insert([
-                {
-                  company_id: company?.id,
-                  profile_id: user?.[0].id,
-                  role: values?.role,
-                  customer_id: values?.customer ? values?.customer : null,
-                },
-              ]);
-              if (error) {
-                throw new Error(handleSupabaseError(error.message));
-              }
-              if (data) {
-                return 'Usuario registrado correctamente';
-              }
-            }
-          }
-        }
-
-        return 'Usuario registrado correctamente';
-      },
-      {
-        loading: 'Invitando usuario...',
-        success: (message) => {
-          setOpen(false);
-          FetchSharedUsers();
-          return message;
-        },
-        error: (error) => {
-          return error;
-        },
+      if (result.success) {
+        toast.success(result.message, { id: toastId });
+        setOpen(false);
+        FetchSharedUsers();
+        router.refresh();
+      } else {
+        toast.error(result.error || 'Error al procesar la solicitud', { id: toastId });
       }
-    );
-    router.refresh();
-  }
+    } catch (error) {
+      console.error('Error inesperado:', error);
+      toast.error('Ocurrió un error inesperado', { id: toastId });
+    }
+  };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
