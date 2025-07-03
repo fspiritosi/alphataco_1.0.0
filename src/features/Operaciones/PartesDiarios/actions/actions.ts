@@ -1146,7 +1146,7 @@ export interface DailyReportWithRows {
       employee_id: { id: string; firstname: string; lastname: string };
     }[];
     dailyreportequipmentrelations: {
-      equipment_id: { id: string; intern_number: string };
+      equipment_id: { id: string; domain: string };
     }[];
   }[];
 }
@@ -1197,7 +1197,7 @@ export async function getDailyReportsWithRows(): Promise<DailyReportWithRows[]> 
             description,
             document_path,
             dailyreportemployeerelations (employee_id(id, firstname, lastname)),
-            dailyreportequipmentrelations (equipment_id(id, intern_number))
+            dailyreportequipmentrelations (equipment_id(id, domain))
           )
         `,
           { count: 'exact' }

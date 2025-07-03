@@ -83,7 +83,7 @@ interface LocalFilterableColumn<TData> {
 function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
   // Función para formatear la fecha
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-
+  console.log(dailyReports);
   // Manejador para cambios en los filtros de columna
   const handleColumnFiltersChange = (
     filters: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)
