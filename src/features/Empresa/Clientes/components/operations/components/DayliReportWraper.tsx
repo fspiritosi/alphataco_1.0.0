@@ -19,7 +19,7 @@ interface DailyReportRow {
     employee_id: { id: string; firstname: string; lastname: string };
   }>;
   dailyreportequipmentrelations: Array<{
-    equipment_id: { id: string; intern_number: string | null };
+    equipment_id: { id: string; domain: string | null };
   }>;
 }
 
@@ -41,7 +41,7 @@ interface ProcessedRow {
 export default async function DayliReportWraper() {
   try {
     const reports = await getDailyReportsWithRows();
-
+    console.log(reports);
     // Procesar los datos para la tabla
     const tableData = reports.flatMap((report) =>
       report.dailyreportrows.map((row) => {
@@ -52,7 +52,7 @@ export default async function DayliReportWraper() {
 
         // Obtener equipos
         const equipment =
-          row.dailyreportequipmentrelations?.map((rel) => rel.equipment_id.intern_number || 'Sin número') || [];
+          row.dailyreportequipmentrelations?.map((rel) => rel.equipment_id.domain || 'Sin número') || [];
 
         return {
           id: row.id,
@@ -70,7 +70,7 @@ export default async function DayliReportWraper() {
         };
       })
     );
-
+    console.log(tableData);
     return (
       <Suspense
         fallback={
