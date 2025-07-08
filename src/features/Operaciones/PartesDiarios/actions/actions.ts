@@ -620,7 +620,7 @@ export async function getActiveEmployeesForDailyReport() {
 
   const { data, error } = await supabase
     .from('employees')
-    .select('employees_diagram!inner(*,diagram_type(*)), contractor_employee(*),*')
+    .select('employees_diagram!inner(*,diagram_type(*)), contractor_employee(*),*,company_positions(*)')
     .eq('is_active', true)
     .eq('employees_diagram.day', day)
     .eq('employees_diagram.month', month)
@@ -644,7 +644,7 @@ export async function getActiveEquipmentsForDailyReport() {
   } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('vehicles')
-    .select('*,contractor_equipment(*)')
+    .select('*,contractor_equipment(*),type(*)')
     .eq('is_active', true)
     .neq('condition', 'no operativo')
     .neq('condition', 'en reparación')
@@ -1124,5 +1124,110 @@ export async function deleteDailyReport(reportId: string) {
   } catch (error) {
     console.error('Error en la función deleteDailyReport:', error);
     return { success: false, message: 'Error inesperado al procesar la solicitud' };
+  }
+}
+
+export interface DailyReportWithRows {
+  id: string;
+  date: string;
+  company_id: string;
+  status: string;
+  dailyreportrows: {
+    id: string;
+    item_id: { id: string; item_name: string } | null;
+    customer_id: { id: string; name: string } | null;
+    service_id: { id: string; service_name: string } | null;
+    start_time: string | null;
+    end_time: string | null;
+    status: string;
+    description: string | null;
+    document_path: string | null;
+    dailyreportemployeerelations: {
+      employee_id: { id: string; firstname: string; lastname: string };
+    }[];
+    dailyreportequipmentrelations: {
+      equipment_id: { id: string; domain: string };
+    }[];
+  }[];
+}
+
+export async function getDailyReportsWithRows(): Promise<DailyReportWithRows[]> {
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+  const supabase = supabaseServer();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!company_id && !user?.app_metadata?.company_id) {
+    throw new Error('No se pudo determinar la compañía');
+  }
+
+  const PAGE_SIZE = 1000; // Número de registros por página
+  let allDailyReports: any[] = [];
+  let page = 0;
+  let hasMore = true;
+
+  try {
+    while (hasMore) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const {
+        data: dailyReports,
+        error,
+        count,
+      } = await supabase
+        .from('dailyreport')
+        .select(
+          `
+          id,
+          date,
+          company_id,
+          status,
+          dailyreportrows (
+            id,
+            item_id(id, item_name),
+            customer_id(id, name),
+            service_id(id, service_name),
+            start_time,
+            end_time,
+            status,
+            description,
+            document_path,
+            dailyreportemployeerelations (employee_id(id, firstname, lastname)),
+            dailyreportequipmentrelations (equipment_id(id, domain))
+          )
+        `,
+          { count: 'exact' }
+        )
+        .eq('company_id', company_id || '')
+        .order('date', { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        console.error('Error al obtener los reportes diarios con filas (página ${page + 1}):', error);
+        throw new Error(`Error al obtener los reportes diarios: ${error.message}`);
+      }
+
+      if (dailyReports && dailyReports.length > 0) {
+        allDailyReports = [...allDailyReports, ...dailyReports];
+      }
+
+      // Verificar si hay más páginas por cargar
+      hasMore = dailyReports?.length === PAGE_SIZE;
+      page++;
+
+      // Pequeña pausa para no saturar el servidor
+      if (hasMore) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+
+    return allDailyReports as any[];
+  } catch (error) {
+    console.error('Error en getDailyReportsWithRows:', error);
+    throw error;
   }
 }

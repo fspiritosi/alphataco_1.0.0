@@ -4,6 +4,7 @@ import ServiceComponentWrapper from './components/Services/ServiceComponentWrapp
 import DataCustomersWrapper from './components/data-customer/DataCustomersWrapper';
 import CustomerEquipmentTabWrapper from './components/equipos/CustomerEquipmentTabWrapper';
 import MensureUnitsWrapper from './components/meansure_units/MensureUnitsWrapper';
+import DayliReportWraper from './components/operations/components/DayliReportWraper';
 import SectorTabsWrapper from './components/sector_clientes/SectorTabsWrapper';
 
 function ComercialTab({
@@ -119,6 +120,19 @@ function ComercialTab({
           buttonActioRestricted: [''],
           buttonAction: [''],
           component: <MensureUnitsWrapper />,
+        },
+      },
+      {
+        value: 'daily_reports',
+        name: 'Partes Diarios',
+        restricted: [''],
+        tab: tabValue,
+        content: {
+          title: 'Partes Diarios',
+          //description: 'Información de la empresa',
+          buttonActioRestricted: [''],
+          buttonAction: [''],
+          component: <DayliReportWraper />,
         },
       },
     ],

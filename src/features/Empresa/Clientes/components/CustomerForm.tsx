@@ -88,50 +88,68 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
   });
 
   const onSubmit = async (values: z.infer<typeof customerFormSchema>) => {
-    try {
-      // Si el cliente está activo, limpiamos los campos de baja
-      if (values.is_active) {
-        values.termination_date = null;
-        values.reason_for_termination = '';
+    toast.promise(
+      async () => {
+        // Si el cliente está activo, limpiamos los campos de baja
+        if (values.is_active) {
+          values.termination_date = null;
+          values.reason_for_termination = '';
+        }
+
+        //Verificar si existe el cuit
+        const { data: customerVerify, error: customerVerifyError } = await supabase
+          .from('customers')
+          .select('name')
+          .eq('cuit', values.cuit)
+          .single();
+
+        if (customerVerifyError || customerVerify) {
+          throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
+        }
+
+        // Preparar los datos para la base de datos
+        const customerData: CustomerDB = {
+          name: values.name,
+          cuit: Number(values.cuit),
+          client_email: values.client_email || null,
+          client_phone: values.client_phone ? Number(values.client_phone) : null,
+          address: values.address || null,
+          is_active: values.is_active,
+          company_id,
+          reason_for_termination: values.is_active ? null : values.reason_for_termination || null,
+          termination_date: values.is_active ? null : values.termination_date?.toISOString() || null,
+        };
+
+        if (isEditing && customer) {
+          // Actualizar cliente existente
+          const { error } = await supabase.from('customers').update(customerData).eq('id', customer.id);
+
+          if (error) throw error;
+          toast.success('Cliente actualizado correctamente');
+        } else {
+          // Crear nuevo cliente
+          const { error } = await supabase.from('customers').insert([customerData]);
+
+          if (error) throw error;
+          toast.success('Cliente creado correctamente');
+        }
+
+        // Refrescar la página para ver los cambios
+        router.refresh();
+
+        // Limpiar el formulario y cerrar el diálogo
+        if (onSuccess) onSuccess();
+        router.refresh();
+      },
+      {
+        loading: 'Guardando cliente...',
+        success: 'Cliente guardado correctamente',
+        error: (error) => {
+          console.log(error);
+          return error || 'Error al guardar el cliente';
+        },
       }
-
-      // Preparar los datos para la base de datos
-      const customerData: CustomerDB = {
-        name: values.name,
-        cuit: Number(values.cuit),
-        client_email: values.client_email || null,
-        client_phone: values.client_phone ? Number(values.client_phone) : null,
-        address: values.address || null,
-        is_active: values.is_active,
-        company_id,
-        reason_for_termination: values.is_active ? null : values.reason_for_termination || null,
-        termination_date: values.is_active ? null : values.termination_date?.toISOString() || null,
-      };
-
-      if (isEditing && customer) {
-        // Actualizar cliente existente
-        const { error } = await supabase.from('customers').update(customerData).eq('id', customer.id);
-
-        if (error) throw error;
-        toast.success('Cliente actualizado correctamente');
-      } else {
-        // Crear nuevo cliente
-        const { error } = await supabase.from('customers').insert([customerData]);
-
-        if (error) throw error;
-        toast.success('Cliente creado correctamente');
-      }
-
-      // Refrescar la página para ver los cambios
-      router.refresh();
-
-      // Limpiar el formulario y cerrar el diálogo
-      if (onSuccess) onSuccess();
-      router.refresh();
-    } catch (error) {
-      console.error('Error al guardar el cliente:', error);
-      toast.error('Error al guardar el cliente');
-    }
+    );
   };
 
   // Siempre mostramos el formulario, pero lo deshabilitamos en modo de solo lectura

@@ -20,9 +20,10 @@ import { transformDailyReports } from './DayliReportDetailTable';
 
 interface ClonarRegistrosButtonProps {
   formattedData: ReturnType<typeof transformDailyReports>;
+  selectedRows: ReturnType<typeof transformDailyReports>;
 }
 
-export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonProps) {
+export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarRegistrosButtonProps) {
   const [open, setOpen] = useState(false);
   const [fechasSeleccionadas, setFechasSeleccionadas] = useState<Date[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,13 +36,14 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
   const [incluirMensuales, setIncluirMensuales] = useState(false);
   const [incluirAdicionales, setIncluirAdicionales] = useState(false);
   const [incluirAdicionalesPermanentes, setIncluirAdicionalesPermanentes] = useState(false);
+  const [soloSeleccionadas, setSoloSeleccionadas] = useState(selectedRows?.length > 0);
 
   const router = useRouter();
 
   // Inicializar irARegistros basado en la cantidad de registros
   const [irARegistros, setIrARegistros] = useState(fechasSeleccionadas.length > 1);
 
-  // Verificar la existencia de cada tipo de registro al cargar o cuando cambia formattedData
+  // Controlar los estados de los checkboxes según el estado de las filas seleccionadas
   useEffect(() => {
     // Buscar registros por tipo
     const hasMensuales = formattedData?.some((row) => row.type_service === 'mensual');
@@ -53,11 +55,20 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
     setAdicionalesExist(hasAdicionales);
     setAdicionalesPermanentesExist(hasAdicionalesPermanentes);
 
-    // Actualizar checkboxes basados en la existencia
-    setIncluirMensuales(hasMensuales);
-    setIncluirAdicionales(hasAdicionales);
-    setIncluirAdicionalesPermanentes(hasAdicionalesPermanentes);
-  }, [formattedData]);
+    // Si hay filas seleccionadas, checkbox de seleccionadas en true y disabled, y los demás en false
+    if (selectedRows?.length > 0) {
+      setSoloSeleccionadas(true); // Seleccionado
+      setIncluirMensuales(false);
+      setIncluirAdicionales(false);
+      setIncluirAdicionalesPermanentes(false);
+    } else {
+      // Si no hay filas seleccionadas, checkbox de seleccionadas en false y los demás según existencia
+      setSoloSeleccionadas(false); // No seleccionado
+      setIncluirMensuales(hasMensuales);
+      setIncluirAdicionales(hasAdicionales);
+      setIncluirAdicionalesPermanentes(hasAdicionalesPermanentes);
+    }
+  }, [formattedData, selectedRows]);
 
   const handleClonar = async () => {
     toast.promise(
@@ -66,7 +77,8 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
           throw new Error('Debes seleccionar al menos una fecha para clonar los registros');
         }
 
-        if (!incluirMensuales && !incluirAdicionales && !incluirAdicionalesPermanentes) {
+        // Solo verificar tipos de registro si no hay filas seleccionadas
+        if (selectedRows?.length === 0 && !incluirMensuales && !incluirAdicionales && !incluirAdicionalesPermanentes) {
           throw new Error('Debes seleccionar al menos un tipo de registro a clonar');
         }
         setLoading(true);
@@ -90,15 +102,22 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
         const allReports = [...(existingReports || []), ...(createdReports || [])];
         // Para cada reporte (nuevo o existente), clonar las filas
         for (const report of allReports) {
-          // Filtrar los registros según las opciones seleccionadas
-          const filteredData = formattedData.filter((row) => {
-            if (row.type_service === 'mensual' && incluirMensuales) return true;
-            if (row.type_service === 'adicional' && incluirAdicionales) return true;
-            if (row.type_service === 'adicional_permanente' && incluirAdicionalesPermanentes) return true;
-            return false;
-          });
+          let filteredRows = [];
 
-          const formattedRows = filteredData.map((row) => ({
+          // Si hay filas seleccionadas, clonamos solo esas, independientemente de los checkboxes de tipo
+          if (selectedRows?.length > 0) {
+            filteredRows = selectedRows;
+          } else {
+            // Si no hay filas seleccionadas, filtramos según los checkboxes de tipo
+            filteredRows = formattedData.filter(
+              (row) =>
+                (row.type_service === 'mensual' && incluirMensuales) ||
+                (row.type_service === 'adicional' && incluirAdicionales) ||
+                (row.type_service === 'adicional_permanente' && incluirAdicionalesPermanentes)
+            );
+          }
+
+          const formattedRows = filteredRows.map((row) => ({
             customer_id: row.data_to_clone.customer_id!,
             service_id: row.data_to_clone.service_id!,
             item_id: row.data_to_clone.item_id!,
@@ -173,7 +192,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
                   <CalendarComponent
                     mode="multiple"
                     selected={fechasSeleccionadas}
-                    disabled={(date) => moment(date).isBefore(moment().subtract(2, 'days'))}
+                    disabled={(date) => moment(date).isBefore(moment().subtract(0, 'days'))}
                     onSelect={(dates: Date[] | undefined) => {
                       if (!dates) return;
                       // Actualizamos todas las fechas seleccionadas
@@ -238,7 +257,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
                 <Checkbox
                   id="incluir-mensuales"
                   checked={incluirMensuales}
-                  disabled={!mensualesExist}
+                  disabled={!mensualesExist || selectedRows?.length > 0}
                   onCheckedChange={(checked) => {
                     const newValue = checked as boolean;
                     setIncluirMensuales(newValue);
@@ -256,7 +275,10 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
                     }
                   }}
                 />
-                <Label htmlFor="incluir-mensuales" className={!mensualesExist ? 'text-gray-400' : ''}>
+                <Label
+                  htmlFor="incluir-mensuales"
+                  className={!mensualesExist || selectedRows?.length > 0 ? 'text-gray-400' : ''}
+                >
                   Incluir registros Mensuales {!mensualesExist && '(No hay registros)'}
                 </Label>
               </div>
@@ -265,7 +287,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
                 <Checkbox
                   id="incluir-adicionales"
                   checked={incluirAdicionales}
-                  disabled={!adicionalesExist}
+                  disabled={!adicionalesExist || selectedRows?.length > 0}
                   onCheckedChange={(checked) => {
                     const newValue = checked as boolean;
                     setIncluirAdicionales(newValue);
@@ -292,7 +314,7 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
                 <Checkbox
                   id="incluir-adicionales-permanentes"
                   checked={incluirAdicionalesPermanentes}
-                  disabled={!adicionalesPermanentesExist}
+                  disabled={!adicionalesPermanentesExist || selectedRows?.length > 0}
                   onCheckedChange={(checked) => {
                     const newValue = checked as boolean;
                     setIncluirAdicionalesPermanentes(newValue);
@@ -315,6 +337,13 @@ export function ClonarRegistrosButton({ formattedData }: ClonarRegistrosButtonPr
                   className={!adicionalesPermanentesExist ? 'text-gray-400' : ''}
                 >
                   Incluir registros Adicionales Permanentes {!adicionalesPermanentesExist && '(No hay registros)'}
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox id="solo-seleccionadas" checked={soloSeleccionadas} disabled={true} />
+                <Label htmlFor="solo-seleccionadas" className={selectedRows?.length === 0 ? 'text-gray-400' : ''}>
+                  Solo clonar registros seleccionados {selectedRows?.length === 0 && '(No hay registros seleccionados)'}
                 </Label>
               </div>
 

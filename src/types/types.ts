@@ -556,7 +556,7 @@ export type TypeOfRepair = {
   criticity: 'Alta' | 'Media' | 'Baja';
   is_active: boolean;
   company_id: string;
-  type_of_maintenance: 'Preventivo' | 'Correctivo';
+  type_of_maintenance: 'Preventivo' | 'Correctivo' | 'Otro';
 }[];
 
 export type RepairsSolicituds = {

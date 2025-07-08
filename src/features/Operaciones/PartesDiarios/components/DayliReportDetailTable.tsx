@@ -126,7 +126,7 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
     {
       accessorKey: 'services',
       id: 'Servicio',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Servicio" />,
+      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Servicio" />,
       cell: ({ row }) => <span className="font-medium">{row.original.services}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -135,7 +135,7 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
     {
       accessorKey: 'item',
       id: 'Item',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Item" />,
+      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Item" />,
       cell: ({ row }) => <span className="font-medium">{row.original.item}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -190,37 +190,24 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       id: 'Equipo cliente',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo cliente" />,
       cell: ({ row }) => {
-        const employees = row.original.customer_equipment;
-        if (!employees || employees.length === 0) return null;
-        const [first, ...rest] = employees;
-        if (rest.length === 0) {
-          return (
-            <Badge variant="default" className="select-none text-nowrap">
-              {first.name} ({first.type})
-            </Badge>
-          );
-        }
+        // const employees = row.original.customer_equipment;
+        // if (!employees || employees.length === 0) return null;
+        // const [first, ...rest] = employees;
+        // if (rest.length === 0) {
+        //   return (
+        //     <Badge variant="default" className="select-none text-nowrap">
+        //       {first.name} ({first.type})
+        //     </Badge>
+        //   );
+        // }
         return (
-          <>
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Badge variant="default" className="cursor-pointer select-none text-nowrap ">
-                    {first.name}({first.type}) +{rest.length}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="flex flex-col gap-1">
-                    {rest.map((employe) => (
-                      <p key={employe.name}>
-                        {employe.name}({employe.type})
-                      </p>
-                    ))}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </>
+          <div className="flex flex-wrap gap-1">
+            {row.original.customer_equipment.map((employee) => (
+              <Badge variant="default" className="select-none text-nowrap" key={employee.id}>
+                {employee.name} ({employee.type})
+              </Badge>
+            ))}
+          </div>
         );
       },
       filterFn: (row, id, value) => {
@@ -237,34 +224,14 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,
       cell: ({ row }) => {
         const employees: string[] = row.original.employees;
-        if (!employees || employees.length === 0) return null;
-        const [first, ...rest] = employees;
-        if (rest.length === 0) {
-          return (
-            <Badge variant="default" className="select-none text-nowrap">
-              {first}
-            </Badge>
-          );
-        }
         return (
-          <>
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Badge variant="default" className="cursor-pointer select-none text-nowrap ">
-                    {first} +{rest.length}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="flex flex-col gap-1">
-                    {rest.map((employe) => (
-                      <p key={employe}>{employe}</p>
-                    ))}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </>
+          <div className="flex flex-wrap gap-1">
+            {employees.map((employee) => (
+              <Badge variant="default" className="select-none text-nowrap" key={employee}>
+                {employee}
+              </Badge>
+            ))}
+          </div>
         );
       },
       filterFn: (row, id, value) => {
@@ -281,30 +248,14 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
       cell: ({ row }) => {
         const equipment = row.original.equipment;
-        if (!equipment || equipment.length === 0) return null;
-        const [first, ...rest] = equipment;
-        if (rest.length === 0) {
-          return <Badge variant="default">{first}</Badge>;
-        }
         return (
-          <>
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Badge variant="default" className="cursor-pointer select-none">
-                    {first} +{rest.length}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="flex flex-col gap-1">
-                    {rest.map((equipment) => (
-                      <p key={equipment}>{equipment}</p>
-                    ))}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </>
+          <div className="flex flex-wrap gap-1">
+            {equipment.map((equipment) => (
+              <Badge variant="default" className="select-none text-nowrap" key={equipment}>
+                {equipment}
+              </Badge>
+            ))}
+          </div>
         );
       },
       filterFn: (row, id, value) => {
@@ -550,7 +501,7 @@ export function DayliReportDetailTable({
           defaultValues={selectedRow}
           disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
         />
-        <ClonarRegistrosButton formattedData={formattedData} />
+        <ClonarRegistrosButton formattedData={formattedData} selectedRows={selectedRows} />
       </div>
       <BaseDataTable
         className="mt-4"
@@ -559,13 +510,19 @@ export function DayliReportDetailTable({
         savedVisibility={savedVisibility}
         enableRowSelection={(row) => row.original.status !== 'ejecutado'}
         tableId="dailyReportTableDetail"
+        onRowSelectionChange={(rows) => {
+          console.log(rows);
+          setSelectedRows(rows);
+        }}
         toolbarOptions={{
           initialVisibleFilters: savedFilter || [],
+
           bulkAction: {
             enabled: true,
             label: 'Editar',
             icon: <Edit className="h-4 w-4" />,
             onClick: (rows) => {
+              console.log(rows);
               setSelectedRows(rows);
               setIsBulkEditModalOpen(true);
             },

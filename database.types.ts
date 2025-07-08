@@ -3220,7 +3220,7 @@ export type Database = {
       status_type: 'Avalado' | 'No avalado' | 'Incompleto' | 'Completo' | 'Completo con doc vencida';
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
       type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
-      type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo';
+      type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
     };
     CompositeTypes: {
       [_ in never]: never;
