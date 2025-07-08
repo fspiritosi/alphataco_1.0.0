@@ -89,7 +89,7 @@ export default async function RepairSolicitudes({
   );
   const code = createFilterOptions(
     repairsFormatted,
-    (repair) => repair.code_item
+    (repair: any) => repair.code_item
     // FileText // Icono para documentos
   );
   console.log(code, 'code');
