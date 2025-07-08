@@ -15,6 +15,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import Cookies from 'js-cookie';
 import * as React from 'react';
 import { DataTableToolbarBase } from '../toolbars/data-table-toolbar-base';
 import { DataTablePagination } from './data-table-pagination';
@@ -81,6 +82,7 @@ interface DataTableProps<TData, TValue> {
   row_classname?: (row: TData) => string | string;
   bulkAction?: BulkActionProps<TData>;
   onColumnFiltersChange?: (filters: Updater<ColumnFiltersState>) => void;
+  onRowSelectionChange?: (rows: TData[]) => void;
 }
 
 export function BaseDataTable<TData, TValue>({
@@ -95,13 +97,19 @@ export function BaseDataTable<TData, TValue>({
   row_classname,
   onColumnFiltersChange,
   enableRowSelection = true,
+  onRowSelectionChange,
 }: DataTableProps<TData, TValue>) {
   // Intentar cargar la visibilidad guardada antes del renderizado inicial si hay tableId
   // const savedVisibility = savedColumns
+  const cookiesStore = Cookies.get('pageSize-table');
+  const cookiesStoreIndex = Cookies.get('pageIndex-table');
+
+  console.log(cookiesStore);
 
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [pageSize, setPageSize] = React.useState<number>(cookiesStore ? Number(cookiesStore) : 10);
 
   // Usar la visibilidad guardada, o la inicial si se proporciona, o un objeto vacío
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(savedVisibility || {});
@@ -114,8 +122,36 @@ export function BaseDataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
       columnFilters,
+      pagination: {
+        pageSize,
+        pageIndex: cookiesStoreIndex ? Number(cookiesStoreIndex) : 0,
+      },
     },
-    onRowSelectionChange: setRowSelection,
+    onPaginationChange: (updater) => {
+      // Para evitar problemas con la actualización de estado de paginación
+      if (typeof updater === 'function') {
+        const currentPagination = { pageIndex: cookiesStoreIndex ? Number(cookiesStoreIndex) : 0, pageSize };
+        const newPagination = updater(currentPagination);
+        if (newPagination.pageSize !== pageSize) {
+          setPageSize(newPagination.pageSize);
+        }
+      } else {
+        // Si es un objeto directo de paginación
+        if (updater.pageSize !== pageSize) {
+          setPageSize(updater.pageSize);
+        }
+      }
+    },
+    onRowSelectionChange: (rows) => {
+      const newSelection = typeof rows === 'function' ? rows(rowSelection) : rows;
+      setRowSelection(newSelection);
+      if (onRowSelectionChange) {
+        const selectedRows = Object.keys(newSelection)
+          .filter((key) => newSelection[key])
+          .map((key) => data[parseInt(key)]);
+        onRowSelectionChange(selectedRows);
+      }
+    },
     onSortingChange: setSorting,
     // En BaseDataTable.tsx, modificar la llamada al callback:
     onColumnFiltersChange: (updater) => {

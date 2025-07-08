@@ -19,6 +19,9 @@ const Command = React.forwardRef<
       className
     )}
     {...props}
+    filter={(value, search) => {
+      return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+    }}
   />
 ));
 Command.displayName = CommandPrimitive.displayName;

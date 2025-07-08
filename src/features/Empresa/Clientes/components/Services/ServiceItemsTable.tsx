@@ -3,9 +3,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { useCallback, useEffect, useState } from 'react';
 import { fechAllCustomers } from '../../actions/create';
 import { fetchServiceItems } from '../../actions/items';
@@ -34,6 +35,8 @@ interface ServiceItemsTableProps {
   company_id: string;
   editService: any;
   customer_service_id?: string;
+  savedFilters: string[];
+  savedVisibility: VisibilityState;
 }
 
 {
@@ -65,6 +68,9 @@ function getServiceItemsColumns(
       cell: ({ row }) => {
         const isActive = row.original.is_active;
         return <Badge variant={isActive ? 'success' : 'destructive'}>{isActive ? 'Activo' : 'Inactivo'}</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id) === true ? 'Activo' : 'Inactivo');
       },
     },
     {
@@ -140,6 +146,8 @@ export default function ServiceItemsTable({
   items,
   editService,
   customer_service_id,
+  savedFilters,
+  savedVisibility,
 }: ServiceItemsTableProps) {
   const [editingService, setEditingService] = useState<ServiceItemsTableProps['items'][number] | null>(null);
 
@@ -202,6 +210,37 @@ export default function ServiceItemsTable({
     }
   };
 
+  console.log(savedFilters);
+  console.log(savedVisibility);
+  console.log(filteredItems);
+
+  const names = createFilterOptions(
+    filteredItems,
+    (item) => item.item_name
+    // FileText // Icono para documentos
+  );
+  const states = createFilterOptions(
+    filteredItems,
+    (item) => (item.is_active ? 'Activo' : 'Inactivo')
+    // FileText // Icono para documentos
+  );
+  const codes = createFilterOptions(
+    filteredItems,
+    (item) => item.code_item
+    // FileText // Icono para documentos
+  );
+  const numbers = createFilterOptions(
+    filteredItems,
+    (item) => item.item_number
+    // FileText // Icono para documentos
+  );
+  const udm = createFilterOptions(
+    filteredItems,
+    (item) => item?.measure_units?.unit
+    // FileText // Icono para documentos
+  );
+  console.log(names);
+
   return (
     <ResizablePanelGroup className=" flex flex-col gap-2" direction="horizontal">
       <ResizablePanel>
@@ -231,17 +270,38 @@ export default function ServiceItemsTable({
               <BaseDataTable
                 columns={getServiceItemsColumns(handleSelectItem)}
                 data={filteredItems}
-                savedVisibility={{}}
+                savedVisibility={savedVisibility || {}}
+                tableId="service-items-table"
                 toolbarOptions={{
                   filterableColumns: [
                     {
-                      columnId: 'item_name',
+                      columnId: 'Nombre',
                       title: 'Nombre',
+                      options: names,
+                    },
+                    {
+                      columnId: 'Estado',
+                      title: 'Estado',
+                      options: states,
+                    },
+                    {
+                      columnId: 'Codigo',
+                      title: 'Codigo',
+                      options: codes,
+                    },
+                    {
+                      columnId: 'Numero',
+                      title: 'Numero',
+                      options: numbers,
+                    },
+                    {
+                      columnId: 'UDM',
+                      title: 'UDM',
+                      options: udm,
                     },
                   ],
-                  initialVisibleFilters: [],
+                  initialVisibleFilters: savedFilters || [],
                 }}
-                tableId="service-items-table"
               />
             </div>
           </div>

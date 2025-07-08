@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building, CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
+import { Building, CalendarIcon, Check, ChevronsUpDown, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -1154,7 +1154,7 @@ export function DailyReportForm({
                                 <CommandGroup className="max-h-[200px] overflow-y-auto">
                                   {selectedCustomer?.equipos_clientes?.map((equipo) => {
                                     const isSelected = field.value?.includes(equipo.id);
-                                    const maxSelected = (field.value?.length || 0) >= 2;
+                                    const maxSelected = (field.value?.length || 0) >= 1;
                                     const isDisabled = !isSelected && maxSelected;
 
                                     return (
@@ -1398,45 +1398,96 @@ export function DailyReportForm({
                                 </div>
                               )}
 
-                              {selectedCustomerId && filteredEmployees.length > 0 && (
-                                <CommandGroup>
-                                  {filteredEmployees.map((employee) => (
-                                    <CommandItem
-                                      value={employee.id}
-                                      key={employee.id}
-                                      onSelect={() => {
-                                        const currentValues = field.value || [];
-                                        const newValues = currentValues.includes(employee.id)
-                                          ? currentValues.filter((id) => id !== employee.id)
-                                          : [...currentValues, employee.id];
-                                        field.onChange(newValues);
-                                      }}
+                              {selectedCustomerId &&
+                                filteredEmployees.length > 0 &&
+                                (() => {
+                                  // Obtener todas las posiciones únicas
+                                  const positionsMap: Record<string, (typeof filteredEmployees)[0][]> = {};
+
+                                  // Agrupar empleados por posición
+                                  filteredEmployees.forEach((employee) => {
+                                    const position = employee.company_positions?.name || 'Sin posición';
+
+                                    if (!positionsMap[position]) {
+                                      positionsMap[position] = [];
+                                    }
+                                    positionsMap[position].push(employee);
+                                  });
+
+                                  // Convertir a array y ordenar por posición
+                                  const positionsArray = Object.keys(positionsMap).sort();
+
+                                  return positionsArray.map((position) => (
+                                    <CommandGroup
+                                      key={position}
+                                      heading={position.charAt(0).toUpperCase() + position.slice(1)}
                                     >
-                                      <div className="flex items-center">
-                                        <Check
-                                          className={cn(
-                                            'mr-2 h-4 w-4 capitalize',
-                                            field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
-                                          )}
-                                        />
-                                        {employee.lastname.replace(
-                                          /\w\S*/g,
-                                          (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                        ) +
-                                          ' ' +
-                                          employee.firstname.replace(
-                                            /\w\S*/g,
-                                            (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                          )}
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              )}
+                                      {positionsMap[position].map((employee) => (
+                                        <CommandItem
+                                          value={employee.id}
+                                          key={employee.id}
+                                          onSelect={() => {
+                                            const currentValues = field.value || [];
+                                            const newValues = currentValues.includes(employee.id)
+                                              ? currentValues.filter((id) => id !== employee.id)
+                                              : [...currentValues, employee.id];
+                                            field.onChange(newValues);
+                                          }}
+                                        >
+                                          <div className="flex items-center">
+                                            <Check
+                                              className={cn(
+                                                'mr-2 h-4 w-4 capitalize',
+                                                field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
+                                              )}
+                                            />
+                                            {employee.lastname.replace(
+                                              /\w\S*/g,
+                                              (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                            ) +
+                                              ' ' +
+                                              employee.firstname.replace(
+                                                /\w\S*/g,
+                                                (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                              )}
+                                          </div>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  ));
+                                })()}
                             </CommandList>
                           </Command>
                         </PopoverContent>
                       </Popover>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {field.value?.map((employeeId) => {
+                          const employee = employees.find((emp) => emp.id === employeeId);
+                          if (!employee) return null;
+
+                          const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
+
+                          return (
+                            <div
+                              key={employeeId}
+                              className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-md flex items-center gap-1"
+                            >
+                              {displayName}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentValues = field.value || [];
+                                  const newValues = currentValues.filter((id) => id !== employeeId);
+                                  field.onChange(newValues);
+                                }}
+                                className="ml-1 text-primary hover:text-primary/80"
+                              >
+                                <X className="h-3 w-3 text-red-500" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1501,38 +1552,86 @@ export function DailyReportForm({
                                 </div>
                               )}
 
-                              {selectedCustomerId && filteredEquipments.length > 0 && (
-                                <CommandGroup>
-                                  {filteredEquipments.map((equipment) => (
-                                    <CommandItem
-                                      value={equipment.intern_number || equipment.domain || ''}
-                                      key={equipment.id}
-                                      disabled={!selectedCustomerId}
-                                      onSelect={() => {
-                                        const currentValues = field.value || [];
-                                        const newValues = currentValues.includes(equipment.id)
-                                          ? currentValues.filter((id) => id !== equipment.id)
-                                          : [...currentValues, equipment.id];
-                                        field.onChange(newValues);
-                                      }}
-                                    >
-                                      <div className="flex items-center">
-                                        <Check
-                                          className={cn(
-                                            'mr-2 h-4 w-4',
-                                            field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
-                                          )}
-                                        />
-                                        {equipment.domain || equipment.intern_number}
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              )}
+                              {selectedCustomerId &&
+                                filteredEquipments.length > 0 &&
+                                (() => {
+                                  // Obtener todos los tipos únicos
+                                  const typesMap: Record<string, (typeof filteredEquipments)[0][]> = {};
+
+                                  // Agrupar equipos por tipo
+                                  filteredEquipments.forEach((equipment) => {
+                                    const type = equipment.type?.name || 'Sin tipo';
+
+                                    if (!typesMap[type]) {
+                                      typesMap[type] = [];
+                                    }
+                                    typesMap[type].push(equipment);
+                                  });
+
+                                  // Convertir a array y ordenar por tipo
+                                  const typesArray = Object.keys(typesMap).sort();
+
+                                  return typesArray.map((type) => (
+                                    <CommandGroup key={type} heading={type.charAt(0).toUpperCase() + type.slice(1)}>
+                                      {typesMap[type].map((equipment) => (
+                                        <CommandItem
+                                          value={equipment.intern_number || equipment.domain || ''}
+                                          key={equipment.id}
+                                          disabled={!selectedCustomerId}
+                                          onSelect={() => {
+                                            const currentValues = field.value || [];
+                                            const newValues = currentValues.includes(equipment.id)
+                                              ? currentValues.filter((id) => id !== equipment.id)
+                                              : [...currentValues, equipment.id];
+                                            field.onChange(newValues);
+                                          }}
+                                        >
+                                          <div className="flex items-center">
+                                            <Check
+                                              className={cn(
+                                                'mr-2 h-4 w-4',
+                                                field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
+                                              )}
+                                            />
+                                            {equipment.domain || equipment.serie}
+                                          </div>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  ));
+                                })()}
                             </CommandList>
                           </Command>
                         </PopoverContent>
                       </Popover>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {field.value?.map((equipmentId) => {
+                          const equipment = equipments.find((eq) => eq.id === equipmentId);
+                          if (!equipment) return null;
+
+                          const displayName = equipment.domain || equipment.serie;
+
+                          return (
+                            <div
+                              key={equipmentId}
+                              className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-md flex items-center gap-1"
+                            >
+                              {displayName}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentValues = field.value || [];
+                                  const newValues = currentValues.filter((id) => id !== equipmentId);
+                                  field.onChange(newValues);
+                                }}
+                                className="ml-1 text-primary hover:text-primary/80"
+                              >
+                                <X className="h-3 w-3 text-red-500" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

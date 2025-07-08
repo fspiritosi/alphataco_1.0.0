@@ -620,7 +620,7 @@ export async function getActiveEmployeesForDailyReport() {
 
   const { data, error } = await supabase
     .from('employees')
-    .select('employees_diagram!inner(*,diagram_type(*)), contractor_employee(*),*')
+    .select('employees_diagram!inner(*,diagram_type(*)), contractor_employee(*),*,company_positions(*)')
     .eq('is_active', true)
     .eq('employees_diagram.day', day)
     .eq('employees_diagram.month', month)
@@ -644,7 +644,7 @@ export async function getActiveEquipmentsForDailyReport() {
   } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('vehicles')
-    .select('*,contractor_equipment(*)')
+    .select('*,contractor_equipment(*),type(*)')
     .eq('is_active', true)
     .neq('condition', 'no operativo')
     .neq('condition', 'en reparación')

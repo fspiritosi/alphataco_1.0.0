@@ -87,7 +87,12 @@ export default async function RepairSolicitudes({
     (repair) => repair.domain
     // FileText // Icono para documentos
   );
-  console.log(repairsFormatted, 'repairsFormatted');
+  const code = createFilterOptions(
+    repairsFormatted,
+    (repair) => repair.code_item
+    // FileText // Icono para documentos
+  );
+  console.log(code, 'code');
 
   return (
     <>
@@ -124,6 +129,11 @@ export default async function RepairSolicitudes({
               columnId: 'Dominio',
               title: 'Dominio',
               options: domain,
+            },
+            {
+              columnId: 'Codigo',
+              title: 'Codigo',
+              options: code,
             },
           ],
         }}

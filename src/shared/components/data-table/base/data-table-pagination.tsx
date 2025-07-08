@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table } from '@tanstack/react-table';
+import Cookies from 'js-cookie';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon } from 'lucide-react';
 
 interface DataTablePaginationProps<TData> {
@@ -25,6 +26,8 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             value={`${table.getState().pagination.pageSize}`}
             onValueChange={(value) => {
               table.setPageSize(Number(value));
+              Cookies.set('pageSize-table', value);
+              Cookies.set('pageIndex-table', table.getState().pagination.pageIndex.toString());
             }}
           >
             <SelectTrigger className="h-8 w-[70px]">

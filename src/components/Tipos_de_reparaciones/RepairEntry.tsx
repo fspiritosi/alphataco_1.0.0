@@ -500,7 +500,7 @@ export default function RepairNewEntry({
                                   return (
                                     <CommandItem
                                       value={equip.domain || equip.serie || ''}
-                                      key={equip.intern_number}
+                                      key={equip.domain}
                                       onSelect={handleSelectEquipment(equip)}
                                     >
                                       <Check
@@ -579,11 +579,11 @@ export default function RepairNewEntry({
                                 {tipo_de_mantenimiento?.map((item) => (
                                   <CommandItem
                                     value={item.name}
-                                    key={item.id}
+                                    key={item.name}
                                     disabled={allRepairs.some((e) => e.repair === item.id)}
                                     onSelect={() => {
                                       form.setValue('repair', item.id);
-                                      setOpen(false); // Cierra el Popover
+                                      setOpen(false);
                                     }}
                                   >
                                     <Check

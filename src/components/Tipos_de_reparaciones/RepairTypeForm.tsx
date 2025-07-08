@@ -136,7 +136,7 @@ export function RepairTypeForm({
       .string()
       .default(company_id || '')
       .optional(),
-    type_of_maintenance: z.enum(['Correctivo', 'Preventivo']),
+    type_of_maintenance: z.enum(['Correctivo', 'Preventivo', 'Otro']),
   });
 
   type Repair = z.infer<typeof typeOfRepair>;
@@ -296,6 +296,7 @@ export function RepairTypeForm({
                       <SelectContent>
                         <SelectItem value="Preventivo">Preventivo</SelectItem>
                         <SelectItem value="Correctivo">Correctivo</SelectItem>
+                        <SelectItem value="Otro">Otro</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormControl>

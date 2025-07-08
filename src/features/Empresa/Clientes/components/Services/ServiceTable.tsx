@@ -69,6 +69,8 @@ interface ServiceTableProps {
   id?: string;
   hideCreateButton?: boolean;
   savedFilter: string[];
+  // savedFilters: string[];
+  // savedVisibility: VisibilityState;
 }
 
 interface ServiceTableItem {
@@ -262,8 +264,14 @@ const ServiceTable = ({
   measureUnitsList,
   hideCreateButton = false,
   savedFilter,
+  // savedFilters,
+  // savedVisibility,
 }: ServiceTableProps) => {
-  const cookies = Cookies.get('servicesTable');
+  const savedVisibility = Cookies.get('service-items-table')
+    ? JSON.parse(Cookies.get('service-items-table') || '{}')
+    : {};
+  const savedFilters =
+    savedFilter || Cookies.get('servicesTable') ? JSON.parse(Cookies.get('service-items-table-filters') || '[]') : [];
   const [servicesData, setServicesData] = useState<ServiceTableProps['services']>([]);
   const [loading, setLoading] = useState(true);
   const [editingService, setEditingService] = useState<ServiceTableProps['services'][number] | null>(null);
@@ -366,7 +374,7 @@ const ServiceTable = ({
   };
   // Get customer_service_id from editingService
   const customerServiceId = editingService?.id || '';
-  const savedVisibility = cookies ? JSON.parse(cookies) : {};
+  // const savedVisibility = cookies ? JSON.parse(cookies) : {};
 
   return (
     <div>
@@ -464,6 +472,8 @@ const ServiceTable = ({
                       company_id={company_id}
                       customer_service_id={customerServiceId}
                       items={itemsList || []}
+                      savedFilters={savedFilters}
+                      savedVisibility={savedVisibility}
                     />
                   </TabsContent>
                 </Tabs>
@@ -477,7 +487,7 @@ const ServiceTable = ({
                   savedVisibility={savedVisibility}
                   onRowClick={(row) => handleOpenDetail(row as any)}
                   toolbarOptions={{
-                    initialVisibleFilters: savedFilter || [],
+                    initialVisibleFilters: savedFilters || [],
                     filterableColumns: [
                       {
                         columnId: 'Nombre',
