@@ -110,6 +110,7 @@ export function BaseDataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [pageSize, setPageSize] = React.useState<number>(cookiesStore ? Number(cookiesStore) : 10);
+  const [pageIndex, setPageIndex] = React.useState<number>(0);
 
   // Usar la visibilidad guardada, o la inicial si se proporciona, o un objeto vacío
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(savedVisibility || {});
@@ -124,21 +125,29 @@ export function BaseDataTable<TData, TValue>({
       columnFilters,
       pagination: {
         pageSize,
-        pageIndex: cookiesStoreIndex ? Number(cookiesStoreIndex) : 0,
+        pageIndex,
       },
     },
     onPaginationChange: (updater) => {
       // Para evitar problemas con la actualización de estado de paginación
       if (typeof updater === 'function') {
-        const currentPagination = { pageIndex: cookiesStoreIndex ? Number(cookiesStoreIndex) : 0, pageSize };
+        const currentPagination = { pageIndex, pageSize };
         const newPagination = updater(currentPagination);
         if (newPagination.pageSize !== pageSize) {
           setPageSize(newPagination.pageSize);
+          Cookies.set('pageSize-table', newPagination.pageSize.toString());
+        }
+        if (newPagination.pageIndex !== pageIndex) {
+          setPageIndex(newPagination.pageIndex);
+          Cookies.set('pageIndex-table', newPagination.pageIndex.toString());
         }
       } else {
         // Si es un objeto directo de paginación
         if (updater.pageSize !== pageSize) {
           setPageSize(updater.pageSize);
+        }
+        if (updater.pageIndex !== pageIndex) {
+          setPageIndex(updater.pageIndex);
         }
       }
     },
