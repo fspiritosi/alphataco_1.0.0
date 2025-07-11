@@ -479,7 +479,7 @@ const ServiceTable = ({
                 </Tabs>
               </div>
             ) : (
-              <div className="w-full overflow-x-auto max-h-96 overflow-y-auto mt-4">
+              <div className="w-full overflow-x-auto mt-4">
                 <BaseDataTable
                   columns={getServiceColumns((service) => handleOpenDetail(service as any), customers)}
                   data={servicesData as any}
