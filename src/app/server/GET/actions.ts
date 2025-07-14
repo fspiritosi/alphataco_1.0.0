@@ -424,7 +424,9 @@ export const fetchEmployeeMonthlyDocuments = async () => {
 
   const { data, error } = await supabase
     .from('documents_employees')
-    .select('*,document_types(*),employees(*,contractor_employee(*, customers(*)))')
+    .select(
+      '*,documents_employees_logs(updated_at),document_types(*),employees(*,contractor_employee(*, customers(*)))'
+    )
     .eq('employees.company_id', company_id)
     .eq('document_types.is_it_montlhy', true)
     .not('document_types', 'is', null)
@@ -528,7 +530,9 @@ export const fetchEmployeePermanentDocuments = async () => {
 
   const { data, error } = await supabase
     .from('documents_employees')
-    .select('*,document_types(*),employees(*,contractor_employee(*, customers(*)))')
+    .select(
+      '*,documents_employees_logs(updated_at),document_types(*),employees(*,contractor_employee(*, customers(*)))'
+    )
     .eq('employees.company_id', company_id)
     .not('document_types.is_it_montlhy', 'is', true)
     .not('document_types', 'is', null)
@@ -1046,7 +1050,7 @@ export const fetchSimpleMonthlyDocumentsEquipment = async () => {
   const { data, error } = await supabase
     .from('documents_equipment')
     .select(
-      `*,document_types(*),vehicles(serie,intern_number,domain,id,is_active,contractor_equipment(*,customers(*)))`
+      `*,documents_equipment_logs(updated_at),document_types(*),vehicles(serie,intern_number,domain,id,is_active,contractor_equipment(*,customers(*)))`
     )
     .eq('document_types.is_it_montlhy', true)
     .eq('vehicles.company_id', company_id)

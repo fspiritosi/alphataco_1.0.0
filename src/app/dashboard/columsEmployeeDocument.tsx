@@ -682,7 +682,13 @@ export const columnsEmployeeDocument: ColumnDef<ReturnType<typeof formatEmployee
   {
     accessorKey: 'date',
     id: 'Fecha',
-    sortingFn: 'datetime',
+    sortingFn: (rowA, rowB, columnId) => {
+      if (!rowA.original.date || !rowB.original.date) return 0;
+      const dateA = moment(rowA.original.date, 'DD/MM/YYYY');
+      const dateB = moment(rowB.original.date, 'DD/MM/YYYY');
+
+      return dateA.valueOf() - dateB.valueOf();
+    },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Subido el" />,
 
     cell: ({ row }) => {
