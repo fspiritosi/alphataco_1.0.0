@@ -1130,7 +1130,7 @@ export const fetchSimplePermanentDocumentsEquipment = async () => {
   const { data, error } = await supabase
     .from('documents_equipment')
     .select(
-      `*,document_types(*),vehicles(serie,intern_number,domain,id,is_active,contractor_equipment(*,customers(*)))`
+      `*,documents_equipment_logs(updated_at),document_types(*),vehicles(serie,intern_number,domain,id,is_active,contractor_equipment(*,customers(*)))`
     )
     .eq('vehicles.company_id', company_id)
     .not('document_types.is_it_montlhy', 'is', true)

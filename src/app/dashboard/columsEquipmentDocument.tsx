@@ -653,9 +653,15 @@ export const ExpiredColumsEquipmentDocument: ColumnDef<ReturnType<typeof formatS
   {
     accessorKey: 'date',
     id: 'Fecha',
-    sortingFn: 'datetime',
+    // sortingFn: 'datetime',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Subido el" />,
+    sortingFn: (rowA, rowB, columnId) => {
+      if (!rowA.original.date || !rowB.original.date) return 0;
+      const dateA = moment(rowA.original.date, 'DD/MM/YYYY');
+      const dateB = moment(rowB.original.date, 'DD/MM/YYYY');
 
+      return dateA.valueOf() - dateB.valueOf();
+    },
     cell: ({ row }) => {
       const isNoPresented = row.original.state === 'pendiente';
 

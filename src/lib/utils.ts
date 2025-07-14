@@ -372,8 +372,11 @@ export const formatSimpleVehiculesDocuments = (
   doc: Awaited<ReturnType<typeof fetchSimplePermanentDocumentsEquipment>>[number]
 ) => {
   //console.log('doc.validity',doc.validity);
+  const latestLog = doc.documents_equipment_logs?.sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  )[0];
   return {
-    date: moment(doc.created_at).format('DD/MM/YYYY'),
+    date: moment(latestLog?.updated_at).format('DD/MM/YYYY'),
     allocated_to: doc.vehicles?.contractor_equipment.map((doc) => doc.customers),
     allocated_to_names: doc.vehicles?.contractor_equipment.map((doc) => doc.customers?.name || '').filter(Boolean),
     documentName: doc.document_types?.name,
