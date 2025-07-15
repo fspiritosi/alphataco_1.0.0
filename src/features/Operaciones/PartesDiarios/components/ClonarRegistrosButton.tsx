@@ -192,7 +192,7 @@ export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarReg
                   <CalendarComponent
                     mode="multiple"
                     selected={fechasSeleccionadas}
-                    disabled={(date) => moment(date).isBefore(moment().subtract(0, 'days'))}
+                    disabled={(date) => moment(date).isBefore(moment().subtract(1, 'days'))}
                     onSelect={(dates: Date[] | undefined) => {
                       if (!dates) return;
                       // Actualizamos todas las fechas seleccionadas
