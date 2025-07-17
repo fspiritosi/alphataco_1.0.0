@@ -2,10 +2,6 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -14,13 +10,19 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type ColumnDef,
+  type ColumnFiltersState,
+  type SortingState,
+  type VisibilityState,
 } from '@tanstack/react-table';
-import Cookies from 'js-cookie';
 import * as React from 'react';
-import { DataTableToolbarBase } from '../toolbars/data-table-toolbar-base';
+// import { DataTableToolbar, type BulkActionProps } from "./data-table-toolbar"
+import { cn } from '@/lib/utils';
+import { keepPreviousData, QueryClient, useQuery } from '@tanstack/react-query';
+import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
+import { DataTableToolbar, type BulkActionProps } from '../toolbars/data-table-toolbar-base';
 import { DataTablePagination } from './data-table-pagination';
 
-// Tipos para el toolbar
 interface FilterableColumn<TData> {
   columnId: string;
   title: string;
@@ -29,13 +31,11 @@ interface FilterableColumn<TData> {
     value: string;
     icon?: React.ComponentType<{ className?: string }>;
   }[];
-  // Soporte para filtros de rango de fechas
   type?: 'date-range';
   showFrom?: boolean;
   showTo?: boolean;
   fromPlaceholder?: string;
   toPlaceholder?: string;
-  // Valores predeterminados para el filtro de fechas
   defaultValues?: {
     from: Date | null;
     to: Date | null;
@@ -47,21 +47,12 @@ interface SearchableColumn {
   placeholder?: string;
 }
 
-import { cn } from '@/lib/utils';
-import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
-export interface BulkActionProps<TData> {
-  enabled?: boolean; // Activar/desactivar funcionalidad
-  label?: string; // Etiqueta del botón
-  icon?: React.ReactNode; // Icono opcional
-  onClick: (rows: TData[]) => void; // Función a ejecutar con las filas seleccionadas
-}
-
 interface ToolbarOptions<TData> {
   filterableColumns?: FilterableColumn<TData>[];
   searchableColumns?: SearchableColumn[];
   showViewOptions?: boolean;
-  showFilterOptions?: boolean; // Nueva opción para mostrar el selector de filtros
-  initialVisibleFilters: string[]; // Filtros inicialmente visibles
+  showFilterOptions?: boolean;
+  initialVisibleFilters: string[];
   extraActions?: React.ReactNode | ((table: TableType<TData>) => React.ReactNode);
   bulkAction?: BulkActionProps<TData>;
   showDocumentDownload?: boolean;
@@ -71,23 +62,41 @@ interface ToolbarOptions<TData> {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   enableRowSelection?: boolean | ((row: Row<TData>) => boolean) | undefined;
-  data: TData[];
+  data?: TData[]; // Hacer opcional para server-side
   onRowClick?: (row: TData) => void;
   toolbarOptions?: ToolbarOptions<TData>;
+  initialData?: {
+    rows: TData[];
+    pageCount: number;
+    rowCount: number;
+  };
   paginationComponent?: React.ReactNode;
   className?: string;
-  tableId?: string; // ID para persistencia
-  initialColumnVisibility?: VisibilityState; // Estado inicial de columnas
+  tableId?: string;
+  initialColumnVisibility?: VisibilityState;
   savedVisibility: VisibilityState;
   row_classname?: (row: TData) => string | string;
   bulkAction?: BulkActionProps<TData>;
   onColumnFiltersChange?: (filters: Updater<ColumnFiltersState>) => void;
   onRowSelectionChange?: (rows: TData[]) => void;
+  // Nuevas props para server-side pagination
+  serverSide?: boolean;
+  fetchData?: (options: {
+    pageIndex: number;
+    pageSize: number;
+    sorting: SortingState;
+    columnFilters: ColumnFiltersState;
+  }) => Promise<{
+    rows: TData[];
+    pageCount: number;
+    rowCount: number;
+  }>;
+  queryKey?: string;
 }
-
+const queryClient = new QueryClient();
 export function BaseDataTable<TData, TValue>({
   columns,
-  data,
+  data: clientData,
   onRowClick,
   toolbarOptions,
   paginationComponent,
@@ -98,51 +107,70 @@ export function BaseDataTable<TData, TValue>({
   onColumnFiltersChange,
   enableRowSelection = true,
   onRowSelectionChange,
+  serverSide = false,
+  fetchData,
+  queryKey = 'table-data',
+  initialData,
 }: DataTableProps<TData, TValue>) {
-  // Intentar cargar la visibilidad guardada antes del renderizado inicial si hay tableId
-  // const savedVisibility = savedColumns
-  const cookiesStore = Cookies.get('pageSize-table');
-  const cookiesStoreIndex = Cookies.get('pageIndex-table');
-
-  console.log(cookiesStore);
-
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [pageSize, setPageSize] = React.useState<number>(cookiesStore ? Number(cookiesStore) : 10);
+  const [pageSize, setPageSize] = React.useState<number>(10);
   const [pageIndex, setPageIndex] = React.useState<number>(0);
-
-  // Usar la visibilidad guardada, o la inicial si se proporciona, o un objeto vacío
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(savedVisibility || {});
 
+  // Crear el estado de paginación para React Query
+  const pagination = React.useMemo(
+    () => ({
+      pageIndex,
+      pageSize,
+    }),
+    [pageIndex, pageSize]
+  );
+
+  // Query para server-side data
+  const dataQuery = useQuery({
+    queryKey: [queryKey, pagination, sorting, columnFilters],
+    queryFn: () =>
+      fetchData?.({
+        pageIndex,
+        pageSize,
+        sorting,
+        columnFilters,
+      }),
+    placeholderData: keepPreviousData,
+    enabled: serverSide && !!fetchData,
+    initialData:
+      initialData && pageIndex === 0 && columnFilters.length === 0 && sorting.length === 0 ? initialData : undefined,
+  });
+
+  // Usar datos del servidor o datos del cliente
+  const tableData = serverSide ? dataQuery.data?.rows ?? [] : clientData ?? [];
+  const defaultData = React.useMemo(() => [], []);
+
   const table = useReactTable({
-    data,
+    data: tableData.length > 0 ? tableData : defaultData,
     columns,
+    rowCount: serverSide ? dataQuery.data?.rowCount ?? 0 : undefined,
+
     state: {
       sorting,
       columnVisibility,
       rowSelection,
       columnFilters,
-      pagination: {
-        pageSize,
-        pageIndex,
-      },
+      pagination,
     },
     onPaginationChange: (updater) => {
-      // Para evitar problemas con la actualización de estado de paginación
       if (typeof updater === 'function') {
         const currentPagination = { pageIndex, pageSize };
         const newPagination = updater(currentPagination);
         if (newPagination.pageSize !== pageSize) {
           setPageSize(newPagination.pageSize);
-          Cookies.set('pageSize-table', newPagination.pageSize.toString());
         }
         if (newPagination.pageIndex !== pageIndex) {
           setPageIndex(newPagination.pageIndex);
-          Cookies.set('pageIndex-table', newPagination.pageIndex.toString());
         }
       } else {
-        // Si es un objeto directo de paginación
         if (updater.pageSize !== pageSize) {
           setPageSize(updater.pageSize);
         }
@@ -157,17 +185,20 @@ export function BaseDataTable<TData, TValue>({
       if (onRowSelectionChange) {
         const selectedRows = Object.keys(newSelection)
           .filter((key) => newSelection[key])
-          .map((key) => data[parseInt(key)]);
+          .map((key) => tableData[Number.parseInt(key)]);
         onRowSelectionChange(selectedRows);
       }
     },
     onSortingChange: setSorting,
-    // En BaseDataTable.tsx, modificar la llamada al callback:
     onColumnFiltersChange: (updater) => {
       const newFilters = typeof updater === 'function' ? updater(columnFilters) : updater;
       setColumnFilters(newFilters);
 
-      // Llamar al callback si existe, pasando el valor final, no el updater
+      // Reset a la primera página cuando cambian los filtros
+      if (serverSide) {
+        setPageIndex(0);
+      }
+
       if (onColumnFiltersChange) {
         onColumnFiltersChange(newFilters);
       }
@@ -177,17 +208,23 @@ export function BaseDataTable<TData, TValue>({
     },
     enableRowSelection: enableRowSelection,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getFilteredRowModel: serverSide ? undefined : getFilteredRowModel(),
+    getPaginationRowModel: serverSide ? undefined : getPaginationRowModel(),
+    getSortedRowModel: serverSide ? undefined : getSortedRowModel(),
+    getFacetedRowModel: serverSide ? undefined : getFacetedRowModel(),
+    getFacetedUniqueValues: serverSide ? undefined : getFacetedUniqueValues(),
+    manualPagination: serverSide,
+    manualSorting: serverSide,
+    manualFiltering: serverSide,
   });
+
+  // Loading state para server-side
+  const isLoading = serverSide && dataQuery.isFetching;
 
   return (
     <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
       {toolbarOptions && (
-        <DataTableToolbarBase
+        <DataTableToolbar
           table={table}
           showExport={toolbarOptions.showExport}
           showDocumentDownload={toolbarOptions.showDocumentDownload}
@@ -202,6 +239,7 @@ export function BaseDataTable<TData, TValue>({
               : toolbarOptions.extraActions
           }
           tableId={tableId}
+          isLoading={isLoading}
         />
       )}
       <div className="rounded-md border">
@@ -220,7 +258,16 @@ export function BaseDataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table?.getRowModel().rows?.length ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    <span>Cargando...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : table?.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   className={
@@ -252,9 +299,17 @@ export function BaseDataTable<TData, TValue>({
         </Table>
       </div>
       {paginationComponent ? (
-        React.cloneElement(paginationComponent as React.ReactElement, { table })
+        React.cloneElement(paginationComponent as React.ReactElement, {
+          table,
+          isLoading,
+          totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
+        })
       ) : (
-        <DataTablePagination table={table} />
+        <DataTablePagination
+          table={table}
+          isLoading={isLoading}
+          totalRows={serverSide ? dataQuery.data?.rowCount : undefined}
+        />
       )}
     </div>
   );
