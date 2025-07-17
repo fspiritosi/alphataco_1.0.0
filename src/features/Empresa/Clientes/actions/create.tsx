@@ -6,19 +6,169 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
+
+// Función para verificar si un área está siendo usada en contratos
+// async function isAreaUsedInContracts(areaId: string) {
+//   const supabase = supabaseServer();
+
+//   try {
+//     // 1. Buscar todos los servicios que usan esta área
+//     const { data: serviceAreas, error: serviceAreaError } = await supabase
+//       .from('service_areas')
+//       .select('service_id')
+//       .eq('area_id', areaId);
+
+//     if (serviceAreaError) {
+//       console.error('Error al buscar servicios que usan el área:', serviceAreaError);
+//       throw serviceAreaError;
+//     }
+
+//     if (!serviceAreas || serviceAreas.length === 0) {
+//       console.log('El área no está siendo utilizada en ningún servicio.');
+//       return false;
+//     }
+
+//     const serviceIds = serviceAreas.map(sa => sa.service_id);
+
+//     // 2. Buscar contratos (customer_services) que usen estos servicios
+//     const { data: contracts, error: contractsError } = await supabase
+//       .from('customer_services')
+//       .select(`
+//         id,
+//         contract_number,
+//         customer_id,
+//         service_name,
+//         is_active
+//       `)
+//       .in('id', serviceIds)
+//       .eq('is_active', true); // Solo contratos activos
+
+//     if (contractsError) {
+//       console.error('Error al verificar contratos del área:', contractsError);
+//       throw contractsError;
+//     }
+
+//     if (contracts && contracts.length > 0) {
+//       // Obtener IDs de clientes únicos
+//       const customerIds = [...new Set(
+//         contracts
+//           .filter(c => c.customer_id !== null)
+//           .map(c => c.customer_id as string)
+//       )];
+
+//       // Obtener nombres de clientes
+//       let customerMap = new Map<string, string>();
+//       if (customerIds.length > 0) {
+//         const { data: customers } = await supabase
+//           .from('customers')
+//           .select('id, name')
+//           .in('id', customerIds);
+//         customerMap = new Map(customers?.map(c => [c.id, c.name]) || []);
+//       }
+
+//       console.log('=== CONTRATOS QUE USAN ESTA ÁREA ===');
+//       contracts.forEach((contrato, index) => {
+//         const clienteInfo = contrato.customer_id
+//           ? `ID: ${contrato.customer_id} (${customerMap.get(contrato.customer_id) || 'Nombre no disponible'})`
+//           : 'No especificado';
+//         console.log(`\nContrato #${index + 1}:`);
+//         console.log(`- ID del contrato: ${contrato.id}`);
+//         console.log(`- Nombre del servicio: ${contrato.service_name || 'Sin nombre'}`);
+//         console.log(`- Número de contrato: ${contrato.contract_number || 'Sin número'}`);
+//         console.log(`- Cliente: ${clienteInfo}`);
+//         console.log(`- Estado: ${contrato.is_active ? 'Activo' : 'Inactivo'}`);
+//       });
+//       console.log('\n=== FIN DE LA LISTA ===');
+//       return true;
+//     }
+
+//     console.log('El área no está siendo utilizada en ningún contrato activo.');
+//     return false;
+//   } catch (error) {
+//     console.error('Error en isAreaUsedInContracts:', error);
+//     throw error;
+//   }
+// }
 // Función para verificar si un área está siendo usada en contratos
 async function isAreaUsedInContracts(areaId: string) {
   const supabase = supabaseServer();
-  const { data, error } = await supabase.from('customer_services').select('id').eq('area_id', areaId).limit(1);
 
-  if (error) {
-    console.error('Error esta area ya esta siendo utilizada en un contrato', error);
+  try {
+    // 1. Buscar todos los servicios que usan esta área
+    const { data: serviceAreas, error: serviceAreaError } = await supabase
+      .from('service_areas')
+      .select('service_id')
+      .eq('area_id', areaId);
+
+    if (serviceAreaError) {
+      console.error('Error al buscar servicios que usan el área:', serviceAreaError);
+      throw serviceAreaError;
+    }
+
+    if (!serviceAreas || serviceAreas.length === 0) {
+      console.log('El área no está siendo utilizada en ningún servicio.');
+      return { isUsed: false };
+    }
+
+    const serviceIds = serviceAreas.map((sa) => sa.service_id);
+
+    // 2. Buscar contratos (customer_services) que usen estos servicios
+    const { data: contracts, error: contractsError } = await supabase
+      .from('customer_services')
+      .select(
+        `
+        id, 
+        contract_number,
+        customer_id,
+        service_name,
+        is_active
+      `
+      )
+      .in('id', serviceIds)
+      .eq('is_active', true) // Solo contratos activos
+      .order('created_at', { ascending: true }) // Ordenar por fecha para obtener el más antiguo primero
+      .limit(1); // Solo necesitamos el primer contrato
+
+    if (contractsError) {
+      console.error('Error al verificar contratos del área:', contractsError);
+      throw contractsError;
+    }
+
+    if (contracts && contracts.length > 0) {
+      const contract = contracts[0]; // Tomamos el primer contrato
+
+      // Obtener el nombre del cliente
+      let customerName = 'Cliente desconocido';
+      if (contract.customer_id) {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('name')
+          .eq('id', contract.customer_id)
+          .single();
+
+        if (customer) {
+          customerName = customer.name;
+        }
+      }
+
+      return {
+        isUsed: true,
+        contract: {
+          id: contract.id,
+          contractNumber: contract.contract_number || 'Sin número',
+          serviceName: contract.service_name || 'Sin nombre',
+          customerName,
+          isActive: contract.is_active,
+        },
+      };
+    }
+
+    return { isUsed: false };
+  } catch (error) {
+    console.error('Error en isAreaUsedInContracts:', error);
     throw error;
   }
-
-  return data && data.length > 0;
 }
-
 export async function createdCustomer(formData: FormData) {
   const supabase = supabaseServer();
   try {
@@ -231,15 +381,16 @@ export async function updateArea(values: any) {
       try {
         // Verificar si el área está siendo usada en contratos
         const isUsed = await isAreaUsedInContracts(values.id);
-        if (isUsed) {
+        if (isUsed.isUsed) {
+          const contract = isUsed.contract;
           return {
             status: 400,
-            body: 'No se puede cambiar el cliente de un área que está siendo utilizada en contratos existentes',
+            body: `No se puede actualizar el área porque está siendo utilizada en el contrato ${contract?.contractNumber} (${contract?.serviceName}) del cliente ${contract?.customerName}.`,
           };
         }
       } catch (error) {
-        console.error('Error esta area ya esta siendo utilizada en un contrato', error);
-        return { status: 500, body: 'Error esta area ya esta siendo utilizada en un contrato' };
+        console.error('Error al verificar contratos del área:', error);
+        return { status: 500, body: 'Error al verificar los contratos del área' };
       }
     }
 
@@ -293,7 +444,6 @@ export async function fetchAreasWithProvinces() {
   const supabase = supabaseServer();
   const coockiesStore = cookies();
   const actualCompany = coockiesStore.get('actualComp')?.value;
-  console.log('actualCompany', actualCompany);
 
   try {
     const { data, error } = await supabase
