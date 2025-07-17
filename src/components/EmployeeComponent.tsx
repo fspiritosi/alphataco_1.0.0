@@ -85,7 +85,9 @@ export default function EmployeeComponent({
   contract_types,
   company_positions,
   contractorCompanies,
+  workDiagram,
 }: {
+  workDiagram: Database['public']['Tables']['work_diagram']['Row'][] | null;
   contractorCompanies: Awaited<ReturnType<typeof fetchContractorCompanies>>;
   contract_types: ContractType[];
   company_positions: any[];
@@ -153,6 +155,11 @@ export default function EmployeeComponent({
           company_position: user.company_position, // Usar el nombre del puesto
           contractor_employee: user.contractor_employee,
           picture: user.picture || '', // Asegurar que picture siempre sea una cadena
+          covenants_id: user.covenants_id,
+          category_id: user.category_id,
+          guild_id: user.guild_id,
+          cost_center_id: user.cost_center_id,
+          workflow_diagram: workDiagram?.find((e) => e.name?.trim() === user.workflow_diagram?.trim())?.name.trim(),
         }
       : {
           lastname: '',
@@ -188,6 +195,11 @@ export default function EmployeeComponent({
         },
   });
 
+  console.log(workDiagram, 'workDiagram');
+  console.log(user.workflow_diagram, 'user.workflow_diagram');
+
+  console.log(workDiagram?.find((e) => e.name?.trim() === user.workflow_diagram?.trim())?.id, 'workflowDiagramId');
+
   const hierarchicalPosition = useWatch({ control: form.control, name: 'hierarchical_position' });
   const hierarchicalPositionId = hierarchyOptions?.find((option) => option.name === hierarchicalPosition)?.id;
   // Estado para el nombre del puesto mostrado
@@ -220,7 +232,12 @@ export default function EmployeeComponent({
         setDatosInicialesCargados(true);
       }
     }
-  }, [datosInicialesCargados, user?.company_position, company_positions]);
+    const workflowDiagramId = workDiagram?.find((e) => e.name === user.workflow_diagram)?.name.trim();
+    console.log(workflowDiagramId, 'workflowDiagramId');
+    if (workflowDiagramId) {
+      form.setValue('workflow_diagram', workflowDiagramId);
+    }
+  }, [datosInicialesCargados, user?.company_position, company_positions, user?.workflow_diagram]);
 
   // Efecto para manejar cambios en el puesto seleccionado
   useEffect(() => {
@@ -661,7 +678,7 @@ export default function EmployeeComponent({
         };
         console.log(finalValues);
         try {
-          const applies = await createEmployee(finalValues);
+          const applies = await createEmployee(finalValues as any);
           const documentsMissing: {
             applies: number;
             id_document_types: string;
@@ -773,6 +790,9 @@ export default function EmployeeComponent({
       async () => {
         const { full_name, ...rest } = values;
 
+        console.log(values, 'values');
+        console.log(citysOptions, 'citysOptions');
+
         const finalValues = {
           ...rest,
           company_id: companyId,
@@ -783,11 +803,21 @@ export default function EmployeeComponent({
           born_date: values.born_date instanceof Date ? values.born_date.toISOString() : values.born_date,
           province: String(provincesOptions.find((e) => e.name.trim() === values.province)?.id),
           birthplace: String(countryOptions.find((e) => e.name === values.birthplace)?.id),
-          city: String(citysOptions.find((e) => e.name.trim() === values.city)?.id),
+          city: String(citysOptions.find((e) => e.name.trim() === values.city.trim())?.id),
           hierarchical_position: String(hierarchyOptions.find((e) => e.name === values.hierarchical_position)?.id),
           company_position: values.company_position,
-          workflow_diagram: String(workDiagramOptions.find((e) => e.name === values.workflow_diagram)?.id),
+          workflow_diagram: String(
+            workDiagramOptions.find((e) => e.name.trim() === values.workflow_diagram.trim())?.id
+          ),
         };
+
+        if ((!finalValues.city || finalValues.city === 'undefined') && values.city) {
+          const { data } = await supabase.from('cities').select().ilike('name', `${values.city.trim()}%`);
+          console.log(data, 'data de city');
+          if (data?.length) {
+            finalValues.city = data[0].id;
+          }
+        }
 
         const result = compareContractorEmployees(user, finalValues as any);
         result.valuesToRemove.forEach(async (e) => {
@@ -815,11 +845,10 @@ export default function EmployeeComponent({
         }
 
         try {
-          await updateEmployee(finalValues, user?.id);
+          await updateEmployee(finalValues as any, user?.id);
           await saveAptitudes(user.id);
           await handleUpload();
           router.refresh();
-          router.push('/dashboard/employee');
         } catch (error: PostgrestError | any) {
           throw new Error(handleSupabaseError(error.message));
         }

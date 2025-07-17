@@ -1,6 +1,6 @@
 'use client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarIcon, CaretSortIcon, CheckIcon } from '@radix-ui/react-icons';
+import { CalendarIcon } from '@radix-ui/react-icons';
 import { addDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
@@ -15,13 +15,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { FileDown, RefreshCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { z } from 'zod';
 import InfoComponent from '../InfoComponent';
 import { Button } from '../ui/button';
 import { CardDescription } from '../ui/card';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '../ui/command';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormMessage } from '../ui/form';
+import { Form, FormDescription, FormField, FormItem, FormMessage } from '../ui/form';
+import { MultiSelectCombobox } from '../ui/multi-select-combobox';
 
 function DiagramEmployeeView({
   diagrams,
@@ -37,9 +38,7 @@ function DiagramEmployeeView({
     to: addDays(new Date(), 30),
   });
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
-  const [filteredResources, setFilteredResources] = useState(activeEmployees);
   const [initialResources, setInitialResources] = useState(activeEmployees);
-  const [inputValue, setInputValue] = useState<string>('');
   const [reloadMenssage, setReloadMenssage] = useState<string>('');
 
   /*---------------------INICIO ESQUEMA EMPLEADOS---------------------------*/
@@ -192,6 +191,8 @@ function DiagramEmployeeView({
       const employee = employeeDiagrams[0].employees;
       return employee.id;
     });
+
+    console.log('employeesWithDiagrams', employeesWithDiagrams);
     setSelectedResources(employeesWithDiagrams);
   }, []);
 
@@ -286,78 +287,17 @@ function DiagramEmployeeView({
                     name="resources"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn('justify-between', !field.value && 'text-muted-foreground')}
-                              >
-                                {`${selectedResources?.length || '0'} empleados seleccionados`}
-                                <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className=" p-0">
-                            <Command>
-                              <CommandInput
-                                placeholder="Buscar recursos..."
-                                className="h-9"
-                                onFocus={() => {
-                                  setFilteredResources(activeEmployees);
-                                }}
-                                onInput={(e) => {
-                                  const inputValue = (e.target as HTMLInputElement).value.toLowerCase();
-                                  setInputValue(inputValue);
-                                  const isNumberInput = /^\d+$/.test(inputValue);
-
-                                  const filteredresources = activeEmployees?.filter((person: any) => {
-                                    if (isNumberInput) {
-                                      return person.document?.includes(inputValue);
-                                    } else {
-                                      return (
-                                        person.name?.toLowerCase().includes(inputValue) ||
-                                        person.document?.includes(inputValue)
-                                      );
-                                    }
-                                  });
-                                  setFilteredResources(filteredresources);
-                                }}
-                              />
-                              <CommandEmpty>No se encontraron recursos con ese nombre o documento</CommandEmpty>
-                              <CommandGroup className="overflow-auto max-h-[60vh]">
-                                {filteredResources
-                                  ?.sort((a: any, b: any) => a.full_name.localeCompare(b.full_name))
-                                  ?.map((person: any) => {
-                                    const key = /^\d+$/.test(inputValue) ? person.id : person.full_name;
-                                    const value = /^\d+$/.test(inputValue) ? person.id : person.full_name;
-                                    return (
-                                      <CommandItem
-                                        value={value}
-                                        key={key}
-                                        onSelect={() => {
-                                          const updatedResources = selectedResources.includes(person.id)
-                                            ? selectedResources.filter((resource) => resource !== person.id)
-                                            : [...selectedResources, person.id];
-                                          setSelectedResources(updatedResources);
-                                          form.setValue('resources', updatedResources);
-                                        }}
-                                      >
-                                        {person.full_name}
-                                        <CheckIcon
-                                          className={cn(
-                                            'ml-auto h-4 w-4',
-                                            selectedResources.includes(person.id) ? 'opacity-100' : 'opacity-0'
-                                          )}
-                                        />
-                                      </CommandItem>
-                                    );
-                                  })}
-                              </CommandGroup>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                        <MultiSelectCombobox
+                          options={activeEmployees}
+                          placeholder="Selecciona al menos 1 recurso"
+                          emptyMessage="No hay recursos disponibles"
+                          selectedValues={selectedResources}
+                          onChange={(values) => {
+                            setSelectedResources(values);
+                            form.setValue('resources', values);
+                          }}
+                          showSelectAll
+                        />
                         <FormDescription>
                           <InfoComponent size="sm" message={'Selecciona al menos 1 recurso para ver su diagrama.'} />
                         </FormDescription>
@@ -413,7 +353,16 @@ function DiagramEmployeeView({
             </CardDescription>
           )}
 
-          <Button onClick={() => router.refresh()} className="flex items-center">
+          <Button
+            onClick={() => {
+              toast.info('Recargando diagramas...');
+              router.refresh();
+              setTimeout(() => {
+                toast.info('Diagramas recargados correctamente');
+              }, 1000);
+            }}
+            className="flex items-center"
+          >
             <RefreshCcwIcon className="mr-2 h-4 w-4" />
             Recargar diagramas
           </Button>
@@ -433,6 +382,11 @@ function DiagramEmployeeView({
           {selectedResources?.length > 0
             ? Object.keys(groupedDiagrams || {})
                 ?.filter((employeeId) => selectedResources.includes(employeeId))
+                ?.sort((a, b) => {
+                  const employeeA = groupedDiagrams[a][0].employees;
+                  const employeeB = groupedDiagrams[b][0].employees;
+                  return employeeA.lastname.localeCompare(employeeB.lastname);
+                })
                 ?.map((employeeId, index) => {
                   const employeeDiagrams = groupedDiagrams[employeeId];
                   const employee = employeeDiagrams[0].employees; // Asumimos que todos los diagramas tienen el mismo empleado

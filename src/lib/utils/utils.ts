@@ -99,12 +99,12 @@ export const setEmployeesToShow = (employees: any) => {
       termination_date: employees?.termination_date,
       status: employees?.status,
       documents_employees: employees.documents_employees,
-      guild_id: employees?.guild?.id,
-      covenants_id: employees?.covenant?.id,
-      category_id: employees?.category?.id,
-      guild: employees?.guild_id?.name,
-      covenants: employees?.covenants_id?.name,
-      category: employees?.category_id?.name,
+      guild_id: employees?.guild?.id || employees?.guild_id,
+      covenants_id: employees?.covenant?.id || employees?.covenants_id,
+      category_id: employees?.category?.id || employees?.category_id,
+      guild: employees?.guild_id?.name || employees?.guild_id,
+      covenants: employees?.covenants_id?.name || employees?.covenants_id,
+      category: employees?.category_id?.name || employees?.category_id,
       cost_center_id: employees?.cost_center_id,
       empleado_aptitudes:
         employees?.empleado_aptitudes?.map((apt: any) => ({
