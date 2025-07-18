@@ -1585,6 +1585,34 @@ export async function fetchEmployeesByCompany() {
     throw error;
   }
 }
+export async function getEmployeesIds() {
+  try {
+    const supabase = supabaseServer();
+    const cookiesStore = cookies();
+    const company_id = cookiesStore.get('actualComp')?.value;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!company_id) {
+      throw new Error('company_id is required');
+    }
+
+    let { data: employees, error } = await supabase
+      .from('employees')
+      .select('id,firstname,lastname,document_number')
+      .eq('company_id', company_id);
+
+    if (error) {
+      throw error;
+    }
+
+    return employees || [];
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    throw error;
+  }
+}
 
 export async function fetchEmployeeDiagrams(employeeId?: string) {
   try {

@@ -121,6 +121,9 @@ export type names =
 export type Employee = {
   id?: string;
   lastname: string;
+  covenants_id: string | undefined;
+  category_id: string | undefined;
+  guild_id: string | undefined;
   firstname: string;
   nationality: string | undefined;
   born_date: Date | undefined | string;
