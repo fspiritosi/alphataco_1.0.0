@@ -468,6 +468,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         columns={columns}
         data={dailyReports} // Usar datos originales, no filtrados
         savedVisibility={{}}
+        tableId="comercial-report-table"
         onRowClick={(row) => {
           if (row.document_url) {
             window.open(row.document_url, '_blank');
