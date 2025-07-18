@@ -2,11 +2,24 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { Database } from '../../../../database.types';
 
 // Tipo para los operadores de filtro
-type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'is' | 'in' | 'cs' | 'cd';
+type FilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'like'
+  | 'ilike'
+  | 'is'
+  | 'in'
+  | 'cs'
+  | 'cd'
+  | 'not.is';
 
 // Tipo para un filtro individual
 export type Filter<T extends keyof Database['public']['Tables']> = {
-  column: keyof Database['public']['Tables'][T]['Row'];
+  column: keyof Database['public']['Tables'][T]['Row'] | string;
   operator?: FilterOperator;
   value: any;
 };
