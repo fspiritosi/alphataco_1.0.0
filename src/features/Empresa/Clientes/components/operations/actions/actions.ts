@@ -10,6 +10,7 @@ export async function getAllDailyReportRows() {
         *,
         dailyreportrows(
           *,
+          document_path,
           dailyreport_customer_equipment_relations(*, equipos_clientes(*) ),
           service_sectors(*, sectors(*) ),
           service_areas(*, areas_cliente(*) ),

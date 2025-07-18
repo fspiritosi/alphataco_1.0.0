@@ -92,8 +92,8 @@ export default async function DayliReportWraper() {
           ?.map((rel) => `${rel.employees?.firstname || ''} ${rel.employees?.lastname || ''}`.trim())
           .filter(Boolean) || [];
 
-      // Get equipment (vehicles)
-      const equipment =
+      // Get company equipment
+      const companyEquipment =
         row.dailyreportequipmentrelations
           ?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number || '')
           .filter(Boolean) || [];
@@ -103,12 +103,9 @@ export default async function DayliReportWraper() {
         row.dailyreport_customer_equipment_relations?.map((rel) => rel.equipos_clientes?.name || '').filter(Boolean) ||
         [];
 
-      // Combine all equipment
-      const allEquipment = [...equipment, ...customerEquipment];
-
       return {
         id: row.id,
-        date: row.date, // Now date is directly on the row
+        date: row.date,
         customer: row.customers?.name || 'Sin cliente',
         type_service: row.type_service || 'No especificada',
         item: row.service_items?.item_name || 'Sin ítem',
@@ -117,7 +114,9 @@ export default async function DayliReportWraper() {
         start_time: row.start_time,
         end_time: row.end_time,
         employees,
-        equipment: allEquipment,
+        company_equipment: companyEquipment, // Company vehicles
+        customer_equipment: customerEquipment, // Customer equipment
+        document_url: row.document_path || '', // Document URL
         services: row.customer_services?.service_name || 'Sin servicio',
         working_day: row.working_day || 'No especificada',
         area: row.service_areas?.areas_cliente?.nombre || 'Sin área',

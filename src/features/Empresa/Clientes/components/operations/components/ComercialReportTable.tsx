@@ -7,7 +7,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef, ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown, Eye } from 'lucide-react';
 import React, { useState } from 'react';
 
 // Definimos el tipo para las filas del reporte diario
@@ -38,31 +38,19 @@ interface TableRow {
   start_time: string | null;
   end_time: string | null;
   employees: string[];
-  equipment: string[];
+  company_equipment: string[];
+  customer_equipment: string[];
+  // equipment: string[];
   services: string;
   working_day?: string;
   area?: string;
   sector?: string;
   remit_number?: string;
+  document_url?: string;
 }
 
 interface ComercialReportTableProps {
   dailyReports: TableRow[];
-}
-
-interface ProcessedRow {
-  id: string;
-  date: string;
-  customer: string;
-  type_service: string;
-  item: string;
-  description: string;
-  status: string;
-  start_time: string | null;
-  end_time: string | null;
-  employees: string[];
-  equipment: string[];
-  services: string;
 }
 
 // Mapeo de estados a variantes de badge
@@ -121,15 +109,14 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
     }
   };
 
-  const filteredData = React.useMemo(() => {
+  const filteredData = React.useMemo<TableRow[]>(() => {
     return dailyReports.filter((row) => {
       // Aplicar filtros de columna
       return columnFilters.every((filter) => {
-        const value = row[filter.id as keyof ProcessedRow];
-        if (value === undefined || value === null) return false;
+        const filterId = filter.id as keyof TableRow;
 
-        // Si es el filtro de fecha, aplicamos el filtro aquí
-        if (filter.id === 'date' && filter.value) {
+        // Handle date filter
+        if (filterId === 'date' && filter.value) {
           try {
             const dateValue = new Date(row.date);
             const filterValue = filter.value as { from?: Date | string; to?: Date | string };
@@ -142,16 +129,28 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
             if (fromDate && dateValue < fromDate) return false;
             if (toDate && dateValue > toDate) return false;
             return true;
-          } catch (error) {
-            console.error('Error al procesar fechas:', error);
-            return true; // En caso de error, mostramos la fila
+          } catch (e) {
+            console.error('Error filtering date:', e);
+            return true;
           }
         }
 
+        // Skip if no filter value
+        if (!filter.value) return true;
+
+        // Handle array fields (employees, company_equipment, customer_equipment)
+        const value = row[filterId];
         if (Array.isArray(value)) {
-          return value.some((v) => String(v).toLowerCase().includes(String(filter.value).toLowerCase()));
+          const searchValue = String(filter.value).toLowerCase();
+          return value.some((item) => String(item).toLowerCase().includes(searchValue));
         }
 
+        // Handle string fields
+        if (typeof value === 'string') {
+          return value.toLowerCase().includes(String(filter.value).toLowerCase());
+        }
+
+        // Handle other types
         return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
       });
     });
@@ -225,12 +224,12 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
   }, [filteredData]);
 
   // Definir las columnas filtrables
-  const filterableColumns: LocalFilterableColumn<ProcessedRow>[] = [
+  const filterableColumns: LocalFilterableColumn<TableRow>[] = [
     {
       columnId: 'date',
       title: 'Rango de Fechas',
       type: 'date-range',
-      filterFn: (row: ProcessedRow, columnId: string, filterValue: { from?: Date | string; to?: Date | string }) => {
+      filterFn: (row: TableRow, columnId: string, filterValue: { from?: Date | string; to?: Date | string }) => {
         if (!filterValue?.from || !filterValue?.to) return true;
 
         try {
@@ -424,30 +423,27 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Equipos',
-      accessorKey: 'equipment',
-      header: 'Equipos',
+      id: 'Equipos Propios',
+      accessorKey: 'company_equipment',
+      header: 'Equipos Propios',
       cell: ({ row }) => {
-        const equipment = row.getValue('Equipos') as string[];
-        return (
-          <div className="flex flex-col gap-1">
-            {equipment?.length > 0 ? (
-              equipment.map((eq, i) => (
-                <div key={i} className="text-sm">
-                  {eq}
-                </div>
-              ))
-            ) : (
-              <span>-</span>
-            )}
-          </div>
-        );
+        const equipment = row.original.company_equipment || [];
+        return <ListWithTooltip items={equipment} />;
       },
       filterFn: (row, id, value) => {
         if (!value) return true;
         const equipment = row.getValue(id) as string[];
         const searchValue = String(value).toLowerCase();
         return equipment.some((eq) => eq.toLowerCase().includes(searchValue));
+      },
+    },
+    {
+      id: 'Equipos Cliente',
+      accessorKey: 'customer_equipment',
+      header: 'Equipos Cliente',
+      cell: ({ row }) => {
+        const equipment = row.original.customer_equipment || [];
+        return <ListWithTooltip items={equipment} />;
       },
     },
     {
@@ -504,29 +500,54 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         return String(rowValue).toLowerCase().includes(String(value).toLowerCase());
       },
     },
+    {
+      id: 'Documento',
+      accessorKey: 'document_url',
+      header: 'Documento',
+      cell: ({ row }) => {
+        const url = row.original.document_url;
+        return url ? (
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                window.open(url, '_blank');
+              }}
+              className="h-8 w-8 p-0"
+            >
+              <Eye className="h-4 w-4" />
+              <span className="sr-only">Ver documento</span>
+            </Button>
+          </div>
+        ) : (
+          <span>-</span>
+        );
+      },
+    },
   ];
+
   return (
-    <BaseDataTable<ProcessedRow, unknown>
-      columns={columns}
-      data={filteredData}
-      // sorting={sorting}
-      // onSortingChange={setSorting}
-      // initialState={{
-      //   sorting: [{ id: "date", desc: true }] // Ensure default sort is descending
-      // }}
-      savedVisibility={{}}
-      toolbarOptions={{
-        filterableColumns: filterableColumns as any[],
-        initialVisibleFilters: ['date'],
-        showFilterOptions: true,
-        showViewOptions: true,
-      }}
-      onRowClick={(row) => {
-        // Aquí puedes manejar el clic en una fila si es necesario
-      }}
-      className="w-full"
-      row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
-    />
+    <div className="space-y-4">
+      <BaseDataTable
+        columns={columns}
+        data={filteredData}
+        savedVisibility={{}}
+        onRowClick={(row) => {
+          if (row.document_url) {
+            window.open(row.document_url, '_blank');
+          }
+        }}
+        className="w-full"
+        row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
+        toolbarOptions={{
+          filterableColumns: filterableColumns as any[],
+          initialVisibleFilters: ['date'],
+          showFilterOptions: true,
+          showViewOptions: true,
+        }}
+      />
+    </div>
   );
 }
 
