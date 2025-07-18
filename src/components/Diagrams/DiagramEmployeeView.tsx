@@ -189,7 +189,7 @@ function DiagramEmployeeView({
     const employeesWithDiagrams = Object.keys(groupedDiagrams || {})?.map((employeeId) => {
       const employeeDiagrams = groupedDiagrams[employeeId];
       const employee = employeeDiagrams[0].employees;
-      return employee.id;
+      return employee?.id;
     });
 
     console.log('employeesWithDiagrams', employeesWithDiagrams);

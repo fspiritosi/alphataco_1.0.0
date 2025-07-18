@@ -159,7 +159,7 @@ export default function EmployeeComponent({
           category_id: user.category_id,
           guild_id: user.guild_id,
           cost_center_id: user.cost_center_id,
-          workflow_diagram: workDiagram?.find((e) => e.name?.trim() === user.workflow_diagram?.trim())?.name.trim(),
+          workflow_diagram: workDiagram?.find((e) => e.name?.trim() === user?.workflow_diagram?.trim())?.name.trim(),
         }
       : {
           lastname: '',
@@ -195,11 +195,6 @@ export default function EmployeeComponent({
         },
   });
 
-  console.log(workDiagram, 'workDiagram');
-  console.log(user.workflow_diagram, 'user.workflow_diagram');
-
-  console.log(workDiagram?.find((e) => e.name?.trim() === user.workflow_diagram?.trim())?.id, 'workflowDiagramId');
-
   const hierarchicalPosition = useWatch({ control: form.control, name: 'hierarchical_position' });
   const hierarchicalPositionId = hierarchyOptions?.find((option) => option.name === hierarchicalPosition)?.id;
   // Estado para el nombre del puesto mostrado
@@ -232,8 +227,7 @@ export default function EmployeeComponent({
         setDatosInicialesCargados(true);
       }
     }
-    const workflowDiagramId = workDiagram?.find((e) => e.name === user.workflow_diagram)?.name.trim();
-    console.log(workflowDiagramId, 'workflowDiagramId');
+    const workflowDiagramId = workDiagram?.find((e) => e.name === user?.workflow_diagram)?.name.trim();
     if (workflowDiagramId) {
       form.setValue('workflow_diagram', workflowDiagramId);
     }
@@ -636,12 +630,14 @@ export default function EmployeeComponent({
         console.log(values.company_position);
         const companyPosition = company_positions?.find((p) => p.name === values.company_position);
         const companyPositionId = values.company_position;
+
         console.log(provinceId);
         console.log(birthplaceId);
         console.log(cityId);
         console.log(hierarchicalPositionId);
         console.log(workflowDiagramId);
         console.log(companyPositionId);
+
         if (
           !provinceId ||
           !birthplaceId ||
