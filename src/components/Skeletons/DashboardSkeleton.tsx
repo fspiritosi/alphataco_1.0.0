@@ -1,7 +1,8 @@
+import { dataType } from '@/app/dashboard/page';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 
-export default function DashboardSkeleton() {
+export default function DashboardSkeleton({ data }: { data: dataType }) {
   return (
     <div className="w-full p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-6">
       <div className="w-full lg:w-1/3 space-y-6">
