@@ -34,11 +34,18 @@ export const useEmployeesData = () => {
       //console.log(employee);
       const { data, error } = await supabase
         .from('employees')
-        .update(employee)
+        .update({
+          ...employee,
+          covenants_id: employee.covenants_id ? employee.covenants_id : null,
+          category_id: employee.category_id ? employee.category_id : null,
+          guild_id: employee.guild_id ? employee.guild_id : null,
+        })
         .eq('document_number', employee.document_number)
         .select();
 
       if (error) {
+        console.log(employee, 'employee');
+        console.log(error, 'error');
         const message = await errorTranslate(error.message);
         throw new Error(String(message).replaceAll('"', ''));
       }

@@ -103,6 +103,12 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
   const handleCancel = () => {
     reset();
     setMode('create');
+    form.reset({
+      name: '',
+      is_active: true,
+      hierarchical_position_id: [],
+      aptitudes_tecnicas_id: [],
+    });
   };
 
   const hierarchicalDataFormatted = hierarchicalData.map((item) => ({
@@ -207,9 +213,13 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
           <Button variant="gh_orange" type="submit">
             {mode === 'edit' ? 'Actualizar' : 'Crear'}
           </Button>
-          {mode === 'edit' && (
+          {mode === 'edit' ? (
             <Button type="button" onClick={handleCancel} variant="outline">
               Cancelar
+            </Button>
+          ) : (
+            <Button type="button" onClick={handleCancel} variant="outline">
+              Limpiar
             </Button>
           )}
         </div>
