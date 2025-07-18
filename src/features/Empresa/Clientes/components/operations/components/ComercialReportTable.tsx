@@ -1,31 +1,11 @@
-'use client'; // Asegúrate de que esto esté en la primera línea
+'use client';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
-import { ColumnDef, ColumnFiltersState, SortingState } from '@tanstack/react-table';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Eye } from 'lucide-react';
-import React, { useState } from 'react';
-
-// Definimos el tipo para las filas del reporte diario
-interface DailyReportRow {
-  id: string;
-  date: string;
-  type_service?: string;
-  customer?: string;
-  employees?: string[];
-  equipment?: string[];
-  customer_equipment?: Array<{ name: string; type: string }>;
-  services?: string;
-  item?: string;
-  start_time?: string;
-  end_time?: string;
-  total_hours?: number;
-  status?: string;
-}
 
 interface TableRow {
   id: string;
@@ -40,7 +20,6 @@ interface TableRow {
   employees: string[];
   company_equipment: string[];
   customer_equipment: string[];
-  // equipment: string[];
   services: string;
   working_day?: string;
   area?: string;
@@ -66,104 +45,7 @@ const statusVariantMap = {
 
 type StatusKey = keyof typeof statusVariantMap;
 
-// Definir una interfaz local que coincida con FilterableColumn
-interface LocalFilterableColumn<TData> {
-  columnId: string;
-  title: string;
-  type?: 'date-range' | 'select' | 'text';
-  options?: {
-    label: string;
-    value: string;
-    icon?: React.ComponentType<{ className?: string }>;
-  }[];
-  placeholder?: string;
-  // Propiedades específicas de date-range
-  showFrom?: boolean;
-  showTo?: boolean;
-  fromPlaceholder?: string;
-  toPlaceholder?: string;
-  defaultValues?: {
-    from: Date | null;
-    to: Date | null;
-  };
-  // Función de filtrado personalizada
-  filterFn?: (row: TData, columnId: string, filterValue: any) => boolean;
-}
-
 function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
-  // Función para formatear la fecha
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: 'date', desc: true }, // Sort by date in descending order by default
-  ]);
-  console.log(dailyReports);
-  // Manejador para cambios en los filtros de columna
-  const handleColumnFiltersChange = (
-    filters: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)
-  ) => {
-    if (typeof filters === 'function') {
-      setColumnFilters(filters);
-    } else {
-      console.log('Filtros actualizados:', filters);
-      setColumnFilters(filters);
-    }
-  };
-
-  const filteredData = React.useMemo<TableRow[]>(() => {
-    return dailyReports.filter((row) => {
-      // Aplicar filtros de columna
-      return columnFilters.every((filter) => {
-        const filterId = filter.id as keyof TableRow;
-
-        // Handle date filter
-        if (filterId === 'date' && filter.value) {
-          try {
-            const dateValue = new Date(row.date);
-            const filterValue = filter.value as { from?: Date | string; to?: Date | string };
-            const fromDate = filterValue.from ? new Date(filterValue.from) : null;
-            const toDate = filterValue.to ? new Date(filterValue.to) : null;
-
-            if (fromDate) fromDate.setHours(0, 0, 0, 0);
-            if (toDate) toDate.setHours(23, 59, 59, 999);
-
-            if (fromDate && dateValue < fromDate) return false;
-            if (toDate && dateValue > toDate) return false;
-            return true;
-          } catch (e) {
-            console.error('Error filtering date:', e);
-            return true;
-          }
-        }
-
-        // Skip if no filter value
-        if (!filter.value) return true;
-
-        // Handle array fields (employees, company_equipment, customer_equipment)
-        const value = row[filterId];
-        if (Array.isArray(value)) {
-          const searchValue = String(filter.value).toLowerCase();
-          return value.some((item) => String(item).toLowerCase().includes(searchValue));
-        }
-
-        // Handle string fields
-        if (typeof value === 'string') {
-          return value.toLowerCase().includes(String(filter.value).toLowerCase());
-        }
-
-        // Handle other types
-        return String(value).toLowerCase().includes(String(filter.value).toLowerCase());
-      });
-    });
-  }, [dailyReports, columnFilters]);
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return format(date, 'dd/MM/yyyy', { locale: es });
-    } catch (error) {
-      return dateString; // En caso de error, devolvemos el string original
-    }
-  };
-
   // Componente para mostrar listas con tooltip
   const ListWithTooltip = ({ items, maxItems = 2 }: { items: string[]; maxItems?: number }) => {
     if (!items || items.length === 0) {
@@ -201,89 +83,146 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       </TooltipProvider>
     );
   };
-  // Obtener valores únicos para los filtros
-  const filterOptions = React.useMemo(() => {
-    const types = new Set<string>();
-    const customers = new Set<string>();
 
-    filteredData.forEach((row) => {
-      if (row.type_service) types.add(row.type_service);
-      if (row.customer) customers.add(row.customer);
-    });
-
-    return {
-      typeService: Array.from(types).map((type) => ({
-        label: type,
-        value: type,
-      })),
-      customers: Array.from(customers).map((customer) => ({
-        label: customer,
-        value: customer,
-      })),
-    };
-  }, [filteredData]);
-
-  // Definir las columnas filtrables
-  const filterableColumns: LocalFilterableColumn<TableRow>[] = [
+  // Definir las columnas filtrables con IDs que coincidan con accessorKey
+  const filterableColumns = [
     {
       columnId: 'date',
       title: 'Rango de Fechas',
-      type: 'date-range',
-      filterFn: (row: TableRow, columnId: string, filterValue: { from?: Date | string; to?: Date | string }) => {
-        if (!filterValue?.from || !filterValue?.to) return true;
-
-        try {
-          const rowDate = new Date(row.date);
-          const fromDate = new Date(filterValue.from);
-          const toDate = new Date(filterValue.to);
-
-          // Ajustar las horas para cubrir todo el día
-          fromDate.setHours(0, 0, 0, 0);
-          toDate.setHours(23, 59, 59, 999);
-
-          return rowDate >= fromDate && rowDate <= toDate;
-        } catch (error) {
-          console.error('Error al filtrar por fecha:', error);
-          return true; // En caso de error, mostramos la fila
-        }
-      },
-      // Propiedades específicas para date-range
+      type: 'date-range' as const, // Especificar como const para tipo literal
       showFrom: true,
       showTo: true,
       fromPlaceholder: 'Desde',
       toPlaceholder: 'Hasta',
-      defaultValues: {
-        from: null,
-        to: null,
+      defaultValues: { from: null, to: null },
+      filterFn: (row: TableRow, columnId: string, filterValue: { from?: Date | string; to?: Date | string }) => {
+        if (!filterValue?.from || !filterValue?.to) return true;
+        try {
+          const rowDate = new Date(row.date);
+          const fromDate = new Date(filterValue.from);
+          const toDate = new Date(filterValue.to);
+          fromDate.setHours(0, 0, 0, 0);
+          toDate.setHours(23, 59, 59, 999);
+          return rowDate >= fromDate && rowDate <= toDate;
+        } catch (error) {
+          console.error('Error al filtrar por fecha:', error);
+          return true;
+        }
       },
     },
     {
       columnId: 'customer',
       title: 'Cliente',
-      type: 'select',
-      options: filterOptions.customers,
-      placeholder: 'Seleccionar cliente...',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(new Set(dailyReports.map((r) => r.customer).filter((s): s is string => Boolean(s)))).map(
+        (customer) => ({
+          label: customer,
+          value: customer,
+        })
+      ),
     },
     {
       columnId: 'type_service',
       title: 'Tipo de Servicio',
-      type: 'select',
-      options: filterOptions.typeService,
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(new Set(dailyReports.map((r) => r.type_service).filter((s): s is string => Boolean(s)))).map(
+        (type) => ({
+          label: type,
+          value: type,
+        })
+      ),
     },
     {
       columnId: 'status',
       title: 'Estado',
-      type: 'select',
-      options: Object.keys(statusVariantMap).map((key) => ({
+      type: 'select' as const, // Agregar tipo explícito
+      options: Object.entries(statusVariantMap).map(([key, _]) => ({
         label: key.replace('_', ' '),
         value: key,
       })),
+    },
+    {
+      columnId: 'employees',
+      title: 'Empleados',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(
+        new Set(dailyReports.flatMap((r) => r.employees || []).filter((s): s is string => Boolean(s)))
+      ).map((employee) => ({
+        label: employee,
+        value: employee,
+      })),
+    },
+    {
+      columnId: 'company_equipment',
+      title: 'Equipos de la Empresa',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(
+        new Set(dailyReports.flatMap((r) => r.company_equipment || []).filter((s): s is string => Boolean(s)))
+      ).map((equipment) => ({
+        label: equipment,
+        value: equipment,
+      })),
+    },
+    {
+      columnId: 'customer_equipment',
+      title: 'Equipos del Cliente',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(
+        new Set(dailyReports.flatMap((r) => r.customer_equipment || []).filter((s): s is string => Boolean(s)))
+      ).map((equipment) => ({
+        label: equipment,
+        value: equipment,
+      })),
+    },
+    {
+      columnId: 'services',
+      title: 'Servicios',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(new Set(dailyReports.map((r) => r.services).filter((s): s is string => Boolean(s)))).map(
+        (service) => ({
+          label: service,
+          value: service,
+        })
+      ),
+    },
+    {
+      columnId: 'working_day',
+      title: 'Jornada',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(new Set(dailyReports.map((r) => r.working_day).filter((s): s is string => Boolean(s)))).map(
+        (day) => ({
+          label: day,
+          value: day,
+        })
+      ),
+    },
+    {
+      columnId: 'area',
+      title: 'Área',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(new Set(dailyReports.map((r) => r.area).filter((s): s is string => Boolean(s)))).map(
+        (area) => ({
+          label: area,
+          value: area,
+        })
+      ),
+    },
+    {
+      columnId: 'sector',
+      title: 'Sector',
+      type: 'select' as const, // Agregar tipo explícito
+      options: Array.from(new Set(dailyReports.map((r) => r.sector).filter((s): s is string => Boolean(s)))).map(
+        (sector) => ({
+          label: sector,
+          value: sector,
+        })
+      ),
     },
   ];
 
   const columns: ColumnDef<TableRow>[] = [
     {
-      id: 'Fecha',
+      id: 'date',
       accessorKey: 'date',
       header: ({ column }) => {
         return (
@@ -294,8 +233,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         );
       },
       cell: ({ row }) => {
-        const date = new Date(row.getValue('Fecha'));
-        // Add the timezone offset to get the correct local date
+        const date = new Date(row.getValue('date'));
         const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
         return <div>{localDate.toLocaleDateString('es-AR')}</div>;
       },
@@ -311,15 +249,16 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         const toDate = new Date(value.to);
         fromDate.setHours(0, 0, 0, 0);
         toDate.setHours(23, 59, 59, 999);
-        // Compare dates without timezone conversion
+
         const rowDateOnly = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
         const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
         const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+
         return rowDateOnly >= fromDateOnly && rowDateOnly <= toDateOnly;
       },
     },
     {
-      id: 'Cliente',
+      id: 'customer',
       accessorKey: 'customer',
       header: 'Cliente',
       filterFn: (row, id, value) => {
@@ -329,7 +268,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Tipo de Servicio',
+      id: 'type_service',
       accessorKey: 'type_service',
       header: 'Tipo de Servicio',
       filterFn: (row, id, value) => {
@@ -339,7 +278,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Ítem',
+      id: 'item',
       accessorKey: 'item',
       header: 'Ítem',
       filterFn: (row, id, value) => {
@@ -348,22 +287,12 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         return rowValue.toLowerCase().includes(String(value).toLowerCase());
       },
     },
-    // {
-    //   id: "Descripción",
-    //   accessorKey: "description",
-    //   header: "Descripción",
-    //   filterFn: (row, id, value) => {
-    //     if (!value) return true;
-    //     const rowValue = row.getValue(id) as string;
-    //     return rowValue.toLowerCase().includes(String(value).toLowerCase());
-    //   },
-    // },
     {
-      id: 'Estado',
+      id: 'status',
       accessorKey: 'status',
       header: 'Estado',
       cell: ({ row }) => {
-        const status = row.getValue('Estado') as StatusKey;
+        const status = row.getValue('status') as StatusKey;
         const variant = statusVariantMap[status] || 'default';
         return (
           <Badge variant={variant as any} className="capitalize">
@@ -378,29 +307,29 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Inicio',
+      id: 'start_time',
       accessorKey: 'start_time',
       header: 'Inicio',
       cell: ({ row }) => {
-        const time = row.original.start_time; // Access the original data directly
+        const time = row.original.start_time;
         return <div>{time ? String(time) : '-'}</div>;
       },
     },
     {
-      id: 'Fin',
+      id: 'end_time',
       accessorKey: 'end_time',
       header: 'Fin',
       cell: ({ row }) => {
-        const time = row.original.end_time; // Access the original data directly
+        const time = row.original.end_time;
         return <div>{time ? String(time) : '-'}</div>;
       },
     },
     {
-      id: 'Empleados',
+      id: 'employees',
       accessorKey: 'employees',
       header: 'Empleados',
       cell: ({ row }) => {
-        const employees = row.getValue('Empleados') as string[];
+        const employees = row.getValue('employees') as string[];
         return (
           <div className="flex flex-col gap-1">
             {employees?.length > 0 ? (
@@ -423,7 +352,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Equipos Propios',
+      id: 'company_equipment',
       accessorKey: 'company_equipment',
       header: 'Equipos Propios',
       cell: ({ row }) => {
@@ -438,16 +367,22 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Equipos Cliente',
+      id: 'customer_equipment',
       accessorKey: 'customer_equipment',
       header: 'Equipos Cliente',
       cell: ({ row }) => {
         const equipment = row.original.customer_equipment || [];
         return <ListWithTooltip items={equipment} />;
       },
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const equipment = row.getValue(id) as string[];
+        const searchValue = String(value).toLowerCase();
+        return equipment.some((eq) => eq.toLowerCase().includes(searchValue));
+      },
     },
     {
-      id: 'Servicios',
+      id: 'services',
       accessorKey: 'services',
       header: 'Servicios',
       filterFn: (row, id, value) => {
@@ -457,7 +392,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Jornada',
+      id: 'working_day',
       accessorKey: 'working_day',
       header: 'Jornada',
       filterFn: (row, id, value) => {
@@ -467,7 +402,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Área',
+      id: 'area',
       accessorKey: 'area',
       header: 'Área',
       filterFn: (row, id, value) => {
@@ -477,7 +412,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'Sector',
+      id: 'sector',
       accessorKey: 'sector',
       header: 'Sector',
       filterFn: (row, id, value) => {
@@ -487,21 +422,21 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'remito',
+      id: 'remit_number',
       accessorKey: 'remit_number',
       header: 'Remito N°',
       cell: ({ row }) => {
-        const remito = row.original.remit_number; // Access the original data directly
+        const remito = row.original.remit_number;
         return <div>{remito || '-'}</div>;
       },
       filterFn: (row, id, value) => {
         if (!value) return true;
-        const rowValue = row.original.remit_number || ''; // Access the original data directly
+        const rowValue = row.original.remit_number || '';
         return String(rowValue).toLowerCase().includes(String(value).toLowerCase());
       },
     },
     {
-      id: 'Documento',
+      id: 'document_url',
       accessorKey: 'document_url',
       header: 'Documento',
       cell: ({ row }) => {
@@ -531,7 +466,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
     <div className="space-y-4">
       <BaseDataTable
         columns={columns}
-        data={filteredData}
+        data={dailyReports} // Usar datos originales, no filtrados
         savedVisibility={{}}
         onRowClick={(row) => {
           if (row.document_url) {
@@ -541,8 +476,9 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         className="w-full"
         row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
         toolbarOptions={{
-          filterableColumns: filterableColumns as any[],
-          initialVisibleFilters: ['date'],
+          filterableColumns: filterableColumns as any,
+          searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
+          initialVisibleFilters: ['date', 'customer'],
           showFilterOptions: true,
           showViewOptions: true,
         }}
