@@ -1,12 +1,15 @@
 'use client'; // Asegúrate de que esto esté en la primera línea
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
-import { ColumnDef, ColumnFiltersState } from '@tanstack/react-table';
+import { ColumnDef, ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ArrowUpDown } from 'lucide-react';
 import React, { useState } from 'react';
+
 // Definimos el tipo para las filas del reporte diario
 interface DailyReportRow {
   id: string;
@@ -24,8 +27,27 @@ interface DailyReportRow {
   status?: string;
 }
 
+interface TableRow {
+  id: string;
+  date: string;
+  customer: string;
+  type_service: string;
+  item: string;
+  description: string;
+  status: string;
+  start_time: string | null;
+  end_time: string | null;
+  employees: string[];
+  equipment: string[];
+  services: string;
+  working_day?: string;
+  area?: string;
+  sector?: string;
+  remit_number?: string;
+}
+
 interface ComercialReportTableProps {
-  dailyReports: ProcessedRow[];
+  dailyReports: TableRow[];
 }
 
 interface ProcessedRow {
@@ -83,6 +105,9 @@ interface LocalFilterableColumn<TData> {
 function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
   // Función para formatear la fecha
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'date', desc: true }, // Sort by date in descending order by default
+  ]);
   console.log(dailyReports);
   // Manejador para cambios en los filtros de columna
   const handleColumnFiltersChange = (
@@ -257,218 +282,238 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
     },
   ];
 
-  // Definimos las columnas de la tabla
-  const columns: ColumnDef<ProcessedRow>[] = [
+  const columns: ColumnDef<TableRow>[] = [
     {
+      id: 'Fecha',
       accessorKey: 'date',
-      header: 'Fecha',
-      cell: ({ row }) => {
-        return <span className="whitespace-nowrap">{formatDate(row.original.date)}</span>;
+      header: ({ column }) => {
+        return (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+            Fecha
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
       },
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue?.from || !filterValue?.to) return true;
-
-        const rowDate = new Date(row.getValue(columnId));
-        const fromDate = new Date(filterValue.from);
-        const toDate = new Date(filterValue.to);
-
+      cell: ({ row }) => {
+        const date = new Date(row.getValue('Fecha'));
+        // Add the timezone offset to get the correct local date
+        const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
+        return <div>{localDate.toLocaleDateString('es-AR')}</div>;
+      },
+      sortingFn: (rowA, rowB, columnId) => {
+        const dateA = new Date(rowA.getValue(columnId));
+        const dateB = new Date(rowB.getValue(columnId));
+        return dateA.getTime() - dateB.getTime();
+      },
+      filterFn: (row, id, value) => {
+        if (!value?.from || !value?.to) return true;
+        const rowDate = new Date(row.getValue(id));
+        const fromDate = new Date(value.from);
+        const toDate = new Date(value.to);
         fromDate.setHours(0, 0, 0, 0);
         toDate.setHours(23, 59, 59, 999);
-
-        return rowDate >= fromDate && rowDate <= toDate;
+        // Compare dates without timezone conversion
+        const rowDateOnly = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
+        const fromDateOnly = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+        const toDateOnly = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+        return rowDateOnly >= fromDateOnly && rowDateOnly <= toDateOnly;
       },
     },
     {
+      id: 'Cliente',
       accessorKey: 'customer',
       header: 'Cliente',
-      cell: ({ row }) => <span className="font-medium">{row.original.customer}</span>,
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        if (Array.isArray(filterValue)) {
-          if (filterValue.length === 0) return true;
-          const value = row.original.customer || '';
-          return filterValue.some((fv) => String(value).toLowerCase() === String(fv).toLowerCase());
-        }
-        const value = row.original.customer || '';
-        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
       },
     },
     {
+      id: 'Tipo de Servicio',
       accessorKey: 'type_service',
       header: 'Tipo de Servicio',
-      cell: ({ row }) => (
-        <Badge variant="outline" className="capitalize">
-          {row.original.type_service?.replaceAll('_', ' ') || 'N/A'}
-        </Badge>
-      ),
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        if (Array.isArray(filterValue)) {
-          if (filterValue.length === 0) return true;
-          const value = row.original.type_service || '';
-          return filterValue.some((fv) => String(value).toLowerCase() === String(fv).toLowerCase());
-        }
-        const value = row.original.type_service || '';
-        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
       },
     },
     {
+      id: 'Ítem',
       accessorKey: 'item',
       header: 'Ítem',
-      cell: ({ row }) => <span className="font-medium">{row.original.item || 'N/A'}</span>,
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const value = ((row.getValue(columnId) as string) || '').toLowerCase();
-        return value.includes(filterValue.toString().toLowerCase());
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
       },
     },
+    // {
+    //   id: "Descripción",
+    //   accessorKey: "description",
+    //   header: "Descripción",
+    //   filterFn: (row, id, value) => {
+    //     if (!value) return true;
+    //     const rowValue = row.getValue(id) as string;
+    //     return rowValue.toLowerCase().includes(String(value).toLowerCase());
+    //   },
+    // },
     {
-      accessorKey: 'description',
-      header: 'Descripción',
-      cell: ({ row }) => (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="line-clamp-1 max-w-[200px] text-ellipsis">
-                {row.original.description || 'Sin descripción'}
-              </span>
-            </TooltipTrigger>
-            {row.original.description && (
-              <TooltipContent className="max-w-[300px]">
-                <p className="whitespace-pre-wrap">{row.original.description}</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      ),
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const value = ((row.getValue(columnId) as string) || '').toLowerCase();
-        return value.includes(filterValue.toString().toLowerCase());
-      },
-    },
-    {
-      accessorKey: 'employees',
-      header: 'Empleados',
-      cell: ({ row }) => {
-        const employees = row.original.employees || [];
-        if (employees.length === 0) {
-          return <span className="text-muted-foreground">Sin asignar</span>;
-        }
-        const [first, ...rest] = employees;
-
-        return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="inline-block">
-                  <Badge variant="outline" className="whitespace-nowrap cursor-pointer">
-                    {first} {rest.length > 0 ? `+${rest.length}` : ''}
-                  </Badge>
-                </div>
-              </TooltipTrigger>
-              {rest.length > 0 && (
-                <TooltipContent className="max-w-[300px]">
-                  <div className="flex flex-col gap-1">
-                    {employees.map((emp, idx) => (
-                      <span key={idx}>{emp}</span>
-                    ))}
-                  </div>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        );
-      },
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const employees = row.original.employees || [];
-        if (Array.isArray(filterValue)) {
-          if (filterValue.length === 0) return true;
-          return employees.some((emp) =>
-            filterValue.some((fv) => String(emp).toLowerCase() === String(fv).toLowerCase())
-          );
-        }
-        const searchTerm = filterValue.toString().toLowerCase();
-        return employees.some((emp) => emp.toLowerCase().includes(searchTerm));
-      },
-    },
-    {
-      accessorKey: 'equipment',
-      header: 'Equipos',
-      cell: ({ row }) => {
-        const equipment = row.original.equipment || [];
-        if (equipment.length === 0) {
-          return <span className="text-muted-foreground">Sin asignar</span>;
-        }
-        const [first, ...rest] = equipment;
-
-        return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="inline-block">
-                  <Badge variant="outline" className="whitespace-nowrap cursor-pointer">
-                    {first} {rest.length > 0 ? `+${rest.length}` : ''}
-                  </Badge>
-                </div>
-              </TooltipTrigger>
-              {rest.length > 0 && (
-                <TooltipContent className="max-w-[300px]">
-                  <div className="flex flex-col gap-1">
-                    {equipment.map((eq, idx) => (
-                      <span key={idx}>{eq}</span>
-                    ))}
-                  </div>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        );
-      },
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const equipment = row.original.equipment || [];
-        if (Array.isArray(filterValue)) {
-          if (filterValue.length === 0) return true;
-          return equipment.some((eq) =>
-            filterValue.some((fv) => String(eq).toLowerCase() === String(fv).toLowerCase())
-          );
-        }
-        return equipment.some((eq) => eq.toLowerCase().includes(filterValue.toLowerCase()));
-      },
-    },
-    {
+      id: 'Estado',
       accessorKey: 'status',
       header: 'Estado',
       cell: ({ row }) => {
-        const status = (row.original.status || 'pendiente') as StatusKey;
-        const variant = statusVariantMap[status] || 'secondary';
-        const formattedStatus = status.replaceAll('_', ' ');
-
+        const status = row.getValue('Estado') as StatusKey;
+        const variant = statusVariantMap[status] || 'default';
         return (
           <Badge variant={variant as any} className="capitalize">
-            {formattedStatus}
+            {status?.replace(/_/g, ' ')}
           </Badge>
         );
       },
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        if (Array.isArray(filterValue)) {
-          if (filterValue.length === 0) return true;
-          const value = row.original.status || '';
-          return filterValue.some((fv) => String(value).toLowerCase() === String(fv).toLowerCase());
-        }
-        const value = row.original.status || '';
-        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
+      },
+    },
+    {
+      id: 'Inicio',
+      accessorKey: 'start_time',
+      header: 'Inicio',
+      cell: ({ row }) => {
+        const time = row.original.start_time; // Access the original data directly
+        return <div>{time ? String(time) : '-'}</div>;
+      },
+    },
+    {
+      id: 'Fin',
+      accessorKey: 'end_time',
+      header: 'Fin',
+      cell: ({ row }) => {
+        const time = row.original.end_time; // Access the original data directly
+        return <div>{time ? String(time) : '-'}</div>;
+      },
+    },
+    {
+      id: 'Empleados',
+      accessorKey: 'employees',
+      header: 'Empleados',
+      cell: ({ row }) => {
+        const employees = row.getValue('Empleados') as string[];
+        return (
+          <div className="flex flex-col gap-1">
+            {employees?.length > 0 ? (
+              employees.map((emp, i) => (
+                <div key={i} className="text-sm">
+                  {emp}
+                </div>
+              ))
+            ) : (
+              <span>-</span>
+            )}
+          </div>
+        );
+      },
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const employees = row.getValue(id) as string[];
+        const searchValue = String(value).toLowerCase();
+        return employees.some((emp) => emp.toLowerCase().includes(searchValue));
+      },
+    },
+    {
+      id: 'Equipos',
+      accessorKey: 'equipment',
+      header: 'Equipos',
+      cell: ({ row }) => {
+        const equipment = row.getValue('Equipos') as string[];
+        return (
+          <div className="flex flex-col gap-1">
+            {equipment?.length > 0 ? (
+              equipment.map((eq, i) => (
+                <div key={i} className="text-sm">
+                  {eq}
+                </div>
+              ))
+            ) : (
+              <span>-</span>
+            )}
+          </div>
+        );
+      },
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const equipment = row.getValue(id) as string[];
+        const searchValue = String(value).toLowerCase();
+        return equipment.some((eq) => eq.toLowerCase().includes(searchValue));
+      },
+    },
+    {
+      id: 'Servicios',
+      accessorKey: 'services',
+      header: 'Servicios',
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
+      },
+    },
+    {
+      id: 'Jornada',
+      accessorKey: 'working_day',
+      header: 'Jornada',
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
+      },
+    },
+    {
+      id: 'Área',
+      accessorKey: 'area',
+      header: 'Área',
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
+      },
+    },
+    {
+      id: 'Sector',
+      accessorKey: 'sector',
+      header: 'Sector',
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.getValue(id) as string;
+        return rowValue.toLowerCase().includes(String(value).toLowerCase());
+      },
+    },
+    {
+      id: 'remito',
+      accessorKey: 'remit_number',
+      header: 'Remito N°',
+      cell: ({ row }) => {
+        const remito = row.original.remit_number; // Access the original data directly
+        return <div>{remito || '-'}</div>;
+      },
+      filterFn: (row, id, value) => {
+        if (!value) return true;
+        const rowValue = row.original.remit_number || ''; // Access the original data directly
+        return String(rowValue).toLowerCase().includes(String(value).toLowerCase());
       },
     },
   ];
-
   return (
     <BaseDataTable<ProcessedRow, unknown>
       columns={columns}
       data={filteredData}
+      // sorting={sorting}
+      // onSortingChange={setSorting}
+      // initialState={{
+      //   sorting: [{ id: "date", desc: true }] // Ensure default sort is descending
+      // }}
       savedVisibility={{}}
       toolbarOptions={{
         filterableColumns: filterableColumns as any[],
