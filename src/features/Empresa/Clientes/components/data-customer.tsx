@@ -15,6 +15,7 @@ import { createFilterOptions } from '@/features/Employees/Empleados/components/u
 import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -23,7 +24,6 @@ import { assignEmployeesToCustomer, assignEquipmentsToCustomer } from '../action
 import { fechAllCustomers } from '../actions/create';
 import { CustomerForm } from './CustomerForm';
 import ServiceTable from './Services/ServiceTable';
-
 // Form related imports removed for simplicity
 
 interface Customer {
@@ -87,7 +87,14 @@ export function DataCustomers<TData extends Customer, TValue>({
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [employees, setEmployees] = useState<Awaited<ReturnType<typeof fetchAllEmployees>>>(employeesData || []);
-  // State for form reset when dialog closes
+
+  // Leer las cookies necesarias para la persistencia de filtros
+  const visibilityCookie = Cookies.get('customers-table');
+  const filtersCookie = Cookies.get('customers-table-filters');
+
+  // Inicializar la visibilidad y los filtros desde las cookies
+  const savedVisibility = visibilityCookie ? JSON.parse(visibilityCookie) : {};
+  const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : savedFilters || [];
 
   const fetchEmployees = async () => {
     const employees = await fetchAllEmployees();
@@ -325,7 +332,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   const client_phone = createFilterOptions(data, (customer) => customer.client_phone);
   const active_customer = createFilterOptions(data, (customer) => (customer.is_active ? 'Activo' : 'Inactivo'));
 
-  const savedVisibility = savedCustomers ? JSON.parse(savedCustomers) : {};
+  // const savedVisibility = savedCustomers ? JSON.parse(savedCustomers) : {};
   // Memoize customer equipments filter
   const customerEquipments = React.useMemo(() => {
     console.log('customerEquipments');
@@ -598,7 +605,7 @@ export function DataCustomers<TData extends Customer, TValue>({
         tableId="customers-table"
         onRowClick={handleRowClick}
         toolbarOptions={{
-          initialVisibleFilters: savedFilters || [],
+          initialVisibleFilters: savedFiltersFromCookie,
           filterableColumns: [
             {
               columnId: 'Nombre',
