@@ -1674,3 +1674,41 @@ export async function getCompanyDetails(companyId: string) {
 
   return data;
 }
+
+export async function getDiagramsDay() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const supabase = supabaseServer();
+  let { data: diagrams_day, error } = await supabase
+    .from('employees_diagram')
+    .select('diagram_type(*)')
+
+    // Filters
+    .eq('day', day)
+    .eq('month', month)
+    .eq('year', year);
+
+  if (error) {
+    console.error('Error fetching company details:', error);
+    return null;
+  }
+
+  return diagrams_day;
+}
+
+export async function getActiveEmployees() {
+  const { count, error } = await supabaseServer()
+    .from('employees')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Error fetching company details:', error);
+    return null;
+  }
+
+  console.log(`La tabla 'employees' tiene ${count} líneas donde 'is_active' es true.`);
+  return count;
+}
