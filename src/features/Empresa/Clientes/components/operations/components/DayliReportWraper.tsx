@@ -42,48 +42,7 @@ interface ProcessedRow {
 export default async function DayliReportWraper() {
   try {
     const reports = await getAllDailyReportRows();
-    console.log('Raw reports:', reports);
 
-    // Process the data for the table
-    // const tableData = reports.flatMap(report =>
-    //   report.dailyreportrows.map(row => {
-    //     // Get employees
-    //     const employees = row.dailyreportemployeerelations?.map(
-    //       rel => `${rel.employees?.firstname || ''} ${rel.employees?.lastname || ''}`.trim()
-    //     ).filter(Boolean) || [];
-
-    //     // Get equipment (vehicles)
-    //     const equipment = row.dailyreportequipmentrelations?.map(
-    //       rel => rel.vehicles?.domain || rel.vehicles?.intern_number || ''
-    //     ).filter(Boolean) || [];
-
-    //     // Get customer equipment
-    //     const customerEquipment = row.dailyreport_customer_equipment_relations?.map(
-    //       rel => rel.equipos_clientes?.name || ''
-    //     ).filter(Boolean) || [];
-
-    //     // Combine all equipment
-    //     const allEquipment = [...equipment, ...customerEquipment];
-
-    //     return {
-    //       id: row.id,
-    //       date: report.date,
-    //       customer: row.customers?.name || 'Sin cliente',
-    //       type_service: row.type_service || 'No especificada',
-    //       item: row.service_items?.item_name || 'Sin ítem',
-    //       description: row.description || '',
-    //       status: row.status || 'pendiente',
-    //       start_time: row.start_time,
-    //       end_time: row.end_time,
-    //       employees,
-    //       equipment: allEquipment,
-    //       services: row.customer_services?.service_name || 'Sin servicio',
-    //       working_day: row.working_day || 'No especificada',
-    //       area: row.service_areas?.areas_cliente?.nombre || 'Sin área',
-    //       sector: row.service_sectors?.sectors?.name || 'Sin sector'
-    //     };
-    //   })
-    // );
     // In DayliReportWraper.tsx, replace the tableData processing with:
     const tableData = reports.map((row) => {
       // Get employees
@@ -124,8 +83,6 @@ export default async function DayliReportWraper() {
         remit_number: row.remit_number as string,
       };
     });
-
-    console.log('Processed table data:', tableData);
 
     return (
       <Suspense

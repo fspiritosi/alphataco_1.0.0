@@ -305,18 +305,25 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       header: 'Empleados',
       cell: ({ row }) => {
         const employees = row.getValue('Empleados') as string[];
+        const firstEmployee = employees[0] || '';
         return (
-          <div className="flex flex-col gap-1">
-            {employees?.length > 0 ? (
-              employees.map((emp, i) => (
-                <div key={i} className="text-sm">
-                  {emp}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="default" className="cursor-pointer">
+                  {firstEmployee}
+                  {employees.length > 1 && `+${employees.length - 1}`}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[300px]">
+                <div className="flex flex-col gap-1">
+                  {employees.map((emp, i) => (
+                    <span key={i}>{emp}</span>
+                  ))}
                 </div>
-              ))
-            ) : (
-              <span>-</span>
-            )}
-          </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         );
       },
       filterFn: (row, id, value) => {
