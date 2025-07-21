@@ -135,13 +135,18 @@ export function getAreaColums(
 // ]
 
 function AreaTable({ areas, savedFilters, selectedArea, setSelectedArea, setMode, mode }: AreaTableProp) {
-  const cookies = Cookies.get('areaTable');
+  // Leer las cookies necesarias
+  const visibilityCookie = Cookies.get('areaTable');
+  const filtersCookie = Cookies.get('areaTable-filters');
+
   const handleEdit = (area: AreaTableProp['areas'][number]) => {
     setSelectedArea(area);
     setMode('edit');
   };
 
-  const savedVisibility = cookies ? JSON.parse(cookies) : {};
+  // Inicializar la visibilidad y los filtros desde las cookies
+  const savedVisibility = visibilityCookie ? JSON.parse(visibilityCookie) : {};
+  const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : savedFilters || [];
   const formattedAreas: any = areas.map((area) => {
     return {
       id: area.id,
@@ -172,7 +177,7 @@ function AreaTable({ areas, savedFilters, selectedArea, setSelectedArea, setMode
         savedVisibility={savedVisibility}
         tableId="areaTable"
         toolbarOptions={{
-          initialVisibleFilters: savedFilters || [],
+          initialVisibleFilters: savedFiltersFromCookie,
           filterableColumns: [
             {
               columnId: 'Nombre',
