@@ -267,11 +267,11 @@ const ServiceTable = ({
   // savedFilters,
   // savedVisibility,
 }: ServiceTableProps) => {
-  const savedVisibility = Cookies.get('service-items-table')
-    ? JSON.parse(Cookies.get('service-items-table') || '{}')
+  const savedVisibility = Cookies.get('services-table')
+    ? JSON.parse(Cookies.get('services-table-filters') || '{}')
     : {};
   const savedFilters =
-    savedFilter || Cookies.get('servicesTable') ? JSON.parse(Cookies.get('service-items-table-filters') || '[]') : [];
+    savedFilter || Cookies.get('services-table') ? JSON.parse(Cookies.get('services-table-filters') || '[]') : [];
   const [servicesData, setServicesData] = useState<ServiceTableProps['services']>([]);
   const [loading, setLoading] = useState(true);
   const [editingService, setEditingService] = useState<ServiceTableProps['services'][number] | null>(null);

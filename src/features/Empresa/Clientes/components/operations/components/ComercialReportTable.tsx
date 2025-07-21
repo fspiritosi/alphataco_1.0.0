@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
+import Cookies from 'js-cookie';
 import { ArrowUpDown, Eye } from 'lucide-react';
 
 interface TableRow {
@@ -46,48 +47,12 @@ const statusVariantMap = {
 type StatusKey = keyof typeof statusVariantMap;
 
 function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
-  // Componente para mostrar listas con tooltip
-  const ListWithTooltip = ({ items, maxItems = 2 }: { items: string[]; maxItems?: number }) => {
-    if (!items || items.length === 0) {
-      return <span className="text-muted-foreground">Sin asignar</span>;
-    }
-
-    const visibleItems = items.slice(0, maxItems);
-    const hiddenCount = items.length - visibleItems.length;
-
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex flex-wrap gap-1">
-              {visibleItems.map((item, index) => (
-                <Badge key={index} variant="outline" className="whitespace-nowrap">
-                  {item}
-                </Badge>
-              ))}
-              {hiddenCount > 0 && (
-                <Badge variant="outline" className="bg-muted">
-                  +{hiddenCount} más
-                </Badge>
-              )}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-[300px]">
-            <div className="flex flex-col gap-1">
-              {items.map((item, index) => (
-                <span key={index}>{item}</span>
-              ))}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
+  const savedFilters = Cookies.get('comercial-report-table-filters');
 
   // Definir las columnas filtrables con IDs que coincidan con accessorKey
   const filterableColumns = [
     {
-      columnId: 'date',
+      columnId: 'Fecha',
       title: 'Rango de Fechas',
       type: 'date-range' as const, // Especificar como const para tipo literal
       showFrom: true,
@@ -111,7 +76,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      columnId: 'customer',
+      columnId: 'Cliente',
       title: 'Cliente',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(new Set(dailyReports.map((r) => r.customer).filter((s): s is string => Boolean(s)))).map(
@@ -122,7 +87,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       ),
     },
     {
-      columnId: 'type_service',
+      columnId: 'Tipo de Servicio',
       title: 'Tipo de Servicio',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(new Set(dailyReports.map((r) => r.type_service).filter((s): s is string => Boolean(s)))).map(
@@ -133,7 +98,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       ),
     },
     {
-      columnId: 'status',
+      columnId: 'Estado',
       title: 'Estado',
       type: 'select' as const, // Agregar tipo explícito
       options: Object.entries(statusVariantMap).map(([key, _]) => ({
@@ -142,7 +107,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       })),
     },
     {
-      columnId: 'employees',
+      columnId: 'Empleados',
       title: 'Empleados',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(
@@ -153,7 +118,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       })),
     },
     {
-      columnId: 'company_equipment',
+      columnId: 'Equipos de la Empresa',
       title: 'Equipos de la Empresa',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(
@@ -164,7 +129,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       })),
     },
     {
-      columnId: 'customer_equipment',
+      columnId: 'Equipos del Cliente',
       title: 'Equipos del Cliente',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(
@@ -175,7 +140,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       })),
     },
     {
-      columnId: 'services',
+      columnId: 'Servicios',
       title: 'Servicios',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(new Set(dailyReports.map((r) => r.services).filter((s): s is string => Boolean(s)))).map(
@@ -186,7 +151,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       ),
     },
     {
-      columnId: 'working_day',
+      columnId: 'Jornada',
       title: 'Jornada',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(new Set(dailyReports.map((r) => r.working_day).filter((s): s is string => Boolean(s)))).map(
@@ -197,7 +162,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       ),
     },
     {
-      columnId: 'area',
+      columnId: 'Área',
       title: 'Área',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(new Set(dailyReports.map((r) => r.area).filter((s): s is string => Boolean(s)))).map(
@@ -208,7 +173,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       ),
     },
     {
-      columnId: 'sector',
+      columnId: 'Sector',
       title: 'Sector',
       type: 'select' as const, // Agregar tipo explícito
       options: Array.from(new Set(dailyReports.map((r) => r.sector).filter((s): s is string => Boolean(s)))).map(
@@ -222,7 +187,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
 
   const columns: ColumnDef<TableRow>[] = [
     {
-      id: 'date',
+      id: 'Fecha',
       accessorKey: 'date',
       header: ({ column }) => {
         return (
@@ -233,7 +198,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         );
       },
       cell: ({ row }) => {
-        const date = new Date(row.getValue('date'));
+        const date = new Date(row.getValue('Fecha'));
         const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
         return <div>{localDate.toLocaleDateString('es-AR')}</div>;
       },
@@ -258,7 +223,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'customer',
+      id: 'Cliente',
       accessorKey: 'customer',
       header: 'Cliente',
       filterFn: (row, id, value) => {
@@ -268,9 +233,19 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'type_service',
+      id: 'Tipo de Servicio',
       accessorKey: 'type_service',
       header: 'Tipo de Servicio',
+      cell: ({ row }) => {
+        const type_service = row.getValue('Tipo de Servicio') as string;
+        return (
+          <div>
+            <Badge variant={type_service === 'mensual' ? 'default' : 'outline'} className="capitalize">
+              {type_service}
+            </Badge>
+          </div>
+        );
+      },
       filterFn: (row, id, value) => {
         if (!value) return true;
         const rowValue = row.getValue(id) as string;
@@ -288,11 +263,11 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'status',
+      id: 'Estado',
       accessorKey: 'status',
       header: 'Estado',
       cell: ({ row }) => {
-        const status = row.getValue('status') as StatusKey;
+        const status = row.getValue('Estado') as StatusKey;
         const variant = statusVariantMap[status] || 'default';
         return (
           <Badge variant={variant as any} className="capitalize">
@@ -307,7 +282,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'start_time',
+      id: 'Inicio',
       accessorKey: 'start_time',
       header: 'Inicio',
       cell: ({ row }) => {
@@ -316,7 +291,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'end_time',
+      id: 'Fin',
       accessorKey: 'end_time',
       header: 'Fin',
       cell: ({ row }) => {
@@ -325,11 +300,11 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'employees',
+      id: 'Empleados',
       accessorKey: 'employees',
       header: 'Empleados',
       cell: ({ row }) => {
-        const employees = row.getValue('employees') as string[];
+        const employees = row.getValue('Empleados') as string[];
         return (
           <div className="flex flex-col gap-1">
             {employees?.length > 0 ? (
@@ -352,12 +327,31 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'company_equipment',
+      id: 'Equipos de la Empresa',
       accessorKey: 'company_equipment',
       header: 'Equipos Propios',
       cell: ({ row }) => {
         const equipment = row.original.company_equipment || [];
-        return <ListWithTooltip items={equipment} />;
+        const firstEquipment = equipment[0] || '';
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="default" className="cursor-pointer">
+                  {firstEquipment}
+                  {equipment.length > 1 && `+${equipment.length - 1}`}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[300px]">
+                <div className="flex flex-col gap-1">
+                  {equipment.map((eq, i) => (
+                    <span key={i}>{eq}</span>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       },
       filterFn: (row, id, value) => {
         if (!value) return true;
@@ -367,12 +361,31 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'customer_equipment',
+      id: 'Equipos del Cliente',
       accessorKey: 'customer_equipment',
       header: 'Equipos Cliente',
       cell: ({ row }) => {
         const equipment = row.original.customer_equipment || [];
-        return <ListWithTooltip items={equipment} />;
+        const firstEquipment = equipment[0] || '';
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="default" className="cursor-pointer">
+                  {firstEquipment}
+                  {equipment.length > 1 && `+${equipment.length - 1}`}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[300px]">
+                <div className="flex flex-col gap-1">
+                  {equipment.map((eq, i) => (
+                    <span key={i}>{eq}</span>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       },
       filterFn: (row, id, value) => {
         if (!value) return true;
@@ -382,7 +395,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'services',
+      id: 'Servicios',
       accessorKey: 'services',
       header: 'Servicios',
       filterFn: (row, id, value) => {
@@ -392,7 +405,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'working_day',
+      id: 'Jornada',
       accessorKey: 'working_day',
       header: 'Jornada',
       filterFn: (row, id, value) => {
@@ -402,7 +415,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'area',
+      id: 'Área',
       accessorKey: 'area',
       header: 'Área',
       filterFn: (row, id, value) => {
@@ -412,7 +425,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'sector',
+      id: 'Sector',
       accessorKey: 'sector',
       header: 'Sector',
       filterFn: (row, id, value) => {
@@ -422,7 +435,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'remit_number',
+      id: 'Remito N°',
       accessorKey: 'remit_number',
       header: 'Remito N°',
       cell: ({ row }) => {
@@ -436,7 +449,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
       },
     },
     {
-      id: 'document_url',
+      id: 'Documento',
       accessorKey: 'document_url',
       header: 'Documento',
       cell: ({ row }) => {
@@ -479,7 +492,7 @@ function ComercialReportTable({ dailyReports }: ComercialReportTableProps) {
         toolbarOptions={{
           filterableColumns: filterableColumns as any,
           searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
-          initialVisibleFilters: ['date', 'customer'],
+          initialVisibleFilters: savedFilters ? JSON.parse(savedFilters) : ['Fecha', 'Cliente'],
           showFilterOptions: true,
           showViewOptions: true,
         }}
