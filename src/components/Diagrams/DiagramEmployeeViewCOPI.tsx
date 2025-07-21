@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FileDown } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, FileDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -228,6 +228,8 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
     return result ? `FF${result[1]}${result[2]}${result[3]}` : 'FFFFFFFF';
   }
 
+  const [isDescending, setIsDescending] = useState(false);
+
   return (
     <div>
       {/* Controles superiores (filtros y acciones) */}
@@ -335,7 +337,18 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Empleado</TableHead>
+                <TableHead className="flex items-center gap-2">
+                  Empleado
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsDescending(!isDescending);
+                    }}
+                  >
+                    {isDescending ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />}
+                  </Button>
+                </TableHead>
                 {diasMostrados.map((dia, idx) => (
                   <TableHead key={`dia-${idx}`} className="text-nowrap p-0">
                     {format(dia, 'dd/MM', { locale: es })}
@@ -348,6 +361,12 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
                 // Mostrar empleados filtrados
                 employeesData
                   .filter((emp) => selectedResources.includes(emp.value))
+                  .sort((a, b) => {
+                    // Aplicar orden ascendente o descendente según el estado
+                    return isDescending
+                      ? b.label.localeCompare(a.label) // Orden Z-A
+                      : a.label.localeCompare(b.label); // Orden A-Z
+                  })
                   .map((empleado, idxEmp) => (
                     <TableRow key={`empleado-${idxEmp}`}>
                       <TableCell

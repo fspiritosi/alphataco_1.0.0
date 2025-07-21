@@ -5,24 +5,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Cookies from 'js-cookie';
 import { Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import InfoComponent from '../InfoComponent';
+import { MultiSelectCombobox } from '../ui/multi-select-combobox';
 import DiagramEmployeeViewCOPI from './DiagramEmployeeViewCOPI';
 
 // Tipo para los filtros
 type FilterState = {
   firstname: string;
   lastname: string;
-  position: string;
-  workflow: string;
-  costCenter: string;
-  covenant: string;
-  guild: string;
-  category: string;
-  'contractor_employee.contractor_id': string;
+  position: string[];
+  workflow: string[];
+  costCenter: string[];
+  covenant: string[];
+  guild: string[];
+  category: string[];
+  'contractor_employee.contractor_id': string[];
+  diagramType: string[];
 };
 
 // Tipo para las opciones de los filtros
@@ -32,47 +34,56 @@ type FilterOptions = {
   costCenters: { id: string; name: string | null }[];
   covenants: { id: string; name: string | null }[];
   guilds: { id: string; name: string | null }[];
-  categories: { id: string; name: string | null }[];
+  categories: {
+    id: string;
+    name: string | null;
+    covenant: {
+      name: string | null;
+    } | null;
+  }[];
+  contractors: { id: string; name: string | null }[];
   customers: { id: string; name: string | null }[];
+  diagramTypes: { id: string; name: string | null }[];
+};
+
+const fetchData = async ({
+  filters,
+  page,
+  pageSize,
+}: {
+  filters: Filter<'employees'>[];
+  page: number;
+  pageSize: number;
+}) => {
+  const employeesData = await queryPaginated(
+    'employees',
+    'id, firstname, lastname, document_number,employees_diagram(*,diagram_type(*)),contractor_employee(*,customers(id,name))',
+    {
+      filters: filters,
+      page: page,
+      pageSize: 100,
+    }
+  );
+
+  return employeesData;
+};
+
+const formatEmployees = (employeesData: Awaited<ReturnType<typeof fetchData>>) => {
+  return (
+    employeesData.data?.map((employee) => ({
+      value: employee?.id,
+      label: `${employee?.firstname?.charAt(0).toUpperCase()}${employee?.firstname?.slice(1)} ${employee?.lastname?.charAt(0).toUpperCase()}${employee?.lastname?.slice(1)}`,
+      diagrams: employee?.employees_diagram,
+      contractor_employee: employee?.contractor_employee,
+    })) || []
+  );
 };
 
 export default function EmployesDiagramWrapper() {
   const [diagrams, setDiagrams] = useState([]);
   const router = useRouter();
-  const [employees, setEmployees] = useState<
-    {
-      value: string;
-      label: string;
-      diagrams: {
-        created_at: string;
-        day: number;
-        diagram_type: string & {
-          color: string;
-          company_id: string;
-          created_at: string;
-          id: string;
-          is_active: boolean;
-          name: string | null;
-          short_description: string;
-          work_active: boolean | null;
-        };
-        employee_id: string;
-        id: string;
-        month: number;
-        year: number;
-      }[];
-      contractor_employee: {
-        contractor_id: string | null;
-        created_at: string;
-        employee_id: string | null;
-        id: string;
-        customers: {
-          id: string;
-          name: string;
-        } | null;
-      }[];
-    }[]
-  >([]);
+  const company_id = Cookies.get('actualComp');
+  const [employees, setEmployees] = useState<ReturnType<typeof formatEmployees>>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hasMoreData, setHasMoreData] = useState<boolean>(false);
@@ -80,13 +91,14 @@ export default function EmployesDiagramWrapper() {
   const [filters, setFilters] = useState<FilterState>({
     firstname: '',
     lastname: '',
-    position: '',
-    workflow: '',
-    costCenter: '',
-    covenant: '',
-    guild: '',
-    category: '',
-    'contractor_employee.contractor_id': '',
+    position: [],
+    workflow: [],
+    costCenter: [],
+    covenant: [],
+    guild: [],
+    category: [],
+    'contractor_employee.contractor_id': [],
+    diagramType: [],
   });
   const [activeFilters, setActiveFilters] = useState<(keyof FilterState)[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
@@ -97,7 +109,9 @@ export default function EmployesDiagramWrapper() {
     covenants: [],
     guilds: [],
     categories: [],
+    contractors: [],
     customers: [],
+    diagramTypes: [],
   });
 
   // Función para cargar los datos basados en los filtros seleccionados
@@ -141,58 +155,61 @@ export default function EmployesDiagramWrapper() {
       }
 
       // Filtros para los demás campos
-      if (filters.position && filters.position !== '') {
+      if (filters.position && filters.position.length > 0) {
         queryFilters.push({
           column: 'company_position',
+          operator: 'in',
           value: filters.position,
         });
       }
 
-      if (filters.workflow && filters.workflow !== '') {
+      if (filters.workflow && filters.workflow.length > 0) {
         queryFilters.push({
           column: 'workflow_diagram',
+          operator: 'in',
           value: filters.workflow,
         });
       }
 
-      if (filters.costCenter && filters.costCenter !== '') {
+      if (filters.costCenter && filters.costCenter.length > 0) {
         queryFilters.push({
           column: 'cost_center_id',
+          operator: 'in',
           value: filters.costCenter,
         });
       }
 
-      if (filters.covenant && filters.covenant !== '' && filters.covenant !== 'all') {
+      if (filters.covenant && filters.covenant.length > 0) {
         queryFilters.push({
           column: 'covenants_id',
+          operator: 'in',
           value: filters.covenant,
         });
       }
 
-      if (filters.guild && filters.guild !== 'all' && filters.guild !== '') {
+      if (filters.guild && filters.guild.length > 0) {
         queryFilters.push({
           column: 'guild_id',
+          operator: 'in',
           value: filters.guild,
         });
       }
 
-      if (filters.category && filters.category !== 'all' && filters.category !== '') {
+      if (filters.category && filters.category.length > 0) {
         queryFilters.push({
           column: 'category_id',
+          operator: 'in',
           value: filters.category,
         });
       }
 
-      if (
-        filters['contractor_employee.contractor_id'] &&
-        filters['contractor_employee.contractor_id'] !== 'all' &&
-        filters['contractor_employee.contractor_id'] !== ''
-      ) {
+      if (filters['contractor_employee.contractor_id'] && filters['contractor_employee.contractor_id'].length > 0) {
         queryFilters.push({
           column: 'contractor_employee.contractor_id',
+          operator: 'in',
           value: filters['contractor_employee.contractor_id'],
         });
-        //Ignorar tambien los que tengan null
+        // Excluir empleados sin relación contractor_employee
         queryFilters.push({
           column: 'contractor_employee',
           operator: 'not.is',
@@ -200,20 +217,53 @@ export default function EmployesDiagramWrapper() {
         });
       }
 
+      // Filtro por tipo de diagrama
+      if (filters.diagramType && filters.diagramType.length > 0) {
+        // Verificar si se seleccionó la opción "Sin diagramas"
+        if (filters.diagramType.includes('sin_diagrama')) {
+          // Si solo está seleccionada la opción "Sin diagramas"
+          if (filters.diagramType.length === 1) {
+            queryFilters.push({
+              column: 'employees_diagram',
+              operator: 'is',
+              value: null,
+            });
+          } else {
+            // Si está seleccionada "Sin diagramas" junto con otros tipos
+            // Filtramos por los tipos de diagrama seleccionados O por empleados sin diagrama
+            const diagramTypesWithoutNull = filters.diagramType.filter((type) => type !== 'sin_diagrama');
+
+            // Aquí no podemos usar directamente los operadores OR en la API de filtros
+            // Esta es una solución temporal, podría requerir una consulta SQL personalizada
+            // para manejar correctamente esta condición OR
+            queryFilters.push({
+              column: 'employees_diagram.diagram_type.id',
+              operator: 'in',
+              value: diagramTypesWithoutNull,
+            });
+          }
+        } else {
+          // Solo tipos de diagrama seleccionados (sin incluir "Sin diagramas")
+          queryFilters.push({
+            column: 'employees_diagram.diagram_type.id',
+            operator: 'in',
+            value: filters.diagramType,
+          });
+          // Asegurarse que employees_diagram no es null
+          queryFilters.push({
+            column: 'employees_diagram',
+            operator: 'not.is',
+            value: null,
+          });
+        }
+      }
+
       console.log('Filtros aplicados:', queryFilters);
       console.log('Ejecutando consulta de empleados...');
 
       // Ejecutar la consulta con los filtros construidos
       // @ts-ignore - Ignoramos errores temporalmente mientras resolvemos tipados
-      const employeesData = await queryPaginated(
-        'employees',
-        'id, firstname, lastname, document_number,employees_diagram(*,diagram_type(*)),contractor_employee(*,customers(id,name))',
-        {
-          filters: queryFilters,
-          page: page,
-          pageSize: 100,
-        }
-      );
+      const employeesData = await fetchData({ filters: queryFilters, page: page, pageSize: 100 });
 
       console.log('Resultados encontrados:', employeesData.data?.length || 0);
       if (employeesData.data?.length) {
@@ -232,14 +282,7 @@ export default function EmployesDiagramWrapper() {
       // }
 
       // Formato para mostrar en el componente
-      const formattedEmployees =
-        employeesData.data?.map((employee) => ({
-          value: employee?.id,
-          label: `${employee?.firstname?.charAt(0).toUpperCase()}${employee?.firstname?.slice(1)} ${employee?.lastname?.charAt(0).toUpperCase()}${employee?.lastname?.slice(1)}`,
-          diagrams: employee?.employees_diagram,
-          contractor_employee: employee?.contractor_employee,
-        })) || [];
-      console.log('formattedEmployees', formattedEmployees);
+      const formattedEmployees = formatEmployees(employeesData);
 
       if (append) {
         setEmployees((prevEmployees) => [...prevEmployees, ...formattedEmployees]);
@@ -263,7 +306,7 @@ export default function EmployesDiagramWrapper() {
       const guildsData = await query('guild', 'id, name');
 
       // Categorías
-      const categoriesData = await query('category', 'id, name');
+      const categoriesData = await query('category', 'id, name,covenant(name)', [{ column: 'is_active', value: true }]);
 
       // Posiciones
       const positionsData = await query('company_positions', 'id, name');
@@ -280,6 +323,14 @@ export default function EmployesDiagramWrapper() {
       // Contratistas
       const customersData = await query('customers', 'id, name');
 
+      // Contratistas
+      const contractorsData = await query('contractors', 'id, name');
+
+      // Tipos de diagrama
+      const diagramTypesData = await query('diagram_type', 'id, name', [{ column: 'company_id', value: company_id }]);
+
+      console.log(categoriesData, 'categoriesData');
+
       setFilterOptions({
         guilds: guildsData || [],
         categories: categoriesData || [],
@@ -287,7 +338,9 @@ export default function EmployesDiagramWrapper() {
         workflows: workflowsData || [],
         costCenters: costCentersData || [],
         covenants: covenantsData || [],
+        contractors: contractorsData || [],
         customers: customersData || [],
+        diagramTypes: diagramTypesData || [],
       });
     } catch (error) {
       console.error('Error al cargar opciones de filtros:', error);
@@ -301,23 +354,36 @@ export default function EmployesDiagramWrapper() {
     setHasMoreData(false);
   }, []);
 
-  const handleFilterChange = (name: keyof FilterState, value: string) => {
-    // Si el valor es "all", lo tratamos como no seleccionado
-    const filterValue = value === 'all' ? '' : value;
+  // Función que maneja cambios en campos de texto (string)
+  const handleFilterChange = (name: 'firstname' | 'lastname', value: string) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
 
-    // Actualizar filtros activos
-    if (value && value !== 'all' && !activeFilters.includes(name)) {
+    if (value && value !== '' && !activeFilters.includes(name)) {
       setActiveFilters((prev) => [...prev, name]);
-    } else if ((value === '' || value === 'all') && activeFilters.includes(name)) {
+    } else if ((!value || value === '') && activeFilters.includes(name)) {
+      setActiveFilters((prev) => prev.filter((filter) => filter !== name));
+    }
+  };
+
+  // Función que maneja cambios en multi-select (string[])
+  const handleMultiFilterChange = (name: Exclude<keyof FilterState, 'firstname' | 'lastname'>, values: string[]) => {
+    setFilters((prev) => ({ ...prev, [name]: values }));
+
+    if (values && values.length > 0 && !activeFilters.includes(name)) {
+      setActiveFilters((prev) => [...prev, name]);
+    } else if ((!values || values.length === 0) && activeFilters.includes(name)) {
       setActiveFilters((prev) => prev.filter((filter) => filter !== name));
     }
   };
 
   // Función para borrar un filtro específico
   const clearFilter = (name: keyof FilterState) => {
-    // Restaurar el valor a estado vacío para todos los tipos de filtros
-    setFilters((prev) => ({ ...prev, [name]: '' }));
+    // Restaurar el valor según el tipo de filtro
+    if (name === 'firstname' || name === 'lastname') {
+      setFilters((prev) => ({ ...prev, [name]: '' }));
+    } else {
+      setFilters((prev) => ({ ...prev, [name]: [] }));
+    }
 
     // Remover de los filtros activos
     if (activeFilters.includes(name)) {
@@ -447,7 +513,7 @@ export default function EmployesDiagramWrapper() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="position">Puesto en la empresa</Label>
-                  {filters.position && filters.position !== '' && (
+                  {filters.position && filters.position.length > 0 && (
                     <button
                       type="button"
                       onClick={() => clearFilter('position')}
@@ -457,26 +523,24 @@ export default function EmployesDiagramWrapper() {
                     </button>
                   )}
                 </div>
-                <Select value={filters.position} onValueChange={(value) => handleFilterChange('position', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar puesto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los puestos</SelectItem>
-                    {filterOptions.positions.map((position) => (
-                      <SelectItem key={position.id} value={position.id}>
-                        {position.name || 'Sin nombre'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectCombobox
+                  options={filterOptions.positions.map((position) => ({
+                    label: position.name || 'Sin nombre',
+                    value: position.id,
+                  }))}
+                  placeholder="Seleccionar puestos"
+                  emptyMessage="No hay puestos"
+                  selectedValues={filters.position}
+                  onChange={(values) => handleMultiFilterChange('position', values)}
+                  showSelectAll
+                />
               </div>
 
               {/* Filtro por diagrama de trabajo */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="workflow">Diagrama de trabajo</Label>
-                  {filters.workflow && filters.workflow !== '' && (
+                  {filters.workflow && filters.workflow.length > 0 && (
                     <button
                       type="button"
                       onClick={() => clearFilter('workflow')}
@@ -486,26 +550,24 @@ export default function EmployesDiagramWrapper() {
                     </button>
                   )}
                 </div>
-                <Select value={filters.workflow} onValueChange={(value) => handleFilterChange('workflow', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar diagrama" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los diagramas</SelectItem>
-                    {filterOptions.workflows.map((workflow) => (
-                      <SelectItem key={workflow.id} value={workflow.id}>
-                        {workflow.name || 'Sin nombre'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectCombobox
+                  options={filterOptions.workflows.map((workflow) => ({
+                    label: workflow.name || 'Sin nombre',
+                    value: workflow.id,
+                  }))}
+                  placeholder="Seleccionar diagramas"
+                  emptyMessage="No hay diagramas"
+                  selectedValues={filters.workflow}
+                  onChange={(values) => handleMultiFilterChange('workflow', values)}
+                  showSelectAll
+                />
               </div>
 
               {/* Filtro por centro de costos */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="costCenter">Centro de costos</Label>
-                  {filters.costCenter && filters.costCenter !== '' && (
+                  {filters.costCenter && filters.costCenter.length > 0 && (
                     <button
                       type="button"
                       onClick={() => clearFilter('costCenter')}
@@ -515,26 +577,24 @@ export default function EmployesDiagramWrapper() {
                     </button>
                   )}
                 </div>
-                <Select value={filters.costCenter} onValueChange={(value) => handleFilterChange('costCenter', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar centro de costos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los centros</SelectItem>
-                    {filterOptions.costCenters.map((costCenter) => (
-                      <SelectItem key={costCenter.id} value={costCenter.id}>
-                        {costCenter.name || 'Sin nombre'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectCombobox
+                  options={filterOptions.costCenters.map((costCenter) => ({
+                    label: costCenter.name || 'Sin nombre',
+                    value: costCenter.id,
+                  }))}
+                  placeholder="Seleccionar centros de costos"
+                  emptyMessage="No hay centros de costos"
+                  selectedValues={filters.costCenter}
+                  onChange={(values) => handleMultiFilterChange('costCenter', values)}
+                  showSelectAll
+                />
               </div>
 
               {/* Filtro por convenio */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="covenant">Convenio</Label>
-                  {filters.covenant && filters.covenant !== '' && (
+                  {filters.covenant && filters.covenant.length > 0 && (
                     <button
                       type="button"
                       onClick={() => clearFilter('covenant')}
@@ -544,26 +604,24 @@ export default function EmployesDiagramWrapper() {
                     </button>
                   )}
                 </div>
-                <Select value={filters.covenant} onValueChange={(value) => handleFilterChange('covenant', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar convenio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los convenios</SelectItem>
-                    {filterOptions.covenants.map((covenant) => (
-                      <SelectItem key={covenant.id} value={covenant.id}>
-                        {covenant.name || 'Sin nombre'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectCombobox
+                  options={filterOptions.covenants.map((covenant) => ({
+                    label: covenant.name || 'Sin nombre',
+                    value: covenant.id,
+                  }))}
+                  placeholder="Seleccionar convenios"
+                  emptyMessage="No hay convenios"
+                  selectedValues={filters.covenant}
+                  onChange={(values) => handleMultiFilterChange('covenant', values)}
+                  showSelectAll
+                />
               </div>
 
               {/* Filtro por gremio */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="guild">Gremio</Label>
-                  {filters.guild && filters.guild !== '' && (
+                  {filters.guild && filters.guild.length > 0 && (
                     <button
                       type="button"
                       onClick={() => clearFilter('guild')}
@@ -573,26 +631,24 @@ export default function EmployesDiagramWrapper() {
                     </button>
                   )}
                 </div>
-                <Select value={filters.guild} onValueChange={(value) => handleFilterChange('guild', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar gremio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los gremios</SelectItem>
-                    {filterOptions.guilds.map((guild) => (
-                      <SelectItem key={guild.id} value={guild.id}>
-                        {guild.name || 'Sin nombre'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectCombobox
+                  options={filterOptions.guilds.map((guild) => ({
+                    label: guild.name || 'Sin nombre',
+                    value: guild.id,
+                  }))}
+                  placeholder="Seleccionar gremios"
+                  emptyMessage="No hay gremios"
+                  selectedValues={filters.guild}
+                  onChange={(values) => handleMultiFilterChange('guild', values)}
+                  showSelectAll
+                />
               </div>
 
               {/* Filtro por categoría */}
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="category">Categoría</Label>
-                  {filters.category && filters.category !== '' && (
+                  {filters.category && filters.category.length > 0 && (
                     <button
                       type="button"
                       onClick={() => clearFilter('category')}
@@ -602,19 +658,17 @@ export default function EmployesDiagramWrapper() {
                     </button>
                   )}
                 </div>
-                <Select value={filters.category} onValueChange={(value) => handleFilterChange('category', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las categorías</SelectItem>
-                    {filterOptions.categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name || 'Sin nombre'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectCombobox
+                  options={filterOptions.categories.map((category) => ({
+                    label: category.name + ' - ' + category.covenant?.name || 'Sin nombre',
+                    value: category.id,
+                  }))}
+                  placeholder="Seleccionar categorías"
+                  emptyMessage="No hay categorías"
+                  selectedValues={filters.category}
+                  onChange={(values) => handleMultiFilterChange('category', values)}
+                  showSelectAll
+                />
               </div>
 
               {/* Filtro por contratista */}
@@ -622,7 +676,7 @@ export default function EmployesDiagramWrapper() {
                 <div className="flex justify-between">
                   <Label htmlFor="customer">Contratista</Label>
                   {filters['contractor_employee.contractor_id'] &&
-                    filters['contractor_employee.contractor_id'] !== '' && (
+                    filters['contractor_employee.contractor_id'].length > 0 && (
                       <button
                         type="button"
                         onClick={() => clearFilter('contractor_employee.contractor_id')}
@@ -632,22 +686,49 @@ export default function EmployesDiagramWrapper() {
                       </button>
                     )}
                 </div>
-                <Select
-                  value={filters['contractor_employee.contractor_id']}
-                  onValueChange={(value) => handleFilterChange('contractor_employee.contractor_id', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar contratista" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los contratistas</SelectItem>
-                    {filterOptions.customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name || 'Sin nombre'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectCombobox
+                  options={filterOptions.contractors.map((contractor) => ({
+                    label: contractor.name || 'Sin nombre',
+                    value: contractor.id,
+                  }))}
+                  placeholder="Seleccionar contratistas"
+                  emptyMessage="No hay contratistas"
+                  selectedValues={filters['contractor_employee.contractor_id']}
+                  onChange={(values) => handleMultiFilterChange('contractor_employee.contractor_id', values)}
+                  showSelectAll
+                />
+              </div>
+
+              {/* Filtro por tipos de diagrama */}
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label htmlFor="diagramType">Tipo de Diagrama</Label>
+                  {filters.diagramType && filters.diagramType.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => clearFilter('diagramType')}
+                      className="text-muted-foreground hover:text-black text-red-500"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                <MultiSelectCombobox
+                  options={[
+                    // Opción especial para "Sin diagramas"
+                    { label: 'Sin diagramas asignados', value: 'sin_diagrama' },
+                    // Opciones desde la base de datos
+                    ...filterOptions.diagramTypes.map((type) => ({
+                      label: type.name || 'Sin nombre',
+                      value: type.id,
+                    })),
+                  ]}
+                  placeholder="Seleccionar tipos de diagrama"
+                  emptyMessage="No hay tipos de diagrama"
+                  selectedValues={filters.diagramType}
+                  onChange={(values) => handleMultiFilterChange('diagramType', values)}
+                  showSelectAll
+                />
               </div>
             </div>
 
