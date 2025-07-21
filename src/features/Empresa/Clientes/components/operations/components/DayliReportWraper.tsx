@@ -1,8 +1,8 @@
 'use server';
 
 import { Skeleton } from '@/components/ui/skeleton';
+import { getAllDailyReportRows } from '@/features/Empresa/Clientes/components/operations/actions/actions';
 import ComercialReportTable from '@/features/Empresa/Clientes/components/operations/components/ComercialReportTable';
-import { getDailyReportsWithRows } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { Suspense } from 'react';
 
 interface DailyReportRow {
@@ -38,43 +38,56 @@ interface ProcessedRow {
   services: string;
 }
 
+// Update the DayliReportWraper.tsx
 export default async function DayliReportWraper() {
   try {
-    const reports = await getDailyReportsWithRows();
-    console.log(reports);
-    // Procesar los datos para la tabla
-    const tableData = reports.flatMap((report) =>
-      report.dailyreportrows.map((row) => {
-        // Obtener empleados
-        const employees =
-          row.dailyreportemployeerelations?.map((rel) => `${rel.employee_id.firstname} ${rel.employee_id.lastname}`) ||
-          [];
+    const reports = await getAllDailyReportRows();
 
-        // Obtener equipos
-        const equipment =
-          row.dailyreportequipmentrelations?.map((rel) => rel.equipment_id.domain || 'Sin número') || [];
+    // In DayliReportWraper.tsx, replace the tableData processing with:
+    const tableData = reports.map((row) => {
+      // Get employees
+      const employees =
+        row.dailyreportemployeerelations
+          ?.map((rel) => `${rel.employees?.firstname || ''} ${rel.employees?.lastname || ''}`.trim())
+          .filter(Boolean) || [];
 
-        return {
-          id: row.id,
-          date: report.date,
-          customer: row.customer_id?.name || 'Sin cliente',
-          type_service: row.service_id?.service_name || 'Sin servicio',
-          item: row.item_id?.item_name || 'Sin ítem',
-          description: row.description || '',
-          status: row.status,
-          start_time: row.start_time,
-          end_time: row.end_time,
-          employees,
-          equipment,
-          services: row.service_id?.service_name || 'Sin servicio',
-        };
-      })
-    );
-    console.log(tableData);
+      // Get company equipment
+      const companyEquipment =
+        row.dailyreportequipmentrelations
+          ?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number || '')
+          .filter(Boolean) || [];
+
+      // Get customer equipment
+      const customerEquipment =
+        row.dailyreport_customer_equipment_relations?.map((rel) => rel.equipos_clientes?.name || '').filter(Boolean) ||
+        [];
+
+      return {
+        id: row.id,
+        date: row.date,
+        customer: row.customers?.name || 'Sin cliente',
+        type_service: row.type_service || 'No especificada',
+        item: row.service_items?.item_name || 'Sin ítem',
+        description: row.description || '',
+        status: row.status || 'pendiente',
+        start_time: row.start_time,
+        end_time: row.end_time,
+        employees,
+        company_equipment: companyEquipment, // Company vehicles
+        customer_equipment: customerEquipment, // Customer equipment
+        document_url: row.document_path || '', // Document URL
+        services: row.customer_services?.service_name || 'Sin servicio',
+        working_day: row.working_day || 'No especificada',
+        area: row.service_areas?.areas_cliente?.nombre || 'Sin área',
+        sector: row.service_sectors?.sectors?.name || 'Sin sector',
+        remit_number: row.remit_number as string,
+      };
+    });
+
     return (
       <Suspense
         fallback={
-          <div className="space-y-2">
+          <div className="space-y-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
