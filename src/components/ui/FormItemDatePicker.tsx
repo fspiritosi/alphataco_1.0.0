@@ -18,6 +18,7 @@ interface FormItemDatePickerProps<TFieldValues extends FieldValues> {
   label: string;
   description?: string;
   className?: string;
+  disabled?: (date: Date) => boolean;
 }
 
 export function FormItemDatePicker<TFieldValues extends FieldValues>({
@@ -26,6 +27,7 @@ export function FormItemDatePicker<TFieldValues extends FieldValues>({
   label,
   description,
   className,
+  disabled,
   ...props
 }: FormItemDatePickerProps<TFieldValues> & Omit<React.HTMLAttributes<HTMLDivElement>, 'defaultValue'>) {
   return (
@@ -73,6 +75,7 @@ export function FormItemDatePicker<TFieldValues extends FieldValues>({
                   }}
                   numberOfMonths={2}
                   locale={es}
+                  disabled={disabled}
                 />
               </PopoverContent>
             </Popover>

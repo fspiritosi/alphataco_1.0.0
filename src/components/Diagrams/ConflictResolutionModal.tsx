@@ -1,0 +1,300 @@
+'use client';
+
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import { AlertTriangle, Info } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+
+interface ConflictRecord {
+  employee_id: string;
+  employee_name: string;
+  day: number;
+  month: number;
+  year: number;
+  date_formatted: string;
+  current_diagram_type: string;
+  current_diagram_name: string;
+  current_diagram_color: string;
+  is_used_in_operations: boolean;
+  operation_details: string;
+  can_update: boolean;
+  conflict_type: string;
+}
+
+interface ConflictData {
+  operationConflicts: ConflictRecord[];
+  simpleConflicts: ConflictRecord[];
+}
+
+interface MassiveFormData {
+  employeeIds: string[];
+  diagramTypeId: string;
+  dateRange: {
+    from: Date;
+    to: Date;
+  };
+}
+
+interface Props {
+  conflicts: ConflictData;
+  formData: MassiveFormData;
+  onResolve: () => void;
+  onCancel: () => void;
+  onProcessingComplete: (result: any) => void;
+}
+
+export function ConflictResolutionModal({ conflicts, formData, onResolve, onCancel, onProcessingComplete }: Props) {
+  const [processing, setProcessing] = useState(false);
+  const supabase = supabaseBrowser();
+
+  const totalConflicts = conflicts.operationConflicts.length + conflicts.simpleConflicts.length;
+
+  const handleContinue = async () => {
+    setProcessing(true);
+
+    try {
+      // Validar que formData existe y tiene los datos necesarios
+      if (
+        !formData ||
+        !formData.employeeIds ||
+        !formData.diagramTypeId ||
+        !formData.dateRange?.from ||
+        !formData.dateRange?.to
+      ) {
+        console.error('Error: formData is null or missing required properties:', formData);
+        toast.error('Error: Datos del formulario no disponibles');
+        setProcessing(false);
+        return;
+      }
+
+      // Ejecutar la creación masiva
+      const { data: result, error } = await supabase.rpc('create_massive_diagrams_with_validations', {
+        p_employee_ids: formData.employeeIds,
+        p_diagram_type_id: formData.diagramTypeId,
+        p_date_from: formData.dateRange.from.toISOString().split('T')[0],
+        p_date_to: formData.dateRange.to.toISOString().split('T')[0],
+      });
+
+      if (error) {
+        console.error('Error creating diagrams:', error);
+        toast.error('Error al crear los diagramas');
+        return;
+      }
+
+      onProcessingComplete(result);
+      toast.success('Diagramas procesados correctamente');
+    } catch (error) {
+      console.error('Error in creation:', error);
+      toast.error('Error en la creación');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-orange-600 mb-2">⚠️ Conflictos Detectados</h2>
+        <p className="text-muted-foreground">
+          Se encontraron {totalConflicts} registros existentes que requieren atención
+        </p>
+      </div>
+
+      {/* Conflictos en operaciones (errores) */}
+      {conflicts.operationConflicts.length > 0 && (
+        <Card className="border-red-200">
+          <CardHeader className="bg-red-50">
+            <CardTitle className="text-red-700 flex items-center space-x-2">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Registros en Uso - NO se pueden modificar ({conflicts.operationConflicts.length})</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Alert className="m-4 border-red-200 bg-red-50">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-700">
+                Estos registros están siendo utilizados en operaciones y no pueden ser modificados. Se generarán como
+                errores en el reporte final.
+              </AlertDescription>
+            </Alert>
+
+            <div className="max-h-60 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empleado</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Diagrama Actual</TableHead>
+                    <TableHead>Detalles de Uso</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {conflicts.operationConflicts.map((conflict, index) => (
+                    <TableRow key={index} className="bg-red-25">
+                      <TableCell className="font-medium">{conflict.employee_name}</TableCell>
+                      <TableCell>{conflict.date_formatted}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          style={{
+                            backgroundColor: conflict.current_diagram_color,
+                            color: 'white',
+                            borderColor: conflict.current_diagram_color,
+                          }}
+                        >
+                          {conflict.current_diagram_name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-red-600">{conflict.operation_details}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Conflictos simples (se actualizarán) */}
+      {conflicts.simpleConflicts.length > 0 && (
+        <Card className="border-yellow-200">
+          <CardHeader className="bg-yellow-50">
+            <CardTitle className="text-yellow-700 flex items-center space-x-2">
+              <Info className="w-5 h-5" />
+              <span>Registros Existentes - Se actualizarán ({conflicts.simpleConflicts.length})</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Alert className="m-4 border-yellow-200 bg-yellow-50">
+              <Info className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-700">
+                Estos registros existen pero no están en uso. Se actualizarán automáticamente con los nuevos valores
+                según el patrón de trabajo del empleado.
+              </AlertDescription>
+            </Alert>
+
+            <div className="max-h-60 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empleado</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Diagrama Actual</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {conflicts.simpleConflicts.map((conflict, index) => (
+                    <TableRow key={index} className="bg-yellow-25">
+                      <TableCell className="font-medium">{conflict.employee_name}</TableCell>
+                      <TableCell>{conflict.date_formatted}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          style={{
+                            backgroundColor: conflict.current_diagram_color,
+                            color: 'white',
+                            borderColor: conflict.current_diagram_color,
+                          }}
+                        >
+                          {conflict.current_diagram_name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-green-700 bg-green-100">
+                          ✅ Se actualizará
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Resumen de la operación */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="text-blue-700">Resumen de la Operación</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold text-green-600">
+                {(() => {
+                  const employeeCount = formData?.employeeIds?.length || 0;
+                  const fromDate = formData?.dateRange?.from;
+                  const toDate = formData?.dateRange?.to;
+
+                  if (!fromDate || !toDate || employeeCount === 0) return 0;
+
+                  const days = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  const totalRecords = employeeCount * days;
+                  const conflicts = totalConflicts || 0;
+
+                  return Math.max(0, totalRecords - conflicts);
+                })()}
+              </div>
+              <div className="text-sm text-muted-foreground">Nuevos registros</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-blue-600">{conflicts?.simpleConflicts?.length || 0}</div>
+              <div className="text-sm text-muted-foreground">Actualizaciones</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-red-600">{conflicts?.operationConflicts?.length || 0}</div>
+              <div className="text-sm text-muted-foreground">Errores</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-600">
+                {(() => {
+                  const employeeCount = formData?.employeeIds?.length || 0;
+                  const fromDate = formData?.dateRange?.from;
+                  const toDate = formData?.dateRange?.to;
+
+                  if (!fromDate || !toDate || employeeCount === 0) return 0;
+
+                  const days = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  return employeeCount * days;
+                })()}
+              </div>
+              <div className="text-sm text-muted-foreground">Total</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Botones de acción */}
+      <div className="flex justify-between space-x-4">
+        <Button variant="outline" onClick={onCancel} disabled={processing} className="flex-1">
+          Cancelar
+        </Button>
+        <Button onClick={handleContinue} disabled={processing} className="flex-1">
+          {processing ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Procesando...
+            </>
+          ) : (
+            `Continuar (${conflicts.simpleConflicts.length} actualizaciones, ${conflicts.operationConflicts.length} errores)`
+          )}
+        </Button>
+      </div>
+
+      {/* Nota informativa */}
+      <div className="text-sm text-muted-foreground text-center bg-gray-50 p-4 rounded">
+        <p>
+          <strong>Nota:</strong> Los registros marcados como en uso no se modificarán y aparecerán como errores en el
+          reporte final. Los demás registros se procesarán normalmente.
+        </p>
+      </div>
+    </div>
+  );
+}

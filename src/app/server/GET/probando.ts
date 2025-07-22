@@ -58,7 +58,21 @@ export async function query<TableName extends keyof Database['public']['Tables']
   if (filters && filters.length > 0) {
     filters.forEach((filter) => {
       const { column, operator = 'eq', value } = filter;
-      query = query.filter(column as string, operator, value);
+      // Manejo especial para el operador 'in' con arrays
+      if (operator === 'in' && Array.isArray(value)) {
+        // Cuando el valor es un array vacío, ignoramos este filtro
+        if (value.length === 0) return;
+        // Si solo hay un valor, usamos eq en lugar de in
+        if (value.length === 1) {
+          query = query.filter(column as string, 'eq', value[0]);
+        } else {
+          // Para múltiples valores, usamos la sintaxis correcta para in
+          query = query.in(column as string, value);
+        }
+      } else {
+        // Para otros operadores, seguimos usando filter
+        query = query.filter(column as string, operator, value);
+      }
     });
   }
 
@@ -98,7 +112,21 @@ export async function queryPaginated<TableName extends keyof Database['public'][
   if (filters && filters.length > 0) {
     filters.forEach((filter) => {
       const { column, operator = 'eq', value } = filter;
-      query = query.filter(column as string, operator, value);
+      // Manejo especial para el operador 'in' con arrays
+      if (operator === 'in' && Array.isArray(value)) {
+        // Cuando el valor es un array vacío, ignoramos este filtro
+        if (value.length === 0) return;
+        // Si solo hay un valor, usamos eq en lugar de in
+        if (value.length === 1) {
+          query = query.filter(column as string, 'eq', value[0]);
+        } else {
+          // Para múltiples valores, usamos la sintaxis correcta para in
+          query = query.in(column as string, value);
+        }
+      } else {
+        // Para otros operadores, seguimos usando filter
+        query = query.filter(column as string, operator, value);
+      }
     });
   }
 
@@ -113,8 +141,12 @@ export async function queryPaginated<TableName extends keyof Database['public'][
   query = query.range(from, to);
 
   const { data, error, count } = await query;
+  console.log('Data:', data);
+  console.log('Error:', error);
+  console.log('Count:', count);
 
   if (error) {
+    console.error('Error al obtener datos paginados:', error);
     throw error;
   }
 
