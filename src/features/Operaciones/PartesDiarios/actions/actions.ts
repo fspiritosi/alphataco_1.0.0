@@ -626,8 +626,9 @@ export async function getActiveEmployeesForDailyReport() {
     .eq('employees_diagram.month', month)
     .eq('employees_diagram.year', year)
     .eq('employees_diagram.diagram_type.work_active', true)
+    .not('employees_diagram.diagram_type', 'is', null)
     .eq('company_id', company_id || user?.app_metadata?.company_id || '');
-
+  console.log(data, 'employees');
   if (error) {
     console.error('Error al obtener empleados con diagrama:', error);
     return [];
