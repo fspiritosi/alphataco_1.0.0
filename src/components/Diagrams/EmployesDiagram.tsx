@@ -1,5 +1,6 @@
 import ViewcomponentInternal from '../ViewComponentInternal';
 import DiagramFormUpdatedWrapper from './DiagramFormUpdatedWrapper';
+import DiagramMassive from './DiagramMassive';
 import EmployesDiagramWrapper from './EmployesDiagramWrapper';
 
 function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
@@ -31,19 +32,19 @@ function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: stri
           component: <DiagramFormUpdatedWrapper />,
         },
       },
-      // {
-      //   value: 'newsTypes',
-      //   name: 'Tipos de Novedades',
-      //   restricted: [''],
-      //   tab: tabValue,
-      //   content: {
-      //     title: 'Tipos de Novedades',
-      //     //description: 'Lista de usuarios de la empresa',
-      //     buttonActioRestricted: [''],
-      //     buttonAction: '',
-      //     component: <DiagramTypeComponentWrapper />,
-      //   },
-      // },
+      {
+        value: 'massive_diagram',
+        name: 'Diagrama Masivo',
+        restricted: [''],
+        tab: tabValue,
+        content: {
+          title: 'Diagrama Masivo',
+          //description: 'Lista de usuarios de la empresa',
+          buttonActioRestricted: [''],
+          buttonAction: '',
+          component: <DiagramMassive />,
+        },
+      },
     ],
   };
   return (
