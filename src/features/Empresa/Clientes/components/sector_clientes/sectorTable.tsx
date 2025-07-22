@@ -80,9 +80,9 @@ function SectorTable({
     setMode('edit');
   };
 
-  const cookies = Cookies.get('areaTable');
+  const cookies = Cookies.get('comercial-sector-table');
   const savedVisibility = cookies ? JSON.parse(cookies) : {};
-  const savedFilter = Cookies.get('areaTable-filters');
+  const savedFilter = Cookies.get('comercial-sector-table-filters');
 
   const names = createFilterOptions(contractorSectors, (sector) => sector.sectors?.name);
   const clients = createFilterOptions(contractorSectors, (sector) => sector.customers?.name);
@@ -94,7 +94,7 @@ function SectorTable({
         columns={getCustomerEquipmentColums(handleEdit)}
         data={contractorSectors}
         savedVisibility={savedVisibility}
-        tableId="areaTable"
+        tableId="comercial-sector-table"
         toolbarOptions={{
           initialVisibleFilters: savedFilter ? JSON.parse(savedFilter) : [],
           filterableColumns: [

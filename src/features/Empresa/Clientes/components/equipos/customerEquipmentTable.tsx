@@ -79,9 +79,9 @@ function CustomerEquipmentTable({
     setSelectedCustomerEquipment(customerEquipment);
     setMode('edit');
   };
-  const cookies = Cookies.get('areaTable');
+  const cookies = Cookies.get('comercial-equipment-table');
   const savedVisibility = cookies ? JSON.parse(cookies) : {};
-  const savedFilter = Cookies.get('areaTable-filters');
+  const savedFilter = Cookies.get('comercial-equipment-table-filters');
 
   const names = createFilterOptions(customerEquipments, (customerEquipment) => customerEquipment.name);
   const clients = createFilterOptions(
@@ -96,7 +96,7 @@ function CustomerEquipmentTable({
         columns={getCustomerEquipmentColums(handleEdit)}
         data={customerEquipments as any}
         savedVisibility={savedVisibility}
-        tableId="areaTable"
+        tableId="comercial-equipment-table"
         toolbarOptions={{
           initialVisibleFilters: savedFilter ? JSON.parse(savedFilter) : [],
           filterableColumns: [
