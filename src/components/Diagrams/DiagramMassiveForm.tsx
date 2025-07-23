@@ -32,7 +32,8 @@ const formSchema = z.object({
     .array(z.string())
     .min(1, 'Selecciona al menos un empleado')
     .max(DATE_RESTRICTIONS.maxEmployees, `Máximo ${DATE_RESTRICTIONS.maxEmployees} empleados`),
-  diagramTypeId: z.string().min(1, 'Selecciona un tipo de diagrama'),
+  workDiagramId: z.string().min(1, 'Selecciona un diagrama de trabajo'),
+  activeNoveltyId: z.string().optional(), // Solo requerido si hay múltiples opciones
   dateRange: z
     .object({
       from: z.date().min(DATE_RESTRICTIONS.minDate, 'Solo fechas desde hoy en adelante'),
@@ -149,13 +150,54 @@ const fetchEmployees = async () => {
   return employees;
 };
 
-const fetchDiagramTypes = async (company_id: string) => {
-  const diagramTypes = await query('diagram_type', 'id, name, color, short_description, work_active', [
-    { column: 'is_active', value: true },
-    { column: 'company_id', value: company_id },
-  ]);
-  return diagramTypes;
-};
+async function fetchWorkDiagrams(company_id: string) {
+  const supabase = supabaseBrowser();
+
+  const { data, error } = await supabase
+    .from('work_diagram')
+    .select('id, name, active_working_days, inactive_working_days, inactive_novelty')
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching work diagrams:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+async function fetchNovelties(workDiagramId: string) {
+  const supabase = supabaseBrowser();
+
+  // Cargar inactive_novelty del work_diagram
+  const { data: workDiagram, error: workDiagramError } = await supabase
+    .from('work_diagram')
+    .select('inactive_novelty, diagram_type!inactive_novelty(id, name, color)')
+    .eq('id', workDiagramId)
+    .single();
+
+  if (workDiagramError) {
+    console.error('Error fetching work diagram:', workDiagramError);
+    return { inactiveNovelty: null, activeNovelties: [] };
+  }
+
+  // Cargar active_novelties
+  const { data: activeNovelties, error: activeNoveltiesError } = await supabase
+    .from('work_diagram_active_novelties')
+    .select('diagram_type_id, diagram_type(id, name, color)')
+    .eq('work_diagram_id', workDiagramId);
+
+  if (activeNoveltiesError) {
+    console.error('Error fetching active novelties:', activeNoveltiesError);
+    return { inactiveNovelty: workDiagram, activeNovelties: [] };
+  }
+
+  return {
+    inactiveNovelty: workDiagram,
+    activeNovelties: activeNovelties || [],
+  };
+}
 
 export function DiagramMassiveForm({
   onSubmit,
@@ -166,7 +208,10 @@ export function DiagramMassiveForm({
   setLoading,
 }: Props) {
   const [employees, setEmployees] = useState<ReturnType<typeof formatEmployees>>([]);
-  const [diagramTypes, setDiagramTypes] = useState<Awaited<ReturnType<typeof fetchDiagramTypes>>>([]);
+  const [workDiagrams, setWorkDiagrams] = useState<any[]>([]);
+  const [activeNovelties, setActiveNovelties] = useState<any[]>([]);
+  const [inactiveNovelty, setInactiveNovelty] = useState<any>(null);
+  const [showActiveNoveltySelect, setShowActiveNoveltySelect] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<ReturnType<typeof formatEmployees>>([]);
   const supabase = supabaseBrowser();
   const company_id = Cookies.get('actualComp');
@@ -207,10 +252,11 @@ export function DiagramMassiveForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       employeeIds: [],
-      diagramTypeId: '',
+      workDiagramId: '',
+      activeNoveltyId: '',
       dateRange: {
         from: new Date(),
-        to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días por defecto
+        to: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días por defecto
       },
     },
   });
@@ -416,13 +462,13 @@ export function DiagramMassiveForm({
     }
   };
 
-  // Cargar tipos de diagrama al inicio
+  // Cargar work diagrams al inicio
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // Cargar tipos de diagrama activos para trabajo
-        const diagramTypesData = await fetchDiagramTypes(company_id || '');
-        setDiagramTypes(diagramTypesData);
+        // Cargar diagramas de trabajo activos
+        const workDiagramsData = await fetchWorkDiagrams(company_id || '');
+        setWorkDiagrams(workDiagramsData);
 
         // Cargar opciones de filtros
         await loadFilterOptions();
@@ -597,6 +643,51 @@ export function DiagramMassiveForm({
     setSelectedEmployees(selected);
   }, [form.watch('employeeIds'), employees]);
 
+  // Función para manejar el cambio de work_diagram
+  const handleWorkDiagramChange = async (workDiagramId: string) => {
+    console.log('🔧 [DEBUG] handleWorkDiagramChange - workDiagramId:', workDiagramId);
+
+    form.setValue('workDiagramId', workDiagramId);
+
+    try {
+      // Cargar novelties asociadas al work_diagram
+      const { inactiveNovelty, activeNovelties } = await fetchNovelties(workDiagramId);
+
+      console.log('🔧 [DEBUG] Novelties cargadas:', {
+        // inactiveNovelty: inactiveNovelty?.diagram_type?.name,
+        activeNoveltiesCount: activeNovelties.length,
+        activeNoveltyNames: activeNovelties.map((n: any) => n.diagram_type?.name),
+      });
+
+      setInactiveNovelty(inactiveNovelty);
+      setActiveNovelties(activeNovelties);
+
+      // Mostrar select solo si hay múltiples active_novelties
+      if (activeNovelties.length > 1) {
+        console.log('🔧 [DEBUG] Múltiples novelties activas, mostrando select');
+        setShowActiveNoveltySelect(true);
+        form.setValue('activeNoveltyId', ''); // Reset selection
+      } else if (activeNovelties.length === 1) {
+        console.log('🔧 [DEBUG] Una sola novelty activa, seleccionando automáticamente');
+        setShowActiveNoveltySelect(false);
+        form.setValue('activeNoveltyId', activeNovelties[0].diagram_type_id);
+      } else {
+        console.log('⚠️ [DEBUG] No hay novelties activas configuradas');
+        setShowActiveNoveltySelect(false);
+        form.setValue('activeNoveltyId', '');
+        toast.error('El diagrama de trabajo no tiene novedades activas configuradas');
+      }
+
+      if (!inactiveNovelty?.diagram_type) {
+        console.log('⚠️ [DEBUG] No hay novelty inactiva configurada');
+        toast.error('El diagrama de trabajo no tiene novedad inactiva configurada');
+      }
+    } catch (error) {
+      console.error('🚫 [DEBUG] Error cargando novelties:', error);
+      toast.error('Error al cargar las configuraciones del diagrama de trabajo');
+    }
+  };
+
   const handleEmployeeToggle = (employeeId: string) => {
     const currentIds = form.getValues('employeeIds');
     const newIds = currentIds.includes(employeeId)
@@ -618,15 +709,18 @@ export function DiagramMassiveForm({
   };
 
   const handleVerifyAndSubmit = async (data: FormData) => {
+    console.log('🚀 [DEBUG] handleVerifyAndSubmit - data:', data);
+
     setLoading(true);
 
     try {
-      // Verificar conflictos usando la función SQL
-      const { data: conflicts, error } = await supabase.rpc('check_diagram_conflicts_with_operations', {
+      // Verificar conflictos usando la función SQL actualizada
+      const { data: conflicts, error } = await supabase.rpc('check_diagram_conflicts_with_operations_v2', {
         p_employee_ids: data.employeeIds,
-        p_diagram_type_id: data.diagramTypeId,
+        p_work_diagram_id: data.workDiagramId,
         p_date_from: data.dateRange.from.toISOString().split('T')[0],
         p_date_to: data.dateRange.to.toISOString().split('T')[0],
+        p_active_novelty_id: data.activeNoveltyId || '',
       });
 
       if (error) {
@@ -635,13 +729,25 @@ export function DiagramMassiveForm({
         return;
       }
 
-      if (conflicts && conflicts.length > 0) {
+      console.log('🔍 [DEBUG] Respuesta de verificación de conflictos:', conflicts);
+      console.log('🔍 [DEBUG] Tipo de conflicts:', typeof conflicts);
+
+      // Acceder correctamente a los conflictos según la estructura de tu función
+      const conflictList = (conflicts as any)?.conflicts || [];
+      console.log('🔍 [DEBUG] Lista de conflictos extraída:', conflictList);
+
+      if (conflictList && conflictList.length > 0) {
+        console.log('🔍 [DEBUG] Se encontraron conflictos, mostrando modal');
         // Separar conflictos por tipo
-        const operationConflicts = conflicts.filter((c: ConflictRecord) => c.conflict_type === 'USED_IN_OPERATIONS');
-        const simpleConflicts = conflicts.filter((c: ConflictRecord) => c.conflict_type === 'SIMPLE_CONFLICT');
+        const operationConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'IN_USE');
+        const simpleConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'CAN_UPDATE');
+
+        console.log('🔍 [DEBUG] Conflictos de operación:', operationConflicts);
+        console.log('🔍 [DEBUG] Conflictos simples:', simpleConflicts);
 
         onConflictsFound({ operationConflicts, simpleConflicts }, data);
       } else {
+        console.log('🔍 [DEBUG] No hay conflictos, procediendo directamente');
         // No hay conflictos, proceder directamente
         await executeCreation(data);
       }
@@ -657,11 +763,13 @@ export function DiagramMassiveForm({
     setLoading(true);
 
     try {
-      const { data: result, error } = await supabase.rpc('create_massive_diagrams_with_validations', {
+      const { data: result, error } = await supabase.rpc('process_massive_diagram_creation_v2', {
         p_employee_ids: data.employeeIds,
-        p_diagram_type_id: data.diagramTypeId,
+        p_work_diagram_id: data.workDiagramId,
         p_date_from: data.dateRange.from.toISOString().split('T')[0],
         p_date_to: data.dateRange.to.toISOString().split('T')[0],
+        p_active_novelty_id: data.activeNoveltyId || '',
+        p_conflict_resolution: 'skip', // Por defecto, saltar conflictos
       });
 
       if (error) {
@@ -693,26 +801,27 @@ export function DiagramMassiveForm({
     <div className="space-y-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleVerifyAndSubmit)} className="space-y-6">
-          {/* Selección de tipo de diagrama */}
+          {/* Selección de diagrama de trabajo */}
           <FormField
             control={form.control}
-            name="diagramTypeId"
+            name="workDiagramId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Tipo de Diagrama</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormLabel>Diagrama de Trabajo</FormLabel>
+                <Select onValueChange={handleWorkDiagramChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un tipo de diagrama" />
+                      <SelectValue placeholder="Selecciona un diagrama de trabajo" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {diagramTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
+                    {workDiagrams.map((diagram) => (
+                      <SelectItem key={diagram.id} value={diagram.id}>
                         <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: type.color }} />
-                          <span>{type.name}</span>
-                          <Badge variant="outline">{type.short_description}</Badge>
+                          <span>{diagram.name}</span>
+                          <Badge variant="outline">
+                            {diagram.active_working_days}A/{diagram.inactive_working_days}I
+                          </Badge>
                         </div>
                       </SelectItem>
                     ))}
@@ -722,6 +831,87 @@ export function DiagramMassiveForm({
               </FormItem>
             )}
           />
+
+          {/* Selección de novedad activa (solo si hay múltiples opciones) */}
+          {showActiveNoveltySelect && (
+            <FormField
+              control={form.control}
+              name="activeNoveltyId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Novedad Activa</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una novedad activa" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {activeNovelties.map((novelty) => (
+                        <SelectItem key={novelty.diagram_type_id} value={novelty.diagram_type_id}>
+                          <div className="flex items-center space-x-2">
+                            <div
+                              className="w-4 h-4 rounded"
+                              style={{ backgroundColor: novelty.diagram_type?.color || '#666' }}
+                            />
+                            <span>{novelty.diagram_type?.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Información de novedad activa */}
+          {(activeNovelties.length === 1 || (activeNovelties.length > 1 && form.getValues('activeNoveltyId'))) && (
+            <div className="p-3 bg-blue-50 rounded-lg mb-2">
+              <div className="text-sm font-medium text-gray-700 mb-1">Novedad para días activos:</div>
+              <div className="flex items-center space-x-2">
+                {activeNovelties.length === 1 ? (
+                  <>
+                    <div
+                      className="w-3 h-3 rounded"
+                      style={{ backgroundColor: activeNovelties[0]?.diagram_type?.color || '#666' }}
+                    />
+                    <span className="text-sm">{activeNovelties[0]?.diagram_type?.name}</span>
+                  </>
+                ) : (
+                  activeNovelties.map((novelty) => {
+                    if (novelty.diagram_type_id === form.getValues('activeNoveltyId')) {
+                      return (
+                        <div key={novelty.diagram_type_id} className="flex items-center space-x-2">
+                          <div
+                            className="w-3 h-3 rounded"
+                            style={{ backgroundColor: novelty.diagram_type?.color || '#666' }}
+                          />
+                          <span className="text-sm">{novelty.diagram_type?.name}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Información de novedad inactiva */}
+          {inactiveNovelty && (
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="text-sm font-medium text-gray-700 mb-1">Novedad para días inactivos:</div>
+              <div className="flex items-center space-x-2">
+                <div
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: inactiveNovelty.diagram_type?.color || '#666' }}
+                />
+                <span className="text-sm">{inactiveNovelty.diagram_type?.name}</span>
+              </div>
+            </div>
+          )}
 
           {/* Selección de rango de fechas */}
           <FormField

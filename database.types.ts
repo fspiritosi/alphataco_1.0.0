@@ -3084,6 +3084,16 @@ export type Database = {
           conflict_type: string;
         }[];
       };
+      check_diagram_conflicts_with_operations_v2: {
+        Args: {
+          p_employee_ids: string[];
+          p_work_diagram_id: string;
+          p_date_from: string;
+          p_date_to: string;
+          p_active_novelty_id: string;
+        };
+        Returns: Json;
+      };
       controlar_alertas_documentos: {
         Args: { tipo_documento_id?: string };
         Returns: undefined;
@@ -3197,6 +3207,17 @@ export type Database = {
           documento_empleado: string;
           dominio_vehiculo: string;
         }[];
+      };
+      process_massive_diagram_creation_v2: {
+        Args: {
+          p_employee_ids: string[];
+          p_work_diagram_id: string;
+          p_active_novelty_id: string;
+          p_date_from: string;
+          p_date_to: string;
+          p_conflict_resolution?: string;
+        };
+        Returns: Json;
       };
       pruebaemail: {
         Args: Record<PropertyKey, never>;
