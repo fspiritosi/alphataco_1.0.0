@@ -1,7 +1,7 @@
 'use client';
 
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -17,11 +17,13 @@ interface ConflictRecord {
   month: number;
   year: number;
   date_formatted: string;
-  current_diagram_type: string;
-  current_diagram_name: string;
-  current_diagram_color: string;
+  current_diagram_type?: string;
+  current_diagram_name?: string;
+  current_diagram_color?: string;
+  new_diagram_name?: string;
+  new_diagram_color?: string;
   is_used_in_operations: boolean;
-  operation_details: string;
+  operation_details?: string;
   can_update: boolean;
   conflict_type: string;
 }
@@ -33,7 +35,8 @@ interface ConflictData {
 
 interface MassiveFormData {
   employeeIds: string[];
-  diagramTypeId: string;
+  workDiagramId: string;
+  activeNoveltyId?: string;
   dateRange: {
     from: Date;
     to: Date;
@@ -62,7 +65,7 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
       if (
         !formData ||
         !formData.employeeIds ||
-        !formData.diagramTypeId ||
+        !formData.workDiagramId ||
         !formData.dateRange?.from ||
         !formData.dateRange?.to
       ) {
@@ -72,10 +75,18 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
         return;
       }
 
-      // Ejecutar la creación masiva
+      console.log('🔄 [DEBUG] Ejecutando creación masiva con resolución de conflictos:', {
+        employeeIds: formData.employeeIds,
+        workDiagramId: formData.workDiagramId,
+        activeNoveltyId: formData.activeNoveltyId,
+        dateRange: formData.dateRange,
+      });
+
+      // NOTA: Esta función usa parámetros antiguos. Cuando actualices las funciones en producción,
+      // cambiar a: p_work_diagram_id, p_active_novelty_id, p_conflict_resolution
       const { data: result, error } = await supabase.rpc('create_massive_diagrams_with_validations', {
         p_employee_ids: formData.employeeIds,
-        p_diagram_type_id: formData.diagramTypeId,
+        p_diagram_type_id: formData.activeNoveltyId || formData.workDiagramId, // Usar activeNoveltyId como fallback
         p_date_from: formData.dateRange.from.toISOString().split('T')[0],
         p_date_to: formData.dateRange.to.toISOString().split('T')[0],
       });
@@ -99,7 +110,10 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-orange-600 mb-2">⚠️ Conflictos Detectados</h2>
+        <h2 className="text-2xl font-bold text-orange-600 mb-2 flex items-center justify-center space-x-2">
+          <AlertTriangle className="w-6 h-6" />
+          <span>Conflictos Detectados</span>
+        </h2>
         <p className="text-muted-foreground">
           Se encontraron {totalConflicts} registros existentes que requieren atención
         </p>
@@ -130,7 +144,7 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
                     <TableHead>Empleado</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Diagrama Actual</TableHead>
-                    <TableHead>Detalles de Uso</TableHead>
+                    <TableHead>Estado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -139,18 +153,29 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
                       <TableCell className="font-medium">{conflict.employee_name}</TableCell>
                       <TableCell>{conflict.date_formatted}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          style={{
-                            backgroundColor: conflict.current_diagram_color,
-                            color: 'white',
-                            borderColor: conflict.current_diagram_color,
-                          }}
-                        >
-                          {conflict.current_diagram_name}
+                        {conflict.current_diagram_name ? (
+                          <Badge
+                            variant="outline"
+                            style={{
+                              backgroundColor: conflict.current_diagram_color || '#6b7280',
+                              color: 'white',
+                              borderColor: conflict.current_diagram_color || '#6b7280',
+                            }}
+                          >
+                            {conflict.current_diagram_name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-gray-600">
+                            Diagrama existente
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="destructive" className="flex items-center">
+                          <XCircle className="w-4 h-4 mr-1" />
+                          No se puede modificar
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-red-600">{conflict.operation_details}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -160,7 +185,7 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
         </Card>
       )}
 
-      {/* Conflictos simples (se actualizarán) */}
+      {/* Conflictos simples (actualizables) */}
       {conflicts.simpleConflicts.length > 0 && (
         <Card className="border-yellow-200">
           <CardHeader className="bg-yellow-50">
@@ -194,20 +219,27 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
                       <TableCell className="font-medium">{conflict.employee_name}</TableCell>
                       <TableCell>{conflict.date_formatted}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          style={{
-                            backgroundColor: conflict.current_diagram_color,
-                            color: 'white',
-                            borderColor: conflict.current_diagram_color,
-                          }}
-                        >
-                          {conflict.current_diagram_name}
-                        </Badge>
+                        {conflict.current_diagram_name ? (
+                          <Badge
+                            variant="outline"
+                            style={{
+                              backgroundColor: conflict.current_diagram_color || '#6b7280',
+                              color: 'white',
+                              borderColor: conflict.current_diagram_color || '#6b7280',
+                            }}
+                          >
+                            {conflict.current_diagram_name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-gray-600">
+                            Diagrama existente
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-green-700 bg-green-100">
-                          ✅ Se actualizará
+                        <Badge variant="secondary" className="text-green-700 bg-green-100 flex items-center">
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          Se actualizará
                         </Badge>
                       </TableCell>
                     </TableRow>

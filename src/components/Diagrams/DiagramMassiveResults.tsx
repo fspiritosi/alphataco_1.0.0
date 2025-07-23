@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Download, RefreshCw, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '../ui/badge';
@@ -10,19 +10,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 interface ProcessingResult {
-  success: boolean;
-  summary: {
-    total_created: number;
-    total_updated: number;
-    total_errors: number;
-    total_processed: number;
+  success?: boolean;
+  summary?: {
+    total_created?: number;
+    total_updated?: number;
+    total_errors?: number;
+    total_processed?: number;
+    // Nueva estructura de la función SQL
+    records_created?: number;
+    records_updated?: number;
+    records_skipped?: number;
+    records_error?: number;
   };
-  details: {
-    created_records: CreatedRecord[];
-    updated_records: UpdatedRecord[];
-    error_records: ErrorRecord[];
+  details?: {
+    created_records?: CreatedRecord[];
+    updated_records?: UpdatedRecord[];
+    error_records?: ErrorRecord[];
   };
-  processing_time: number;
+  // Nueva estructura de la función SQL
+  work_diagram_id?: string;
+  active_novelty_id?: string;
+  inactive_novelty_id?: string;
+  report?: any[];
+  processing_time?: number;
 }
 
 interface CreatedRecord {
@@ -56,8 +66,70 @@ interface Props {
 export function DiagramMassiveResults({ results, onStartOver }: Props) {
   const [downloading, setDownloading] = useState(false);
 
+  console.log('🔧 [DEBUG] DiagramMassiveResults - results:', results);
+
+  //   {
+  //     "summary": {
+  //         "records_created": 0,
+  //         "records_updated": 0,
+  //         "records_skipped": 8,
+  //         "records_error": 0,
+  //         "total_processed": 8
+  //     },
+  //     "work_diagram_id": "5ab76fab-6f7f-4446-aa15-07e5a7e63b23",
+  //     "active_novelty_id": "6e074fdd-6e7f-4386-9893-b3e43fb1c7fd",
+  //     "inactive_novelty_id": "33e7a3cd-8c14-452b-8072-d3b727b3e404",
+  //     "report": []
+  // }
+
+  // Funciones auxiliares para manejar compatibilidad entre estructuras
+  const getSummary = () => {
+    if (!results) return { total_created: 0, total_updated: 0, total_errors: 0, total_processed: 0 };
+
+    // Nueva estructura (de la función SQL)
+    if (results.summary?.records_created !== undefined) {
+      return {
+        total_created: results.summary.records_created || 0,
+        total_updated: results.summary.records_updated || 0,
+        total_errors: results.summary.records_error || 0,
+        total_processed: results.summary.total_processed || 0,
+      };
+    }
+
+    // Estructura antigua (por compatibilidad)
+    return {
+      total_created: results.summary?.total_created || 0,
+      total_updated: results.summary?.total_updated || 0,
+      total_errors: results.summary?.total_errors || 0,
+      total_processed: results.summary?.total_processed || 0,
+    };
+  };
+
+  const getDetails = () => {
+    if (!results) return { created_records: [], updated_records: [], error_records: [] };
+
+    // Si existe la estructura antigua, usarla
+    if (results.details) {
+      return {
+        created_records: results.details.created_records || [],
+        updated_records: results.details.updated_records || [],
+        error_records: results.details.error_records || [],
+      };
+    }
+
+    // Nueva estructura: convertir desde 'report' si existe
+    const reportData = results.report || [];
+    return {
+      created_records: reportData.filter((r: any) => r.type === 'CREATED') || [],
+      updated_records: reportData.filter((r: any) => r.type === 'UPDATED') || [],
+      error_records: reportData.filter((r: any) => r.type === 'ERROR') || [],
+    };
+  };
+
+  const summary = getSummary();
+  const details = getDetails();
+
   const generateTxtReport = () => {
-    const { summary, details } = results;
     const timestamp = new Date().toLocaleString('es-ES');
 
     let report = `REPORTE DE CARGA MASIVA DE DIAGRAMAS\n`;
@@ -85,7 +157,9 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
       report += `${'='.repeat(50)}\n`;
       details.updated_records.forEach((record, index) => {
         report += `${(index + 1).toString().padStart(3, ' ')}. ${record.employee_name} - ${record.date}\n`;
-        report += `     Actualizado de tipo anterior a nuevo tipo\n`;
+        const oldType = record.old_diagram_type || 'tipo anterior';
+        const newType = record.new_diagram_type || 'nuevo tipo';
+        report += `     Actualizado de "${oldType}" a "${newType}"\n`;
       });
       report += `\n`;
     }
@@ -133,9 +207,9 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
   };
 
   const getSuccessRate = () => {
-    const successful = results.summary.total_created + results.summary.total_updated;
-    const total = results.summary.total_processed;
-    return total > 0 ? ((successful / total) * 100).toFixed(1) : '0';
+    const total = summary.total_created + summary.total_updated;
+    const processed = summary.total_processed;
+    return processed > 0 ? Math.round((total / processed) * 100) : 0;
   };
 
   return (
@@ -143,7 +217,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
       {/* Header con estado general */}
       <div className="text-center">
         <div className="flex items-center justify-center space-x-2 mb-2">
-          {results.summary.total_errors === 0 ? (
+          {results?.summary?.total_errors === 0 ? (
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
               <span className="text-2xl">✅</span>
             </div>
@@ -155,8 +229,9 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
         </div>
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Operación Completada</h2>
         <p className="text-muted-foreground">
-          Tasa de éxito: {getSuccessRate()}% ({results.summary.total_created + results.summary.total_updated} de{' '}
-          {results.summary.total_processed})
+          Tasa de éxito: {getSuccessRate()}% (
+          {(results?.summary?.total_created || 0) + (results?.summary?.total_updated || 0)} de{' '}
+          {results?.summary?.total_processed || 0})
         </p>
       </div>
 
@@ -168,35 +243,35 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-3xl font-bold text-green-600">{results.summary.total_created}</div>
+              <div className="text-3xl font-bold text-green-600">{results?.summary?.total_created}</div>
               <div className="text-sm text-green-700 font-medium">Creados</div>
               <div className="text-xs text-green-600 mt-1">Nuevos registros</div>
             </div>
 
-            <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-3xl font-bold text-blue-600">{results.summary.total_updated}</div>
+            <Card className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-3xl font-bold text-blue-600">{results?.summary?.total_updated}</div>
               <div className="text-sm text-blue-700 font-medium">Actualizados</div>
               <div className="text-xs text-blue-600 mt-1">Registros modificados</div>
-            </div>
+            </Card>
 
-            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-              <div className="text-3xl font-bold text-red-600">{results.summary.total_errors}</div>
+            <Card className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+              <div className="text-3xl font-bold text-red-600">{results?.summary?.total_errors}</div>
               <div className="text-sm text-red-700 font-medium">Errores</div>
               <div className="text-xs text-red-600 mt-1">Registros fallidos</div>
-            </div>
+            </Card>
 
-            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-3xl font-bold text-gray-600">{results.summary.total_processed}</div>
+            <Card className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-3xl font-bold text-gray-600">{results?.summary?.total_processed}</div>
               <div className="text-sm text-gray-700 font-medium">Total</div>
               <div className="text-xs text-gray-600 mt-1">Registros procesados</div>
-            </div>
-          </div>
+            </Card>
 
-          {results.processing_time && (
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              Tiempo de procesamiento: {results.processing_time.toFixed(2)} segundos
-            </div>
-          )}
+            {results.processing_time && (
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                Tiempo de procesamiento: {results.processing_time.toFixed(2)} segundos
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -210,20 +285,20 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
             <TabsList className="grid w-full grid-cols-3 m-4 mb-0">
               <TabsTrigger value="created" className="flex items-center space-x-2">
                 <span>Creados</span>
-                <Badge variant="secondary">{results.details.created_records?.length || 0}</Badge>
+                <Badge variant="secondary">{details.created_records.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="updated" className="flex items-center space-x-2">
                 <span>Actualizados</span>
-                <Badge variant="secondary">{results.details.updated_records?.length || 0}</Badge>
+                <Badge variant="secondary">{details.updated_records.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="errors" className="flex items-center space-x-2">
                 <span>Errores</span>
-                <Badge variant="destructive">{results.details.error_records?.length || 0}</Badge>
+                <Badge variant="secondary">{details.error_records.length}</Badge>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="created" className="mt-4">
-              {results.details.created_records && results.details.created_records.length > 0 ? (
+              {results?.details?.created_records && results?.details?.created_records.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto">
                   <Table>
                     <TableHeader>
@@ -239,8 +314,9 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
                           <TableCell className="font-medium">{record.employee_name}</TableCell>
                           <TableCell>{record.date}</TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="bg-green-100 text-green-700">
-                              ✅ Creado
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 flex items-center">
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Creado
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -254,7 +330,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
             </TabsContent>
 
             <TabsContent value="updated" className="mt-4">
-              {results.details.updated_records && results.details.updated_records.length > 0 ? (
+              {results?.details?.updated_records && results?.details?.updated_records.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto">
                   <Table>
                     <TableHeader>
@@ -270,8 +346,9 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
                           <TableCell className="font-medium">{record.employee_name}</TableCell>
                           <TableCell>{record.date}</TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                              🔄 Actualizado
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 flex items-center">
+                              <RefreshCw className="w-4 h-4 mr-1" />
+                              Actualizado
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -285,7 +362,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
             </TabsContent>
 
             <TabsContent value="errors" className="mt-4">
-              {results.details.error_records && results.details.error_records.length > 0 ? (
+              {results?.details?.error_records && results?.details?.error_records.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto">
                   <Table>
                     <TableHeader>
