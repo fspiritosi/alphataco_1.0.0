@@ -189,7 +189,12 @@ function DiagramMassive() {
           {currentStep === 'conflicts' && conflicts && (
             <ConflictResolutionModal
               conflicts={conflicts}
-              formData={formData!}
+              formData={{
+                ...formData,
+                workDiagramId: formData?.diagramTypeId || '',
+                employeeIds: formData?.employeeIds || [],
+                dateRange: formData?.dateRange || { from: new Date(), to: new Date() },
+              }}
               onResolve={handleConflictResolution}
               onCancel={handleStartOver}
               onProcessingComplete={handleProcessingComplete}
