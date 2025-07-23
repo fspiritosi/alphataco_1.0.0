@@ -355,7 +355,7 @@ export function DataCustomers<TData extends Customer, TValue>({
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Detalles del Cliente</h2>
+          <h2 className="text-2xl font-bold">Detalles del Cliente {selectedCustomer?.name}</h2>
           <Button variant="outline" onClick={() => (id || selectedCustomer) && setShowForm(false)}>
             Cerrar
           </Button>
