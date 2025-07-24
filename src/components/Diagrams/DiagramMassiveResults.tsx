@@ -126,7 +126,6 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
     };
   };
 
-  const summary = getSummary();
   const details = getDetails();
 
   const generateTxtReport = () => {
@@ -207,32 +206,37 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
   };
 
   const getSuccessRate = () => {
-    const total = summary.total_created + summary.total_updated;
-    const processed = summary.total_processed;
-    return processed > 0 ? Math.round((total / processed) * 100) : 0;
+    const summary = getSummary();
+    const successfulRecords = summary.total_created + summary.total_updated;
+    return summary.total_processed > 0 ? Math.round((successfulRecords / summary.total_processed) * 100) : 0;
   };
+
+  const getSuccessIcon = () => {
+    const summary = getSummary();
+    if (summary.total_errors > 0) {
+      return 'warning'; // Hay errores
+    }
+    return 'success'; // Todo exitoso
+  };
+
+  const summary = getSummary();
 
   return (
     <div className="space-y-6">
       {/* Header con estado general */}
       <div className="text-center">
         <div className="flex items-center justify-center space-x-2 mb-2">
-          {results?.summary?.total_errors === 0 ? (
+          {getSummary().total_errors === 0 ? (
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">✅</span>
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
           ) : (
             <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">⚠️</span>
+              <CheckCircle2 className="w-8 h-8 text-yellow-600" />
             </div>
           )}
         </div>
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Operación Completada</h2>
-        <p className="text-muted-foreground">
-          Tasa de éxito: {getSuccessRate()}% (
-          {(results?.summary?.total_created || 0) + (results?.summary?.total_updated || 0)} de{' '}
-          {results?.summary?.total_processed || 0})
-        </p>
       </div>
 
       {/* Resumen visual con métricas */}
@@ -243,28 +247,28 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-3xl font-bold text-green-600">{results?.summary?.total_created}</div>
+              <div className="text-3xl font-bold text-green-600">{summary.total_created}</div>
               <div className="text-sm text-green-700 font-medium">Creados</div>
               <div className="text-xs text-green-600 mt-1">Nuevos registros</div>
             </div>
 
-            <Card className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-3xl font-bold text-blue-600">{results?.summary?.total_updated}</div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="text-3xl font-bold text-blue-600">{summary.total_updated}</div>
               <div className="text-sm text-blue-700 font-medium">Actualizados</div>
               <div className="text-xs text-blue-600 mt-1">Registros modificados</div>
-            </Card>
+            </div>
 
-            <Card className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-              <div className="text-3xl font-bold text-red-600">{results?.summary?.total_errors}</div>
+            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+              <div className="text-3xl font-bold text-red-600">{summary.total_errors}</div>
               <div className="text-sm text-red-700 font-medium">Errores</div>
               <div className="text-xs text-red-600 mt-1">Registros fallidos</div>
-            </Card>
+            </div>
 
-            <Card className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-3xl font-bold text-gray-600">{results?.summary?.total_processed}</div>
+            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-3xl font-bold text-gray-600">{summary.total_processed}</div>
               <div className="text-sm text-gray-700 font-medium">Total</div>
               <div className="text-xs text-gray-600 mt-1">Registros procesados</div>
-            </Card>
+            </div>
 
             {results.processing_time && (
               <div className="mt-4 text-center text-sm text-muted-foreground">
@@ -298,7 +302,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
             </TabsList>
 
             <TabsContent value="created" className="mt-4">
-              {results?.details?.created_records && results?.details?.created_records.length > 0 ? (
+              {details.created_records && details.created_records.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto">
                   <Table>
                     <TableHeader>
@@ -309,7 +313,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.details.created_records.map((record, index) => (
+                      {details.created_records.map((record, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{record.employee_name}</TableCell>
                           <TableCell>{record.date}</TableCell>
@@ -330,21 +334,33 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
             </TabsContent>
 
             <TabsContent value="updated" className="mt-4">
-              {results?.details?.updated_records && results?.details?.updated_records.length > 0 ? (
+              {details.updated_records && details.updated_records.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Empleado</TableHead>
                         <TableHead>Fecha</TableHead>
+                        <TableHead>Novedad Previa</TableHead>
+                        <TableHead>Novedad Actual</TableHead>
                         <TableHead>Estado</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.details.updated_records.map((record, index) => (
+                      {details.updated_records.map((record, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{record.employee_name}</TableCell>
                           <TableCell>{record.date}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-gray-600">
+                              {record.previous_diagram || 'N/A'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="bg-green-100 text-green-700">
+                              {record.diagram_type || 'N/A'}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="bg-blue-100 text-blue-700 flex items-center">
                               <RefreshCw className="w-4 h-4 mr-1" />
@@ -362,7 +378,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
             </TabsContent>
 
             <TabsContent value="errors" className="mt-4">
-              {results?.details?.error_records && results?.details?.error_records.length > 0 ? (
+              {details.error_records && details.error_records.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto">
                   <Table>
                     <TableHeader>
@@ -374,7 +390,7 @@ export function DiagramMassiveResults({ results, onStartOver }: Props) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.details.error_records.map((record, index) => (
+                      {details.error_records.map((record, index) => (
                         <TableRow key={index} className="bg-red-25">
                           <TableCell className="font-medium">{record.employee_name}</TableCell>
                           <TableCell>{record.date || 'N/A'}</TableCell>

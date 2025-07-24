@@ -9,7 +9,8 @@ import { DiagramMassiveResults } from './DiagramMassiveResults';
 // Tipos para los datos del formulario
 interface MassiveFormData {
   employeeIds: string[];
-  diagramTypeId: string;
+  workDiagramId: string;
+  activeNoveltyId?: string;
   dateRange: {
     from: Date;
     to: Date;
@@ -191,7 +192,7 @@ function DiagramMassive() {
               conflicts={conflicts}
               formData={{
                 ...formData,
-                workDiagramId: formData?.diagramTypeId || '',
+                workDiagramId: formData?.workDiagramId || '',
                 employeeIds: formData?.employeeIds || [],
                 dateRange: formData?.dateRange || { from: new Date(), to: new Date() },
               }}
