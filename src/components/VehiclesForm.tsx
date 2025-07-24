@@ -1097,7 +1097,10 @@ export default function VehiclesForm2({
                               role="combobox"
                               disabled={!selectedType || readOnly}
                               value={field.value}
-                              className={cn('w-[250px] justify-between', !field.value && 'text-muted-foreground')}
+                              className={cn(
+                                'w-[250px] justify-between truncate',
+                                !field.value && 'text-muted-foreground'
+                              )}
                             >
                               {field.value ? field.value : 'Seleccione subtipo'}
                               <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
