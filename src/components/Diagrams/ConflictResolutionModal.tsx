@@ -1,7 +1,7 @@
 'use client';
 
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -82,13 +82,14 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
         dateRange: formData.dateRange,
       });
 
-      // NOTA: Esta función usa parámetros antiguos. Cuando actualices las funciones en producción,
-      // cambiar a: p_work_diagram_id, p_active_novelty_id, p_conflict_resolution
-      const { data: result, error } = await supabase.rpc('create_massive_diagrams_with_validations', {
+      // Usar la función SQL corregida con los parámetros correctos
+      const { data: result, error } = await supabase.rpc('process_massive_diagram_creation_v2', {
         p_employee_ids: formData.employeeIds,
-        p_diagram_type_id: formData.activeNoveltyId || formData.workDiagramId, // Usar activeNoveltyId como fallback
+        p_work_diagram_id: formData.workDiagramId,
+        p_active_novelty_id: formData.activeNoveltyId || '',
         p_date_from: formData.dateRange.from.toISOString().split('T')[0],
         p_date_to: formData.dateRange.to.toISOString().split('T')[0],
+        p_conflict_resolution: 'update', // Actualizar conflictos simples
       });
 
       if (error) {
@@ -110,13 +111,27 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-orange-600 mb-2 flex items-center justify-center space-x-2">
-          <AlertTriangle className="w-6 h-6" />
-          <span>Conflictos Detectados</span>
-        </h2>
-        <p className="text-muted-foreground">
-          Se encontraron {totalConflicts} registros existentes que requieren atención
-        </p>
+        {totalConflicts > 0 ? (
+          <>
+            <h2 className="text-2xl font-bold text-orange-600 mb-2 flex items-center justify-center space-x-2">
+              <AlertTriangle className="w-6 h-6" />
+              <span>Conflictos Detectados</span>
+            </h2>
+            <p className="text-muted-foreground">
+              Se encontraron {totalConflicts} registros existentes que requieren atención
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-bold text-green-600 mb-2 flex items-center justify-center space-x-2">
+              <CheckCircle className="w-6 h-6" />
+              <span>Resumen de Creación</span>
+            </h2>
+            <p className="text-muted-foreground">
+              Revisa el resumen de la operación y confirma para proceder con la creación de diagramas
+            </p>
+          </>
+        )}
       </div>
 
       {/* Conflictos en operaciones (errores) */}

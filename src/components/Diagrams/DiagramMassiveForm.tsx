@@ -84,21 +84,29 @@ const fetchData = async ({
   filters,
   page,
   pageSize,
+  company_id,
 }: {
   filters: Filter<'employees'>[];
   page: number;
   pageSize: number;
+  company_id: string;
 }) => {
   const employeesData = await queryPaginated(
     'employees',
     'id, firstname, lastname, document_number, workflow_diagram, employees_diagram(*,diagram_type(*)), contractor_employee(*,customers(id,name))',
     {
-      filters: filters,
+      filters: [
+        {
+          column: 'company_id',
+          operator: 'eq',
+          value: company_id,
+        },
+        ...filters,
+      ],
       page: page,
       pageSize: pageSize,
     }
   );
-
   return employeesData;
 };
 
@@ -403,7 +411,12 @@ export function DiagramMassiveForm({
       console.log('📊 [DEBUG] Parámetros de consulta:', { filters: queryFilters, page: page, pageSize: 100 });
 
       console.log('📊 [DEBUG] Ejecutando fetchData...');
-      const employeesData = await fetchData({ filters: queryFilters, page: page, pageSize: 100 });
+      const employeesData = await fetchData({
+        filters: queryFilters,
+        page: page,
+        pageSize: 100,
+        company_id: company_id || '',
+      });
 
       console.log('📊 [DEBUG] Respuesta de fetchData:', {
         data: employeesData.data ? `Array de ${employeesData.data.length} elementos` : 'null/undefined',
@@ -682,6 +695,23 @@ export function DiagramMassiveForm({
         console.log('⚠️ [DEBUG] No hay novelty inactiva configurada');
         toast.error('El diagrama de trabajo no tiene novedad inactiva configurada');
       }
+
+      // NUEVO: Configurar filtro de diagrama de trabajo (sin ejecutar búsqueda automática)
+      console.log('🔧 [DEBUG] Configurando filtro de diagrama de trabajo:', workDiagramId);
+
+      // Actualizar el filtro de workflow con el diagrama seleccionado
+      const newFilters = {
+        ...filters,
+        workflow: [workDiagramId],
+      };
+      setFilters(newFilters);
+
+      // Actualizar filtros activos si no está ya incluido
+      if (!activeFilters.includes('workflow')) {
+        setActiveFilters((prev) => [...prev, 'workflow']);
+      }
+
+      console.log('🔧 [DEBUG] Filtro configurado. Use el botón "Aplicar Filtros" para buscar empleados.');
     } catch (error) {
       console.error('🚫 [DEBUG] Error cargando novelties:', error);
       toast.error('Error al cargar las configuraciones del diagrama de trabajo');
@@ -690,11 +720,21 @@ export function DiagramMassiveForm({
 
   const handleEmployeeToggle = (employeeId: string) => {
     const currentIds = form.getValues('employeeIds');
-    const newIds = currentIds.includes(employeeId)
-      ? currentIds.filter((id) => id !== employeeId)
-      : [...currentIds, employeeId];
 
-    form.setValue('employeeIds', newIds);
+    if (currentIds.includes(employeeId)) {
+      // Si ya está seleccionado, lo removemos
+      const newIds = currentIds.filter((id) => id !== employeeId);
+      form.setValue('employeeIds', newIds);
+    } else {
+      // Si no está seleccionado, verificamos el límite antes de agregarlo
+      if (currentIds.length >= DATE_RESTRICTIONS.maxEmployees) {
+        toast.warning(`No se puede seleccionar más de ${DATE_RESTRICTIONS.maxEmployees} empleados.`);
+        return;
+      }
+
+      const newIds = [...currentIds, employeeId];
+      form.setValue('employeeIds', newIds);
+    }
   };
 
   const estimateRecords = (employeeCount: number, days: number) => {
@@ -737,19 +777,18 @@ export function DiagramMassiveForm({
       console.log('🔍 [DEBUG] Lista de conflictos extraída:', conflictList);
 
       if (conflictList && conflictList.length > 0) {
-        console.log('🔍 [DEBUG] Se encontraron conflictos, mostrando modal');
+        console.log(' [DEBUG] Se encontraron conflictos, mostrando modal');
         // Separar conflictos por tipo
         const operationConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'IN_USE');
         const simpleConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'CAN_UPDATE');
 
-        console.log('🔍 [DEBUG] Conflictos de operación:', operationConflicts);
-        console.log('🔍 [DEBUG] Conflictos simples:', simpleConflicts);
+        console.log(' [DEBUG] Conflictos de operaciones:', operationConflicts);
+        console.log(' [DEBUG] Conflictos simples:', simpleConflicts);
 
         onConflictsFound({ operationConflicts, simpleConflicts }, data);
       } else {
-        console.log('🔍 [DEBUG] No hay conflictos, procediendo directamente');
-        // No hay conflictos, proceder directamente
-        await executeCreation(data);
+        console.log(' [DEBUG] No hay conflictos, pero mostrando ventana de resumen');
+        onConflictsFound({ operationConflicts: [], simpleConflicts: [] }, data);
       }
     } catch (error) {
       console.error('Error in verification:', error);
@@ -962,7 +1001,11 @@ export function DiagramMassiveForm({
                   key={filter}
                   variant="secondary"
                   className="cursor-pointer hover:bg-red-100"
-                  onClick={() => clearFilter(filter)}
+                  onClick={() => {
+                    if (filter !== 'workflow') {
+                      clearFilter(filter);
+                    }
+                  }}
                 >
                   {filter === 'firstname' && 'Nombre'}
                   {filter === 'lastname' && 'Apellido'}
@@ -974,7 +1017,7 @@ export function DiagramMassiveForm({
                   {filter === 'category' && 'Categoría'}
                   {filter === 'contractor_employee.contractor_id' && 'Contratista'}
                   {filter === 'diagramType' && 'Tipo de Diagrama'}
-                  <X className="h-3 w-3 ml-1" />
+                  {filter !== 'workflow' && <X className="h-3 w-3 ml-1" />}
                 </Badge>
               ))}
             </div>
@@ -1018,17 +1061,7 @@ export function DiagramMassiveForm({
                   />
                 </div>
 
-                {/* Filtro por diagrama de trabajo */}
-                <div className="space-y-2">
-                  <Label>Diagrama de Trabajo</Label>
-                  <MultiSelectCombobox
-                    options={filterOptions.workflows.map((w) => ({ value: w.id, label: w.name || 'Sin nombre' }))}
-                    selectedValues={filters.workflow}
-                    onChange={(values) => handleMultiFilterChange('workflow', values)}
-                    placeholder="Seleccionar diagramas..."
-                    emptyMessage="No se encontraron diagramas"
-                  />
-                </div>
+                {/* Filtro de Diagrama de Trabajo removido - ahora se aplica automáticamente desde el formulario */}
 
                 {/* Filtro por centro de costo */}
                 <div className="space-y-2">
@@ -1127,7 +1160,7 @@ export function DiagramMassiveForm({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <FormLabel>
-                    Empleados ({employeeCount}/{DATE_RESTRICTIONS.maxEmployees})
+                    Empleados ({form.getValues('employeeIds')?.length || 0}/{DATE_RESTRICTIONS.maxEmployees})
                   </FormLabel>
                   <div className="flex space-x-2">
                     <Button
@@ -1136,7 +1169,14 @@ export function DiagramMassiveForm({
                       size="sm"
                       onClick={() => {
                         const allIds = employees.map((emp) => emp.id);
-                        form.setValue('employeeIds', allIds);
+                        const limitedIds = allIds.slice(0, DATE_RESTRICTIONS.maxEmployees);
+                        form.setValue('employeeIds', limitedIds);
+
+                        if (allIds.length > DATE_RESTRICTIONS.maxEmployees) {
+                          toast.warning(
+                            `Solo se seleccionaron los primeros ${DATE_RESTRICTIONS.maxEmployees} empleados debido al límite máximo.`
+                          );
+                        }
                       }}
                       disabled={employees.length === 0}
                     >
