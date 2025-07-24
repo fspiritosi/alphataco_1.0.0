@@ -19,7 +19,7 @@ export const setNewCompanyUserMetadata = async (company_id: string) => {
     });
 
     if (error) {
-      console.error('Error updating user metadata:', error);
+      // console.error('Error updating user metadata:', error);
       return;
     }
   }

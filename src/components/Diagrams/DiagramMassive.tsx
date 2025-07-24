@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ConflictResolutionModal } from './ConflictResolutionModal';
 import { DiagramMassiveForm } from './DiagramMassiveForm';
-import { DiagramMassiveResults } from './DiagramMassiveResults';
+import { DiagramMassiveResults, ProcessingResult } from './DiagramMassiveResults';
 
 // Tipos para los datos del formulario
 interface MassiveFormData {
@@ -40,21 +40,6 @@ interface ConflictData {
 }
 
 // Tipos para resultados
-interface ProcessingResult {
-  success: boolean;
-  summary: {
-    total_created: number;
-    total_updated: number;
-    total_errors: number;
-    total_processed: number;
-  };
-  details: {
-    created_records: any[];
-    updated_records: any[];
-    error_records: any[];
-  };
-  processing_time: number;
-}
 
 function DiagramMassive() {
   const [currentStep, setCurrentStep] = useState<'form' | 'conflicts' | 'results'>('form');
