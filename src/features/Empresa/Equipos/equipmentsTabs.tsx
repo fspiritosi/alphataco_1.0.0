@@ -1,8 +1,8 @@
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
 import EquipmentBrandsWrapper from './components/EquipmentBrandsWrapper';
+import EquipmentSubTypesWrapper from './components/EquipmentSubTypesWrapper';
 import EquipmentTypesWrapper from './components/EquipmentTypesWrapper';
 import EquipmentsModelWrapper from './components/EquipmentsModelWrapper';
-
 function EquipmentsTabs({ tabValue }: { tabValue: string }) {
   const viewData = {
     defaultValue: 'tipos',
@@ -39,6 +39,17 @@ function EquipmentsTabs({ tabValue }: { tabValue: string }) {
           buttonActioRestricted: [''],
           buttonAction: '',
           component: <EquipmentsModelWrapper />,
+        },
+      },
+      {
+        value: 'subtipos',
+        name: 'Subtipos',
+        restricted: [''],
+        content: {
+          title: 'Subtipos',
+          buttonActioRestricted: [''],
+          buttonAction: '',
+          component: <EquipmentSubTypesWrapper />,
         },
       },
     ],

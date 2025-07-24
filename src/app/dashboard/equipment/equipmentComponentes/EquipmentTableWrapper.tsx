@@ -12,6 +12,7 @@ type EquipmentTableWrapperProps = {
 async function EquipmentTableWrapper({ filterType = 'all' }: EquipmentTableWrapperProps) {
   // Fetch toda la data necesaria
   const equipments = await fetchAllEquipment();
+
   const cookiesStore = cookies();
   const supabase = supabaseServer();
   const {

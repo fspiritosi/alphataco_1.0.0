@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 // import { supabase } from '../../../../../supabase/supabase';
+import { FetchSubTypeOfVehicles } from '@/features/Empresa/Equipos/actions/actions';
 import { supabaseServer } from '@/lib/supabase/server';
 import { getRole } from '@/lib/utils/getRole';
 import VehiclesForm, { generic } from '../../../../components/VehiclesForm';
 import { fetchAllCostCenter, fetchContractorCompanies } from '../../employee/action/actions/actions';
-
 export default async function EquipmentFormAction({ searchParams }: { searchParams: any }) {
   const supabase = supabaseServer();
   // const { data } = await supabase
@@ -61,6 +61,8 @@ export default async function EquipmentFormAction({ searchParams }: { searchPara
   const allCostCenter = await fetchAllCostCenter();
   const contractorCompanies = await fetchContractorCompanies();
 
+  const subTypes = await FetchSubTypeOfVehicles();
+
   const role = await getRole();
   return (
     <section className="grid grid-cols-1 xl:grid-cols-8 gap-3 md:mx-7 py-4">
@@ -77,6 +79,7 @@ export default async function EquipmentFormAction({ searchParams }: { searchPara
           brand_vehicles={brand_vehicles}
           allCostCenter={allCostCenter}
           contractorCompanies={contractorCompanies}
+          subTypes={subTypes}
         >
           <TabsContent value="documents">
             <DocumentEquipmentComponent id={vehicle?.[0]?.id || ''} role={role as string} />

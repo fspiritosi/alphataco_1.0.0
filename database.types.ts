@@ -2672,6 +2672,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      sub_type: {
+        Row: {
+          company_id: string | null;
+          created_at: string;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+          type: string | null;
+        };
+        Insert: {
+          company_id?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+          type?: string | null;
+        };
+        Update: {
+          company_id?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+          type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sub_type_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sub_type_type_fkey';
+            columns: ['type'];
+            isOneToOne: false;
+            referencedRelation: 'type';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       type: {
         Row: {
           company_id: string | null;

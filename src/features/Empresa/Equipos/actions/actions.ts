@@ -293,3 +293,114 @@ export async function updateModelOfVehicle({
     throw error;
   }
 }
+
+export async function FetchSubTypeOfVehicles() {
+  const supabase = supabaseServer();
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+  try {
+    let { data: vehicle_type, error } = await supabase
+      .from('sub_type')
+      .select('*')
+      .eq('company_id', company_id ?? '');
+
+    if (error) {
+      console.error('Error fetching vehicle types:', error);
+      return [];
+    }
+
+    return vehicle_type;
+  } catch (error) {
+    console.log(error);
+    return [];
+  }
+}
+
+export async function createSubTypeOfVehicle({
+  name,
+  is_active = false,
+  type_id,
+}: {
+  name: string;
+  is_active?: boolean;
+  type_id: string;
+}) {
+  const supabase = supabaseServer();
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+  try {
+    let { data: vehicle_type, error } = await supabase
+      .from('sub_type')
+      .insert({
+        name,
+        is_active,
+        company_id,
+        type: type_id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating vehicle type:', error);
+      throw error;
+    }
+
+    return vehicle_type;
+  } catch (error) {
+    console.log(error);
+    return [];
+  }
+}
+
+export async function updateSubTypeOfVehicle({
+  id,
+  name,
+  type_id,
+  is_active,
+}: {
+  id: string;
+  name: string;
+  type_id: string;
+  is_active?: boolean;
+}) {
+  const supabase = supabaseServer();
+
+  try {
+    // Preparamos los datos a actualizar
+    const updateData: { name: string; is_active?: boolean; type: string } = { name, is_active, type: type_id };
+
+    // Solo incluimos is_active si se proporciona explícitamente
+    // if (is_active !== undefined) {
+    //   updateData.is_active = is_active;
+    // }
+
+    // Primero verificamos si el registro existe
+    const { data: existing, error: findError } = await supabase.from('sub_type').select('*').eq('id', id).single();
+
+    if (findError || !existing) {
+      console.error('Error: El subtipo de vehículo no existe', { id });
+      throw new Error('El subtipo de vehículo no existe');
+    }
+
+    // Realizamos la actualización sin esperar datos de retorno
+    const { error: updateError } = await supabase.from('sub_type').update(updateData).eq('id', id);
+
+    if (updateError) {
+      console.error('Error en la actualización:', updateError);
+      throw updateError;
+    }
+
+    // Obtenemos el registro actualizado
+    const { data: updated, error: fetchError } = await supabase.from('sub_type').select('*').eq('id', id).single();
+
+    if (fetchError || !updated) {
+      console.error('Error obteniendo el registro actualizado:', fetchError);
+      throw new Error('No se pudo verificar la actualización');
+    }
+
+    return updated;
+  } catch (error) {
+    console.error('Error en updateTypeOfVehicle:', error);
+    throw error;
+  }
+}
