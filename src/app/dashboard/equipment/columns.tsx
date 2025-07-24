@@ -425,6 +425,17 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     },
   },
   {
+    accessorKey: 'subType.name',
+    id: 'Sub Tipo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sub Tipo" />,
+    cell: ({ row }) => {
+      return <Badge>{row.original.subType?.name || ''}</Badge>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
     accessorKey: 'types_of_vehicles',
     id: 'Tipos de vehículos',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipos de vehículos" />,
