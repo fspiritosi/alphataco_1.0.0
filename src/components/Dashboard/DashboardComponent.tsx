@@ -1,13 +1,10 @@
 import CardsGrid from '@/app/dashboard/componentDashboard/CardsGrid';
-import DocumentsTable from '@/app/dashboard/componentDashboard/DocumentsTable';
-import EmployeesTable from '@/app/dashboard/componentDashboard/EmployeesTable';
 import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
 import EmpleadoDiagramasChart from '@/features/graficos/rrhh/data-empleado-diagramas';
 import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
-import { InteractiveChart } from '../Graficos/InteractiveChart';
 
 export default async function DashboardComponent() {
   const employees = fetchAllEmployeesCount();
@@ -21,17 +18,24 @@ export default async function DashboardComponent() {
       <Tabs defaultValue="Principal" className="w-full">
         <TabsList className="ml-6">
           <TabsTrigger value="Principal">Principal</TabsTrigger>
-          <TabsTrigger value="Empleados">Empleados</TabsTrigger>
+          {/* <TabsTrigger value="Empleados">Empleados</TabsTrigger> */}
           {/* <TabsTrigger value="Mantenimiento">Mantenimiento</TabsTrigger> */}
         </TabsList>
         <TabsContent className="w-full" value="Principal">
           <section className="md:mx-7 grid grid-cols-1 mt-6 xl:grid-cols-4 gap-3 mb-4 ">
             <section className="flex flex-col gap-4 w-full">
               <ResoursesChart employees={employees} equipments={equipments} />
-              <InteractiveChart />
+
+              {/* <InteractiveChart /> */}
               <MissingDocumentList />
             </section>
-            <Card className="col-span-3 flex flex-col justify-between overflow-hidden">
+            <section className="col-span-3">
+              <section className="flex flex-col gap-4 w-full">
+                <EmpleadoDiagramasChart />
+                <EquipmentChart />
+              </section>
+
+              {/* <Card className=" flex flex-col justify-between overflow-hidden">
               <div>
                 <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
                   <div className="grid gap-1">
@@ -59,16 +63,18 @@ export default async function DashboardComponent() {
                     </TabsContent>
                   </Tabs>
                 </div>
+                
               </div>
               <CardFooter className="flex flex-row items-center border-t bg-gh dark:bg-muted/50 px-6 py-3"></CardFooter>
-            </Card>
+            </Card> */}
+            </section>
           </section>
         </TabsContent>
-        <TabsContent value="Empleados">
-          <div className="flex flex-col justify-center w-1/2">
+        {/* <TabsContent value="Empleados">
+          <div className="flex flex-col justify-center">
             <EmpleadoDiagramasChart />
           </div>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );

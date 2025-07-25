@@ -2,31 +2,9 @@
 import { Pie, PieChart } from 'recharts';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 export const description = 'A pie chart with a label';
-
-// const chartData = [
-//   { browser: "chrome", visitors: 275, fill: "#8DB9D7" },
-//   { browser: "safari", visitors: 200, fill: "#1F4A67" },
-//   { browser: "firefox", visitors: 187, fill: "#8DB9D7" },
-//   { browser: "edge", visitors: 173, fill: "#1F4A67" },
-//   { browser: "other", visitors: 90, fill: "#8DB9D7" },
-// ]
-
-const chartData = [
-  { novedad: 'Normal', empleados: 275, fill: '#27ae60' }, // verde
-  { novedad: 'Franco', empleados: 200, fill: '#1F4A67' },
-  { novedad: 'Enfermedad', empleados: 187, fill: '#8DB9D7' },
-  { novedad: 'Accidentes', empleados: 173, fill: '#1F4A67' },
-  { novedad: 'Sin', empleados: 90, fill: '#e74c3c' }, // rojo
-];
 
 export function Empleados_diagramas({
   chartData,
@@ -38,23 +16,23 @@ export function Empleados_diagramas({
   date: string;
 }) {
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col ">
       <CardHeader className="items-center pb-0">
-        <CardTitle>Diagrama Empleados</CardTitle>
+        <CardTitle>Diagramas cargados al día</CardTitle>
         <CardDescription>Fecha: {date}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
+      <CardContent className="flex-1 pb-0 ">
         <ChartContainer
           config={chartConfig}
-          className="[&_.recharts-pie-label-text]:fill-foreground mx-auto aspect-square max-h-[250px] pb-0"
+          className="[&_.recharts-pie-label-text]:fill-foreground mx-auto aspect-square pb-0 max-h-[250px]"
         >
           <PieChart>
             <ChartTooltip content={<ChartTooltipContent hideLabel />} />
             <Pie data={chartData} dataKey="empleados" label nameKey="novedad" />
-            <ChartLegend
+            {/* <ChartLegend
               content={<ChartLegendContent nameKey="novedad" />}
               className="-translate-y-2 flex-wrap gap-2 *:basis-1/4 *:justify-center"
-            />
+            /> */}
           </PieChart>
         </ChartContainer>
         {/* <ChartContainer
