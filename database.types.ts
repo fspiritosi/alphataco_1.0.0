@@ -3297,7 +3297,7 @@ export type Database = {
     };
     Enums: {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
-      condition_enum: 'operativo' | 'no operativo' | 'en reparaci├│n' | 'operativo condicionado';
+      condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
         | 'pendiente'
