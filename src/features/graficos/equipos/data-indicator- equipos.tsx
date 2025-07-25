@@ -6,88 +6,8 @@ export default async function EquipmentChart() {
 
   const employeeIndicator = await getEmployeeIndicator(['2e5d7af8-615c-4b23-b4f9-801b03a83652'], false);
   console.log(employeeIndicator, 'indicator');
-  // const condiciones_indicadores = {
-  //   'success': 75,
-  //   'warning': 50,
-  //   'destructive': 25
-  // }
 
-  // const diagrams_types = await fetchDiagramsTypes();
-  // //console.log(diagrams_types, 'diagrams_types');
-  // const novedades = diagrams_types.map((diagram_type) => ({
-  //   id: diagram_type.id,
-  //   name: diagram_type.name,
-  //   color: diagram_type.color,
-  // }));
-  // const diagrams_day = await getDiagramsDay();
   const active_vehicles = await getVehiclesDisponibleFilterType();
-  // const date: string = moment().format('DD-MM-YYYY');
-  // const dateFilter: string = moment().format('YYYY-MM-DD');
-
-  // const diagramasCount = diagrams_day?.reduce((acc: Record<string, number>, diagram) => {
-  //   const id = diagram.diagram_type?.id;
-  //   if (id) {
-  //     acc[id] = (acc[id] || 0) + 1;
-  //   }
-  //   return acc;
-  // }, {});
-
-  // const diagramas = diagramasCount ? Object.entries(diagramasCount).map(([id, cantidad]) => ({ id, cantidad })) : [];
-
-  // const chartData = novedades
-  //   .map((novedad) => {
-  //     const cantidad = diagramas.find((diagram) => diagram.id === novedad.id)?.cantidad || 0;
-  //     return { novedad: novedad.name, empleados: cantidad, fill: novedad.color };
-  //   })
-  //   .filter((item) => item.empleados > 0);
-
-  // const empleadosTotal = chartData.reduce((acc, curr) => acc + curr.empleados, 0);
-
-  // if (active_employees && empleadosTotal < active_employees) {
-  //   chartData.push({
-  //     novedad: 'Sin diagrama',
-  //     empleados: active_employees - empleadosTotal,
-  //     fill: '#e74c3c',
-  //   });
-  // }
-
-  // // Generar chartConfig dinámicamente a partir de chartData
-  // const chartConfig = {
-  //   empleados: { label: 'Novedades' },
-  //   ...chartData
-  //     .filter((item) => item.empleados > 0)
-  //     .reduce(
-  //       (acc, item) => {
-  //         acc[item.novedad!] = { label: item.novedad!, color: item.fill };
-  //         return acc;
-  //       },
-  //       {} as Record<string, { label: string; color: string }>
-  //     ),
-  // };
-
-  // const usageEmployees= await getUniqueEmployeeCountByDate(dateFilter);
-  // const diagramActiveEmployees = diagrams_day?.filter((diagram) => diagram.diagram_type?.work_active)?.length;
-
-  // let disponibleEmployeesNumber = 0;
-  // let disponibleEmployeesPorcent = 0;
-
-  // if(diagramActiveEmployees && diagramActiveEmployees > 0 && usageEmployees.count >= 0){
-  //   disponibleEmployeesNumber = diagramActiveEmployees - usageEmployees.count;
-  //   disponibleEmployeesPorcent = (disponibleEmployeesNumber / diagramActiveEmployees) * 100;
-  // }
-
-  // const indicatorCharData = [{ operative: usageEmployees.count, available: disponibleEmployeesNumber }];
-
-  // const indicatorChartConfig = {
-  //   operative: {
-  //     label: "En Operación",
-  //     color: "#34C759",
-  //   },
-  //   available: {
-  //     label: "Disponibles",
-  //     color: "#e74c3c",
-  //   },
-  // } satisfies ChartConfig;
 
   return (
     <section className="grid grid-cols-2 gap-4">

@@ -590,7 +590,7 @@ export const VehicleSchema =
       types_of_vehicles: BrandVehiclesClassSchema,
       brand_vehicles: BrandVehiclesClassSchema,
       model_vehicles: BrandVehiclesClassSchema,
-      condition: z.enum(['operativo', 'no operativo', 'en reparación', 'operativo condicionado']),
+      condition: z.enum(['operativo', 'no operativo', 'en reparacion', 'operativo condicionado']),
       kilometer: z.string(),
     })
   ) || [];

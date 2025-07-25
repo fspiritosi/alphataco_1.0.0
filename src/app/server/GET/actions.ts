@@ -1182,7 +1182,7 @@ export const fetchAllOpenRepairRequests = async () => {
       '*,user_id(*),employee_id(*),equipment_id(*,type(*),brand(*),model(*)),reparation_type(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
     )
     .eq('equipment_id.company_id', company_id)
-    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparación'])
+    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion'])
     .returns<RepairRequestDetailed[]>();
 
   if (error) {
@@ -1203,7 +1203,7 @@ export const fetchRepairRequestsByEquipmentId = async (equipmentId: string) => {
       '*,user_id(*),employee_id(*),equipment_id(*,type(*),brand(*),model(*)),reparation_type(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
     )
     .eq('equipment_id', equipmentId)
-    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparación'])
+    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion'])
     .returns<RepairRequestDetailed[]>();
 
   if (error) {

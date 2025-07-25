@@ -648,7 +648,7 @@ export async function getActiveEquipmentsForDailyReport() {
     .select('*,contractor_equipment(*),type(*)')
     .eq('is_active', true)
     .neq('condition', 'no operativo')
-    .neq('condition', 'en reparación')
+    .neq('condition', 'en reparacion')
     .eq('company_id', company_id || user?.app_metadata?.company_id || '');
   if (error) {
     console.error('Error al obtener equipos activos:', error);

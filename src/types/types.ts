@@ -233,7 +233,7 @@ export type Vechicle = {
   status: 'Avalado' | 'No avalado';
   kilometer: string;
   type: Model;
-  condition: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+  condition: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
 };
 
 type Resource = Vechicle | Employee;
@@ -565,7 +565,7 @@ export type TypeOfRepair = {
 export type RepairsSolicituds = {
   id: string;
   created_at: string;
-  state: 'Pendiente' | 'Esperando repuestos' | 'En reparación' | 'Finalizado' | 'Rechazado' | 'Cancelado';
+  state: 'Pendiente' | 'Esperando repuestos' | 'En reparacion' | 'Finalizado' | 'Rechazado' | 'Cancelado';
   user_description: string;
   mechanic_description: null | string;
   end_date: null | Date;
@@ -576,7 +576,7 @@ export type RepairsSolicituds = {
   user_images: string[];
   mechanic_images: string[];
   vehicle_id: string;
-  vehicle_condition: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+  vehicle_condition: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
   intern_number: string;
   kilometer: string | null;
   repairlogs:
@@ -603,7 +603,7 @@ export type RepairsSolicituds = {
 export type FormattedSolicitudesRepair = {
   id: string;
   title: string;
-  state: 'Pendiente' | 'Esperando repuestos' | 'En reparación' | 'Finalizado' | 'Rechazado' | 'Cancelado';
+  state: 'Pendiente' | 'Esperando repuestos' | 'En reparacion' | 'Finalizado' | 'Rechazado' | 'Cancelado';
   label: string;
   priority: 'Alta' | 'Media' | 'Baja';
   created_at: string;
@@ -648,7 +648,7 @@ export type FormattedSolicitudesRepair = {
       }[]
     | [];
   mechanic_description: string | null;
-  vehicle_condition: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+  vehicle_condition: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
 }[];
 
 // Tipo para las categorías dentro de un convenio

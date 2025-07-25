@@ -42,6 +42,7 @@ declare global {
   type ContractType = DB['public']['Tables']['types_of_contract']['Row'];
   type CostCenter = DB['public']['Tables']['cost_center']['Row'];
   type Vehicle = DB['public']['Tables']['vehicles']['Row']; // Anteriormente: Vehicles
+  type SubType = DB['public']['Tables']['sub_type']['Row'];
   type VehicleBrand = DB['public']['Tables']['brand_vehicles']['Row']; // Anteriormente: Brand
   type DocumentTypes = DB['public']['Tables']['document_types']['Row']; // Anteriormente: TypeOfDocuments
   type DailyReportStatus = DB['public']['Enums']['daily_report_header_status_new'];
@@ -254,14 +255,14 @@ declare global {
   }
 
   // Relaciones de Vehicle
-  interface VehicleWithBrand extends Omit<Vehicle, 'brand' | 'model' | 'type' | 'contractor_equipment'> {
+  interface VehicleWithBrand extends Omit<Vehicle, 'brand' | 'model' | 'type' | 'contractor_equipment' | 'subType'> {
     // Anteriormente: VehiclesWithBrand
     brand: VehicleBrand; // Anteriormente: Brand
     model: TypeOfVehicle; // Anteriormente: Model
     type: VehicleType; // Anteriormente: type_of_vehicle
     types_of_vehicles: TypeOfVehicle; // Anteriormente: type_of_vehicle
     contractor_equipment: contractor_equipmentWithContractor[]; // Anteriormente: contractor_equipment
-    subType: { name: string; id: string; type: string };
+    subType: SubType;
   }
   interface ContractorEmployeeWithCustomer extends Omit<ContractorEmployee, 'customers'> {
     // Anteriormente: ContractorWithCustomers

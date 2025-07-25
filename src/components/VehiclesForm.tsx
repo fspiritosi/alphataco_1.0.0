@@ -56,7 +56,7 @@ type VehicleType = {
   subTypes: subType[] | null;
   id: string;
   allocated_to: string[];
-  condition: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+  condition: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
 };
 export type generic = {
   name: string;
@@ -585,7 +585,7 @@ export default function VehiclesForm2({
   const variants: any = {
     operativo: 'success',
     'no operativo': 'destructive',
-    'en reparación': 'yellow',
+    'en reparacion': 'yellow',
     'operativo condicionado': 'info',
     default: 'default',
   };
@@ -594,7 +594,7 @@ export default function VehiclesForm2({
     'operativo condicionado': { color: 'bg-blue-500', icon: AlertTriangle },
     operativo: { color: 'bg-green-500', icon: CheckCircle },
     'no operativo': { color: 'bg-red-500', icon: XCircle },
-    'en reparación': { color: 'bg-yellow-500', icon: RiToolsFill },
+    'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
   };
 
   const qrUrl = `${URLQR}maintenance?equipment=${vehicle?.id}`;
