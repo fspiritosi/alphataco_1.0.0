@@ -1,11 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '12.2.3 (519615d)';
-  };
   public: {
     Tables: {
       aptitudes_tecnicas: {
@@ -3137,20 +3132,13 @@ export type Database = {
         }[];
       };
       check_diagram_conflicts_with_operations_v2: {
-        Args:
-          | {
-              p_employee_ids: string[];
-              p_work_diagram_id: string;
-              p_date_from: string;
-              p_date_to: string;
-            }
-          | {
-              p_employee_ids: string[];
-              p_work_diagram_id: string;
-              p_date_from: string;
-              p_date_to: string;
-              p_active_novelty_id: string;
-            };
+        Args: {
+          p_employee_ids: string[];
+          p_work_diagram_id: string;
+          p_date_from: string;
+          p_date_to: string;
+          p_active_novelty_id: string;
+        };
         Returns: Json;
       };
       controlar_alertas_documentos: {
@@ -3290,7 +3278,7 @@ export type Database = {
           p_active_novelty_id: string;
           p_date_from: string;
           p_date_to: string;
-          p_conflict_resolution: string;
+          p_conflict_resolution?: string;
         };
         Returns: Json;
       };
@@ -3355,7 +3343,7 @@ export type Database = {
       roles_enum: 'Externo' | 'Auditor';
       state: 'presentado' | 'rechazado' | 'aprobado' | 'vencido' | 'pendiente';
       status_type: 'Avalado' | 'No avalado' | 'Incompleto' | 'Completo' | 'Completo con doc vencida';
-      termination_reason_enum: 'venta' | 'destrucci├│n total' | 'devoluci├│n' | 'otro';
+      termination_reason_enum: 'venta' | 'destrucción total' | 'devolución' | 'otro';
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
       type_of_contract_enum: 'Per├¡odo de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
@@ -3521,9 +3509,9 @@ export const Constants = {
       roles_enum: ['Externo', 'Auditor'],
       state: ['presentado', 'rechazado', 'aprobado', 'vencido', 'pendiente'],
       status_type: ['Avalado', 'No avalado', 'Incompleto', 'Completo', 'Completo con doc vencida'],
-      termination_reason_enum: ['venta', 'destrucci├│n total', 'devoluci├│n', 'otro'],
+      termination_reason_enum: ['venta', 'destrucción total', 'devolución', 'otro'],
       type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
-      type_of_contract_enum: ['Per├¡odo de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
+      type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
       type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
     },
   },

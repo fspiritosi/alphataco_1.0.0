@@ -33,6 +33,7 @@ export function EquipmentTable<TData, TValue>({
   const statusOptions = createFilterOptions(data, (doc) => doc.status);
   const conditionOptions = createFilterOptions(data, (doc) => doc.condition);
   const typeOptions = createFilterOptions(data, (doc) => doc.type.name);
+  const subTypeOptions = createFilterOptions(data, (doc) => doc.subType?.name);
   const afectacionesOpciones = createNestedFilterOptions(
     data,
     (employee) =>
@@ -109,6 +110,11 @@ export function EquipmentTable<TData, TValue>({
               columnId: 'Tipo',
               title: 'Tipo',
               options: typeOptions,
+            },
+            {
+              columnId: 'Sub Tipo',
+              title: 'Sub Tipo',
+              options: subTypeOptions,
             },
           ],
         }}

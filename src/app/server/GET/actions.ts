@@ -19,7 +19,7 @@ export const setNewCompanyUserMetadata = async (company_id: string) => {
     });
 
     if (error) {
-      console.error('Error updating user metadata:', error);
+      // console.error('Error updating user metadata:', error);
       return;
     }
   }
@@ -967,7 +967,7 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
 
   const { data, error } = await supabase
     .from('vehicles')
-    .select('*,brand(*),model(*),type(*),types_of_vehicles(*),contractor_equipment(*,contractor_id(*))')
+    .select('*,brand(*),model(*),type(*),subType(*),types_of_vehicles(*),contractor_equipment(*,contractor_id(*))')
     .eq('company_id', (company_id ?? company_equipment_id) || '')
     .returns<VehicleWithBrand[]>();
 
