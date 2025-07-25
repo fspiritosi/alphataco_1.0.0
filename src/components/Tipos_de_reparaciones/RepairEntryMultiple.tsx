@@ -275,12 +275,12 @@ export default function RepairNewEntryMultiple({
             const equipmentItem = equipment.find((equip) => equip.id === equipmentId);
             const condition = equipmentItem?.condition;
 
-            if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparación') {
+            if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
               await supabase
                 .from('vehicles')
                 .update({ condition: 'no operativo', kilometer: currentEquipmentKilometer })
                 .eq('id', equipmentId);
-            } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparación') {
+            } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
               await supabase
                 .from('vehicles')
                 .update({ condition: 'operativo condicionado', kilometer: currentEquipmentKilometer })

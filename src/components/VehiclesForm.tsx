@@ -36,6 +36,7 @@ require('dotenv').config();
 import { fetchContractorCompanies } from '@/app/dashboard/employee/action/actions/actions';
 import Cookies from 'js-cookie';
 import QRCode from 'react-qr-code';
+import { Database } from '../../database.types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 type VehicleType = {
   year: string;
@@ -52,15 +53,16 @@ type VehicleType = {
   model_vehicles: { name: string };
   model: string;
   type: { name: string };
+  subTypes: subType[] | null;
   id: string;
   allocated_to: string[];
-  condition: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+  condition: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
 };
 export type generic = {
   name: string;
   id: string;
 };
-
+type subType = Database['public']['Tables']['sub_type']['Row'];
 type dataType = {
   tipe_of_vehicles: generic[];
   models: {
@@ -74,6 +76,7 @@ export default function VehiclesForm2({
   allCostCenter,
   children,
   types: vehicleType,
+  subTypes,
   brand_vehicles,
   role,
   contractorCompanies,
@@ -82,6 +85,7 @@ export default function VehiclesForm2({
   allCostCenter: CostCenter[];
   children: ReactNode;
   types: generic[];
+  subTypes: subType[] | null;
   brand_vehicles: VehicleBrand[] | null;
   role?: string;
   contractorCompanies: Awaited<ReturnType<typeof fetchContractorCompanies>>;
@@ -95,7 +99,7 @@ export default function VehiclesForm2({
 
   // const role = useLoggedUserStore((state) => state.roleActualCompany);
   const [type, setType] = useState('');
-
+  const [subType, setSubType] = useState('');
   const [data, setData] = useState<dataType>({
     tipe_of_vehicles: [],
     models: [],
@@ -265,6 +269,7 @@ export default function VehiclesForm2({
     intern_number: z.string().optional(),
     picture: z.string().optional(),
     type: hideInput ? z.string().optional() : z.string({ required_error: 'El tipo es requerido' }),
+    subType: hideInput ? z.string().optional() : z.string({ required_error: 'El subtipo es requerido' }),
     allocated_to: z.array(z.string()).optional(),
     cost_center_id: z.string().optional(),
   });
@@ -324,6 +329,7 @@ export default function VehiclesForm2({
       model: vehicle?.model || '',
       type_of_vehicle: vehicle?.type_of_vehicle || '',
       type: vehicle?.type || '',
+      subType: vehicle?.subType ? subTypes?.find((e: any) => e.id === vehicle?.subType)?.name || '' : '',
       kilometer: vehicle?.kilometer || '',
     },
   });
@@ -357,6 +363,7 @@ export default function VehiclesForm2({
                 brand: brand_vehicles?.find((e) => e.name === brand)?.id,
                 model: data.models.find((e) => e.name === model)?.id,
                 type: vehicleType.find((e) => e.name === values.type)?.id,
+                subType: subTypes?.find((e) => e.name === values.subType)?.id,
                 company_id: actualCompany,
                 condition: 'operativo',
                 kilometer: values.kilometer || 0,
@@ -522,6 +529,7 @@ export default function VehiclesForm2({
           allocated_to: values.allocated_to,
           kilometer: values.kilometer,
           type: vehicleType.find((e) => e.name === values.type)?.id,
+          subType: subTypes?.find((e) => e.name === values.subType)?.id,
           cost_center_id: values.cost_center_id || null,
         });
 
@@ -577,7 +585,7 @@ export default function VehiclesForm2({
   const variants: any = {
     operativo: 'success',
     'no operativo': 'destructive',
-    'en reparación': 'yellow',
+    'en reparacion': 'yellow',
     'operativo condicionado': 'info',
     default: 'default',
   };
@@ -586,7 +594,7 @@ export default function VehiclesForm2({
     'operativo condicionado': { color: 'bg-blue-500', icon: AlertTriangle },
     operativo: { color: 'bg-green-500', icon: CheckCircle },
     'no operativo': { color: 'bg-red-500', icon: XCircle },
-    'en reparación': { color: 'bg-yellow-500', icon: RiToolsFill },
+    'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
   };
 
   const qrUrl = `${URLQR}maintenance?equipment=${vehicle?.id}`;
@@ -632,6 +640,12 @@ export default function VehiclesForm2({
 
     document.body.removeChild(iframe);
   };
+  const selectedType = form.watch('type'); // Asegúrate de que 'type' sea el nombre correcto del campo en tu formulario
+  // Filtrar los subTypes basados en el tipo seleccionado
+
+  const selectedTypeId = selectedType ? vehicleType?.find((type) => type.name === selectedType)?.id : null;
+  const filteredSubTypes = selectedTypeId ? subTypes?.filter((subType) => subType.type === selectedTypeId) : subTypes;
+
   return (
     <section className="grid max-w-full ">
       <header className="flex justify-between gap-4 flex-wrap">
@@ -1048,6 +1062,7 @@ export default function VehiclesForm2({
                                   key={option.name}
                                   onSelect={() => {
                                     form.setValue('type', option.name);
+                                    form.setValue('subType', '');
                                   }}
                                 >
                                   {option.name}
@@ -1064,6 +1079,70 @@ export default function VehiclesForm2({
                         </PopoverContent>
                       </Popover>
                       <FormDescription>Selecciona el tipo</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="subType"
+                  render={({ field }) => (
+                    <FormItem className={cn('flex flex-col min-w-[250px]', form.getValues('subType'))}>
+                      <FormLabel>Sub Tipo de Unidad</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              disabled={!selectedType || readOnly}
+                              value={field.value}
+                              className={cn(
+                                'w-[250px] justify-between truncate',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? field.value : 'Seleccione subtipo'}
+                              <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[250px] p-0">
+                          <Command>
+                            <CommandInput
+                              onValueChange={(e) => {
+                                setSubType(e);
+                              }}
+                              placeholder="Buscar subtipo..."
+                              className="h-9"
+                            />
+                            <CommandEmpty className="p-1">
+                              <p>No se encontro el subtipo</p>
+                              {/* <AddTypeModal company_id={actualCompany ?? ''} value={subType ?? ''} /> */}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {filteredSubTypes?.map((option) => (
+                                <CommandItem
+                                  value={option.name}
+                                  key={option.name}
+                                  onSelect={() => {
+                                    form.setValue('subType', option.name);
+                                  }}
+                                >
+                                  {option.name}
+                                  <CheckIcon
+                                    className={cn(
+                                      'ml-auto h-4 w-4',
+                                      option.name === field.value ? 'opacity-100' : 'opacity-0'
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <FormDescription>Selecciona el subtipo</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

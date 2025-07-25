@@ -1,6 +1,11 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
+  // Allows to automatically instanciate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '12.2.3 (519615d)';
+  };
   public: {
     Tables: {
       aptitudes_tecnicas: {
@@ -2667,6 +2672,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      sub_type: {
+        Row: {
+          company_id: string | null;
+          created_at: string;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+          type: string | null;
+        };
+        Insert: {
+          company_id?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+          type?: string | null;
+        };
+        Update: {
+          company_id?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+          type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sub_type_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sub_type_type_fkey';
+            columns: ['type'];
+            isOneToOne: false;
+            referencedRelation: 'type';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       type: {
         Row: {
           company_id: string | null;
@@ -2826,9 +2873,10 @@ export type Database = {
           kilometer: string | null;
           model: number | null;
           picture: string | null;
-          reason_for_termination: string | null;
+          reason_for_termination: Database['public']['Enums']['termination_reason_enum'] | null;
           serie: string | null;
           status: Database['public']['Enums']['status_type'] | null;
+          subType: string | null;
           termination_date: string | null;
           type: string;
           type_of_vehicle: number;
@@ -2852,9 +2900,10 @@ export type Database = {
           kilometer?: string | null;
           model?: number | null;
           picture?: string | null;
-          reason_for_termination?: string | null;
+          reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
+          subType?: string | null;
           termination_date?: string | null;
           type: string;
           type_of_vehicle: number;
@@ -2878,9 +2927,10 @@ export type Database = {
           kilometer?: string | null;
           model?: number | null;
           picture?: string | null;
-          reason_for_termination?: string | null;
+          reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
+          subType?: string | null;
           termination_date?: string | null;
           type?: string;
           type_of_vehicle?: number;
@@ -2922,6 +2972,13 @@ export type Database = {
             columns: ['cost_center_id'];
             isOneToOne: false;
             referencedRelation: 'cost_center';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'vehicles_subType_fkey';
+            columns: ['subType'];
+            isOneToOne: false;
+            referencedRelation: 'sub_type';
             referencedColumns: ['id'];
           },
           {
@@ -3047,14 +3104,67 @@ export type Database = {
         Returns: string;
       };
       build_vehicle_where_alias: {
-        Args:
-          | { _conditions: Json; table_alias?: string }
-          | { _conditions: Json; table_alias?: string; user_id?: string };
+        Args: { _conditions: Json; table_alias?: string };
         Returns: string;
+      };
+      build_vehicle_where_alias_in_review: {
+        Args: { _conditions: Json; table_alias?: string; user_id?: string };
+        Returns: string;
+      };
+      check_diagram_conflicts_with_operations: {
+        Args:
+          | { p_employee_ids: string[]; p_date_from: string; p_date_to: string }
+          | {
+              p_employee_ids: string[];
+              p_diagram_type_id: string;
+              p_date_from: string;
+              p_date_to: string;
+            };
+        Returns: {
+          employee_id: string;
+          employee_name: string;
+          day: number;
+          month: number;
+          year: number;
+          date_formatted: string;
+          current_diagram_type: string;
+          current_diagram_name: string;
+          current_diagram_color: string;
+          is_used_in_operations: boolean;
+          operation_details: string;
+          can_update: boolean;
+          conflict_type: string;
+        }[];
+      };
+      check_diagram_conflicts_with_operations_v2: {
+        Args:
+          | {
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
+              p_date_from: string;
+              p_date_to: string;
+            }
+          | {
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
+              p_date_from: string;
+              p_date_to: string;
+              p_active_novelty_id: string;
+            };
+        Returns: Json;
       };
       controlar_alertas_documentos: {
         Args: { tipo_documento_id?: string };
         Returns: undefined;
+      };
+      create_massive_diagrams_with_validations: {
+        Args: {
+          p_employee_ids: string[];
+          p_diagram_type_id: string;
+          p_date_from: string;
+          p_date_to: string;
+        };
+        Returns: Json;
       };
       delete_expired_subscriptions: {
         Args: Record<PropertyKey, never>;
@@ -3127,6 +3237,22 @@ export type Database = {
           reassignment_reason: string;
         }[];
       };
+      get_employee_usage_by_positions: {
+        Args: { position_uuids: string[] };
+        Returns: {
+          employees_operativos: number;
+          employees_used: number;
+          indicator: number;
+        }[];
+      };
+      get_employee_usage_indicator: {
+        Args: { save_to_table?: boolean; position_uuids?: string[] };
+        Returns: {
+          employees_operativos: number;
+          employees_used: number;
+          indicator: number;
+        }[];
+      };
       migrate_document: {
         Args: { target_id: string; execute_migration?: boolean };
         Returns: {
@@ -3157,6 +3283,17 @@ export type Database = {
           dominio_vehiculo: string;
         }[];
       };
+      process_massive_diagram_creation_v2: {
+        Args: {
+          p_employee_ids: string[];
+          p_work_diagram_id: string;
+          p_active_novelty_id: string;
+          p_date_from: string;
+          p_date_to: string;
+          p_conflict_resolution: string;
+        };
+        Returns: Json;
+      };
       pruebaemail: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
@@ -3172,7 +3309,7 @@ export type Database = {
     };
     Enums: {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
-      condition_enum: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+      condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
         | 'pendiente'
@@ -3192,7 +3329,7 @@ export type Database = {
         | 'empresa'
         | 'empleados'
         | 'equipos'
-        | 'documentación'
+        | 'documentaci├│n'
         | 'mantenimiento'
         | 'dashboard'
         | 'ayuda'
@@ -3210,7 +3347,7 @@ export type Database = {
       repair_state:
         | 'Pendiente'
         | 'Esperando repuestos'
-        | 'En reparación'
+        | 'En reparaci├│n'
         | 'Finalizado'
         | 'Rechazado'
         | 'Cancelado'
@@ -3218,8 +3355,9 @@ export type Database = {
       roles_enum: 'Externo' | 'Auditor';
       state: 'presentado' | 'rechazado' | 'aprobado' | 'vencido' | 'pendiente';
       status_type: 'Avalado' | 'No avalado' | 'Incompleto' | 'Completo' | 'Completo con doc vencida';
+      termination_reason_enum: 'venta' | 'destrucci├│n total' | 'devoluci├│n' | 'otro';
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
-      type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
+      type_of_contract_enum: 'Per├¡odo de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
     };
     CompositeTypes: {
@@ -3228,21 +3366,25 @@ export type Database = {
   };
 };
 
-type DefaultSchema = Database[Extract<keyof Database, 'public'>];
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database;
+    schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        Database[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      Database[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R;
     }
     ? R
@@ -3256,14 +3398,16 @@ export type Tables<
     : never;
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof Database },
+  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database;
+    schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I;
     }
     ? I
@@ -3277,14 +3421,16 @@ export type TablesInsert<
     : never;
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof Database },
+  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database;
+    schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U;
     }
     ? U
@@ -3298,27 +3444,33 @@ export type TablesUpdate<
     : never;
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums'] | { schema: keyof Database },
+  DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums'] | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database;
+    schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
     ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never;
 
 export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes'] | { schema: keyof Database },
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema['CompositeTypes']
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database;
+    schema: keyof DatabaseWithoutInternals;
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
     ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never;
@@ -3327,7 +3479,7 @@ export const Constants = {
   public: {
     Enums: {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
-      condition_enum: ['operativo', 'no operativo', 'en reparación', 'operativo condicionado'],
+      condition_enum: ['operativo', 'no operativo', 'en reparaci├│n', 'operativo condicionado'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
@@ -3340,7 +3492,7 @@ export const Constants = {
         'empresa',
         'empleados',
         'equipos',
-        'documentación',
+        'documentaci├│n',
         'mantenimiento',
         'dashboard',
         'ayuda',
@@ -3360,7 +3512,7 @@ export const Constants = {
       repair_state: [
         'Pendiente',
         'Esperando repuestos',
-        'En reparación',
+        'En reparaci├│n',
         'Finalizado',
         'Rechazado',
         'Cancelado',
@@ -3369,9 +3521,10 @@ export const Constants = {
       roles_enum: ['Externo', 'Auditor'],
       state: ['presentado', 'rechazado', 'aprobado', 'vencido', 'pendiente'],
       status_type: ['Avalado', 'No avalado', 'Incompleto', 'Completo', 'Completo con doc vencida'],
+      termination_reason_enum: ['venta', 'destrucci├│n total', 'devoluci├│n', 'otro'],
       type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
-      type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
-      type_of_maintenance_ENUM: ['Correctivo', 'Preventivo'],
+      type_of_contract_enum: ['Per├¡odo de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
+      type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
     },
   },
 } as const;

@@ -64,7 +64,7 @@ export interface Equipment {
   intern_number: number;
   allocated_to: string[];
   is_active: boolean;
-  condition: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+  condition: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
 }
 
 export interface Services {
@@ -441,7 +441,7 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
 
       const filteredEquipment = equipment.filter((equipment) => {
         const isAllocatedToCustomer = equipment.allocated_to?.includes(customer.id);
-        const isNotUnderRepair = !(equipment.condition === 'en reparación' || equipment.condition === 'no operativo');
+        const isNotUnderRepair = !(equipment.condition === 'en reparacion' || equipment.condition === 'no operativo');
         return isAllocatedToCustomer && isNotUnderRepair;
       });
       setCustomerEquipment(filteredEquipment);

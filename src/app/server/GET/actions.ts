@@ -19,7 +19,7 @@ export const setNewCompanyUserMetadata = async (company_id: string) => {
     });
 
     if (error) {
-      console.error('Error updating user metadata:', error);
+      // console.error('Error updating user metadata:', error);
       return;
     }
   }
@@ -967,7 +967,7 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
 
   const { data, error } = await supabase
     .from('vehicles')
-    .select('*,brand(*),model(*),type(*),types_of_vehicles(*),contractor_equipment(*,contractor_id(*))')
+    .select('*,brand(*),model(*),type(*),subType(*),types_of_vehicles(*),contractor_equipment(*,contractor_id(*))')
     .eq('company_id', (company_id ?? company_equipment_id) || '')
     .returns<VehicleWithBrand[]>();
 
@@ -1182,7 +1182,7 @@ export const fetchAllOpenRepairRequests = async () => {
       '*,user_id(*),employee_id(*),equipment_id(*,type(*),brand(*),model(*)),reparation_type(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
     )
     .eq('equipment_id.company_id', company_id)
-    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparación'])
+    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion'])
     .returns<RepairRequestDetailed[]>();
 
   if (error) {
@@ -1203,7 +1203,7 @@ export const fetchRepairRequestsByEquipmentId = async (equipmentId: string) => {
       '*,user_id(*),employee_id(*),equipment_id(*,type(*),brand(*),model(*)),reparation_type(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
     )
     .eq('equipment_id', equipmentId)
-    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparación'])
+    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion'])
     .returns<RepairRequestDetailed[]>();
 
   if (error) {
@@ -1702,3 +1702,163 @@ export async function getCompanyDetails(companyId: string) {
 
   return data;
 }
+
+export async function getDiagramsDay() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const supabase = supabaseServer();
+  let { data: diagrams_day, error } = await supabase
+    .from('employees_diagram')
+    .select('diagram_type(*)')
+
+    // Filters
+    .eq('day', day)
+    .eq('month', month)
+    .eq('year', year);
+
+  if (error) {
+    console.error('Error fetching company details:', error);
+    return null;
+  }
+
+  return diagrams_day;
+}
+
+export async function getActiveEmployees() {
+  const { count, error } = await supabaseServer()
+    .from('employees')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Error fetching company details:', error);
+    return null;
+  }
+  return count;
+}
+
+export async function getUsegeEmployees() {
+  const { data, error } = await supabaseServer()
+    .from('dailyreport')
+    .select('id')
+    .eq('date', new Date().toISOString().split('T')[0]);
+
+  if (data?.length !== 0) {
+    const { data: dailyreportrow, error } = await supabaseServer()
+      .from('dailyreportrows')
+      .select('id')
+      .eq('dailyreport_id', data![0].id);
+    return dailyreportrow;
+  }
+
+  if (error) {
+    console.error('Error fetching company details:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function getUniqueEmployeeCountByDate(date: string) {
+  try {
+    // Realizar la consulta con JOINs para obtener el conteo de empleados únicos
+    const { count, error } = await supabaseServer()
+      .from('dailyreport')
+      .select(
+        `
+        dailyreportrows!inner(
+          dailyreportemployeerelations!inner(
+            employee_id
+          )
+        )
+      `,
+        { count: 'exact', head: true }
+      )
+      .eq('date', date);
+
+    if (error) {
+      console.error('Error fetching unique employee count:', error);
+      return { success: false, error: error.message, count: 0 };
+    }
+
+    // Si necesitamos contar empleados únicos manualmente (alternativa)
+    const { data, error: dataError } = await supabaseServer()
+      .from('dailyreport')
+      .select(
+        `
+        dailyreportrows!inner(
+          dailyreportemployeerelations!inner(
+            employee_id
+          )
+        )
+      `
+      )
+      .eq('date', date);
+
+    if (dataError) {
+      console.error('Error fetching employee data:', dataError);
+      return { success: false, error: dataError.message, count: 0 };
+    }
+
+    // Extraer y contar empleados únicos
+    const uniqueEmployeeIds = new Set();
+    data?.forEach((report: any) => {
+      report.dailyreportrows?.forEach((row: any) => {
+        row.dailyreportemployeerelations?.forEach((relation: any) => {
+          uniqueEmployeeIds.add(relation.employee_id);
+        });
+      });
+    });
+
+    return {
+      success: true,
+      count: uniqueEmployeeIds.size,
+      date: date,
+    };
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    return {
+      success: false,
+      error: 'Unexpected error occurred',
+      count: 0,
+    };
+  }
+}
+
+export async function getVehiclesDisponibleFilterType() {
+  const type1 = '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf';
+  const type2 = 'ea07ff34-13fb-4483-b5bc-8389e41c7d89';
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('*', { count: 'exact' })
+    .or(`type.eq.${type1},type.eq.${type2}`);
+
+  if (error) {
+    console.error('Error fetching vehicles:', error);
+    return { success: false, error: error.message, count: 0 };
+  }
+
+  return { success: true, count: data?.length || 0 };
+}
+
+export async function getEmployeeIndicator(p_row_id?: string[], save_to_table?: boolean) {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase.rpc('get_employee_usage_indicator', {
+    position_uuids: p_row_id,
+    save_to_table: save_to_table || false,
+  });
+  if (error) console.error(error);
+  else return data;
+}
+
+// Vehiculos de tipo Tractor o chasis activos
+// De esos vehiculos la condición tiene que ser distinta a "No operativo"
+
+// Unidades Activas para el indicador
+
+// Controlar de ese numero de unidades activas cuantas estan en operación (estan cargadas en el parte diario del día)
+
+// Indicador = Unidades Activas - Unidades en operación se busca que sea 0 o 100%

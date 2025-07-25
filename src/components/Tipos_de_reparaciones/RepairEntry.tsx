@@ -381,12 +381,12 @@ export default function RepairNewEntry({
             return repair?.criticity === 'Media';
           });
 
-          if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparación') {
+          if (hasHighCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
             const { data: vehicles, error } = await supabase
               .from('vehicles')
               .update({ condition: 'no operativo', kilometer: allRepairs[0].kilometer })
               .eq('id', vehicle_id?.id || '');
-          } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparación') {
+          } else if (hasMediumCriticity && condition !== 'no operativo' && condition !== 'en reparacion') {
             const { data: vehicles, error } = await supabase
               .from('vehicles')
               .update({ condition: 'operativo condicionado', kilometer: allRepairs[0].kilometer })

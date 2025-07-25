@@ -50,7 +50,7 @@ export default async function Home({
       '*,user_id(*),employee_id(*),equipment_id(*,type(*),brand(*),model(*)),reparation_type(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
     )
     .eq('equipment_id', params.id)
-    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparación']);
+    .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion']);
 
   // console.log(data, 'data');
   // console.log(error, 'error');
