@@ -1,150 +1,210 @@
-// 'use server';
-// import { supabaseServer } from '@/lib/supabase/server';
-// import { cookies } from 'next/headers';
+'use server';
+import { supabaseServer } from '@/lib/supabase/server';
+import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 
-// export interface DiagramReportFilters {
-//   employee_ids?: string[];
-//   start_date?: string;
-//   end_date?: string;
-//   novelty_types?: string[];
-//   search_text?: string;
-// }
+export async function fetchDiagramReportsData(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+}) {
+  console.log('🚀 fetchDiagramReportsData called with options:', {
+    pageIndex: options.pageIndex,
+    pageSize: options.pageSize,
+    sorting: options.sorting,
+    columnFilters: options.columnFilters,
+  });
 
-// export const fetchDiagramReports = async (filters: DiagramReportFilters = {}) => {
-//   const cookiesStore = cookies();
-//   const supabase = supabaseServer();
-//   const company_id = cookiesStore.get('actualComp')?.value;
+  const supabase = supabaseServer();
 
-//   if (!company_id) return [];
+  // Calcular rango para paginación
+  const from = options.pageIndex * options.pageSize;
+  const to = from + options.pageSize - 1;
 
-//   let query = supabase
-//     .from('employees_diagram')
-//     .select(`
-//       id,
-//       day,
-//       month,
-//       year,
-//       employee_id!inner(
-//         id,
-//         cuil,
-//         firstname,
-//         lastname
-//       ),
-//       diagram_type!inner(
-//         id,
-//         name,
-//         color,
-//         short_description
-//       )
-//     `)
-//     .eq('employee_id.company_id', company_id)
-//     .order('year', { ascending: false })
-//     .order('month', { ascending: false })
-//     .order('day', { ascending: false });
+  // Buscar filtro de búsqueda de nombre de empleado (texto libre)
+  const employeeSearchFilter = options.columnFilters?.find((f) => f.id === 'employee_cuil');
+  const employeeSearchValue = employeeSearchFilter?.value as string;
 
-//   // Aplicar filtros
-//   if (filters.employee_ids && filters.employee_ids.length > 0) {
-//     query = query.in('employee_id', filters.employee_ids);
-//   }
+  let searchEmployeeIds: string[] = [];
 
-//   if (filters.start_date) {
-//     const startDate = new Date(filters.start_date);
-//     const startYear = startDate.getFullYear();
-//     const startMonth = startDate.getMonth() + 1;
-//     const startDay = startDate.getDate();
+  // Si hay filtro de búsqueda de texto, buscar empleados que coincidan
+  if (employeeSearchValue && typeof employeeSearchValue === 'string' && employeeSearchValue.trim()) {
+    console.log('🔍 Buscando empleados con CUIL:', employeeSearchValue);
 
-//     query = query.or(`year.gt.${startYear},and(year.eq.${startYear},month.gt.${startMonth}),and(year.eq.${startYear},month.eq.${startMonth},day.gte.${startDay})`);
-//   }
+    const { data: employees, error: employeesError } = await supabase
+      .from('employees')
+      .select('id')
+      .filter('cuil', 'ilike', `%${employeeSearchValue}%`);
 
-//   if (filters.end_date) {
-//     const endDate = new Date(filters.end_date);
-//     const endYear = endDate.getFullYear();
-//     const endMonth = endDate.getMonth() + 1;
-//     const endDay = endDate.getDate();
+    if (employeesError) {
+      console.error('❌ Error buscando empleados:', employeesError);
+      throw employeesError;
+    }
 
-//     query = query.or(`year.lt.${endYear},and(year.eq.${endYear},month.lt.${endMonth}),and(year.eq.${endYear},month.eq.${endMonth},day.lte.${endDay})`);
-//   }
+    searchEmployeeIds = employees?.map((emp) => emp.id) || [];
+    console.log('👥 Empleados encontrados por CUIL:', searchEmployeeIds.length);
 
-//   if (filters.novelty_types && filters.novelty_types.length > 0) {
-//     query = query.in('diagram_type', filters.novelty_types);
-//   }
+    // Si no se encontraron empleados, retornar resultado vacío
+    if (searchEmployeeIds.length === 0) {
+      return {
+        rows: [],
+        pageCount: 0,
+        rowCount: 0,
+      };
+    }
+  }
 
-//   const { data, error } = await query;
+  // Construir query base
+  let query = supabase.from('employees_diagram').select(
+    `
+      id,
+      day,
+      month,
+      year,
+      employee_id!inner(
+        id,
+        cuil,
+        firstname,
+        lastname
+      ),
+      diagram_type!inner(
+        id,
+        name,
+        color,
+        short_description
+      )
+    `,
+    { count: 'exact' }
+  );
 
-//   if (error) {
-//     console.error('Error fetching diagram reports:', error);
-//     return [];
-//   }
+  // Si hay filtro de búsqueda de CUIL, aplicar filtro de empleados encontrados
+  if (searchEmployeeIds.length > 0) {
+    query = query.in('employee_id', searchEmployeeIds);
+  }
 
-//   // Transformar los datos
-//   const transformedData = (data || []).map((item: any) => ({
-//     id: item.id,
-//     employee_cuil: item.employee_id.cuil,
-//     employee_name: `${item.employee_id.firstname} ${item.employee_id.lastname}`,
-//     date: `${item.day.toString().padStart(2, '0')}/${item.month.toString().padStart(2, '0')}/${item.year}`,
-//     novelty_name: item.diagram_type?.name || 'N/A',
-//     novelty_color: item.diagram_type?.color || '#000000',
-//     novelty_short_description: item.diagram_type?.short_description || 'N/A',
-//     is_active: true, // employees_diagram no tiene is_active, asumimos true
-//     day: item.day,
-//     month: item.month,
-//     year: item.year,
-//     diagram_type: item.diagram_type?.name || 'N/A',
-//   }));
+  // Aplicar otros filtros
+  if (options.columnFilters) {
+    for (const filter of options.columnFilters) {
+      const { id, value } = filter;
 
-//   // Aplicar filtro de búsqueda de texto
-//   if (filters.search_text) {
-//     const searchLower = filters.search_text.toLowerCase();
-//     return transformedData.filter(item =>
-//       item.employee_name.toLowerCase().includes(searchLower) ||
-//       item.employee_cuil.includes(searchLower) ||
-//       item.novelty_name.toLowerCase().includes(searchLower) ||
-//       item.novelty_short_description.toLowerCase().includes(searchLower)
-//     );
-//   }
+      if (!value) continue;
 
-//   return transformedData;
-// };
+      // Saltar filtros ya manejados arriba
+      if (id === 'employee_cuil') {
+        continue; // Ya se manejó arriba
+      }
 
-// export const fetchEmployeesForReports = async () => {
-//   const cookiesStore = cookies();
-//   const supabase = supabaseServer();
-//   const company_id = cookiesStore.get('actualComp')?.value;
+      // Filtros múltiples para empleados (por IDs)
+      if (id === 'employee_name' && Array.isArray(value) && value.length > 0) {
+        console.log('🔍 Aplicando filtro de empleados con IDs:', value);
+        query = query.in('employee_id', value);
+      }
 
-//   if (!company_id) return [];
+      // Filtros múltiples para tipos de novedad (por nombre)
+      if (id === 'novelty_name' && Array.isArray(value) && value.length > 0) {
+        // Los valores son nombres de tipos de novedad
+        const { data: noveltyTypes, error: noveltyError } = await supabase
+          .from('diagram_type')
+          .select('id')
+          .in('name', value);
 
-//   const { data, error } = await supabase
-//     .from('employees')
-//     .select('id, cuil, firstname, lastname')
-//     .eq('company_id', company_id)
-//     .eq('is_active', true)
-//     .order('firstname');
+        if (!noveltyError && noveltyTypes) {
+          const foundNoveltyIds = noveltyTypes.map((type) => type.id);
+          if (foundNoveltyIds.length > 0) {
+            query = query.in('diagram_type', foundNoveltyIds);
+          } else {
+            // Si no se encuentran tipos de novedad, retornar resultado vacío
+            return {
+              rows: [],
+              pageCount: 0,
+              rowCount: 0,
+            };
+          }
+        }
+      }
 
-//   if (error) {
-//     console.error('Error fetching employees:', error);
-//     return [];
-//   }
+      // Filtros de rango de fechas
+      if (id === 'date' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        const dateRange = value as { from?: Date | null; to?: Date | null };
+        if (dateRange.from) {
+          const fromDate = new Date(dateRange.from);
+          const fromYear = fromDate.getFullYear();
+          const fromMonth = fromDate.getMonth() + 1;
+          const fromDay = fromDate.getDate();
 
-//   return data || [];
-// };
+          query = query.or(
+            `year.gt.${fromYear},and(year.eq.${fromYear},month.gt.${fromMonth}),and(year.eq.${fromYear},month.eq.${fromMonth},day.gte.${fromDay})`
+          );
+        }
+        if (dateRange.to) {
+          const toDate = new Date(dateRange.to);
+          const toYear = toDate.getFullYear();
+          const toMonth = toDate.getMonth() + 1;
+          const toDay = toDate.getDate();
 
-// export const fetchNoveltyTypesForReports = async () => {
-//   const cookiesStore = cookies();
-//   const supabase = supabaseServer();
-//   const company_id = cookiesStore.get('actualComp')?.value;
+          query = query.or(
+            `year.lt.${toYear},and(year.eq.${toYear},month.lt.${toMonth}),and(year.eq.${toYear},month.eq.${toMonth},day.lte.${toDay})`
+          );
+        }
+      }
+    }
+  }
 
-//   if (!company_id) return [];
+  // Aplicar ordenamiento
+  if (options.sorting && options.sorting.length > 0) {
+    for (const sort of options.sorting) {
+      if (sort.id === 'employee_name') {
+        query = query.order('employee_id.firstname', { ascending: !sort.desc });
+      } else if (sort.id === 'employee_cuil') {
+        query = query.order('employee_id.cuil', { ascending: !sort.desc });
+      } else if (sort.id === 'date') {
+        query = query
+          .order('year', { ascending: !sort.desc })
+          .order('month', { ascending: !sort.desc })
+          .order('day', { ascending: !sort.desc });
+      } else if (sort.id === 'novelty_name') {
+        query = query.order('diagram_type.name', { ascending: !sort.desc });
+      }
+    }
+  } else {
+    // Ordenamiento por defecto
+    query = query
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
+      .order('day', { ascending: false });
+  }
 
-//   const { data, error } = await supabase
-//     .from('diagram_type')
-//     .select('id, name, color, short_description')
-//     .eq('company_id', company_id)
-//     .order('name');
+  // Aplicar paginación
+  query = query.range(from, to);
 
-//   if (error) {
-//     console.error('Error fetching novelty types:', error);
-//     return [];
-//   }
+  // Ejecutar query
+  const { data, error, count } = await query;
 
-//   return data || [];
-// };
+  if (error) {
+    throw error;
+  }
+
+  const totalRows = count || 0;
+  const pageCount = Math.ceil(totalRows / options.pageSize);
+
+  // Transformar los datos
+  const transformedData = (data || []).map((item: any) => ({
+    id: item.id,
+    employee_cuil: item.employee_id.cuil,
+    employee_name: `${item.employee_id.firstname} ${item.employee_id.lastname}`,
+    date: `${item.day.toString().padStart(2, '0')}/${item.month.toString().padStart(2, '0')}/${item.year}`,
+    novelty_name: item.diagram_type?.name || 'N/A',
+    novelty_color: item.diagram_type?.color || '#000000',
+    novelty_short_description: item.diagram_type?.short_description || 'N/A',
+    is_active: true,
+    day: item.day,
+    month: item.month,
+    year: item.year,
+  }));
+
+  return {
+    rows: transformedData,
+    pageCount,
+    rowCount: totalRows,
+  };
+}

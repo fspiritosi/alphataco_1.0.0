@@ -1,4 +1,4 @@
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { Database } from '../../../../database.types';
 
@@ -46,7 +46,7 @@ export async function queryWithPagination<
     columnFilters?: ColumnFiltersState;
   }
 ): Promise<PaginatedResponse<any>> {
-  const supabase = supabaseBrowser();
+  const supabase = supabaseServer();
 
   // Calcular rango para paginación
   const from = options.pageIndex * options.pageSize;
@@ -98,8 +98,6 @@ export async function queryWithPagination<
   // Ejecutar query
   const { data, error, count } = await query;
 
-  console.log(data, 'data');
-
   if (error) {
     throw error;
   }
@@ -126,7 +124,7 @@ export async function fetchEmployeesData(options: {
 
 // Función para obtener opciones de filtro dinámicas
 export async function getEmployeeFilterOptions(column: string): Promise<{ label: string; value: string }[]> {
-  const supabase = supabaseBrowser();
+  const supabase = supabaseServer();
 
   const { data, error } = await supabase.from('employees').select(column).not(column, 'is', null);
 
@@ -144,13 +142,12 @@ export async function getEmployeeFilterOptions(column: string): Promise<{ label:
   }));
 }
 
-// Función original mantenida para compatibilidad
 export async function query<TableName extends keyof Database['public']['Tables'], Query extends string = '*'>(
   tableName: TableName,
   select: Query,
   filters?: Filter<TableName>[]
 ) {
-  const supabase = supabaseBrowser();
+  const supabase = supabaseServer();
   let query = supabase.from(tableName).select(select);
 
   // Aplicar filtros si existen
@@ -183,7 +180,6 @@ export async function query<TableName extends keyof Database['public']['Tables']
 
   return data;
 }
-
 /**
  * Función auxiliar para consultas con paginación
  */
@@ -204,7 +200,7 @@ export async function queryPaginated<TableName extends keyof Database['public'][
     ascending?: boolean;
   } = {}
 ) {
-  const supabase = supabaseBrowser();
+  const supabase = supabaseServer();
   let query = supabase.from(tableName).select(select, { count: 'exact' });
 
   // Aplicar filtros

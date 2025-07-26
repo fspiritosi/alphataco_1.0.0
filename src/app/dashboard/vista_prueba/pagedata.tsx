@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Edit, Mail, User } from 'lucide-react';
@@ -10,6 +9,7 @@ import { useState } from 'react';
 // import { fetchEmployeesData } from "@/lib/supabase-query"
 import { fetchEmployeesData } from '@/app/server/GET/probando';
 import { Card } from '@/components/ui/card';
+import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Crear cliente de React Query
@@ -191,8 +191,8 @@ export default function EjemploTablaEmployeesSupabase({
   initialData: Awaited<ReturnType<typeof fetchEmployeesData>>;
 }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TablaEmployeesSupabase initialData={initialData} />
-    </QueryClientProvider>
+    // <QueryClientProvider client={queryClient}>
+    <TablaEmployeesSupabase initialData={initialData} />
+    // </QueryClientProvider>
   );
 }
