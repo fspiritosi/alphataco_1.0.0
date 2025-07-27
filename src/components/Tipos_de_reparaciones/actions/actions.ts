@@ -118,7 +118,7 @@ export async function fetchAllRepairSolicitudes() {
       )
       .not('equipment_id', 'is', null);
 
-    console.log(data, 'data');
+    //console.log(data, 'data');
 
     if (error) {
       console.log(error);

@@ -146,7 +146,7 @@ export default function EmployeeComponent({
   const router = useRouter();
   const url = process.env.NEXT_PUBLIC_PROJECT_URL;
   const mandatoryDocuments = useCountriesStore((state) => state.mandatoryDocuments);
-  console.log(user);
+  //console.log(user);
   const form = useForm<z.infer<typeof accordionSchema>>({
     resolver: zodResolver(accordionSchema),
     defaultValues: user
@@ -597,14 +597,14 @@ export default function EmployeeComponent({
   };
 
   async function onCreate(values: z.infer<typeof accordionSchema>) {
-    console.log(values);
+    //console.log(values);
     toast.promise(
       async () => {
         const { full_name, ...rest } = values;
 
         // Obtener el company_id de la cookie actualComp
         const companyId = Cookies.get('actualComp');
-        console.log(companyId);
+        //console.log(companyId);
         // Validar que el company_id sea un UUID válido
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -627,16 +627,16 @@ export default function EmployeeComponent({
         const workflowDiagramId = workDiagramOptions.find((e) => e.name === values.workflow_diagram)?.id;
 
         // Obtener el ID del puesto seleccionado
-        console.log(values.company_position);
+        //console.log(values.company_position);
         const companyPosition = company_positions?.find((p) => p.name === values.company_position);
         const companyPositionId = values.company_position;
 
-        console.log(provinceId);
-        console.log(birthplaceId);
-        console.log(cityId);
-        console.log(hierarchicalPositionId);
-        console.log(workflowDiagramId);
-        console.log(companyPositionId);
+        //console.log(provinceId);
+        //console.log(birthplaceId);
+        //console.log(cityId);
+        //console.log(hierarchicalPositionId);
+        //console.log(workflowDiagramId);
+        //console.log(companyPositionId);
 
         if (
           !provinceId ||
@@ -672,7 +672,7 @@ export default function EmployeeComponent({
               ? 'https://ui.shadcn.com/avatars/02.png'
               : 'https://ui.shadcn.com/avatars/05.png',
         };
-        console.log(finalValues);
+        //console.log(finalValues);
         try {
           const applies = await createEmployee(finalValues as any);
           const documentsMissing: {
@@ -786,8 +786,8 @@ export default function EmployeeComponent({
       async () => {
         const { full_name, ...rest } = values;
 
-        console.log(values, 'values');
-        console.log(citysOptions, 'citysOptions');
+        //console.log(values, 'values');
+        //console.log(citysOptions, 'citysOptions');
 
         const finalValues = {
           ...rest,
@@ -809,7 +809,7 @@ export default function EmployeeComponent({
 
         if ((!finalValues.city || finalValues.city === 'undefined') && values.city) {
           const { data } = await supabase.from('cities').select().ilike('name', `${values.city.trim()}%`);
-          console.log(data, 'data de city');
+          //console.log(data, 'data de city');
           if (data?.length) {
             finalValues.city = data[0].id;
           }

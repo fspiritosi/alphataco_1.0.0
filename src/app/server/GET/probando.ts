@@ -141,9 +141,9 @@ export async function queryPaginated<TableName extends keyof Database['public'][
   query = query.range(from, to);
 
   const { data, error, count } = await query;
-  console.log('Data:', data);
-  console.log('Error:', error);
-  console.log('Count:', count);
+  //console.log('Data:', data);
+  //console.log('Error:', error);
+  //console.log('Count:', count);
 
   if (error) {
     console.error('Error al obtener datos paginados:', error);
