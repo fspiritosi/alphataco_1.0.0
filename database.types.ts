@@ -3316,7 +3316,7 @@ export type Database = {
     };
     Enums: {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
-      condition_enum: 'operativo' | 'no operativo' | 'en reparaci├│n' | 'operativo condicionado';
+      condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
         | 'pendiente'
@@ -3372,6 +3372,7 @@ export type Database = {
     };
   };
 };
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
@@ -3487,7 +3488,7 @@ export const Constants = {
   public: {
     Enums: {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
-      condition_enum: ['operativo', 'no operativo', 'en reparaci├│n', 'operativo condicionado'],
+      condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
