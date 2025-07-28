@@ -74,6 +74,7 @@ async function EmployeeListTabs({
       },
     ],
   };
+
   //console.log('[EMPLOYEE-LIST-TABS] Datos de pestañas preparados, renderizando ViewComponentInternal');
   return <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />;
 }

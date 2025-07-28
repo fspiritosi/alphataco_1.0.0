@@ -1,6 +1,7 @@
 import ViewcomponentInternal from '../ViewComponentInternal';
 import DiagramFormUpdatedWrapper from './DiagramFormUpdatedWrapper';
 import DiagramMassive from './DiagramMassive';
+import { DiagramReportsWrapper } from './DiagramReportsWrapper';
 import EmployesDiagramWrapper from './EmployesDiagramWrapper';
 
 function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: string }) {
@@ -43,6 +44,18 @@ function EmployesDiagram({ tabValue, subtab }: { subtab?: string; tabValue: stri
           buttonActioRestricted: [''],
           buttonAction: '',
           component: <DiagramMassive />,
+        },
+      },
+      {
+        value: 'reports',
+        name: 'Reportes',
+        restricted: [''],
+        tab: tabValue,
+        content: {
+          title: 'Reportes de Diagramas',
+          //description: 'Consulta y analiza los datos de novedades diarias',
+          buttonActioRestricted: [''],
+          component: <DiagramReportsWrapper />,
         },
       },
     ],

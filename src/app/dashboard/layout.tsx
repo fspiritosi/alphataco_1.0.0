@@ -4,6 +4,7 @@ import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
 import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
 import { Inter } from 'next/font/google';
 import '../globals.css';
+import TanstackQueryInicializador from './TanstackQueryInicializador';
 const font = Inter({ subsets: ['latin'] });
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -16,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {/* <NavBar /> */}
         <NavbarFeat />
       </div>
-      <div>{children}</div>
+      <TanstackQueryInicializador>{children}</TanstackQueryInicializador>
     </div>
   );
 }
