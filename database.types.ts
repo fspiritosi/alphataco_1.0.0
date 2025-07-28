@@ -1,5 +1,3 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
-
 export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -2672,6 +2670,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      sub_type: {
+        Row: {
+          company_id: string | null;
+          created_at: string;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+          type: string | null;
+        };
+        Insert: {
+          company_id?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+          type?: string | null;
+        };
+        Update: {
+          company_id?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+          type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sub_type_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sub_type_type_fkey';
+            columns: ['type'];
+            isOneToOne: false;
+            referencedRelation: 'type';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       type: {
         Row: {
           company_id: string | null;
@@ -2834,6 +2874,7 @@ export type Database = {
           reason_for_termination: Database['public']['Enums']['termination_reason_enum'] | null;
           serie: string | null;
           status: Database['public']['Enums']['status_type'] | null;
+          subType: string | null;
           termination_date: string | null;
           type: string;
           type_of_vehicle: number;
@@ -2860,6 +2901,7 @@ export type Database = {
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
+          subType?: string | null;
           termination_date?: string | null;
           type: string;
           type_of_vehicle: number;
@@ -2886,6 +2928,7 @@ export type Database = {
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
+          subType?: string | null;
           termination_date?: string | null;
           type?: string;
           type_of_vehicle?: number;
@@ -2927,6 +2970,13 @@ export type Database = {
             columns: ['cost_center_id'];
             isOneToOne: false;
             referencedRelation: 'cost_center';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'vehicles_subType_fkey';
+            columns: ['subType'];
+            isOneToOne: false;
+            referencedRelation: 'sub_type';
             referencedColumns: ['id'];
           },
           {
@@ -3085,13 +3135,20 @@ export type Database = {
         }[];
       };
       check_diagram_conflicts_with_operations_v2: {
-        Args: {
-          p_employee_ids: string[];
-          p_work_diagram_id: string;
-          p_date_from: string;
-          p_date_to: string;
-          p_active_novelty_id: string;
-        };
+        Args:
+          | {
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
+              p_date_from: string;
+              p_date_to: string;
+            }
+          | {
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
+              p_date_from: string;
+              p_date_to: string;
+              p_active_novelty_id: string;
+            };
         Returns: Json;
       };
       controlar_alertas_documentos: {
@@ -3178,6 +3235,31 @@ export type Database = {
           reassignment_reason: string;
         }[];
       };
+      get_employee_diagram_count_by_day: {
+        Args: {
+          p_day: number;
+          p_month: number;
+          p_year: number;
+          p_company_position_ids?: string[];
+        };
+        Returns: Json;
+      };
+      get_employee_usage_by_positions: {
+        Args: { position_uuids: string[] };
+        Returns: {
+          employees_operativos: number;
+          employees_used: number;
+          indicator: number;
+        }[];
+      };
+      get_employee_usage_indicator: {
+        Args: { save_to_table?: boolean; position_uuids?: string[] };
+        Returns: {
+          employees_operativos: number;
+          employees_used: number;
+          indicator: number;
+        }[];
+      };
       migrate_document: {
         Args: { target_id: string; execute_migration?: boolean };
         Returns: {
@@ -3215,7 +3297,7 @@ export type Database = {
           p_active_novelty_id: string;
           p_date_from: string;
           p_date_to: string;
-          p_conflict_resolution?: string;
+          p_conflict_resolution: string;
         };
         Returns: Json;
       };
@@ -3234,7 +3316,7 @@ export type Database = {
     };
     Enums: {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
-      condition_enum: 'operativo' | 'no operativo' | 'en reparación' | 'operativo condicionado';
+      condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
         | 'pendiente'
@@ -3254,7 +3336,7 @@ export type Database = {
         | 'empresa'
         | 'empleados'
         | 'equipos'
-        | 'documentación'
+        | 'documentaci├│n'
         | 'mantenimiento'
         | 'dashboard'
         | 'ayuda'
@@ -3272,7 +3354,7 @@ export type Database = {
       repair_state:
         | 'Pendiente'
         | 'Esperando repuestos'
-        | 'En reparación'
+        | 'En reparaci├│n'
         | 'Finalizado'
         | 'Rechazado'
         | 'Cancelado'
@@ -3280,9 +3362,9 @@ export type Database = {
       roles_enum: 'Externo' | 'Auditor';
       state: 'presentado' | 'rechazado' | 'aprobado' | 'vencido' | 'pendiente';
       status_type: 'Avalado' | 'No avalado' | 'Incompleto' | 'Completo' | 'Completo con doc vencida';
-      termination_reason_enum: 'venta' | 'destrucción total' | 'devolución' | 'otro';
+      termination_reason_enum: 'venta' | 'destrucci├│n total' | 'devoluci├│n' | 'otro';
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
-      type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
+      type_of_contract_enum: 'Per├¡odo de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
     };
     CompositeTypes: {
@@ -3290,6 +3372,8 @@ export type Database = {
     };
   };
 };
+
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
 
@@ -3404,7 +3488,7 @@ export const Constants = {
   public: {
     Enums: {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
-      condition_enum: ['operativo', 'no operativo', 'en reparación', 'operativo condicionado'],
+      condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
@@ -3417,7 +3501,7 @@ export const Constants = {
         'empresa',
         'empleados',
         'equipos',
-        'documentación',
+        'documentaci├│n',
         'mantenimiento',
         'dashboard',
         'ayuda',
@@ -3437,7 +3521,7 @@ export const Constants = {
       repair_state: [
         'Pendiente',
         'Esperando repuestos',
-        'En reparación',
+        'En reparaci├│n',
         'Finalizado',
         'Rechazado',
         'Cancelado',
@@ -3446,9 +3530,9 @@ export const Constants = {
       roles_enum: ['Externo', 'Auditor'],
       state: ['presentado', 'rechazado', 'aprobado', 'vencido', 'pendiente'],
       status_type: ['Avalado', 'No avalado', 'Incompleto', 'Completo', 'Completo con doc vencida'],
-      termination_reason_enum: ['venta', 'destrucción total', 'devolución', 'otro'],
+      termination_reason_enum: ['venta', 'destrucci├│n total', 'devoluci├│n', 'otro'],
       type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
-      type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
+      type_of_contract_enum: ['Per├¡odo de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
       type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
     },
   },

@@ -425,6 +425,17 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     },
   },
   {
+    accessorKey: 'subType.name',
+    id: 'Sub Tipo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sub Tipo" />,
+    cell: ({ row }) => {
+      return <Badge>{row.original.subType?.name || ''}</Badge>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
     accessorKey: 'types_of_vehicles',
     id: 'Tipos de vehículos',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipos de vehículos" />,
@@ -524,7 +535,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
       const variants = {
         operativo: 'success',
         'no operativo': 'destructive',
-        'en reparación': 'yellow',
+        'en reparacion': 'yellow',
         'operativo condicionado': 'info',
         default: 'default',
       };
@@ -533,7 +544,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
         'operativo condicionado': { color: 'bg-blue-500', icon: AlertTriangle },
         operativo: { color: 'bg-green-500', icon: CheckCircle },
         'no operativo': { color: 'bg-red-500', icon: XCircle },
-        'en reparación': { color: 'bg-yellow-500', icon: RiToolsFill },
+        'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
       };
 
       return (

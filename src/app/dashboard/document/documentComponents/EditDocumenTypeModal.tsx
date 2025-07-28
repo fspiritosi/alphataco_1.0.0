@@ -71,7 +71,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
   const actualCompany = cookies.get('actualComp');
-  console.log(actualCompany);
+  // console.log(actualCompany);
   const [showEmployeePreview, setShowEmployeePreview] = useState(false);
   const [showVehiclePreview, setShowVehiclePreview] = useState(false);
   const [showAlertsUpdateModal, setShowAlertsUpdateModal] = useState(false);
@@ -384,13 +384,13 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     };
 
     try {
-      console.log(formattedValues);
+      // console.log(formattedValues);
       // 2. Actualizar el documento
       // const { error: updateError } = await supabase.from('document_types').update(formattedValues).eq('id', Equipo.id);
       const updateError = await updateDocumentType(Equipo.id, formattedValues);
 
       if (updateError) {
-        console.log(updateError);
+        //console.log(updateError);
         throw new Error(handleSupabaseError(updateError.message));
       }
 

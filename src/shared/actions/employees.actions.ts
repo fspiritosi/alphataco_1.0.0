@@ -38,7 +38,7 @@ export const fetchSimpleDataEmployee = async () => {
     .select('id,firstname,lastname,cuil')
     .eq('company_id', company_id);
 
-  console.log(data, 'data');
+  //console.log(data, 'data');
 
   if (error) {
     console.error('Error fetching employees:', error);

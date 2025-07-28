@@ -112,24 +112,24 @@ export default function UpdateDocuments({
 
           // Construir el nuevo nombre con la nueva extensión
           newDocumentName = `${newBaseName}.${newExtension}`;
-          console.log(newDocumentName, 'newDocumentName');
+          //console.log(newDocumentName, 'newDocumentName');
         } else if (periodRegex.test(documentName)) {
           const newPeriod = filename.period;
-          console.log(newPeriod, 'newPeriod');
-          console.log(documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`, 'newPeriod');
+          //console.log(newPeriod, 'newPeriod');
+          //console.log(documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`, 'newPeriod');
           newDocumentName = documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`;
         }
 
-        console.log(documentName);
-        console.log(newDocumentName);
-        console.log(montly, 'montly');
+        //console.log(documentName);
+        //console.log(newDocumentName);
+        //console.log(montly, 'montly');
 
         if (montly) {
           const { error: newDocumentError, data } = await supabase.storage
             .from('document-files')
             .upload(newDocumentName, file, { upsert: true });
 
-          console.log(data, 'data');
+          //console.log(data, 'data');
 
           const { error: updateError } = await supabase
             .from(tableName)

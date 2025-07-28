@@ -188,7 +188,7 @@ function DiagramReportsTableComponent({
               options: employeeOptions,
             },
             {
-              columnId: 'novelty_name',
+              columnId: 'Novedad',
               title: 'Tipos de Novedad',
               options: noveltyTypeOptions,
             },

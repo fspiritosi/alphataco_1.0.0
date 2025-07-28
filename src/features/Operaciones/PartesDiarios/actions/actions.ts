@@ -648,7 +648,7 @@ export async function getActiveEquipmentsForDailyReport() {
     .select('*,contractor_equipment(*),type(*)')
     .eq('is_active', true)
     .neq('condition', 'no operativo')
-    .neq('condition', 'en reparación')
+    .neq('condition', 'en reparacion')
     .eq('company_id', company_id || user?.app_metadata?.company_id || '');
   if (error) {
     console.error('Error al obtener equipos activos:', error);
@@ -965,7 +965,7 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
 
   try {
     // Insertar todas las filas a la vez
-    console.log(data);
+    //console.log(data);
     const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
 
     if (error) throw error;
