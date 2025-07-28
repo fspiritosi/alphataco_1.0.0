@@ -6,7 +6,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Calendar, FileText, User } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { fetchEmployeesForReportsType, fetchNoveltyTypesForReportsType } from './DiagramReportsWrapper';
 import { fetchDiagramReportsData } from './actions/action';
 
@@ -27,15 +27,6 @@ function DiagramReportsTableComponent({
   savedFilters,
 }: DiagramReportsTableProps) {
   const [selectedReport, setSelectedReport] = useState<DiagramReportData | null>(null);
-
-  const handleEdit = useCallback((report: DiagramReportData) => {
-    setSelectedReport(report);
-    console.log('Editando reporte:', report);
-  }, []);
-
-  const handleBulkAction = useCallback((selectedRows: DiagramReportData[]) => {
-    console.log('Acción masiva en:', selectedRows);
-  }, []);
 
   // Definición de columnas
   const columns: ColumnDef<DiagramReportData>[] = [
@@ -140,6 +131,8 @@ function DiagramReportsTableComponent({
         );
       },
       filterFn: (row, id, value) => {
+        console.log(row.getValue(id), 'Row');
+        console.log(value, 'Value');
         return value.includes(row.getValue(id));
       },
     },
@@ -172,10 +165,6 @@ function DiagramReportsTableComponent({
         initialData={initialData}
         tableId="diagramReportsTable"
         enableRowSelection={true}
-        onRowClick={(row) => {
-          console.log('Fila clickeada:', row);
-        }}
-        // Configuración para server-side con Supabase
         serverSide={true}
         fetchData={fetchDiagramReportsData}
         queryKey="diagram-reports"
@@ -188,7 +177,7 @@ function DiagramReportsTableComponent({
               options: employeeOptions,
             },
             {
-              columnId: 'Novedad',
+              columnId: 'Tipo',
               title: 'Tipos de Novedad',
               options: noveltyTypeOptions,
             },

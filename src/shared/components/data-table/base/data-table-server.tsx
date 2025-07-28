@@ -130,18 +130,21 @@ export function BaseDataTable<TData, TValue>({
 
   // Query para server-side data
   const dataQuery = useQuery({
-    queryKey: [queryKey, pagination, sorting, columnFilters],
-    queryFn: () =>
-      fetchData?.({
+    queryKey: [queryKey, pageIndex, pageSize, sorting, columnFilters],
+    queryFn: () => {
+      return fetchData?.({
         pageIndex,
         pageSize,
         sorting,
         columnFilters,
-      }),
+      });
+    },
     placeholderData: keepPreviousData,
     enabled: serverSide && !!fetchData,
     initialData:
-      initialData && pageIndex === 0 && columnFilters.length === 0 && sorting.length === 0 ? initialData : undefined,
+      initialData && pageIndex === 0 && pageSize === 10 && columnFilters.length === 0 && sorting.length === 0
+        ? initialData
+        : undefined,
   });
 
   // Usar datos del servidor o datos del cliente
@@ -164,17 +167,20 @@ export function BaseDataTable<TData, TValue>({
       if (typeof updater === 'function') {
         const currentPagination = { pageIndex, pageSize };
         const newPagination = updater(currentPagination);
+
         if (newPagination.pageSize !== pageSize) {
           setPageSize(newPagination.pageSize);
-        }
-        if (newPagination.pageIndex !== pageIndex) {
+          // Reset a la primera página cuando cambia el tamaño de página
+          setPageIndex(0);
+        } else if (newPagination.pageIndex !== pageIndex) {
           setPageIndex(newPagination.pageIndex);
         }
       } else {
         if (updater.pageSize !== pageSize) {
           setPageSize(updater.pageSize);
-        }
-        if (updater.pageIndex !== pageIndex) {
+          // Reset a la primera página cuando cambia el tamaño de página
+          setPageIndex(0);
+        } else if (updater.pageIndex !== pageIndex) {
           setPageIndex(updater.pageIndex);
         }
       }
@@ -223,8 +229,6 @@ export function BaseDataTable<TData, TValue>({
     manualSorting: serverSide,
     manualFiltering: serverSide,
   });
-
-  console.log(dataQuery.isFetching, 'dataQuery.isFetching');
 
   // Loading state para server-side
   const isLoading = dataQuery.isFetching;

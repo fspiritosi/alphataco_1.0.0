@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import type { Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
+import { DataTableExportExcel } from '../base/data-table-export-excel';
 import { DataTableFilterOptions } from '../base/data-table-filter-options';
 import { DataTableSearchInput } from '../base/data-table-search-input';
 import { DataTableViewOptions } from '../base/data-table-view-options';
@@ -264,6 +265,9 @@ export function DataTableToolbar<TData>({
       </div>
       <div className="flex items-center space-x-2 flex-wrap">
         {typeof extraActions === 'function' ? extraActions(table) : extraActions}
+        {showExport && (
+          <DataTableExportExcel table={table} fileName={tableId ? `${tableId}_export` : 'tabla_exportada'} />
+        )}
         {showFilterOptions && filterableColumns.length > 0 && (
           <DataTableFilterOptions
             filterableColumns={filterableColumns}

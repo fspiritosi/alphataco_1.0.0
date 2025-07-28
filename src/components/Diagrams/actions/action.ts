@@ -101,7 +101,8 @@ export async function fetchDiagramReportsData(options: {
       }
 
       // Filtros múltiples para tipos de novedad (por nombre)
-      if (id === 'novelty_name' && Array.isArray(value) && value.length > 0) {
+      if ((id === 'novelty_name' || id === 'Tipo') && Array.isArray(value) && value.length > 0) {
+        console.log('🔍 Aplicando filtro de tipos de novedad:', { id, value });
         // Los valores son nombres de tipos de novedad
         const { data: noveltyTypes, error: noveltyError } = await supabase
           .from('diagram_type')
@@ -110,16 +111,20 @@ export async function fetchDiagramReportsData(options: {
 
         if (!noveltyError && noveltyTypes) {
           const foundNoveltyIds = noveltyTypes.map((type) => type.id);
+          console.log('📋 IDs de tipos de novedad encontrados:', foundNoveltyIds);
           if (foundNoveltyIds.length > 0) {
             query = query.in('diagram_type', foundNoveltyIds);
           } else {
             // Si no se encuentran tipos de novedad, retornar resultado vacío
+            console.log('❌ No se encontraron tipos de novedad para:', value);
             return {
               rows: [],
               pageCount: 0,
               rowCount: 0,
             };
           }
+        } else {
+          console.error('❌ Error buscando tipos de novedad:', noveltyError);
         }
       }
 
