@@ -3,9 +3,8 @@
 import { DataTableColumnHeader } from '@/components/CheckList/tables/data-table-column-header';
 import { Badge } from '@/components/ui/badge';
 import { ColumnDef } from '@tanstack/react-table';
-import { fetchDiagramReports } from '../actions/action';
 
-export const DiagramReportsColumns: ColumnDef<Awaited<ReturnType<typeof fetchDiagramReports>>[0]>[] = [
+export const DiagramReportsColumns: ColumnDef<any>[] = [
   {
     accessorKey: 'employee_cuil',
     id: 'employee_cuil',

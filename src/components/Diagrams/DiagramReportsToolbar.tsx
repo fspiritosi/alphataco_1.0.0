@@ -13,26 +13,11 @@ import { DateRange } from 'react-day-picker';
 import { Calendar } from '../ui/calendar';
 import { Checkbox } from '../ui/checkbox';
 import { fetchEmployeesForReportsType, fetchNoveltyTypesForReportsType } from './DiagramReportsWrapper';
-import { DiagramReportFilters } from './actions/action';
-
-interface Employee {
-  id: string;
-  cuil: string;
-  firstname: string;
-  lastname: string;
-}
-
-interface NoveltyType {
-  id: string;
-  name: string;
-  color: string;
-  short_description: string;
-}
 
 interface DiagramReportsToolbarProps {
   employees: fetchEmployeesForReportsType;
   noveltyTypes: fetchNoveltyTypesForReportsType;
-  onFiltersChange: (filters: DiagramReportFilters) => void;
+  onFiltersChange: (filters: any) => void;
   onExport: () => void;
   totalRecords: number;
   filteredRecords: number;
@@ -56,7 +41,7 @@ export function DiagramReportsToolbar({
 
   // Aplicar filtros cuando cambien los valores
   useEffect(() => {
-    const filters: DiagramReportFilters = {
+    const filters = {
       search_text: searchText || undefined,
       employee_ids: selectedEmployees.length > 0 ? selectedEmployees : undefined,
       novelty_types: selectedNovelties.length > 0 ? selectedNovelties : undefined,
