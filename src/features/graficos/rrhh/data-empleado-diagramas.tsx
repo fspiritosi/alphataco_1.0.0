@@ -1,10 +1,11 @@
 import { getDiagramIndicator, getEmployeeIndicator } from '@/app/server/GET/actions';
-import moment from 'moment';
-
-import { Empleados_diagramas } from './empleados-diagramas';
-
 import { ChartConfig } from '@/components/ui/chart';
+import { fetchAllPositions } from '@/features/Empresa/RRHH/actions/actions';
+import moment from 'moment';
+import { cookies } from 'next/headers';
+import { Empleados_diagramas } from './empleados-diagramas';
 import IndicatorCard from './indicatorCard';
+import { PositionFilter } from './positionsFilters';
 
 interface DiagramIndicator {
   diagram_type_id: string;
@@ -14,9 +15,12 @@ interface DiagramIndicator {
 }
 
 export default async function EmpleadoDiagramasChart() {
-  const employeeIndicator = await getEmployeeIndicator();
-  const diagramIndicator: any = await getDiagramIndicator();
-
+  const cookiesStore = cookies();
+  const cookieValue = cookiesStore.get('position-filter')?.value;
+  const employeeIndicator = await getEmployeeIndicator(cookieValue?.split(',') || []);
+  const diagramIndicator: any = await getDiagramIndicator(cookieValue?.split(',') || undefined);
+  const positions = await fetchAllPositions();
+  const positionsOptions = positions.map((position) => ({ label: position.name!, value: position.id }));
   const condiciones_indicadores = {
     success: 75,
     warning: 50,
@@ -63,11 +67,13 @@ export default async function EmpleadoDiagramasChart() {
   } satisfies ChartConfig;
 
   return (
-    <section className="grid grid-cols-2 gap-4">
-      <div className="col-span-1">
-        <Empleados_diagramas chartData={newChartData} chartConfig={chartConfig} date={date} />
+    <section>
+      <div className="w-full pb-2">
+        <PositionFilter positions={positionsOptions} />
       </div>
-      <div className="col-span-1">
+      <div className=" grid grid-cols-2 gap-4">
+        <Empleados_diagramas chartData={newChartData} chartConfig={chartConfig} date={date} />
+
         <div className="flex  h-full ">
           <IndicatorCard
             disponibleEmployeesPorcent={employeeIndicator![0].indicator}
