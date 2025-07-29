@@ -1,3 +1,4 @@
+import { fetchCompanyPositions } from '@/app/server/GET/actions';
 import { query } from '@/app/server/GET/probando';
 import { cookies } from 'next/headers';
 import DiagramReportsTable from './DiagramReportsTable';
@@ -18,6 +19,7 @@ const fetchNoveltyTypesForReports = async (company_id: string) => {
 
 export type fetchEmployeesForReportsType = Awaited<ReturnType<typeof fetchEmployeesForReports>>;
 export type fetchNoveltyTypesForReportsType = Awaited<ReturnType<typeof fetchNoveltyTypesForReports>>;
+export type fetchCompanyPositionsForReportsType = Awaited<ReturnType<typeof fetchCompanyPositions>>;
 
 export async function DiagramReportsWrapper() {
   // Obtener datos iniciales para la tabla
@@ -33,6 +35,7 @@ export async function DiagramReportsWrapper() {
   // Obtener opciones para filtros
   const employees = await fetchEmployeesForReports();
   const noveltyTypes = await fetchNoveltyTypesForReports(company_id!);
+  const companyPositions = await fetchCompanyPositions();
 
   console.log(noveltyTypes, 'noveltyTypes');
   const savedFilters = cookieStore.get('diagramReportsTable-filters')?.value;
@@ -49,6 +52,7 @@ export async function DiagramReportsWrapper() {
         initialData={initialData}
         employees={employees}
         noveltyTypes={noveltyTypes}
+        companyPositions={companyPositions}
         savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
       />
     </div>
