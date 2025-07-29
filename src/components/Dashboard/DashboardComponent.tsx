@@ -37,7 +37,7 @@ export default async function DashboardComponent() {
                 {/* <EquipmentChart /> */}
               </section>
 
-              <Card className=" flex flex-col justify-between overflow-hidden">
+              <Card className=" flex flex-col justify-between overflow-hidden mt-2">
                 <div>
                   <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
                     <div className="grid gap-1">
