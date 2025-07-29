@@ -9,7 +9,9 @@ const fetchEmployeesForReports = async () => {
 };
 
 const fetchNoveltyTypesForReports = async (company_id: string) => {
-  const response = await query('diagram_type', 'id,name,color,short_description');
+  const response = await query('diagram_type', 'id,name,color,short_description', [
+    { column: 'company_id', value: company_id },
+  ]);
   console.log(response, 'response');
   return response;
 };
