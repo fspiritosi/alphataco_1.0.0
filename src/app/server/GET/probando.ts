@@ -1,4 +1,4 @@
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { Database } from '../../../../database.types';
 
@@ -46,7 +46,7 @@ export async function queryWithPagination<
     columnFilters?: ColumnFiltersState;
   }
 ): Promise<PaginatedResponse<any>> {
-  const supabase = supabaseServer();
+  const supabase = supabaseBrowser();
 
   // Calcular rango para paginación
   const from = options.pageIndex * options.pageSize;
@@ -124,7 +124,7 @@ export async function fetchEmployeesData(options: {
 
 // Función para obtener opciones de filtro dinámicas
 export async function getEmployeeFilterOptions(column: string): Promise<{ label: string; value: string }[]> {
-  const supabase = supabaseServer();
+  const supabase = supabaseBrowser();
 
   const { data, error } = await supabase.from('employees').select(column).not(column, 'is', null);
 
@@ -147,7 +147,7 @@ export async function query<TableName extends keyof Database['public']['Tables']
   select: Query,
   filters?: Filter<TableName>[]
 ) {
-  const supabase = supabaseServer();
+  const supabase = supabaseBrowser();
   let query = supabase.from(tableName).select(select);
 
   // Aplicar filtros si existen
@@ -200,7 +200,7 @@ export async function queryPaginated<TableName extends keyof Database['public'][
     ascending?: boolean;
   } = {}
 ) {
-  const supabase = supabaseServer();
+  const supabase = supabaseBrowser();
   let query = supabase.from(tableName).select(select, { count: 'exact' });
 
   // Aplicar filtros

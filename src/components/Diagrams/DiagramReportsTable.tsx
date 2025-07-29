@@ -7,7 +7,11 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import type { ColumnDef } from '@tanstack/react-table';
 import { Calendar, FileText, User } from 'lucide-react';
 import { useState } from 'react';
-import { fetchEmployeesForReportsType, fetchNoveltyTypesForReportsType } from './DiagramReportsWrapper';
+import {
+  fetchCompanyPositionsForReportsType,
+  fetchEmployeesForReportsType,
+  fetchNoveltyTypesForReportsType,
+} from './DiagramReportsWrapper';
 import { fetchDiagramReportsData } from './actions/action';
 
 // Tipo inferido automáticamente del retorno de la función
@@ -17,6 +21,7 @@ interface DiagramReportsTableProps {
   initialData: Awaited<ReturnType<typeof fetchDiagramReportsData>>;
   employees?: fetchEmployeesForReportsType;
   noveltyTypes?: fetchNoveltyTypesForReportsType;
+  companyPositions?: fetchCompanyPositionsForReportsType;
   savedFilters: string[];
 }
 
@@ -24,6 +29,7 @@ function DiagramReportsTableComponent({
   initialData,
   employees = [],
   noveltyTypes = [],
+  companyPositions = [],
   savedFilters,
 }: DiagramReportsTableProps) {
   const [selectedReport, setSelectedReport] = useState<DiagramReportData | null>(null);
@@ -79,6 +85,22 @@ function DiagramReportsTableComponent({
       filterFn: (row, id, value) => {
         const name = row.getValue(id) as string;
         return name.toLowerCase().includes(value.toLowerCase());
+      },
+    },
+    {
+      accessorKey: 'company_position',
+      id: 'company_position',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Posición" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{row.getValue('company_position') || 'Sin posición'}</span>
+        </div>
+      ),
+      enableHiding: false,
+      filterFn: (row, id, value) => {
+        const position = row.getValue(id) as string;
+        return position?.toLowerCase().includes(value.toLowerCase()) || false;
       },
     },
     {
@@ -149,6 +171,11 @@ function DiagramReportsTableComponent({
     value: type.name || '',
   }));
 
+  const companyPositionOptions = companyPositions.map((position) => ({
+    label: position.name || '',
+    value: position.name || '',
+  }));
+
   return (
     <div className="">
       {selectedReport && (
@@ -181,6 +208,11 @@ function DiagramReportsTableComponent({
               columnId: 'Tipo',
               title: 'Tipos de Novedad',
               options: noveltyTypeOptions,
+            },
+            {
+              columnId: 'company_position',
+              title: 'Posición',
+              options: companyPositionOptions,
             },
             {
               columnId: 'date',
