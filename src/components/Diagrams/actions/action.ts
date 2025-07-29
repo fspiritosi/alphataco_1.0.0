@@ -65,7 +65,11 @@ export async function fetchDiagramReportsData(options: {
         id,
         cuil,
         firstname,
-        lastname
+        lastname,
+        company_position(
+          id,
+          name
+        )
       ),
       diagram_type!inner(
         id,
@@ -128,6 +132,34 @@ export async function fetchDiagramReportsData(options: {
         }
       }
 
+      // Filtros múltiples para posiciones de empresa (por nombre)
+      if (id === 'company_position' && Array.isArray(value) && value.length > 0) {
+        console.log('🔍 Aplicando filtro de posiciones:', { id, value });
+        // Los valores son nombres de posiciones
+        const { data: positions, error: positionError } = await supabase
+          .from('company_positions')
+          .select('id')
+          .in('name', value);
+
+        if (!positionError && positions) {
+          const foundPositionIds = positions.map((position) => position.id);
+          console.log('📋 IDs de posiciones encontrados:', foundPositionIds);
+          if (foundPositionIds.length > 0) {
+            query = query.in('employee_id.company_position', foundPositionIds);
+          } else {
+            // Si no se encuentran posiciones, retornar resultado vacío
+            console.log('❌ No se encontraron posiciones para:', value);
+            return {
+              rows: [],
+              pageCount: 0,
+              rowCount: 0,
+            };
+          }
+        } else {
+          console.error('❌ Error buscando posiciones:', positionError);
+        }
+      }
+
       // Filtros de rango de fechas
       if (id === 'date' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const dateRange = value as { from?: Date | null; to?: Date | null };
@@ -169,6 +201,8 @@ export async function fetchDiagramReportsData(options: {
           .order('day', { ascending: !sort.desc });
       } else if (sort.id === 'novelty_name' || sort.id === 'Tipo') {
         query = query.order('diagram_type(name)', { ascending: !sort.desc });
+      } else if (sort.id === 'company_position') {
+        query = query.order('employee_id.company_position(name)', { ascending: !sort.desc });
       }
     }
   } else {
@@ -197,6 +231,7 @@ export async function fetchDiagramReportsData(options: {
     id: item.id,
     employee_cuil: item.employee_id.cuil,
     employee_name: `${item.employee_id.firstname} ${item.employee_id.lastname}`,
+    company_position: item.employee_id.company_position?.name || 'Sin posición',
     date: `${item.day.toString().padStart(2, '0')}/${item.month.toString().padStart(2, '0')}/${item.year}`,
     novelty_name: item.diagram_type?.name || 'N/A',
     novelty_color: item.diagram_type?.color || '#000000',
