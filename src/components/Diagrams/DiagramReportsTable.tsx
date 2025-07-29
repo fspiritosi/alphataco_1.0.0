@@ -28,6 +28,7 @@ function DiagramReportsTableComponent({
 }: DiagramReportsTableProps) {
   const [selectedReport, setSelectedReport] = useState<DiagramReportData | null>(null);
 
+  console.log(initialData, 'initialData');
   // Definición de columnas
   const columns: ColumnDef<DiagramReportData>[] = [
     {
@@ -116,25 +117,25 @@ function DiagramReportsTableComponent({
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
+      enableSorting: false,
     },
     {
       accessorKey: 'novelty_name',
       id: 'Tipo',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
       cell: ({ row }) => {
-        const name = row.getValue('Tipo') as string;
         return (
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">{name}</span>
+            <span className="text-sm text-muted-foreground">{row.original.novelty_name}</span>
           </div>
         );
       },
       filterFn: (row, id, value) => {
-        console.log(row.getValue(id), 'Row');
-        console.log(value, 'Value');
         return value.includes(row.getValue(id));
       },
+      enableSorting: true,
+      invertSorting: true,
     },
   ];
 

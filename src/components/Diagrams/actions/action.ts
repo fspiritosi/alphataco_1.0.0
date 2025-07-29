@@ -167,8 +167,8 @@ export async function fetchDiagramReportsData(options: {
           .order('year', { ascending: !sort.desc })
           .order('month', { ascending: !sort.desc })
           .order('day', { ascending: !sort.desc });
-      } else if (sort.id === 'novelty_name') {
-        query = query.order('diagram_type.name', { ascending: !sort.desc });
+      } else if (sort.id === 'novelty_name' || sort.id === 'Tipo') {
+        query = query.order('diagram_type(name)', { ascending: !sort.desc });
       }
     }
   } else {
