@@ -20,7 +20,7 @@ export default function IndicatorCard({
 }) {
   return (
     <Card
-      className="h-full flex flex-col items-center justify-between px-0"
+      className="h-full w-full flex flex-col items-center justify-between px-0"
       variant={
         Math.round(disponibleEmployeesPorcent) !== 0
           ? Math.round(disponibleEmployeesPorcent) >= condiciones_indicadores.success

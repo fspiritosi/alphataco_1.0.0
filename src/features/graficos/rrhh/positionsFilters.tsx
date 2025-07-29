@@ -50,7 +50,7 @@ export function PositionFilter({ positions }: PositionFilterProps) {
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="w-full">
-      <Card className="mt-2">
+      <Card className="mt-2 p-2">
         <h1 className="text-lg font-semibold">Indicadores por posiciones:</h1>
         <div className="flex w-full">
           <div className="w-full">
