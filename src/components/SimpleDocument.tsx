@@ -236,11 +236,11 @@ export default function SimpleDocument({
             period: updateEntry.period || null,
           };
 
-          console.log(data, 'data');
+          //console.log(data, 'data');
 
-          console.log(idApplies, 'idApplies');
-          console.log(updateEntry.applies, 'updateEntry.applies');
-          console.log(updateEntry.id_document_types, 'updateEntry.id_document_types');
+          //console.log(idApplies, 'idApplies');
+          //console.log(updateEntry.applies, 'updateEntry.applies');
+          //console.log(updateEntry.id_document_types, 'updateEntry.id_document_types');
           const { error, data: userupdated } = await supabase
             .from(tableName)
             .update(data)

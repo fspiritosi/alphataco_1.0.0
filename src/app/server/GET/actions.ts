@@ -84,8 +84,8 @@ export const fettchExistingEntries = async (applies: string, id_document_types: 
   };
   const table = tableNames[applies as 'Equipos' | 'Persona'];
 
-  console.log(company_id);
-  console.log(id_document_types);
+  //console.log(company_id);
+  //console.log(id_document_types);
 
   const { data: existingEntries, error: existingEntriesError } = await supabase
     .from(table as 'documents_equipment' | 'documents_employees')
@@ -1678,7 +1678,7 @@ export async function fetchEmployeeDiagrams(employeeId?: string) {
       page++;
     }
 
-    console.log(`Se recuperaron ${allDiagrams.length} diagramas de empleados`);
+    //console.log(`Se recuperaron ${allDiagrams.length} diagramas de empleados`);
     return allDiagrams;
   } catch (error) {
     console.error('Error fetching employee diagrams:', error);
@@ -1854,11 +1854,14 @@ export async function getEmployeeIndicator(p_row_id?: string[], save_to_table?: 
   else return data;
 }
 
-// Vehiculos de tipo Tractor o chasis activos
-// De esos vehiculos la condición tiene que ser distinta a "No operativo"
-
-// Unidades Activas para el indicador
-
-// Controlar de ese numero de unidades activas cuantas estan en operación (estan cargadas en el parte diario del día)
-
-// Indicador = Unidades Activas - Unidades en operación se busca que sea 0 o 100%
+export async function getDiagramIndicator(p_company_position_ids?: string[]) {
+  const supabase = supabaseServer();
+  const { data, error } = await supabase.rpc('get_employee_diagram_count_by_day', {
+    p_day: new Date().getDate(),
+    p_month: new Date().getMonth() + 1,
+    p_year: new Date().getFullYear(),
+    p_company_position_ids: p_company_position_ids || undefined,
+  });
+  if (error) console.error(error);
+  else return data;
+}

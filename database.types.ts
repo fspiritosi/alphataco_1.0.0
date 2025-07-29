@@ -1,5 +1,3 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
-
 export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -3237,6 +3235,15 @@ export type Database = {
           reassignment_reason: string;
         }[];
       };
+      get_employee_diagram_count_by_day: {
+        Args: {
+          p_day: number;
+          p_month: number;
+          p_year: number;
+          p_company_position_ids?: string[];
+        };
+        Returns: Json;
+      };
       get_employee_usage_by_positions: {
         Args: { position_uuids: string[] };
         Returns: {
@@ -3366,6 +3373,8 @@ export type Database = {
   };
 };
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
@@ -3479,7 +3488,7 @@ export const Constants = {
   public: {
     Enums: {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
-      condition_enum: ['operativo', 'no operativo', 'en reparaci├│n', 'operativo condicionado'],
+      condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],

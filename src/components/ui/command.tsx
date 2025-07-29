@@ -20,7 +20,6 @@ const Command = React.forwardRef<
     )}
     {...props}
     filter={(value, search) => {
-      console.log(value, search);
       return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
     }}
   />

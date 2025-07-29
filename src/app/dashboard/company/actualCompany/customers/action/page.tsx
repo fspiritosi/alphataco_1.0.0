@@ -23,7 +23,7 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
       service_start: service.date_of_admission,
       service_validity: service.termination_date || '',
     }));
-  console.log(items, employees, filteredServices);
+  //console.log(items, employees, filteredServices);
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('equipment-table-equipment')?.value;
   const savedFilters = cookiesStore.get('equipment-table-equipment-filters')?.value;

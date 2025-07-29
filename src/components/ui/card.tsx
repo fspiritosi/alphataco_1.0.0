@@ -28,7 +28,7 @@ const cardVariants = cva('rounded-xl border bg-card text-card-foreground shadow'
     padding: {
       none: '',
       sm: 'p-3',
-      default: 'p-4',
+      default: 'p-0',
       lg: 'p-6',
       xl: 'p-8',
     },
