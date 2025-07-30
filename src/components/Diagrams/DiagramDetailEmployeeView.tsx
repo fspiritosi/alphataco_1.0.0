@@ -114,7 +114,7 @@ export function DiagramDetailEmployeeView({
                 />
               </PopoverContent>
             </Popover>
-            <InfoComponent message="La selección máxima es de 30 días" size="sm" />
+            <InfoComponent message="La selección máxima es de 30 díass" size="sm" />
           </div>
           <div className="gap-4 pr-7 ">
             <div className=" mt-3">

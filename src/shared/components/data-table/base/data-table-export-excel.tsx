@@ -33,29 +33,8 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
   // Construye los datos para exportar
   // Extraer headers como texto plano (sin iconos)
   const headers: string[] = columns.map((col) => {
-    let label: string = col.id;
-    const header = col.columnDef.header;
-    if (typeof header === 'string') {
-      label = header;
-    } else if (typeof header === 'function') {
-      try {
-        const rendered = header({ column: col, header: undefined, table } as any);
-        // Si es un ReactNode, intenta extraer solo el texto
-        if (typeof rendered === 'string') {
-          label = rendered;
-        } else if (rendered && typeof rendered.props?.children === 'string') {
-          label = rendered.props.children;
-        } else if (rendered && Array.isArray(rendered.props?.children)) {
-          // Si hay varios children (por ejemplo, [icono, texto])
-          // Busca el primer string
-          const textChild = rendered.props.children.find((child: any) => typeof child === 'string');
-          if (textChild) label = textChild;
-        }
-      } catch {
-        // fallback al id
-      }
-    }
-    return label;
+    // Usar el id de la columna directamente, sin procesar el header
+    return col.id || ((col.columnDef as any).accessorKey as string);
   });
 
   const exportData = rows.map((row) => {
