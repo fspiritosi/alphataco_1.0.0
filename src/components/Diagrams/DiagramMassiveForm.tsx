@@ -956,22 +956,36 @@ export function DiagramMassiveForm({
           <FormField
             control={form.control}
             name="dateRange"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Rango de Fechas</FormLabel>
-                <FormItemDatePicker
-                  name="dateRange"
-                  control={form.control}
-                  label="Fechas del diagrama"
-                  description="Selecciona el rango de fechas para diagrama"
-                  disabled={(date) => date < DATE_RESTRICTIONS.minDate}
-                />
-                <div className="text-sm text-muted-foreground">
-                  Solo se permiten fechas desde hoy en adelante (máximo {DATE_RESTRICTIONS.maxDaysRange} días)
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const dateRange = form.watch('dateRange');
+              const calculateDays = () => {
+                if (dateRange?.from && dateRange?.to) {
+                  const diffTime = Math.abs(dateRange.to.getTime() - dateRange.from.getTime());
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 para incluir ambos días
+                  return diffDays;
+                }
+                return 0;
+              };
+              const selectedDays = calculateDays();
+
+              return (
+                <FormItem>
+                  <FormLabel>
+                    Rango de Fechas{' '}
+                    <span className="text-blue-400">{selectedDays > 0 && `(${selectedDays} días seleccionados)`}</span>
+                  </FormLabel>
+                  <FormItemDatePicker
+                    name="dateRange"
+                    control={form.control}
+                    label="Fechas del diagrama"
+                    description="Selecciona el rango de fechas para diagrama"
+                    disabled={(date) => date < DATE_RESTRICTIONS.minDate}
+                  />
+
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
         </form>
       </Form>

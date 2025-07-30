@@ -230,7 +230,7 @@ export async function fetchDiagramReportsData(options: {
   const transformedData = (data || []).map((item: any) => ({
     id: item.id,
     employee_cuil: item.employee_id.cuil,
-    employee_name: `${item.employee_id.firstname} ${item.employee_id.lastname}`,
+    employee_name: `${item.employee_id.lastname} ${item.employee_id.firstname}`,
     company_position: item.employee_id.company_position?.name || 'Sin posición',
     date: `${item.day.toString().padStart(2, '0')}/${item.month.toString().padStart(2, '0')}/${item.year}`,
     novelty_name: item.diagram_type?.name || 'N/A',

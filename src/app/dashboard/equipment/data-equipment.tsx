@@ -22,25 +22,24 @@ export function EquipmentTable<TData, TValue>({
   savedFilters,
   savedVisibility,
 }: DataEquipmentProps<TData, TValue>) {
-  const internNumberOptions = createFilterOptions(data, (doc) => doc.intern_number);
-  const domainOptions = createFilterOptions(data, (doc) => doc.domain);
-  const chassisOptions = createFilterOptions(data, (doc) => doc.chassis);
-  const engineOptions = createFilterOptions(data, (doc) => doc.engine);
-  const serieOptions = createFilterOptions(data, (doc) => doc.serie);
-  const yearOptions = createFilterOptions(data, (doc) => doc.year);
-  const brandOptions = createFilterOptions(data, (doc) => doc.brand.name);
-  const modelOptions = createFilterOptions(data, (doc) => doc.model.name);
-  const statusOptions = createFilterOptions(data, (doc) => doc.status);
-  const conditionOptions = createFilterOptions(data, (doc) => doc.condition);
-  const typeOptions = createFilterOptions(data, (doc) => doc.type.name);
-  const subTypeOptions = createFilterOptions(data, (doc) => doc.subType?.name);
+  const internNumberOptions = createFilterOptions(data, (doc) => doc?.intern_number);
+  const domainOptions = createFilterOptions(data, (doc) => doc?.domain);
+  const chassisOptions = createFilterOptions(data, (doc) => doc?.chassis);
+  const engineOptions = createFilterOptions(data, (doc) => doc?.engine);
+  const serieOptions = createFilterOptions(data, (doc) => doc?.serie);
+  const yearOptions = createFilterOptions(data, (doc) => doc?.year);
+  const brandOptions = createFilterOptions(data, (doc) => doc?.brand?.name);
+  const modelOptions = createFilterOptions(data, (doc) => doc?.model?.name);
+  const statusOptions = createFilterOptions(data, (doc) => doc?.status);
+  const conditionOptions = createFilterOptions(data, (doc) => doc?.condition);
+  const typeOptions = createFilterOptions(data, (doc) => doc?.type?.name);
+  const subTypeOptions = createFilterOptions(data, (doc) => doc?.subType?.name);
   const afectacionesOpciones = createNestedFilterOptions(
     data,
     (employee) =>
       employee?.contractor_equipment?.map((contractor) => contractor?.contractor_id?.name).filter(Boolean) || [],
     Building // Icono de edificio para afectaciones/contratistas
   );
-
   return (
     <>
       <BaseDataTable

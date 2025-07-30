@@ -18,7 +18,9 @@ export const fetchAllEmployees = async (role?: string) => {
     .select(
       'contractor_employee(*,customers(*)),company_positions(*),hierarchy(*),cities(*),provinces(*),work_diagram(*),countries(*),cost_center(*),*'
     )
-    .eq('company_id', company_id);
+    .eq('company_id', company_id)
+    .order('lastname', { ascending: true })
+    .order('firstname', { ascending: true });
 
   if (error) {
     console.error('Error fetching employees:', error);
