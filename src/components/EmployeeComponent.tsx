@@ -888,8 +888,8 @@ export default function EmployeeComponent({
       const renamedFile = new File([imageFile], `${document_number}.${fileExtension}`, {
         type: `image/${fileExtension?.replace(/\s/g, '')}`,
       });
-      await uploadImage(renamedFile, 'employee_photos');
-      const employeeImage = `${url}/employee_photos/${document_number}.${fileExtension}?timestamp=${Date.now()}`
+      await uploadImage(renamedFile, 'employee-photos');
+      const employeeImage = `${url}/employee-photos/${document_number}.${fileExtension}?timestamp=${Date.now()}`
         .trim()
         .replace(/\s/g, '');
       const { data, error } = await supabase

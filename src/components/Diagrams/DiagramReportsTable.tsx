@@ -162,7 +162,13 @@ function DiagramReportsTableComponent({
   ];
 
   const employeeOptions = employees.map((emp) => ({
-    label: `${emp.firstname} ${emp.lastname} (${emp.cuil})`,
+    label: `${emp.lastname
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')} ${emp.firstname
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')} (${emp.cuil})`,
     value: emp.id,
   }));
 
