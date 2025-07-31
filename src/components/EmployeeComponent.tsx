@@ -33,7 +33,6 @@ import { addMonths, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Cookies from 'js-cookie';
 import { Check, ChevronsUpDown, Loader, Loader2 } from 'lucide-react';
-import moment from 'moment';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -53,6 +52,7 @@ import { CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Checkbox } from './ui/checkbox';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from './ui/dialog';
+import { FormDatePicker } from './ui/formDatePicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 type Province = {
@@ -136,6 +136,7 @@ export default function EmployeeComponent({
   const countryOptions = useCountriesStore((state) => state.countries);
   const hierarchyOptions = useCountriesStore((state) => state.hierarchy);
   const workDiagramOptions = useCountriesStore((state) => state.workDiagram);
+
   // const contractorCompanies = useCountriesStore((state) =>
   //   state.customers?.filter(
   //     (company: any) => company.company_id.toString() === profile?.actualCompany?.id && company.is_active
@@ -1335,90 +1336,15 @@ export default function EmployeeComponent({
                         <FormField
                           control={form.control}
                           name="born_date"
-                          render={({ field }) => {
-                            const value = field.value;
-
-                            if (value === 'undefined/undefined/undefined' || value === 'Invalid Date') {
-                              field.value = '';
-                            }
-
-                            return (
-                              <FormItem className="flex flex-col">
-                                <FormLabel>
-                                  Fecha de nacimiento <span style={{ color: 'red' }}> *</span>
-                                </FormLabel>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <FormControl>
-                                      <Button
-                                        disabled={readOnly}
-                                        variant="outline"
-                                        className={cn(
-                                          'w-[300px] pl-3 text-left font-normal',
-                                          !field.value && 'text-muted-foreground'
-                                        )}
-                                      >
-                                        {field.value ? (
-                                          moment(field.value, 'YYYY-MM-DD').format('DD/MM/YYYY')
-                                        ) : (
-                                          <span>Elegir fecha</span>
-                                        )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                      </Button>
-                                    </FormControl>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="flex w-full flex-col space-y-2 p-2" align="start">
-                                    <Select
-                                      onValueChange={(e) => {
-                                        setMonth(new Date(e));
-                                        setYear(e);
-                                        const newYear = parseInt(e, 10);
-                                        const dateWithNewYear = new Date(field.value);
-                                        dateWithNewYear.setFullYear(newYear);
-                                        field.onChange(dateWithNewYear);
-                                        setMonth(dateWithNewYear);
-                                      }}
-                                      value={years || today.getFullYear().toString()}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Elegir año" />
-                                      </SelectTrigger>
-                                      <SelectContent position="popper">
-                                        <SelectItem
-                                          value={today.getFullYear().toString()}
-                                          disabled={years === today.getFullYear().toString()}
-                                        >
-                                          {today.getFullYear().toString()}
-                                        </SelectItem>
-                                        {yearsAhead?.map((year) => (
-                                          <SelectItem key={year} value={`${year}`}>
-                                            {year}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Calendar
-                                      month={month}
-                                      onMonthChange={setMonth}
-                                      toDate={today}
-                                      locale={es}
-                                      mode="single"
-                                      // selected={new Date(field.value) || today}
-                                      selected={
-                                        field.value
-                                          ? moment(field.value, 'YYYY-MM-DD').toDate() // esto mantiene la fecha tal cual sin shift
-                                          : today
-                                      }
-                                      onSelect={(e) => {
-                                        field.onChange(e);
-                                      }}
-                                    />
-                                  </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
+                          render={({ field }) => (
+                            <FormItem className="">
+                              <FormLabel>
+                                Fecha de nacimiento <span className="text-red-500">*</span>
+                              </FormLabel>
+                              <FormDatePicker field={field} disabled={readOnly} />
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
                       </div>
                     );
@@ -1650,102 +1576,19 @@ export default function EmployeeComponent({
                   }
                   if (data.name === 'date_of_admission') {
                     return (
-                      // <div key={crypto.randomUUID()} className="w-[300px] flex flex-col gap-2">
-                      <div key={data.name} className="w-[300px] flex flex-col gap-2">
+                      <div key={data.name} className="w-[300px] flex flex-col gap-2 mb-22justify-center">
                         <FormField
                           control={form.control}
                           name="date_of_admission"
-                          render={({ field }) => {
-                            const value = field.value;
-
-                            if (value === 'undefined/undefined/undefined' || value === 'Invalid Date') {
-                              field.value = '';
-                            }
-
-                            return (
-                              <FormItem className="flex flex-col">
-                                <FormLabel>
-                                  Fecha de ingreso <span style={{ color: 'red' }}> *</span>
-                                </FormLabel>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <FormControl>
-                                      <Button
-                                        disabled={readOnly}
-                                        variant="outline"
-                                        className={cn(
-                                          'w-[300px] pl-3 text-left font-normal',
-                                          !field.value && 'text-muted-foreground'
-                                        )}
-                                      >
-                                        {/* {field.value ? (
-                                          format(field?.value, 'PPP', {
-                                            locale: es,
-                                          } as any)
-                                        ) : (
-                                          <span>Elegir fecha</span>
-                                        )} */}
-                                        {field.value ? (
-                                          moment(field.value, 'YYYY-MM-DD').format('DD/MM/YYYY')
-                                        ) : (
-                                          <span>Elegir fecha</span>
-                                        )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                      </Button>
-                                    </FormControl>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="flex w-full flex-col space-y-2 p-2" align="start">
-                                    <Select
-                                      onValueChange={(e) => {
-                                        setMonth(new Date(e));
-                                        setYear(e);
-                                        const newYear = parseInt(e, 10);
-                                        const dateWithNewYear = new Date(field.value);
-                                        dateWithNewYear.setFullYear(newYear);
-                                        field.onChange(dateWithNewYear);
-                                        setMonth(dateWithNewYear);
-                                      }}
-                                      value={years || today.getFullYear().toString()}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Elegir año" />
-                                      </SelectTrigger>
-                                      <SelectContent position="popper">
-                                        <SelectItem
-                                          value={today.getFullYear().toString()}
-                                          disabled={years === today.getFullYear().toString()}
-                                        >
-                                          {today.getFullYear().toString()}
-                                        </SelectItem>
-                                        {yearsAhead?.map((year) => (
-                                          <SelectItem key={year} value={`${year}`}>
-                                            {year}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Calendar
-                                      month={month}
-                                      onMonthChange={setMonth}
-                                      toDate={today}
-                                      locale={es}
-                                      mode="single"
-                                      // selected={new Date(field.value) || today}
-                                      selected={
-                                        field.value
-                                          ? moment(field.value, 'YYYY-MM-DD').toDate() // esto mantiene la fecha tal cual sin shift
-                                          : today
-                                      }
-                                      onSelect={(e) => {
-                                        field.onChange(e);
-                                      }}
-                                    />
-                                  </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
+                          render={({ field }) => (
+                            <FormItem className="">
+                              <FormLabel>
+                                Fecha de ingreso <span className="text-red-500">*</span>
+                              </FormLabel>
+                              <FormDatePicker field={field} disabled={readOnly} />
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
                       </div>
                     );
@@ -1955,275 +1798,8 @@ export default function EmployeeComponent({
                     );
                   }
                 })}
-                {/* <div> */}
-                {/* <FormField
-                    control={form.control}
-                    name="guild"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col min-w-[250px] overflow-x-hidden">
-                        <FormLabel>Asosiacion gremial</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                disabled={readOnly}
-                                variant="outline"
-                                role="combobox"
-                                value={field.value || ''}
-                                className={cn('w-[300px] justify-between', !field.value && 'text-muted-foreground')}
-                              >
-                                {typeof field.value === 'string'
-                                  ? field.value
-                                  : field.value
-                                    ? getFieldName(field.value)
-                                    : 'Seleccionar Asosiacion gremial'}
 
-                                <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0 max-h-[200px] overflow-y-auto" asChild>
-                            <Command>
-                              <CommandInput
-                                disabled={readOnly}
-                                placeholder="Buscar  Asosiacion gremial..."
-                                value={searchText}
-                                onValueChange={(value: any) => setSearchText(value)}
-                                className="h-9"
-                              />
-                              <CommandEmpty className="py-2 px-2">
-                                <ModalCct modal="addGuild" fetchGuild={fetchGuild} searchText={searchText}>
-                                  <Button
-                                    disabled={readOnly}
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                                  >
-                                    Agregar Asosiacion gremial
-                                    <PlusCircledIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </ModalCct>
-                              </CommandEmpty>
-                              <CommandGroup className="max-h-[200px] overflow-y-auto">
-                                {data2.guild?.map((option) => (
-                                  <CommandItem
-                                    value={option.name}
-                                    key={option.id}
-                                    onSelect={() => {
-                                      form.setValue('guild', option.name);
-                                      form.setValue('guild_id', option.id);
-                                      const guild_id = data2.guild.find((e) => e.id === option?.id);
-                                      setGuildId((guild_id as any) || null);
-                                      fetchCovenant(guild_id?.id as any);
-                                      form.setValue('covenants', null);
-                                      form.setValue('category', null);
-                                    }}
-                                  >
-                                    {option.name}
-                                    <CheckIcon
-                                      className={cn(
-                                        'ml-auto h-4 w-4',
-                                        option.name === field.value ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormDescription>Selecciona la Asosiacion Gremial</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  /> */}
-                {/* <FormField
-                    control={form.control}
-                    name="covenants"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col min-w-[250px] overflow-x-hidden">
-                        <FormLabel>Convenio</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                disabled={readOnly}
-                                variant="outline"
-                                role="combobox"
-                                value={field.value || undefined}
-                                className={cn('w-[300px] justify-between', !field.value && 'text-muted-foreground')}
-                              >
-                                {typeof field.value === 'string' && field.value !== ''
-                                  ? field.value
-                                  : field.value
-                                    ? getFieldName(field.value)
-                                    : 'Seleccionar Convenio'}
-                                <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0 max-h-[200px] overflow-y-auto" asChild>
-                            <Command>
-                              <CommandInput
-                                disabled={readOnly}
-                                placeholder="Buscar convenio..."
-                                onValueChange={(value: any) => setSearchText(value)}
-                                className="h-9"
-                              />
-                              <CommandEmpty className="py-2 px-2">
-                                <ModalCct
-                                  modal="addCovenant"
-                                  fetchData={fetchCovenant}
-                                  guildId={guildId}
-                                  searchText={searchText}
-                                >
-                                  <Button
-                                    disabled={readOnly}
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                                  >
-                                    Agregar Convenio
-                                    <PlusCircledIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </ModalCct>
-                              </CommandEmpty>
-                              <CommandGroup className="max-h-[200px] overflow-y-auto">
-                                {data2.covenants?.map((option) => (
-                                  <CommandItem
-                                    value={option.name}
-                                    key={option.id}
-                                    onSelect={() => {
-                                      form.setValue('covenants', option.name);
-                                      form.setValue('covenants_id', option.id);
-
-                                      const covenant_id = data2.covenants.find((e) => e.id === option?.id);
-
-                                      setCovenantId((covenant_id?.id as any) || null);
-
-                                      fetchCategory(covenant_id?.id as any);
-                                      form.setValue('category', null);
-                                    }}
-                                  >
-                                    {option.name}
-                                    <CheckIcon
-                                      className={cn(
-                                        'ml-auto h-4 w-4',
-                                        option.name === field.value ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormDescription>Selecciona el convenio</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  /> */}
-                {/* <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col min-w-[250px] overflow-x-hidden">
-                        <FormLabel>Categoría</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                disabled={readOnly}
-                                variant="outline"
-                                role="combobox"
-                                className={cn('w-[300px] justify-between', !field.value && 'text-muted-foreground')}
-                              >
-                                {typeof field.value === 'string' && field.value !== ''
-                                  ? field.value
-                                  : field.value
-                                    ? getFieldName(field.value)
-                                    : 'Seleccionar Categoría'}
-                                <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0" asChild>
-                            <Command>
-                              <CommandInput
-                                disabled={readOnly}
-                                placeholder="Buscar categoria..."
-                                onValueChange={(value: any) => setSearchText(value)}
-                                className="h-9"
-                              />
-                              <CommandEmpty className="py-2 px-2">
-                                <ModalCct
-                                  modal="addCategory"
-                                  fetchCategory={fetchCategory}
-                                  covenant_id={covenantId as any}
-                                  covenantOptions={data2.category as any}
-                                  searchText={searchText}
-                                >
-                                  <Button
-                                    disabled={readOnly}
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                                  >
-                                    Agregar Categoría
-                                    <PlusCircledIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </ModalCct>
-                              </CommandEmpty>
-                              <CommandGroup className="max-h-[200px] overflow-y-auto">
-                                <>
-                                  {data2?.category?.map((option) => (
-                                    <CommandItem
-                                      value={option.name ?? 'none'}
-                                      key={option.id ?? 'none'}
-                                      onSelect={() => {
-                                        form.setValue('category', option.name);
-                                        form.setValue('category_id', option.id);
-                                      }}
-                                    >
-                                      {option.name}
-                                      <CheckIcon
-                                        className={cn(
-                                          'ml-auto h-4 w-4',
-                                          option.name === field.value ? 'opacity-100' : 'opacity-0'
-                                        )}
-                                      />
-                                    </CommandItem>
-                                  ))}
-                                </>
-                                <>
-                                  <ModalCct
-                                    modal="addCategory"
-                                    fetchCategory={fetchCategory}
-                                    covenant_id={covenantId}
-                                    covenantOptions={data2.covenants}
-                                  >
-                                    <Button
-                                      disabled={readOnly}
-                                      variant="outline"
-                                      role="combobox"
-                                      className={cn('w-full justify-between', !field.name && 'text-muted-foreground')}
-                                    >
-                                      Agregar Categoría
-                                      <PlusCircledIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                  </ModalCct>
-                                </>
-                              </CommandGroup>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormDescription>Selecciona la categoría</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {/* Sección de Aptitudes Técnicas */}
+                {/* Sección de Aptitudes Técnicas */}
                 {form.watch('company_position') && (
                   <div className="w-full mt-6">
                     <h3 className="text-lg font-medium mb-4">Aptitudes Técnicas</h3>
