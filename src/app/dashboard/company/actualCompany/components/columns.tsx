@@ -120,7 +120,7 @@ export const columns: ColumnDef<SharedUser>[] = [
         );
       };
       return (
-        <div className="flex w-[100px] items-center">
+        <div className="flex w-[150px] items-center">
           <Select
             onValueChange={(e) => changeRole(e)}
             defaultValue={row.original?.role}

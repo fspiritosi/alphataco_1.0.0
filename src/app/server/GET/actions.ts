@@ -1222,7 +1222,8 @@ export const getAllUsers = async () => {
   const { data, error } = await supabase
     .from('share_company_users')
     .select('*,  profile_id(*),customer_id(*)')
-    .eq('company_id', company_id || '');
+    .eq('company_id', company_id || '')
+    .order('profile_id(fullname)', { ascending: true });
 
   if (error) {
     console.error('Error fetching users:', error);

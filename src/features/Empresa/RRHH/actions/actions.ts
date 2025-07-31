@@ -260,7 +260,7 @@ export async function fetchAllPositions() {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('company_positions').select('*');
+  const { data, error } = await supabase.from('company_positions').select('*').order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching positions:', error);
@@ -394,7 +394,11 @@ export async function fetchAllHierarchicalPositions() {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('hierarchy').select('*').returns<any[]>();
+  const { data, error } = await supabase
+    .from('hierarchy')
+    .select('*')
+    .order('name', { ascending: true })
+    .returns<any[]>();
 
   if (error) {
     console.error('Error fetching hierarchical positions:', error);
@@ -405,7 +409,10 @@ export async function fetchAllHierarchicalPositions() {
 
 export async function fetchAllAptitudesTecnicas() {
   const supabase = supabaseServer();
-  const { data, error } = await supabase.from('aptitudes_tecnicas' as any).select('*');
+  const { data, error } = await supabase
+    .from('aptitudes_tecnicas' as any)
+    .select('*')
+    .order('nombre', { ascending: true });
 
   if (error) {
     console.error('Error fetching aptitudes tecnicas:', error);

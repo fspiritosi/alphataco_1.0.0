@@ -24,6 +24,7 @@ export async function fetchAllWorkDiagrams() {
       `
       )
       // .eq('company_id', company_id)
+      .order('name', { ascending: true })
       .returns<WorkDiagramWithRelations[]>();
 
     if (error) {
