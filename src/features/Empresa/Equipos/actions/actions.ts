@@ -9,7 +9,8 @@ export async function FetchTypeOfVehicles() {
     let { data: vehicle_type, error } = await supabase
       .from('type')
       .select('*')
-      .eq('company_id', company_id ?? '');
+      .eq('company_id', company_id ?? '')
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error fetching vehicle types:', error);
@@ -95,7 +96,10 @@ export async function FetchBrandOfVehicles() {
   const supabase = supabaseServer();
 
   try {
-    let { data: vehicle_type, error } = await supabase.from('brand_vehicles').select('*');
+    let { data: vehicle_type, error } = await supabase
+      .from('brand_vehicles')
+      .select('*')
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error fetching brand of vehicle:', error);
@@ -187,7 +191,10 @@ export async function FetchModelOfVehicles() {
   const supabase = supabaseServer();
 
   try {
-    let { data: model_of_vehicle, error } = await supabase.from('model_vehicles').select('*');
+    let { data: model_of_vehicle, error } = await supabase
+      .from('model_vehicles')
+      .select('*')
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error fetching model of vehicle:', error);
@@ -302,7 +309,8 @@ export async function FetchSubTypeOfVehicles() {
     let { data: vehicle_type, error } = await supabase
       .from('sub_type')
       .select('*')
-      .eq('company_id', company_id ?? '');
+      .eq('company_id', company_id ?? '')
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error fetching vehicle types:', error);
