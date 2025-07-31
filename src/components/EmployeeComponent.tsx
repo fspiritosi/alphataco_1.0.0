@@ -1576,17 +1576,17 @@ export default function EmployeeComponent({
                   }
                   if (data.name === 'date_of_admission') {
                     return (
-                      <div key={data.name} className="w-[300px] flex flex-col gap-2 mb-22justify-center">
+                      <div key={data.name} className="w-[300px] flex flex-col gap-2">
                         <FormField
                           control={form.control}
                           name="date_of_admission"
                           render={({ field }) => (
-                            <FormItem className="">
-                              <FormLabel>
+                            <FormItem>
+                              <FormLabel className="block mb-1">
                                 Fecha de ingreso <span className="text-red-500">*</span>
                               </FormLabel>
                               <FormDatePicker field={field} disabled={readOnly} />
-                              <FormMessage />
+                              <FormMessage className="mt-1" />
                             </FormItem>
                           )}
                         />
