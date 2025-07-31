@@ -1493,7 +1493,8 @@ export const fetchDiagramsTypes = async () => {
   const { data, error } = await supabase
     .from('diagram_type')
     .select('*')
-    .eq('company_id', company_id || '');
+    .eq('company_id', company_id || '')
+    .order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching diagrams types:', error);

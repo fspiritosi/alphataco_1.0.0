@@ -303,7 +303,8 @@ export async function fechAllCustomers() {
       .from('customers')
       .select('*')
       // .eq('is_active', true)
-      .eq('company_id', actualCompany || '');
+      .eq('company_id', actualCompany || '')
+      .order('name', { ascending: true });
 
     if (error) {
       console.error(error);
@@ -464,7 +465,8 @@ export async function fetchAreasWithProvinces() {
       `
       )
       .eq('customers.company_id', actualCompany || '')
-      .not('area_province.province_id', 'is', null);
+      .not('area_province.province_id', 'is', null)
+      .order('nombre', { ascending: true });
 
     if (error) {
       console.error(error);
@@ -481,7 +483,10 @@ export async function fetchAreasWithProvinces() {
 export async function fetchEquipmentsCustomers() {
   const supabase = supabaseServer();
   try {
-    const { data: equipments, error } = await supabase.from('equipos_clientes').select('*,customers(*)');
+    const { data: equipments, error } = await supabase
+      .from('equipos_clientes')
+      .select('*,customers(*)')
+      .order('name', { ascending: true });
     if (error) {
       console.error(error);
       return [];
@@ -549,7 +554,10 @@ export async function updateEquipmentCustomer(values: any) {
 export async function fetchAllSectors() {
   const supabase = supabaseServer();
   try {
-    const { data: sectors, error } = await supabase.from('sectors').select('*,sector_customer(*, customers(*))');
+    const { data: sectors, error } = await supabase
+      .from('sectors')
+      .select('*,sector_customer(*, customers(*))')
+      .order('name', { ascending: true });
     // .returns<SectorWithCustomers[]>();
 
     if (error) {
@@ -568,7 +576,8 @@ export async function fetchAllContractorSectorBySectorIds(sectorIds: string[]) {
     const { data: sectors, error } = await supabase
       .from('sector_customer')
       .select('*,sectors(*),customers(*)')
-      .in('sector_id', sectorIds);
+      .in('sector_id', sectorIds)
+      .order('sectors(name)', { ascending: true });
     // .returns<SectorWithCustomers[]>();
 
     if (error) {

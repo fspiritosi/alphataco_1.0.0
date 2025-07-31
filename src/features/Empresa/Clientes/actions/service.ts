@@ -27,7 +27,8 @@ export async function fetchServices(company_id: string) {
         )
       `
       )
-      .eq('company_id', company_id || '');
+      .eq('company_id', company_id || '')
+      .order('service_name', { ascending: true });
 
     if (error) {
       console.error('Error al obtener servicios:', error);

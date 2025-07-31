@@ -36,7 +36,7 @@ export async function fetchMeasureUnits() {
 
   try {
     // Asumiendo que hay un campo company_id para filtrar por empresa
-    const { data, error } = await supabase.from('measure_units').select('*');
+    const { data, error } = await supabase.from('measure_units').select('*').order('unit', { ascending: true });
 
     if (error) {
       console.error('Error al obtener unidades de medida:', error);

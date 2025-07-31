@@ -136,6 +136,7 @@ export default function EmployeeComponent({
   const countryOptions = useCountriesStore((state) => state.countries);
   const hierarchyOptions = useCountriesStore((state) => state.hierarchy);
   const workDiagramOptions = useCountriesStore((state) => state.workDiagram);
+
   // const contractorCompanies = useCountriesStore((state) =>
   //   state.customers?.filter(
   //     (company: any) => company.company_id.toString() === profile?.actualCompany?.id && company.is_active
