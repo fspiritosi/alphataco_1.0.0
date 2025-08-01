@@ -91,7 +91,9 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // Medir tiempo de resolución de employeesPromise
   const [employees, setEmployees] = useState(
-    selectedCustomer?.contractor_employee.map((employee) => employee.employees)
+    selectedCustomer?.contractor_employee
+      ?.map((employee) => employee.employees)
+      ?.sort((a, b) => (a?.lastname || '').localeCompare(b?.lastname || ''))
   );
   // const [allEmployees,setAllEmployees] = useState<{label:string,value:string}[]>([])
 
@@ -114,7 +116,11 @@ export function DataCustomers<TData extends Customer, TValue>({
   useEffect(() => {
     console.log(selectedCustomer, 'selectedCustomer');
     if (selectedCustomer?.id) {
-      setEmployees(selectedCustomer?.contractor_employee.map((employee) => employee.employees));
+      setEmployees(
+        selectedCustomer?.contractor_employee
+          .map((employee) => employee.employees)
+          .sort((a, b) => (a?.lastname || '').localeCompare(b?.lastname || ''))
+      );
     }
   }, [selectedCustomer?.id]);
 
@@ -124,7 +130,7 @@ export function DataCustomers<TData extends Customer, TValue>({
       setEquipment(equipment);
     };
     fetchEquipment();
-  }, []);
+  }, [selectedCustomer?.id]);
 
   // const employees =  fetchAllEmployees();
 
