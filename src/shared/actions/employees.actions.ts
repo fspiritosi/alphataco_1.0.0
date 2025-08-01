@@ -7,7 +7,6 @@ import { cookies } from 'next/headers';
 export const fetchAllEmployees = async (role?: string) => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
-  await new Promise((resolve) => setTimeout(resolve, 3000));
 
   const company_id = cookiesStore.get('actualComp')?.value;
   // console.log(company_id, 'company_id');
@@ -18,6 +17,54 @@ export const fetchAllEmployees = async (role?: string) => {
     .select(
       'contractor_employee(*,customers(*)),company_positions(*),hierarchy(*),cities(*),provinces(*),work_diagram(*),countries(*),cost_center(*),*'
     )
+    .eq('company_id', company_id)
+
+    .order('lastname', { ascending: true })
+    .order('firstname', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching employees:', error);
+    return [];
+  }
+  return data;
+};
+export const fetchAllEmployees2 = async (contractor_id: string) => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+
+  const company_id = cookiesStore.get('actualComp')?.value;
+  // console.log(company_id, 'company_id');
+  if (!company_id) return [];
+
+  console.log(contractor_id, 'contractor_id');
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select(
+      'contractor_employee(*,customers(*)),company_positions(*),hierarchy(*),cities(*),provinces(*),work_diagram(*),countries(*),cost_center(*),*'
+    )
+    .eq('company_id', company_id)
+    .eq('contractor_employee.contractor_id', contractor_id)
+    .order('lastname', { ascending: true })
+    .order('firstname', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching employees:', error);
+    return [];
+  }
+  return data;
+};
+export const fetchAllEmployeesOnlyName = async (role?: string) => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+
+  const company_id = cookiesStore.get('actualComp')?.value;
+  // console.log(company_id, 'company_id');
+  if (!company_id) return [];
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select('id,firstname,lastname')
     .eq('company_id', company_id)
     .order('lastname', { ascending: true })
     .order('firstname', { ascending: true });

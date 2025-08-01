@@ -22,6 +22,7 @@ interface MultiSelectComboboxProps {
   disabled?: boolean;
   selectedResourceDocuments?: EmployeeDocument[];
   showSelectAll?: boolean;
+  maxSelections?: null | number;
 }
 
 export function MultiSelectCombobox({
@@ -33,10 +34,24 @@ export function MultiSelectCombobox({
   onChange,
   disabled = false,
   showSelectAll = false,
+  maxSelections = null,
 }: MultiSelectComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (value: string) => {
+    if (maxSelections && selectedValues.length >= maxSelections) {
+      if (selectedValues.includes(value)) {
+        // If clicking an already selected value, deselect it
+        onChange(selectedValues.filter((v) => v !== value));
+        return;
+      }
+      // Replace first selected value with new value
+      const newValues = [...selectedValues];
+      newValues[0] = value;
+      onChange(newValues);
+      return;
+    }
+
     const updatedValues = selectedValues.includes(value)
       ? selectedValues.filter((v) => v !== value)
       : [...selectedValues, value];

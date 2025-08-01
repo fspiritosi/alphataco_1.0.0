@@ -62,6 +62,7 @@ const fetchData = async ({
       filters: filters,
       page: page,
       pageSize: 100,
+      orderBy: 'lastname',
     }
   );
 
@@ -72,7 +73,7 @@ const formatEmployees = (employeesData: Awaited<ReturnType<typeof fetchData>>) =
   return (
     employeesData.data?.map((employee) => ({
       value: employee?.id,
-      label: `${employee?.firstname?.charAt(0).toUpperCase()}${employee?.firstname?.slice(1)} ${employee?.lastname?.charAt(0).toUpperCase()}${employee?.lastname?.slice(1)}`,
+      label: `${employee?.lastname?.charAt(0).toUpperCase()}${employee?.lastname?.slice(1)} ${employee?.firstname?.charAt(0).toUpperCase()}${employee?.firstname?.slice(1)}`,
       diagrams: employee?.employees_diagram,
       contractor_employee: employee?.contractor_employee,
     })) || []
@@ -303,31 +304,54 @@ export default function EmployesDiagramWrapper() {
   const loadFilterOptions = async () => {
     try {
       // Gremios - usando la función query
-      const guildsData = await query('guild', 'id, name');
+      const guildsData = await query('guild', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Categorías
-      const categoriesData = await query('category', 'id, name,covenant(name)', [{ column: 'is_active', value: true }]);
+      const categoriesData = await query(
+        'category',
+        'id, name,covenant(name)',
+        [{ column: 'is_active', value: true }],
+        {
+          orderBy: 'name',
+        }
+      );
 
       // Posiciones
-      const positionsData = await query('company_positions', 'id, name');
+      const positionsData = await query('company_positions', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Flujos de trabajo
-      const workflowsData = await query('work_diagram', 'id, name');
+      const workflowsData = await query('work_diagram', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Centros de costo
-      const costCentersData = await query('cost_center', 'id, name');
+      const costCentersData = await query('cost_center', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Contratos
-      const covenantsData = await query('covenant', 'id, name');
+      const covenantsData = await query('covenant', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Contratistas
-      const customersData = await query('customers', 'id, name');
+      const customersData = await query('customers', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Contratistas
-      const contractorsData = await query('contractors', 'id, name');
+      const contractorsData = await query('contractors', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Tipos de diagrama
-      const diagramTypesData = await query('diagram_type', 'id, name', [{ column: 'company_id', value: company_id }]);
+      const diagramTypesData = await query('diagram_type', 'id, name', [{ column: 'company_id', value: company_id }], {
+        orderBy: 'name',
+      });
 
       console.log(categoriesData, 'categoriesData');
 

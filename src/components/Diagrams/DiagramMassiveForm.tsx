@@ -93,7 +93,7 @@ const fetchData = async ({
 }) => {
   const employeesData = await queryPaginated(
     'employees',
-    'id, firstname, lastname, document_number, workflow_diagram, employees_diagram(*,diagram_type(*)), contractor_employee(*,customers(id,name))',
+    'id,lastname,firstname,document_number, workflow_diagram, employees_diagram(*,diagram_type(*)), contractor_employee(*,customers(id,name))',
     {
       filters: [
         {
@@ -105,6 +105,7 @@ const fetchData = async ({
       ],
       page: page,
       pageSize: pageSize,
+      orderBy: 'lastname',
     }
   );
   return employeesData;
@@ -121,7 +122,7 @@ const formatEmployees = (employeesData: Awaited<ReturnType<typeof fetchData>>) =
       workflow_diagram: employee?.workflow_diagram,
       employees_diagram: employee?.employees_diagram,
       contractor_employee: employee?.contractor_employee,
-      label: `${employee?.firstname?.charAt(0).toUpperCase()}${employee?.firstname?.slice(1)} ${employee?.lastname?.charAt(0).toUpperCase()}${employee?.lastname?.slice(1)}`,
+      label: `${employee?.lastname?.charAt(0).toUpperCase()}${employee?.lastname?.slice(1)} ${employee?.firstname?.charAt(0).toUpperCase()}${employee?.firstname?.slice(1)}`,
     })) || []
   );
 };
@@ -150,13 +151,6 @@ interface Props {
   loading: boolean;
   setLoading: (loading: boolean) => void;
 }
-
-const fetchEmployees = async () => {
-  const employees = await query('employees', 'id, firstname, lastname, workflow_diagram', [
-    { column: 'is_active', value: true },
-  ]);
-  return employees;
-};
 
 async function fetchWorkDiagrams(company_id: string) {
   const supabase = supabaseBrowser();
@@ -503,33 +497,54 @@ export function DiagramMassiveForm({
   const loadFilterOptions = async () => {
     try {
       // Gremios - usando la función query
-      const guildsData = await query('guild', 'id, name');
+      const guildsData = await query('guild', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Categorías
-      const categoriesData = await query('category', 'id, name,covenant(name)', [{ column: 'is_active', value: true }]);
+      const categoriesData = await query(
+        'category',
+        'id, name,covenant(name)',
+        [{ column: 'is_active', value: true }],
+        {
+          orderBy: 'name',
+        }
+      );
 
       // Posiciones
-      const positionsData = await query('company_positions', 'id, name');
+      const positionsData = await query('company_positions', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Flujos de trabajo
-      const workflowsData = await query('work_diagram', 'id, name');
+      const workflowsData = await query('work_diagram', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Centros de costo
-      const costCentersData = await query('cost_center', 'id, name');
+      const costCentersData = await query('cost_center', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Contratos
-      const covenantsData = await query('covenant', 'id, name');
+      const covenantsData = await query('covenant', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Contratistas
-      const customersData = await query('customers', 'id, name');
+      const customersData = await query('customers', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Contratistas
-      const contractorsData = await query('contractors', 'id, name');
+      const contractorsData = await query('contractors', 'id, name', [], {
+        orderBy: 'name',
+      });
 
       // Tipos de diagrama
-      const diagramTypesData = await query('diagram_type', 'id, name', [{ column: 'company_id', value: company_id }]);
-
-      console.log(categoriesData, 'categoriesData');
+      const diagramTypesData = await query('diagram_type', 'id, name', [{ column: 'company_id', value: company_id }], {
+        orderBy: 'name',
+      });
 
       setFilterOptions({
         guilds: guildsData || [],
@@ -1222,7 +1237,7 @@ export function DiagramMassiveForm({
                         />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">
-                            {employee.firstname} {employee.lastname}
+                            {employee.lastname} {employee.firstname}
                           </div>
                           {!employee.workflow_diagram && (
                             <div className="text-xs text-red-500">Sin diagrama de trabajo</div>
