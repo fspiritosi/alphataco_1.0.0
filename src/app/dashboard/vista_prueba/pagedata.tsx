@@ -28,15 +28,6 @@ type EmployeeData = Awaited<ReturnType<typeof fetchEmployeesData>>['rows'][0];
 function TablaEmployeesSupabase({ initialData }: { initialData: Awaited<ReturnType<typeof fetchEmployeesData>> }) {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeData | null>(null);
 
-  const handleEdit = (employee: EmployeeData) => {
-    setSelectedEmployee(employee);
-    console.log('Editando empleado:', employee);
-  };
-
-  const handleDelete = (employee: EmployeeData) => {
-    console.log('Eliminando empleado:', employee);
-  };
-
   const handleBulkAction = (selectedRows: EmployeeData[]) => {
     console.log('Acción masiva en:', selectedRows);
   };

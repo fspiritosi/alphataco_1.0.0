@@ -1,5 +1,4 @@
-import { fetchAllEmployees } from '@/shared/actions/employees.actions';
-import { fetchAllEquipment } from '@/shared/actions/equipment.actions';
+import { fetchAllEmployeesOnlyName } from '@/shared/actions/employees.actions';
 import { cookies } from 'next/headers';
 import {
   fechAllCustomers,
@@ -16,16 +15,15 @@ export default async function DataCustomersWrapper() {
   const cookiesStore = cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
-  // Fetch data
   const customers = await fechAllCustomers();
   const contractorCompanies = customers?.filter((company) => company.company_id.toString() === actualCompany);
   const areas = await fetchAreasWithProvinces();
   const sectors = await fetchAllSectors();
   const contractorSectors = await fetchAllContractorSectorBySectorIds(sectors?.map((sector) => sector.id) || []);
+
   const services = await fetchServices(actualCompany || '');
+  const employees = await fetchAllEmployeesOnlyName();
   const measure_units = await fetchMeasureUnits();
-  const employees = await fetchAllEmployees();
-  const equipments = await fetchAllEquipment();
 
   // Get cookies
   const savedCustomers = cookiesStore.get('customers-table')?.value;
@@ -46,8 +44,11 @@ export default async function DataCustomersWrapper() {
       data={contractorCompanies || []}
       company_id={actualCompany || ''}
       savedCustomers={savedCustomers}
-      employeesData={employees}
-      equipments={equipments}
+      allEmployees={employees.map((employee) => ({
+        label: `${employee.lastname} ${employee.firstname}`,
+        value: employee.id,
+      }))}
+      // equipmentsPromise={equipments}
       services={services || []}
       areas={areas || []}
       sectors={contractorSectors || []}

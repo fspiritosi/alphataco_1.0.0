@@ -145,7 +145,14 @@ export async function getEmployeeFilterOptions(column: string): Promise<{ label:
 export async function query<TableName extends keyof Database['public']['Tables'], Query extends string = '*'>(
   tableName: TableName,
   select: Query,
-  filters?: Filter<TableName>[]
+  filters?: Filter<TableName>[],
+  {
+    orderBy,
+    ascending = true,
+  }: {
+    orderBy?: keyof Database['public']['Tables'][TableName]['Row'];
+    ascending?: boolean;
+  } = {}
 ) {
   const supabase = supabaseBrowser();
   let query = supabase.from(tableName).select(select);
@@ -171,7 +178,9 @@ export async function query<TableName extends keyof Database['public']['Tables']
       }
     });
   }
-
+  if (orderBy) {
+    query = query.order(orderBy as string, { ascending });
+  }
   const { data, error } = await query;
 
   if (error) {
