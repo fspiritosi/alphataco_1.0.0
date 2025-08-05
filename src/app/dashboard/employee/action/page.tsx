@@ -140,7 +140,7 @@ export default async function EmployeeFormAction({ searchParams }: { searchParam
     type: item.prev_state ? 'modified' : 'created',
   }));
 
-  const { data: workDiagram } = await supabase.from('work_diagram').select('*');
+  const { data: workDiagram } = await supabase.from('work_diagram').select('*').order('name', { ascending: true });
 
   const allCostCenter = await fetchAllCostCenter();
   const diagrams2 = await fetchDiagramsByEmployeeId(searchParams.employee_id);
@@ -148,8 +148,6 @@ export default async function EmployeeFormAction({ searchParams }: { searchParam
   const contract_types = await fetchAllContractTypes();
   const allCompanyPositions = await fetchAllCompanyPositon();
   const contractorCompanies = await fetchCustomers(company_id || '');
-
-  //console.log(workDiagram, 'workDiagramsas');
 
   return (
     <section className="grid grid-cols-1 xl:grid-cols-8 gap-3 md:mx-7 py-4">

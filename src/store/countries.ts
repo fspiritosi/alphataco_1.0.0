@@ -34,7 +34,10 @@ interface State {
 
 export const useCountriesStore = create<State>((set, get) => {
   const fetchCountrys = async () => {
-    const { data: fetchCountries, error } = await supabase.from('countries').select('*');
+    const { data: fetchCountries, error } = await supabase
+      .from('countries')
+      .select('*')
+      .order('name', { ascending: true });
     if (error) {
       console.error('Error al obtener los países:', error);
     } else {
@@ -42,7 +45,10 @@ export const useCountriesStore = create<State>((set, get) => {
     }
   };
   const fetchProvinces = async () => {
-    const { data: fetchedProvinces, error } = await supabase.from('provinces').select('*');
+    const { data: fetchedProvinces, error } = await supabase
+      .from('provinces')
+      .select('*')
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error al obtener las provincias:', error);
@@ -51,7 +57,11 @@ export const useCountriesStore = create<State>((set, get) => {
     }
   };
   const fetchCities = async (provinceId: any) => {
-    const { data: fetchCities, error } = await supabase.from('cities').select('*').eq('province_id', provinceId);
+    const { data: fetchCities, error } = await supabase
+      .from('cities')
+      .select('*')
+      .eq('province_id', provinceId)
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error al obtener las ciudades:', error);
@@ -60,7 +70,7 @@ export const useCountriesStore = create<State>((set, get) => {
     }
   };
   const fetchHierarchy = async () => {
-    const { data: hierarchy, error } = await supabase.from('hierarchy').select('*');
+    const { data: hierarchy, error } = await supabase.from('hierarchy').select('*').order('name', { ascending: true });
 
     if (error) {
       console.error('Error al obtener la jerarquia:', error);
@@ -69,7 +79,10 @@ export const useCountriesStore = create<State>((set, get) => {
     }
   };
   const fetchworkDiagram = async () => {
-    const { data: workDiagram, error } = await supabase.from('work_diagram').select('*');
+    const { data: workDiagram, error } = await supabase
+      .from('work_diagram')
+      .select('*')
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error al obtener el diagrama de trabajo:', error);
@@ -78,7 +91,7 @@ export const useCountriesStore = create<State>((set, get) => {
     }
   };
   const fetchContractors = async () => {
-    const { data: customers, error } = await supabase.from('customers').select('*');
+    const { data: customers, error } = await supabase.from('customers').select('*').order('name', { ascending: true });
 
     if (error) {
       console.error('Error al obtener los contratistas:', error);
@@ -88,7 +101,10 @@ export const useCountriesStore = create<State>((set, get) => {
   };
 
   const fetchContacts = async () => {
-    const { data: contacts, error } = await supabase.from('contacts').select('*, customers(id, name)');
+    const { data: contacts, error } = await supabase
+      .from('contacts')
+      .select('*, customers(id, name)')
+      .order('contact_name', { ascending: true });
     // .eq('company_id', actualCompany?.id)
 
     if (error) {

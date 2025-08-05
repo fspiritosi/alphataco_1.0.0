@@ -77,7 +77,7 @@ function customerEquipmentTab({ customers, equipments, key }: CustomerEquipmentT
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={60}>
           <CustomerEquipmentTable
-            customers={companyCustomers}
+            customers={companyCustomers as any}
             customerEquipments={companyEquipments}
             selectedCustomerEquipment={SelectedEquipment}
             setSelectedCustomerEquipment={setSelectedEquipment}

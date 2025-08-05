@@ -12,7 +12,8 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
-import { fetchAllEmployees } from '@/shared/actions/employees.actions';
+// import { fetchAllEmployees } from '@/shared/actions/employees.actions';
+import { fetchAllEmployees2 } from '@/shared/actions/employees.actions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
@@ -46,7 +47,7 @@ interface DataCustomersProps<TData, TValue> {
   company_id: string;
   id?: string;
   // employees?: ReturnType<typeof formatEmployeesForTable>;
-  equipments?: Awaited<ReturnType<typeof fetchAllEquipment>>;
+  // equipmentsPromise: ReturnType<typeof fetchAllEquipment>
   // Nuevas props para servicios
   services?: any[];
   areas?: any[];
@@ -57,7 +58,8 @@ interface DataCustomersProps<TData, TValue> {
   savedFiltersEquipmentTable: string[];
   savedFiltersServiceTable: string[];
   savedVisibilityEquipment: VisibilityState;
-  employeesData: Awaited<ReturnType<typeof fetchAllEmployees>>;
+  // employeesPromise: ReturnType<typeof fetchAllEmployees>
+  allEmployees?: { label: string; value: string }[];
 }
 
 export function DataCustomers<TData extends Customer, TValue>({
@@ -67,7 +69,7 @@ export function DataCustomers<TData extends Customer, TValue>({
   company_id,
   id,
   // employees,
-  equipments,
+  // equipmentsPromise,
   services = [],
   areas = [],
   sectors = [],
@@ -76,17 +78,73 @@ export function DataCustomers<TData extends Customer, TValue>({
   savedFilters,
   savedFiltersEquipmentTable,
   savedFiltersServiceTable,
-  employeesData,
+  // employeesPromise,
   savedVisibilityEquipment,
+  allEmployees,
 }: DataCustomersProps<TData, TValue>) {
+  // Timestamp de inicio del componente
+
   const router = useRouter();
-  const [selectedCustomer, setSelectedCustomer] = useState<TData | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Awaited<ReturnType<typeof fechAllCustomers>>[number] | null>(
+    null
+  );
+
+  // Medir tiempo de resolución de employeesPromise
+  const [employees, setEmployees] = useState(
+    selectedCustomer?.contractor_employee
+      ?.map((employee) => employee.employees)
+      ?.sort((a, b) => (a?.lastname || '').localeCompare(b?.lastname || ''))
+  );
+  // const [allEmployees,setAllEmployees] = useState<{label:string,value:string}[]>([])
+
+  const [equipments, setEquipment] = useState<Awaited<ReturnType<typeof fetchAllEquipment>>>();
+
+  // useEffect(()=>{
+  //   if(selectedCustomer?.id){
+  //     const fetchEmployees = async () => {
+  //       console.log('trayendo empleados')
+  //       const employees = await fetchAllEmployeesOnlyName();
+
+  //       setAllEmployees(employees.map(employee=>({
+  //         label:employee.lastname+' '+employee.firstname,
+  //         value:employee.id
+  //       })));
+  //     };
+  //     fetchEmployees();
+  //   }
+  // },[selectedCustomer?.id])
+  useEffect(() => {
+    console.log(selectedCustomer, 'selectedCustomer');
+    if (selectedCustomer?.id) {
+      setEmployees(
+        selectedCustomer?.contractor_employee
+          .map((employee) => employee.employees)
+          .sort((a, b) => (a?.lastname || '').localeCompare(b?.lastname || ''))
+      );
+    }
+  }, [selectedCustomer?.id]);
+
+  useEffect(() => {
+    const fetchEquipment = async () => {
+      const equipment = await fetchAllEquipment();
+      setEquipment(equipment);
+    };
+    fetchEquipment();
+  }, [selectedCustomer?.id]);
+
+  // const employees =  fetchAllEmployees();
+
+  // const equipments =  fetchAllEquipment();
+
+  // Medir tiempo de resolución de equipmentsPromise
+
+  // Iniciar medición del procesamiento de datos
+
   const [isEditing, setIsEditing] = useState(false);
   const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
   const [isEquipmentDialogOpen, setIsEquipmentDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [employees, setEmployees] = useState<Awaited<ReturnType<typeof fetchAllEmployees>>>(employeesData || []);
 
   // Leer las cookies necesarias para la persistencia de filtros
   const visibilityCookie = Cookies.get('customers-table');
@@ -97,37 +155,26 @@ export function DataCustomers<TData extends Customer, TValue>({
   const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : savedFilters || [];
 
   const fetchEmployees = async () => {
-    const employees = await fetchAllEmployees();
+    const employees = await fetchAllEmployees2(selectedCustomer?.id!);
     setEmployees(employees);
   };
 
   // Memoize the customer employees filter
   const customerEmployees = React.useMemo(() => {
     if (!employees || !selectedCustomer) {
-      console.log('No employees or selected customer');
       return [];
     }
 
-    console.log('memo customer');
-
     const filtered = employees.filter((employee) => {
       const hasMatchingContractor =
-        employee.contractor_employee?.some((contractor: any) => {
+        employee?.contractor_employee?.some((contractor: any) => {
           const contractorId = contractor.contractor_id?.id || contractor.contractor_id;
-          console.log('Checking contractor:', {
-            employeeId: employee.id,
-            contractorId,
-            selectedCustomerId: selectedCustomer.id,
-            matches: contractorId === selectedCustomer.id,
-          });
           return contractorId === selectedCustomer.id;
         }) || false;
 
-      console.log(`Employee ${employee.id} has matching contractor:`, hasMatchingContractor);
       return hasMatchingContractor;
     });
 
-    console.log('Filtered customer employees:', filtered);
     return filtered;
   }, [employees, selectedCustomer, isEmployeeDialogOpen]);
   // Formulario para empleados
@@ -141,7 +188,6 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Obtener IDs de equipos asignados al cliente actual a través de contractor_equipment
   const assignedEquipmentIds = React.useMemo(() => {
     if (!selectedCustomer || !equipments) return [];
-    console.log('memo equipment');
 
     return equipments
       .filter((equip) => {
@@ -164,31 +210,21 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Obtener IDs de empleados asignados al cliente actual a través de contractor_employee
   const assignedEmployeeIds = React.useMemo(() => {
     if (!selectedCustomer || !employees) return [];
-    console.log('memo employee');
 
     return employees
       .filter((emp) => {
-        return emp.contractor_employee?.some(
+        return emp?.contractor_employee?.some(
           (contractor: any) =>
             (typeof contractor.contractor_id === 'object' && contractor.contractor_id?.id === selectedCustomer.id) ||
             contractor.contractor_id === selectedCustomer.id
         );
       })
-      .map((emp) => String(emp.id));
+      .map((emp) => String(emp?.id));
   }, [selectedCustomer, employees]);
 
   // Sincronizar empleados seleccionados cuando se abre el diálogo
   useEffect(() => {
-    console.log('useEffect employee');
-    console.log('isEmployeeDialogOpen', isEmployeeDialogOpen);
-    console.log('selectedCustomer', selectedCustomer);
     if (selectedCustomer) {
-      console.log('Sincronizando empleados asignados:', {
-        assignedEmployeeIds,
-        customerId: selectedCustomer.id,
-      });
-
-      console.log('assignedEmployeeIds', assignedEmployeeIds);
       // Actualizar el formulario con los IDs de empleados asignados
       form.setValue('employees', assignedEmployeeIds, { shouldValidate: true });
     }
@@ -196,7 +232,6 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // Reset form when dialog is closed
   useEffect(() => {
-    console.log('useEffect employee');
     if (!isDialogOpen) {
       form.reset({ employees: [] });
     }
@@ -204,7 +239,6 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // // Manejar la apertura/cierre del diálogo de empleados
   const handleEmployeeDialogOpenChange = () => {
-    console.log('handleEmployeeDialogOpenChange');
     if (isEmployeeDialogOpen) {
       setIsEmployeeDialogOpen(false);
       form.reset({ employees: [] });
@@ -217,7 +251,6 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // Manejar la apertura/cierre del diálogo de equipos
   const handleEquipmentDialogOpenChange = (open: boolean) => {
-    console.log('handleEquipmentDialogOpenChange');
     if (!open) {
       setIsEquipmentDialogOpen(false);
       equipmentForm.reset({ equipments: [] });
@@ -231,7 +264,6 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Manejador para enviar los equipos seleccionados
   const handleEquipmentSubmit = async (formData: { equipments: string[] }) => {
     if (!selectedCustomer) return;
-    console.log('handleEquipmentSubmit');
 
     try {
       const equipmentIds = Array.isArray(formData.equipments) ? formData.equipments.filter(Boolean) : [];
@@ -265,7 +297,6 @@ export function DataCustomers<TData extends Customer, TValue>({
 
       // Refrescar la lista de empleados
     } catch (error) {
-      console.error('Error al guardar empleados:', error);
       toast.error('Error al actualizar los empleados');
     }
     router.refresh();
@@ -291,14 +322,12 @@ export function DataCustomers<TData extends Customer, TValue>({
   const [showForm, setShowForm] = useState(false);
 
   const handleRowClick = (row: TData) => {
-    setSelectedCustomer(row);
+    setSelectedCustomer(row as any);
     setShowForm(true);
     setIsEditing(false);
   };
 
   const transformEmployeeData = React.useCallback((employee: any) => {
-    console.log('transformEmployeeData');
-
     return {
       ...employee,
       city: employee.city ? parseInt(employee.city) : null,
@@ -311,18 +340,15 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   // Memoize transformed employees (completo para la tabla)
   const transformedEmployees = React.useMemo(() => {
-    console.log('transformedEmployees');
-    console.log(customerEmployees);
     return customerEmployees.map(transformEmployeeData);
   }, [customerEmployees, isEmployeeDialogOpen, employees]);
   // Datos optimizados para el multiselect - siempre mostrar todos los empleados
   const multiselectEmployees = React.useMemo(() => {
     if (!employees) return [];
-    console.log('multiselectEmployees');
 
     return employees.map((emp) => ({
-      value: String(emp.id),
-      label: `${emp.lastname ? emp.lastname.charAt(0).toUpperCase() + emp.lastname.slice(1) : ''} ${emp.firstname ? emp.firstname.charAt(0).toUpperCase() + emp.firstname.slice(1) : ''}`,
+      value: String(emp?.id),
+      label: `${emp?.lastname ? emp.lastname.charAt(0).toUpperCase() + emp.lastname.slice(1) : ''} ${emp?.firstname ? emp.firstname.charAt(0).toUpperCase() + emp.firstname.slice(1) : ''}`,
     }));
   }, [employees]);
   // Using the memoized version of assignedEmployeeIds from above
@@ -335,7 +361,6 @@ export function DataCustomers<TData extends Customer, TValue>({
   // const savedVisibility = savedCustomers ? JSON.parse(savedCustomers) : {};
   // Memoize customer equipments filter
   const customerEquipments = React.useMemo(() => {
-    console.log('customerEquipments');
     if (!equipments || !selectedCustomer) return [];
 
     return equipments.filter((equipment) => {
@@ -415,11 +440,10 @@ export function DataCustomers<TData extends Customer, TValue>({
                                   <FormLabel>Empleados</FormLabel>
                                   <FormControl>
                                     <MultiSelectCombobox
-                                      options={multiselectEmployees}
+                                      options={allEmployees || []}
                                       emptyMessage="No se encontraron empleados"
                                       selectedValues={Array.isArray(field.value) ? field.value.map(String) : []}
                                       onChange={(values) => {
-                                        console.log('Empleados seleccionados:', values);
                                         field.onChange(values);
                                       }}
                                       placeholder="Buscar empleados..."
@@ -455,18 +479,11 @@ export function DataCustomers<TData extends Customer, TValue>({
                 transformedEmployees={
                   (employees?.filter((employee) => {
                     const hasMatchingContractor =
-                      employee.contractor_employee?.some((contractor: any) => {
+                      employee?.contractor_employee?.some((contractor: any) => {
                         const contractorId = contractor.contractor_id?.id || contractor.contractor_id;
-                        console.log('Checking contractor:', {
-                          employeeId: employee.id,
-                          contractorId,
-                          selectedCustomerId: selectedCustomer?.id,
-                          matches: contractorId === selectedCustomer?.id,
-                        });
                         return contractorId === selectedCustomer?.id;
                       }) || false;
 
-                    console.log(`Employee ${employee.id} has matching contractor:`, hasMatchingContractor);
                     return hasMatchingContractor;
                   }) as any) || []
                 }

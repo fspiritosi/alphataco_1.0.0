@@ -142,6 +142,7 @@ export const fetchAllEmployeesWithRelations = async () => {
   )`
     )
     .eq('company_id', company_id || '')
+    .order('lastname')
     .returns<EmployeeDetailed[]>();
 
   if (error) {
@@ -201,6 +202,7 @@ export const fetchAllEquipmentWithRelations = async () => {
     .from('vehicles')
     .select('*,brand(*),model(*),type(*),types_of_vehicles(*),contractor_equipment(*,contractor_id(*))')
     .eq('company_id', company_id || '')
+    .order('domain')
     .returns<VehicleWithBrand[]>();
 
   if (error) {
@@ -568,7 +570,8 @@ export const fetchAllDocumentTypes = async () => {
     .from('document_types')
     .select('*')
     .eq('is_active', true)
-    .or(`company_id.eq.${company_id},company_id.is.null`);
+    .or(`company_id.eq.${company_id},company_id.is.null`)
+    .order('name');
 
   if (error) {
     console.error('Error fetching document types:', error);
@@ -969,6 +972,7 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
     .from('vehicles')
     .select('*,brand(*),model(*),type(*),subType(*),types_of_vehicles(*),contractor_equipment(*,contractor_id(*))')
     .eq('company_id', (company_id ?? company_equipment_id) || '')
+    .order('domain', { ascending: true })
     .returns<VehicleWithBrand[]>();
 
   if (error) {
@@ -1222,7 +1226,8 @@ export const getAllUsers = async () => {
   const { data, error } = await supabase
     .from('share_company_users')
     .select('*,  profile_id(*),customer_id(*)')
-    .eq('company_id', company_id || '');
+    .eq('company_id', company_id || '')
+    .order('profile_id(fullname)', { ascending: true });
 
   if (error) {
     console.error('Error fetching users:', error);
@@ -1493,7 +1498,8 @@ export const fetchDiagramsTypes = async () => {
   const { data, error } = await supabase
     .from('diagram_type')
     .select('*')
-    .eq('company_id', company_id || '');
+    .eq('company_id', company_id || '')
+    .order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching diagrams types:', error);

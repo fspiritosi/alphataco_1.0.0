@@ -757,7 +757,6 @@ export const employeeColumns: ColumnDef<ReturnType<typeof formatEmployeesForTabl
     id: 'Centro de costo',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Centro de costo" />,
     cell: ({ row }) => {
-      console.log(row.original);
       return <div>{row.original.cost_center_name || '-'}</div>;
     },
     filterFn: (row, id, value) => {

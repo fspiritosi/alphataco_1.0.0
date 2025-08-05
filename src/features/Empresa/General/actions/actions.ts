@@ -46,7 +46,11 @@ export async function fetchAllCostCenters() {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('cost_center').select('*').returns<CostCenter[]>();
+  const { data, error } = await supabase
+    .from('cost_center')
+    .select('*')
+    .order('name', { ascending: true })
+    .returns<CostCenter[]>();
 
   if (error) {
     console.error('Error fetching cost centers:', error);
@@ -100,7 +104,7 @@ export async function fetchAllSectors() {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('hierarchy').select('*').returns<[]>();
+  const { data, error } = await supabase.from('hierarchy').select('*').order('name', { ascending: true }).returns<[]>();
 
   if (error) {
     console.error('Error fetching sectors:', error);
