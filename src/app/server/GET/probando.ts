@@ -178,10 +178,10 @@ export async function queryWithPagination<
         const column = parts.slice(1).join('.');
 
         // Aplicar ordenamiento en la relación
-        query = query.order(`${relationTable}(${column})`, { ascending: !sort.desc });
+        query = query.order(`${relationTable}(${column})`, { ascending: sort.desc });
       } else {
         // Para columnas directas
-        query = query.order(sort.id, { ascending: !sort.desc });
+        query = query.order(sort.id, { ascending: sort.desc });
       }
     }
   }
@@ -225,7 +225,17 @@ export async function fetchEmployeesData(options: {
   const data = await queryWithPagination(
     'employees',
     '*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
-    { ...options, sorting: [...options.sorting, { id: 'lastname', desc: true }] }
+    {
+      ...options,
+      sorting: [...options.sorting, { id: 'lastname', desc: true }],
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: true,
+        },
+      ]),
+    }
   );
 
   console.log('🚀 fetchEmployeesData - Resultado:', data);

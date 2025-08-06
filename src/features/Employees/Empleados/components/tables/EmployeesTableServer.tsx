@@ -602,12 +602,13 @@ export default function TablaEmployeesSupabase({
             },
           },
           {
-            columnId: columnKeys['work_diagram.name'],
+            columnId: 'work_diagram.name',
             title: 'Diagrama',
             config: {
-              tableName: 'work_diagram',
-              select: 'name' as '*',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'work_diagram', 'name'>>>) => {
+              tableName: 'employees',
+              select: 'work_diagram.name' as '*',
+              relation: '{"work_diagram": "workflow_diagram"}',
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'work_diagram.name'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
