@@ -17,7 +17,7 @@ interface MultiSelectComboboxProps {
   options: Option[];
   placeholder: string;
   emptyMessage: string;
-  selectedValues: string[];
+  selectedValues: string | string[];
   onChange: (values: string[]) => void;
   disabled?: boolean;
   selectedResourceDocuments?: EmployeeDocument[];
@@ -39,22 +39,32 @@ export function MultiSelectCombobox({
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (value: string) => {
-    if (maxSelections && selectedValues.length >= maxSelections) {
-      if (selectedValues.includes(value)) {
-        // If clicking an already selected value, deselect it
-        onChange(selectedValues.filter((v) => v !== value));
+    // Convertir a array si es necesario
+    const currentValues = Array.isArray(selectedValues) ? selectedValues : selectedValues ? [selectedValues] : [];
+
+    if (maxSelections === 1) {
+      // Para selección única, devuelve string
+      const newValue = currentValues[0] === value ? '' : value;
+      onChange([newValue]);
+      return;
+    }
+
+    if (maxSelections && currentValues.length >= maxSelections) {
+      if (currentValues.includes(value)) {
+        // Si se hace clic en un valor ya seleccionado, deseleccionarlo
+        onChange(currentValues.filter((v) => v !== value));
         return;
       }
-      // Replace first selected value with new value
-      const newValues = [...selectedValues];
+      // Reemplazar el primer valor seleccionado
+      const newValues = [...currentValues];
       newValues[0] = value;
       onChange(newValues);
       return;
     }
 
-    const updatedValues = selectedValues.includes(value)
-      ? selectedValues.filter((v) => v !== value)
-      : [...selectedValues, value];
+    const updatedValues = currentValues.includes(value)
+      ? currentValues.filter((v) => v !== value)
+      : [...currentValues, value];
     onChange(updatedValues);
   };
 
@@ -77,6 +87,10 @@ export function MultiSelectCombobox({
       onChange(selectableValues);
     }
   };
+  const getSelectedLabel = (value: string) => {
+    const option = options.find((opt) => opt.value === value);
+    return option ? option.label : value; // Retorna el label si existe, si no, el valor
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -89,9 +103,15 @@ export function MultiSelectCombobox({
           className="w-full justify-between"
         >
           {selectedValues?.length > 0 ? (
-            <CardDescription className="flex flex-wrap gap-1">
-              {selectedValues?.length} recursos seleccionados
-            </CardDescription>
+            maxSelections === 1 ? (
+              <CardDescription className="flex flex-wrap gap-1">
+                {getSelectedLabel(Array.isArray(selectedValues) ? selectedValues[0] : selectedValues).toString()}
+              </CardDescription>
+            ) : (
+              <CardDescription className="flex flex-wrap gap-1">
+                {selectedValues.length} recursos seleccionados
+              </CardDescription>
+            )
           ) : (
             placeholder
           )}

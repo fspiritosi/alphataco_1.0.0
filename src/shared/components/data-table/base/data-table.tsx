@@ -104,7 +104,7 @@ export function BaseDataTable<TData, TValue>({
   const cookiesStore = Cookies.get('pageSize-table');
   const cookiesStoreIndex = Cookies.get('pageIndex-table');
 
-  console.log(cookiesStore);
+  // console.log(cookiesStore);
 
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
