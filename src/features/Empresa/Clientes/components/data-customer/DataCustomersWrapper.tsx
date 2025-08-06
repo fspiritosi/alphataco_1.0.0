@@ -19,7 +19,7 @@ export default async function DataCustomersWrapper() {
   const contractorCompanies = customers?.filter((company) => company.company_id.toString() === actualCompany);
   const areas = await fetchAreasWithProvinces();
   const sectors = await fetchAllSectors();
-  console.log(sectors, 'sectors');
+  // console.log(sectors, 'sectors');
   const contractorSectors = await fetchAllContractorSectorBySectorIds(sectors?.map((sector) => sector.id) || []);
 
   const services = await fetchServices(actualCompany || '');

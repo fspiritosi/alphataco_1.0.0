@@ -210,9 +210,9 @@ export default function ServiceItemsTable({
     }
   };
 
-  console.log(savedFilters);
-  console.log(savedVisibility);
-  console.log(filteredItems);
+  // console.log(savedFilters);
+  // console.log(savedVisibility);
+  // console.log(filteredItems);
 
   const names = createFilterOptions(
     filteredItems,
@@ -239,7 +239,7 @@ export default function ServiceItemsTable({
     (item) => item?.measure_units?.unit
     // FileText // Icono para documentos
   );
-  console.log(names);
+  // console.log(names);
 
   return (
     <ResizablePanelGroup className=" flex flex-col gap-2" direction="horizontal">

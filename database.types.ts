@@ -1,3 +1,5 @@
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -3260,6 +3262,15 @@ export type Database = {
           indicator: number;
         }[];
       };
+      get_vehicle_usage_indicator: {
+        Args: { p_vehicle_type_ids: string[] } | { p_vehicle_types: string[] };
+        Returns: {
+          type: string;
+          available_units: number;
+          used_units: number;
+          usage_indicator: number;
+        }[];
+      };
       migrate_document: {
         Args: { target_id: string; execute_migration?: boolean };
         Returns: {
@@ -3305,6 +3316,24 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
+      select_distinct_values: {
+        Args:
+          | {
+              p_table_name: string;
+              p_column_path: string;
+              p_join_mappings?: Json;
+            }
+          | {
+              p_table_name: string;
+              p_column_path: string;
+              p_join_mappings?: Json;
+              p_multi_join_paths?: Json;
+            };
+        Returns: {
+          col_value: string;
+          col_count: number;
+        }[];
+      };
       set_reassignment_reason: {
         Args: { reason: string };
         Returns: undefined;
@@ -3336,7 +3365,7 @@ export type Database = {
         | 'empresa'
         | 'empleados'
         | 'equipos'
-        | 'documentaci├│n'
+        | 'documentación'
         | 'mantenimiento'
         | 'dashboard'
         | 'ayuda'
@@ -3354,7 +3383,7 @@ export type Database = {
       repair_state:
         | 'Pendiente'
         | 'Esperando repuestos'
-        | 'En reparaci├│n'
+        | 'En reparación'
         | 'Finalizado'
         | 'Rechazado'
         | 'Cancelado'
@@ -3362,9 +3391,9 @@ export type Database = {
       roles_enum: 'Externo' | 'Auditor';
       state: 'presentado' | 'rechazado' | 'aprobado' | 'vencido' | 'pendiente';
       status_type: 'Avalado' | 'No avalado' | 'Incompleto' | 'Completo' | 'Completo con doc vencida';
-      termination_reason_enum: 'venta' | 'destrucci├│n total' | 'devoluci├│n' | 'otro';
+      termination_reason_enum: 'venta' | 'destrucción total' | 'devolución' | 'otro';
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
-      type_of_contract_enum: 'Per├¡odo de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
+      type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
     };
     CompositeTypes: {
@@ -3372,8 +3401,6 @@ export type Database = {
     };
   };
 };
-
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
 
@@ -3501,7 +3528,7 @@ export const Constants = {
         'empresa',
         'empleados',
         'equipos',
-        'documentaci├│n',
+        'documentación',
         'mantenimiento',
         'dashboard',
         'ayuda',
@@ -3521,7 +3548,7 @@ export const Constants = {
       repair_state: [
         'Pendiente',
         'Esperando repuestos',
-        'En reparaci├│n',
+        'En reparación',
         'Finalizado',
         'Rechazado',
         'Cancelado',
@@ -3530,9 +3557,9 @@ export const Constants = {
       roles_enum: ['Externo', 'Auditor'],
       state: ['presentado', 'rechazado', 'aprobado', 'vencido', 'pendiente'],
       status_type: ['Avalado', 'No avalado', 'Incompleto', 'Completo', 'Completo con doc vencida'],
-      termination_reason_enum: ['venta', 'destrucci├│n total', 'devoluci├│n', 'otro'],
+      termination_reason_enum: ['venta', 'destrucción total', 'devolución', 'otro'],
       type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
-      type_of_contract_enum: ['Per├¡odo de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
+      type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
       type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
     },
   },

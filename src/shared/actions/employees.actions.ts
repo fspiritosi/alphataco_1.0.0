@@ -36,7 +36,7 @@ export const fetchAllEmployees2 = async (contractor_id: string) => {
   // console.log(company_id, 'company_id');
   if (!company_id) return [];
 
-  console.log(contractor_id, 'contractor_id');
+  // console.log(contractor_id, 'contractor_id');
 
   const { data, error } = await supabase
     .from('employees')

@@ -55,6 +55,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { FormDatePicker } from './ui/formDatePicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+
 type Province = {
   id: number;
   name: string;
@@ -598,7 +599,6 @@ export default function EmployeeComponent({
   };
 
   async function onCreate(values: z.infer<typeof accordionSchema>) {
-    //console.log(values);
     toast.promise(
       async () => {
         const { full_name, ...rest } = values;
@@ -625,7 +625,7 @@ export default function EmployeeComponent({
         const birthplaceId = countryOptions.find((e) => e.name === values.birthplace)?.id;
         const cityId = citysOptions.find((e) => e.name.trim() === values.city)?.id;
         const hierarchicalPositionId = hierarchyOptions.find((e) => e.name === values.hierarchical_position)?.id;
-        const workflowDiagramId = workDiagramOptions.find((e) => e.name === values.workflow_diagram)?.id;
+        const workflowDiagramId = workDiagramOptions.find((e) => e.name.trim() === values.workflow_diagram)?.id;
 
         // Obtener el ID del puesto seleccionado
         //console.log(values.company_position);
@@ -673,7 +673,7 @@ export default function EmployeeComponent({
               ? 'https://ui.shadcn.com/avatars/02.png'
               : 'https://ui.shadcn.com/avatars/05.png',
         };
-        //console.log(finalValues);
+
         try {
           const applies = await createEmployee(finalValues as any);
           const documentsMissing: {

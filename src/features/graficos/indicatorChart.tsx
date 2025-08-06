@@ -56,7 +56,7 @@ export function IndicatorChart({
           </PolarRadiusAxis>
           <RadialBar
             dataKey="available"
-            fill={chartConfig.available.color}
+            fill={chartConfig.available?.color}
             stackId="a"
             cornerRadius={5}
             className="stroke-transparent stroke-2"
@@ -65,7 +65,7 @@ export function IndicatorChart({
             dataKey="operative"
             stackId="a"
             cornerRadius={5}
-            fill={chartConfig.operative.color}
+            fill={chartConfig.operative?.color}
             className="stroke-transparent stroke-2"
           />
         </RadialBarChart>
