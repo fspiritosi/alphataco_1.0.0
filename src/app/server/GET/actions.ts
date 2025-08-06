@@ -84,9 +84,6 @@ export const fettchExistingEntries = async (applies: string, id_document_types: 
   };
   const table = tableNames[applies as 'Equipos' | 'Persona'];
 
-  //console.log(company_id);
-  //console.log(id_document_types);
-
   const { data: existingEntries, error: existingEntriesError } = await supabase
     .from(table as 'documents_equipment' | 'documents_employees')
     .select('applies(*),id')
@@ -1684,7 +1681,6 @@ export async function fetchEmployeeDiagrams(employeeId?: string) {
       page++;
     }
 
-    //console.log(`Se recuperaron ${allDiagrams.length} diagramas de empleados`);
     return allDiagrams;
   } catch (error) {
     console.error('Error fetching employee diagrams:', error);
@@ -1832,21 +1828,16 @@ export async function getUniqueEmployeeCountByDate(date: string) {
   }
 }
 
-export async function getVehiclesDisponibleFilterType() {
-  const type1 = '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf';
-  const type2 = 'ea07ff34-13fb-4483-b5bc-8389e41c7d89';
+export async function getVehiclesDisponibleFilterType(type_row_id?: string[]) {
+  // const type1 = '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf';
+  // const type2 = 'ea07ff34-13fb-4483-b5bc-8389e41c7d89';
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from('vehicles')
-    .select('*', { count: 'exact' })
-    .or(`type.eq.${type1},type.eq.${type2}`);
+  const { data, error } = await supabase.rpc('get_vehicle_usage_indicator', {
+    p_vehicle_type_ids: type_row_id || [],
+  });
 
-  if (error) {
-    console.error('Error fetching vehicles:', error);
-    return { success: false, error: error.message, count: 0 };
-  }
-
-  return { success: true, count: data?.length || 0 };
+  if (error) console.error(error);
+  else return data;
 }
 
 export async function getEmployeeIndicator(p_row_id?: string[], save_to_table?: boolean) {

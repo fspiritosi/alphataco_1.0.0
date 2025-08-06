@@ -1047,7 +1047,7 @@ export function DailyReportForm({
                               ?.descripcion_corta || '',
                         }));
 
-                        console.log(customerAreas);
+                        // console.log(customerAreas);
 
                         // Encontrar el área seleccionada
                         const selectedArea = customerAreas.find((area) => area.id === field.value);

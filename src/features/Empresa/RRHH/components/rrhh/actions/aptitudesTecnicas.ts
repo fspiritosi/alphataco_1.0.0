@@ -265,7 +265,7 @@ export async function updateAptitudTecnica(aptitud: UpdateAptitudTecnicaData): P
   if (!company_id) throw new Error('No company ID found');
 
   const { id, puestos } = aptitud;
-  console.log(aptitud);
+  // console.log(aptitud);
   // Actualizar datos básicos de la aptitud
   const { data: updatedAptitud, error: updateError } = await (supabase as unknown as any)
     .from('aptitudes_tecnicas' as any)
