@@ -33,6 +33,7 @@ export interface FacetedFilterConfig<TableName extends keyof Database['public'][
   tableName: TableName;
   select: Query;
   relation?: string;
+  p_filters?: Record<string, string | number | boolean | null> | null;
   multiJoinPaths?: {
     joins: Array<{
       from_table: string;
@@ -68,12 +69,18 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
 
   const { data: fetchedOptions, isLoading } = useQuery({
     queryKey: [
-      `filter-options-${config?.tableName}-${config?.select}-${config?.relation || ''}-${config?.multiJoinPaths ? JSON.stringify(config.multiJoinPaths) : ''}`,
+      `filter-options-${config?.tableName}-${config?.select}-${JSON.stringify(config?.p_filters)}-${config?.relation || ''}-${config?.multiJoinPaths ? JSON.stringify(config.multiJoinPaths) : ''}`,
     ],
     queryFn: async () => {
       if (!config) return [];
       // La función query es genérica y el tipo se infiere automáticamente
-      const data = await querySelectDistinct(config.tableName, config.select, config.relation, config.multiJoinPaths);
+      const data = await querySelectDistinct(
+        config.tableName,
+        config.select,
+        config.relation,
+        config.multiJoinPaths,
+        config.p_filters
+      );
 
       return config.mapper(data || []);
     },

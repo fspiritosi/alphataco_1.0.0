@@ -68,6 +68,7 @@ async function EmployeeListTabs({
           component: (
             // <Suspense fallback={<div>Cargando tabla de empleados...</div>}>
             <EmpleadosInactivosTable />
+
             // </Suspense>
           ),
         },

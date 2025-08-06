@@ -242,6 +242,41 @@ export async function fetchEmployeesData(options: {
 
   return data;
 }
+export async function fetchInactiveEmployeesData(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'employees'>[];
+}) {
+  console.log('🚀 fetchEmployeesData - Opciones recibidas:', {
+    pageIndex: options.pageIndex,
+    pageSize: options.pageSize,
+    sorting: options.sorting,
+    columnFilters: options.columnFilters,
+    filters: options.filters,
+  });
+
+  const data = await queryWithPagination(
+    'employees',
+    '*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
+    {
+      ...options,
+      sorting: [...options.sorting, { id: 'lastname', desc: true }],
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: false,
+        },
+      ]),
+    }
+  );
+
+  console.log('🚀 fetchEmployeesData - Resultado:', data);
+
+  return data;
+}
 
 // Función para obtener opciones de filtro dinámicas
 export async function getEmployeeFilterOptions(column: string): Promise<{ label: string; value: string }[]> {
@@ -331,15 +366,19 @@ export async function querySelectDistinct<
       to_column: string;
     }>;
     final_column: string;
-  }
+  },
+  p_filters?: Record<string, string | number | boolean | null> | null
 ) {
   const supabase = supabaseBrowser();
+
+  console.log(p_filters, 'p_filtersp_filters');
 
   const { data, error } = await supabase.rpc('select_distinct_values', {
     p_table_name: tableName,
     p_column_path: select,
     p_join_mappings: relation,
     p_multi_join_paths: multiJoinPaths ? JSON.stringify(multiJoinPaths) : null,
+    p_filters: JSON.stringify(p_filters),
   });
 
   if (error) {

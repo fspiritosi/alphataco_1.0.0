@@ -1,22 +1,32 @@
-import { fetchAllEmployeesInactives } from '@/shared/actions/employees.actions';
-import { VisibilityState } from '@tanstack/react-table';
+import { fetchInactiveEmployeesData } from '@/app/server/GET/probando';
 import { cookies } from 'next/headers';
-import { EmployeesTableReusable } from '../components/tables/data/employees-table';
+import TablaEmployeesInactiveServer from '../components/tables/EmployeesInactiveTableServer';
 
 async function EmpleadosInactivosTable() {
-  const employees = fetchAllEmployeesInactives();
   const cookiesStore = cookies();
-  const savedVisibility = cookiesStore.get(`employees-inactivos-table`)?.value;
+  const savedVisibility = cookiesStore.get(`inactiveEmployeesServerTable`)?.value;
+  const savedFilters = cookiesStore.get(`inactiveEmployeesServerTable-filters`)?.value;
+  const company_id = cookiesStore.get(`actualComp`)?.value;
+  const initialData = await fetchInactiveEmployeesData({
+    pageIndex: 0,
+    pageSize: 10,
+    sorting: [],
+    columnFilters: [],
+    filters: [
+      {
+        column: 'company_id',
+        operator: 'eq',
+        value: company_id,
+      },
+    ],
+  });
 
   return (
-    <div>
-      <EmployeesTableReusable
-        row_classname="text-red-500"
-        employeesPromise={employees}
-        tableId="employees-inactivos-table"
-        savedVisibility={JSON.parse(savedVisibility || '{}') as VisibilityState}
-      />
-    </div>
+    <TablaEmployeesInactiveServer
+      initialData={initialData}
+      savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
+      savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+    />
   );
 }
 

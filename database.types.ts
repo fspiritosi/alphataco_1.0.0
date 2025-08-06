@@ -3317,18 +3317,13 @@ export type Database = {
         Returns: undefined;
       };
       select_distinct_values: {
-        Args:
-          | {
-              p_table_name: string;
-              p_column_path: string;
-              p_join_mappings?: Json;
-            }
-          | {
-              p_table_name: string;
-              p_column_path: string;
-              p_join_mappings?: Json;
-              p_multi_join_paths?: Json;
-            };
+        Args: {
+          p_table_name: string;
+          p_column_path: string;
+          p_join_mappings?: Json;
+          p_multi_join_paths?: Json;
+          p_filters?: Json;
+        };
         Returns: {
           col_value: string;
           col_count: number;
