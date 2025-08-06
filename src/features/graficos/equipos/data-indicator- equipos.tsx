@@ -43,11 +43,11 @@ export default async function EquipmentChart() {
 
   const indicatorChartConfig = {
     operative: {
-      label: 'Disponibles',
+      label: 'En Uso',
       color: '#34C759', // Mismo verde que en empleados
     },
     available: {
-      label: 'En Uso',
+      label: 'Disponibles',
       color: '#e74c3c', // Mismo rojo que en empleados
     },
   } as const;
