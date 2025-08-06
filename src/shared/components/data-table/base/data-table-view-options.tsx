@@ -86,7 +86,7 @@ export function DataTableViewOptions<TData>({ table, tableId }: DataTableViewOpt
       {isOpen && (
         <div className="absolute right-0 z-10 mt-2 min-w-[200px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-950 p-1 shadow-md">
           <div className="flex items-center justify-between p-2 font-medium">
-            <CardDescription>Mostrar columnas</CardDescription>
+            <CardDescription>Mostrar columnass</CardDescription>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsOpen(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -96,27 +96,44 @@ export function DataTableViewOptions<TData>({ table, tableId }: DataTableViewOpt
             {table
               .getAllColumns()
               .filter((column) => typeof column.accessorFn !== 'undefined' && column.getCanHide())
-              .map((column) => (
-                <div key={column.id} className="flex items-center space-x-2 p-1 hover:bg-gray-100 rounded-md">
-                  <Checkbox
-                    id={`column-${column.id}`}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(checked) => {
-                      // Actualizar la visibilidad en la tabla (esto ya lo hace React Table)
-                      column.toggleVisibility(!!checked);
+              .map((column) => {
+                let header = '';
+                // Si el header es un string
+                if (typeof column.columnDef.header === 'string') {
+                  header = column.columnDef.header;
+                }
 
-                      // Guardar la visibilidad actualizada en cookies
-                      if (tableId) {
-                        // Pasar el ID de la columna y su nuevo estado a la función
-                        saveVisibilityState(column.id, !!checked);
-                      }
-                    }}
-                  />
-                  <label htmlFor={`column-${column.id}`} className="flex-grow text-sm capitalize cursor-pointer">
-                    {column.id}
-                  </label>
-                </div>
-              ))}
+                // Si el header es una función (como DataTableColumnHeader)
+                if (typeof column.columnDef.header === 'function') {
+                  const headerResult = (column.columnDef.header as any)({ column });
+                  // Si es un componente React con props
+                  if (headerResult?.props?.title) {
+                    header = headerResult.props.title;
+                  }
+                }
+
+                return (
+                  <div key={column.id} className="flex items-center space-x-2 p-1 hover:bg-gray-100 rounded-md">
+                    <Checkbox
+                      id={`column-${column.id}`}
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(checked) => {
+                        // Actualizar la visibilidad en la tabla (esto ya lo hace React Table)
+                        column.toggleVisibility(!!checked);
+
+                        // Guardar la visibilidad actualizada en cookies
+                        if (tableId) {
+                          // Pasar el ID de la columna y su nuevo estado a la función
+                          saveVisibilityState(column.id, !!checked);
+                        }
+                      }}
+                    />
+                    <label htmlFor={`column-${column.id}`} className="flex-grow text-sm capitalize cursor-pointer">
+                      {header}
+                    </label>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

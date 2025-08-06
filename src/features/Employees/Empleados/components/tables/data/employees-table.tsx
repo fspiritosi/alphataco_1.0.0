@@ -56,7 +56,6 @@ export function EmployeesTableReusable({
 }: EmployeesTableProps) {
   const router = useRouter();
   const employees2 = employeesPromise ? use(employeesPromise) : transformedEmployees;
-
   const employees = formatEmployeesForTable(employees2 as any);
 
   // Generar todas las opciones de filtro utilizando las funciones utilitarias

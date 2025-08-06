@@ -1,21 +1,17 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import type { Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
-import { DataTableExportExcel } from '../base/data-table-export-excel';
 import { DataTableFilterOptions } from '../base/data-table-filter-options';
-import { DataTableSearchInput } from '../base/data-table-search-input';
 import { DataTableViewOptions } from '../base/data-table-view-options';
 import { DataTableDatePicker } from '../filters/data-table-date-picker';
-import { DataTableFacetedFilter } from '../filters/data-table-faceted-filter-server';
-// import { DataTableFilterOptions } from "./data-table-filter-options"
-// import { DataTableViewOptions } from "./data-table-view-options"
-// import { DataTableDatePicker } from "./data-table-date-picker"
-// import { DataTableFacetedFilter } from "./data-table-faceted-filter"
+import { DataTableFacetedFilter, FacetedFilterConfig } from '../filters/data-table-faceted-filter-server';
 
-interface FilterableColumn<TData> {
+// Ahora FilterableColumn es genérico para TableName y Query
+interface FilterableColumn<TData, TableName extends keyof Database['public']['Tables'], Query extends string = '*'> {
   columnId: string;
   title: string;
   options?: {
@@ -32,6 +28,7 @@ interface FilterableColumn<TData> {
     from: Date | null;
     to: Date | null;
   };
+  config?: FacetedFilterConfig<TableName, Query>; // Usa ambos tipos genéricos
 }
 
 interface SearchableColumn {
@@ -46,9 +43,14 @@ export interface BulkActionProps<TData> {
   onClick: (rows: TData[]) => void;
 }
 
-interface DataTableToolbarProps<TData> {
+// DataTableToolbarProps también es genérico para Query
+interface DataTableToolbarProps<
+  TData,
+  TableName extends keyof Database['public']['Tables'],
+  Query extends string = '*',
+> {
   table: Table<TData>;
-  filterableColumns?: FilterableColumn<TData>[];
+  filterableColumns?: FilterableColumn<TData, TableName, Query>[];
   searchableColumns?: SearchableColumn[];
   showViewOptions?: boolean;
   showFilterOptions?: boolean;
@@ -58,10 +60,14 @@ interface DataTableToolbarProps<TData> {
   showDocumentDownload?: boolean;
   tableId?: string;
   bulkAction?: BulkActionProps<TData>;
-  isLoading?: boolean; // Nueva prop
+  isLoading?: boolean;
 }
 
-export function DataTableToolbar<TData>({
+export function DataTableToolbar<
+  TData,
+  TableName extends keyof Database['public']['Tables'],
+  Query extends string = '*',
+>({
   table,
   filterableColumns = [],
   searchableColumns = [],
@@ -73,8 +79,8 @@ export function DataTableToolbar<TData>({
   showDocumentDownload = false,
   tableId,
   bulkAction,
-  isLoading = false, // Nueva prop
-}: DataTableToolbarProps<TData>) {
+  isLoading = false,
+}: DataTableToolbarProps<TData, TableName, Query>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const columnVisibility = table.getState().columnVisibility;
 
@@ -128,25 +134,14 @@ export function DataTableToolbar<TData>({
         {searchableColumns.length > 0 &&
           searchableColumns.map((column) => {
             const tableColumn = table.getColumn(column.columnId);
-            console.log('🔍 Toolbar - Rendering search input for column:', {
-              columnId: column.columnId,
-              tableColumn: !!tableColumn,
-              isVisible: columnVisibility[column.columnId] !== false,
-              currentValue: tableColumn?.getFilterValue(),
-            });
-
             return tableColumn && columnVisibility[column.columnId] !== false ? (
-              <DataTableSearchInput
+              <Input
                 key={column.columnId}
                 placeholder={column.placeholder || `Buscar...`}
                 value={(tableColumn.getFilterValue() as string) ?? ''}
-                onChange={(value) => {
-                  console.log('🎯 Toolbar - Search input onChange:', { columnId: column.columnId, value });
-                  tableColumn.setFilterValue(value);
-                }}
+                onChange={(event) => tableColumn.setFilterValue(event.target.value)}
                 className="h-8 w-[150px] lg:w-[250px]"
                 disabled={isLoading}
-                debounceMs={500}
               />
             ) : null;
           })}
@@ -211,7 +206,8 @@ export function DataTableToolbar<TData>({
                   key={column.columnId}
                   column={tableColumn}
                   title={column.title}
-                  options={column.options || []}
+                  options={column.options}
+                  config={column.config as any} // Pasamos el config
                   disabled={isLoading}
                 />
               ) : null;
@@ -221,32 +217,8 @@ export function DataTableToolbar<TData>({
           <Button
             variant="ghost"
             onClick={() => {
-              console.log('🧹 Clear filters button clicked');
-              console.log('🧹 Current column filters:', table.getState().columnFilters);
-              console.log('🧹 Searchable columns:', searchableColumns);
-
-              // Limpiar todos los filtros de columna
               table.resetColumnFilters();
-              console.log('🧹 After resetColumnFilters:', table.getState().columnFilters);
-
-              // Limpiar filtros de fecha
               setDateFilters({});
-
-              // Limpiar específicamente los filtros de búsqueda
-              searchableColumns.forEach((column) => {
-                const tableColumn = table.getColumn(column.columnId);
-                if (tableColumn) {
-                  const currentValue = tableColumn.getFilterValue();
-                  console.log(`🧹 Clearing search filter for ${column.columnId}:`, {
-                    currentValue,
-                    willSetTo: '',
-                  });
-                  tableColumn.setFilterValue('');
-                  console.log(`🧹 After clearing ${column.columnId}:`, tableColumn.getFilterValue());
-                }
-              });
-
-              console.log('🧹 Final column filters after clear:', table.getState().columnFilters);
             }}
             className="h-8 px-2 lg:px-3"
             disabled={isLoading}
@@ -265,9 +237,6 @@ export function DataTableToolbar<TData>({
       </div>
       <div className="flex items-center space-x-2 flex-wrap">
         {typeof extraActions === 'function' ? extraActions(table) : extraActions}
-        {showExport && (
-          <DataTableExportExcel table={table} fileName={tableId ? `${tableId}_export` : 'tabla_exportada'} />
-        )}
         {showFilterOptions && filterableColumns.length > 0 && (
           <DataTableFilterOptions
             filterableColumns={filterableColumns}
