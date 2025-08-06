@@ -41,7 +41,7 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
     },
   });
 
-  console.log(position);
+  // console.log(position);
 
   const { reset } = form;
   const router = useRouter();

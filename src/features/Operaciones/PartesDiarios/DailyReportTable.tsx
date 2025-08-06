@@ -39,9 +39,9 @@ const dateRangeFilter: FilterFn<Awaited<ReturnType<typeof getDailyReports>>[numb
 ) => {
   const validityRaw = row.original.date;
   const { from, to } = filterValue || {};
-  console.log('[dateRangeFilter] row:', row);
-  console.log('[dateRangeFilter] columnId:', columnId);
-  console.log('[dateRangeFilter] filterValue:', filterValue);
+  // console.log('[dateRangeFilter] row:', row);
+  // console.log('[dateRangeFilter] columnId:', columnId);
+  // console.log('[dateRangeFilter] filterValue:', filterValue);
   if (!validityRaw) {
     // console.log('[dateRangeFilter] No validity value, return false');
     return false;

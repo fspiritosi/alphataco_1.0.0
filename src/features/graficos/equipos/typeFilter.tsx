@@ -8,18 +8,18 @@ import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 
-interface PositionFilterProps {
-  positions: { label: string; value: string }[];
+interface TypeFilterProps {
+  typesVehicle: { label: string; value: string }[];
 }
 
-export function PositionFilter({ positions }: PositionFilterProps) {
+export function TypeFilter({ typesVehicle }: TypeFilterProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
 
   // Leer cookie al cargar
   useEffect(() => {
-    const cookieValue = Cookies.get('position-filter');
+    const cookieValue = Cookies.get('type-filter');
     const initialValues = cookieValue ? cookieValue.split(',').filter(Boolean) : [];
     setSelectedValues(initialValues);
   }, []);
@@ -33,13 +33,13 @@ export function PositionFilter({ positions }: PositionFilterProps) {
 
     // Guardar o borrar cookie
     if (selectedValues.length > 0) {
-      Cookies.set('position-filter', selectedValues.join(','), {
+      Cookies.set('type-filter', selectedValues.join(','), {
         expires: 7,
         path: '/',
         sameSite: 'strict',
       });
     } else {
-      Cookies.remove('position-filter', { path: '/' });
+      Cookies.remove('type-filter', { path: '/' });
     }
 
     // Refrescar página con transición
@@ -51,16 +51,16 @@ export function PositionFilter({ positions }: PositionFilterProps) {
   return (
     <form onSubmit={(e) => e.preventDefault()} className="w-full">
       <Card className="p-2">
-        <h1 className="text-lg font-semibold">Indicadores por posiciones:</h1>
+        <h1 className="text-lg font-semibold">Indicadores por Tipo de unidad:</h1>
         <div className="flex w-full">
           <div className="w-full">
             <MultiSelectCombobox
-              options={positions}
+              options={typesVehicle}
               selectedValues={selectedValues}
               onChange={handlePositionChange}
-              placeholder="Seleccionar posiciones..."
+              placeholder="Seleccionar Tipos de unidad..."
               showSelectAll={true}
-              emptyMessage="No hay posiciones"
+              emptyMessage="No hay Tipos de unidad"
             />
           </div>
           <Button
@@ -93,7 +93,7 @@ export function PositionFilter({ positions }: PositionFilterProps) {
         </div>
         {selectedValues.length > 0 && (
           <div className="flex w-full flex-wrap gap-2 p-2">
-            {selectedValues.length === positions.length ? (
+            {selectedValues.length === typesVehicle.length ? (
               <div className="relative">
                 <Badge className="pr-6 relative">
                   Todas las posiciones
@@ -112,7 +112,7 @@ export function PositionFilter({ positions }: PositionFilterProps) {
               </div>
             ) : (
               selectedValues.map((value) => {
-                const label = positions.find((position) => position.value === value)?.label;
+                const label = typesVehicle.find((typeVehicle) => typeVehicle.value === value)?.label;
                 if (!label) return null;
 
                 return (

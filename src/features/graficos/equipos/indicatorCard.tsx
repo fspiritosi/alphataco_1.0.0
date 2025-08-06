@@ -2,63 +2,63 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { IndicatorChart } from '../indicatorChart';
 
 export default function IndicatorCardEquipment({
-  disponibleEmployeesPorcent,
-  disponibleEmployeesNumber,
-  diagramActiveEmployees,
+  totalVehicles,
+  disponibleEquipmentPorcent,
+  disponibleEquipmentNumber,
+  activeEquipment,
   indicatorCharData,
   indicatorChartConfig,
   condiciones_indicadores,
-  usageEmployees,
+  // usageEquipment,
 }: {
-  disponibleEmployeesPorcent: number;
-  disponibleEmployeesNumber: number;
-  diagramActiveEmployees: number | undefined;
+  totalVehicles: number;
+  disponibleEquipmentPorcent: number;
+  disponibleEquipmentNumber: number;
+  activeEquipment: number | undefined;
   indicatorCharData: any;
   indicatorChartConfig: any;
   condiciones_indicadores: any;
-  usageEmployees: any;
+  // usageEquipment: any;
 }) {
   return (
     <Card
-      className="h-full flex flex-col items-center justify-between px-0"
+      className="h-full w-full flex flex-col items-center justify-between px-0"
       variant={
-        Math.round(disponibleEmployeesPorcent) !== 0
-          ? Math.round(disponibleEmployeesPorcent) < condiciones_indicadores.success
+        Math.round(disponibleEquipmentPorcent) !== 0
+          ? Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
             ? 'success'
-            : Math.round(disponibleEmployeesPorcent) < condiciones_indicadores.warning
+            : Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.warning
               ? 'warning'
               : 'destructive'
           : 'destructive'
       }
     >
       <CardHeader>
-        <CardTitle className="text-center text-xl font-bold">Indicador de eficacia Equipos</CardTitle>
+        <CardTitle className="text-center text-xl font-bold">Indicador de eficacia Empleados</CardTitle>
       </CardHeader>
       <div className="grid grid-cols-3 gap-2 items-center">
         <CardContent className="col-span-2 flex items-center justify-center max-h-[200px]">
           <IndicatorChart
             chartConfig={indicatorChartConfig}
             chartData={indicatorCharData}
-            totalIndicator={
-              Math.round(disponibleEmployeesPorcent) !== 0 ? 100 - Math.round(disponibleEmployeesPorcent) : 0
-            }
+            totalIndicator={Math.round(disponibleEquipmentPorcent) !== 0 ? Math.round(disponibleEquipmentPorcent) : 0}
           />
         </CardContent>
         <CardContent className="flex flex-col gap-2 items-start justify-center">
           <CardDescription className="text-sm ">
-            Activos: <span className="ml-2 font-bold">{diagramActiveEmployees}</span>
+            Activos: <span className="ml-2 font-bold">{totalVehicles}</span>
           </CardDescription>
           <CardDescription className="text-sm ">
-            En operación:<span className="ml-2 !important text-green-600  font-bold">{usageEmployees.count}</span>
+            En operación:<span className="ml-2 !important text-green-600  font-bold">{activeEquipment}</span>
           </CardDescription>
           <CardDescription className="text-sm ">
-            Disponibles:<span className="ml-2 !important text-red-600 font-bold"> {disponibleEmployeesNumber}</span>
+            Disponibles:<span className="ml-2 !important text-red-600 font-bold"> {disponibleEquipmentNumber}</span>
           </CardDescription>
         </CardContent>
       </div>
       <CardFooter>
         <CardDescription className="text-xs">
-          <span className="font-bold">Indicador = </span>Equipos disponibles - Equipos en operación
+          <span className="font-bold">Indicador = </span>Empleados activos - Empleados en operación
         </CardDescription>
       </CardFooter>
     </Card>

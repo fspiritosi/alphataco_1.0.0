@@ -71,7 +71,7 @@ export function EmployeesTableReusable({
     Building // Icono de edificio para afectaciones/contratistas
   );
 
-  console.log(employees, 'employees');
+  // console.log(employees, 'employees');
 
   const contractTypes = createFilterOptions(
     employees,

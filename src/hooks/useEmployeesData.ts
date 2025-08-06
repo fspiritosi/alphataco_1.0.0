@@ -44,7 +44,7 @@ export const useEmployeesData = () => {
         .select();
 
       if (error) {
-        console.log(employee, 'employee');
+        // console.log(employee, 'employee');
         console.log(error, 'error');
         const message = await errorTranslate(error.message);
         throw new Error(String(message).replaceAll('"', ''));

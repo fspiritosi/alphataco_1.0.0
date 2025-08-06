@@ -2,9 +2,8 @@
 
 import { fetchAllActivesEmployees } from '@/app/server/GET/actions';
 import { CreateDiagrams, UpdateDiagramsById } from '@/app/server/UPDATE/actions';
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { zodResolver } from '@hookform/resolvers/zod';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
@@ -16,8 +15,8 @@ import { FormItemDatePicker } from '../ui/FormItemDatePicker';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Form } from '../ui/form';
+import { MultiSelectCombobox } from '../ui/multi-select-combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-
 interface ErrorToCreate {
   employee_name: string;
   day: number;
@@ -56,6 +55,15 @@ function DiagramFormUpdated({
   const [newDiagrams, setNewDiagrams] = useState<DiagramaToCreate[]>([]);
   const [errorsDiagrams, setErrorsDiagrams] = useState<ErrorToCreate[]>([]);
   const [succesDiagrams, setSuccesDiagrams] = useState<DiagramaToCreate[]>([]);
+  const employeesOptions = employees.map((employee) => ({
+    value: employee.id,
+    label: `${employee.lastname.charAt(0).toUpperCase()}${employee.lastname.slice(1)} ${employee.firstname.charAt(0).toUpperCase()}${employee.firstname.slice(1)}`,
+  }));
+  const diagramsTypeOptions = diagrams_types.map((type) => ({
+    value: type.id,
+    label: type.name || '',
+  }));
+
   const router = useRouter();
   const FormSchema = z.object({
     dateRange: z
@@ -67,10 +75,10 @@ function DiagramFormUpdated({
         message: 'La fecha de finalización no puede ser anterior a la fecha de inicio',
         path: ['to'],
       }),
-    employee_id: z.string({
+    employee_id: z.array(z.string(), {
       required_error: 'Por favor selecciona un empleado',
     }),
-    diagram_type: z.string({
+    diagram_type: z.array(z.string(), {
       required_error: 'Por favor selecciona un tipo de diagrama',
     }),
   });
@@ -79,7 +87,7 @@ function DiagramFormUpdated({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       dateRange: undefined,
-      employee_id: defaultId || undefined,
+      employee_id: defaultId ? [defaultId] : undefined,
     },
   });
 
@@ -87,7 +95,7 @@ function DiagramFormUpdated({
     const { employee_id, dateRange, diagram_type } = data;
 
     // Filtrar diagramas del empleado seleccionado
-    const employeeDiagrams = diagrams.filter((diagram) => diagram.employee_id?.id === employee_id);
+    const employeeDiagrams = diagrams.filter((diagram) => employee_id.includes(diagram.employee_id?.id));
 
     // Generar todas las fechas entre dateRange.from y dateRange.to
     const startDate = moment(dateRange.from);
@@ -118,15 +126,14 @@ function DiagramFormUpdated({
           day: date.day,
           month: date.month,
           year: date.year,
-          diagram_type,
-          employee_id,
+          diagram_type: diagram_type[0],
+          employee_id: employee_id[0],
         });
       }
     });
 
     setExistingDiagrams(existing);
     setNewDiagrams(newDates);
-
     // Mapear los diagramas existentes y nuevos a los estados correspondientes
     const errors = existing
       // .filter((diagram) => diagram.diagram_type?.id !== form.getValues('diagram_type'))
@@ -138,20 +145,20 @@ function DiagramFormUpdated({
         day: diagram.day,
         month: diagram.month,
         year: diagram.year,
-        event_diagram_name: diagrams_types.find((type) => type?.id === form.getValues('diagram_type'))?.name || '',
+        event_diagram_name: diagrams_types.find((type) => type?.id === form.getValues('diagram_type')[0])?.name || '',
         prev_event: diagram.prev_diagram_type || '',
         prev_diagram_entry_id: diagram?.id,
       }));
 
     const successes = newDates?.map((date) => ({
       employee_name:
-        employees.find((e) => e?.id === employee_id)?.firstname +
+        employees.find((e) => e?.id === employee_id[0])?.firstname +
         ' ' +
-        employees.find((e) => e?.id === employee_id)?.lastname,
+        employees.find((e) => e?.id === employee_id[0])?.lastname,
       day: date.day,
       month: date.month,
       year: date.year,
-      event_diagram_name: diagrams_types.find((type) => type?.id === diagram_type)?.name || '',
+      event_diagram_name: diagrams_types.find((type) => type?.id === diagram_type[0])?.name || '',
     }));
 
     setErrorsDiagrams(errors);
@@ -163,7 +170,7 @@ function DiagramFormUpdated({
     toast.promise(
       async () =>
         await UpdateDiagramsById([
-          { diagram_type: form.getValues('diagram_type'), diagramId: diagramToUpdate.prev_diagram_entry_id },
+          { diagram_type: form.getValues('diagram_type')[0], diagramId: diagramToUpdate.prev_diagram_entry_id },
         ]),
 
       {
@@ -184,7 +191,7 @@ function DiagramFormUpdated({
       async () =>
         await UpdateDiagramsById(
           diagramsToUpdate?.map((diagram) => ({
-            diagram_type: form.getValues('diagram_type'),
+            diagram_type: form.getValues('diagram_type')[0],
             diagramId: diagram.prev_diagram_entry_id,
           }))
         ),
@@ -209,8 +216,8 @@ function DiagramFormUpdated({
             day,
             month,
             year,
-            employee_id: form.getValues('employee_id'),
-            diagram_type: form.getValues('diagram_type'),
+            employee_id: form.getValues('employee_id')[0],
+            diagram_type: form.getValues('diagram_type')[0],
           },
         ]),
       {
@@ -237,8 +244,8 @@ function DiagramFormUpdated({
             day: diagram.day,
             month: diagram.month,
             year: diagram.year,
-            employee_id: form.getValues('employee_id'),
-            diagram_type: form.getValues('diagram_type'),
+            employee_id: form.getValues('employee_id')[0],
+            diagram_type: form.getValues('diagram_type')[0],
           }))
         ),
       {
@@ -277,7 +284,7 @@ function DiagramFormUpdated({
       const { employee_id, dateRange, diagram_type } = form.getValues();
 
       // Filtrar diagramas del empleado seleccionado
-      const employeeDiagrams = diagrams.filter((diagram) => diagram.employee_id?.id === employee_id);
+      const employeeDiagrams = diagrams.filter((diagram) => employee_id.includes(diagram.employee_id?.id));
 
       // Generar todas las fechas entre dateRange.from y dateRange.to
       const startDate = moment(dateRange?.from);
@@ -308,8 +315,8 @@ function DiagramFormUpdated({
             day: date.day,
             month: date.month,
             year: date.year,
-            diagram_type,
-            employee_id,
+            diagram_type: diagram_type[0],
+            employee_id: employee_id[0],
           });
         }
       });
@@ -328,28 +335,26 @@ function DiagramFormUpdated({
           day: diagram.day,
           month: diagram.month,
           year: diagram.year,
-          event_diagram_name: diagrams_types.find((type) => type?.id === diagram_type)?.name || '',
+          event_diagram_name: diagrams_types.find((type) => type?.id === diagram_type[0])?.name || '',
           prev_event: diagram.prev_diagram_type || '',
           prev_diagram_entry_id: diagram?.id,
         }));
 
       const successes = newDates?.map((date) => ({
         employee_name:
-          employees.find((e) => e?.id === employee_id)?.firstname +
+          employees.find((e) => e?.id === employee_id[0])?.firstname +
           ' ' +
-          employees.find((e) => e?.id === employee_id)?.lastname,
+          employees.find((e) => e?.id === employee_id[0])?.lastname,
         day: date.day,
         month: date.month,
         year: date.year,
-        event_diagram_name: diagrams_types.find((type) => type?.id === diagram_type)?.name || '',
+        event_diagram_name: diagrams_types.find((type) => type?.id === diagram_type[0])?.name || '',
       }));
 
       setErrorsDiagrams(errors);
       setSuccesDiagrams(successes);
     }
   }, [form.watch('diagram_type'), form.watch('employee_id'), form.watch('dateRange.from'), form.watch('dateRange.to')]);
-
-  // console.log("prongando")
 
   return (
     <ResizablePanelGroup direction="horizontal" className="">
@@ -364,7 +369,7 @@ function DiagramFormUpdated({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Empleado</FormLabel>
-                    <Select
+                    {/* <Select
                       disabled={defaultId ? true : false}
                       onValueChange={field.onChange}
                       defaultValue={field.value}
@@ -382,7 +387,16 @@ function DiagramFormUpdated({
                           </SelectItem>
                         ))}
                       </SelectContent>
-                    </Select>
+                    </Select> */}
+                    <MultiSelectCombobox
+                      options={employeesOptions}
+                      placeholder="Selecciona un empleado"
+                      emptyMessage="No hay empleados"
+                      selectedValues={field.value as any}
+                      onChange={field.onChange}
+                      disabled={defaultId ? true : false}
+                      maxSelections={1}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -393,7 +407,7 @@ function DiagramFormUpdated({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo de novedad</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    {/* <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona un tipo de novedad" />
@@ -406,7 +420,16 @@ function DiagramFormUpdated({
                           </SelectItem>
                         ))}
                       </SelectContent>
-                    </Select>
+                    </Select> */}
+                    <MultiSelectCombobox
+                      options={diagramsTypeOptions}
+                      placeholder="Selecciona un tipo de novedad"
+                      emptyMessage="No hay tipos de novedades"
+                      selectedValues={field.value as any}
+                      onChange={field.onChange}
+                      disabled={defaultId ? true : false}
+                      maxSelections={1}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -497,12 +520,12 @@ function DiagramFormUpdated({
                   <TableBody key={crypto.randomUUID()}>
                     <TableRow>
                       <TableCell>
-                        {employees.find((e) => e?.id === form.getValues('employee_id'))?.firstname +
+                        {employees.find((e) => e?.id === form.getValues('employee_id')[0])?.firstname +
                           ' ' +
-                          employees.find((e) => e?.id === form.getValues('employee_id'))?.lastname}
+                          employees.find((e) => e?.id === form.getValues('employee_id')[0])?.lastname}
                       </TableCell>
                       <TableCell>
-                        {diagrams_types.find((type) => type?.id === form.getValues('diagram_type'))?.name || ''}
+                        {diagrams_types.find((type) => type?.id === form.getValues('diagram_type')[0])?.name || ''}
                       </TableCell>
                       <TableCell>
                         {d.day}/{d.month}/{d.year}
