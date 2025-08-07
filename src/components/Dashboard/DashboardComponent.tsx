@@ -1,7 +1,6 @@
 import CardsGrid from '@/app/dashboard/componentDashboard/CardsGrid';
 import DocumentsTable from '@/app/dashboard/componentDashboard/DocumentsTable';
 import EmployeesTable from '@/app/dashboard/componentDashboard/EmployeesTable';
-import { getVehiclesDisponibleFilterType } from '@/app/server/GET/actions';
 import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
 import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
@@ -11,12 +10,12 @@ import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos'
 import EmpleadoDiagramasChart from '@/features/graficos/rrhh/data-empleado-diagramas';
 import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
-// import { InteractiveChart } from '@/components/Graficos/InteractiveChart';
+
 export default async function DashboardComponent() {
   const employees = fetchAllEmployeesCount();
   const equipments = fetchAllVehiclesCount();
-  const equipmentsDisponible = getVehiclesDisponibleFilterType();
   const servicesSummary = getServicesSummaryByType();
+
   return (
     <div className="">
       <section className="grid sm:grid-cols-2 grid-cols-1 gap-6 mx-7">
