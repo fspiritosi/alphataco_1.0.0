@@ -37,7 +37,6 @@ async function EmployeeTable() {
       initialData={initialData}
       savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
       savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-      queryKey="active-employees-supabase"
     />
   );
 }
