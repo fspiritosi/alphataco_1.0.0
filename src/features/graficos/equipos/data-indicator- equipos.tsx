@@ -1,7 +1,7 @@
 import { fetchTypeVehicles, getVehiclesDisponibleFilterType } from '@/app/server/GET/actions';
+import { InteractiveChart } from '@/components/Graficos/InteractiveChart';
 import moment from 'moment';
 import { cookies } from 'next/headers';
-import { EquiposChart } from './equiposChart';
 import IndicatorCard from './indicatorCard';
 import { TypeFilter } from './typeFilter';
 
@@ -11,7 +11,6 @@ export default async function EquipmentChart() {
 
   const active_vehicles = await getVehiclesDisponibleFilterType(cookieValue?.split(',') || []);
   const tipo_vehiculos = await fetchTypeVehicles();
-  console.log(active_vehicles);
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)
   const totalVehicles = active_vehicles?.reduce((sum, vehicle: any) => sum + vehicle.available_units || 0, 0) || 0;
@@ -19,7 +18,6 @@ export default async function EquipmentChart() {
   // Unidades disponibles
   const totalAvailable =
     active_vehicles?.reduce((sum, vehicle) => sum + (vehicle.available_units - vehicle.used_units || 0), 0) || 0;
-  console.log(totalAvailable);
   // Unidades en uso
   const totalInUse = active_vehicles?.reduce((sum, vehicle) => sum + (vehicle.used_units || 0), 0) || 0;
 
@@ -31,7 +29,6 @@ export default async function EquipmentChart() {
   // console.log(inUsePercentage)
   // Calcular el porcentaje de uso general
   const usagePercentage = totalVehicles > 0 ? Math.round((totalInUse / totalVehicles) * 100) : 0;
-  console.log(usagePercentage);
   // Datos para el gráfico
   const indicatorCharData = [
     {
@@ -106,7 +103,8 @@ export default async function EquipmentChart() {
         />
       </div>
       <div className=" grid grid-cols-2 gap-4">
-        <EquiposChart chartData={newChartData} chartConfig={chartConfig} date={date} />
+        {/* <EquiposChart chartData={newChartData} chartConfig={chartConfig} date={date} /> */}
+        <InteractiveChart chartData={active_vehicles} />
         {/* </div>
       <div className="w-full pb-2">  */}
         <IndicatorCard
