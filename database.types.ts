@@ -3262,6 +3262,14 @@ export type Database = {
           indicator: number;
         }[];
       };
+      get_services_summary_by_type: {
+        Args: { p_company_id: string; save_to_history?: boolean };
+        Returns: {
+          type_service: string;
+          service_count: number;
+          percentage: number;
+        }[];
+      };
       get_vehicle_usage_indicator: {
         Args: { p_vehicle_type_ids: string[] } | { p_vehicle_types: string[] };
         Returns: {

@@ -2,8 +2,10 @@ import CardsGrid from '@/app/dashboard/componentDashboard/CardsGrid';
 import DocumentsTable from '@/app/dashboard/componentDashboard/DocumentsTable';
 import EmployeesTable from '@/app/dashboard/componentDashboard/EmployeesTable';
 import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
+import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
 import EmpleadoDiagramasChart from '@/features/graficos/rrhh/data-empleado-diagramas';
 import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
@@ -12,6 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 export default async function DashboardComponent() {
   const employees = fetchAllEmployeesCount();
   const equipments = fetchAllVehiclesCount();
+  const servicesSummary = getServicesSummaryByType();
 
   return (
     <div className="">
@@ -30,6 +33,8 @@ export default async function DashboardComponent() {
           <section className="md:mx-7 grid grid-cols-1 mt-6 xl:grid-cols-4 gap-3 mb-4 ">
             <section className="flex flex-col gap-4 w-full">
               <ResoursesChart employees={employees} equipments={equipments} />
+              <ServicesChart servicesSummary={servicesSummary} />
+              {/* <InteractiveChart /> */}
             </section>
             <section className="col-span-3">
               <section className="flex flex-col gap-4 w-full">

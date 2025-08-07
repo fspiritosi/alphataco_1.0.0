@@ -107,7 +107,6 @@ export default function TablaEmployeesSupabase({
       },
     },
     {
-      //Tipo de documento
       accessorKey: 'document_type',
       id: 'document_type',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de Documento" />,
@@ -123,12 +122,7 @@ export default function TablaEmployeesSupabase({
       id: 'document_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Documento" />,
       cell: ({ row }) => {
-        return (
-          <div className="flex gap-2 items-center">
-            {/* <IdCardIcon /> */}
-            {row.original.document_number}
-          </div>
-        );
+        return <div className="flex gap-2 items-center">{row.original.document_number}</div>;
       },
       filterFn: (row, id, value) => {
         return value.includes(String(row.getValue(id)));
@@ -166,6 +160,76 @@ export default function TablaEmployeesSupabase({
       },
       filterFn: (row, id, value) => {
         return value.includes(String(row.getValue(id)));
+      },
+    },
+
+    {
+      accessorKey: 'empleado_aptitudes.aptitudes_tecnicas.nombre',
+      id: 'empleado_aptitudes.aptitudes_tecnicas.nombre',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Aptitudes técnicas" />,
+      cell: ({ row }) => {
+        const aptitudesTecnicas = row.original.empleado_aptitudes || [];
+
+        // Si no hay contratistas, mostramos "Sin afectar"
+        if (aptitudesTecnicas.length === 0) {
+          return '-';
+        }
+
+        // Get aptitudesTecnicas names
+        const aptitudesTecnicasNames = aptitudesTecnicas.flatMap((aptitud) => {
+          if (typeof aptitud === 'string') return aptitud;
+          return aptitud?.aptitudes_tecnicas?.nombre || '';
+        });
+
+        console.log(aptitudesTecnicasNames);
+
+        const firstContractor = aptitudesTecnicasNames[0] || '—';
+
+        return (
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="inline-flex">
+                  <Badge>
+                    {firstContractor}
+                    {aptitudesTecnicasNames.length > 1 && ` +${aptitudesTecnicasNames.length - 1}`}
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              {aptitudesTecnicasNames.length > 1 && (
+                <TooltipContent className="text-white bg-black rounded-lg p-2">
+                  <div className="flex flex-col gap-1">
+                    {aptitudesTecnicasNames.map((name, index) => (
+                      <span key={index}>{name}</span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
+      filterFn: (row, id, filterValue) => {
+        // Si no hay filtro o el array está vacío, mostramos todas las filas
+        if (!filterValue || !Array.isArray(filterValue) || filterValue.length === 0) {
+          return true;
+        }
+
+        const contractors = row.original.contractor_employee || [];
+
+        console.log(contractors[0]?.customers);
+        console.log(filterValue);
+
+        // Si no hay contratistas, no mostramos la fila
+        if (contractors.length === 0) {
+          return false;
+        }
+
+        // Comprobamos si algún contratista coincide con el filtro
+        return contractors.some((contractor) => {
+          const name = contractor?.customers?.name;
+          return name && filterValue.flat().includes(name);
+        });
       },
     },
 
@@ -269,7 +333,6 @@ export default function TablaEmployeesSupabase({
         return value.includes(String(row.getValue(id)));
       },
     },
-
     {
       accessorKey: 'work_diagram.name',
       id: 'work_diagram.name',
@@ -281,7 +344,6 @@ export default function TablaEmployeesSupabase({
         return value.includes(String(row.getValue(id)));
       },
     },
-
     {
       //Horas normales
       accessorKey: 'normal_hours',
@@ -294,7 +356,6 @@ export default function TablaEmployeesSupabase({
         return value.includes(String(row.getValue(id)));
       },
     },
-
     {
       //Tipo de contrato
       accessorKey: 'type_of_contract',
@@ -307,7 +368,6 @@ export default function TablaEmployeesSupabase({
         return value.includes(String(row.getValue(id)));
       },
     },
-
     {
       accessorKey: 'contractor_employee.customers.name',
       id: 'contractor_employee.customers.name',
@@ -378,7 +438,6 @@ export default function TablaEmployeesSupabase({
         });
       },
     },
-
     {
       accessorKey: 'date_of_admission',
       id: 'date_of_admission',
@@ -655,6 +714,38 @@ export default function TablaEmployeesSupabase({
                   },
                 ],
                 final_column: 'customers.name',
+              },
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
+                return data.map((value) => ({
+                  label: String(value.display_value),
+                  value: String(value.col_value),
+                  count: value.col_count,
+                }));
+              },
+            },
+          },
+          {
+            columnId: 'empleado_aptitudes.aptitudes_tecnicas.nombre',
+            title: 'Aptitudes Técnicas',
+            config: {
+              tableName: 'employees' as const,
+              select: 'id' as '*',
+              multiJoinPaths: {
+                joins: [
+                  {
+                    from_table: 'employees',
+                    to_table: 'empleado_aptitudes',
+                    from_column: 'id',
+                    to_column: 'empleado_id',
+                  },
+                  {
+                    from_table: 'empleado_aptitudes',
+                    to_table: 'aptitudes_tecnicas',
+                    from_column: 'aptitud_id',
+                    to_column: 'id',
+                  },
+                ],
+                final_column: 'aptitudes_tecnicas.nombre',
               },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
                 return data.map((value) => ({
