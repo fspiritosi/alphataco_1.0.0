@@ -1,4 +1,5 @@
 import { supabaseBrowser } from '@/lib/supabase/browser';
+import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { Database } from '../../../../database.types';
 
@@ -38,9 +39,15 @@ export async function queryWithPagination<
     sorting?: SortingState;
     columnFilters?: ColumnFiltersState;
     filters?: Filter<TableName>[];
+    server?: boolean;
   }
 ) {
-  const supabase = supabaseBrowser();
+  let supabase;
+  if (options.server) {
+    supabase = supabaseServer();
+  } else {
+    supabase = supabaseBrowser();
+  }
 
   // Calcular rango para paginación
   const from = options.pageIndex * options.pageSize;
@@ -193,6 +200,7 @@ export async function queryWithPagination<
   const { data, error, count } = await query;
 
   if (error) {
+    console.error('🚨 Error en queryWithPagination:', error);
     throw error;
   }
 
@@ -274,6 +282,43 @@ export async function fetchInactiveEmployeesData(options: {
   );
 
   console.log('🚀 fetchEmployeesData - Resultado:', data);
+
+  return data;
+}
+export async function fetchEquipmentData(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  console.log('🚀 fetchEmployeesData - Opciones recibidas:', {
+    pageIndex: options.pageIndex,
+    pageSize: options.pageSize,
+    sorting: options.sorting,
+    columnFilters: options.columnFilters,
+    filters: options.filters,
+  });
+
+  const data = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      ...options,
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: true,
+        },
+      ]),
+      server: options.server,
+    }
+  );
+
+  console.log('🚀 fetchEquipmentData - Resultado:', data);
 
   return data;
 }

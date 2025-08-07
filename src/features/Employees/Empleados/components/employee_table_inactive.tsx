@@ -38,7 +38,6 @@ async function EmployeeTableInactive() {
       initialData={initialData}
       savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
       savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-      queryKey="inactive-employees-supabase"
     />
   );
 }

@@ -1,7 +1,7 @@
 import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentInternal';
 import { buttonVariants } from '@/components/ui/button';
 import Link from 'next/link';
-import EquipmentTableWrapper from './EquipmentTableWrapper';
+import EquipmentTableWrapperServer from './EquipmentTableWrapperServer';
 
 export default function EquipmentListTabs({
   inactives,
@@ -37,7 +37,7 @@ export default function EquipmentListTabs({
           title: 'Todos los equipos',
           //description: 'Información de la empresa',
           buttonActioRestricted: [''],
-          component: <EquipmentTableWrapper filterType="all" />,
+          component: <EquipmentTableWrapperServer types_of_vehicles="all" />,
         },
       },
       {
@@ -58,7 +58,8 @@ export default function EquipmentListTabs({
             </div>
           ),
           buttonActioRestricted: [''],
-          component: <EquipmentTableWrapper filterType="vehicles" />,
+          component: <EquipmentTableWrapperServer types_of_vehicles="Vehículos" />,
+          // component: <EquipmentTableWrapper filterType="vehicles" />,
         },
       },
       {
@@ -79,7 +80,8 @@ export default function EquipmentListTabs({
             </div>
           ),
           buttonActioRestricted: [''],
-          component: <EquipmentTableWrapper filterType="others" />,
+          // component: <EquipmentTableWrapper filterType="others" />,
+          component: <EquipmentTableWrapperServer types_of_vehicles="Otros" />,
         },
       },
     ],
