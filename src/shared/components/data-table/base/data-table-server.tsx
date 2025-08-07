@@ -17,13 +17,15 @@ import {
 } from '@tanstack/react-table';
 import * as React from 'react';
 // import { DataTableToolbar, type BulkActionProps } from "./data-table-toolbar"
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { keepPreviousData, QueryClient, useQuery } from '@tanstack/react-query';
 import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
+import { FacetedFilterConfig } from '../filters/data-table-faceted-filter-server';
 import { BulkActionProps, DataTableToolbar } from '../toolbars/data-table-toolbar-base-server';
 import { DataTablePagination } from './data-table-pagination-server';
 
-interface FilterableColumn<TData> {
+interface FilterableColumn<TableName extends keyof Database['public']['Tables'], Query extends string = '*'> {
   columnId: string;
   title: string;
   options?: {
@@ -40,6 +42,7 @@ interface FilterableColumn<TData> {
     from: Date | null;
     to: Date | null;
   };
+  config?: FacetedFilterConfig<TableName, Query>;
 }
 
 interface SearchableColumn {
@@ -47,24 +50,39 @@ interface SearchableColumn {
   placeholder?: string;
 }
 
-interface ToolbarOptions<TData> {
-  filterableColumns?: FilterableColumn<TData>[];
+// interface ToolbarOptions<
+//   TData,
+//   TableName extends keyof Database['public']['Tables']
+// > {
+//   filterableColumns?: FilterableColumn<TableName>[]
+//   searchableColumns?: SearchableColumn[]
+//   showFilterOptions?: boolean
+//   // … resto de opciones
+// }
+
+interface ToolbarOptions<TData, TableName extends keyof Database['public']['Tables']> {
+  filterableColumns?: FilterableColumn<TableName>[];
   searchableColumns?: SearchableColumn[];
   showViewOptions?: boolean;
   showFilterOptions?: boolean;
-  initialVisibleFilters: string[];
+  initialVisibleFilters?: string[];
   extraActions?: React.ReactNode | ((table: TableType<TData>) => React.ReactNode);
   bulkAction?: BulkActionProps<TData>;
   showDocumentDownload?: boolean;
   showExport?: boolean;
 }
 
-interface DataTableProps<TData, TValue> {
+interface DataTableProps<
+  TData,
+  TValue,
+  TableName extends keyof Database['public']['Tables'],
+  Query extends string = '*',
+> {
   columns: ColumnDef<TData, TValue>[];
   enableRowSelection?: boolean | ((row: Row<TData>) => boolean) | undefined;
   data?: TData[]; // Hacer opcional para server-side
   onRowClick?: (row: TData) => void;
-  toolbarOptions?: ToolbarOptions<TData>;
+  toolbarOptions?: ToolbarOptions<TData, TableName>;
   initialData?: {
     rows: TData[];
     pageCount: number;
@@ -94,7 +112,12 @@ interface DataTableProps<TData, TValue> {
   queryKey?: string;
 }
 const queryClient = new QueryClient();
-export function BaseDataTable<TData, TValue>({
+export function BaseDataTable<
+  TData,
+  TValue,
+  TableName extends keyof Database['public']['Tables'] = never,
+  Query extends string = '*',
+>({
   columns,
   data: clientData,
   onRowClick,
@@ -111,7 +134,7 @@ export function BaseDataTable<TData, TValue>({
   fetchData,
   queryKey = 'table-data',
   initialData,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData, TValue, TableName, Query>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -273,10 +296,18 @@ export function BaseDataTable<TData, TValue>({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      <span>Cargando...</span>
+                  <TableCell colSpan={columns.length} className="h-24">
+                    <div className="flex flex-col space-y-3">
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
+                      <Skeleton className="h-9 w-full " />
                     </div>
                   </TableCell>
                 </TableRow>

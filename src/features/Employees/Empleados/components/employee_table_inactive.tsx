@@ -1,8 +1,8 @@
-import { fetchEmployeesData } from '@/app/server/GET/probando';
+import { fetchInactiveEmployeesData } from '@/app/server/GET/probando';
 import { cookies } from 'next/headers';
 import TablaEmployeesSupabase from './tables/EmployeesTableServer';
 
-async function EmployeeTable() {
+async function EmployeeTableInactive() {
   // const employees = fetchAllEmployees();
   const cookiesStore = cookies();
   const company_id = cookiesStore.get(`actualComp`)?.value;
@@ -19,7 +19,7 @@ async function EmployeeTable() {
   // />
   console.log(company_id, 'company_id');
 
-  const initialData = await fetchEmployeesData({
+  const initialData = await fetchInactiveEmployeesData({
     pageIndex: 0,
     pageSize: 10,
     sorting: [],
@@ -32,6 +32,7 @@ async function EmployeeTable() {
       },
     ],
   });
+  console.log(initialData.rowCount, 'en total inactivos');
   return (
     <TablaEmployeesSupabase
       initialData={initialData}
@@ -41,4 +42,4 @@ async function EmployeeTable() {
   );
 }
 
-export default EmployeeTable;
+export default EmployeeTableInactive;
