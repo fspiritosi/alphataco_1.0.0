@@ -692,7 +692,7 @@ export const fetchTypeVehicles = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('type').select('*');
+  const { data, error } = await supabase.from('type').select('*').order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching vehicle types:', error);

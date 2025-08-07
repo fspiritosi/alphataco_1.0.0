@@ -34,7 +34,7 @@ export default function IndicatorCardEquipment({
       }
     >
       <CardHeader>
-        <CardTitle className="text-center text-xl font-bold">Indicador de eficacia Empleados</CardTitle>
+        <CardTitle className="text-center text-xl font-bold">Indicador de eficacia Equipos</CardTitle>
       </CardHeader>
       <div className="grid grid-cols-3 gap-2 items-center">
         <CardContent className="col-span-2 flex items-center justify-center max-h-[200px]">
@@ -58,7 +58,7 @@ export default function IndicatorCardEquipment({
       </div>
       <CardFooter>
         <CardDescription className="text-xs">
-          <span className="font-bold">Indicador = </span>Empleados activos - Empleados en operación
+          <span className="font-bold">Indicador = </span>Equipos activos - Equipos en operación
         </CardDescription>
       </CardFooter>
     </Card>
