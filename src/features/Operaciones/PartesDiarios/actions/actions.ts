@@ -456,7 +456,6 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
     return entry;
   });
 
-  console.log(processedHistory);
   // Sort by timestamp, newest first
   const sortedHistory = processedHistory?.sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -569,12 +568,9 @@ export async function getCustomers() {
     )
     .eq('company_id', company_id || user?.app_metadata?.company_id || '');
   if (error) {
-    console.log(error);
+    console.error(error);
   }
-  console.log(
-    data?.find((customer) => customer.id === '8af2b620-e8ca-4b97-a198-3514a306d868'),
-    'customers'
-  );
+
   return data;
 }
 
@@ -582,7 +578,7 @@ export async function getCustomersServices() {
   const supabase = supabaseServer();
   const { data, error } = await supabase.from('customer_services').select('*');
   if (error) {
-    console.log(error);
+    console.error(error);
   }
   return data;
 }
@@ -598,7 +594,7 @@ export async function getServiceItems() {
     .select('*,measure_units(*)')
     .eq('company_id', company_id || user?.app_metadata?.company_id || '');
   if (error) {
-    console.log(error);
+    console.error(error);
   }
   return data;
 }
@@ -754,8 +750,6 @@ export async function updateDailyReportRow(
         .eq('action_type', 'UNLINK');
 
       if (historyRecords && historyRecords.length > 0) {
-        console.log('Registros de historial encontrados:', historyRecords);
-
         // Construir dinámicamente los filtros basados en qué ha cambiado
         let tablesToFilter = [];
         if (equipmentHasChanged) {
@@ -776,8 +770,6 @@ export async function updateDailyReportRow(
 
         // Actualizar cada registro con la razón de reasignación
         if (recordsToUpdate.length > 0) {
-          console.log('Actualizando registros con motivo:', reassignmentReason);
-
           const updatePromises = recordsToUpdate.map((record) =>
             supabase
               .from('dailyreportrows_history')
@@ -1028,8 +1020,6 @@ export async function createDailyReportEquipmentRelations(dailyReportRowId: stri
     equipment_id: equipmentId,
   }));
 
-  console.log(relations);
-
   const { data, error } = await supabase
     .from('dailyreportequipmentrelations' as any)
     .insert(relations)
@@ -1052,8 +1042,6 @@ export async function createDailyReportCustomerEquipmentRelations(dailyReportRow
     customer_equipment_id: equipmentId,
   }));
 
-  console.log(relations);
-
   const { data, error } = await supabase.from('dailyreport_customer_equipment_relations').insert(relations).select();
 
   if (error) {
@@ -1070,7 +1058,6 @@ export async function getCustomersAreas(customerIds: string[]) {
   const { data, error } = await supabase.from('areas_cliente').select('*').in('customer_id', customerIds);
   if (error) {
     return [];
-    console.log(error);
   }
   return data;
 }
@@ -1082,7 +1069,7 @@ export async function getCustomersSectors(customerIds: string[]) {
     .select('*,customers(*),sectors(*)')
     .in('customer_id', customerIds);
   if (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
   return data;
@@ -1230,5 +1217,210 @@ export async function getDailyReportsWithRows(): Promise<DailyReportWithRows[]> 
   } catch (error) {
     console.error('Error en getDailyReportsWithRows:', error);
     throw error;
+  }
+}
+
+// Interfaces para el gráfico de servicios
+export interface ServicesSummary {
+  type_service: string;
+  count: number;
+  percentage: number;
+}
+
+/**
+ * Obtiene el resumen de servicios por tipo de operación
+ * Llama a la función RPC get_services_summary_by_type
+ */
+export async function getServicesSummaryByType(saveToHistory?: boolean) {
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+  const supabase = supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!company_id && !user?.app_metadata?.company_id) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('get_services_summary_by_type', {
+      p_company_id: company_id || user?.app_metadata?.company_id || '',
+      save_to_history: saveToHistory || false,
+    });
+
+    console.log(data, 'super data');
+
+    if (error) {
+      console.error('Error fetching services summary aactual:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getServicesSummaryByType:', error);
+    return [];
+  }
+}
+
+/**
+ * Obtiene el resumen de servicios por tipo con filtros de fecha
+ * Llama a la función RPC get_services_summary_by_type_with_dates
+ */
+// export async function getServicesSummaryByTypeWithDates(
+//   fromDate: string,
+//   toDate: string,
+//   saveToHistory?: boolean
+// ): Promise<ServicesSummary[]> {
+//   const cookieStore = cookies();
+//   const company_id = cookieStore.get('actualComp')?.value;
+//   const supabase = supabaseServer();
+//   const {
+//     data: { user },
+//   } = await supabase.auth.getUser();
+
+//   if (!company_id && !user?.app_metadata?.company_id) {
+//     return [];
+//   }
+
+//   try {
+//     const { data, error } = await supabase.rpc('get_services_summary_by_type_with_dates', {
+//       p_company_id: company_id || user?.app_metadata?.company_id || '',
+//       p_from_date: fromDate,
+//       p_to_date: toDate,
+//       save_to_history: saveToHistory || false
+//     });
+
+//     if (error) {
+//       console.error('Error fetching services summary with dates:', error);
+//       return [];
+//     }
+
+//     return data || [];
+//   } catch (error) {
+//     console.error('Error in getServicesSummaryByTypeWithDates:', error);
+//     return [];
+//   }
+// }
+
+/**
+ * Interfaz para el detalle de servicios por cliente
+ */
+export interface ServiceDetailByClient {
+  client_name: string;
+  mensual_count: number;
+  adicional_count: number;
+  total_count: number;
+  status_distribution: {
+    status: string;
+    count: number;
+  }[];
+}
+
+/**
+ * Obtiene el detalle de servicios por cliente para el día actual
+ * Incluye distribución de servicios mensuales, adicionales y estados
+ */
+export async function getServicesDetailByClient(): Promise<ServiceDetailByClient[]> {
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+  const supabase = supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!company_id && !user?.app_metadata?.company_id) {
+    return [];
+  }
+
+  try {
+    const today = moment().format('YYYY-MM-DD');
+
+    // Consulta para obtener los datos detallados por cliente
+    const { data, error } = await supabase
+      .from('dailyreportrows')
+      .select(
+        `
+        customer_id!inner(
+          id,
+          name
+        ),
+        type_service,
+        status,
+        daily_report_id!inner(
+          date,
+          company_id
+        )
+      `
+      )
+      .eq('daily_report_id.company_id', company_id || user?.app_metadata?.company_id || '')
+      .eq('daily_report_id.date', today);
+
+    if (error) {
+      console.error('Error fetching services detail by client:', error);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Procesar los datos para agrupar por cliente
+    const clientsMap = new Map<
+      string,
+      {
+        client_name: string;
+        mensual_count: number;
+        adicional_count: number;
+        status_counts: Map<string, number>;
+      }
+    >();
+
+    data.forEach((row: any) => {
+      const clientId = row.customer_id.id;
+      const clientName = row.customer_id.name;
+      const typeService = row.type_service || 'sin_tipo';
+      const status = row.status;
+
+      if (!clientsMap.has(clientId)) {
+        clientsMap.set(clientId, {
+          client_name: clientName,
+          mensual_count: 0,
+          adicional_count: 0,
+          status_counts: new Map<string, number>(),
+        });
+      }
+
+      const client = clientsMap.get(clientId)!;
+
+      // Contar por tipo de servicio
+      if (typeService === 'mensual') {
+        client.mensual_count++;
+      } else if (typeService === 'adicional' || typeService === 'adicional_permanente') {
+        client.adicional_count++;
+      }
+
+      // Contar por estado
+      const currentStatusCount = client.status_counts.get(status) || 0;
+      client.status_counts.set(status, currentStatusCount + 1);
+    });
+
+    // Convertir el Map a array con el formato requerido
+    const result: ServiceDetailByClient[] = Array.from(clientsMap.values()).map((client) => ({
+      client_name: client.client_name,
+      mensual_count: client.mensual_count,
+      adicional_count: client.adicional_count,
+      total_count: client.mensual_count + client.adicional_count,
+      status_distribution: Array.from(client.status_counts.entries()).map(([status, count]) => ({
+        status,
+        count,
+      })),
+    }));
+
+    // Ordenar por total de servicios descendente
+    return result.sort((a, b) => b.total_count - a.total_count);
+  } catch (error) {
+    console.error('Error in getServicesDetailByClient:', error);
+    return [];
   }
 }

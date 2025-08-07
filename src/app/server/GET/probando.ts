@@ -232,7 +232,7 @@ export async function fetchEmployeesData(options: {
 
   const data = await queryWithPagination(
     'employees',
-    '*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
+    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       ...options,
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
@@ -245,9 +245,7 @@ export async function fetchEmployeesData(options: {
       ]),
     }
   );
-
-  console.log('🚀 fetchEmployeesData - Resultado:', data);
-
+  // console.log('🚀 fetchEmployeesData - Resultado:', data);
   return data;
 }
 export async function fetchInactiveEmployeesData(options: {
@@ -267,7 +265,7 @@ export async function fetchInactiveEmployeesData(options: {
 
   const data = await queryWithPagination(
     'employees',
-    '*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
+    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       ...options,
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
