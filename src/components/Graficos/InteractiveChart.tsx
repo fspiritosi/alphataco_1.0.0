@@ -66,9 +66,135 @@ const charts_types = [
   { value: 'area', label: 'Area' },
 ];
 
-export function InteractiveChart({ chartData }: { chartData: any }) {
+const chartRender = ({ data }: { data: any }) => {
   const [chartType, setChartType] = useState('bar');
+  const handleChartTypeChange = (value: any) => {
+    setChartType(value);
+  };
+  return (
+    <div>
+      <div className="mb-4">
+        <select
+          value={chartType}
+          onChange={(e) => handleChartTypeChange(e.target.value)}
+          className="rounded-md border p-2"
+        >
+          {charts_types.map((type) => (
+            <option key={type.value} value={type.value}>
+              {type.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <ChartContainer config={chartConfig}>
+        {chartType === 'bar' ? (
+          <BarChart accessibilityLayer data={data}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="Nombre"
+              tickLine={true}
+              tickMargin={10}
+              axisLine={false}
+              tickFormatter={(value) => value.slice(0, 3)}
+            />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
+            <Bar dataKey="Activos" fill="var(--color-activos)" radius={4} />
+            <Bar dataKey="Inactivos" fill="var(--color-inactivos)" radius={4} />
+            <Bar dataKey="Usados" fill="var(--color-usados)" radius={4} />
+          </BarChart>
+        ) : chartType === 'line' ? (
+          <LineChart
+            accessibilityLayer
+            data={data}
+            margin={{
+              top: 20,
+              left: 12,
+              right: 12,
+            }}
+          >
+            <CartesianGrid vertical={true} />
+            <XAxis
+              dataKey="Nombre"
+              tickLine={true}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => value.slice(0, 3)}
+            />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+            <Line
+              dataKey="Activos"
+              type="natural"
+              stroke="var(--color-activos)"
+              strokeWidth={2}
+              dot={{
+                fill: 'var(--color-activos)',
+              }}
+              activeDot={{
+                r: 6,
+              }}
+            >
+              <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
+            </Line>
+            <Line
+              dataKey="Inactivos"
+              type="natural"
+              stroke="var(--color-inactivos)"
+              strokeWidth={2}
+              dot={{
+                fill: 'var(--color-inactivos)',
+              }}
+              activeDot={{
+                r: 6,
+              }}
+            >
+              <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
+            </Line>
+            <Line
+              dataKey="Usados"
+              type="natural"
+              stroke="var(--color-usados)"
+              strokeWidth={2}
+              dot={{
+                fill: 'var(--color-usados)',
+              }}
+              activeDot={{
+                r: 6,
+              }}
+            >
+              <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
+            </Line>
+            <Line
+              dataKey="Porcentaje"
+              type="natural"
+              stroke="var(--color-inactivos)"
+              strokeWidth={2}
+              dot={{
+                fill: 'var(--color-inactivos)',
+              }}
+              activeDot={{
+                r: 6,
+              }}
+            >
+              <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
+            </Line>
+          </LineChart>
+        ) : (
+          <RadarChart data={data}>
+            <ChartTooltip cursor={true} content={<ChartTooltipContent indicator="line" />} />
+            <PolarAngleAxis dataKey="Nombre" />
+            <PolarGrid />
+            <Radar dataKey="Activos" fill="var(--color-activos)" fillOpacity={0.6} />
+            <Radar dataKey="Inactivos" fill="var(--color-inactivos)" fillOpacity={0.6} />
+            <Radar dataKey="Usados" fill="var(--color-usados)" fillOpacity={0.6} />
+            <Radar dataKey="Porcentaje" fill="var(--color-usados)" fillOpacity={0.6} />
+          </RadarChart>
+        )}
+      </ChartContainer>
+    </div>
+  );
+};
 
+export function InteractiveChart({ chartData }: { chartData: any }) {
   const chartDataTransformed = chartData.map((item: any) => ({
     Nombre: item.type_name,
     Activos: item.available_units,
@@ -76,10 +202,6 @@ export function InteractiveChart({ chartData }: { chartData: any }) {
     Usados: item.not_available_units,
     Porcentaje: item.usage_indicator,
   }));
-
-  const handleChartTypeChange = (value: any) => {
-    setChartType(value);
-  };
 
   return (
     <div>
@@ -95,249 +217,14 @@ export function InteractiveChart({ chartData }: { chartData: any }) {
                   <AlertDialogCancel className="flex items-end justify-end">X</AlertDialogCancel>
                 </div>
               </AlertDialogHeader>
-              <div className="mb-4">
-                <select
-                  value={chartType}
-                  onChange={(e) => handleChartTypeChange(e.target.value)}
-                  className="rounded-md border p-2"
-                >
-                  {charts_types.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <ChartContainer config={chartConfig}>
-                {chartType === 'bar' ? (
-                  <BarChart accessibilityLayer data={chartDataTransformed}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="Nombre"
-                      tickLine={true}
-                      tickMargin={10}
-                      axisLine={false}
-                      tickFormatter={(value) => value.slice(0, 3)}
-                    />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
-                    <Bar dataKey="Activos" fill="var(--color-activos)" radius={4} />
-                    <Bar dataKey="Inactivos" fill="var(--color-inactivos)" radius={4} />
-                    <Bar dataKey="Usados" fill="var(--color-usados)" radius={4} />
-                  </BarChart>
-                ) : chartType === 'line' ? (
-                  <LineChart
-                    accessibilityLayer
-                    data={chartDataTransformed}
-                    margin={{
-                      top: 20,
-                      left: 12,
-                      right: 12,
-                    }}
-                  >
-                    <CartesianGrid vertical={true} />
-                    <XAxis
-                      dataKey="Nombre"
-                      tickLine={true}
-                      axisLine={false}
-                      tickMargin={8}
-                      tickFormatter={(value) => value.slice(0, 3)}
-                    />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                    <Line
-                      dataKey="Activos"
-                      type="natural"
-                      stroke="var(--color-activos)"
-                      strokeWidth={2}
-                      dot={{
-                        fill: 'var(--color-activos)',
-                      }}
-                      activeDot={{
-                        r: 6,
-                      }}
-                    >
-                      <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                    </Line>
-                    <Line
-                      dataKey="Inactivos"
-                      type="natural"
-                      stroke="var(--color-inactivos)"
-                      strokeWidth={2}
-                      dot={{
-                        fill: 'var(--color-inactivos)',
-                      }}
-                      activeDot={{
-                        r: 6,
-                      }}
-                    >
-                      <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                    </Line>
-                    <Line
-                      dataKey="Usados"
-                      type="natural"
-                      stroke="var(--color-usados)"
-                      strokeWidth={2}
-                      dot={{
-                        fill: 'var(--color-usados)',
-                      }}
-                      activeDot={{
-                        r: 6,
-                      }}
-                    >
-                      <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                    </Line>
-                    <Line
-                      dataKey="Porcentaje"
-                      type="natural"
-                      stroke="var(--color-inactivos)"
-                      strokeWidth={2}
-                      dot={{
-                        fill: 'var(--color-inactivos)',
-                      }}
-                      activeDot={{
-                        r: 6,
-                      }}
-                    >
-                      <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                    </Line>
-                  </LineChart>
-                ) : (
-                  <RadarChart data={chartDataTransformed}>
-                    <ChartTooltip cursor={true} content={<ChartTooltipContent indicator="line" />} />
-                    <PolarAngleAxis dataKey="Nombre" />
-                    <PolarGrid />
-                    <Radar dataKey="Activos" fill="var(--color-activos)" fillOpacity={0.6} />
-                    <Radar dataKey="Inactivos" fill="var(--color-inactivos)" fillOpacity={0.6} />
-                    <Radar dataKey="Usados" fill="var(--color-usados)" fillOpacity={0.6} />
-                    <Radar dataKey="Porcentaje" fill="var(--color-usados)" fillOpacity={0.6} />
-                  </RadarChart>
-                )}
-              </ChartContainer>
+              {chartRender({ data: chartDataTransformed })}
               <AlertDialogFooter>{/* <AlertDialogAction>Continue</AlertDialogAction> */}</AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
           <CardTitle>Estado de Equipos</CardTitle>
-
           <CardDescription>Activos e Inactivos</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <select
-              value={chartType}
-              onChange={(e) => handleChartTypeChange(e.target.value)}
-              className="rounded-md border p-2"
-            >
-              {charts_types.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <ChartContainer config={chartConfig}>
-            {chartType === 'bar' ? (
-              <BarChart accessibilityLayer data={chartDataTransformed}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="Nombre"
-                  tickLine={true}
-                  tickMargin={10}
-                  axisLine={false}
-                  tickFormatter={(value) => value.slice(0, 3)}
-                />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
-                <Bar dataKey="Activos" fill="var(--color-activos)" radius={4} />
-                <Bar dataKey="Inactivos" fill="var(--color-inactivos)" radius={4} />
-                <Bar dataKey="Usados" fill="var(--color-usados)" radius={4} />
-              </BarChart>
-            ) : chartType === 'line' ? (
-              <LineChart
-                accessibilityLayer
-                data={chartDataTransformed}
-                margin={{
-                  top: 20,
-                  left: 12,
-                  right: 12,
-                }}
-              >
-                <CartesianGrid vertical={true} />
-                <XAxis
-                  dataKey="Nombre"
-                  tickLine={true}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => value.slice(0, 3)}
-                />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                <Line
-                  dataKey="Activos"
-                  type="natural"
-                  stroke="var(--color-activos)"
-                  strokeWidth={2}
-                  dot={{
-                    fill: 'var(--color-activos)',
-                  }}
-                  activeDot={{
-                    r: 6,
-                  }}
-                >
-                  <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                </Line>
-                <Line
-                  dataKey="Inactivos"
-                  type="natural"
-                  stroke="var(--color-inactivos)"
-                  strokeWidth={2}
-                  dot={{
-                    fill: 'var(--color-inactivos)',
-                  }}
-                  activeDot={{
-                    r: 6,
-                  }}
-                >
-                  <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                </Line>
-                <Line
-                  dataKey="Usados"
-                  type="natural"
-                  stroke="var(--color-usados)"
-                  strokeWidth={2}
-                  dot={{
-                    fill: 'var(--color-usados)',
-                  }}
-                  activeDot={{
-                    r: 6,
-                  }}
-                >
-                  <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                </Line>
-                <Line
-                  dataKey="Porcentaje"
-                  type="natural"
-                  stroke="var(--color-inactivos)"
-                  strokeWidth={2}
-                  dot={{
-                    fill: 'var(--color-inactivos)',
-                  }}
-                  activeDot={{
-                    r: 6,
-                  }}
-                >
-                  <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
-                </Line>
-              </LineChart>
-            ) : (
-              <RadarChart data={chartDataTransformed}>
-                <ChartTooltip cursor={true} content={<ChartTooltipContent indicator="line" />} />
-                <PolarAngleAxis dataKey="Nombre" />
-                <PolarGrid />
-                <Radar dataKey="Activos" fill="var(--color-activos)" fillOpacity={0.6} />
-                <Radar dataKey="Inactivos" fill="var(--color-inactivos)" fillOpacity={0.6} />
-                <Radar dataKey="Usados" fill="var(--color-usados)" fillOpacity={0.6} />
-                <Radar dataKey="Porcentaje" fill="var(--color-usados)" fillOpacity={0.6} />
-              </RadarChart>
-            )}
-          </ChartContainer>
-        </CardContent>
+        <CardContent>{chartRender({ data: chartDataTransformed })}</CardContent>
         <CardFooter className="flex-col items-start gap-2 text-sm">
           <div className="flex gap-2 font-medium leading-none">
             Tendencia de Equipos Activos <TrendingUp className="h-4 w-4" />
