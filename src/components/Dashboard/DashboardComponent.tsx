@@ -1,19 +1,21 @@
 import CardsGrid from '@/app/dashboard/componentDashboard/CardsGrid';
 import DocumentsTable from '@/app/dashboard/componentDashboard/DocumentsTable';
 import EmployeesTable from '@/app/dashboard/componentDashboard/EmployeesTable';
-import { getVehiclesDisponibleFilterType } from '@/app/server/GET/actions';
 import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
+import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
 import EmpleadoDiagramasChart from '@/features/graficos/rrhh/data-empleado-diagramas';
 import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
-// import { InteractiveChart } from '@/components/Graficos/InteractiveChart';
+
 export default async function DashboardComponent() {
   const employees = fetchAllEmployeesCount();
   const equipments = fetchAllVehiclesCount();
-  const equipmentsDisponible = getVehiclesDisponibleFilterType();
+  const servicesSummary = getServicesSummaryByType();
+
   return (
     <div className="">
       <section className="grid sm:grid-cols-2 grid-cols-1 gap-6 mx-7">
@@ -31,6 +33,7 @@ export default async function DashboardComponent() {
           <section className="md:mx-7 grid grid-cols-1 mt-6 xl:grid-cols-4 gap-3 mb-4 ">
             <section className="flex flex-col gap-4 w-full">
               <ResoursesChart employees={employees} equipments={equipments} />
+              <ServicesChart servicesSummary={servicesSummary} />
               {/* <InteractiveChart /> */}
             </section>
             <section className="col-span-3">

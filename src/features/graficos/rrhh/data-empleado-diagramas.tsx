@@ -52,7 +52,10 @@ export default async function EmpleadoDiagramasChart() {
   };
 
   const indicatorCharData = [
-    { operative: employeeIndicator![0].employees_used, available: employeeIndicator![0].employees_operativos },
+    {
+      operative: employeeIndicator![0].employees_used,
+      available: employeeIndicator![0].employees_operativos - employeeIndicator![0].employees_used,
+    },
   ];
 
   const indicatorChartConfig = {

@@ -3262,6 +3262,14 @@ export type Database = {
           indicator: number;
         }[];
       };
+      get_services_summary_by_type: {
+        Args: { p_company_id: string; save_to_history?: boolean };
+        Returns: {
+          type_service: string;
+          service_count: number;
+          percentage: number;
+        }[];
+      };
       get_vehicle_usage_indicator: {
         Args: { p_vehicle_type_ids: string[] } | { p_vehicle_types: string[] };
         Returns: {
@@ -3317,18 +3325,13 @@ export type Database = {
         Returns: undefined;
       };
       select_distinct_values: {
-        Args:
-          | {
-              p_table_name: string;
-              p_column_path: string;
-              p_join_mappings?: Json;
-            }
-          | {
-              p_table_name: string;
-              p_column_path: string;
-              p_join_mappings?: Json;
-              p_multi_join_paths?: Json;
-            };
+        Args: {
+          p_table_name: string;
+          p_column_path: string;
+          p_join_mappings?: Json;
+          p_multi_join_paths?: Json;
+          p_filters?: Json;
+        };
         Returns: {
           col_value: string;
           col_count: number;
