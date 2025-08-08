@@ -73,6 +73,7 @@ export default function TablaEquipmentServer({
         return value.includes(row.getValue(id));
       },
     },
+
     {
       accessorKey: 'chassis',
       id: 'chassis',
@@ -80,6 +81,17 @@ export default function TablaEquipmentServer({
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
+    },
+    {
+      accessorKey: 'picture',
+      id: 'picture',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.picture ? <img className="h-4 w-4 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
+        </div>
+      ),
+      enableSorting: false,
     },
     {
       accessorKey: 'status',
@@ -279,11 +291,6 @@ export default function TablaEquipmentServer({
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
-    },
-    {
-      accessorKey: 'picture',
-      id: 'Foto',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
     },
     {
       accessorKey: 'showUnavaliableEquipment',

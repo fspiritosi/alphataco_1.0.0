@@ -5,7 +5,13 @@ import DiagramReportsTable from './DiagramReportsTable';
 import { fetchDiagramReportsData } from './actions/action';
 
 const fetchEmployeesForReports = async () => {
-  const response = await query('employees', 'id,cuil,firstname,lastname');
+  const response = await query('employees', 'id,cuil,firstname,lastname', [
+    {
+      column: 'is_active',
+      operator: 'eq',
+      value: true,
+    },
+  ]);
   return response;
 };
 

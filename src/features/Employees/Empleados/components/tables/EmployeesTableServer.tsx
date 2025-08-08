@@ -5,7 +5,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Mail, User } from 'lucide-react';
 // import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
+import { fetchAllEmployeesData, fetchEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
@@ -24,6 +24,15 @@ export default function TablaEmployeesSupabase({
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
+  // Función wrapper para la exportación que devuelve solo los datos
+  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
+    const result = await fetchAllEmployeesData({
+      sorting: options.sorting,
+      columnFilters: options.columnFilters,
+      server: true,
+    });
+    return result.rows; // Solo devolver los datos, no la estructura de paginación
+  };
   // Definición de columnas
   const columns: ColumnDef<EmployeeData>[] = [
     {
@@ -75,6 +84,17 @@ export default function TablaEmployeesSupabase({
           <span className="text-sm">{row.original.email}</span>
         </div>
       ),
+    },
+    {
+      accessorKey: 'picture',
+      id: 'picture',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.picture ? <img className="h-4 w-4 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
+        </div>
+      ),
+      enableSorting: false,
     },
     {
       accessorKey: 'nationality',
@@ -528,11 +548,14 @@ export default function TablaEmployeesSupabase({
       tableId="activeEmployeesServerTable"
       enableRowSelection={true}
       // Configuración para server-side con Supabase
+
       serverSide={true}
       fetchData={fetchEmployeesData}
+      fetchAllData={handleFetchAllData}
       queryKey="active-employees-supabase"
       toolbarOptions={{
         initialVisibleFilters: savedFilters,
+        showExport: true,
         filterableColumns: [
           {
             columnId: 'gender',

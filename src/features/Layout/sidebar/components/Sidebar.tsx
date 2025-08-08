@@ -130,8 +130,8 @@ export function Sidebar({ role, userModules }: SidebarProps) {
             className={cn(
               'flex items-center p-4 cursor-pointer transition-all duration-500 rounded-s-full lisidebar relative',
               link.name === activeLink
-                ? 'dark:bg-slate-900 bg-gh_contrast activesidebar before:shadow-custom-white after:shadow-custom-white-inverted'
-                : 'hover:bg-gh-contrast dark:hover:bg-slate-800',
+                ? 'bg-gh_contrast  dark:bg-slate-900 activesidebar before:shadow-custom-white after:shadow-custom-white-inverted dark:before:bg-slate-950 dark:after:bg-slate-950'
+                : 'hover:bg-gh_contrast/80 hover:activesidebar',
               isActiveSidebar ? 'ml-0' : 'ml-4'
             )}
           >

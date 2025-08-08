@@ -131,7 +131,13 @@ export default function EmployesDiagramWrapper() {
 
     try {
       // Construimos los filtros para la función query
-      const queryFilters: Filter<'employees'>[] = [];
+      const queryFilters: Filter<'employees'>[] = [
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: true,
+        },
+      ];
 
       // Filtro por nombre (firstname)
       if (filters.firstname && filters.firstname.trim() !== '') {
@@ -793,11 +799,11 @@ export default function EmployesDiagramWrapper() {
           )}
         </>
       ) : hasSearched && employees.length === 0 ? (
-        <div className="p-6 bg-white rounded-lg border text-center">
+        <div className="p-6  rounded-lg border text-center">
           <p>No se encontraron diagramas para los empleados seleccionados.</p>
         </div>
       ) : (
-        <div className="p-6 bg-white rounded-lg border text-center">
+        <div className="p-6  rounded-lg border text-center">
           <p>Para mostrar diagramas debe aplicar al menos un filtro.</p>
         </div>
       )}

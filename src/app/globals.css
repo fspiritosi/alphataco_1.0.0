@@ -134,21 +134,29 @@ summary::-webkit-details-marker {
 .lisidebar.activesidebar::before,
 .lisidebar.activesidebar::after {
   --border-radius: 1rem;
+  --shadow-color: #e8e8e8; /* bg-gh color for light mode */
   content: '';
   position: absolute;
   width: var(--border-radius);
   height: var(--border-radius);
   right: 0;
-  background: transparent;
   border-radius: 100vw;
+  background-color: transparent;
 }
+
+.dark .lisidebar.activesidebar::before,
+.dark .lisidebar.activesidebar::after {
+  --shadow-color: rgb(15 23 42); /* slate-900 color for dark mode */
+}
+
 .lisidebar.activesidebar::before {
   top: calc(var(--border-radius) * -1);
-  /* box-shadow: 10px 10px 0 10px; */
+  box-shadow: 10px 10px 0 10px var(--shadow-color);
   border-radius: 0 0 100vw 0;
 }
 .lisidebar.activesidebar::after {
   bottom: calc(var(--border-radius) * -1);
+  box-shadow: 10px -10px 0 10px var(--shadow-color);
   border-radius: 0 100vw 0 0;
 }
 
