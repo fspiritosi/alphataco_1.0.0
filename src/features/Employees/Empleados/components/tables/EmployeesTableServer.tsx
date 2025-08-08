@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import moment from 'moment';
+import Link from 'next/link';
 
 // Tipo inferido automáticamente del retorno de Supabase
 type EmployeeData = Awaited<ReturnType<typeof fetchEmployeesData>>['rows'][0];
@@ -51,9 +52,12 @@ export default function TablaEmployeesSupabase({
       cell: ({ row }) => (
         <div className="flex items-center gap-2 w-[200px]">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">
+          <Link
+            href={`/dashboard/employee/action?action=view&employee_id=${row.original.id}`}
+            className="font-medium hover:underline"
+          >
             {row.original.lastname} {row.original.firstname}
-          </span>
+          </Link>
         </div>
       ),
       filterFn: (row, id, value) => {
