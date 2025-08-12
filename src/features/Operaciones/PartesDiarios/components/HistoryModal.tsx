@@ -130,7 +130,7 @@ export default function HistoryModal({
         <Button
           size={onlyIcon ? 'icon' : 'default'}
           variant={onlyIcon ? 'ghost' : 'outline'}
-          className={cn('flex items-center gap-2', onlyIcon && 'gap-0')}
+          className={cn('flex items-center gap-2 h-8 w-8 p-0', onlyIcon && 'gap-0')}
         >
           <History className="h-4 w-4" />
           {onlyIcon ? null : 'Ver Historial'}

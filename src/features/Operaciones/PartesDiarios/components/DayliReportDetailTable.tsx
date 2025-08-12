@@ -25,6 +25,7 @@ import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 import DocumentUploadModal from './DocumentUploadModal';
 import DocumentViewerModal from './DocumentViewerFixed';
 import HistoryModal from './HistoryModal';
+import { ServiceDetailModal } from './ServiceDetailModal';
 export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDailyReportById>>) => {
   const report = reports[0];
   return report?.dailyreportrows?.map((row) => ({
@@ -59,10 +60,12 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
     document_path: row.document_path,
     remit_number: row.remit_number,
     employees_references: row.dailyreportemployeerelations.map((rel) => ({
+      ...rel.employees,
       name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
       id: rel.employees?.id,
     })),
     equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
+      ...rel.vehicles,
       name: rel.vehicles?.domain || rel.vehicles?.intern_number,
       id: rel.vehicles?.id,
     })),
@@ -420,7 +423,17 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
                   <HistoryModal onlyIcon dailyReportRowId={row.original.id} />
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Editar</p>
+                  <p>Ver historial</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ServiceDetailModal serviceData={row.original} />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Ver detalle</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -486,6 +499,9 @@ export function DayliReportDetailTable({
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DailyReportRow[]>([]);
   const router = useRouter();
+
+  console.log(formattedData, formattedData);
+
   return (
     <>
       <div
@@ -498,6 +514,7 @@ export function DayliReportDetailTable({
           dailyReport={dailyReport}
           selectedRow={selectedRow}
           setSelectedRow={setSelectedRow}
+          formattedData={formattedData}
           defaultValues={selectedRow}
           disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
         />

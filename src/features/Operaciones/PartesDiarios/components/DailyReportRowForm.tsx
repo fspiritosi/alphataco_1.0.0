@@ -62,6 +62,7 @@ type DailyReportFormProps = {
   disabled?: boolean;
   // customersAreas: Awaited<ReturnType<typeof getCustomersAreas>>;
   // customersSectors: Awaited<ReturnType<typeof getCustomersSectors>>;
+  formattedData: ReturnType<typeof transformDailyReports>;
 };
 
 export const dailyReportSchema = z
@@ -163,6 +164,8 @@ export function DailyReportForm({
   equipments,
   selectedRow,
   disabled,
+  formattedData,
+
   dailyReport,
 }: DailyReportFormProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -200,6 +203,59 @@ export function DailyReportForm({
 
   const currentEmployeesWatch = form.watch('employees');
   const currentEquipmentWatch = form.watch('equipment');
+
+  // Funciones para detectar duplicados
+  const checkEmployeeDuplicates = (employeeIds: string[]) => {
+    if (!formattedData || !employeeIds?.length) return [];
+
+    const duplicates: string[] = [];
+
+    employeeIds.forEach((employeeId) => {
+      const duplicateRows = formattedData.filter((row) => {
+        // Excluir la fila actual si estamos editando
+        if (selectedRow && row.id === selectedRow.id) return false;
+
+        return row.employees_references?.some((emp) => emp.id === employeeId);
+      });
+
+      if (duplicateRows.length > 0) {
+        const employee = employees?.find((emp) => emp.id === employeeId);
+        if (employee) {
+          duplicates.push(`${employee.lastname} ${employee.firstname}`);
+        }
+      }
+    });
+
+    return duplicates;
+  };
+
+  const checkEquipmentDuplicates = (equipmentIds: string[]) => {
+    if (!formattedData || !equipmentIds?.length) return [];
+
+    const duplicates: string[] = [];
+
+    equipmentIds.forEach((equipmentId) => {
+      const duplicateRows = formattedData.filter((row) => {
+        // Excluir la fila actual si estamos editando
+        if (selectedRow && row.id === selectedRow.id) return false;
+
+        return row.equipment_references?.some((eq) => eq.id === equipmentId);
+      });
+
+      if (duplicateRows.length > 0) {
+        const equipment = equipments?.find((eq) => eq.id === equipmentId);
+        if (equipment) {
+          duplicates.push(`${equipment.domain}`);
+        }
+      }
+    });
+
+    return duplicates;
+  };
+
+  // Detectar duplicados en tiempo real
+  const duplicateEmployees = checkEmployeeDuplicates(currentEmployeesWatch || []);
+  const duplicateEquipments = checkEquipmentDuplicates(currentEquipmentWatch || []);
 
   // If arrays have different lengths, they've changed
   // If arrays have same length, check if any item is different
@@ -1347,6 +1403,32 @@ export function DailyReportForm({
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Empleados</FormLabel>
+                      {duplicateEmployees.length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-yellow-800">Empleados duplicados detectados</h3>
+                              <div className="mt-2 text-sm text-yellow-700">
+                                <p>Los siguientes empleados ya están asignados en otras filas del parte diario:</p>
+                                <ul className="list-disc list-inside mt-1">
+                                  {duplicateEmployees.map((employee, index) => (
+                                    <li key={index}>{employee}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -1424,8 +1506,8 @@ export function DailyReportForm({
                                     >
                                       {positionsMap[position].map((employee) => (
                                         <CommandItem
-                                          value={employee.id}
-                                          key={employee.id}
+                                          value={employee.firstname + employee.lastname}
+                                          key={employee.firstname + employee.lastname}
                                           onSelect={() => {
                                             const currentValues = field.value || [];
                                             const newValues = currentValues.includes(employee.id)
@@ -1500,6 +1582,32 @@ export function DailyReportForm({
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Equipos propios</FormLabel>
+                      {duplicateEquipments.length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-yellow-800">Equipos duplicados detectados</h3>
+                              <div className="mt-2 text-sm text-yellow-700">
+                                <p>Los siguientes equipos ya están asignados en otras filas del parte diario:</p>
+                                <ul className="list-disc list-inside mt-1">
+                                  {duplicateEquipments.map((equipment, index) => (
+                                    <li key={index}>{equipment}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>

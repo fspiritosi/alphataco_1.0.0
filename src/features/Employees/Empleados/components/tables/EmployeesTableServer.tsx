@@ -12,6 +12,12 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import moment from 'moment';
 import Link from 'next/link';
 
+// Tipo extendido para columnas con propiedades adicionales de exportación
+type ExtendedColumnDef<TData> = ColumnDef<TData> & {
+  exportFormatter?: (value: any, row: TData) => string;
+  excludeFromExport?: boolean;
+};
+
 // Tipo inferido automáticamente del retorno de Supabase
 type EmployeeData = Awaited<ReturnType<typeof fetchEmployeesData>>['rows'][0];
 
@@ -34,7 +40,7 @@ export default function TablaEmployeesSupabase({
     return result.rows; // Solo devolver los datos, no la estructura de paginación
   };
   // Definición de columnas
-  const columns: ColumnDef<EmployeeData>[] = [
+  const columns: ExtendedColumnDef<EmployeeData>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -53,6 +59,7 @@ export default function TablaEmployeesSupabase({
       ),
       enableSorting: false,
       enableHiding: false,
+      excludeFromExport: true,
     },
     {
       accessorKey: 'lastname',
@@ -72,6 +79,9 @@ export default function TablaEmployeesSupabase({
       filterFn: (row, id, value) => {
         const fullName = `${row.original.firstname} ${row.original.lastname}`.toLowerCase();
         return fullName.includes(value.toLowerCase());
+      },
+      exportFormatter: (value, row) => {
+        return `${row.lastname} ${row.firstname}`;
       },
     },
     {
@@ -95,6 +105,7 @@ export default function TablaEmployeesSupabase({
         </div>
       ),
       enableSorting: false,
+      excludeFromExport: true,
     },
     {
       accessorKey: 'nationality',
@@ -232,6 +243,17 @@ export default function TablaEmployeesSupabase({
             </Tooltip>
           </TooltipProvider>
         );
+      },
+      exportFormatter: (value, row) => {
+        const aptitudesTecnicas = row.empleado_aptitudes || [];
+        if (aptitudesTecnicas.length === 0) {
+          return 'Sin afectar';
+        }
+        const aptitudesTecnicasNames = aptitudesTecnicas.flatMap((aptitud) => {
+          if (typeof aptitud === 'string') return aptitud;
+          return aptitud?.aptitudes_tecnicas?.nombre || '';
+        });
+        return aptitudesTecnicasNames.join(', ');
       },
       filterFn: (row, id, filterValue) => {
         // Si no hay filtro o el array está vacío, mostramos todas las filas
@@ -460,6 +482,12 @@ export default function TablaEmployeesSupabase({
           const name = contractor?.customers?.name;
           return name && filterValue.flat().includes(name);
         });
+      },
+      exportFormatter: (value, row) => {
+        const contractors = row.contractor_employee
+          ?.map((contractor) => contractor.customers?.name || '')
+          .filter(Boolean);
+        return contractors && contractors.length > 0 ? contractors.join(', ') : 'Sin afectar';
       },
     },
     {

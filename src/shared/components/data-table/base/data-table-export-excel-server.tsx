@@ -31,12 +31,37 @@ export function DataTableExportExcelServer<TData>({
   const [fileNameInput, setFileNameInput] = useState(fileName);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Obtiene solo las columnas visibles
-  const columns = table.getVisibleLeafColumns();
+  // Obtiene solo las columnas visibles y excluye las que tienen excludeFromExport: true
+  const columns = table.getVisibleLeafColumns().filter((col) => {
+    const columnDef = col.columnDef as any;
+    return !columnDef.excludeFromExport;
+  });
 
-  // Construye los headers
+  // Construye los headers usando el título de la columna
   const headers: string[] = columns.map((col) => {
-    return col.id || ((col.columnDef as any).accessorKey as string);
+    // Intentar obtener el header de la columna
+    const columnDef = col.columnDef as any;
+
+    // Si el header es una función, intentar extraer el título
+    if (typeof columnDef.header === 'function') {
+      // Para headers que usan DataTableColumnHeader, intentar extraer el título
+      try {
+        const headerElement = columnDef.header({ column: col });
+        if (headerElement && headerElement.props && headerElement.props.title) {
+          return headerElement.props.title;
+        }
+      } catch (e) {
+        // Si falla, continuar con la lógica de fallback
+      }
+    }
+
+    // Si el header es un string, usarlo directamente
+    if (typeof columnDef.header === 'string') {
+      return columnDef.header;
+    }
+
+    // Fallback al id o accessorKey
+    return col.id || columnDef.accessorKey || 'Columna';
   });
 
   const handleExport = async () => {
@@ -66,29 +91,14 @@ export function DataTableExportExcelServer<TData>({
           // Obtener el valor usando el accessorKey o id de la columna
           const accessorKey = (col.columnDef as any).accessorKey || col.id;
           let value = getNestedValue(rowData, accessorKey);
+          const columnDef = col.columnDef as any;
 
-          // Procesar columna 'Afectaciones' de forma especial
-          if (headers[idx].toLowerCase().includes('afectac')) {
-            let parsed: any[] = [];
-            try {
-              parsed = typeof value === 'string' ? JSON.parse(value) : Array.isArray(value) ? value : [];
-            } catch {
-              parsed = [];
-            }
-            if (parsed.length === 0) {
-              value = '-';
-            } else {
-              // Si hay objetos, extraer el nombre del contratista (contractor_id.name)
-              const nombres = parsed.map((af: any) => af.contractor_id?.name).filter(Boolean);
-              value = nombres.length > 0 ? nombres.join(', ') : '-';
-            }
-          } else if (typeof value === 'object' && value !== null) {
-            // Para objetos anidados, intentar extraer propiedades útiles
-            if (value.name) {
-              value = value.name;
-            } else {
-              value = JSON.stringify(value);
-            }
+          // Usar exportFormatter personalizado si está disponible
+          if (columnDef.exportFormatter && typeof columnDef.exportFormatter === 'function') {
+            value = columnDef.exportFormatter(value, rowData);
+          } else {
+            // Lógica de formateo por defecto
+            value = formatValueForExport(value, headers[idx]);
           }
 
           rowObj[headers[idx]] = value || '-';
@@ -203,4 +213,61 @@ function getNestedValue(obj: any, path: string): any {
   return path.split('.').reduce((current, key) => {
     return current && current[key] !== undefined ? current[key] : null;
   }, obj);
+}
+
+// Función para formatear valores por defecto en la exportación
+function formatValueForExport(value: any, columnHeader: string): string {
+  // Si el valor es null o undefined, retornar '-'
+  if (value === null || value === undefined) {
+    return '-';
+  }
+
+  // Si es un array, unir los elementos con comas
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '-';
+    }
+    // Si los elementos del array son objetos con propiedad 'name', extraerla
+    const formattedItems = value
+      .map((item) => {
+        if (typeof item === 'object' && item !== null && item.name) {
+          return item.name;
+        }
+        return String(item);
+      })
+      .filter(Boolean);
+
+    return formattedItems.length > 0 ? formattedItems.join(', ') : '-';
+  }
+
+  // Si es un objeto, intentar extraer propiedades útiles
+  if (typeof value === 'object' && value !== null) {
+    // Si tiene propiedad 'name', usarla
+    if (value.name) {
+      return String(value.name);
+    }
+    // Si es una fecha, formatearla
+    if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
+      try {
+        const date = new Date(value);
+        return date.toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+      } catch {
+        return String(value);
+      }
+    }
+    // Como último recurso, convertir a JSON string
+    return JSON.stringify(value);
+  }
+
+  // Si es un boolean, convertir a texto legible
+  if (typeof value === 'boolean') {
+    return value ? 'Sí' : 'No';
+  }
+
+  // Para cualquier otro tipo, convertir a string
+  return String(value);
 }

@@ -16,6 +16,12 @@ import { RiToolsFill } from 'react-icons/ri';
 // Tipo inferido automáticamente del retorno de Supabase
 type EquipmentTableData = Awaited<ReturnType<typeof fetchEquipmentData>>['rows'][0];
 
+// Tipo extendido para columnas con exportFormatter
+type ExtendedColumnDef<T> = ColumnDef<T> & {
+  exportFormatter?: (value: any, row: T) => string;
+  excludeFromExport?: boolean; // Prop para excluir columnas de la exportación
+};
+
 export default function TablaEquipmentServer({
   initialData,
   savedFilters,
@@ -37,7 +43,7 @@ export default function TablaEquipmentServer({
     return result.rows; // Solo devolver los datos, no la estructura de paginación
   };
   // Definición de columnas
-  const columns: ColumnDef<EquipmentTableData>[] = [
+  const columns: ExtendedColumnDef<EquipmentTableData>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -56,6 +62,7 @@ export default function TablaEquipmentServer({
       ),
       enableSorting: false,
       enableHiding: false,
+      excludeFromExport: true, // No exportar la columna de selección
     },
     {
       accessorKey: 'domain',
@@ -91,6 +98,7 @@ export default function TablaEquipmentServer({
         </div>
       ),
       enableSorting: false,
+      excludeFromExport: true, // No exportar la columna de foto
     },
     {
       accessorKey: 'status',
@@ -188,6 +196,12 @@ export default function TablaEquipmentServer({
             </TooltipProvider>
           </>
         );
+      },
+      exportFormatter: (value, row) => {
+        const contractors = row.contractor_equipment
+          ?.map((contractor) => contractor.customers?.name || '')
+          .filter(Boolean);
+        return contractors && contractors.length > 0 ? contractors.join(', ') : 'Sin afectar';
       },
       filterFn: (row, columnId, filterValue) => {
         // Filtrar por numero intenro o dominio
@@ -295,6 +309,7 @@ export default function TablaEquipmentServer({
       accessorKey: 'showUnavaliableEquipment',
       id: 'Ver equipos dados de baja',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ver equipos dados de baja" />,
+      excludeFromExport: true, // No exportar la columna de selección
     },
   ];
 
