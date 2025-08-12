@@ -2,9 +2,13 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { Table } from '@tanstack/react-table';
+import { PermanentDocumentsDownloadButton } from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocumentsDownloadButton';
+import type { ColumnFiltersState, SortingState, Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
+import { Database } from '../../../../../database.types';
+import { DataTableExportExcel } from '../base/data-table-export-excel';
+import { DataTableExportExcelServer } from '../base/data-table-export-excel-server';
 import { DataTableFilterOptions } from '../base/data-table-filter-options';
 import { DataTableViewOptions } from '../base/data-table-view-options';
 import { DataTableDatePicker } from '../filters/data-table-date-picker';
@@ -61,6 +65,9 @@ interface DataTableToolbarProps<
   tableId?: string;
   bulkAction?: BulkActionProps<TData>;
   isLoading?: boolean;
+  // Para exportación del servidor
+  serverSide?: boolean;
+  fetchAllData?: (options: { sorting: SortingState; columnFilters: ColumnFiltersState }) => Promise<TData[]>;
 }
 
 export function DataTableToolbar<
@@ -80,6 +87,8 @@ export function DataTableToolbar<
   tableId,
   bulkAction,
   isLoading = false,
+  serverSide = false,
+  fetchAllData,
 }: DataTableToolbarProps<TData, TableName, Query>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const columnVisibility = table.getState().columnVisibility;
@@ -237,6 +246,13 @@ export function DataTableToolbar<
       </div>
       <div className="flex items-center space-x-2 flex-wrap">
         {typeof extraActions === 'function' ? extraActions(table) : extraActions}
+        {showDocumentDownload && <PermanentDocumentsDownloadButton table={table} />}
+        {showExport &&
+          (serverSide && fetchAllData ? (
+            <DataTableExportExcelServer table={table} fetchAllData={fetchAllData} />
+          ) : (
+            <DataTableExportExcel table={table} />
+          ))}
         {showFilterOptions && filterableColumns.length > 0 && (
           <DataTableFilterOptions
             filterableColumns={filterableColumns}

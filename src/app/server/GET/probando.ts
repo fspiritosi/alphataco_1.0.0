@@ -321,6 +321,62 @@ export async function fetchEquipmentData(options: {
   return data;
 }
 
+// Función para obtener todos los datos de empleados sin paginación (para exportación)
+export async function fetchAllEmployeesData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'employees'>[];
+  server?: boolean;
+}) {
+  const result = await queryWithPagination(
+    'employees',
+    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
+    {
+      pageIndex: 0,
+      pageSize: 10000, // Límite alto para obtener todos los datos
+      sorting: [...options.sorting, { id: 'lastname', desc: true }],
+      columnFilters: options.columnFilters,
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: true,
+        },
+      ]),
+      server: false,
+    }
+  );
+
+  return result;
+}
+export async function fetchAllEquipmentsData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const result = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      pageIndex: 0,
+      pageSize: 10000, // Límite alto para obtener todos los datos
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      columnFilters: options.columnFilters,
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: true,
+        },
+      ]),
+      server: false,
+    }
+  );
+
+  return result;
+}
+
 // Función para obtener opciones de filtro dinámicas
 export async function getEmployeeFilterOptions(column: string): Promise<{ label: string; value: string }[]> {
   const supabase = supabaseBrowser();
