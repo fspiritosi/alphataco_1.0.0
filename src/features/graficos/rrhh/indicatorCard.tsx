@@ -35,17 +35,15 @@ export default function IndicatorCard({
       <CardHeader>
         <CardTitle className="text-center text-xl font-bold">Indicador de eficacia Empleados</CardTitle>
       </CardHeader>
-      {/* <CardContent className="col-span-2 flex  flex-col items-center justify-center "> */}
-      {/* className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8" */}
       <div className="flex items-center justify-between w-full px-4">
         <div className="flex flex-col gap-2 mb-2 w-1/2 justify-center">
           <Card
-            className="bg-white/60 backdrop-blur-sm border-emerald-200 hover:bg-white/80 transition-colors duration-200"
+            className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={
-              diagramActiveEmployees !== undefined
-                ? diagramActiveEmployees >= condiciones_indicadores.success
+              Math.round(disponibleEmployeesPorcent) !== 0
+                ? Math.round(disponibleEmployeesPorcent) >= condiciones_indicadores.success
                   ? 'success'
-                  : diagramActiveEmployees >= condiciones_indicadores.warning
+                  : Math.round(disponibleEmployeesPorcent) >= condiciones_indicadores.warning
                     ? 'warning'
                     : 'destructive'
                 : 'destructive'
@@ -64,7 +62,18 @@ export default function IndicatorCard({
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 backdrop-blur-sm border-emerald-200 hover:bg-white/80 transition-colors duration-200">
+          <Card
+            className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
+            variant={
+              Math.round(disponibleEmployeesPorcent) !== 0
+                ? Math.round(disponibleEmployeesPorcent) >= condiciones_indicadores.success
+                  ? 'success'
+                  : Math.round(disponibleEmployeesPorcent) >= condiciones_indicadores.warning
+                    ? 'warning'
+                    : 'destructive'
+                : 'destructive'
+            }
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -78,11 +87,22 @@ export default function IndicatorCard({
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 backdrop-blur-sm border-emerald-200 hover:bg-white/80 transition-colors duration-200">
+          <Card
+            className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
+            variant={
+              Math.round(disponibleEmployeesPorcent) !== 0
+                ? Math.round(disponibleEmployeesPorcent) >= condiciones_indicadores.success
+                  ? 'success'
+                  : Math.round(disponibleEmployeesPorcent) >= condiciones_indicadores.warning
+                    ? 'warning'
+                    : 'destructive'
+                : 'destructive'
+            }
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-slate-100 rounded-lg">
-                  <Clock className="w-4 h-4 text-slate-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Clock className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-600">Disponibles</p>

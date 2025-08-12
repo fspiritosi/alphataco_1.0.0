@@ -96,28 +96,34 @@ export default async function EquipmentChart() {
   };
 
   return (
-    <div className="w-full h-full">
+    // <div className="w-full h-full">
+    <section>
       <div className="w-full pb-2">
         <TypeFilter
           typesVehicle={tipo_vehiculos?.map((vehicle) => ({ label: vehicle.name, value: vehicle.id })) || []}
         />
       </div>
-      <div className=" grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {/* <EquiposChart chartData={newChartData} chartConfig={chartConfig} date={date} /> */}
-        <InteractiveChart chartData={active_vehicles} />
+        <div className="h-[390px]">
+          <InteractiveChart chartData={active_vehicles} />
+        </div>
         {/* </div>
       <div className="w-full pb-2">  */}
-        <IndicatorCard
-          totalVehicles={totalVehicles}
-          disponibleEquipmentPorcent={usagePercentage}
-          disponibleEquipmentNumber={totalAvailable || 0}
-          activeEquipment={totalInUse || 0}
-          // usageEquipment={totalInUse || 0}
-          indicatorCharData={indicatorCharData}
-          indicatorChartConfig={indicatorChartConfig}
-          condiciones_indicadores={condiciones_indicadores}
-        />
+        <div className="flex  h-[390px] ">
+          <IndicatorCard
+            totalVehicles={totalVehicles}
+            disponibleEquipmentPorcent={usagePercentage}
+            disponibleEquipmentNumber={totalAvailable || 0}
+            activeEquipment={totalInUse || 0}
+            // usageEquipment={totalInUse || 0}
+            indicatorCharData={indicatorCharData}
+            indicatorChartConfig={indicatorChartConfig}
+            condiciones_indicadores={condiciones_indicadores}
+          />
+        </div>
       </div>
-    </div>
+      {/* </div> */}
+    </section>
   );
 }
