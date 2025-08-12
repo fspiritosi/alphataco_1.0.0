@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PermanentDocumentsDownloadButton } from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocumentsDownloadButton';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import type { ColumnFiltersState, SortingState, Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
@@ -45,6 +46,33 @@ export interface BulkActionProps<TData> {
   label?: string;
   icon?: React.ReactNode;
   onClick: (rows: TData[]) => void;
+}
+
+// Componente SearchInput con debounce
+interface SearchInputProps {
+  placeholder?: string;
+  onFilterChange: (value: string) => void;
+  className?: string;
+  disabled?: boolean;
+}
+
+function SearchInput({ placeholder, onFilterChange, className, disabled }: SearchInputProps) {
+  const [searchValue, setSearchValue] = React.useState('');
+  const debouncedSearchValue = useDebounce(searchValue, 300);
+
+  React.useEffect(() => {
+    onFilterChange(debouncedSearchValue);
+  }, [debouncedSearchValue]);
+
+  return (
+    <Input
+      placeholder={placeholder}
+      value={searchValue}
+      onChange={(event) => setSearchValue(event.target.value)}
+      className={className}
+      disabled={disabled}
+    />
+  );
 }
 
 // DataTableToolbarProps también es genérico para Query
@@ -144,11 +172,10 @@ export function DataTableToolbar<
           searchableColumns.map((column) => {
             const tableColumn = table.getColumn(column.columnId);
             return tableColumn && columnVisibility[column.columnId] !== false ? (
-              <Input
+              <SearchInput
                 key={column.columnId}
                 placeholder={column.placeholder || `Buscar...`}
-                value={(tableColumn.getFilterValue() as string) ?? ''}
-                onChange={(event) => tableColumn.setFilterValue(event.target.value)}
+                onFilterChange={(value) => tableColumn.setFilterValue(value)}
                 className="h-8 w-[150px] lg:w-[250px]"
                 disabled={isLoading}
               />

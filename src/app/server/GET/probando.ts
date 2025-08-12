@@ -108,7 +108,14 @@ export async function queryWithPagination<
         // Filtro de texto (búsqueda)
         if (typeof value === 'string' && value.trim()) {
           console.log('📝 Aplicando filtro de texto directo:', { id, value });
-          query = query.ilike(id, `%${value}%`);
+
+          // Caso especial para búsqueda en lastname: buscar en firstname y lastname
+          if (id === 'lastname') {
+            console.log('🔍 Búsqueda especial en nombre completo (firstname + lastname)');
+            query = query.or(`firstname.ilike.%${value}%,lastname.ilike.%${value}%`);
+          } else {
+            query = query.ilike(id, `%${value}%`);
+          }
         }
 
         // Filtros múltiples (arrays)

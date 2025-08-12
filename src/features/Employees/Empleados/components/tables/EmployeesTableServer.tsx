@@ -584,6 +584,7 @@ export default function TablaEmployeesSupabase({
       toolbarOptions={{
         initialVisibleFilters: savedFilters,
         showExport: true,
+        searchableColumns: [{ columnId: 'lastname', placeholder: 'Buscar por nombre' }],
         filterableColumns: [
           {
             columnId: 'gender',
