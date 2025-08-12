@@ -103,6 +103,7 @@ const chartRender = ({ data }: { data: any }) => {
                 <Bar dataKey="Activos" fill="var(--color-activos)" radius={4} />
                 <Bar dataKey="Inactivos" fill="var(--color-inactivos)" radius={4} />
                 <Bar dataKey="Usados" fill="var(--color-usados)" radius={4} />
+                <Bar dataKey="Porcentaje" fill="var(--color-usados)" radius={4} />
               </BarChart>
             ) : chartType === 'line' ? (
               <LineChart
@@ -203,7 +204,7 @@ export function InteractiveChart({ chartData }: { chartData: any }) {
     Nombre: item.type_name,
     Activos: item.available_units,
     Inactivos: item.not_available_units,
-    Usados: item.not_available_units,
+    Usados: item.used_units,
     Porcentaje: item.usage_indicator,
   }));
 
