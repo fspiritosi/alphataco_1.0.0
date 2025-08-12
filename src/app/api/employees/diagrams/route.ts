@@ -23,9 +23,7 @@ export async function GET(request: NextRequest) {
         throw new Error(JSON.stringify(error));
       }
       return Response.json({ data });
-    } catch (error) {
-      console.log(error);
-    }
+    } catch (error) {}
   }
 
   try {
@@ -45,9 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     return Response.json({ data });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }
 
 export async function POST(request: NextRequest) {
@@ -130,8 +126,5 @@ export async function PUT(request: NextRequest) {
     if (!error) {
       return Response.json(data);
     }
-    console.log(error, 'esto tambien es error');
-  } catch (error) {
-    console.log(error, 'esto tambien es error');
-  }
+  } catch (error) {}
 }

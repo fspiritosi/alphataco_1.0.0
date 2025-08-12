@@ -38,9 +38,7 @@ export async function GET(request: NextRequest) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ items });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }
 
 export async function POST(request: NextRequest) {
@@ -103,7 +101,5 @@ export async function PUT(request: NextRequest) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ items });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }

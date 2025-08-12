@@ -25,7 +25,5 @@ export async function GET(request: NextRequest) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ documents });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }
