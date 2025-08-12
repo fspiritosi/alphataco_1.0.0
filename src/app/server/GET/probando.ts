@@ -349,6 +349,33 @@ export async function fetchAllEmployeesData(options: {
 
   return result;
 }
+export async function fetchAllEquipmentsData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const result = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      pageIndex: 0,
+      pageSize: 10000, // Límite alto para obtener todos los datos
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      columnFilters: options.columnFilters,
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: true,
+        },
+      ]),
+      server: false,
+    }
+  );
+
+  return result;
+}
 
 // Función para obtener opciones de filtro dinámicas
 export async function getEmployeeFilterOptions(column: string): Promise<{ label: string; value: string }[]> {

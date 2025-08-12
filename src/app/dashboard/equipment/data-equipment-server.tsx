@@ -4,7 +4,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 // import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchEquipmentData, querySelectDistinct } from '@/app/server/GET/probando';
+import { fetchAllEquipmentsData, fetchEquipmentData, querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -12,17 +12,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import Link from 'next/link';
 import React from 'react';
 import { RiToolsFill } from 'react-icons/ri';
-import { z } from 'zod';
-const formSchema = z.object({
-  reason_for_termination: z.string({
-    required_error: 'La razón de la baja es requerida.',
-  }),
-  termination_date: z.date({
-    required_error: 'La fecha de baja es requerida.',
-  }),
-});
 
-type Colum = VehicleWithBrand;
 // Tipo inferido automáticamente del retorno de Supabase
 type EquipmentTableData = Awaited<ReturnType<typeof fetchEquipmentData>>['rows'][0];
 
@@ -37,6 +27,15 @@ export default function TablaEquipmentServer({
   savedVisibility: VisibilityState;
   types_of_vehicles: 'all' | 'Vehículos' | 'Otros';
 }) {
+  // Función wrapper para la exportación que devuelve solo los datos
+  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
+    const result = await fetchAllEquipmentsData({
+      sorting: options.sorting,
+      columnFilters: options.columnFilters,
+      server: true,
+    });
+    return result.rows; // Solo devolver los datos, no la estructura de paginación
+  };
   // Definición de columnas
   const columns: ColumnDef<EquipmentTableData>[] = [
     {
@@ -308,6 +307,7 @@ export default function TablaEquipmentServer({
       enableRowSelection={true}
       serverSide={true}
       fetchData={fetchEquipmentData}
+      fetchAllData={handleFetchAllData}
       queryKey={`equipment-supabase-${types_of_vehicles}`}
       toolbarOptions={{
         initialVisibleFilters: savedFilters,
