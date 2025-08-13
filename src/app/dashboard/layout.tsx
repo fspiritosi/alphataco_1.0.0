@@ -9,7 +9,7 @@ const font = Inter({ subsets: ['latin'] });
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`grid grid-rows-[auto,1fr] grid-cols-[auto,1fr] h-screen `}>
+    <div className={`grid grid-rows-[auto,1fr] grid-cols-[auto,1fr] h-screen `} suppressHydrationWarning>
       <div className="row-span-2 ">
         <SidebarFeat />
       </div>

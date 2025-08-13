@@ -1,5 +1,4 @@
 'use client';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,31 +12,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye } from 'lucide-react';
-import { use } from 'react';
+import { getServicesDetailByClient } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { Eye, TrendingUp } from 'lucide-react';
+import { use, useEffect, useState } from 'react';
+import { Pie, PieChart } from 'recharts';
 import { ServicesDetailByClient } from './ServicesDetailByClient';
 
-const chartConfig = {
-  visitors: {
-    label: 'Servicios',
-  },
-  mensual: {
-    label: 'Mensual',
-    color: '#22c55e', // Verde
-  },
-  adicional: {
-    label: 'Adicional',
-    color: '#3b82f6', // Azul
-  },
-  adicional_permanente: {
-    label: 'Adicional Permanente',
-    color: '#f59e0b', // Amarillo
-  },
-  sin_tipo: {
-    label: 'Sin Tipo',
-    color: '#6b7280', // Gris
-  },
-} satisfies ChartConfig;
+import { CardFooter } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+
+export const description = 'A pie chart with a label';
 
 interface ServicesSummary {
   type_service: string;
@@ -45,8 +29,57 @@ interface ServicesSummary {
   percentage: number;
 }
 
+interface ClientServiceData {
+  client_name: string;
+  total_count: number;
+  fill: string;
+}
+
 export function ServicesChart({ servicesSummary }: { servicesSummary: Promise<ServicesSummary[]> }) {
   const servicesData = use(servicesSummary);
+  const [chartData, setChartData] = useState<ClientServiceData[]>([]);
+  const [chartConfig2, setChartConfig2] = useState<ChartConfig>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadChartData = async () => {
+      try {
+        setIsLoading(true);
+        const servicesDetail = await getServicesDetailByClient();
+
+        // Crear chartData con los datos de servicios por cliente
+        const clientData: ClientServiceData[] = servicesDetail.map((item, index) => ({
+          client_name: item.client_name,
+          total_count: item.total_count,
+          fill: `hsl(var(--chart-${(index % 5) + 1}))`,
+        }));
+
+        // Crear chartConfig2 dinámicamente
+        const config: ChartConfig = {
+          total_count: {
+            label: 'Servicios',
+          },
+        };
+
+        servicesDetail.forEach((item, index) => {
+          const clientKey = `client-${index + 1}`;
+          config[clientKey] = {
+            label: item.client_name,
+            color: `var(--chart-${(index % 5) + 1})`,
+          };
+        });
+
+        setChartData(clientData);
+        setChartConfig2(config);
+      } catch (error) {
+        console.error('Error loading chart data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadChartData();
+  }, []);
 
   const dataChart = servicesData.map((service) => ({
     browser: service.type_service,
@@ -89,48 +122,6 @@ export function ServicesChart({ servicesSummary }: { servicesSummary: Promise<Se
 
   return (
     <div className="grid grid-cols-1  gap-4">
-      {/* Gráfico de Pastel */}
-      {/* <Card className="flex flex-col">
-        <CardHeader className="items-center pb-0">
-          <CardTitle>Servicios por tipo de operación</CardTitle>
-          <CardDescription>{today}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex-1 pb-0">
-          <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[250px]">
-            <PieChart>
-              <ChartTooltip 
-                cursor={false} 
-                content={<ChartTooltipContent 
-                  hideLabel 
-                  formatter={(value, name) => [
-                    `${value} (${servicesData.find(s => s.type_service === name)?.percentage.toFixed(1)}%)`,
-                    chartConfig[name as keyof typeof chartConfig]?.label || name
-                  ]}
-                />} 
-              />
-              <Pie data={dataChart} dataKey="visitors" nameKey="browser" innerRadius={60} strokeWidth={5}>
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
-                      return (
-                        <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                          <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl font-bold">
-                            {totalServices}
-                          </tspan>
-                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 24} className="fill-muted-foreground">
-                            Servicios Totales
-                          </tspan>
-                        </text>
-                      );
-                    }
-                  }}
-                />
-              </Pie>
-            </PieChart>
-          </ChartContainer>
-        </CardContent>
-      </Card> */}
-
       {/* Tabla de Detalles */}
       <Card className="flex flex-col">
         <CardHeader>
@@ -217,6 +208,40 @@ export function ServicesChart({ servicesSummary }: { servicesSummary: Promise<Se
             </div>
           </div>
         </CardContent>
+      </Card>
+
+      <Card className="flex flex-col">
+        <CardHeader className="items-center pb-0">
+          <CardTitle>Distribución de Servicios por Cliente</CardTitle>
+          <CardDescription>Servicios del día actual agrupados por cliente</CardDescription>
+        </CardHeader>
+        <CardContent className="flex-1 pb-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-[250px]">
+              <div className="text-muted-foreground">Cargando datos...</div>
+            </div>
+          ) : chartData.length > 0 ? (
+            <ChartContainer
+              config={chartConfig2}
+              className="[&_.recharts-pie-label-text]:fill-foreground mx-auto aspect-square max-h-[250px] pb-0"
+            >
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                <Pie data={chartData} dataKey="total_count" label nameKey="client_name" />
+              </PieChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[250px]">
+              <div className="text-muted-foreground">No hay datos para mostrar</div>
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="flex-col gap-2 text-sm">
+          <div className="flex items-center gap-2 leading-none font-medium">
+            Distribución actualizada <TrendingUp className="h-4 w-4" />
+          </div>
+          <div className="text-muted-foreground leading-none">Mostrando servicios del día actual por cliente</div>
+        </CardFooter>
       </Card>
     </div>
   );

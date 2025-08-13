@@ -87,7 +87,50 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
 
 export type DailyReportRow = ReturnType<typeof transformDailyReports>[number];
 
-export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): ColumnDef<DailyReportRow>[] {
+// Función auxiliar para detectar empleados duplicados
+const getDuplicatedEmployees = (data: DailyReportRow[]): Set<string> => {
+  const employeeCounts = new Map<string, number>();
+
+  data.forEach((row) => {
+    row.employees.filter(Boolean).forEach((employee) => {
+      if (employee) {
+        employeeCounts.set(employee, (employeeCounts.get(employee) || 0) + 1);
+      }
+    });
+  });
+
+  return new Set(
+    Array.from(employeeCounts.entries())
+      .filter(([_, count]) => count > 1)
+      .map(([employee, _]) => employee)
+  );
+};
+
+// Función auxiliar para detectar equipos duplicados
+const getDuplicatedEquipments = (data: DailyReportRow[]): Set<string> => {
+  const equipmentCounts = new Map<string, number>();
+
+  data.forEach((row) => {
+    row.equipment.filter(Boolean).forEach((equipment) => {
+      if (equipment) {
+        equipmentCounts.set(equipment, (equipmentCounts.get(equipment) || 0) + 1);
+      }
+    });
+  });
+
+  return new Set(
+    Array.from(equipmentCounts.entries())
+      .filter(([_, count]) => count > 1)
+      .map(([equipment, _]) => equipment)
+  );
+};
+
+export function getDailyReportColumns(
+  onEdit: (row: DailyReportRow) => void,
+  allData: DailyReportRow[] = []
+): ColumnDef<DailyReportRow>[] {
+  const duplicatedEmployees = getDuplicatedEmployees(allData);
+  const duplicatedEquipments = getDuplicatedEquipments(allData);
   return [
     {
       id: 'select',
@@ -229,11 +272,19 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
         const employees: string[] = row.original.employees;
         return (
           <div className="flex flex-wrap gap-1">
-            {employees.map((employee) => (
-              <Badge variant="default" className="select-none text-nowrap" key={employee}>
-                {employee}
-              </Badge>
-            ))}
+            {employees.filter(Boolean).map((employee) => {
+              if (!employee) return null;
+              const isDuplicated = duplicatedEmployees.has(employee);
+              return (
+                <Badge
+                  variant={isDuplicated ? 'outline' : 'default'}
+                  className={cn('select-none text-nowrap', isDuplicated && 'border border-orange-500 bg-orange-50')}
+                  key={employee}
+                >
+                  {employee}
+                </Badge>
+              );
+            })}
           </div>
         );
       },
@@ -253,11 +304,19 @@ export function getDailyReportColumns(onEdit: (row: DailyReportRow) => void): Co
         const equipment = row.original.equipment;
         return (
           <div className="flex flex-wrap gap-1">
-            {equipment.map((equipment) => (
-              <Badge variant="default" className="select-none text-nowrap" key={equipment}>
-                {equipment}
-              </Badge>
-            ))}
+            {equipment.filter(Boolean).map((equipmentItem) => {
+              if (!equipmentItem) return null;
+              const isDuplicated = duplicatedEquipments.has(equipmentItem);
+              return (
+                <Badge
+                  variant={isDuplicated ? 'outline' : 'default'}
+                  className={cn('select-none text-nowrap', isDuplicated && 'border border-orange-500 bg-orange-50')}
+                  key={equipmentItem}
+                >
+                  {equipmentItem}
+                </Badge>
+              );
+            })}
           </div>
         );
       },
@@ -522,7 +581,7 @@ export function DayliReportDetailTable({
       </div>
       <BaseDataTable
         className="mt-4"
-        columns={getDailyReportColumns(handleEditRow)}
+        columns={getDailyReportColumns(handleEditRow, formattedData)}
         data={formattedData || []}
         savedVisibility={savedVisibility}
         enableRowSelection={(row) => row.original.status !== 'ejecutado'}
