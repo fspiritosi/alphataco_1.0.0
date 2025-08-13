@@ -19,7 +19,5 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ service });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }

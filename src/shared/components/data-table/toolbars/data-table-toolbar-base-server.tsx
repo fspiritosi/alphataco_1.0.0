@@ -2,9 +2,14 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { Table } from '@tanstack/react-table';
+import { PermanentDocumentsDownloadButton } from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocumentsDownloadButton';
+import { useDebounce } from '@/shared/hooks/useDebounce';
+import type { ColumnFiltersState, SortingState, Table } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import * as React from 'react';
+import { Database } from '../../../../../database.types';
+import { DataTableExportExcel } from '../base/data-table-export-excel';
+import { DataTableExportExcelServer } from '../base/data-table-export-excel-server';
 import { DataTableFilterOptions } from '../base/data-table-filter-options';
 import { DataTableViewOptions } from '../base/data-table-view-options';
 import { DataTableDatePicker } from '../filters/data-table-date-picker';
@@ -43,6 +48,33 @@ export interface BulkActionProps<TData> {
   onClick: (rows: TData[]) => void;
 }
 
+// Componente SearchInput con debounce
+interface SearchInputProps {
+  placeholder?: string;
+  onFilterChange: (value: string) => void;
+  className?: string;
+  disabled?: boolean;
+}
+
+function SearchInput({ placeholder, onFilterChange, className, disabled }: SearchInputProps) {
+  const [searchValue, setSearchValue] = React.useState('');
+  const debouncedSearchValue = useDebounce(searchValue, 300);
+
+  React.useEffect(() => {
+    onFilterChange(debouncedSearchValue);
+  }, [debouncedSearchValue]);
+
+  return (
+    <Input
+      placeholder={placeholder}
+      value={searchValue}
+      onChange={(event) => setSearchValue(event.target.value)}
+      className={className}
+      disabled={disabled}
+    />
+  );
+}
+
 // DataTableToolbarProps también es genérico para Query
 interface DataTableToolbarProps<
   TData,
@@ -61,6 +93,9 @@ interface DataTableToolbarProps<
   tableId?: string;
   bulkAction?: BulkActionProps<TData>;
   isLoading?: boolean;
+  // Para exportación del servidor
+  serverSide?: boolean;
+  fetchAllData?: (options: { sorting: SortingState; columnFilters: ColumnFiltersState }) => Promise<TData[]>;
 }
 
 export function DataTableToolbar<
@@ -80,6 +115,8 @@ export function DataTableToolbar<
   tableId,
   bulkAction,
   isLoading = false,
+  serverSide = false,
+  fetchAllData,
 }: DataTableToolbarProps<TData, TableName, Query>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const columnVisibility = table.getState().columnVisibility;
@@ -135,11 +172,10 @@ export function DataTableToolbar<
           searchableColumns.map((column) => {
             const tableColumn = table.getColumn(column.columnId);
             return tableColumn && columnVisibility[column.columnId] !== false ? (
-              <Input
+              <SearchInput
                 key={column.columnId}
                 placeholder={column.placeholder || `Buscar...`}
-                value={(tableColumn.getFilterValue() as string) ?? ''}
-                onChange={(event) => tableColumn.setFilterValue(event.target.value)}
+                onFilterChange={(value) => tableColumn.setFilterValue(value)}
                 className="h-8 w-[150px] lg:w-[250px]"
                 disabled={isLoading}
               />
@@ -237,6 +273,13 @@ export function DataTableToolbar<
       </div>
       <div className="flex items-center space-x-2 flex-wrap">
         {typeof extraActions === 'function' ? extraActions(table) : extraActions}
+        {showDocumentDownload && <PermanentDocumentsDownloadButton table={table} />}
+        {showExport &&
+          (serverSide && fetchAllData ? (
+            <DataTableExportExcelServer table={table} fetchAllData={fetchAllData} />
+          ) : (
+            <DataTableExportExcel table={table} />
+          ))}
         {showFilterOptions && filterableColumns.length > 0 && (
           <DataTableFilterOptions
             filterableColumns={filterableColumns}

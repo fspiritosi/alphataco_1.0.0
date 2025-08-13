@@ -55,8 +55,10 @@ export async function fetchDiagramReportsData(options: {
   }
 
   // Construir query base
-  let query = supabase.from('employees_diagram').select(
-    `
+  let query = supabase
+    .from('employees_diagram')
+    .select(
+      `
       id,
       day,
       month,
@@ -66,6 +68,7 @@ export async function fetchDiagramReportsData(options: {
         cuil,
         firstname,
         lastname,
+        is_active,  
         company_position(
           id,
           name
@@ -78,8 +81,9 @@ export async function fetchDiagramReportsData(options: {
         short_description
       )
     `,
-    { count: 'exact' }
-  );
+      { count: 'exact' }
+    )
+    .filter('employee_id.is_active', 'eq', true);
 
   // Si hay filtro de búsqueda de CUIL, aplicar filtro de empleados encontrados
   if (searchEmployeeIds.length > 0) {

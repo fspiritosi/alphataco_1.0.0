@@ -22,15 +22,6 @@ async function page({ params }: { params: { uuid: string } }) {
         </div>
         <BackButton />
       </div>
-      {/* <DayliReportDetailTable
-        savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
-        dailyReportId={params.uuid}
-        customers={customers}
-        dailyReport={dailyReport}
-        savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-        employees={employees}
-        equipments={equipments}
-      /> */}
       <DayliReportDetailTableWrapper dailyReport={dailyReport} />
     </Card>
   );

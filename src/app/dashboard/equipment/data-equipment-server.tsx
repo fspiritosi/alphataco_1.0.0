@@ -4,7 +4,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 // import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchEquipmentData, querySelectDistinct } from '@/app/server/GET/probando';
+import { fetchAllEquipmentsData, fetchEquipmentData, querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -12,19 +12,15 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import Link from 'next/link';
 import React from 'react';
 import { RiToolsFill } from 'react-icons/ri';
-import { z } from 'zod';
-const formSchema = z.object({
-  reason_for_termination: z.string({
-    required_error: 'La razón de la baja es requerida.',
-  }),
-  termination_date: z.date({
-    required_error: 'La fecha de baja es requerida.',
-  }),
-});
 
-type Colum = VehicleWithBrand;
 // Tipo inferido automáticamente del retorno de Supabase
 type EquipmentTableData = Awaited<ReturnType<typeof fetchEquipmentData>>['rows'][0];
+
+// Tipo extendido para columnas con exportFormatter
+type ExtendedColumnDef<T> = ColumnDef<T> & {
+  exportFormatter?: (value: any, row: T) => string;
+  excludeFromExport?: boolean; // Prop para excluir columnas de la exportación
+};
 
 export default function TablaEquipmentServer({
   initialData,
@@ -37,8 +33,17 @@ export default function TablaEquipmentServer({
   savedVisibility: VisibilityState;
   types_of_vehicles: 'all' | 'Vehículos' | 'Otros';
 }) {
+  // Función wrapper para la exportación que devuelve solo los datos
+  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
+    const result = await fetchAllEquipmentsData({
+      sorting: options.sorting,
+      columnFilters: options.columnFilters,
+      server: true,
+    });
+    return result.rows; // Solo devolver los datos, no la estructura de paginación
+  };
   // Definición de columnas
-  const columns: ColumnDef<EquipmentTableData>[] = [
+  const columns: ExtendedColumnDef<EquipmentTableData>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -57,6 +62,7 @@ export default function TablaEquipmentServer({
       ),
       enableSorting: false,
       enableHiding: false,
+      excludeFromExport: true, // No exportar la columna de selección
     },
     {
       accessorKey: 'domain',
@@ -73,6 +79,7 @@ export default function TablaEquipmentServer({
         return value.includes(row.getValue(id));
       },
     },
+
     {
       accessorKey: 'chassis',
       id: 'chassis',
@@ -80,6 +87,18 @@ export default function TablaEquipmentServer({
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
+    },
+    {
+      accessorKey: 'picture',
+      id: 'picture',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.picture ? <img className="h-4 w-4 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
+        </div>
+      ),
+      enableSorting: false,
+      excludeFromExport: true, // No exportar la columna de foto
     },
     {
       accessorKey: 'status',
@@ -177,6 +196,12 @@ export default function TablaEquipmentServer({
             </TooltipProvider>
           </>
         );
+      },
+      exportFormatter: (value, row) => {
+        const contractors = row.contractor_equipment
+          ?.map((contractor) => contractor.customers?.name || '')
+          .filter(Boolean);
+        return contractors && contractors.length > 0 ? contractors.join(', ') : 'Sin afectar';
       },
       filterFn: (row, columnId, filterValue) => {
         // Filtrar por numero intenro o dominio
@@ -281,14 +306,10 @@ export default function TablaEquipmentServer({
       },
     },
     {
-      accessorKey: 'picture',
-      id: 'Foto',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
-    },
-    {
       accessorKey: 'showUnavaliableEquipment',
       id: 'Ver equipos dados de baja',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ver equipos dados de baja" />,
+      excludeFromExport: true, // No exportar la columna de selección
     },
   ];
 
@@ -301,6 +322,7 @@ export default function TablaEquipmentServer({
       enableRowSelection={true}
       serverSide={true}
       fetchData={fetchEquipmentData}
+      fetchAllData={handleFetchAllData}
       queryKey={`equipment-supabase-${types_of_vehicles}`}
       toolbarOptions={{
         initialVisibleFilters: savedFilters,

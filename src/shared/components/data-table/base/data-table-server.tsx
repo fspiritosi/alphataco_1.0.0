@@ -109,6 +109,7 @@ interface DataTableProps<
     pageCount: number;
     rowCount: number;
   }>;
+  fetchAllData?: (options: { sorting: SortingState; columnFilters: ColumnFiltersState }) => Promise<TData[]>;
   queryKey?: string;
 }
 const queryClient = new QueryClient();
@@ -132,6 +133,7 @@ export function BaseDataTable<
   onRowSelectionChange,
   serverSide = false,
   fetchData,
+  fetchAllData,
   queryKey = 'table-data',
   initialData,
 }: DataTableProps<TData, TValue, TableName, Query>) {
@@ -276,6 +278,8 @@ export function BaseDataTable<
             }
             tableId={tableId}
             isLoading={isLoading}
+            serverSide={serverSide}
+            fetchAllData={fetchAllData}
           />
         )}
         <div className="rounded-md border">

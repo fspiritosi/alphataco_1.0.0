@@ -21,9 +21,7 @@ export async function GET(request: NextRequest) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ repair_solicitudes });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }
 
 export async function POST(request: NextRequest) {
@@ -37,9 +35,7 @@ export async function POST(request: NextRequest) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ repair_solicitudes: repair_solicitudes ?? {} });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }
 
 export async function PUT(request: NextRequest) {
@@ -58,9 +54,7 @@ export async function PUT(request: NextRequest) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ repair_solicitudes });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }
 
 export async function DELETE(request: NextRequest) {
@@ -80,7 +74,5 @@ export async function DELETE(request: NextRequest) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ repair_solicitudes });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }

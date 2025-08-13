@@ -49,9 +49,7 @@ export async function GET(request: NextRequest, context: any) {
     }
 
     return Response.json({ response });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }
 
 const getEmployeeDocument = async (documentId: string) => {

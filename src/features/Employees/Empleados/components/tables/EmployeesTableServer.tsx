@@ -5,12 +5,18 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Mail, User } from 'lucide-react';
 // import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
+import { fetchAllEmployeesData, fetchEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import moment from 'moment';
 import Link from 'next/link';
+
+// Tipo extendido para columnas con propiedades adicionales de exportación
+type ExtendedColumnDef<TData> = ColumnDef<TData> & {
+  exportFormatter?: (value: any, row: TData) => string;
+  excludeFromExport?: boolean;
+};
 
 // Tipo inferido automáticamente del retorno de Supabase
 type EmployeeData = Awaited<ReturnType<typeof fetchEmployeesData>>['rows'][0];
@@ -24,8 +30,17 @@ export default function TablaEmployeesSupabase({
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
+  // Función wrapper para la exportación que devuelve solo los datos
+  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
+    const result = await fetchAllEmployeesData({
+      sorting: options.sorting,
+      columnFilters: options.columnFilters,
+      server: true,
+    });
+    return result.rows; // Solo devolver los datos, no la estructura de paginación
+  };
   // Definición de columnas
-  const columns: ColumnDef<EmployeeData>[] = [
+  const columns: ExtendedColumnDef<EmployeeData>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -44,6 +59,7 @@ export default function TablaEmployeesSupabase({
       ),
       enableSorting: false,
       enableHiding: false,
+      excludeFromExport: true,
     },
     {
       accessorKey: 'lastname',
@@ -64,6 +80,9 @@ export default function TablaEmployeesSupabase({
         const fullName = `${row.original.firstname} ${row.original.lastname}`.toLowerCase();
         return fullName.includes(value.toLowerCase());
       },
+      exportFormatter: (value, row) => {
+        return `${row.lastname} ${row.firstname}`;
+      },
     },
     {
       accessorKey: 'email',
@@ -75,6 +94,18 @@ export default function TablaEmployeesSupabase({
           <span className="text-sm">{row.original.email}</span>
         </div>
       ),
+    },
+    {
+      accessorKey: 'picture',
+      id: 'picture',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.picture ? <img className="h-4 w-4 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
+        </div>
+      ),
+      enableSorting: false,
+      excludeFromExport: true,
     },
     {
       accessorKey: 'nationality',
@@ -212,6 +243,17 @@ export default function TablaEmployeesSupabase({
             </Tooltip>
           </TooltipProvider>
         );
+      },
+      exportFormatter: (value, row) => {
+        const aptitudesTecnicas = row.empleado_aptitudes || [];
+        if (aptitudesTecnicas.length === 0) {
+          return 'Sin afectar';
+        }
+        const aptitudesTecnicasNames = aptitudesTecnicas.flatMap((aptitud) => {
+          if (typeof aptitud === 'string') return aptitud;
+          return aptitud?.aptitudes_tecnicas?.nombre || '';
+        });
+        return aptitudesTecnicasNames.join(', ');
       },
       filterFn: (row, id, filterValue) => {
         // Si no hay filtro o el array está vacío, mostramos todas las filas
@@ -441,6 +483,12 @@ export default function TablaEmployeesSupabase({
           return name && filterValue.flat().includes(name);
         });
       },
+      exportFormatter: (value, row) => {
+        const contractors = row.contractor_employee
+          ?.map((contractor) => contractor.customers?.name || '')
+          .filter(Boolean);
+        return contractors && contractors.length > 0 ? contractors.join(', ') : 'Sin afectar';
+      },
     },
     {
       accessorKey: 'date_of_admission',
@@ -528,11 +576,15 @@ export default function TablaEmployeesSupabase({
       tableId="activeEmployeesServerTable"
       enableRowSelection={true}
       // Configuración para server-side con Supabase
+
       serverSide={true}
       fetchData={fetchEmployeesData}
+      fetchAllData={handleFetchAllData}
       queryKey="active-employees-supabase"
       toolbarOptions={{
         initialVisibleFilters: savedFilters,
+        showExport: true,
+        searchableColumns: [{ columnId: 'lastname', placeholder: 'Buscar por nombre' }],
         filterableColumns: [
           {
             columnId: 'gender',

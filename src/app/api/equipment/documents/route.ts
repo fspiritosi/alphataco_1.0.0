@@ -21,7 +21,5 @@ export async function GET(request: NextRequest) {
       throw new Error(JSON.stringify(equipmentError));
     }
     return Response.json({ equipmentDocuments: documents });
-  } catch (error) {
-    console.log(error);
-  }
+  } catch (error) {}
 }

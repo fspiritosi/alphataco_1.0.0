@@ -487,8 +487,28 @@ export async function getDailyReportById(id: string) {
   working_day,
   description,
   document_path,
-  dailyreportemployeerelations(employees(id,firstname,lastname)),
-  dailyreportequipmentrelations(vehicles(id,intern_number,domain))
+  dailyreportemployeerelations(employees(
+    id,
+    firstname,
+    lastname,
+    document_number,
+    phone,
+    email,
+    company_positions(name),
+    contractor_employee(customers(name))
+  )),
+  dailyreportequipmentrelations(vehicles(
+    id,
+    intern_number,
+    domain,
+    brand,
+    model,
+    year,
+    sub_type(name),
+    type(name),
+    contractor_equipment(customers(name)),
+    condition
+  ))
 )
         `
     )
