@@ -116,7 +116,8 @@ export const fetchAllEmployeesCount = async () => {
   const { count, error } = await supabase
     .from('employees')
     .select('count', { count: 'exact' })
-    .eq('company_id', company_id);
+    .eq('company_id', company_id)
+    .eq('is_active', true);
 
   if (error) return 0;
 
@@ -130,7 +131,8 @@ export const fetchAllVehiclesCount = async () => {
   const { count, error } = await supabase
     .from('vehicles')
     .select('count', { count: 'exact' })
-    .eq('company_id', company_id);
+    .eq('company_id', company_id)
+    .eq('is_active', true);
 
   if (error) return 0;
 

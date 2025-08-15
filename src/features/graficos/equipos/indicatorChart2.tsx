@@ -5,7 +5,7 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '
 
 export const description = 'A radial chart with stacked sections';
 
-export function IndicatorChart({
+export function IndicatorChart2({
   chartConfig,
   chartData,
   totalIndicator,
@@ -56,14 +56,14 @@ export function IndicatorChart({
           />
         </PolarRadiusAxis>
         <RadialBar
-          dataKey="operative"
+          dataKey="active"
           fill={chartConfig.operative?.color}
           stackId="a"
           cornerRadius={5}
           className="stroke-transparent stroke-2"
         />
         <RadialBar
-          dataKey="not_available"
+          dataKey="enUso"
           stackId="a"
           cornerRadius={5}
           fill={chartConfig.not_available?.color}
