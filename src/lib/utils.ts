@@ -94,13 +94,34 @@ export const FetchSharedUsers = async (companyId: string) => {
     return data;
   }
 };
+export const FetchSharedUsersProfiles = async (companyId: string) => {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from('share_company_users')
+    .select(
+      `
+      profile(*)
+      `
+    )
+    .eq('company_id', companyId);
+
+  if (error) {
+    // return error;
+    //console.log(error);
+    return [];
+  } else {
+    return data;
+  }
+};
 
 export async function getActualRole(companyId: string, profile: string) {
-  const sharedUsers = (await FetchSharedUsers(companyId)) as any;
+  // const sharedUsers = (await FetchSharedUsers(companyId)) as any;
+  const sharedUsers = await FetchSharedUsersProfiles(companyId);
   const user = sharedUsers?.find((e: any) => e.profile_id.id === profile);
 
-  if (user?.role) {
-    return user?.role;
+  if (user?.profile?.role) {
+    return user?.profile.role;
   } else {
     return 'Owner';
   }
