@@ -1,10 +1,26 @@
 import ChecklistTable from '@/components/CheckList/ListOfChecklist';
 import Viewcomponent from '@/components/ViewComponent';
+import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { cookies } from 'next/headers';
 
-export const metadata = {
-  title: 'Formularios | GH Gestión',
-  description: 'Página de formularios de GH Gestión con información general, comercial, HR y equipos',
-};
+export async function generateMetadata() {
+  const cookiesStore = cookies();
+  const companyName = cookiesStore.get('actualCompName')?.value;
+  if (companyName) {
+    return {
+      title: `Formularios | ${companyName}`,
+      description: `Página de formularios de ${companyName} con información general, comercial, HR y equipos`,
+    };
+  } else {
+    const companyName = await getCompanyName();
+    if (companyName) {
+      return {
+        title: `Formularios | ${companyName.company_name}`,
+        description: `Página de formularios de ${companyName.company_name} con información general, comercial, HR y equipos`,
+      };
+    }
+  }
+}
 async function MantenimientoPage() {
   const viewData = {
     defaultValue: 'formularios',

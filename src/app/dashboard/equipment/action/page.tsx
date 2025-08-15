@@ -106,8 +106,10 @@ export async function generateMetadata({ searchParams }: { searchParams: any }) 
   const { id } = searchParams;
   const supabase = supabaseServer();
   if (!id) {
+    const cookiesStore = cookies();
+    const companyName = cookiesStore.get('actualCompName')?.value;
     return {
-      title: `Nuevo equipo | GH Gestión`,
+      title: `Nuevo equipo | ${companyName}`,
       description: 'Nuevo equipo',
     };
   }
@@ -118,7 +120,7 @@ export async function generateMetadata({ searchParams }: { searchParams: any }) 
   }
 
   return {
-    title: `Equipo - ${vehicleData?.domain} | GH Gestión`,
+    title: `Equipo - ${vehicleData?.domain}`,
     description: `Equipo - ${vehicleData?.domain}`,
   };
 }

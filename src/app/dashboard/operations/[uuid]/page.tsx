@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: { uuid: string } })
 
   const dailyReport = await getDailyReportById(uuid);
   return {
-    title: `Parte diario - ${moment(dailyReport[0]?.date).format('DD/MM/YYYY')} | GH Gestión`,
+    title: `Parte diario - ${moment(dailyReport[0]?.date).format('DD/MM/YYYY')}`,
     description: 'Información detallada del parte diario',
   };
 }

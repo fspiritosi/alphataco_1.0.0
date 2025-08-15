@@ -2,16 +2,33 @@ import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import Viewcomponent from '@/components/ViewComponent';
 import { buttonVariants } from '@/components/ui/button';
+import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import EquipmentTabs from '../document/documentComponents/EquipmentTabs';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
 import EquipmentListTabs from './equipmentComponentes/EquipmentListTabs';
 
-export const metadata = {
-  title: 'Equipos | GH Gestión',
-  description: 'Página de equipos de GH Gestión con información general, comercial, HR y equipos',
-};
+export async function generateMetadata() {
+  const cookiesStore = cookies();
+  const companyName = cookiesStore.get('actualCompName')?.value;
+  if (companyName) {
+    return {
+      title: `Equipos | ${companyName}`,
+      description: `Página de equipos de ${companyName} con información general, comercial, HR y equipos`,
+    };
+  } else {
+    const actualCompany = await getCompanyName();
+    if (actualCompany) {
+      return {
+        title: `Equipos | ${actualCompany.company_name}`,
+        description: `Página de equipos de ${actualCompany.company_name} con información general, comercial, HR y equipos`,
+      };
+    }
+  }
+}
+
 export default async function Equipment({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const viewData = {
     defaultValue: searchParams?.tab || 'equipos',

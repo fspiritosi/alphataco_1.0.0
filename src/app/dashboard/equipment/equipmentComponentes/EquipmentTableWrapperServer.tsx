@@ -12,8 +12,6 @@ async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: Equipm
   const savedVisibility = cookiesStore.get(`equipmentServerTable-${types_of_vehicles}`)?.value;
   const savedFilters = cookiesStore.get(`equipmentServerTable-${types_of_vehicles}-filters`)?.value;
 
-  console.log(types_of_vehicles, 'types_of_vehiclessss');
-
   const initialData = await fetchEquipmentData({
     pageIndex: 0,
     pageSize: 10,

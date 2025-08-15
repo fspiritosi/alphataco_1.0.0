@@ -191,10 +191,13 @@ export async function createEmployee(employeeData: Partial<Employee>) {
 
   if (!company_id) throw new Error('No company selected');
 
+  // Remove allocated_to and aptitudes from the main update
+  const { allocated_to, aptitudes, ...updateData } = employeeData;
+
   const { data, error } = await supabase
     .from('employees')
     .insert({
-      ...employeeData,
+      ...updateData,
       company_id,
       allocated_to: employeeData.allocated_to ?? [],
     } as any)
@@ -204,6 +207,13 @@ export async function createEmployee(employeeData: Partial<Employee>) {
   if (error) {
     console.error('Error creating employee:', error);
     throw new Error(error.message);
+  }
+  if (employeeData.allocated_to && Array.isArray(employeeData.allocated_to)) {
+    await updateContractorRelationships(data.id, employeeData.allocated_to);
+  }
+
+  if (employeeData.aptitudes && Array.isArray(employeeData.aptitudes)) {
+    await updateAptitudeRelationships(data.id, employeeData.aptitudes);
   }
 
   return data;
@@ -230,7 +240,6 @@ export async function updateEmployee(employeeId: string, employeeData: Partial<E
   const { data, error } = await supabase
     .from('employees')
     .update(updateData as any)
-
     .eq('id', employeeId)
     .eq('company_id', company_id)
     .select()

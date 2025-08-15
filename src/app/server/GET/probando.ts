@@ -1,8 +1,8 @@
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
+import Cookies from 'js-cookie';
 import { Database } from '../../../../database.types';
-
 // Tipo para los operadores de filtro
 type FilterOperator =
   | 'eq'
@@ -229,14 +229,8 @@ export async function fetchEmployeesData(options: {
   columnFilters: ColumnFiltersState;
   filters?: Filter<'employees'>[];
 }) {
-  console.log('🚀 fetchEmployeesData - Opciones recibidas:', {
-    pageIndex: options.pageIndex,
-    pageSize: options.pageSize,
-    sorting: options.sorting,
-    columnFilters: options.columnFilters,
-    filters: options.filters,
-  });
-
+  const companyId = Cookies.get('actualComp');
+  console.log(companyId, 'companyId');
   const data = await queryWithPagination(
     'employees',
     'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
@@ -249,6 +243,17 @@ export async function fetchEmployeesData(options: {
           operator: 'eq',
           value: true,
         },
+
+        // Only add company_id filter if not already present
+        ...(options.filters?.some((f) => f.column === 'company_id')
+          ? []
+          : ([
+              {
+                column: 'company_id',
+                operator: 'eq',
+                value: companyId,
+              },
+            ] as any)),
       ]),
     }
   );
@@ -298,13 +303,7 @@ export async function fetchEquipmentData(options: {
   filters?: Filter<'vehicles'>[];
   server?: boolean;
 }) {
-  console.log('🚀 fetchEmployeesData - Opciones recibidas:', {
-    pageIndex: options.pageIndex,
-    pageSize: options.pageSize,
-    sorting: options.sorting,
-    columnFilters: options.columnFilters,
-    filters: options.filters,
-  });
+  const company_id = Cookies.get('actualComp');
 
   const data = await queryWithPagination(
     'vehicles',
@@ -318,6 +317,16 @@ export async function fetchEquipmentData(options: {
           operator: 'eq',
           value: true,
         },
+        // Only add company_id filter if not already present
+        ...(options.filters?.some((f) => f.column === 'company_id')
+          ? []
+          : ([
+              {
+                column: 'company_id',
+                operator: 'eq',
+                value: company_id,
+              },
+            ] as any)),
       ]),
       server: options.server,
     }

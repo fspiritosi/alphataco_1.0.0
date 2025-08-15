@@ -169,6 +169,7 @@ import {
   fetchDiagramsHistoryByEmployeeId,
   fetchDiagramsTypes,
   getEmployeeById,
+  getEmployeeNameById,
 } from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
 import { DiagramDetailEmployeeView } from '@/components/Diagrams/DiagramDetailEmployeeView';
@@ -191,6 +192,7 @@ import {
 import { fetchAllAptitudesTecnicas, fetchAllContractTypes } from '@/features/Empresa/RRHH/actions/actions';
 import { fetchCountrys } from '@/shared/actions/employees.actions';
 import moment from 'moment';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -315,12 +317,14 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 export async function generateMetadata({ searchParams }: EmployeePageProps) {
   const { employee_id } = searchParams;
   if (!employee_id) {
+    const cookiesStore = cookies();
+    const companyName = cookiesStore.get('actualCompName')?.value;
     return {
-      title: 'Registrar Nuevo Empleado',
+      title: `Registrar Nuevo Empleado | ${companyName}`,
       description: 'Crear y registrar un nuevo perfil de empleado en el sistema',
     };
   }
-  const employee = await getEmployeeById(employee_id);
+  const employee = await getEmployeeNameById(employee_id);
   return {
     title: `Empleado - ${employee?.firstname} ${employee?.lastname}`,
     description: 'Información detallada del empleado',
