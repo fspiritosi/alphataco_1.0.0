@@ -20,7 +20,7 @@ export function IndicatorChart({
     if (value >= 50) return '#eab308'; // Amarillo
     return '#ef4444'; // Rojo
   };
-
+  console.log(chartData);
   return (
     // <div className="w-full h-full flex items-center justify-center p-2">
 
@@ -47,7 +47,7 @@ export function IndicatorChart({
                       className="text-sm"
                       fill={getTextColor(totalIndicator)}
                     >
-                      En operación
+                      Operativos
                     </tspan>
                   </text>
                 );
@@ -56,17 +56,17 @@ export function IndicatorChart({
           />
         </PolarRadiusAxis>
         <RadialBar
-          dataKey="available"
-          fill={chartConfig.available?.color}
+          dataKey="operative"
+          fill={chartConfig.operative?.color}
           stackId="a"
           cornerRadius={5}
           className="stroke-transparent stroke-2"
         />
         <RadialBar
-          dataKey="operative"
+          dataKey="not_available"
           stackId="a"
           cornerRadius={5}
-          fill={chartConfig.operative?.color}
+          fill={chartConfig.not_available?.color}
           className="stroke-transparent stroke-2"
         />
       </RadialBarChart>

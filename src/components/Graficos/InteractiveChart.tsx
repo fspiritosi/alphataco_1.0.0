@@ -200,7 +200,7 @@ const chartRender = ({ data }: { data: any }) => {
 };
 
 export function InteractiveChart({ chartData }: { chartData: any }) {
-  const chartDataTransformed = chartData.map((item: any) => ({
+  const chartDataTransformed = chartData?.map((item: any) => ({
     Nombre: item.type_name,
     Activos: item.available_units,
     Inactivos: item.not_available_units,

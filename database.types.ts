@@ -1,7 +1,7 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: '12.2.3 (519615d)';
@@ -3113,43 +3113,43 @@ export type Database = {
       };
       check_diagram_conflicts_with_operations: {
         Args:
-          | { p_employee_ids: string[]; p_date_from: string; p_date_to: string }
           | {
-              p_employee_ids: string[];
-              p_diagram_type_id: string;
               p_date_from: string;
               p_date_to: string;
-            };
+              p_diagram_type_id: string;
+              p_employee_ids: string[];
+            }
+          | { p_date_from: string; p_date_to: string; p_employee_ids: string[] };
         Returns: {
-          employee_id: string;
-          employee_name: string;
-          day: number;
-          month: number;
-          year: number;
-          date_formatted: string;
-          current_diagram_type: string;
-          current_diagram_name: string;
-          current_diagram_color: string;
-          is_used_in_operations: boolean;
-          operation_details: string;
           can_update: boolean;
           conflict_type: string;
+          current_diagram_color: string;
+          current_diagram_name: string;
+          current_diagram_type: string;
+          date_formatted: string;
+          day: number;
+          employee_id: string;
+          employee_name: string;
+          is_used_in_operations: boolean;
+          month: number;
+          operation_details: string;
+          year: number;
         }[];
       };
       check_diagram_conflicts_with_operations_v2: {
         Args:
           | {
-              p_employee_ids: string[];
-              p_work_diagram_id: string;
+              p_active_novelty_id: string;
               p_date_from: string;
               p_date_to: string;
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
             }
           | {
-              p_employee_ids: string[];
-              p_work_diagram_id: string;
               p_date_from: string;
               p_date_to: string;
-              p_active_novelty_id: string;
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
             };
         Returns: Json;
       };
@@ -3159,10 +3159,10 @@ export type Database = {
       };
       create_massive_diagrams_with_validations: {
         Args: {
-          p_employee_ids: string[];
-          p_diagram_type_id: string;
           p_date_from: string;
           p_date_to: string;
+          p_diagram_type_id: string;
+          p_employee_ids: string[];
         };
         Returns: Json;
       };
@@ -3179,7 +3179,7 @@ export type Database = {
         Returns: undefined;
       };
       find_employee_by_full_name_v2: {
-        Args: { p_full_name: string; p_company_id: string };
+        Args: { p_company_id: string; p_full_name: string };
         Returns: {
           affiliate_status: Database['public']['Enums']['affiliate_status_enum'] | null;
           allocated_to: string[] | null;
@@ -3225,24 +3225,24 @@ export type Database = {
       get_dailyreportrow_history: {
         Args: { p_row_id: string };
         Returns: {
-          id: string;
           action_type: string;
-          changed_fields: Json;
-          changed_data: Json;
           changed_by: Json;
+          changed_data: Json;
+          changed_fields: Json;
           created_at: string;
-          related_table: string;
-          related_id: string;
+          id: string;
           metadata: Json;
           reassignment_reason: string;
+          related_id: string;
+          related_table: string;
         }[];
       };
       get_employee_diagram_count_by_day: {
         Args: {
+          p_company_position_ids?: string[];
           p_day: number;
           p_month: number;
           p_year: number;
-          p_company_position_ids?: string[];
         };
         Returns: Json;
       };
@@ -3255,7 +3255,7 @@ export type Database = {
         }[];
       };
       get_employee_usage_indicator: {
-        Args: { save_to_table?: boolean; position_uuids?: string[] };
+        Args: { position_uuids?: string[]; save_to_table?: boolean };
         Returns: {
           employees_operativos: number;
           employees_used: number;
@@ -3265,58 +3265,58 @@ export type Database = {
       get_services_summary_by_type: {
         Args: { p_company_id: string; save_to_history?: boolean };
         Returns: {
-          type_service: string;
-          service_count: number;
           percentage: number;
+          service_count: number;
+          type_service: string;
         }[];
       };
       get_vehicle_usage_indicator: {
         Args: { p_vehicle_type_ids: string[] } | { p_vehicle_types: string[] };
         Returns: {
-          type: string;
           available_units: number;
-          used_units: number;
+          type: string;
           usage_indicator: number;
+          used_units: number;
         }[];
       };
       migrate_document: {
-        Args: { target_id: string; execute_migration?: boolean };
+        Args: { execute_migration?: boolean; target_id: string };
         Returns: {
-          old_path: string;
-          new_path: string;
-          success: boolean;
-          error_message: string;
           action_taken: string;
+          error_message: string;
+          new_path: string;
+          old_path: string;
           storage_migration_id: string;
+          success: boolean;
         }[];
       };
       migrate_documents_preview: {
         Args: Record<PropertyKey, never>;
         Returns: {
-          old_path: string;
-          new_path: string;
-          success: boolean;
           error_message: string;
+          new_path: string;
+          old_path: string;
+          success: boolean;
         }[];
       };
       obtener_documentos_por_vencer: {
         Args: Record<PropertyKey, never>;
         Returns: {
-          tipo_documento: string;
           correo_electronico: string;
-          fecha_vencimiento: string;
           documento_empleado: string;
           dominio_vehiculo: string;
+          fecha_vencimiento: string;
+          tipo_documento: string;
         }[];
       };
       process_massive_diagram_creation_v2: {
         Args: {
-          p_employee_ids: string[];
-          p_work_diagram_id: string;
           p_active_novelty_id: string;
+          p_conflict_resolution: string;
           p_date_from: string;
           p_date_to: string;
-          p_conflict_resolution: string;
+          p_employee_ids: string[];
+          p_work_diagram_id: string;
         };
         Returns: Json;
       };
@@ -3326,15 +3326,15 @@ export type Database = {
       };
       select_distinct_values: {
         Args: {
-          p_table_name: string;
           p_column_path: string;
+          p_filters?: Json;
           p_join_mappings?: Json;
           p_multi_join_paths?: Json;
-          p_filters?: Json;
+          p_table_name: string;
         };
         Returns: {
-          col_value: string;
           col_count: number;
+          col_value: string;
         }[];
       };
       set_reassignment_reason: {

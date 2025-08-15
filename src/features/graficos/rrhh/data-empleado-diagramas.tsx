@@ -16,8 +16,18 @@ interface DiagramIndicator {
 
 export default async function EmpleadoDiagramasChart() {
   const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  console.log(company_id);
   const cookieValue = cookiesStore.get('position-filter')?.value;
-  const employeeIndicator = await getEmployeeIndicator(cookieValue?.split(',') || []);
+  const employeeIndicator = (await getEmployeeIndicator(company_id, cookieValue?.split(','))) || [
+    {
+      employees_operativos: 0,
+      employees_used: 0,
+      indicator: 0,
+    },
+  ];
+
+  console.log(employeeIndicator);
   const diagramIndicator: any = await getDiagramIndicator(cookieValue?.split(',') || undefined);
   const positions = await fetchAllPositions();
   const positionsOptions = positions.map((position) => ({ label: position.name!, value: position.id }));
@@ -53,8 +63,8 @@ export default async function EmpleadoDiagramasChart() {
 
   const indicatorCharData = [
     {
-      operative: employeeIndicator![0].employees_used,
-      available: employeeIndicator![0].employees_operativos - employeeIndicator![0].employees_used,
+      operative: employeeIndicator[0]?.employees_used ?? 0,
+      available: (employeeIndicator[0]?.employees_operativos ?? 0) - (employeeIndicator[0]?.employees_used ?? 0),
     },
   ];
 
