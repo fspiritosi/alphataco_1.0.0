@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { use } from 'react';
+import { use, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { EmployeeFormData, Options } from './employee-form';
 
@@ -16,9 +16,9 @@ interface EmployeeWorkDataFormProps {
 }
 
 export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDataFormProps) {
-  const costCenters = use(options.costCentersPromise);
   const hierarchicalPositions = use(options.hierarchicalPositionsPromise);
   const companyPositions = use(options.companyPositionsPromise);
+  const costCenters = use(options.costCentersPromise);
   const workflowDiagrams = use(options.workflowDiagramsPromise);
   const guilds = use(options.guildsPromise);
   const covenants = use(options.covenantsPromise);
@@ -29,6 +29,41 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
 
   const allocatedTo = form.watch('allocated_to') || [];
   const selectedAptitudes = form.watch('aptitudes') || [];
+
+  // Observar cambios en los campos para habilitar/deshabilitar
+  const selectedHierarchicalPosition = form.watch('hierarchical_position');
+  const selectedCompanyPosition = form.watch('company_position');
+  const selectedGuildId = form.watch('guild_id');
+  const selectedCovenantId = form.watch('covenants_id');
+
+  // Obtener valores iniciales del form y configurar filtrado
+  const initialHierarchicalPosition = form.getValues('hierarchical_position');
+  const initialCompanyPosition = form.getValues('company_position');
+  const initialGuildId = form.getValues('guild_id');
+  const initialCovenantId = form.getValues('covenants_id');
+
+  // Estados para filtrado dinámico con valores iniciales
+  const [filteredCompanyPositions, setFilteredCompanyPositions] = useState(() => {
+    return initialHierarchicalPosition
+      ? companyPositions.filter((position) => position.hierarchical_position_id?.includes(initialHierarchicalPosition))
+      : [];
+  });
+
+  const [filteredAptitudes, setFilteredAptitudes] = useState(() => {
+    return initialCompanyPosition
+      ? aptitudes.filter((aptitude) =>
+          aptitude.aptitudes_tecnicas_puestos.some((puesto) => puesto.puesto_id === initialCompanyPosition)
+        )
+      : [];
+  });
+
+  const [filteredCovenants, setFilteredCovenants] = useState(() => {
+    return initialGuildId ? covenants.filter((covenant) => covenant.guild_id === initialGuildId) : [];
+  });
+
+  const [filteredCategories, setFilteredCategories] = useState(() => {
+    return initialCovenantId ? categories.filter((category) => category.covenant_id === initialCovenantId) : [];
+  });
 
   const handleContractorChange = (contractorId: string, checked: boolean) => {
     const currentAllocated = form.getValues('allocated_to') || [];
@@ -51,6 +86,70 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
         'aptitudes',
         currentAptitudes.filter((id: string) => id !== aptitudeId)
       );
+    }
+  };
+
+  const handleHierarchicalPositionChange = (hierarchicalPositionId: string) => {
+    const currentHierarchicalPosition = form.getValues('hierarchical_position');
+    form.setValue('hierarchical_position', hierarchicalPositionId);
+
+    // Filtrar puestos de empresa por hierarchical_position_id
+    const newFilteredCompanyPositions = companyPositions.filter((position) =>
+      position.hierarchical_position_id?.includes(hierarchicalPositionId)
+    );
+    setFilteredCompanyPositions(newFilteredCompanyPositions);
+
+    // Si se selecciona una posición jerárquica diferente, restablecer puesto de empresa y aptitudes
+    if (currentHierarchicalPosition !== hierarchicalPositionId) {
+      form.resetField('company_position');
+      form.setValue('aptitudes', []);
+      setFilteredAptitudes([]);
+    }
+  };
+
+  const handleCompanyPositionChange = (companyPositionId: string) => {
+    const currentCompanyPosition = form.getValues('company_position');
+    form.setValue('company_position', companyPositionId);
+
+    // Filtrar aptitudes por puesto_id
+    const newFilteredAptitudes = aptitudes.filter((aptitude) =>
+      aptitude.aptitudes_tecnicas_puestos.some((puesto) => puesto.puesto_id === companyPositionId)
+    );
+    setFilteredAptitudes(newFilteredAptitudes);
+
+    // Si se selecciona un puesto diferente, restablecer aptitudes seleccionadas
+    if (currentCompanyPosition !== companyPositionId) {
+      form.setValue('aptitudes', []);
+    }
+  };
+
+  const handleGuildChange = (guildId: string) => {
+    const currentGuildId = form.getValues('guild_id');
+    form.setValue('guild_id', guildId);
+
+    // Filtrar convenios por guild_id
+    const newFilteredCovenants = covenants.filter((covenant) => covenant.guild_id === guildId);
+    setFilteredCovenants(newFilteredCovenants);
+
+    // Si se selecciona un gremio diferente al actual, restablecer convenio y categoría
+    if (currentGuildId !== guildId) {
+      form.resetField('covenants_id');
+      form.resetField('category_id');
+      setFilteredCategories([]);
+    }
+  };
+
+  const handleCovenantChange = (covenantId: string) => {
+    const currentCovenantId = form.getValues('covenants_id');
+    form.setValue('covenants_id', covenantId);
+
+    // Filtrar categorías por covenant_id
+    const newFilteredCategories = categories.filter((category) => category.covenant_id === covenantId);
+    setFilteredCategories(newFilteredCategories);
+
+    // Si se selecciona un convenio diferente al actual, restablecer categoría
+    if (currentCovenantId !== covenantId) {
+      form.resetField('category_id');
     }
   };
 
@@ -79,7 +178,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Sector *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+              <Select onValueChange={handleHierarchicalPositionChange} defaultValue={field.value} disabled={readOnly}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione el sector" />
@@ -105,14 +204,22 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Puesto en la empresa *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+              <Select
+                onValueChange={handleCompanyPositionChange}
+                defaultValue={field.value}
+                disabled={readOnly || !selectedHierarchicalPosition}
+              >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el puesto" />
+                    <SelectValue
+                      placeholder={
+                        !selectedHierarchicalPosition ? 'Primero seleccione un sector' : 'Seleccione el puesto'
+                      }
+                    />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {companyPositions.map((position) => (
+                  {filteredCompanyPositions.map((position) => (
                     <SelectItem key={position.id} value={position.id}>
                       {position.name}
                     </SelectItem>
@@ -213,7 +320,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Gremio</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+              <Select onValueChange={handleGuildChange} defaultValue={field.value} disabled={readOnly}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione el gremio" />
@@ -239,14 +346,20 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Convenio</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+              <Select
+                onValueChange={handleCovenantChange}
+                defaultValue={field.value}
+                disabled={readOnly || !selectedGuildId}
+              >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el convenio" />
+                    <SelectValue
+                      placeholder={!selectedGuildId ? 'Primero seleccione un gremio' : 'Seleccione el convenio'}
+                    />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {covenants.map((covenant) => (
+                  {filteredCovenants.map((covenant) => (
                     <SelectItem key={covenant.id} value={covenant.id}>
                       {covenant.name}
                     </SelectItem>
@@ -265,14 +378,20 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
           render={({ field }) => (
             <FormItem>
               <FormLabel>Categoría</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+                disabled={readOnly || !selectedCovenantId}
+              >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccione la categoría" />
+                    <SelectValue
+                      placeholder={!selectedCovenantId ? 'Primero seleccione un convenio' : 'Seleccione la categoría'}
+                    />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {categories.map((category) => (
+                  {filteredCategories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
                     </SelectItem>
@@ -361,9 +480,9 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
             <CardTitle>Aptitudes Técnicas</CardTitle>
           </CardHeader>
           <CardContent>
-            {!readOnly && aptitudes.length > 0 ? (
+            {!readOnly && filteredAptitudes.length > 0 ? (
               <div className="grid grid-cols-1 gap-3">
-                {aptitudes
+                {filteredAptitudes
                   .filter((aptitude) => aptitude.is_active)
                   .map((aptitude) => (
                     <div key={aptitude.id} className="flex items-center space-x-2">
@@ -371,6 +490,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
                         id={aptitude.id}
                         checked={selectedAptitudes.includes(aptitude.id)}
                         onCheckedChange={(checked) => handleAptitudeChange(aptitude.id, checked as boolean)}
+                        disabled={!selectedCompanyPosition}
                       />
                       <label
                         htmlFor={aptitude.id}
@@ -381,6 +501,10 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
                     </div>
                   ))}
               </div>
+            ) : !readOnly && !selectedCompanyPosition ? (
+              <p className="text-sm text-muted-foreground">
+                Primero seleccione un puesto para ver las aptitudes disponibles
+              </p>
             ) : readOnly && selectedAptitudes.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {selectedAptitudes.map((aptitudeId: string) => {

@@ -1965,3 +1965,29 @@ export async function getEmployeeById(employeeId: string) {
     aptitudes,
   };
 }
+export async function getEmployeeNameById(employeeId: string) {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id) return null;
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select(
+      `
+      firstname,
+      lastname
+    `
+    )
+    .eq('id', employeeId)
+    .eq('company_id', company_id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching employee:', error);
+    return null;
+  }
+
+  return data;
+}

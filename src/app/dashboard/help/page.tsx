@@ -1,9 +1,25 @@
 import { ReportAnIssue } from '@/components/ReportAnIssue';
+import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { cookies } from 'next/headers';
 
-export const metadata = {
-  title: 'Ayuda | GH Gestión',
-  description: 'Página de ayuda de GH Gestión con información general, comercial, HR y equipos',
-};
+export async function generateMetadata() {
+  const cookiesStore = cookies();
+  const companyName = cookiesStore.get('actualCompName')?.value;
+  if (companyName) {
+    return {
+      title: `Ayuda | ${companyName}`,
+      description: `Página de ayuda de ${companyName} con información general, comercial, HR y equipos`,
+    };
+  } else {
+    const companyName = await getCompanyName();
+    if (companyName) {
+      return {
+        title: `Ayuda | ${companyName.company_name}`,
+        description: `Página de ayuda de ${companyName.company_name} con información general, comercial, HR y equipos`,
+      };
+    }
+  }
+}
 export default function page() {
   //  return <VehicleInspectionForm />;
   return <ReportAnIssue />;

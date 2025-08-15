@@ -2,14 +2,30 @@ import { buttonVariants } from '@/components/ui/button';
 import Viewcomponent from '@/components/ViewComponent';
 import ComercialTab from '@/features/Empresa/Clientes/ComercialTab';
 import EquipmentsTabs from '@/features/Empresa/Equipos/equipmentsTabs';
+import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import General from '@/features/Empresa/General/General';
 import RrhhComponent from '@/features/Empresa/RRHH/components/rrhh/rrhhComponent';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 
-export const metadata = {
-  title: 'Empresa | GH Gestión',
-  description: 'Página de empresa de GH Gestión con información general, comercial, HR y equipos',
-};
+export async function generateMetadata() {
+  const cookiesStore = cookies();
+  const companyName = cookiesStore.get('actualCompName')?.value;
+  if (companyName) {
+    return {
+      title: `Empresa | ${companyName}`,
+      description: `Página de empresa de ${companyName} con información general, comercial, HR y equipos`,
+    };
+  } else {
+    const actualCompany = await getCompanyName();
+    if (actualCompany) {
+      return {
+        title: `Empresa | ${actualCompany.company_name}`,
+        description: `Página de empresa de ${actualCompany.company_name} con información general, comercial, HR y equipos`,
+      };
+    }
+  }
+}
 
 export default async function CompanyPage({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const viewData = {

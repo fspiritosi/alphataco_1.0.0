@@ -56,7 +56,7 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
     await setNewCompanyUserMetadata(company.id);
     setSelectedCompany(company);
     setOpen(false);
-    location.replace('/dashboard');
+    location.reload();
   };
 
   const groups = [

@@ -420,7 +420,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
   };
 
   const handleActualCompanyRole = async () => {
-    const user = get()?.sharedUsers?.find((e) => e.profile_id.id === get()?.profile[0].id);
+    const user = get()?.sharedUsers?.find((e) => e.profile_id?.id === get()?.profile[0].id);
     if (user) {
       set({ roleActualCompany: user.role });
     } else {
