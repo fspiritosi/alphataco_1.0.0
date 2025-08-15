@@ -2,6 +2,10 @@ import RepairsSkeleton from '@/components/Skeletons/RepairsSkeleton';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import Viewcomponent from '@/components/ViewComponent';
 import { Suspense } from 'react';
+export const metadata = {
+  title: 'Mantenimiento | GH Gestión',
+  description: 'Página de mantenimiento de GH Gestión con información general, comercial, HR y equipos',
+};
 function MantenimientoPage({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const viewData = {
     defaultValue: searchParams?.tab || 'type_of_repairs',

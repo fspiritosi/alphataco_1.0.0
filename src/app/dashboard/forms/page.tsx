@@ -1,5 +1,10 @@
 import ChecklistTable from '@/components/CheckList/ListOfChecklist';
 import Viewcomponent from '@/components/ViewComponent';
+
+export const metadata = {
+  title: 'Formularios | GH Gestión',
+  description: 'Página de formularios de GH Gestión con información general, comercial, HR y equipos',
+};
 async function MantenimientoPage() {
   const viewData = {
     defaultValue: 'formularios',

@@ -4,6 +4,18 @@ import { fetchCurrentUser } from '@/app/server/GET/actions';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
+export const fetchCountrys = async () => {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase.from('countries').select('id,name').order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching countries:', error);
+    return [];
+  }
+  return data;
+};
+
 export const fetchAllEmployees = async (role?: string) => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();

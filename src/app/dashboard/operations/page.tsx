@@ -4,6 +4,10 @@ import { getDailyReportsForCurrentMonth } from '@/features/Operaciones/PartesDia
 import DayliReportForm from '@/features/Operaciones/PartesDiarios/components/DayliReportForm';
 import DailyReportTable from '@/features/Operaciones/PartesDiarios/DailyReportTable';
 import { cookies } from 'next/headers';
+export const metadata = {
+  title: 'Operaciones | GH Gestión',
+  description: 'Página de operaciones de GH Gestión con información general, comercial, HR y equipos',
+};
 async function OperationsPage() {
   const cookiesStore = cookies();
   const dailyReportTableSavedColumns = cookiesStore.get('dailyReportTable')?.value;

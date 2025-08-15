@@ -3,7 +3,7 @@ import { useEditButton } from '@/store/editState';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
 
-function BackButton() {
+function BackButton({ size }: { size?: any }) {
   const router = useRouter();
   const desabilitarEdicion = useEditButton((state: any) => state.setReadOnly);
 
@@ -13,7 +13,7 @@ function BackButton() {
   };
 
   return (
-    <Button variant={'outline'} onClick={() => handleBack()}>
+    <Button variant={'outline'} size={size} onClick={() => handleBack()}>
       Volver
     </Button>
   );

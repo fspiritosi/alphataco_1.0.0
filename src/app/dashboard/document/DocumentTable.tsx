@@ -12,15 +12,19 @@ import { ExpiredColums } from '../colums';
 import { ColumnsMonthly } from '../columsMonthly';
 import { ExpiredDataTable } from '../data-table';
 
-type Props = { employee_id: string; role: string };
+type Props = { employee_id: string; role?: string };
 
 export default async function DocumentTable({ employee_id, role }: Props) {
   // const { allDocumentsToShow } = useLoggedUserStore();
+  console.time('Monthly Documents Fetch');
   const monthlyDocuments = (await fetchEmployeeMonthlyDocumentsByEmployeeId(employee_id)).map(formatEmployeeDocuments);
+  console.timeEnd('Monthly Documents Fetch');
+
+  console.time('Permanent Documents Fetch');
   const permanentDocuments = (await fetchEmployeePermanentDocumentsByEmployeeId(employee_id)).map(
     formatEmployeeDocuments
   );
-
+  console.timeEnd('Permanent Documents Fetch');
   // console.log(allDocumentsToShow.employees.filter((e) => e.document_number === document));
   return (
     <Tabs defaultValue="permanentes">

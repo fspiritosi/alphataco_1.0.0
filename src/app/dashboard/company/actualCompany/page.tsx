@@ -5,7 +5,11 @@ import EquipmentsTabs from '@/features/Empresa/Equipos/equipmentsTabs';
 import General from '@/features/Empresa/General/General';
 import RrhhComponent from '@/features/Empresa/RRHH/components/rrhh/rrhhComponent';
 import Link from 'next/link';
-// import Customers from '../../../../features/Empresa/Clientes/Customers';
+
+export const metadata = {
+  title: 'Empresa | GH Gestión',
+  description: 'Página de empresa de GH Gestión con información general, comercial, HR y equipos',
+};
 
 export default async function CompanyPage({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const viewData = {

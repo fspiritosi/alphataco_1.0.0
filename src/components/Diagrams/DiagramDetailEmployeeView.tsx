@@ -42,7 +42,7 @@ export function DiagramDetailEmployeeView({
   diagrams: diagram[] | [];
   diagrams_types: any;
   activeEmploees: any;
-  role: string | null;
+  role?: string | null;
 }) {
   const [date, setDate] = useState<DateRange | undefined>({
     from: new Date(),

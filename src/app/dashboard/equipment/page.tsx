@@ -8,6 +8,10 @@ import EquipmentTabs from '../document/documentComponents/EquipmentTabs';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
 import EquipmentListTabs from './equipmentComponentes/EquipmentListTabs';
 
+export const metadata = {
+  title: 'Equipos | GH Gestión',
+  description: 'Página de equipos de GH Gestión con información general, comercial, HR y equipos',
+};
 export default async function Equipment({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const viewData = {
     defaultValue: searchParams?.tab || 'equipos',

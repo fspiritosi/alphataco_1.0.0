@@ -101,7 +101,7 @@ export default function TablaEmployeesSupabase({
       header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {row.original.picture ? <img className="h-4 w-4 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
+          {row.original.picture ? <img className="size-10 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
         </div>
       ),
       enableSorting: false,

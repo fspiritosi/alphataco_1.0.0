@@ -443,84 +443,84 @@ export const fetchEmployeeMonthlyDocumentsByEmployeeId = async (employeeId: stri
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const role = await getActualRole(company_id as string, user?.id as string);
+  // const {
+  //   data: { user },
+  // } = await supabase.auth.getUser();
+  // const role = await getActualRole(company_id as string, user?.id as string);
 
-  if (role === 'Invitado') {
-    const { data, error } = await supabase
-      .from('documents_employees')
-      .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
-      .eq('applies', employeeId)
-      .eq('id_document_types.is_it_montlhy', true)
-      .eq('id_document_types.private', false)
-      .not('id_document_types', 'is', null)
-      .returns<EmployeeDocumentWithContractors[]>();
+  // if (role === 'Invitado') {
+  //   const { data, error } = await supabase
+  //     .from('documents_employees')
+  //     .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
+  //     .eq('applies', employeeId)
+  //     .eq('id_document_types.is_it_montlhy', true)
+  //     .eq('id_document_types.private', false)
+  //     .not('id_document_types', 'is', null)
+  //     .returns<EmployeeDocumentWithContractors[]>();
 
-    if (error) {
-      console.error('Error fetching employee monthly documents:', error);
-      return [];
-    }
-    return data;
-  } else {
-    const { data, error } = await supabase
-      .from('documents_employees')
-      .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
-      .eq('applies', employeeId)
-      .eq('id_document_types.is_it_montlhy', true)
-      .not('id_document_types', 'is', null)
-      .returns<EmployeeDocumentWithContractors[]>();
+  //   if (error) {
+  //     console.error('Error fetching employee monthly documents:', error);
+  //     return [];
+  //   }
+  //   return data;
+  // } else {
+  const { data, error } = await supabase
+    .from('documents_employees')
+    .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
+    .eq('applies', employeeId)
+    .eq('id_document_types.is_it_montlhy', true)
+    .not('id_document_types', 'is', null)
+    .returns<EmployeeDocumentWithContractors[]>();
 
-    if (error) {
-      console.error('Error fetching employee monthly documents:', error);
-      return [];
-    }
-    return data;
+  if (error) {
+    console.error('Error fetching employee monthly documents:', error);
+    return [];
   }
+  return data;
 };
+// };
 export const fetchEmployeePermanentDocumentsByEmployeeId = async (employeeId: string) => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const role = await getActualRole(company_id as string, user?.id as string);
+  // const {
+  //   data: { user },
+  // } = await supabase.auth.getUser();
+  // const role = await getActualRole(company_id as string, user?.id as string);
 
-  if (role === 'Invitado') {
-    const { data, error } = await supabase
-      .from('documents_employees')
-      .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
-      .eq('applies', employeeId)
-      .eq('id_document_types.is_it_montlhy', false)
-      .eq('id_document_types.private', false)
-      .not('id_document_types', 'is', null)
-      .returns<EmployeeDocumentWithContractors[]>();
+  // if (role === 'Invitado') {
+  //   const { data, error } = await supabase
+  //     .from('documents_employees')
+  //     .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
+  //     .eq('applies', employeeId)
+  //     .eq('id_document_types.is_it_montlhy', false)
+  //     .eq('id_document_types.private', false)
+  //     .not('id_document_types', 'is', null)
+  //     .returns<EmployeeDocumentWithContractors[]>();
 
-    if (error) {
-      console.error('Error fetching employee permanent documents:', error);
-      return [];
-    }
-    return data;
-  } else {
-    const { data, error } = await supabase
-      .from('documents_employees')
-      .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
-      .eq('applies', employeeId)
-      .eq('id_document_types.is_it_montlhy', false)
-      .not('id_document_types', 'is', null)
-      .returns<EmployeeDocumentWithContractors[]>();
+  //   if (error) {
+  //     console.error('Error fetching employee permanent documents:', error);
+  //     return [];
+  //   }
+  //   return data;
+  // } else {
+  const { data, error } = await supabase
+    .from('documents_employees')
+    .select('*,id_document_types(*),applies(*,contractor_employee(*, customers(*)))')
+    .eq('applies', employeeId)
+    .eq('id_document_types.is_it_montlhy', false)
+    .not('id_document_types', 'is', null)
+    .returns<EmployeeDocumentWithContractors[]>();
 
-    if (error) {
-      console.error('Error fetching employee permanent documents:', error);
-      return [];
-    }
-    return data;
+  if (error) {
+    console.error('Error fetching employee permanent documents:', error);
+    return [];
   }
+  return data;
 };
+// };
 export const fetchEmployeePermanentDocuments = async () => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
@@ -1440,8 +1440,7 @@ export const fetchDiagramsHistoryByEmployeeId = async (employeeId: string) => {
     .from('diagrams_logs')
     .select('*,modified_by(*)')
     .eq('employee_id', employeeId)
-    .order('created_at', { ascending: false })
-    .returns<diagrams_logsWithUser[]>();
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching diagrams history:', error);
@@ -1861,4 +1860,74 @@ export async function getDiagramIndicator(p_company_position_ids?: string[]) {
   });
   if (error) console.error(error);
   else return data;
+}
+export async function getEmployeeById(employeeId: string) {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id) return null;
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select(
+      `
+      id,
+      firstname,
+      lastname,
+      nationality,
+      born_date,
+      cuil,
+      document_type,
+      document_number,
+      birthplace,
+      gender,
+      marital_status,
+      level_of_education,
+      picture,
+      street,
+      street_number,
+      provinces(id,name),
+      cities(id,name),
+      postal_code,
+      phone,
+      email,
+      file,
+      hierarchical_position,
+      company_position,
+      workflow_diagram,
+      normal_hours,
+      type_of_contract,
+      date_of_admission,
+      guild_id,
+      covenants_id,
+      category_id,
+      company_positions(id,name),
+      cost_center_id,
+      contractor_employee(customers(id)),
+      is_active,
+      hierarchy(id,name),
+      countries(id,name),
+      empleado_aptitudes(aptitudes_tecnicas(id,nombre))
+    `
+    )
+    .eq('id', employeeId)
+    .eq('company_id', company_id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching employee:', error);
+    return null;
+  }
+
+  // Transform contractor relationships to allocated_to array
+  const allocated_to = data.contractor_employee?.map((rel) => rel?.customers?.id) || [];
+  const aptitudes = data.empleado_aptitudes?.map((rel) => rel?.aptitudes_tecnicas?.id) || [];
+
+  return {
+    ...data,
+    allocated_to,
+    contractor_employee: undefined, // Remove the nested object
+    aptitudes,
+  };
 }

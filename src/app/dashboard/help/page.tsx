@@ -1,5 +1,9 @@
 import { ReportAnIssue } from '@/components/ReportAnIssue';
 
+export const metadata = {
+  title: 'Ayuda | GH Gestión',
+  description: 'Página de ayuda de GH Gestión con información general, comercial, HR y equipos',
+};
 export default function page() {
   //  return <VehicleInspectionForm />;
   return <ReportAnIssue />;

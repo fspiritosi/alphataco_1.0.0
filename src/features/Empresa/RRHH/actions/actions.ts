@@ -409,10 +409,7 @@ export async function fetchAllHierarchicalPositions() {
 
 export async function fetchAllAptitudesTecnicas() {
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from('aptitudes_tecnicas' as any)
-    .select('*')
-    .order('nombre', { ascending: true });
+  const { data, error } = await supabase.from('aptitudes_tecnicas').select('*').order('nombre', { ascending: true });
 
   if (error) {
     console.error('Error fetching aptitudes tecnicas:', error);

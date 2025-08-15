@@ -6,6 +6,10 @@ import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocume
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
 
+export const metadata = {
+  title: 'Empleados | GH Gestión',
+  description: 'Página de empleados de GH Gestión con información general, comercial, HR y equipos',
+};
 const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
   const viewData = {
     defaultValue: searchParams?.tab || 'employees',

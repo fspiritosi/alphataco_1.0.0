@@ -158,6 +158,7 @@ export type Employee = {
   guild?: string | null;
   covenant?: string | null;
   category?: string | null;
+  aptitudes?: string[] | null;
 };
 
 export type Documents = {

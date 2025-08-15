@@ -9,6 +9,7 @@ import { cookies } from 'next/headers';
 import { FetchSubTypeOfVehicles } from '@/features/Empresa/Equipos/actions/actions';
 import { supabaseServer } from '@/lib/supabase/server';
 import { getRole } from '@/lib/utils/getRole';
+import { notFound } from 'next/navigation';
 import VehiclesForm, { generic } from '../../../../components/VehiclesForm';
 import { fetchAllCostCenter, fetchContractorCompanies } from '../../employee/action/actions/actions';
 export default async function EquipmentFormAction({ searchParams }: { searchParams: any }) {
@@ -98,4 +99,26 @@ export default async function EquipmentFormAction({ searchParams }: { searchPara
       </Card>
     </section>
   );
+}
+
+// Generate metadata for the page
+export async function generateMetadata({ searchParams }: { searchParams: any }) {
+  const { id } = searchParams;
+  const supabase = supabaseServer();
+  if (!id) {
+    return {
+      title: `Nuevo equipo | GH Gestión`,
+      description: 'Nuevo equipo',
+    };
+  }
+  const { data: vehicleData, error } = await supabase.from('vehicles').select('domain').eq('id', id).single();
+
+  if (!vehicleData) {
+    notFound();
+  }
+
+  return {
+    title: `Equipo - ${vehicleData?.domain} | GH Gestión`,
+    description: `Equipo - ${vehicleData?.domain}`,
+  };
 }
