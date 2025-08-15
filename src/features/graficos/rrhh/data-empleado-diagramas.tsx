@@ -17,7 +17,6 @@ interface DiagramIndicator {
 export default async function EmpleadoDiagramasChart() {
   const cookiesStore = cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
-  console.log(company_id);
   const cookieValue = cookiesStore.get('position-filter')?.value;
   const employeeIndicator = (await getEmployeeIndicator(company_id, cookieValue?.split(','))) || [
     {
@@ -27,7 +26,6 @@ export default async function EmpleadoDiagramasChart() {
     },
   ];
 
-  console.log(employeeIndicator);
   const diagramIndicator: any = await getDiagramIndicator(cookieValue?.split(',') || undefined);
   const positions = await fetchAllPositions();
   const positionsOptions = positions.map((position) => ({ label: position.name!, value: position.id }));

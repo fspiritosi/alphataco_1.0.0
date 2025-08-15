@@ -23,7 +23,6 @@ export function EquiposChart({ chartData, chartConfig, date }: { chartData: any;
       fill: '#e74c3c', // Red color for No Disponibles
     },
   ];
-  console.log(totalChartData);
   return (
     <Card className="flex flex-col ">
       <CardHeader className="items-center pb-0">

@@ -20,7 +20,7 @@ export function IndicatorChart({
     if (value >= 50) return '#eab308'; // Amarillo
     return '#ef4444'; // Rojo
   };
-  console.log(chartData);
+
   return (
     // <div className="w-full h-full flex items-center justify-center p-2">
 

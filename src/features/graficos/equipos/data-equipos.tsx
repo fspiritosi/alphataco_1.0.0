@@ -10,12 +10,10 @@ export default async function DataEquipmentChart() {
   const cookiesStore = cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const cookieValue = cookiesStore.get('type-filter')?.value;
-  console.log(company_id);
   const active_vehicles = await getVehiclesDisponibleFilterType(
     ['ea07ff34-13fb-4483-b5bc-8389e41c7d89', '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf'],
     company_id
   );
-  console.log(active_vehicles);
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)
   const totalVehicles =
@@ -39,7 +37,6 @@ export default async function DataEquipmentChart() {
   // Calcular el porcentaje de uso general
   const usagePercentage =
     totalVehicles > 0 ? Math.round(((totalVehicles - totalNotAvailable) / totalVehicles) * 100) : 0;
-  console.log(usagePercentage);
   // Datos para el gráfico
   const indicatorCharData = [
     {
@@ -124,11 +121,6 @@ export default async function DataEquipmentChart() {
         {} as Record<string, { label: string; color: string }>
       ),
   };
-  console.log(newChartData);
-  console.log(chartConfig);
-  console.log(indicatorCharData);
-  console.log(indicatorChartConfig);
-  console.log(indicatorChartConfig2);
   return (
     // <div className="w-full h-full">
     <section>

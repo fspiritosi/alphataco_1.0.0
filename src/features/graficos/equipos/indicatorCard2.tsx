@@ -23,8 +23,6 @@ export default function IndicatorCardChasisTractor({
   condiciones_indicadores: any;
   // usageEquipment: any;
 }) {
-  console.log(indicatorCharData);
-  console.log(disponibleEquipmentPorcent);
   return (
     <Card
       className="h-full w-full flex flex-col items-center  px-0"
