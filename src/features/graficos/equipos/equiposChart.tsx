@@ -6,7 +6,6 @@ import { Pie, PieChart } from 'recharts';
 export const description = 'A pie chart with a label';
 
 export function EquiposChart({ chartData, chartConfig, date }: { chartData: any; chartConfig: any; date: string }) {
-  console.log(chartData);
   const totalChartData = [
     {
       novedad: 'Total',

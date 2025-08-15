@@ -6,21 +6,20 @@ import { Pie, PieChart } from 'recharts';
 export const description = 'A pie chart with a label';
 
 export function EquiposChart2({ chartData, chartConfig, date }: { chartData: any; chartConfig: any; date: string }) {
-  console.log(chartData);
   const totalChartData = [
     {
-      novedad: 'Activos',
+      novedad: 'Disponibles',
       total: chartData
         ?.filter((item: any) => item.novedad === 'Chasis' || item.novedad === 'Tractor')
         .reduce((acc: number, item: any) => acc + (item.disponibles || 0), 0),
-      fill: '#34C759', // Green color for Total
+      fill: '#e74c3c', // Green color for Total
     },
     {
       novedad: 'Usados',
       total: chartData
         ?.filter((item: any) => item.novedad === 'Chasis' || item.novedad === 'Tractor')
         .reduce((acc: number, item: any) => acc + (item.enUso || 0), 0),
-      fill: '#e74c3c', // Red color for No Disponibles
+      fill: '#34C759', // Red color for No Disponibles
     },
   ];
   return (

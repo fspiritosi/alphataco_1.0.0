@@ -21,11 +21,17 @@ export function IndicatorChart2({
     return '#ef4444'; // Rojo
   };
 
+  const chartData2 = chartData?.map((item: any) => {
+    return {
+      Activos: item.active,
+      Usados: item.enUso,
+    };
+  });
   return (
     // <div className="w-full h-full flex items-center justify-center p-2">
 
     <ChartContainer config={chartConfig} className="w-full max-h-[200px] aspect-square my-auto">
-      <RadialBarChart data={chartData} endAngle={180} innerRadius={80} outerRadius={120}>
+      <RadialBarChart data={chartData2} endAngle={180} innerRadius={80} outerRadius={120}>
         <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
         <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
           <Label
@@ -56,14 +62,14 @@ export function IndicatorChart2({
           />
         </PolarRadiusAxis>
         <RadialBar
-          dataKey="active"
+          dataKey="Activos"
           fill={chartConfig.operative?.color}
           stackId="a"
           cornerRadius={5}
           className="stroke-transparent stroke-2"
         />
         <RadialBar
-          dataKey="enUso"
+          dataKey="Usados"
           stackId="a"
           cornerRadius={5}
           fill={chartConfig.not_available?.color}
