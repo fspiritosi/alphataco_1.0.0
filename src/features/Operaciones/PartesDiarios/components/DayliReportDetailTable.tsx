@@ -68,6 +68,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
       ...rel.vehicles,
       name: rel.vehicles?.domain || rel.vehicles?.intern_number,
       id: rel.vehicles?.id,
+      brand_vehicles: rel.vehicles?.brand_vehicles?.name,
     })),
     data_to_clone: {
       customer_id: row.customers?.id,
@@ -530,7 +531,9 @@ export function DayliReportDetailTable({
   employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
   equipments: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
 }) {
+  console.log(dailyReport, 'dailyReport');
   const formattedData = transformDailyReports(dailyReport);
+  console.log(formattedData, 'formattedData');
   const customerOptions = createFilterOptions(formattedData, (area) => area.customer);
   const servicesOptions = createFilterOptions(formattedData, (area) => area.services);
   const itemsOptions = createFilterOptions(formattedData, (area) => area.item);
