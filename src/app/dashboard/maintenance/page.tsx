@@ -4,10 +4,6 @@ import Viewcomponent from '@/components/ViewComponent';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
-export const metadata = {
-  title: 'Mantenimiento | GH Gestión',
-  description: 'Página de mantenimiento de GH Gestión con información general, comercial, HR y equipos',
-};
 
 export async function generateMetadata() {
   const cookiesStore = cookies();
