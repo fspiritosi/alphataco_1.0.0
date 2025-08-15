@@ -23,9 +23,6 @@ export default function IndicatorCardChasisTractor3({
   condiciones_indicadores: any;
   usageEquipment: any;
 }) {
-  console.log(usageEquipment);
-  console.log(activeEquipment);
-  console.log(indicatorCharData);
   const indicadorChart = indicatorCharData?.map((item: any) => {
     return {
       operative: activeEquipment,
@@ -46,7 +43,7 @@ export default function IndicatorCardChasisTractor3({
       }
     >
       <CardHeader>
-        <CardTitle className="text-center text-xl font-bold">Indicador de uso</CardTitle>
+        <CardTitle className="text-center text-xl font-bold">Indicador de eficiencia de uso de flota</CardTitle>
       </CardHeader>
       <div className="flex items-center justify-between w-full px-4">
         <div className="flex flex-col gap-2 mb-2 w-1/2 justify-center">

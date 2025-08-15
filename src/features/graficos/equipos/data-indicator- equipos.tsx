@@ -8,7 +8,7 @@ import { TypeFilter } from './typeFilter';
 export default async function EquipmentChart() {
   const cookiesStore = cookies();
   const cookieValue = cookiesStore.get('type-filter')?.value;
-  console.log(cookieValue);
+
   const active_vehicles = await getVehiclesDisponibleFilterType(
     cookieValue?.split(',') || [],
     cookiesStore.get('actualComp')?.value
