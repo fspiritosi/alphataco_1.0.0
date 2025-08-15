@@ -37,7 +37,7 @@ export default function IndicatorCardChasisTractor({
       }
     >
       <CardHeader>
-        <CardTitle className="text-center text-xl font-bold">Indicador de eficacia Chasis & Tractor</CardTitle>
+        <CardTitle className="text-center text-xl font-bold">Indicador de flota</CardTitle>
       </CardHeader>
       <div className="flex items-center justify-between w-full px-4">
         <div className="flex flex-col gap-2 mb-2 w-1/2 justify-center">

@@ -63,10 +63,10 @@ export function IndicatorChart({
           className="stroke-transparent stroke-2"
         />
         <RadialBar
-          dataKey="not_available"
+          dataKey="available"
           stackId="a"
           cornerRadius={5}
-          fill={chartConfig.not_available?.color}
+          fill={chartConfig.available?.color}
           className="stroke-transparent stroke-2"
         />
       </RadialBarChart>

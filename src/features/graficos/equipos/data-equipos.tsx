@@ -14,6 +14,7 @@ export default async function DataEquipmentChart() {
     ['ea07ff34-13fb-4483-b5bc-8389e41c7d89', '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf'],
     company_id
   );
+
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)
   const totalVehicles =
@@ -41,7 +42,7 @@ export default async function DataEquipmentChart() {
   const indicatorCharData = [
     {
       operative: totalVehicles,
-      not_available: totalNotAvailable,
+      available: totalNotAvailable,
       active: totalActive,
       enUso: totalInUse,
       inUsePercentage: usagePercentage,
@@ -57,7 +58,7 @@ export default async function DataEquipmentChart() {
     //   label: 'Disponibles',
     //   color: '#e74c3c', // Mismo rojo que en empleados
     // },
-    not_available: {
+    available: {
       label: 'No Disponibles',
       color: '#e74c3c', // Mismo rojo que en empleados
     },
