@@ -5,21 +5,21 @@ import { Pie, PieChart } from 'recharts';
 
 export const description = 'A pie chart with a label';
 
-export function EquiposChart({ chartData, chartConfig, date }: { chartData: any; chartConfig: any; date: string }) {
+export function EquiposChart2({ chartData, chartConfig, date }: { chartData: any; chartConfig: any; date: string }) {
   console.log(chartData);
   const totalChartData = [
     {
-      novedad: 'Total',
+      novedad: 'Activos',
       total: chartData
         ?.filter((item: any) => item.novedad === 'Chasis' || item.novedad === 'Tractor')
-        .reduce((acc: number, item: any) => acc + (item.disponibles || 0) + (item.noDisponibles || 0), 0),
+        .reduce((acc: number, item: any) => acc + (item.disponibles || 0), 0),
       fill: '#34C759', // Green color for Total
     },
     {
-      novedad: 'No Disponibles',
+      novedad: 'Usados',
       total: chartData
         ?.filter((item: any) => item.novedad === 'Chasis' || item.novedad === 'Tractor')
-        .reduce((acc: number, item: any) => acc + (item.noDisponibles || 0), 0),
+        .reduce((acc: number, item: any) => acc + (item.enUso || 0), 0),
       fill: '#e74c3c', // Red color for No Disponibles
     },
   ];
@@ -27,7 +27,7 @@ export function EquiposChart({ chartData, chartConfig, date }: { chartData: any;
     <Card className="flex flex-col ">
       <CardHeader className="items-center pb-0">
         <CardTitle>
-          <span className="text-lg">Cantidad total de unidades motoras </span>
+          <span className="text-lg">Cantidad total de unidades motoras activas </span>
           <div className="flex items-center justify-center">
             <span className="text-muted-foreground text-sm">(Tipo: Chasis & Tractor)</span>
           </div>

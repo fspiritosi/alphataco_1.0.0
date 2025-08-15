@@ -6,11 +6,11 @@ import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import DataEquipmentChart from '@/features/graficos/equipos/data-equipos';
 import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
 import EmpleadoDiagramasChart from '@/features/graficos/rrhh/data-empleado-diagramas';
 import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
-
 export default async function DashboardComponent() {
   const employees = fetchAllEmployeesCount();
   const equipments = fetchAllVehiclesCount();
@@ -40,6 +40,7 @@ export default async function DashboardComponent() {
               <section className="flex flex-col gap-4 w-full">
                 <EmpleadoDiagramasChart />
                 <EquipmentChart />
+                <DataEquipmentChart />
               </section>
             </section>
           </section>
