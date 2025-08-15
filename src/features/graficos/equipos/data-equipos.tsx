@@ -43,6 +43,7 @@ export default async function DataEquipmentChart() {
       operative: totalVehicles,
       not_available: totalNotAvailable,
       active: totalActive,
+      enUso: totalInUse,
       inUsePercentage: usagePercentage,
     },
   ];

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Users } from 'lucide-react';
-import { IndicatorChart } from '../indicatorChart';
+import { IndicatorChart2 } from './indicatorChart2';
 
 export default function IndicatorCardChasisTractor3({
   totalVehicles,
@@ -23,6 +23,15 @@ export default function IndicatorCardChasisTractor3({
   condiciones_indicadores: any;
   usageEquipment: any;
 }) {
+  console.log(usageEquipment);
+  console.log(activeEquipment);
+  console.log(indicatorCharData);
+  const indicadorChart = indicatorCharData?.map((item: any) => {
+    return {
+      operative: activeEquipment,
+      not_available: usageEquipment,
+    };
+  });
   return (
     <Card
       className="h-full w-full flex flex-col items-center  px-0"
@@ -140,7 +149,7 @@ export default function IndicatorCardChasisTractor3({
             </CardContent>
           </Card> */}
         </div>
-        <IndicatorChart
+        <IndicatorChart2
           chartConfig={indicatorChartConfig}
           chartData={indicatorCharData}
           totalIndicator={indicatorCharData?.[0]?.inUsePercentage - indicatorCharData?.[0]?.notInUsePercentage || 0}
