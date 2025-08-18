@@ -18,6 +18,7 @@ import {
 import * as React from 'react';
 // import { DataTableToolbar, type BulkActionProps } from "./data-table-toolbar"
 import { Skeleton } from '@/components/ui/skeleton';
+import { clearTableFilters, getTableFilters, setTableFilters, type TableFilterState } from '@/lib/cookies';
 import { cn } from '@/lib/utils';
 import { keepPreviousData, QueryClient, useQuery } from '@tanstack/react-query';
 import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
@@ -125,7 +126,7 @@ export function BaseDataTable<
   toolbarOptions,
   paginationComponent,
   className = '',
-  tableId,
+  tableId = 'default',
   savedVisibility,
   row_classname,
   onColumnFiltersChange,
@@ -137,12 +138,85 @@ export function BaseDataTable<
   queryKey = 'table-data',
   initialData,
 }: DataTableProps<TData, TValue, TableName, Query>) {
+  // Cargar el estado guardado de las cookies
+  const savedState = React.useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return getTableFilters(tableId);
+  }, [tableId]);
+
   const [rowSelection, setRowSelection] = React.useState({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [pageSize, setPageSize] = React.useState<number>(10);
-  const [pageIndex, setPageIndex] = React.useState<number>(0);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(savedVisibility || {});
+  const [sorting, setSorting] = React.useState<SortingState>(savedState?.sorting || []);
+  const [pageSize, setPageSize] = React.useState<number>(savedState?.pagination?.pageSize || 10);
+  const [pageIndex, setPageIndex] = React.useState<number>(savedState?.pagination?.pageIndex || 0);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
+    savedState?.columnVisibility || savedVisibility || {}
+  );
+
+  // Inicializar los filtros de columnas desde el estado guardado
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    savedState?.columnFilters?.map((f) => ({
+      id: f.id,
+      value: f.value,
+    })) || []
+  );
+
+  // Guardar el estado cuando cambie
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const state: TableFilterState = {
+      columnFilters: columnFilters.map((filter) => ({
+        id: filter.id,
+        value: filter.value as any, // Usamos 'as any' temporalmente para evitar problemas de tipo
+        type: Array.isArray(filter.value)
+          ? 'faceted'
+          : typeof filter.value === 'object' &&
+              filter.value !== null &&
+              ('from' in filter.value || 'to' in filter.value)
+            ? 'date-range'
+            : 'search',
+        title: filter.id,
+      })),
+      sorting,
+      pagination: {
+        pageIndex,
+        pageSize,
+      },
+      columnVisibility,
+    };
+
+    setTableFilters(tableId, state);
+  }, [columnFilters, sorting, pageIndex, pageSize, columnVisibility, tableId]);
+
+  // Función para manejar cambios en los filtros
+  const handleColumnFiltersChange = React.useCallback(
+    (updater: Updater<ColumnFiltersState>) => {
+      setColumnFilters((old) => {
+        const newFilters = typeof updater === 'function' ? updater(old) : updater;
+
+        // Reset a la primera página cuando cambian los filtros
+        if (JSON.stringify(newFilters) !== JSON.stringify(old)) {
+          setPageIndex(0);
+        }
+
+        return newFilters;
+      });
+
+      if (onColumnFiltersChange) {
+        onColumnFiltersChange(updater);
+      }
+    },
+    [onColumnFiltersChange]
+  );
+
+  // Función para limpiar todos los filtros
+  const clearAllFilters = React.useCallback(() => {
+    setColumnFilters([]);
+    setPageIndex(0);
+
+    // También limpiar las cookies
+    clearTableFilters(tableId);
+  }, [tableId]);
 
   // Crear el estado de paginación para React Query
   const pagination = React.useMemo(
@@ -221,25 +295,7 @@ export function BaseDataTable<
       }
     },
     onSortingChange: setSorting,
-    onColumnFiltersChange: (updater) => {
-      const newFilters = typeof updater === 'function' ? updater(columnFilters) : updater;
-      console.log('📊 BaseDataTable - Column filters changing:', {
-        oldFilters: columnFilters,
-        newFilters,
-        serverSide,
-      });
-
-      setColumnFilters(newFilters);
-
-      // Reset a la primera página cuando cambian los filtros
-      if (serverSide) {
-        setPageIndex(0);
-      }
-
-      if (onColumnFiltersChange) {
-        onColumnFiltersChange(newFilters);
-      }
-    },
+    onColumnFiltersChange: handleColumnFiltersChange,
     onColumnVisibilityChange: (visibility) => {
       setColumnVisibility(visibility);
     },
@@ -257,6 +313,15 @@ export function BaseDataTable<
 
   // Loading state para server-side
   const isLoading = dataQuery.isFetching;
+
+  // Pasar las funciones necesarias al toolbar
+  const toolbarProps = React.useMemo(
+    () => ({
+      ...toolbarOptions,
+      onClearFilters: clearAllFilters,
+    }),
+    [toolbarOptions, clearAllFilters]
+  );
 
   return (
     <div>
@@ -280,6 +345,7 @@ export function BaseDataTable<
             isLoading={isLoading}
             serverSide={serverSide}
             fetchAllData={fetchAllData}
+            {...toolbarProps}
           />
         )}
         <div className="rounded-md border">
