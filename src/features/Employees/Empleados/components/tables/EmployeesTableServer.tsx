@@ -9,6 +9,7 @@ import { fetchAllEmployeesData, fetchEmployeesData, querySelectDistinct } from '
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import Cookies from 'js-cookie';
 import moment from 'moment';
 import Link from 'next/link';
 
@@ -30,6 +31,7 @@ export default function TablaEmployeesSupabase({
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
+  const company_id = Cookies.get('actualComp');
   // Función wrapper para la exportación que devuelve solo los datos
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
     const result = await fetchAllEmployeesData({
@@ -592,7 +594,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'gender' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'gender'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -608,6 +610,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'marital_status' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'marital_status'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -623,6 +626,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'nationality' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'nationality'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -638,6 +642,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'document_type' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'document_type'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -653,6 +658,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'level_of_education' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'level_of_education'>>>) => {
                 console.log(data, 'nivel');
                 return data.map((value) => ({
@@ -670,6 +676,7 @@ export default function TablaEmployeesSupabase({
               tableName: 'employees',
               select: 'provinces.name' as '*',
               relation: '{"provinces": "province"}',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'provinces.name'>>>) => {
                 console.log(data, 'provinves');
 
@@ -692,6 +699,7 @@ export default function TablaEmployeesSupabase({
               tableName: 'employees',
               select: 'hierarchy.name' as '*',
               relation: '{"hierarchy": "hierarchical_position"}',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'hierarchy', 'name'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -708,6 +716,7 @@ export default function TablaEmployeesSupabase({
               tableName: 'employees',
               select: 'company_positions.name' as '*',
               relation: '{"company_positions": "company_position"}',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'company_positions', 'name'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -724,6 +733,7 @@ export default function TablaEmployeesSupabase({
               tableName: 'employees',
               select: 'work_diagram.name' as '*',
               relation: '{"work_diagram": "workflow_diagram"}',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'work_diagram.name'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -739,6 +749,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'type_of_contract' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'type_of_contract'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -771,6 +782,7 @@ export default function TablaEmployeesSupabase({
                 ],
                 final_column: 'customers.name',
               },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -803,6 +815,7 @@ export default function TablaEmployeesSupabase({
                 ],
                 final_column: 'aptitudes_tecnicas.nombre',
               },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -819,6 +832,7 @@ export default function TablaEmployeesSupabase({
               tableName: 'employees',
               select: 'cost_center.name' as '*',
               relation: '{"cost_center": "cost_center_id"}',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_center.name'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -834,6 +848,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'affiliate_status' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'affiliate_status'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -849,6 +864,7 @@ export default function TablaEmployeesSupabase({
             config: {
               tableName: 'employees',
               select: 'status' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'status'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
