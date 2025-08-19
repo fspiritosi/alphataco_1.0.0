@@ -252,8 +252,6 @@ export function SearchEmployee({
           return aptitud?.aptitudes_tecnicas?.nombre || '';
         });
 
-        console.log(aptitudesTecnicasNames);
-
         const firstContractor = aptitudesTecnicasNames[0] || '—';
 
         return (

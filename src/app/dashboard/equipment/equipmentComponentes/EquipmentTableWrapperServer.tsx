@@ -18,11 +18,6 @@ async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: Equipm
     sorting: [],
     columnFilters: [],
     filters: [
-      {
-        column: 'company_id',
-        operator: 'eq',
-        value: company_id,
-      },
       ...(types_of_vehicles !== 'all'
         ? [
             {

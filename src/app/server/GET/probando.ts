@@ -40,6 +40,7 @@ export async function queryWithPagination<
     columnFilters?: ColumnFiltersState;
     filters?: Filter<TableName>[];
     server?: boolean;
+    company_id_column?: keyof Database['public']['Tables'][TableName]['Row'];
   }
 ) {
   let supabase;
@@ -49,6 +50,7 @@ export async function queryWithPagination<
     supabase = supabaseBrowser();
   }
 
+  const company_id = Cookies.get('actualComp');
   // Calcular rango para paginación
   const from = options.pageIndex * options.pageSize;
   const to = from + options.pageSize - 1;
@@ -59,7 +61,7 @@ export async function queryWithPagination<
   // Aplicar filtros
   if (options.columnFilters) {
     for (const filter of options.columnFilters) {
-      const { id, value } = filter;
+      const { id, value } = filter as any;
 
       if (!value) continue;
 
@@ -72,28 +74,37 @@ export async function queryWithPagination<
         // Para relaciones anidadas, construir la cadena de relación completa
         const parts = id.split('.');
         const columnName = parts[parts.length - 1]; // La última parte es la columna
+        console.log();
 
-        // Para relaciones de múltiples niveles, necesitamos aplicar NOT NULL en cada nivel
-        if (parts.length > 2) {
-          // Relación de múltiples niveles (ej: contractor_employee.customers.name)
-          console.log('🔗 Relación de múltiples niveles detectada:', { parts });
-
-          // Aplicar NOT NULL para cada nivel de la relación
-          for (let i = 0; i < parts.length - 1; i++) {
-            const relationPath = parts.slice(0, i + 1).join('.');
-            console.log('🚫 Aplicando filtro NOT NULL para nivel:', { relationPath });
-            query = query.not(relationPath, 'is', null);
-          }
+        if (value === null || value[0] !== 'null' || value[0] !== null) {
+          console.log('🚫 Aplicando filtro NOT NULL para relación simple deberia desde aqui');
+          console.log(columnName, 'columnName');
+          console.log(parts, 'parts');
+          query = query.is(parts[0], null);
         } else {
-          // Relación simple (ej: provinces.name)
-          const [relationTable] = parts;
-          console.log('🚫 Aplicando filtro NOT NULL para relación simple:', { relationTable });
-          query = query.not(relationTable, 'is', null);
+          // Para relaciones de múltiples niveles, necesitamos aplicar NOT NULL en cada nivel
+          if (parts.length > 2) {
+            // Relación de múltiples niveles (ej: contractor_employee.customers.name)
+            console.log('🔗 Relación de múltiples niveles detectada:', { parts });
+
+            // Aplicar NOT NULL para cada nivel de la relación
+            for (let i = 0; i < parts.length - 1; i++) {
+              const relationPath = parts.slice(0, i + 1).join('.');
+              console.log('🚫 Aplicando filtro NOT NULL para nivel:', { relationPath });
+              query = query.not(relationPath, 'is', null);
+            }
+          } else {
+            // Relación simple (ej: provinces.name)
+
+            const [relationTable] = parts;
+            console.log('🚫 Aplicando filtro NOT NULL para relación simple:', { relationTable });
+            query = query.not(relationTable, 'is', null);
+          }
         }
 
         // Luego aplicar el filtro específico
         // Para filtros múltiples en relaciones - usar operador IN
-        if (Array.isArray(value) && value.length > 0) {
+        if (Array.isArray(value) && value.length > 0 && value[0] !== 'null' && value[0] !== null) {
           console.log('📋 Aplicando filtro IN en relación:', { id, values: value });
           query = query.in(id, value);
         }
@@ -202,6 +213,10 @@ export async function queryWithPagination<
 
   // Aplicar paginación
   query = query.range(from, to);
+  if (options.company_id_column && company_id) {
+    console.log('company_id_column', options.company_id_column);
+    query = query.eq(options.company_id_column as any, company_id);
+  }
 
   // Ejecutar query
   const { data, error, count } = await query;
@@ -229,6 +244,33 @@ export async function fetchEmployeesData(options: {
   columnFilters: ColumnFiltersState;
   filters?: Filter<'employees'>[];
 }) {
+  const supabase = supabaseBrowser();
+
+  const { data: employees, error } = await supabase
+    .from('employees')
+    .select(
+      `
+      id,
+     work_diagram(id,name)
+    `
+    )
+    .is('work_diagram', null);
+  // .not('empleado_aptitudes', 'is', null);
+
+  //   // .filter('empleado_aptitudes.aptitudes_tecnicas.nombre', 'is', null);
+
+  console.log('-----------');
+  console.log(employees, 'employees');
+  // console.log(
+  //   employees?.filter((e) => e.id === 'a1e620c0-dd61-405f-a928-5da06c631adf'),
+  //   'Buscado'
+  // );
+
+  if (error) {
+    console.log(error, 'error');
+  }
+  console.log('-----------');
+
   const companyId = Cookies.get('actualComp');
   console.log(companyId, 'companyId');
   const data = await queryWithPagination(
@@ -236,24 +278,15 @@ export async function fetchEmployeesData(options: {
     'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       ...options,
+      company_id_column: 'company_id',
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
+      columnFilters: [...options.columnFilters],
       filters: options.filters?.concat([
         {
           column: 'is_active',
           operator: 'eq',
           value: true,
         },
-
-        // Only add company_id filter if not already present
-        ...(options.filters?.some((f) => f.column === 'company_id')
-          ? []
-          : ([
-              {
-                column: 'company_id',
-                operator: 'eq',
-                value: companyId,
-              },
-            ] as any)),
       ]),
     }
   );
@@ -311,22 +344,13 @@ export async function fetchEquipmentData(options: {
     {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
+      company_id_column: 'company_id',
       filters: options.filters?.concat([
         {
           column: 'is_active',
           operator: 'eq',
           value: true,
         },
-        // Only add company_id filter if not already present
-        ...(options.filters?.some((f) => f.column === 'company_id')
-          ? []
-          : ([
-              {
-                column: 'company_id',
-                operator: 'eq',
-                value: company_id,
-              },
-            ] as any)),
       ]),
       server: options.server,
     }

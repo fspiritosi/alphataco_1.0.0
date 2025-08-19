@@ -218,8 +218,6 @@ export default function TablaEmployeesSupabase({
           return aptitud?.aptitudes_tecnicas?.nombre || '';
         });
 
-        console.log(aptitudesTecnicasNames);
-
         const firstContractor = aptitudesTecnicasNames[0] || '—';
 
         return (
@@ -784,11 +782,14 @@ export default function TablaEmployeesSupabase({
               },
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+                console.log(data, 'afectaciones');
+                return data
+                  .filter((value) => value.col_value !== null)
+                  .map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
               },
             },
           },
@@ -817,11 +818,13 @@ export default function TablaEmployeesSupabase({
               },
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+                return data
+                  .filter((value) => value.col_value !== null)
+                  .map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
               },
             },
           },
@@ -834,11 +837,13 @@ export default function TablaEmployeesSupabase({
               relation: '{"cost_center": "cost_center_id"}',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_center.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+                return data
+                  .filter((value) => value.col_value !== null)
+                  .map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
               },
             },
           },
