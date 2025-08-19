@@ -77,7 +77,7 @@ export default async function Equipment({ searchParams }: { searchParams: { tab:
           title: 'Tipos de documentos',
           buttonActioRestricted: [''],
           description: 'Tipos de documentos auditables',
-          component: <TypesDocumentsViewWrapper optionChildrenProp="Equipos" />,
+          component: <TypesDocumentsViewWrapper equipos={true} personas={false} optionChildrenProp="Equipo" />,
         },
       },
       {

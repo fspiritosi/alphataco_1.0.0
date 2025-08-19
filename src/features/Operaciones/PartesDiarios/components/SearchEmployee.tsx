@@ -1,48 +1,81 @@
-'use client';
-
-import { Checkbox } from '@/components/ui/checkbox';
-import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { Mail, User } from 'lucide-react';
-// import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchAllEmployeesData, fetchEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import { createNestedFilterOptions } from '@/features/Employees/Empleados/components/tables/data/employees-table';
+import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
+import { ColumnDef } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
+import { BadgeCheck, Briefcase, Building, ClipboardSignature, CreditCard, FileText, Mail, User } from 'lucide-react';
 import moment from 'moment';
-import Link from 'next/link';
+import { useState } from 'react';
+import { ControllerRenderProps } from 'react-hook-form';
+import { getActiveEmployeesForDailyReport } from '../actions/actions';
 
-// Tipo extendido para columnas con propiedades adicionales de exportación
-type ExtendedColumnDef<TData> = ColumnDef<TData> & {
-  exportFormatter?: (value: any, row: TData) => string;
-  excludeFromExport?: boolean;
-};
-
-// Tipo inferido automáticamente del retorno de Supabase
-type EmployeeData = Awaited<ReturnType<typeof fetchEmployeesData>>['rows'][0];
-
-export default function TablaEmployeesSupabase({
-  initialData,
-  savedFilters,
-  savedVisibility,
+export function SearchEmployee({
+  employees,
+  field,
 }: {
-  initialData?: Awaited<ReturnType<typeof fetchEmployeesData>>;
-  savedFilters: string[];
-  savedVisibility: VisibilityState;
+  employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
+  field: ControllerRenderProps<
+    {
+      customer: string;
+      services: string;
+      item: string;
+      status: string;
+      working_day: string;
+      employees?: string[] | undefined;
+      equipment?: string[] | undefined;
+      equipos_cliente?: string[] | undefined;
+      type_service?: 'mensual' | 'adicional' | 'adicional_permanente' | undefined;
+      start_time?: string | undefined;
+      end_time?: string | undefined;
+      description?: string | undefined;
+      document_path?: string | undefined;
+      sector_service_id?: string | undefined;
+      areas_service_id?: string | undefined;
+      remit_number?: string | undefined;
+      cancel_reason?: string | undefined;
+      reprogram_date?: Date | undefined;
+      reasigment_reason?: string | undefined;
+    },
+    'employees'
+  >;
 }) {
-  const company_id = Cookies.get('actualComp');
-  // Función wrapper para la exportación que devuelve solo los datos
-  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
-    const result = await fetchAllEmployeesData({
-      sorting: options.sorting,
-      columnFilters: options.columnFilters,
-      server: true,
-    });
-    return result.rows; // Solo devolver los datos, no la estructura de paginación
+  const savedVisibility = Cookies.get(`employee-table-search-diagram`);
+  const savedFilters = Cookies.get(`employee-table-search-diagram-filters`);
+
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>(field?.value || []);
+
+  const handleSelectedEmployees = () => {
+    // Obtener los valores actuales del field
+    const currentSelected = field?.value || [];
+
+    console.log('currentSelected', currentSelected);
+    console.log('selectedEmployees', selectedEmployees);
+
+    // Crear un nuevo array combinando los actuales y los nuevos seleccionados
+    const updatedSelected = [...currentSelected, ...selectedEmployees];
+
+    // Actualizar el field con la nueva selección
+    field.onChange(updatedSelected);
+    //Cerrar el modal
+    document.getElementById('close-dialog')?.click();
   };
-  // Definición de columnas
-  const columns: ExtendedColumnDef<EmployeeData>[] = [
+
+  const columns: ColumnDef<Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>[0]>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -52,16 +85,23 @@ export default function TablaEmployeesSupabase({
           aria-label="Seleccionar todo"
         />
       ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Seleccionar fila"
-        />
-      ),
+      cell: ({ row }) => {
+        // Verificar si la fila debe estar seleccionada basándose en field.value
+        const isSelected = row.getIsSelected() || field?.value?.includes(row.original.id);
+
+        return (
+          <Checkbox
+            checked={isSelected}
+            disabled={field?.value?.includes(row.original.id)}
+            defaultChecked={field?.value?.includes(row.original.id)}
+            defaultValue={field?.value?.includes(row.original.id) ? 'checked' : 'unchecked'}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Seleccionar fila"
+          />
+        );
+      },
       enableSorting: false,
       enableHiding: false,
-      excludeFromExport: true,
     },
     {
       accessorKey: 'lastname',
@@ -70,20 +110,16 @@ export default function TablaEmployeesSupabase({
       cell: ({ row }) => (
         <div className="flex items-center gap-2 w-[200px]">
           <User className="h-4 w-4 text-muted-foreground" />
-          <Link
-            href={`/dashboard/employee/action?action=view&employee_id=${row.original.id}`}
-            className="font-medium hover:underline"
-          >
+          <div className="font-medium ">
             {row.original.lastname} {row.original.firstname}
-          </Link>
+          </div>
         </div>
       ),
       filterFn: (row, id, value) => {
-        const fullName = `${row.original.firstname} ${row.original.lastname}`.toLowerCase();
-        return fullName.includes(value.toLowerCase());
-      },
-      exportFormatter: (value, row) => {
-        return `${row.lastname} ${row.firstname}`;
+        console.log(value, 'value');
+        const fullName = `${row.original.lastname} ${row.original.firstname}`.toLowerCase();
+        // Handle array of values for filtering
+        return value.some((val: any) => fullName.includes(val.toLowerCase()));
       },
     },
     {
@@ -107,7 +143,6 @@ export default function TablaEmployeesSupabase({
         </div>
       ),
       enableSorting: false,
-      excludeFromExport: true,
     },
     {
       accessorKey: 'nationality',
@@ -199,7 +234,6 @@ export default function TablaEmployeesSupabase({
         return value.includes(String(row.getValue(id)));
       },
     },
-
     {
       accessorKey: 'empleado_aptitudes.aptitudes_tecnicas.nombre',
       id: 'empleado_aptitudes.aptitudes_tecnicas.nombre',
@@ -246,36 +280,22 @@ export default function TablaEmployeesSupabase({
           </TooltipProvider>
         );
       },
-      exportFormatter: (value, row) => {
-        const aptitudesTecnicas = row.empleado_aptitudes || [];
-        if (aptitudesTecnicas.length === 0) {
-          return 'Sin afectar';
-        }
-        const aptitudesTecnicasNames = aptitudesTecnicas.flatMap((aptitud) => {
-          if (typeof aptitud === 'string') return aptitud;
-          return aptitud?.aptitudes_tecnicas?.nombre || '';
-        });
-        return aptitudesTecnicasNames.join(', ');
-      },
       filterFn: (row, id, filterValue) => {
         // Si no hay filtro o el array está vacío, mostramos todas las filas
         if (!filterValue || !Array.isArray(filterValue) || filterValue.length === 0) {
           return true;
         }
 
-        const contractors = row.original.contractor_employee || [];
-
-        console.log(contractors[0]?.customers);
-        console.log(filterValue);
+        const aptitudesTecnicas = row.original.empleado_aptitudes || [];
 
         // Si no hay contratistas, no mostramos la fila
-        if (contractors.length === 0) {
+        if (aptitudesTecnicas.length === 0) {
           return false;
         }
 
         // Comprobamos si algún contratista coincide con el filtro
-        return contractors.some((contractor) => {
-          const name = contractor?.customers?.name;
+        return aptitudesTecnicas.some((aptitud) => {
+          const name = aptitud?.aptitudes_tecnicas?.nombre;
           return name && filterValue.flat().includes(name);
         });
       },
@@ -485,12 +505,6 @@ export default function TablaEmployeesSupabase({
           return name && filterValue.flat().includes(name);
         });
       },
-      exportFormatter: (value, row) => {
-        const contractors = row.contractor_employee
-          ?.map((contractor) => contractor.customers?.name || '')
-          .filter(Boolean);
-        return contractors && contractors.length > 0 ? contractors.join(', ') : 'Sin afectar';
-      },
     },
     {
       accessorKey: 'date_of_admission',
@@ -558,325 +572,268 @@ export default function TablaEmployeesSupabase({
     },
   ];
 
-  const columnKeys = columns.reduce(
-    (acc, column) => {
-      if (column.id) {
-        acc[column.id] = column.id;
-      }
-      return acc;
-    },
-    {} as Record<string, string>
+  const contractTypes = createFilterOptions(
+    employees,
+    (employee) => employee?.type_of_contract,
+    ClipboardSignature // Icono de contrato/firma para tipos de contrato
   );
 
-  // console.log(datas,'datas')
+  const statuses = createFilterOptions(
+    employees,
+    (employee) => employee?.status,
+    BadgeCheck // Icono de insignia para estados
+  );
+
+  const tiposDocumento = createFilterOptions(
+    employees,
+    (employee) => employee?.document_type,
+    CreditCard // Icono de tarjeta para tipos de documento
+  );
+
+  const cuils = createFilterOptions(
+    employees,
+    (employee) => employee?.cuil,
+    FileText // Icono de documento para números de CUIL
+  );
+
+  const nationality = createFilterOptions(
+    employees,
+    (employee) => employee?.nationality,
+    FileText // Icono para nacionalidad
+  );
+
+  const gender = createFilterOptions(
+    employees,
+    (employee) => employee?.gender,
+    FileText // Icono para género
+  );
+  const documenNumber = createFilterOptions(employees, (employee) => employee?.document_number);
+  const maritalStatus = createFilterOptions(employees, (employee) => employee?.marital_status);
+  const levelOfEducation = createFilterOptions(employees, (employee) => employee?.level_of_education);
+  const street = createFilterOptions(employees, (employee) => employee?.street);
+  const streetNumber = createFilterOptions(employees, (employee) => employee?.street_number);
+
+  const city = createFilterOptions(employees, (employee) => employee?.cities?.name);
+  const postalCode = createFilterOptions(employees, (employee) => employee?.postal_code);
+  const phone = createFilterOptions(employees, (employee) => employee?.phone);
+  const email = createFilterOptions(employees, (employee) => employee?.email);
+  const legajo = createFilterOptions(employees, (employee) => employee?.file);
+  const sector = createFilterOptions(employees, (employee) => employee?.hierarchy?.name);
+  const puesto = createFilterOptions(employees, (employee) => employee?.company_positions?.name);
+  const diagram = createFilterOptions(employees, (employee) => employee?.work_diagram?.name);
+  const normalHours = createFilterOptions(employees, (employee) => employee?.normal_hours);
+  const costCenter = createFilterOptions(employees, (employee) => employee?.cost_center?.name);
+  const provinces = createFilterOptions(employees, (employee) => employee?.provinces?.name);
+  const affiliateStatus = createFilterOptions(employees, (employee) => employee?.affiliate_status);
+  const status = createFilterOptions(employees, (employee) => employee?.affiliate_status);
+  const nombres = createFilterOptions(employees, (employee) => employee?.lastname + ' ' + employee?.firstname);
+  // Generar todas las opciones de filtro utilizando las funciones utilitarias
+  const positions = createFilterOptions(
+    employees,
+    (employee) => employee?.hierarchy?.name,
+    Briefcase // Icono de maletín para cargos/posiciones
+  );
+
+  const afectacionesOpciones = createNestedFilterOptions(
+    employees?.filter((employee) => employee?.contractor_employee?.length > 0),
+    (employee) => employee?.contractor_employee.map((contractor) => contractor?.customers?.name).filter(Boolean) || [],
+    Building // Icono de edificio para afectaciones/contratistas
+  );
+  const empleado_aptitudes = createNestedFilterOptions(
+    employees?.filter((employee) => employee?.empleado_aptitudes?.length > 0),
+    (employee) =>
+      employee?.empleado_aptitudes.map((aptitude) => aptitude?.aptitudes_tecnicas?.nombre).filter(Boolean) || [],
+    Building // Icono de edificio para afectaciones/contratistas
+  );
 
   return (
-    <BaseDataTable
-      columns={columns}
-      savedVisibility={savedVisibility}
-      initialData={initialData}
-      tableId="activeEmployeesServerTable"
-      enableRowSelection={true}
-      // Configuración para server-side con Supabase
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant={'outline'}>
+          <User className="mr-2 size-4 w-fit" />
+          Seleccionar por caracteristica
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Seleccionar Empleados</DialogTitle>
+          <DialogDescription>
+            Seleccione los empleados que desea asignar al parte diario. Haga clic en guardar cuando haya terminado.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <BaseDataTable
+            savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
+            columns={columns}
+            data={employees}
+            onRowSelectionChange={(rows) => {
+              const selectedEmployeesId = rows.map((row) => row.id);
+              setSelectedEmployees(selectedEmployeesId);
+            }}
+            tableId="employee-table-search-diagram"
+            toolbarOptions={{
+              showFilterOptions: true,
+              showExport: false,
+              initialVisibleFilters: savedFilters ? JSON.parse(savedFilters) : [],
+              filterableColumns: [
+                {
+                  columnId: 'lastname',
+                  title: 'Nombre',
+                  options: nombres,
+                },
+                {
+                  columnId: 'empleado_aptitudes.aptitudes_tecnicas.nombre',
+                  title: 'Aptitudes Tenicas',
+                  options: empleado_aptitudes,
+                },
+                {
+                  columnId: 'nationality',
+                  title: 'Nacionalidad',
+                  options: nationality,
+                },
+                {
+                  columnId: 'cuil',
+                  title: 'Cuil',
+                  options: cuils,
+                },
+                {
+                  columnId: 'status',
+                  title: 'Estado',
+                  options: statuses,
+                },
+                {
+                  columnId: 'document_type',
+                  title: 'Tipo de Documento',
+                  options: tiposDocumento,
+                },
+                // {
+                //     columnId: 'Sector',
+                //     title: 'Sector',
+                //     options: positions,
+                // },
+                {
+                  columnId: 'type_of_contract',
+                  title: 'Tipo de Contrato',
+                  options: contractTypes,
+                },
+                {
+                  columnId: 'contractor_employee.customers.name',
+                  title: 'Afectaciones',
+                  options: afectacionesOpciones,
+                },
+                {
+                  columnId: 'gender',
+                  title: 'Genero',
+                  options: gender,
+                },
+                {
+                  columnId: 'document_number',
+                  title: 'Documento',
+                  options: documenNumber,
+                },
+                {
+                  columnId: 'maritual_status',
+                  title: 'Estado Civil',
+                  options: maritalStatus,
+                },
+                {
+                  columnId: 'level_of_education',
 
-      serverSide={true}
-      fetchData={fetchEmployeesData}
-      fetchAllData={handleFetchAllData}
-      queryKey="active-employees-supabase"
-      toolbarOptions={{
-        initialVisibleFilters: savedFilters,
-        showExport: true,
-        searchableColumns: [{ columnId: 'lastname', placeholder: 'Buscar por nombre' }],
-        filterableColumns: [
-          {
-            columnId: 'gender',
-            title: 'Genero',
-            config: {
-              tableName: 'employees',
-              select: 'gender' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'gender'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.marital_status,
-            title: 'Estado Civil',
-            config: {
-              tableName: 'employees',
-              select: 'marital_status' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'marital_status'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.nationality,
-            title: 'Nacionalidad',
-            config: {
-              tableName: 'employees',
-              select: 'nationality' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'nationality'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.document_type,
-            title: 'Tipo de Documento',
-            config: {
-              tableName: 'employees',
-              select: 'document_type' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'document_type'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.level_of_education,
-            title: 'Nivel de Educación',
-            config: {
-              tableName: 'employees',
-              select: 'level_of_education' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'level_of_education'>>>) => {
-                console.log(data, 'nivel');
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'provinces.name',
-            title: 'Provincia',
-            config: {
-              tableName: 'employees',
-              select: 'provinces.name' as '*',
-              relation: '{"provinces": "province"}',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'provinces.name'>>>) => {
-                console.log(data, 'provinves');
+                  title: 'Nivel de Educacion',
+                  options: levelOfEducation,
+                },
+                {
+                  columnId: 'street',
 
-                const mappedData = data.map((value, index) => {
-                  return {
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  };
-                });
+                  title: 'Domicilio',
+                  options: street,
+                },
+                {
+                  columnId: 'street_number',
+                  title: 'Altura',
+                  options: streetNumber,
+                },
+                {
+                  columnId: 'cities.name',
 
-                return mappedData;
-              },
-            },
-          },
-          {
-            columnId: 'hierarchy.name',
-            title: 'Sector',
-            config: {
-              tableName: 'employees',
-              select: 'hierarchy.name' as '*',
-              relation: '{"hierarchy": "hierarchical_position"}',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'hierarchy', 'name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'company_positions.name',
-            title: 'Puesto',
-            config: {
-              tableName: 'employees',
-              select: 'company_positions.name' as '*',
-              relation: '{"company_positions": "company_position"}',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'company_positions', 'name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'work_diagram.name',
-            title: 'Diagrama',
-            config: {
-              tableName: 'employees',
-              select: 'work_diagram.name' as '*',
-              relation: '{"work_diagram": "workflow_diagram"}',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'work_diagram.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.type_of_contract,
-            title: 'Tipo de Contrato',
-            config: {
-              tableName: 'employees',
-              select: 'type_of_contract' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'type_of_contract'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'contractor_employee.customers.name',
-            title: 'Afectaciones',
-            config: {
-              tableName: 'employees' as const,
-              select: 'id' as '*',
-              multiJoinPaths: {
-                joins: [
-                  {
-                    from_table: 'employees',
-                    to_table: 'contractor_employee',
-                    from_column: 'id',
-                    to_column: 'employee_id',
-                  },
-                  {
-                    from_table: 'contractor_employee',
-                    to_table: 'customers',
-                    from_column: 'contractor_id',
-                    to_column: 'id',
-                  },
-                ],
-                final_column: 'customers.name',
-              },
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'empleado_aptitudes.aptitudes_tecnicas.nombre',
-            title: 'Aptitudes Técnicas',
-            config: {
-              tableName: 'employees' as const,
-              select: 'id' as '*',
-              multiJoinPaths: {
-                joins: [
-                  {
-                    from_table: 'employees',
-                    to_table: 'empleado_aptitudes',
-                    from_column: 'id',
-                    to_column: 'empleado_id',
-                  },
-                  {
-                    from_table: 'empleado_aptitudes',
-                    to_table: 'aptitudes_tecnicas',
-                    from_column: 'aptitud_id',
-                    to_column: 'id',
-                  },
-                ],
-                final_column: 'aptitudes_tecnicas.nombre',
-              },
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'cost_center.name',
-            title: 'Centro de Costo',
-            config: {
-              tableName: 'employees',
-              select: 'cost_center.name' as '*',
-              relation: '{"cost_center": "cost_center_id"}',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_center.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.affiliate_status,
-            title: 'Estado de Afiliación',
-            config: {
-              tableName: 'employees',
-              select: 'affiliate_status' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'affiliate_status'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.status,
-            title: 'Estado',
-            config: {
-              tableName: 'employees',
-              select: 'status' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'status'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-        ],
-        showFilterOptions: true,
-      }}
-    />
+                  title: 'Ciudad',
+                  options: city,
+                },
+                {
+                  columnId: 'postal_code',
+                  title: 'Codigo Postal',
+                  options: postalCode,
+                },
+                {
+                  columnId: 'phone',
+                  title: 'Telefono',
+                  options: phone,
+                },
+                {
+                  columnId: 'email',
+                  title: 'Email',
+                  options: email,
+                },
+                {
+                  columnId: 'file',
+                  title: 'Legajo',
+                  options: legajo,
+                },
+                // {
+                //     columnId: 'Sector',
+                //     title: 'Sector',
+                //     options: sector,
+                // },
+                {
+                  columnId: 'company_positions.name',
+                  title: 'Puesto',
+                  options: puesto,
+                },
+                {
+                  columnId: 'work_diagram.name',
+                  title: 'Diagrama',
+                  options: diagram,
+                },
+                {
+                  columnId: 'normal_hours',
+                  title: 'Horas',
+                  options: normalHours,
+                },
+                {
+                  columnId: 'cost_center.name',
+                  title: 'Centro de Costo',
+                  options: costCenter,
+                },
+                {
+                  columnId: 'status',
+                  title: 'Estado',
+                  options: status,
+                },
+                {
+                  columnId: 'provinces.name',
+                  title: 'Provincia',
+                  options: provinces,
+                },
+                {
+                  columnId: 'affiliate_status',
+                  title: 'Estado de afiliado',
+                  options: affiliateStatus,
+                },
+              ],
+            }}
+          />
+        </div>
+        <DialogFooter>
+          <DialogClose id="close-dialog" asChild>
+            <Button type="button" variant="outline">
+              Cancelar
+            </Button>
+          </DialogClose>
+          <Button onClick={handleSelectedEmployees} type="button">
+            Guardar Seleccion
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -22,10 +22,11 @@ import ButtonTypeRefetch from './ButtonTypeRefetch';
 export default async function TypesDocumentAction({ optionChildrenProp }: { optionChildrenProp: string }) {
   const cookiesStore = cookies();
   const role = cookiesStore.get('guestRole')?.value || '';
-  const VehicleOptionsData = await setVehicleDataOptions();
-  const EmployeesOptionsData = await setEmployeeDataOptions();
-  const empleadosCargados = await fetchAllEmployeesWithRelations();
-  const equiposCargados = await fetchAllEquipmentWithRelations();
+
+  const equiposCargados = fetchAllEquipmentWithRelations();
+  const empleadosCargados = fetchAllEmployeesWithRelations();
+  const EmployeesOptionsData = setEmployeeDataOptions();
+  const VehicleOptionsData = setVehicleDataOptions();
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild className="mr-4">
@@ -38,10 +39,10 @@ export default async function TypesDocumentAction({ optionChildrenProp }: { opti
             <NewDocumentType
               codeControlClient
               optionChildrenProp={optionChildrenProp}
-              employeeMockValues={EmployeesOptionsData}
-              vehicleMockValues={VehicleOptionsData}
-              employees={empleadosCargados}
-              vehicles={equiposCargados}
+              employeeMockValuesPromise={EmployeesOptionsData}
+              vehicleMockValuesPromise={VehicleOptionsData}
+              employeesPromise={empleadosCargados}
+              vehiclesPromise={equiposCargados}
             />
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -5,6 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import {
+  fetchAllEmployeesWithRelations,
+  fetchAllEquipmentWithRelations,
+  setEmployeeDataOptions,
+  setVehicleDataOptions,
+} from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -17,7 +23,7 @@ import { useLoggedUserStore } from '@/store/loggedUser';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { PlusCircle, Truck, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../supabase/supabase';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
@@ -228,18 +234,24 @@ export type Condition = {
 export default function NewDocumentType({
   codeControlClient,
   optionChildrenProp,
-  employeeMockValues,
-  vehicleMockValues,
-  employees,
-  vehicles,
+  employeeMockValuesPromise,
+  vehicleMockValuesPromise,
+  employeesPromise,
+  vehiclesPromise,
 }: {
   codeControlClient?: boolean;
   optionChildrenProp: string;
-  employeeMockValues: Record<string, string[] | []>;
-  vehicleMockValues: Record<string, string[] | []>;
-  employees: EmployeeDetailed[];
-  vehicles: VehicleWithBrand[];
+  employeeMockValuesPromise: ReturnType<typeof setEmployeeDataOptions>;
+
+  vehicleMockValuesPromise: ReturnType<typeof setVehicleDataOptions>;
+  employeesPromise: ReturnType<typeof fetchAllEmployeesWithRelations>;
+  vehiclesPromise: ReturnType<typeof fetchAllEquipmentWithRelations>;
 }) {
+  const employeeMockValues = use(employeeMockValuesPromise);
+  const vehicleMockValues = use(vehicleMockValuesPromise);
+  const employees = use(employeesPromise);
+  const vehicles = use(vehiclesPromise);
+
   const [special, setSpecial] = useState(false);
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
@@ -266,7 +278,7 @@ export default function NewDocumentType({
   const employeePropertiesConfig = useMemo(() => {
     // Extraer valores únicos para cada propiedad
     return baseEmployeePropertiesConfig.map((prop) => {
-      const defaultVals = employeeMockValues[prop.accessor_key] || [];
+      const defaultVals = (employeeMockValues as any)[prop.accessor_key] || [];
       const values =
         defaultVals.length > 0
           ? defaultVals
@@ -284,7 +296,7 @@ export default function NewDocumentType({
   // Memoizar la configuración de propiedades de vehículos
   const vehiclePropertiesConfig = useMemo(() => {
     return baseVehiclePropertiesConfig.map((prop) => {
-      const defaultVals = vehicleMockValues[prop.accessor_key] || [];
+      const defaultVals = (vehicleMockValues as any)[prop.accessor_key] || [];
       const vals =
         defaultVals.length > 0
           ? defaultVals
