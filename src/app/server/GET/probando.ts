@@ -74,11 +74,11 @@ export async function queryWithPagination<
         const columnName = parts[parts.length - 1]; // La última parte es la columna
         console.log();
 
-        if (value === null || value[0] !== 'null' || value[0] !== null) {
+        if (value === null || value[0] === 'null' || value[0] === null) {
           console.log('🚫 Aplicando filtro NOT NULL para relación simple deberia desde aqui');
           console.log(columnName, 'columnName');
           console.log(parts, 'parts');
-          query = query.is(parts[0], null);
+          query = query.is(id, null);
         } else {
           // Para relaciones de múltiples niveles, necesitamos aplicar NOT NULL en cada nivel
           if (parts.length > 2) {
@@ -218,6 +218,13 @@ export async function queryWithPagination<
 
   // Ejecutar query
   const { data, error, count } = await query;
+
+  console.log('🚀 queryWithPagination - Error:', {
+    error: error,
+  });
+  console.log('🚀 queryWithPagination - encontrados:', {
+    count,
+  });
 
   if (error) {
     console.error('🚨 Error en queryWithPagination:', error);
