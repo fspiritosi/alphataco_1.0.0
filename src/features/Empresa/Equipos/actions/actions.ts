@@ -49,6 +49,83 @@ export async function createTypeOfVehicle({ name, is_active = false }: { name: s
     return [];
   }
 }
+
+export async function FetchTypeOfVehiclesPagination(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: Array<{ id: string; desc: boolean }>;
+  columnFilters: Array<{ id: string; value: any }>;
+}) {
+  const supabase = supabaseServer();
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+
+  const { pageIndex, pageSize, sorting, columnFilters } = options;
+
+  try {
+    let query = supabase
+      .from('type')
+      .select('*', { count: 'exact' })
+      .eq('company_id', company_id ?? '');
+
+    // Mapeo de nombres de columnas
+    const columnMap: Record<string, string> = {
+      Nombre: 'name',
+      Estado: 'is_active',
+    };
+
+    // Aplicar filtros
+    columnFilters.forEach((filter) => {
+      if (filter.value) {
+        const columnName = columnMap[filter.id] || filter.id;
+        if (columnName === 'is_active') {
+          query = query.eq(columnName, filter.value === 'true');
+        } else {
+          query = query.ilike(columnName, `%${filter.value}%`);
+        }
+      }
+    });
+
+    // Aplicar ordenamiento
+    if (sorting.length > 0) {
+      sorting.forEach((sort) => {
+        const sortColumn = columnMap[sort.id] || sort.id;
+        query = query.order(sortColumn, { ascending: !sort.desc });
+      });
+    } else {
+      query = query.order('name', { ascending: true });
+    }
+
+    // Aplicar paginación
+    const from = pageIndex * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
+
+    if (error) {
+      console.error('Error fetching vehicle types:', error);
+      throw error;
+    }
+
+    return {
+      rows: data || [],
+      pageCount: Math.ceil((count || 0) / pageSize),
+      rowCount: count || 0,
+      page: pageIndex,
+      pageSize,
+    };
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    return {
+      rows: [],
+      pageCount: 0,
+      rowCount: 0,
+      page: pageIndex,
+      pageSize,
+    };
+  }
+}
 export async function updateTypeOfVehicle({ id, name, is_active }: { id: string; name: string; is_active?: boolean }) {
   const supabase = supabaseServer();
 

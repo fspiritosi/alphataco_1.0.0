@@ -1,10 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+import { FetchTypeOfVehiclesPagination } from '@/features/Empresa/Equipos/actions/actions';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
+import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import React from 'react';
-
 type EquipmentType = {
   id: string;
   name: string;
@@ -68,21 +68,58 @@ function EquipmentTypesTable({
   vehicleTypes,
   onEdit = () => {},
   savedVisibility = defaultVisibility,
-  savedFilter = [],
+  savedFilter: initialSavedFilter = [],
   names = [],
 }: EquipmentTypesTableProps) {
+  // Estado para los filtros actuales
+  const [columnFilters, setColumnFilters] = React.useState<Array<{ id: string; value: any }>>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('equipment-types-table-type-filters');
+      if (!saved) return [];
+      const filters = JSON.parse(saved);
+      return Object.entries(filters)
+        .filter(([_, value]) => value !== undefined && value !== '')
+        .map(([id, value]) => ({ id, value }));
+    } catch (error) {
+      console.error('Error al cargar filtros guardados:', error);
+      return [];
+    }
+  });
+
+  // Guardar filtros en localStorage cuando cambien
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const filtersObj = columnFilters.reduce(
+        (acc, { id, value }) => ({
+          ...acc,
+          [id]: value,
+        }),
+        {}
+      );
+      localStorage.setItem('equipment-types-table-type-filters', JSON.stringify(filtersObj));
+    } catch (error) {
+      console.error('Error al guardar filtros:', error);
+    }
+  }, [columnFilters]);
+
+  // Manejador para cambios en los filtros
+  const handleFilterChange = (filters: Array<{ id: string; value: any }>) => {
+    setColumnFilters(filters);
+  };
+
+  // Columnas con filtros activos
+  const initialVisibleFilters = React.useMemo(() => {
+    return columnFilters.map((filter) => filter.id);
+  }, [columnFilters]);
+
   // Obtener las columnas con la función onEdit
   const columns = React.useMemo(() => getEquipmentTypeColumns(onEdit), [onEdit]);
 
-  // Opciones para el filtro de estado
-  const statusOptions = [
-    { label: 'Activo', value: 'true' },
-    { label: 'Inactivo', value: 'false' },
-  ];
-
   // Generar opciones de nombres para los filtros
   const nameOptions = React.useMemo(() => {
-    return vehicleTypes.map((type) => ({
+    return vehicleTypes?.map((type) => ({
       label: type.name,
       value: type.name,
     }));
@@ -109,10 +146,13 @@ function EquipmentTypesTable({
     <BaseDataTable
       columns={getEquipmentTypeColumns(onEdit)}
       data={vehicleTypes}
-      tableId="equipment-types-table"
+      tableId="equipment-types-table-type"
+      serverSide={true}
+      fetchData={FetchTypeOfVehiclesPagination as any}
       savedVisibility={savedVisibility}
+      onColumnFiltersChange={handleFilterChange as any}
       toolbarOptions={{
-        initialVisibleFilters: savedFilter || [],
+        initialVisibleFilters,
         showFilterOptions: true,
         filterableColumns,
       }}
@@ -121,5 +161,3 @@ function EquipmentTypesTable({
 }
 
 export default EquipmentTypesTable;
-
-//
