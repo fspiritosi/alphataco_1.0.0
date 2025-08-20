@@ -304,7 +304,7 @@ export async function fetchEquipmentData(options: {
   server?: boolean;
 }) {
   const company_id = Cookies.get('actualComp');
-
+  console.log(company_id, 'company_id');
   const data = await queryWithPagination(
     'vehicles',
     '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',

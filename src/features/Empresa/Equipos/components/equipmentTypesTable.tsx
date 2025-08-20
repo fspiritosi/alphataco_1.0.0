@@ -145,7 +145,7 @@ function EquipmentTypesTable({
   return (
     <BaseDataTable
       columns={getEquipmentTypeColumns(onEdit)}
-      data={vehicleTypes}
+      // data={vehicleTypes}
       tableId="equipment-types-table-type"
       serverSide={true}
       fetchData={FetchTypeOfVehiclesPagination as any}
@@ -156,6 +156,7 @@ function EquipmentTypesTable({
         showFilterOptions: true,
         filterableColumns,
       }}
+      queryKey={'equipment-types-table-type'}
     />
   );
 }

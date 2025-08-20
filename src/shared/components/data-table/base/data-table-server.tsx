@@ -20,7 +20,7 @@ import * as React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { clearTableFilters, getTableFilters, setTableFilters, type TableFilterState } from '@/lib/cookies';
 import { cn } from '@/lib/utils';
-import { keepPreviousData, QueryClient, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
 import { FacetedFilterConfig } from '../filters/data-table-faceted-filter-server';
 import { BulkActionProps, DataTableToolbar } from '../toolbars/data-table-toolbar-base-server';
@@ -139,6 +139,7 @@ export function BaseDataTable<
   initialData,
 }: DataTableProps<TData, TValue, TableName, Query>) {
   // Cargar el estado guardado de las cookies
+  const queryClient = React.useMemo(() => new QueryClient(), [tableId]);
   const savedState = React.useMemo(() => {
     if (typeof window === 'undefined') return null;
     return getTableFilters(tableId);
@@ -324,108 +325,112 @@ export function BaseDataTable<
   );
 
   return (
-    <div>
-      <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
-        {toolbarOptions && (
-          <DataTableToolbar
-            table={table}
-            showExport={toolbarOptions.showExport}
-            showDocumentDownload={toolbarOptions.showDocumentDownload}
-            filterableColumns={toolbarOptions.filterableColumns}
-            searchableColumns={toolbarOptions.searchableColumns}
-            initialVisibleFilters={toolbarOptions.initialVisibleFilters}
-            showViewOptions={toolbarOptions.showViewOptions}
-            bulkAction={toolbarOptions.bulkAction}
-            extraActions={
-              typeof toolbarOptions.extraActions === 'function'
-                ? toolbarOptions.extraActions(table)
-                : toolbarOptions.extraActions
-            }
-            tableId={tableId}
-            isLoading={isLoading}
-            serverSide={serverSide}
-            fetchAllData={fetchAllData}
-            {...toolbarProps}
-          />
-        )}
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableHead key={header.id} colSpan={header.colSpan}>
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24">
-                    <div className="flex flex-col space-y-3">
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : table?.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    className={
-                      typeof row_classname === 'string'
-                        ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
-                        : row_classname
-                          ? row_classname(row.original)
-                          : onRowClick
-                            ? 'hover:cursor-pointer'
-                            : ''
-                    }
-                    key={row.id}
-                    data-state={row.getIsSelected() && 'selected'}
-                    onClick={() => onRowClick && onRowClick(row.original)}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                    ))}
+    <QueryClientProvider client={queryClient}>
+      <div>
+        <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
+          {toolbarOptions && (
+            <DataTableToolbar
+              table={table}
+              showExport={toolbarOptions.showExport}
+              showDocumentDownload={toolbarOptions.showDocumentDownload}
+              filterableColumns={toolbarOptions.filterableColumns}
+              searchableColumns={toolbarOptions.searchableColumns}
+              initialVisibleFilters={toolbarOptions.initialVisibleFilters}
+              showViewOptions={toolbarOptions.showViewOptions}
+              bulkAction={toolbarOptions.bulkAction}
+              extraActions={
+                typeof toolbarOptions.extraActions === 'function'
+                  ? toolbarOptions.extraActions(table)
+                  : toolbarOptions.extraActions
+              }
+              tableId={tableId}
+              isLoading={isLoading}
+              serverSide={serverSide}
+              fetchAllData={fetchAllData}
+              {...toolbarProps}
+            />
+          )}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} colSpan={header.colSpan}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    Sin resultados
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24">
+                      <div className="flex flex-col space-y-3">
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : table?.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      className={
+                        typeof row_classname === 'string'
+                          ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
+                          : row_classname
+                            ? row_classname(row.original)
+                            : onRowClick
+                              ? 'hover:cursor-pointer'
+                              : ''
+                      }
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      onClick={() => onRowClick && onRowClick(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      Sin resultados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          {paginationComponent ? (
+            React.cloneElement(paginationComponent as React.ReactElement, {
+              table,
+              isLoading,
+              totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
+            })
+          ) : (
+            <DataTablePagination
+              table={table}
+              isLoading={isLoading}
+              totalRows={serverSide ? dataQuery.data?.rowCount : undefined}
+            />
+          )}
         </div>
-        {paginationComponent ? (
-          React.cloneElement(paginationComponent as React.ReactElement, {
-            table,
-            isLoading,
-            totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
-          })
-        ) : (
-          <DataTablePagination
-            table={table}
-            isLoading={isLoading}
-            totalRows={serverSide ? dataQuery.data?.rowCount : undefined}
-          />
-        )}
       </div>
-    </div>
+    </QueryClientProvider>
   );
 }
