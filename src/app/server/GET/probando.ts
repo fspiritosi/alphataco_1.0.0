@@ -581,15 +581,24 @@ export async function queryPaginated<TableName extends keyof Database['public'][
     filters,
     orderBy,
     ascending = true,
+    innerData,
   }: {
     page?: number;
     pageSize?: number;
     filters?: Filter<TableName>[];
     orderBy?: keyof Database['public']['Tables'][TableName]['Row'];
     ascending?: boolean;
+    innerData?: null | Record<string, string>;
   } = {}
 ) {
   const supabase = supabaseBrowser();
+
+  if (Object.entries(innerData || {}).length > 0) {
+    Object.entries(innerData || {}).forEach(([key, value]) => {
+      select = select.replace(key, value) as typeof select;
+    });
+  }
+
   let query = supabase.from(tableName).select(select, { count: 'exact' });
 
   // Aplicar filtros
