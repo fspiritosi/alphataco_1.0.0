@@ -82,6 +82,7 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
       });
 
       onReset();
+
       router.refresh();
     } catch (error: unknown) {
       console.error('Error al guardar el tipo de equipo:', error);
