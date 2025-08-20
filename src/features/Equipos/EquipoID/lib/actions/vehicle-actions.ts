@@ -6,13 +6,6 @@ import { cookies } from 'next/headers';
 
 export async function getVehicleById(id: string) {
   const supabase = supabaseServer();
-  const cookiesStore = cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    throw new Error('No company selected');
-  }
-
   const { data, error } = await supabase
     .from('vehicles')
     .select(
@@ -27,7 +20,6 @@ export async function getVehicleById(id: string) {
     `
     )
     .eq('id', id)
-    .eq('company_id', company_id)
     .single();
 
   if (error) {
@@ -42,6 +34,23 @@ export async function getVehicleById(id: string) {
   };
 }
 
+export async function toggleVehicleStatus(id: string, activate: boolean) {
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from('vehicles')
+    .update({
+      is_active: activate,
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error toggling vehicle status:', error);
+    throw new Error('Failed to toggle vehicle status');
+  }
+
+  return data;
+}
+
 export async function createVehicle(vehicleData: any) {
   const supabase = supabaseServer();
   const cookiesStore = cookies();
@@ -52,22 +61,17 @@ export async function createVehicle(vehicleData: any) {
   }
 
   // Get IDs for related entities
-  const brandId = await getBrandIdByName(vehicleData.brand);
-  const modelId = await getModelIdByName(vehicleData.model);
-  const typeId = await getTypeIdByName(vehicleData.type);
-  const typeOfVehicleId = await getTypeOfVehicleIdByName(vehicleData.type_of_vehicle);
-  const subTypeId = vehicleData.subType ? await getSubTypeIdByName(vehicleData.subType) : null;
+  // const brandId = await getBrandIdByName(vehicleData.brand);
+  // const modelId = await getModelIdByName(vehicleData.model);
+  // const typeId = await getTypeIdByName(vehicleData.type);
+  // const typeOfVehicleId = await getTypeOfVehicleIdByName(vehicleData.type_of_vehicle);
+  // const subTypeId = vehicleData.subType ? await getSubTypeIdByName(vehicleData.subType) : null;
 
   const { data, error } = await supabase
     .from('vehicles')
     .insert({
       ...vehicleData,
       company_id,
-      brand: brandId,
-      model: modelId,
-      type: typeId,
-      types_of_vehicles: typeOfVehicleId,
-      subType: subTypeId,
       allocated_to: undefined, // Remove this as it's handled separately
     })
     .select()
@@ -109,7 +113,6 @@ export async function updateVehicle(id: string, vehicleData: any) {
     .from('vehicles')
     .update({
       ...vehicleData,
-
       allocated_to: undefined, // Remove this as it's handled separately
     })
     .eq('id', id)

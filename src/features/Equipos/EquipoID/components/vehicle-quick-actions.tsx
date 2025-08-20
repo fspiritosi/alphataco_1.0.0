@@ -9,7 +9,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,89 +17,95 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Download, FileText, Mail, MoreHorizontal, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Truck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
-import { deleteVehicle } from '../lib/actions/vehicle-actions';
+import { toggleVehicleStatus } from '../lib/actions/vehicle-actions';
 
 interface VehicleQuickActionsProps {
-  vehicle: any;
+  equipmentId: string | undefined;
+  isActive: boolean | undefined;
 }
 
-export function VehicleQuickActions({ vehicle }: VehicleQuickActionsProps) {
+export function VehicleQuickActions({ equipmentId, isActive }: VehicleQuickActionsProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [showActivateDialog, setShowActivateDialog] = useState(false);
 
-  const handleDelete = async () => {
-    try {
-      await deleteVehicle(vehicle.id);
-      toast.success('Equipo eliminado correctamente');
-      router.push('/dashboard/equipment');
-    } catch (error) {
-      toast.error('Error al eliminar el equipo');
-    }
+  const handleToggleStatus = (activate: boolean) => {
+    startTransition(async () => {
+      try {
+        // Here you would call your server action to toggle employee status
+        await toggleVehicleStatus(equipmentId!, activate);
+        toast.success(`Equipo ${activate ? 'activado' : 'dado de baja'} correctamente`);
+        setShowDeactivateDialog(false);
+        setShowActivateDialog(false);
+        router.refresh();
+      } catch (error) {
+        toast.error('Error al cambiar el estado del equipo');
+      }
+    });
   };
-
-  const handleGenerateReport = () => {
-    // TODO: Implement report generation
-    toast.info('Funcionalidad de reporte en desarrollo');
-  };
-
-  const handleSendEmail = () => {
-    // TODO: Implement email functionality
-    toast.info('Funcionalidad de email en desarrollo');
-  };
-
-  const handleExportData = () => {
-    // TODO: Implement data export
-    toast.info('Funcionalidad de exportación en desarrollo');
-  };
-
-  if (!vehicle) return null;
+  if (!equipmentId) return null;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleGenerateReport}>
-          <FileText className="h-4 w-4 mr-2" />
-          Generar Reporte
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleExportData}>
-          <Download className="h-4 w-4 mr-2" />
-          Exportar Datos
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleSendEmail}>
-          <Mail className="h-4 w-4 mr-2" />
-          Enviar Email
-        </DropdownMenuItem>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Eliminar Equipo
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {isActive ? (
+            <DropdownMenuItem onClick={() => setShowDeactivateDialog(true)} className="text-destructive">
+              <Truck className="h-4 w-4 mr-2" />
+              Dar de Baja Equipo
             </DropdownMenuItem>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. El equipo {vehicle.domain || vehicle.serie} será eliminado
-                permanentemente junto con todos sus documentos y registros asociados.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-                Eliminar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          ) : (
+            <DropdownMenuItem onClick={() => setShowActivateDialog(true)} className="text-green-600">
+              <Truck className="h-4 w-4 mr-2" />
+              Activar Equipo
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Deactivate Dialog */}
+      <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Dar de baja equipo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción dará de baja al equipo. Podrás reactivarlo más tarde si es necesario.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleToggleStatus(false)} disabled={isPending}>
+              {isPending ? 'Dando de baja...' : 'Dar de baja'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Activate Dialog */}
+      <AlertDialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Activar equipo?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción activará al equipo y podrá acceder al sistema.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleToggleStatus(true)} disabled={isPending}>
+              {isPending ? 'Activando...' : 'Activar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

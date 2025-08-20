@@ -6,17 +6,27 @@ import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessa
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Upload, X } from 'lucide-react';
 import { use, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { getModelsByBrand, getTypesOfVehicles, getVehicleBrands } from '../lib/actions/vehicle-catalog-actions';
+import {
+  getModelsByBrand,
+  getSubTypesByType,
+  getTypesOfVehicles,
+  getVehicleBrands,
+  getVehicleTypes,
+} from '../lib/actions/vehicle-catalog-actions';
+import { getVehicleTypeFields } from '../lib/utils/vehicle-utils';
 
 interface VehicleBasicDataFormProps {
   form: UseFormReturn<any>;
   readOnly?: boolean;
-  typesOfVehiclesPromise: ReturnType<typeof getTypesOfVehicles>;
   brandsPromise: ReturnType<typeof getVehicleBrands>;
   modelsPromise: ReturnType<typeof getModelsByBrand>;
+
+  typesPromise: ReturnType<typeof getVehicleTypes>;
+  subTypesPromise: ReturnType<typeof getSubTypesByType>;
+  typesOfVehiclesPromise: ReturnType<typeof getTypesOfVehicles>;
 }
 
 export function VehicleBasicDataForm({
@@ -25,6 +35,9 @@ export function VehicleBasicDataForm({
   typesOfVehiclesPromise,
   brandsPromise,
   modelsPromise,
+  subTypesPromise,
+  typesPromise,
+  // hideInput
 }: VehicleBasicDataFormProps) {
   const brands = use(brandsPromise);
   const modelsInitial = use(modelsPromise);
@@ -32,11 +45,22 @@ export function VehicleBasicDataForm({
   const [models, setModels] = useState<typeof modelsInitial>(modelsInitial);
   const [loadingModels, setLoadingModels] = useState(false);
 
-  const handleBrandChange = async (brandName: string) => {
-    form.setValue('brand', brandName);
+  const types = use(typesPromise);
+  const subTypesInitial = use(subTypesPromise);
+  const [subTypes, setSubTypes] = useState<typeof subTypesInitial>(subTypesInitial);
+
+  const [loadingSubTypes, setLoadingSubTypes] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(form.getValues('picture') || null);
+  const typeOfVehicle = form.watch('type_of_vehicle');
+  const year = form.watch('year');
+  const typeFields = getVehicleTypeFields(typeOfVehicle);
+  const hideInput = form.watch('type_of_vehicle') === '1' ? true : false;
+
+  const handleBrandChange = async (id: string) => {
+    form.setValue('brand', id);
     form.setValue('model', ''); // Reset model when brand changes
 
-    const selectedBrand = brands.find((b) => b.name === brandName);
+    const selectedBrand = brands.find((b) => b.id.toString() === id);
     if (selectedBrand) {
       setLoadingModels(true);
       try {
@@ -50,8 +74,82 @@ export function VehicleBasicDataForm({
     }
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setImagePreview(result);
+        form.setValue('picture', result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImagePreview(null);
+    form.setValue('picture', '');
+  };
+
+  const handleTypeChange = async (typeId: string) => {
+    form.setValue('type', typeId);
+    form.setValue('subType', ''); // Reset subtype when type changes
+
+    const selectedType = types.find((t) => t.id === typeId);
+    if (selectedType) {
+      setLoadingSubTypes(true);
+      try {
+        const subTypesData = await getSubTypesByType(selectedType.id);
+        setSubTypes(subTypesData);
+      } catch (error) {
+        console.error('Error loading subtypes:', error);
+      } finally {
+        setLoadingSubTypes(false);
+      }
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {!readOnly && (
+        <div className="space-y-2">
+          <FormLabel>Foto del equipo</FormLabel>
+          <div className="flex items-center space-x-4">
+            {imagePreview ? (
+              <div className="relative">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-24 h-24 rounded object-cover border-2 border-gray-200"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                  onClick={removeImage}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="w-24 h-24 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                <Upload className="h-8 w-8 text-gray-400" />
+              </div>
+            )}
+            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="equipment-upload" />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => document.getElementById('equipment-upload')?.click()}
+            >
+              {imagePreview ? 'Cambiar foto' : 'Subir foto'}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <FormField
         control={form.control}
         name="type_of_vehicle"
@@ -108,6 +206,20 @@ export function VehicleBasicDataForm({
           </FormItem>
         )}
       />
+      <FormField
+        control={form.control}
+        name="domain"
+        render={({ field }) => (
+          <FormItem className={cn(!hideInput && 'hidden')}>
+            <FormLabel>Dominio del equipo</FormLabel>
+            <FormControl>
+              <Input {...field} disabled={readOnly} placeholder="Ingrese el dominio del equipo" />
+            </FormControl>
+            <FormDescription>Ingrese el dominio del equipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
       <FormField
         control={form.control}
@@ -132,7 +244,7 @@ export function VehicleBasicDataForm({
                   </Button>
                 </FormControl>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0 max-h-[200px] overflow-y-auto">
+              <PopoverContent className="w-full p-0 overflow-y-auto">
                 <Command>
                   <CommandInput placeholder="Buscar marca..." />
                   <CommandList>
@@ -163,7 +275,20 @@ export function VehicleBasicDataForm({
           </FormItem>
         )}
       />
-
+      <FormField
+        control={form.control}
+        name="kilometer"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Kilometraje del equipo</FormLabel>
+            <FormControl className="m-0">
+              <Input className="m-0" {...field} disabled={readOnly} placeholder="Ingrese el kilometraje del equipo" />
+            </FormControl>
+            <FormDescription>Ingrese el kilometraje del equipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
       <FormField
         control={form.control}
         name="model"
@@ -242,6 +367,216 @@ export function VehicleBasicDataForm({
               />
             </FormControl>
             <FormDescription>Ingrese el año del equipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="engine"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Motor del equipo</FormLabel>
+            <FormControl>
+              <Input {...field} disabled={readOnly} placeholder="Ingrese el tipo de motor" />
+            </FormControl>
+            <FormDescription>Ingrese el tipo de motor del equipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="type"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Tipo {!typeFields.showSerie && <span className="text-red-500">*</span>}</FormLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    disabled={readOnly}
+                    variant="outline"
+                    role="combobox"
+                    className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                  >
+                    {types.find((t) => t.id === field.value)?.name || 'Seleccionar tipo'}
+
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar tipo..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontró el tipo</CommandEmpty>
+                    <CommandGroup>
+                      {types.map((type) => (
+                        <CommandItem
+                          key={type.id}
+                          value={type.id.toString()}
+                          onSelect={() => handleTypeChange(type.id)}
+                        >
+                          <Check
+                            className={cn('mr-2 h-4 w-4', type.id === field.value ? 'opacity-100' : 'opacity-0')}
+                          />
+                          {type.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <FormDescription>Selecciona el tipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="subType"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Sub Tipo de Unidad {!typeFields.showSerie && <span className="text-red-500">*</span>}</FormLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    disabled={readOnly || loadingSubTypes || !form.getValues('type')}
+                    variant="outline"
+                    role="combobox"
+                    className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                  >
+                    {loadingSubTypes
+                      ? 'Cargando...'
+                      : subTypes.find((s) => s.id === field.value)?.name || 'Seleccionar subtipo'}
+
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar subtipo..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontró el subtipo</CommandEmpty>
+                    <CommandGroup>
+                      {subTypes.map((subType) => (
+                        <CommandItem
+                          key={subType.id}
+                          value={subType.id}
+                          onSelect={() => {
+                            form.setValue('subType', subType.id);
+                          }}
+                        >
+                          <Check
+                            className={cn('mr-2 h-4 w-4', subType.id === field.value ? 'opacity-100' : 'opacity-0')}
+                          />
+                          {subType.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <FormDescription>Selecciona el subtipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="chassis"
+        render={({ field }) => (
+          <FormItem className={cn(!hideInput && 'hidden')}>
+            <FormLabel>
+              Chasis del equipo {typeFields.requireChassis && <span className="text-red-500">*</span>}
+            </FormLabel>
+            <FormControl>
+              <Input {...field} disabled={readOnly} placeholder="Ingrese el chasis" />
+            </FormControl>
+            <FormDescription>Ingrese el chasis del equipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="serie"
+        render={({ field }) => (
+          <FormItem className={cn(hideInput && 'hidden')}>
+            <FormLabel>Serie del equipo {typeFields.requireSerie && <span className="text-red-500">*</span>}</FormLabel>
+            <FormControl>
+              <Input {...field} disabled={readOnly} placeholder="Ingrese la serie" />
+            </FormControl>
+            <FormDescription>Ingrese la serie del equipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {typeFields.showDomain && (
+        <FormField
+          control={form.control}
+          name="domain"
+          render={({ field }) => (
+            <FormItem className={cn(!hideInput && 'hidden')}>
+              <FormLabel>
+                Dominio del equipo {typeFields.requireDomain && <span className="text-red-500">*</span>}
+              </FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  disabled={readOnly}
+                  placeholder="Ingrese el dominio"
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    field.onChange(value);
+                  }}
+                />
+              </FormControl>
+              <FormDescription>Ingrese el dominio del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {typeFields.showKilometer && (
+        <FormField
+          control={form.control}
+          name="kilometer"
+          render={({ field }) => (
+            <FormItem className={cn(!hideInput && 'hidden')}>
+              <FormLabel>Kilometraje</FormLabel>
+              <FormControl>
+                <Input {...field} disabled={readOnly} placeholder="Kilometraje" type="number" min="0" />
+              </FormControl>
+              <FormDescription>Ingrese el kilometraje del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      <FormField
+        control={form.control}
+        name="intern_number"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Número interno del equipo</FormLabel>
+            <FormControl>
+              <Input {...field} disabled={readOnly} placeholder="Ingrese el número interno" />
+            </FormControl>
+            <FormDescription>Ingrese el número interno del equipo</FormDescription>
             <FormMessage />
           </FormItem>
         )}
