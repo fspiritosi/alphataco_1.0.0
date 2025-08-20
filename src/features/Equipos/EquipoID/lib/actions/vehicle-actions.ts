@@ -1,6 +1,7 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
+import moment from 'moment';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
@@ -34,12 +35,19 @@ export async function getVehicleById(id: string) {
   };
 }
 
-export async function toggleVehicleStatus(id: string, activate: boolean) {
+export async function toggleVehicleStatus(
+  id: string,
+  activate: boolean,
+  reason_for_termination?: any,
+  termination_date?: Date
+) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from('vehicles')
     .update({
       is_active: activate,
+      reason_for_termination: activate ? null : reason_for_termination,
+      termination_date: termination_date ? moment(termination_date).format('YYYY-MM-DD') : null,
     })
     .eq('id', id);
 

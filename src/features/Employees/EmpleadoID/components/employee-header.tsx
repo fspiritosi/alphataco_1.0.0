@@ -117,6 +117,24 @@ function EmployeeHeaderContent({ employee, isEditable, showEditButton, exitEditM
             <BackButton size="sm" />
           </div>
         </div>
+        {!employee?.is_active && (
+          <div className="mt-4 pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              {employee?.termination_date && (
+                <div className="flex gap-2 text-red-400">
+                  <p className="font-medium">Fecha de Baja:</p>
+                  <p className="font-medium">{new Date(employee.termination_date).toLocaleDateString()}</p>
+                </div>
+              )}
+              {employee?.reason_for_termination && (
+                <div className="flex gap-2 text-red-400">
+                  <p className="font-medium">Razón de Baja:</p>
+                  <p className="font-medium">{employee.reason_for_termination}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
       <Separator className="my-2 mt-0" />
     </div>

@@ -1907,6 +1907,8 @@ export async function getEmployeeById(employeeId: string) {
     .select(
       `
       id,
+      termination_date,
+      reason_for_termination,
       firstname,
       lastname,
       nationality,

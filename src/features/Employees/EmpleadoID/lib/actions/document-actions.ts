@@ -1,6 +1,7 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
+import moment from 'moment';
 
 export async function fetchDocumentTypes() {
   const supabase = supabaseServer();
@@ -14,10 +15,22 @@ export async function fetchDocumentTypes() {
 
   return data;
 }
-export async function toggleEmployeeStatus(employeeId: string, activate: boolean) {
+export async function toggleEmployeeStatus(
+  employeeId: string,
+  activate: boolean,
+  reason_for_termination?: any,
+  termination_date?: Date
+) {
   const supabase = supabaseServer();
 
-  const { error } = await supabase.from('employees').update({ is_active: activate }).eq('id', employeeId);
+  const { error } = await supabase
+    .from('employees')
+    .update({
+      is_active: activate,
+      reason_for_termination: reason_for_termination || null,
+      termination_date: termination_date ? moment(termination_date).format('YYYY-MM-DD') : null,
+    })
+    .eq('id', employeeId);
 
   if (error) {
     throw new Error(error.message);

@@ -119,6 +119,24 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
             </div>
           </div>
         </div>
+        {!vehicle?.is_active && (
+          <div className="mt-4 border-t pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              {vehicle?.termination_date && (
+                <div className="flex gap-2 text-red-400">
+                  <p className="font-medium">Fecha de Baja:</p>
+                  <p className="font-medium">{new Date(vehicle.termination_date).toLocaleDateString()}</p>
+                </div>
+              )}
+              {vehicle?.reason_for_termination && (
+                <div className="flex gap-2 text-red-400">
+                  <p className="font-medium">Razón de Baja:</p>
+                  <p className="font-medium">{vehicle.reason_for_termination}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </div>
   );
