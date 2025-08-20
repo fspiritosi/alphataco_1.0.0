@@ -18,9 +18,8 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import type { Column } from '@tanstack/react-table';
 import { CheckIcon, PlusCircleIcon } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 import { Database } from '../../../../../database.types';
-
 interface Option {
   label: string;
   value: string;
@@ -67,7 +66,11 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
   config,
   hasNullFilter = false,
 }: DataTableFacetedFilterProps<TData, TValue, TableName>) {
-  const selectedValues = new Set(column?.getFilterValue() as string[]);
+  // Obtener los valores seleccionados actuales
+  const selectedValues = React.useMemo(() => {
+    const value = column?.getFilterValue();
+    return new Set(Array.isArray(value) ? value : value ? [value] : []);
+  }, [column, column?.getFilterValue()]);
 
   const { data: fetchedOptions, isLoading } = useQuery({
     queryKey: [
@@ -75,7 +78,6 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
     ],
     queryFn: async () => {
       if (!config) return [];
-      // La función query es genérica y el tipo se infiere automáticamente
       const data = await querySelectDistinct(
         config.tableName,
         config.select,
@@ -83,7 +85,6 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
         config.multiJoinPaths,
         config.p_filters
       );
-
       return config.mapper(data || []);
     },
     enabled: !!config,
@@ -91,6 +92,29 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
   });
 
   const options = config ? fetchedOptions : staticOptions;
+
+  // Manejar cambios en la selección
+  const handleSelect = React.useCallback(
+    (value: string) => {
+      if (!column) return;
+
+      const currentFilter = column.getFilterValue() as string[] | undefined;
+      const newFilter = currentFilter?.includes(value)
+        ? currentFilter.filter((v) => v !== value)
+        : [...(currentFilter || []), value];
+
+      column.setFilterValue(newFilter.length > 0 ? newFilter : undefined);
+    },
+    [column]
+  );
+
+  // Verificar si un valor está seleccionado
+  const isSelected = React.useCallback(
+    (value: string) => {
+      return selectedValues.has(value);
+    },
+    [selectedValues]
+  );
 
   return (
     <Popover>
