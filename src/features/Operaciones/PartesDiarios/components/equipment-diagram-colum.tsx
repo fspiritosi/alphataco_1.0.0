@@ -96,6 +96,11 @@ export function getEquipmentDiagramColumns(
       accessorKey: 'picture',
       id: 'picture',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.picture ? <img className="size-10 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
+        </div>
+      ),
     },
     {
       accessorKey: 'chassis',
