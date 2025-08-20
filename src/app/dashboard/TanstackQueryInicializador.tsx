@@ -4,9 +4,9 @@ import React from 'react';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      gcTime: 60 * 1000,
-      // refetchOnWindowFocus: false,
-      staleTime: 60 * 1000,
+      // gcTime: 60 * 1000,
+      refetchOnWindowFocus: false,
+      // staleTime: 60 * 1000,
     },
   },
 });

@@ -213,10 +213,10 @@ export async function queryWithPagination<
 
   // Aplicar paginación
   query = query.range(from, to);
-  if (options.company_id_column && company_id) {
-    console.log('company_id_column', options.company_id_column);
-    query = query.eq(options.company_id_column as any, company_id);
-  }
+  // if (options.company_id_column && company_id) {
+  //   console.log('company_id_column', options.company_id_column);
+  //   query = query.eq(options.company_id_column as any, company_id);
+  // }
 
   // Ejecutar query
   const { data, error, count } = await query;
@@ -244,41 +244,12 @@ export async function fetchEmployeesData(options: {
   columnFilters: ColumnFiltersState;
   filters?: Filter<'employees'>[];
 }) {
-  const supabase = supabaseBrowser();
-
-  const { data: employees, error } = await supabase
-    .from('employees')
-    .select(
-      `
-      id,
-     work_diagram(id,name)
-    `
-    )
-    .is('work_diagram', null);
-  // .not('empleado_aptitudes', 'is', null);
-
-  //   // .filter('empleado_aptitudes.aptitudes_tecnicas.nombre', 'is', null);
-
-  console.log('-----------');
-  console.log(employees, 'employees');
-  // console.log(
-  //   employees?.filter((e) => e.id === 'a1e620c0-dd61-405f-a928-5da06c631adf'),
-  //   'Buscado'
-  // );
-
-  if (error) {
-    console.log(error, 'error');
-  }
-  console.log('-----------');
-
-  const companyId = Cookies.get('actualComp');
-  console.log(companyId, 'companyId');
   const data = await queryWithPagination(
     'employees',
     'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       ...options,
-      company_id_column: 'company_id',
+      // company_id_column: 'company_id',
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
       columnFilters: [...options.columnFilters],
       filters: options.filters?.concat([
@@ -336,8 +307,6 @@ export async function fetchEquipmentData(options: {
   filters?: Filter<'vehicles'>[];
   server?: boolean;
 }) {
-  const company_id = Cookies.get('actualComp');
-
   const data = await queryWithPagination(
     'vehicles',
     '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
