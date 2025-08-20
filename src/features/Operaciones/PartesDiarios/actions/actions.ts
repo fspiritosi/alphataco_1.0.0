@@ -637,7 +637,9 @@ export async function getActiveEmployeesForDailyReport() {
 
   const { data, error } = await supabase
     .from('employees')
-    .select('employees_diagram!inner(*,diagram_type(*)), contractor_employee(*),*,company_positions(*)')
+    .select(
+      'employees_diagram!inner(*,diagram_type(*)),contractor_employee(customers(id,name)),*,hierarchy(id,name),cities(id,name),provinces(id,name),empleado_aptitudes(aptitudes_tecnicas(nombre)),company_positions(*),work_diagram(id,name),cost_center(id,name)'
+    )
     .eq('is_active', true)
     .eq('employees_diagram.day', day)
     .eq('employees_diagram.month', month)
@@ -645,6 +647,8 @@ export async function getActiveEmployeesForDailyReport() {
     .eq('employees_diagram.diagram_type.work_active', true)
     .not('employees_diagram.diagram_type', 'is', null)
     .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+
+  // 'hierarchy(id,name),cities(id,name),provinces(id,name),contractor_employee(customers(id,name)),empleado_aptitudes(aptitudes_tecnicas(nombre)),employees_diagram!inner(*,diagram_type(*)),contractor_employee(*),*,company_positions(*),work_diagram(id,name),cost_center(id,name)'
 
   if (error) {
     console.error('Error al obtener empleados con diagrama:', error);
@@ -662,7 +666,9 @@ export async function getActiveEquipmentsForDailyReport() {
   } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('vehicles')
-    .select('*,contractor_equipment(*),type(*)')
+    .select(
+      '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(id,name))'
+    )
     .eq('is_active', true)
     .neq('condition', 'no operativo')
     .neq('condition', 'en reparacion')

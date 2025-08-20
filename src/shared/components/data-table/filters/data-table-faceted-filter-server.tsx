@@ -55,6 +55,7 @@ interface DataTableFacetedFilterProps<
   options?: Option[];
   disabled?: boolean;
   config?: FacetedFilterConfig<TableName, Query>;
+  hasNullFilter?: boolean;
 }
 
 export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Database['public']['Tables'] = never>({
@@ -63,6 +64,7 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
   options: staticOptions,
   disabled,
   config,
+  hasNullFilter = false,
 }: DataTableFacetedFilterProps<TData, TValue, TableName>) {
   // Obtener los valores seleccionados actuales
   const selectedValues = React.useMemo(() => {
@@ -156,21 +158,44 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
             ) : (
               <CommandGroup>
                 {options.map((option) => {
-                  const selected = isSelected(option.value);
+                  const isSelected = selectedValues.has(option.value);
+                  const isDisabled = hasNullFilter && option.value !== null && option.value !== 'null';
                   return (
-                    <CommandItem key={option.value} onSelect={() => handleSelect(option.value)}>
+                    <CommandItem
+                      key={option.value}
+                      disabled={isDisabled}
+                      onSelect={() => {
+                        if (isDisabled) return;
+                        if (isSelected) {
+                          selectedValues.delete(option.value);
+                        } else {
+                          selectedValues.add(option.value);
+                        }
+                        const filterValues = Array.from(selectedValues);
+                        column?.setFilterValue(filterValues.length ? filterValues : undefined);
+                      }}
+                      className={cn(isDisabled && 'opacity-50 cursor-not-allowed')}
+                    >
                       <div
                         className={cn(
                           'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
-                          selected ? 'bg-primary text-primary-foreground' : 'opacity-50 [&_svg]:invisible'
+                          isSelected ? 'bg-primary text-primary-foreground' : 'opacity-50 [&_svg]:invisible',
+                          isDisabled && 'opacity-30'
                         )}
                       >
                         <CheckIcon className={cn('h-4 w-4')} />
                       </div>
-                      {option.icon && <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
-                      <span>{option.label}</span>
+                      {option.icon && (
+                        <option.icon className={cn('mr-2 h-4 w-4 text-muted-foreground', isDisabled && 'opacity-30')} />
+                      )}
+                      <span className={cn(isDisabled && 'opacity-30')}>{option.label}</span>
                       {option.count !== undefined && (
-                        <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
+                        <span
+                          className={cn(
+                            'ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs',
+                            isDisabled && 'opacity-30'
+                          )}
+                        >
                           {option.count}
                         </span>
                       )}

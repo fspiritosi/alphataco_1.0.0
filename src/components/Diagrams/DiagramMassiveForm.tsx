@@ -95,14 +95,7 @@ const fetchData = async ({
     'employees',
     'id,lastname,firstname,document_number, workflow_diagram, employees_diagram(*,diagram_type(*)), contractor_employee(*,customers(id,name))',
     {
-      filters: [
-        {
-          column: 'company_id',
-          operator: 'eq',
-          value: company_id,
-        },
-        ...filters,
-      ],
+      filters: [...filters],
       page: page,
       pageSize: pageSize,
       orderBy: 'lastname',

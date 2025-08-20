@@ -32,6 +32,24 @@ export async function fetchContractorCompanies() {
   }
   return data;
 }
+export async function fetchAllContractorForVehicles() {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id,name')
+    .order('name', { ascending: true })
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Error fetching contractor companies:', error);
+    return [];
+  }
+  return data;
+}
 
 export async function fetchAllCompanyPositon() {
   const cookiesStore = cookies();
