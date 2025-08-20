@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import BackButton from '@/components/BackButton';
+import DocumentEquipmentComponent from '@/components/DocumentEquipmentComponent';
+import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
 import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form';
@@ -15,6 +17,7 @@ import {
   getVehicleBrands,
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
+import { getRole } from '@/lib/utils/getRole';
 import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
 
 interface VehiclePageProps {
@@ -26,6 +29,7 @@ export type VehicleById = Awaited<ReturnType<typeof getVehicleById>> | null;
 export default async function VehiclePage({ searchParams }: VehiclePageProps) {
   const id = searchParams.id;
   const mode = searchParams.action || 'view';
+  const role = await getRole();
 
   let vehicle: null | VehicleById = null;
 
@@ -43,7 +47,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
 
   return (
     <div className="p-6 space-y-6">
-      <Card>
+      <Card className="p-4">
         {/* Vehicle Header */}
         {mode !== 'new' ? (
           <Suspense fallback={<VehicleHeaderSkeleton />}>
@@ -67,8 +71,16 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           subTypesPromise={getSubTypesByType(vehicle?.type.id!)}
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
-          documentsComponent={<div>componente1</div>}
-          repairsComponent={<div>componente2</div>}
+          documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} role={role} />}
+          repairsComponent={
+            <RepairTypes
+              tabValue="created_solicitudes"
+              equipment_id={searchParams.id}
+              type_of_repair_new_entry
+              created_solicitudes
+              defaultValue="created_solicitudes"
+            />
+          }
         />
       </Card>
     </div>

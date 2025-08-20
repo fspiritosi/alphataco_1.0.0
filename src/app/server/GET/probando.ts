@@ -1,7 +1,6 @@
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
-import Cookies from 'js-cookie';
 import { Database } from '../../../../database.types';
 // Tipo para los operadores de filtro
 type FilterOperator =
@@ -41,6 +40,7 @@ export async function queryWithPagination<
     filters?: Filter<TableName>[];
     server?: boolean;
     company_id_column?: keyof Database['public']['Tables'][TableName]['Row'];
+    is_active?: boolean | null;
   }
 ) {
   let supabase;
@@ -49,8 +49,6 @@ export async function queryWithPagination<
   } else {
     supabase = supabaseBrowser();
   }
-
-  const company_id = Cookies.get('actualComp');
   // Calcular rango para paginación
   const from = options.pageIndex * options.pageSize;
   const to = from + options.pageSize - 1;
@@ -213,10 +211,10 @@ export async function queryWithPagination<
 
   // Aplicar paginación
   query = query.range(from, to);
-  // if (options.company_id_column && company_id) {
-  //   console.log('company_id_column', options.company_id_column);
-  //   query = query.eq(options.company_id_column as any, company_id);
-  // }
+  if (typeof options.is_active === 'boolean') {
+    console.log('company_id_column', options.company_id_column);
+    query = query.eq('is_active' as any, options.is_active as any);
+  }
 
   // Ejecutar query
   const { data, error, count } = await query;
@@ -299,6 +297,7 @@ export async function fetchInactiveEmployeesData(options: {
 
   return data;
 }
+
 export async function fetchEquipmentData(options: {
   pageIndex: number;
   pageSize: number;
@@ -321,6 +320,37 @@ export async function fetchEquipmentData(options: {
           column: 'is_active',
           operator: 'eq',
           value: true,
+        },
+      ]),
+      server: options.server,
+    }
+  );
+
+  console.log('🚀 fetchEquipmentData - Resultado:', data);
+
+  return data;
+}
+export async function fetchInactiveEquipmentData(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const data = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      ...options,
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      company_id_column: 'company_id',
+      is_active: false,
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: false,
         },
       ]),
       server: options.server,
@@ -379,6 +409,33 @@ export async function fetchAllEquipmentsData(options: {
           column: 'is_active',
           operator: 'eq',
           value: true,
+        },
+      ]),
+      server: false,
+    }
+  );
+
+  return result;
+}
+export async function fetchAllInactiveEquipmentsData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const result = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      pageIndex: 0,
+      pageSize: 10000, // Límite alto para obtener todos los datos
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      columnFilters: options.columnFilters,
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: false,
         },
       ]),
       server: false,

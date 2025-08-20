@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
-import { use, useEffect, useState } from 'react';
+import { use } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 
 interface VehicleAssignmentDataFormProps {
@@ -24,41 +24,19 @@ export function VehicleAssignmentDataForm({
   costCentersPromise,
 }: VehicleAssignmentDataFormProps) {
   const costCenters = use(costCentersPromise);
-  const contractors = use(contractorsPromise);
-
-  const [selectedContractors, setSelectedContractors] = useState<string[]>([]);
-
-  // useEffect(() => {
-  //     const loadCatalogs = async () => {
-  //         try {
-  //             const [costCentersData, contractorsData] = await Promise.all([fetchAllCostCenter(), fetchContractorCompanies()])
-
-  //             setCostCenters(costCentersData)
-  //             setContractors(contractorsData)
-  //         } catch (error) {
-  //             console.error("Error loading catalogs:", error)
-  //         }
-  //     }
-
-  //     loadCatalogs()
-  // }, [])
-
-  useEffect(() => {
-    const allocatedTo = form.getValues('allocated_to') || [];
-    setSelectedContractors(allocatedTo);
-  }, [form]);
+  const contractorCompanies = use(contractorsPromise);
+  const allocatedTo = form.watch('allocated_to') || [];
 
   const handleContractorChange = (contractorId: string, checked: boolean) => {
-    let newSelected: string[];
-
+    const currentAllocated = form.getValues('allocated_to') || [];
     if (checked) {
-      newSelected = [...selectedContractors, contractorId];
+      form.setValue('allocated_to', [...currentAllocated, contractorId]);
     } else {
-      newSelected = selectedContractors.filter((id) => id !== contractorId);
+      form.setValue(
+        'allocated_to',
+        currentAllocated.filter((id: string) => id !== contractorId)
+      );
     }
-
-    setSelectedContractors(newSelected);
-    form.setValue('allocated_to', newSelected);
   };
 
   return (
@@ -105,10 +83,10 @@ export function VehicleAssignmentDataForm({
                 <div className="space-y-4">
                   {readOnly ? (
                     <div>
-                      {selectedContractors.length > 0 ? (
+                      {allocatedTo.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {selectedContractors.map((contractorId) => {
-                            const contractor = contractors.find((c) => c.id === contractorId);
+                          {allocatedTo.map((contractorId: any) => {
+                            const contractor = contractorCompanies.find((c) => c.id === contractorId);
                             return (
                               <Badge key={contractorId} variant="secondary">
                                 {contractor?.name || contractorId}
@@ -122,12 +100,14 @@ export function VehicleAssignmentDataForm({
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {contractors.map((contractor) => (
+                      {contractorCompanies.map((contractor) => (
                         <div key={contractor.id} className="flex items-center space-x-2">
                           <Checkbox
                             id={contractor.id}
-                            checked={selectedContractors.includes(contractor.id)}
-                            onCheckedChange={(checked) => handleContractorChange(contractor.id, checked as boolean)}
+                            checked={allocatedTo.includes(contractor.id)}
+                            onCheckedChange={(checked) =>
+                              handleContractorChange(contractor.id, !allocatedTo.includes(contractor.id))
+                            }
                           />
                           <label
                             htmlFor={contractor.id}

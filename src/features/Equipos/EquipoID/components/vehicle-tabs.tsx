@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { VehicleAssignmentDataForm } from '../forms/vehicle-assignment-data-form';
 import { VehicleBasicDataForm } from '../forms/vehicle-basic-data-form';
-import { VehicleTechnicalDataForm } from '../forms/vehicle-technical-data-form';
 import {
   getModelsByBrand,
   getSubTypesByType,
@@ -73,32 +72,43 @@ export function VehicleTabs({
 
   const [errors, setErrors] = useState<{
     basicData: boolean;
-    technicalData: boolean;
+    // technicalData: boolean;
     assignmentData: boolean;
   }>({
     basicData: false,
-    technicalData: false,
+    // technicalData: false,
     assignmentData: false,
   });
 
   useEffect(() => {
-    const basicDataFields = ['type_of_vehicle', 'brand', 'model', 'year'];
-    const technicalDataFields = ['engine', 'type', 'subType', 'chassis', 'serie', 'domain'];
+    const basicDataFields = [
+      'type_of_vehicle',
+      'brand',
+      'model',
+      'year',
+      'engine',
+      'type',
+      'subType',
+      'chassis',
+      'serie',
+      'domain',
+    ];
+    // const technicalDataFields = ['engine', 'type', 'subType', 'chassis', 'serie', 'domain'];
     const assignmentDataFields = ['allocated_to', 'cost_center_id'];
 
     const basicDataErrors = basicDataFields.some(
       (field) => form.formState.errors[field as keyof typeof form.formState.errors]
     );
-    const technicalDataErrors = technicalDataFields.some(
-      (field) => form.formState.errors[field as keyof typeof form.formState.errors]
-    );
+    // const technicalDataErrors = technicalDataFields.some(
+    //   (field) => form.formState.errors[field as keyof typeof form.formState.errors]
+    // );
     const assignmentDataErrors = assignmentDataFields.some(
       (field) => form.formState.errors[field as keyof typeof form.formState.errors]
     );
 
     setErrors({
       basicData: basicDataErrors,
-      technicalData: technicalDataErrors,
+      // technicalData: technicalDataErrors,
       assignmentData: assignmentDataErrors,
     });
   }, [form.formState.errors]);
@@ -106,14 +116,10 @@ export function VehicleTabs({
   return (
     <div className="p-2">
       <Tabs defaultValue="basicData" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="basicData" className="relative">
             Datos Básicos
             {errors?.basicData && <Badge variant="destructive" className="ml-2 h-2 w-2 p-0" />}
-          </TabsTrigger>
-          <TabsTrigger value="technicalData" className="relative">
-            Datos Técnicos
-            {errors?.technicalData && <Badge variant="destructive" className="ml-2 h-2 w-2 p-0" />}
           </TabsTrigger>
           <TabsTrigger value="assignmentData" className="relative">
             Asignación
@@ -132,20 +138,22 @@ export function VehicleTabs({
             <VehicleBasicDataForm
               brandsPromise={brandsPromise}
               modelsPromise={modelsPromise}
+              typesPromise={typesPromise}
+              subTypesPromise={subTypesPromise}
               typesOfVehiclesPromise={typesOfVehiclesPromise}
               form={form}
               readOnly={readOnly}
             />
           </TabsContent>
-          <TabsContent value="technicalData" className="space-y-4">
+          {/* <TabsContent value="technicalData" className="space-y-4">
             <VehicleTechnicalDataForm
               typesPromise={typesPromise}
-              typesOfVehiclesPromise={typesOfVehiclesPromise}
               subTypesPromise={subTypesPromise}
+              typesOfVehiclesPromise={typesOfVehiclesPromise}
               form={form}
               readOnly={readOnly}
             />
-          </TabsContent>
+          </TabsContent> */}
           <TabsContent value="assignmentData" className="space-y-4">
             <VehicleAssignmentDataForm
               contractorsPromise={contractorsPromise}

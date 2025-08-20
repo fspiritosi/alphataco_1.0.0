@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -37,38 +38,138 @@ interface VehicleFormProps {
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
 }
 
-const vehicleSchema = z.object({
-  // Basic Data
-  type_of_vehicle: z.string().min(1, 'El tipo de equipo es requerido'),
-  brand: z.string().min(1, 'La marca es requerida'),
-  model: z.string().min(1, 'El modelo es requerido'),
-  year: z
-    .string()
-    .min(1, 'El año es requerido')
-    .refine(
-      (year) => {
-        const yearNum = Number(year);
-        const currentYear = new Date().getFullYear();
-        return yearNum >= 1900 && yearNum <= currentYear;
-      },
-      { message: 'El año debe ser mayor a 1900 y menor al año actual' }
-    ),
+const vehicleSchema = z
+  .object({
+    // Basic Data
+    type_of_vehicle: z.string().min(1, 'El tipo de equipo es requerido'),
+    brand: z.string().min(1, 'La marca es requerida'),
+    model: z.string().min(1, 'El modelo es requerido'),
+    year: z
+      .string()
+      .min(1, 'El año es requerido')
+      .refine(
+        (year) => {
+          const yearNum = Number(year);
+          const currentYear = new Date().getFullYear();
+          return yearNum >= 1900 && yearNum <= currentYear;
+        },
+        { message: 'El año debe ser mayor a 1900 y menor al año actual' }
+      ),
 
-  // Technical Data
-  engine: z.string().optional(),
-  type: z.string().optional(),
-  subType: z.string().optional(),
-  chassis: z.string().optional(),
-  serie: z.string().optional(),
-  domain: z.string().optional(),
-  kilometer: z.string().optional(),
-  intern_number: z.string().optional(),
-  picture: z.string().optional(),
+    // Technical Data
+    engine: z.string().optional(),
+    type: z.string().optional(),
+    subType: z.string().optional(),
+    chassis: z.string().optional(),
+    serie: z.string().optional(),
+    domain: z.string().optional().nullable(),
+    kilometer: z.string().optional(),
+    intern_number: z.string().optional(),
+    picture: z.string().optional(),
 
-  // Assignment Data
-  allocated_to: z.array(z.string()).optional(),
-  cost_center_id: z.string().optional(),
-});
+    // Assignment Data
+    allocated_to: z.array(z.string()).optional(),
+    cost_center_id: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.type_of_vehicle === '1') {
+        return !!data.type;
+      }
+      return true;
+    },
+    { message: 'El tipo es requerido', path: ['type'] }
+  )
+  .refine(
+    (data) => {
+      if (data.type_of_vehicle === '1') {
+        return !!data.subType;
+      }
+      return true;
+    },
+    { message: 'El subtipo es requerido', path: ['subType'] }
+  )
+  .refine(
+    (data) => {
+      if (data.type_of_vehicle === '1') {
+        return !!data.chassis && data.chassis.length >= 2 && data.chassis.length <= 30;
+      }
+      return true;
+    },
+    { message: 'El chasis debe tener entre 2 y 30 caracteres', path: ['chassis'] }
+  )
+  .refine(
+    (data) => {
+      if (data.type_of_vehicle === '1') {
+        return !!data.serie && data.serie.length >= 2 && data.serie.length <= 30;
+      }
+      return true;
+    },
+    { message: 'La serie debe tener entre 2 y 30 caracteres', path: ['serie'] }
+  )
+  .refine(
+    (data) => {
+      if (data.type_of_vehicle === '1') {
+        if (!data.domain) return false;
+        const domain = data.domain.toUpperCase();
+        const year = Number(data.year);
+
+        const oldRegex = /^[A-Za-z]{3}[0-9]{3}$/; // AAA000
+        if (year <= 2015) {
+          return oldRegex.test(domain);
+        }
+      }
+      return true;
+    },
+    { message: 'El dominio debe tener el formato AAA000. (verificar año)', path: ['domain'] }
+  )
+  .refine(
+    (data) => {
+      if (data.type_of_vehicle === '1') {
+        if (!data.domain) return false;
+        const domain = data.domain.toUpperCase();
+        const year = Number(data.year);
+
+        const newRegex = /^[A-Za-z]{2}[0-9]{3}[A-Za-z]{2}$/; // AA000AA
+        if (year >= 2017) {
+          return newRegex.test(domain);
+        }
+      }
+      return true;
+    },
+    { message: 'El dominio debe tener el formato AA000AA. (verificar año)', path: ['domain'] }
+  )
+  .refine(
+    (data) => {
+      if (data.type_of_vehicle === '1') {
+        if (!data.domain) return false;
+        const domain = data.domain.toUpperCase();
+        const year = Number(data.year);
+
+        const newRegex = /^[A-Za-z]{2}[0-9]{3}[A-Za-z]{2}$/; // AA000AA
+        const oldRegex = /^[A-Za-z]{3}[0-9]{3}$/; // AAA000
+        if (year === 2016 || year === 2015) {
+          return newRegex.test(domain) || oldRegex.test(domain);
+        }
+      }
+      return true;
+    },
+    { message: 'El dominio debe tener uno de los formatos: AA000AA o AAA000. (verificar año)', path: ['domain'] }
+  )
+  .refine(
+    async (data) => {
+      if (data.type_of_vehicle === '1' && data.domain) {
+        const supabase = supabaseBrowser();
+        let { data: vehicles } = await supabase.from('vehicles').select('id').eq('domain', data.domain.toUpperCase());
+
+        if (vehicles?.[0]?.id && window.location.href.includes('/dashboard/equipment/action?action=new')) {
+          return false;
+        }
+      }
+      return true;
+    },
+    { message: 'El dominio ya existe', path: ['domain'] }
+  );
 
 export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: VehicleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,7 +240,7 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
     } else {
       const params = new URLSearchParams(searchParams.toString());
       params.set('action', 'view');
-      params.set('vehicle_id', createdVehicleId.toString());
+      params.set('id', createdVehicleId.toString());
       router.refresh();
       router.push(`${pathname}?${params.toString()}`);
     }
