@@ -290,6 +290,7 @@ export async function fetchInactiveEmployeesData(options: {
     {
       ...options,
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
+      is_active: false,
       filters: options.filters?.concat([
         {
           column: 'is_active',
