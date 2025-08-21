@@ -46,6 +46,8 @@ import { es } from 'date-fns/locale';
 import moment from 'moment';
 import { toast } from 'sonner';
 import { transformDailyReports } from './DayliReportDetailTable';
+import { SearchEmployee } from './SearchEmployee';
+import { SearchEquipment } from './SearchEquipment';
 
 type DailyReportFormProps = {
   // onSubmit: (data: DailyReportFormValues) => void;
@@ -165,7 +167,6 @@ export function DailyReportForm({
   selectedRow,
   disabled,
   formattedData,
-
   dailyReport,
 }: DailyReportFormProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -548,7 +549,7 @@ export function DailyReportForm({
       employees?.filter(
         (employee) =>
           employee.is_active &&
-          employee.contractor_employee?.some((ce) => ce.contractor_id === selectedCustomerId) &&
+          employee.contractor_employee?.some((ce) => ce.customers?.id === selectedCustomerId) &&
           (employee.workflow_diagram || employee.employees_diagram?.length > 0) // Verificar si tiene diagrama de trabajo
       ) || []
     );
@@ -559,7 +560,7 @@ export function DailyReportForm({
     if (!selectedCustomerId) return [];
     return (
       equipments?.filter((equipment) =>
-        equipment.contractor_equipment?.some((ce) => ce.contractor_id === selectedCustomerId)
+        equipment.contractor_equipment?.some((ce) => ce.customers?.id === selectedCustomerId)
       ) || []
     );
   }, [equipments, selectedCustomerId]);
@@ -1429,6 +1430,7 @@ export function DailyReportForm({
                           </div>
                         </div>
                       )}
+                      <SearchEmployee field={field} employees={filteredEmployees} />
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -1513,6 +1515,8 @@ export function DailyReportForm({
                                             const newValues = currentValues.includes(employee.id)
                                               ? currentValues.filter((id) => id !== employee.id)
                                               : [...currentValues, employee.id];
+
+                                            console.log(newValues, 'newValues');
                                             field.onChange(newValues);
                                           }}
                                         >
@@ -1608,6 +1612,7 @@ export function DailyReportForm({
                           </div>
                         </div>
                       )}
+                      <SearchEquipment field={field} equipment={filteredEquipments} />
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>

@@ -2,7 +2,6 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { Database } from '../../../../database.types';
-
 // Tipo para los operadores de filtro
 type FilterOperator =
   | 'eq'
@@ -40,6 +39,8 @@ export async function queryWithPagination<
     columnFilters?: ColumnFiltersState;
     filters?: Filter<TableName>[];
     server?: boolean;
+    company_id_column?: keyof Database['public']['Tables'][TableName]['Row'];
+    is_active?: boolean | null;
   }
 ) {
   let supabase;
@@ -48,7 +49,6 @@ export async function queryWithPagination<
   } else {
     supabase = supabaseBrowser();
   }
-
   // Calcular rango para paginación
   const from = options.pageIndex * options.pageSize;
   const to = from + options.pageSize - 1;
@@ -59,7 +59,7 @@ export async function queryWithPagination<
   // Aplicar filtros
   if (options.columnFilters) {
     for (const filter of options.columnFilters) {
-      const { id, value } = filter;
+      const { id, value } = filter as any;
 
       if (!value) continue;
 
@@ -72,28 +72,37 @@ export async function queryWithPagination<
         // Para relaciones anidadas, construir la cadena de relación completa
         const parts = id.split('.');
         const columnName = parts[parts.length - 1]; // La última parte es la columna
+        console.log();
 
-        // Para relaciones de múltiples niveles, necesitamos aplicar NOT NULL en cada nivel
-        if (parts.length > 2) {
-          // Relación de múltiples niveles (ej: contractor_employee.customers.name)
-          console.log('🔗 Relación de múltiples niveles detectada:', { parts });
-
-          // Aplicar NOT NULL para cada nivel de la relación
-          for (let i = 0; i < parts.length - 1; i++) {
-            const relationPath = parts.slice(0, i + 1).join('.');
-            console.log('🚫 Aplicando filtro NOT NULL para nivel:', { relationPath });
-            query = query.not(relationPath, 'is', null);
-          }
+        if (value === null || value[0] === 'null' || value[0] === null) {
+          console.log('🚫 Aplicando filtro NOT NULL para relación simple deberia desde aqui');
+          console.log(columnName, 'columnName');
+          console.log(parts, 'parts');
+          query = query.is(id, null);
         } else {
-          // Relación simple (ej: provinces.name)
-          const [relationTable] = parts;
-          console.log('🚫 Aplicando filtro NOT NULL para relación simple:', { relationTable });
-          query = query.not(relationTable, 'is', null);
+          // Para relaciones de múltiples niveles, necesitamos aplicar NOT NULL en cada nivel
+          if (parts.length > 2) {
+            // Relación de múltiples niveles (ej: contractor_employee.customers.name)
+            console.log('🔗 Relación de múltiples niveles detectada:', { parts });
+
+            // Aplicar NOT NULL para cada nivel de la relación
+            for (let i = 0; i < parts.length - 1; i++) {
+              const relationPath = parts.slice(0, i + 1).join('.');
+              console.log('🚫 Aplicando filtro NOT NULL para nivel:', { relationPath });
+              query = query.not(relationPath, 'is', null);
+            }
+          } else {
+            // Relación simple (ej: provinces.name)
+
+            const [relationTable] = parts;
+            console.log('🚫 Aplicando filtro NOT NULL para relación simple:', { relationTable });
+            query = query.not(relationTable, 'is', null);
+          }
         }
 
         // Luego aplicar el filtro específico
         // Para filtros múltiples en relaciones - usar operador IN
-        if (Array.isArray(value) && value.length > 0) {
+        if (Array.isArray(value) && value.length > 0 && value[0] !== 'null' && value[0] !== null) {
           console.log('📋 Aplicando filtro IN en relación:', { id, values: value });
           query = query.in(id, value);
         }
@@ -202,9 +211,20 @@ export async function queryWithPagination<
 
   // Aplicar paginación
   query = query.range(from, to);
+  if (typeof options.is_active === 'boolean') {
+    console.log('company_id_column', options.company_id_column);
+    query = query.eq('is_active' as any, options.is_active as any);
+  }
 
   // Ejecutar query
   const { data, error, count } = await query;
+
+  console.log('🚀 queryWithPagination - Error:', {
+    error: error,
+  });
+  console.log('🚀 queryWithPagination - encontrados:', {
+    count,
+  });
 
   if (error) {
     console.error('🚨 Error en queryWithPagination:', error);
@@ -229,20 +249,14 @@ export async function fetchEmployeesData(options: {
   columnFilters: ColumnFiltersState;
   filters?: Filter<'employees'>[];
 }) {
-  console.log('🚀 fetchEmployeesData - Opciones recibidas:', {
-    pageIndex: options.pageIndex,
-    pageSize: options.pageSize,
-    sorting: options.sorting,
-    columnFilters: options.columnFilters,
-    filters: options.filters,
-  });
-
   const data = await queryWithPagination(
     'employees',
     'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       ...options,
+      // company_id_column: 'company_id',
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
+      columnFilters: [...options.columnFilters],
       filters: options.filters?.concat([
         {
           column: 'is_active',
@@ -290,6 +304,7 @@ export async function fetchInactiveEmployeesData(options: {
 
   return data;
 }
+
 export async function fetchEquipmentData(options: {
   pageIndex: number;
   pageSize: number;
@@ -298,25 +313,49 @@ export async function fetchEquipmentData(options: {
   filters?: Filter<'vehicles'>[];
   server?: boolean;
 }) {
-  console.log('🚀 fetchEmployeesData - Opciones recibidas:', {
-    pageIndex: options.pageIndex,
-    pageSize: options.pageSize,
-    sorting: options.sorting,
-    columnFilters: options.columnFilters,
-    filters: options.filters,
-  });
-
   const data = await queryWithPagination(
     'vehicles',
     '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
     {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
+      company_id_column: 'company_id',
       filters: options.filters?.concat([
         {
           column: 'is_active',
           operator: 'eq',
           value: true,
+        },
+      ]),
+      server: options.server,
+    }
+  );
+
+  console.log('🚀 fetchEquipmentData - Resultado:', data);
+
+  return data;
+}
+export async function fetchInactiveEquipmentData(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const data = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      ...options,
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      company_id_column: 'company_id',
+      is_active: false,
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: false,
         },
       ]),
       server: options.server,
@@ -375,6 +414,33 @@ export async function fetchAllEquipmentsData(options: {
           column: 'is_active',
           operator: 'eq',
           value: true,
+        },
+      ]),
+      server: false,
+    }
+  );
+
+  return result;
+}
+export async function fetchAllInactiveEquipmentsData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const result = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      pageIndex: 0,
+      pageSize: 10000, // Límite alto para obtener todos los datos
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      columnFilters: options.columnFilters,
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: false,
         },
       ]),
       server: false,
@@ -515,15 +581,24 @@ export async function queryPaginated<TableName extends keyof Database['public'][
     filters,
     orderBy,
     ascending = true,
+    innerData,
   }: {
     page?: number;
     pageSize?: number;
     filters?: Filter<TableName>[];
     orderBy?: keyof Database['public']['Tables'][TableName]['Row'];
     ascending?: boolean;
+    innerData?: null | Record<string, string>;
   } = {}
 ) {
   const supabase = supabaseBrowser();
+
+  if (Object.entries(innerData || {}).length > 0) {
+    Object.entries(innerData || {}).forEach(([key, value]) => {
+      select = select.replace(key, value) as typeof select;
+    });
+  }
+
   let query = supabase.from(tableName).select(select, { count: 'exact' });
 
   // Aplicar filtros

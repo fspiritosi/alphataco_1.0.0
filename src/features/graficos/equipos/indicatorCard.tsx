@@ -42,10 +42,10 @@ export default function IndicatorCardEquipment({
           <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={
-              activeEquipment !== undefined
-                ? activeEquipment >= condiciones_indicadores.success
+              Math.round(disponibleEquipmentPorcent) !== 0
+                ? Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
                   ? 'success'
-                  : activeEquipment >= condiciones_indicadores.warning
+                  : Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.warning
                     ? 'warning'
                     : 'destructive'
                 : 'destructive'
@@ -67,10 +67,10 @@ export default function IndicatorCardEquipment({
           <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={
-              activeEquipment !== undefined
-                ? activeEquipment >= condiciones_indicadores.success
+              Math.round(disponibleEquipmentPorcent) !== 0
+                ? Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
                   ? 'success'
-                  : activeEquipment >= condiciones_indicadores.warning
+                  : Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.warning
                     ? 'warning'
                     : 'destructive'
                 : 'destructive'
@@ -92,10 +92,10 @@ export default function IndicatorCardEquipment({
           <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={
-              activeEquipment !== undefined
-                ? activeEquipment >= condiciones_indicadores.success
+              Math.round(disponibleEquipmentPorcent) !== 0
+                ? Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
                   ? 'success'
-                  : activeEquipment >= condiciones_indicadores.warning
+                  : Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.warning
                     ? 'warning'
                     : 'destructive'
                 : 'destructive'

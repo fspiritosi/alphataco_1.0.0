@@ -85,27 +85,26 @@ const fetchData = async ({
   page,
   pageSize,
   company_id,
+  innerData,
 }: {
   filters: Filter<'employees'>[];
   page: number;
   pageSize: number;
   company_id: string;
+  innerData: null | Record<string, string>;
 }) => {
+  // let query =
+
   const employeesData = await queryPaginated(
     'employees',
-    'id,lastname,firstname,document_number, workflow_diagram, employees_diagram(*,diagram_type(*)), contractor_employee(*,customers(id,name))',
+    'id,lastname,firstname,document_number, workflow_diagram, employees_diagram(*,diagram_type(*)),contractor_employee(*,customers(id,name))',
+
     {
-      filters: [
-        {
-          column: 'company_id',
-          operator: 'eq',
-          value: company_id,
-        },
-        ...filters,
-      ],
+      filters: [...filters],
       page: page,
       pageSize: pageSize,
       orderBy: 'lastname',
+      innerData,
     }
   );
   return employeesData;
@@ -276,6 +275,19 @@ export function DiagramMassiveForm({
       employeesCount: employees.length,
     });
 
+    console.log('-------------------------------------');
+    const supabase = supabaseBrowser();
+    const { data, error } = await supabase
+      .from('employees')
+      .select(
+        'id,lastname,firstname,document_number, workflow_diagram, employees_diagram(*,diagram_type(*)),contractor_employee!inner(*,customers(id,name))'
+      )
+      .in('workflow_diagram', ['30a94782-6d47-4eb0-be97-318f065b73ff'])
+      .in('contractor_employee.customers.id', ['c7493c97-4a23-4ea3-9ff1-65c04d7530d9']);
+
+    console.log(data, 'data');
+    console.log(error, 'data');
+    console.log('-------------------------------------');
     // Si estamos cargando la primera página, reiniciamos el estado
     if (page === 1 && !append) {
       console.log('📊 [DEBUG] Reiniciando estado para página 1');
@@ -385,19 +397,23 @@ export function DiagramMassiveForm({
           value: filters.category,
         });
       }
+      let innerData = {};
 
       if (filters['contractor_employee.contractor_id'] && filters['contractor_employee.contractor_id'].length > 0) {
         queryFilters.push({
-          column: 'contractor_employee.contractor_id',
+          column: 'contractor_employee.customers.id',
           operator: 'in',
           value: filters['contractor_employee.contractor_id'],
         });
         // Excluir empleados sin relación contractor_employee
-        queryFilters.push({
-          column: 'contractor_employee',
-          operator: 'not.is',
-          value: null,
-        });
+        // queryFilters.push({
+        //   column: 'contractor_employee',
+        //   operator: 'not.is',
+        //   value: null,
+        // });
+        innerData = {
+          'contractor_employee(': 'contractor_employee!inner(',
+        };
       }
 
       console.log('📊 [DEBUG] Filtros finales construidos:', queryFilters);
@@ -410,6 +426,7 @@ export function DiagramMassiveForm({
         page: page,
         pageSize: 100,
         company_id: company_id || '',
+        innerData,
       });
 
       console.log('📊 [DEBUG] Respuesta de fetchData:', {

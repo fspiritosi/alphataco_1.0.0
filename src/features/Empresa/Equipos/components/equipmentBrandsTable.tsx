@@ -1,9 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
+import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import React from 'react';
+import { FetchBrandOfVehiclesPagination } from '../actions/actions';
 
 type EquipmentBrand = {
   id: string;
@@ -12,19 +13,20 @@ type EquipmentBrand = {
   created_at?: string;
   updated_at?: string;
 };
+
 const defaultVisibility: VisibilityState = {
-  Nombre: true,
-  Estado: true,
-  Acciones: true,
+  name: true,
+  is_active: true,
+  actions: true,
 } as const;
+
 export function getEquipmentBrandColumns(
   onEdit: (equipmentBrand: EquipmentBrand) => void
 ): ColumnDef<EquipmentBrand>[] {
   return [
     {
       accessorKey: 'name',
-      id: 'Nombre',
-      // header: () => <span className="w-[200px]">Nombre</span>,
+      id: 'name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
       filterFn: (row, id, value) => {
@@ -33,7 +35,7 @@ export function getEquipmentBrandColumns(
     },
     {
       accessorKey: 'is_active',
-      id: 'Estado',
+      id: 'is_active',
       header: 'Estado',
       cell: ({ row }) => (
         <Badge variant={row.original.is_active ? 'success' : 'default'}>
@@ -41,7 +43,6 @@ export function getEquipmentBrandColumns(
         </Badge>
       ),
       filterFn: (row, id, value) => {
-        // Convertir el valor booleano a string para comparar con los valores del filtro
         const rowValue = String(row.original.is_active);
         return value.includes(rowValue);
       },
@@ -58,31 +59,59 @@ export function getEquipmentBrandColumns(
     },
   ];
 }
+
 interface EquipmentBrandsTableProps {
   equipmentBrands: EquipmentBrand[];
   onEdit?: (equipmentBrand: EquipmentBrand) => void;
   savedVisibility?: VisibilityState;
-  savedFilter?: string[];
-  names?: { label: string; value: string }[];
 }
 
 function EquipmentBrandsTable({
   equipmentBrands,
   onEdit = () => {},
   savedVisibility = defaultVisibility,
-  savedFilter = [],
-  names = [],
 }: EquipmentBrandsTableProps) {
-  // Obtener las columnas con la función onEdit
+  const [columnFilters, setColumnFilters] = React.useState<Array<{ id: string; value: any }>>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('equipment-brands-table-brand');
+      if (!saved) return [];
+      const filters = JSON.parse(saved);
+      return Object.entries(filters)
+        .filter(([_, value]) => value !== undefined && value !== '')
+        .map(([id, value]) => ({ id, value }));
+    } catch (error) {
+      console.error('Error al cargar filtros guardados:', error);
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const filtersObj = columnFilters.reduce(
+        (acc, { id, value }) => ({
+          ...acc,
+          [id]: value,
+        }),
+        {}
+      );
+      localStorage.setItem('equipment-brands-table-brand', JSON.stringify(filtersObj));
+    } catch (error) {
+      console.error('Error al guardar filtros:', error);
+    }
+  }, [columnFilters]);
+
+  const handleFilterChange = (filters: Array<{ id: string; value: any }>) => {
+    setColumnFilters(filters);
+  };
+
+  const initialVisibleFilters = React.useMemo(() => {
+    return columnFilters.map((filter) => filter.id);
+  }, [columnFilters]);
+
   const columns = React.useMemo(() => getEquipmentBrandColumns(onEdit), [onEdit]);
 
-  // Opciones para el filtro de estado
-  const statusOptions = [
-    { label: 'Activo', value: 'true' },
-    { label: 'Inactivo', value: 'false' },
-  ];
-
-  // Generar opciones de nombres para los filtros
   const nameOptions = React.useMemo(() => {
     return equipmentBrands?.map((type) => ({
       label: type.name,
@@ -90,15 +119,14 @@ function EquipmentBrandsTable({
     }));
   }, [equipmentBrands]);
 
-  // Configuración de las columnas filtrables
   const filterableColumns = [
     {
-      columnId: 'Nombre',
+      columnId: 'name',
       title: 'Nombre',
       options: nameOptions,
     },
     {
-      columnId: 'Estado',
+      columnId: 'is_active',
       title: 'Estado',
       options: [
         { label: 'Activo', value: 'true' },
@@ -109,19 +137,20 @@ function EquipmentBrandsTable({
 
   return (
     <BaseDataTable
-      columns={getEquipmentBrandColumns(onEdit)}
-      data={equipmentBrands}
-      tableId="equipment-types-table"
+      columns={columns}
+      tableId="equipment-brands-table-brand"
       savedVisibility={savedVisibility}
+      serverSide={true}
+      fetchData={FetchBrandOfVehiclesPagination as any}
+      onColumnFiltersChange={handleFilterChange as any}
       toolbarOptions={{
-        initialVisibleFilters: savedFilter || [],
+        initialVisibleFilters,
         showFilterOptions: true,
         filterableColumns,
       }}
+      queryKey={'equipment-brands-table-brand'}
     />
   );
 }
 
 export default EquipmentBrandsTable;
-
-//

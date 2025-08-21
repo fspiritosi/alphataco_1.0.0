@@ -9,7 +9,10 @@ export default async function EquipmentChart() {
   const cookiesStore = cookies();
   const cookieValue = cookiesStore.get('type-filter')?.value;
 
-  const active_vehicles = await getVehiclesDisponibleFilterType(cookieValue?.split(',') || []);
+  const active_vehicles = await getVehiclesDisponibleFilterType(
+    cookieValue?.split(',') || [],
+    cookiesStore.get('actualComp')?.value
+  );
   const tipo_vehiculos = await fetchTypeVehicles();
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)

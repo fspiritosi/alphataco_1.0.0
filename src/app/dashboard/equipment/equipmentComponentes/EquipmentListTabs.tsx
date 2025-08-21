@@ -2,6 +2,7 @@ import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentIn
 import { buttonVariants } from '@/components/ui/button';
 import Link from 'next/link';
 import EquipmentTableWrapperServer from './EquipmentTableWrapperServer';
+import EquipmentTableWrapperServerInactive from './EquipmentTableWrapperServerInactive';
 
 export default function EquipmentListTabs({
   inactives,
@@ -82,6 +83,17 @@ export default function EquipmentListTabs({
           buttonActioRestricted: [''],
           // component: <EquipmentTableWrapper filterType="others" />,
           component: <EquipmentTableWrapperServer types_of_vehicles="Otros" />,
+        },
+      },
+      {
+        value: 'inactive',
+        name: 'Vehículos dados de baja',
+        restricted: [''],
+        tab: tabValue,
+        content: {
+          title: 'Vehículos dados de baja',
+          buttonActioRestricted: [''],
+          component: <EquipmentTableWrapperServerInactive types_of_vehicles="all" />,
         },
       },
     ],

@@ -35,6 +35,23 @@ export async function getCompany() {
     return null;
   }
 }
+export async function getCompanyName() {
+  try {
+    const cookiesStore = cookies();
+    const supabase = supabaseServer();
+    const company_id = cookiesStore.get('actualComp')?.value;
+    if (!company_id) return null;
+    const { data, error } = await supabase.from('company').select(`company_name`).eq('id', company_id);
+
+    if (error) {
+      console.error('Error fetching cost centers:', error);
+      return null;
+    }
+    return data[0];
+  } catch (error) {
+    return null;
+  }
+}
 
 // Cost Center Actions
 

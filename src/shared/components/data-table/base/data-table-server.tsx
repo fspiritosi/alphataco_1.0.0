@@ -18,8 +18,9 @@ import {
 import * as React from 'react';
 // import { DataTableToolbar, type BulkActionProps } from "./data-table-toolbar"
 import { Skeleton } from '@/components/ui/skeleton';
+import { clearTableFilters, getTableFilters, setTableFilters, type TableFilterState } from '@/lib/cookies';
 import { cn } from '@/lib/utils';
-import { keepPreviousData, QueryClient, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
 import { FacetedFilterConfig } from '../filters/data-table-faceted-filter-server';
 import { BulkActionProps, DataTableToolbar } from '../toolbars/data-table-toolbar-base-server';
@@ -125,7 +126,7 @@ export function BaseDataTable<
   toolbarOptions,
   paginationComponent,
   className = '',
-  tableId,
+  tableId = 'default',
   savedVisibility,
   row_classname,
   onColumnFiltersChange,
@@ -137,12 +138,86 @@ export function BaseDataTable<
   queryKey = 'table-data',
   initialData,
 }: DataTableProps<TData, TValue, TableName, Query>) {
+  // Cargar el estado guardado de las cookies
+  const queryClient = React.useMemo(() => new QueryClient(), [tableId]);
+  const savedState = React.useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return getTableFilters(tableId);
+  }, [tableId]);
+
   const [rowSelection, setRowSelection] = React.useState({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [pageSize, setPageSize] = React.useState<number>(10);
-  const [pageIndex, setPageIndex] = React.useState<number>(0);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(savedVisibility || {});
+  const [sorting, setSorting] = React.useState<SortingState>(savedState?.sorting || []);
+  const [pageSize, setPageSize] = React.useState<number>(savedState?.pagination?.pageSize || 10);
+  const [pageIndex, setPageIndex] = React.useState<number>(savedState?.pagination?.pageIndex || 0);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
+    savedState?.columnVisibility || savedVisibility || {}
+  );
+
+  // Inicializar los filtros de columnas desde el estado guardado
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    savedState?.columnFilters?.map((f) => ({
+      id: f.id,
+      value: f.value,
+    })) || []
+  );
+
+  // Guardar el estado cuando cambie
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const state: TableFilterState = {
+      columnFilters: columnFilters.map((filter) => ({
+        id: filter.id,
+        value: filter.value as any, // Usamos 'as any' temporalmente para evitar problemas de tipo
+        type: Array.isArray(filter.value)
+          ? 'faceted'
+          : typeof filter.value === 'object' &&
+              filter.value !== null &&
+              ('from' in filter.value || 'to' in filter.value)
+            ? 'date-range'
+            : 'search',
+        title: filter.id,
+      })),
+      sorting,
+      pagination: {
+        pageIndex,
+        pageSize,
+      },
+      columnVisibility,
+    };
+
+    setTableFilters(tableId, state);
+  }, [columnFilters, sorting, pageIndex, pageSize, columnVisibility, tableId]);
+
+  // Función para manejar cambios en los filtros
+  const handleColumnFiltersChange = React.useCallback(
+    (updater: Updater<ColumnFiltersState>) => {
+      setColumnFilters((old) => {
+        const newFilters = typeof updater === 'function' ? updater(old) : updater;
+
+        // Reset a la primera página cuando cambian los filtros
+        if (JSON.stringify(newFilters) !== JSON.stringify(old)) {
+          setPageIndex(0);
+        }
+
+        return newFilters;
+      });
+
+      if (onColumnFiltersChange) {
+        onColumnFiltersChange(updater);
+      }
+    },
+    [onColumnFiltersChange]
+  );
+
+  // Función para limpiar todos los filtros
+  const clearAllFilters = React.useCallback(() => {
+    setColumnFilters([]);
+    setPageIndex(0);
+
+    // También limpiar las cookies
+    clearTableFilters(tableId);
+  }, [tableId]);
 
   // Crear el estado de paginación para React Query
   const pagination = React.useMemo(
@@ -221,25 +296,7 @@ export function BaseDataTable<
       }
     },
     onSortingChange: setSorting,
-    onColumnFiltersChange: (updater) => {
-      const newFilters = typeof updater === 'function' ? updater(columnFilters) : updater;
-      console.log('📊 BaseDataTable - Column filters changing:', {
-        oldFilters: columnFilters,
-        newFilters,
-        serverSide,
-      });
-
-      setColumnFilters(newFilters);
-
-      // Reset a la primera página cuando cambian los filtros
-      if (serverSide) {
-        setPageIndex(0);
-      }
-
-      if (onColumnFiltersChange) {
-        onColumnFiltersChange(newFilters);
-      }
-    },
+    onColumnFiltersChange: handleColumnFiltersChange,
     onColumnVisibilityChange: (visibility) => {
       setColumnVisibility(visibility);
     },
@@ -258,108 +315,122 @@ export function BaseDataTable<
   // Loading state para server-side
   const isLoading = dataQuery.isFetching;
 
+  // Pasar las funciones necesarias al toolbar
+  const toolbarProps = React.useMemo(
+    () => ({
+      ...toolbarOptions,
+      onClearFilters: clearAllFilters,
+    }),
+    [toolbarOptions, clearAllFilters]
+  );
+
   return (
-    <div>
-      <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
-        {toolbarOptions && (
-          <DataTableToolbar
-            table={table}
-            showExport={toolbarOptions.showExport}
-            showDocumentDownload={toolbarOptions.showDocumentDownload}
-            filterableColumns={toolbarOptions.filterableColumns}
-            searchableColumns={toolbarOptions.searchableColumns}
-            initialVisibleFilters={toolbarOptions.initialVisibleFilters}
-            showViewOptions={toolbarOptions.showViewOptions}
-            bulkAction={toolbarOptions.bulkAction}
-            extraActions={
-              typeof toolbarOptions.extraActions === 'function'
-                ? toolbarOptions.extraActions(table)
-                : toolbarOptions.extraActions
-            }
-            tableId={tableId}
-            isLoading={isLoading}
-            serverSide={serverSide}
-            fetchAllData={fetchAllData}
-          />
-        )}
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableHead key={header.id} colSpan={header.colSpan}>
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24">
-                    <div className="flex flex-col space-y-3">
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                      <Skeleton className="h-9 w-full " />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : table?.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    className={
-                      typeof row_classname === 'string'
-                        ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
-                        : row_classname
-                          ? row_classname(row.original)
-                          : onRowClick
-                            ? 'hover:cursor-pointer'
-                            : ''
-                    }
-                    key={row.id}
-                    data-state={row.getIsSelected() && 'selected'}
-                    onClick={() => onRowClick && onRowClick(row.original)}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                    ))}
+    <QueryClientProvider client={queryClient}>
+      <div>
+        <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
+          {toolbarOptions && (
+            <DataTableToolbar
+              table={table}
+              showExport={toolbarOptions.showExport}
+              showDocumentDownload={toolbarOptions.showDocumentDownload}
+              filterableColumns={toolbarOptions.filterableColumns}
+              searchableColumns={toolbarOptions.searchableColumns}
+              initialVisibleFilters={toolbarOptions.initialVisibleFilters}
+              showViewOptions={toolbarOptions.showViewOptions}
+              bulkAction={toolbarOptions.bulkAction}
+              extraActions={
+                typeof toolbarOptions.extraActions === 'function'
+                  ? toolbarOptions.extraActions(table)
+                  : toolbarOptions.extraActions
+              }
+              tableId={tableId}
+              isLoading={isLoading}
+              serverSide={serverSide}
+              fetchAllData={fetchAllData}
+              {...toolbarProps}
+            />
+          )}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} colSpan={header.colSpan}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    Sin resultados
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24">
+                      <div className="flex flex-col space-y-3">
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : table?.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      className={
+                        typeof row_classname === 'string'
+                          ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
+                          : row_classname
+                            ? row_classname(row.original)
+                            : onRowClick
+                              ? 'hover:cursor-pointer'
+                              : ''
+                      }
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      onClick={() => onRowClick && onRowClick(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      Sin resultados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          {paginationComponent ? (
+            React.cloneElement(paginationComponent as React.ReactElement, {
+              table,
+              isLoading,
+              totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
+            })
+          ) : (
+            <DataTablePagination
+              table={table}
+              isLoading={isLoading}
+              totalRows={serverSide ? dataQuery.data?.rowCount : undefined}
+            />
+          )}
         </div>
-        {paginationComponent ? (
-          React.cloneElement(paginationComponent as React.ReactElement, {
-            table,
-            isLoading,
-            totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
-          })
-        ) : (
-          <DataTablePagination
-            table={table}
-            isLoading={isLoading}
-            totalRows={serverSide ? dataQuery.data?.rowCount : undefined}
-          />
-        )}
       </div>
-    </div>
+    </QueryClientProvider>
   );
 }

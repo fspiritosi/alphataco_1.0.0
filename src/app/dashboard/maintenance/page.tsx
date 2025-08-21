@@ -1,7 +1,28 @@
 import RepairsSkeleton from '@/components/Skeletons/RepairsSkeleton';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import Viewcomponent from '@/components/ViewComponent';
+import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { cookies } from 'next/headers';
 import { Suspense } from 'react';
+
+export async function generateMetadata() {
+  const cookiesStore = cookies();
+  const companyName = cookiesStore.get('actualCompName')?.value;
+  if (companyName) {
+    return {
+      title: `Mantenimiento | ${companyName}`,
+      description: `Página de mantenimiento de ${companyName} con información general, comercial, HR y equipos`,
+    };
+  } else {
+    const companyName = await getCompanyName();
+    if (companyName) {
+      return {
+        title: `Mantenimiento | ${companyName.company_name}`,
+        description: `Página de mantenimiento de ${companyName.company_name} con información general, comercial, HR y equipos`,
+      };
+    }
+  }
+}
 function MantenimientoPage({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
   const viewData = {
     defaultValue: searchParams?.tab || 'type_of_repairs',

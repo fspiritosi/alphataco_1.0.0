@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getServicesDetailByClient } from '@/features/Operaciones/PartesDiarios/actions/actions';
-import { Eye, TrendingUp } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { use, useEffect, useState } from 'react';
 import { Pie, PieChart } from 'recharts';
 import { ServicesDetailByClient } from './ServicesDetailByClient';
@@ -237,9 +237,7 @@ export function ServicesChart({ servicesSummary }: { servicesSummary: Promise<Se
           )}
         </CardContent>
         <CardFooter className="flex-col gap-2 text-sm">
-          <div className="flex items-center gap-2 leading-none font-medium">
-            Distribución actualizada <TrendingUp className="h-4 w-4" />
-          </div>
+          <div className="flex items-center gap-2 leading-none font-medium">Distribución actualizada</div>
           <div className="text-muted-foreground leading-none">Mostrando servicios del día actual por cliente</div>
         </CardFooter>
       </Card>

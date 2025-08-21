@@ -5,6 +5,10 @@ import EmployeeDocumentsTabs from './documentComponents/EmployeeDocumentsTabs';
 import EquipmentTabs from './documentComponents/EquipmentTabs';
 import TypesDocumentsViewWrapper from './documentComponents/TypesDocumentsViewWrapper';
 
+export const metadata = {
+  title: 'Documentos | GH Gestión',
+  description: 'Página de documentos de GH Gestión con información general, comercial, HR y equipos',
+};
 export default function page({
   params,
 }: {

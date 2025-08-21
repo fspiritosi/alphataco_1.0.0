@@ -1,9 +1,30 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import Viewcomponent from '@/components/ViewComponent';
+import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { getDailyReportsForCurrentMonth } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DayliReportForm from '@/features/Operaciones/PartesDiarios/components/DayliReportForm';
 import DailyReportTable from '@/features/Operaciones/PartesDiarios/DailyReportTable';
 import { cookies } from 'next/headers';
+
+export async function generateMetadata() {
+  const cookiesStore = cookies();
+  const companyName = cookiesStore.get('actualCompName')?.value;
+  if (companyName) {
+    return {
+      title: `Operaciones | ${companyName}`,
+      description: `Página de peraciones de ${companyName} con información general, comercial, HR y equipos`,
+    };
+  } else {
+    const companyName = await getCompanyName();
+    if (companyName) {
+      return {
+        title: `Operaciones | ${companyName.company_name}`,
+        description: `Página de peraciones de ${companyName.company_name} con información general, comercial, HR y equipos`,
+      };
+    }
+  }
+}
+
 async function OperationsPage() {
   const cookiesStore = cookies();
   const dailyReportTableSavedColumns = cookiesStore.get('dailyReportTable')?.value;

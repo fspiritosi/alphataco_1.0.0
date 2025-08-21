@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import Cookies from 'js-cookie';
 import Link from 'next/link';
 import React from 'react';
 import { RiToolsFill } from 'react-icons/ri';
@@ -22,6 +23,21 @@ type ExtendedColumnDef<T> = ColumnDef<T> & {
   excludeFromExport?: boolean; // Prop para excluir columnas de la exportación
 };
 
+export const variants = {
+  operativo: 'success',
+  'no operativo': 'destructive',
+  'en reparacion': 'yellow',
+  'operativo condicionado': 'info',
+  default: 'default',
+};
+
+export const conditionConfig = {
+  'operativo condicionado': { color: 'bg-blue-500', icon: AlertTriangle },
+  operativo: { color: 'bg-green-500', icon: CheckCircle },
+  'no operativo': { color: 'bg-red-500', icon: XCircle },
+  'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
+};
+
 export default function TablaEquipmentServer({
   initialData,
   savedFilters,
@@ -33,6 +49,7 @@ export default function TablaEquipmentServer({
   savedVisibility: VisibilityState;
   types_of_vehicles: 'all' | 'Vehículos' | 'Otros';
 }) {
+  const company_id = Cookies.get('actualComp');
   // Función wrapper para la exportación que devuelve solo los datos
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
     const result = await fetchAllEquipmentsData({
@@ -230,21 +247,6 @@ export default function TablaEquipmentServer({
       id: 'condition',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Condición" />,
       cell: ({ row }) => {
-        const variants = {
-          operativo: 'success',
-          'no operativo': 'destructive',
-          'en reparacion': 'yellow',
-          'operativo condicionado': 'info',
-          default: 'default',
-        };
-
-        const conditionConfig = {
-          'operativo condicionado': { color: 'bg-blue-500', icon: AlertTriangle },
-          operativo: { color: 'bg-green-500', icon: CheckCircle },
-          'no operativo': { color: 'bg-red-500', icon: XCircle },
-          'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
-        };
-
         return (
           <Badge variant={variants[row.original?.condition ?? 'default'] as 'default'}>
             {row.original?.condition &&
@@ -333,7 +335,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'domain' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'domain'>>>) => {
                 console.log(data, 'datadata');
                 return data.map((value) => ({
@@ -350,7 +352,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'chassis' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'chassis'>>>) => {
                 console.log(data, 'datadata');
                 return data.map((value) => ({
@@ -367,7 +369,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'status' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'status'>>>) => {
                 console.log(data, 'datadata');
                 return data.map((value) => ({
@@ -384,8 +386,9 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'type.name' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               relation: '{"type": "type"}',
+
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type.name'>>>) => {
                 console.log(data, 'datadata');
                 return data.map((value) => ({
@@ -402,7 +405,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'sub_type.name' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               relation: '{"sub_type": "subType"}',
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'sub_type.name'>>>) => {
                 console.log(data, 'datadata');
@@ -420,7 +423,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'types_of_vehicles.name' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               relation: '{"types_of_vehicles": "type_of_vehicle"}',
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'types_of_vehicles.name'>>>) => {
                 return data.map((value) => ({
@@ -437,7 +440,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'engine' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'engine'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -453,7 +456,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'serie' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'serie'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -486,6 +489,7 @@ export default function TablaEquipmentServer({
                 ],
                 final_column: 'customers.name',
               },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'id'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -501,7 +505,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'year' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'year'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -517,7 +521,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'condition' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'condition'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -533,7 +537,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'brand_vehicles.name' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               relation: '{"brand_vehicles": "brand"}',
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'brand_vehicles.name'>>>) => {
                 return data.map((value) => ({
@@ -550,7 +554,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'kilometer' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'kilometer'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
@@ -566,7 +570,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'model_vehicles.name' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               relation: '{"model_vehicles": "model"}',
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'model_vehicles.name'>>>) => {
                 return data.map((value) => ({
@@ -583,7 +587,7 @@ export default function TablaEquipmentServer({
             config: {
               tableName: 'vehicles',
               select: 'intern_number' as '*',
-              p_filters: { is_active: 'true' },
+              p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'intern_number'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),

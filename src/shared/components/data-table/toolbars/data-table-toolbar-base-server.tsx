@@ -149,6 +149,7 @@ export function DataTableToolbar<
 
   const selectedRows = table.getFilteredSelectedRowModel().rows;
   const hasSelectedRows = selectedRows.length > 0;
+  // const
 
   return (
     <div className="flex items-center justify-between">
@@ -188,6 +189,10 @@ export function DataTableToolbar<
             .filter((column) => visibleFilters.includes(column.columnId))
             .map((column) => {
               const tableColumn = table.getColumn(column.columnId);
+              const filterForThisColumn = tableColumn?.getFilterValue();
+              // Verificar si esta columna específica tiene un filtro null
+              const hasNullFilter = Array.isArray(filterForThisColumn) && filterForThisColumn.includes('null');
+
               if (column.type === 'date-range') {
                 const current = dateFilters[column.columnId] || { from: null, to: null };
                 return (
@@ -245,6 +250,7 @@ export function DataTableToolbar<
                   options={column.options}
                   config={column.config as any} // Pasamos el config
                   disabled={isLoading}
+                  hasNullFilter={hasNullFilter}
                 />
               ) : null;
             })}

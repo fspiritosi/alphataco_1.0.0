@@ -18,9 +18,8 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import type { Column } from '@tanstack/react-table';
 import { CheckIcon, PlusCircleIcon } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 import { Database } from '../../../../../database.types';
-
 interface Option {
   label: string;
   value: string;
@@ -56,6 +55,7 @@ interface DataTableFacetedFilterProps<
   options?: Option[];
   disabled?: boolean;
   config?: FacetedFilterConfig<TableName, Query>;
+  hasNullFilter?: boolean;
 }
 
 export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Database['public']['Tables'] = never>({
@@ -64,8 +64,13 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
   options: staticOptions,
   disabled,
   config,
+  hasNullFilter = false,
 }: DataTableFacetedFilterProps<TData, TValue, TableName>) {
-  const selectedValues = new Set(column?.getFilterValue() as string[]);
+  // Obtener los valores seleccionados actuales
+  const selectedValues = React.useMemo(() => {
+    const value = column?.getFilterValue();
+    return new Set(Array.isArray(value) ? value : value ? [value] : []);
+  }, [column, column?.getFilterValue()]);
 
   const { data: fetchedOptions, isLoading } = useQuery({
     queryKey: [
@@ -73,7 +78,6 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
     ],
     queryFn: async () => {
       if (!config) return [];
-      // La función query es genérica y el tipo se infiere automáticamente
       const data = await querySelectDistinct(
         config.tableName,
         config.select,
@@ -81,7 +85,6 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
         config.multiJoinPaths,
         config.p_filters
       );
-
       return config.mapper(data || []);
     },
     enabled: !!config,
@@ -89,6 +92,29 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
   });
 
   const options = config ? fetchedOptions : staticOptions;
+
+  // Manejar cambios en la selección
+  const handleSelect = React.useCallback(
+    (value: string) => {
+      if (!column) return;
+
+      const currentFilter = column.getFilterValue() as string[] | undefined;
+      const newFilter = currentFilter?.includes(value)
+        ? currentFilter.filter((v) => v !== value)
+        : [...(currentFilter || []), value];
+
+      column.setFilterValue(newFilter.length > 0 ? newFilter : undefined);
+    },
+    [column]
+  );
+
+  // Verificar si un valor está seleccionado
+  const isSelected = React.useCallback(
+    (value: string) => {
+      return selectedValues.has(value);
+    },
+    [selectedValues]
+  );
 
   return (
     <Popover>
@@ -133,10 +159,13 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
               <CommandGroup>
                 {options.map((option) => {
                   const isSelected = selectedValues.has(option.value);
+                  const isDisabled = hasNullFilter && option.value !== null && option.value !== 'null';
                   return (
                     <CommandItem
                       key={option.value}
+                      disabled={isDisabled}
                       onSelect={() => {
+                        if (isDisabled) return;
                         if (isSelected) {
                           selectedValues.delete(option.value);
                         } else {
@@ -145,19 +174,28 @@ export function DataTableFacetedFilter<TData, TValue, TableName extends keyof Da
                         const filterValues = Array.from(selectedValues);
                         column?.setFilterValue(filterValues.length ? filterValues : undefined);
                       }}
+                      className={cn(isDisabled && 'opacity-50 cursor-not-allowed')}
                     >
                       <div
                         className={cn(
                           'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
-                          isSelected ? 'bg-primary text-primary-foreground' : 'opacity-50 [&_svg]:invisible'
+                          isSelected ? 'bg-primary text-primary-foreground' : 'opacity-50 [&_svg]:invisible',
+                          isDisabled && 'opacity-30'
                         )}
                       >
                         <CheckIcon className={cn('h-4 w-4')} />
                       </div>
-                      {option.icon && <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
-                      <span>{option.label}</span>
+                      {option.icon && (
+                        <option.icon className={cn('mr-2 h-4 w-4 text-muted-foreground', isDisabled && 'opacity-30')} />
+                      )}
+                      <span className={cn(isDisabled && 'opacity-30')}>{option.label}</span>
                       {option.count !== undefined && (
-                        <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
+                        <span
+                          className={cn(
+                            'ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs',
+                            isDisabled && 'opacity-30'
+                          )}
+                        >
                           {option.count}
                         </span>
                       )}

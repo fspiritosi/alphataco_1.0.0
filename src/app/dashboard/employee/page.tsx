@@ -1,10 +1,31 @@
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
 import ViewComponent from '@/components/ViewComponent';
+import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { cookies } from 'next/headers';
 import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile';
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
+
+export async function generateMetadata() {
+  const cookiesStore = cookies();
+  const companyName = cookiesStore.get('actualCompName')?.value;
+  if (companyName) {
+    return {
+      title: `Empleados | ${companyName}`,
+      description: `Página de empresa de ${companyName} con información general, comercial, HR y equipos`,
+    };
+  } else {
+    const actualCompany = await getCompanyName();
+    if (actualCompany) {
+      return {
+        title: `Empleados | ${actualCompany.company_name}`,
+        description: `Página de empresa de ${actualCompany.company_name} con información general, comercial, HR y equipos`,
+      };
+    }
+  }
+}
 
 const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: string } }) => {
   const viewData = {

@@ -410,8 +410,8 @@ export async function fetchAllHierarchicalPositions() {
 export async function fetchAllAptitudesTecnicas() {
   const supabase = supabaseServer();
   const { data, error } = await supabase
-    .from('aptitudes_tecnicas' as any)
-    .select('*')
+    .from('aptitudes_tecnicas')
+    .select('*,aptitudes_tecnicas_puestos(puesto_id)')
     .order('nombre', { ascending: true });
 
   if (error) {
