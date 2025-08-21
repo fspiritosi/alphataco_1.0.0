@@ -671,7 +671,7 @@ export function DailyReportForm({
   return (
     <div>
       <Sheet onOpenChange={handleOpenChange}>
-        <SheetTrigger className={cn(disabled && 'hidden')} asChild>
+        <SheetTrigger className={cn(false && 'hidden')} asChild>
           <Button id="open-button-daily-report" variant="default">
             {selectedRow ? 'Editar' : 'Agregar'}
           </Button>

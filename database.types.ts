@@ -3222,6 +3222,10 @@ export type Database = {
           workflow_diagram: string | null;
         }[];
       };
+      get_company_for_user: {
+        Args: { user_id: string };
+        Returns: string;
+      };
       get_dailyreportrow_history: {
         Args: { p_row_id: string };
         Returns: {
@@ -3255,6 +3259,14 @@ export type Database = {
         }[];
       };
       get_employee_usage_indicator: {
+        Args: { p_company_id?: string; p_position_uuids?: string[] };
+        Returns: {
+          employees_operativos: number;
+          employees_used: number;
+          indicator: number;
+        }[];
+      };
+      get_employee_usage_indicator_original: {
         Args: { position_uuids?: string[]; save_to_table?: boolean };
         Returns: {
           employees_operativos: number;
@@ -3271,7 +3283,42 @@ export type Database = {
         }[];
       };
       get_vehicle_usage_indicator: {
-        Args: { p_vehicle_type_ids: string[] } | { p_vehicle_types: string[] };
+        Args:
+          | { p_company_id?: number; p_vehicle_type_ids?: number[] }
+          | { p_company_id?: string; p_vehicle_type_ids?: string[] };
+        Returns: {
+          available_units: number;
+          not_available_units: number;
+          type_id: string;
+          type_name: string;
+          usage_indicator: number;
+          used_units: number;
+        }[];
+      };
+      get_vehicle_usage_indicator_nueva1: {
+        Args: { p_company_id?: string; p_vehicle_type_ids?: string[] };
+        Returns: {
+          available_units: number;
+          not_available_units: number;
+          type_id: string;
+          type_name: string;
+          usage_indicator: number;
+          used_units: number;
+        }[];
+      };
+      get_vehicle_usage_indicator_original: {
+        Args: { p_vehicle_type_ids?: string[] };
+        Returns: {
+          available_units: number;
+          not_available_units: number;
+          type_id: string;
+          type_name: string;
+          usage_indicator: number;
+          used_units: number;
+        }[];
+      };
+      get_vehicle_usage_indicator_text: {
+        Args: { p_vehicle_types: string[] };
         Returns: {
           available_units: number;
           type: string;
