@@ -29,6 +29,7 @@ export default function IndicatorCardChasisTractor3({
       not_available: usageEquipment,
     };
   });
+
   return (
     <Card
       className="h-full w-full flex flex-col items-center  px-0"
@@ -149,7 +150,7 @@ export default function IndicatorCardChasisTractor3({
         <IndicatorChart2
           chartConfig={indicatorChartConfig}
           chartData={indicatorCharData}
-          totalIndicator={indicatorCharData?.[0]?.inUsePercentage - indicatorCharData?.[0]?.notInUsePercentage || 0}
+          totalIndicator={Math.round((usageEquipment / (activeEquipment || 0)) * 100 || 0)}
         />
       </div>
       <CardFooter>
