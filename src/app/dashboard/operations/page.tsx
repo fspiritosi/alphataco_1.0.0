@@ -4,8 +4,9 @@ import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import DailyReportTable from '@/features/Operaciones/PartesDiarios/DailyReportTable';
 import { getDailyReportsForCurrentMonth } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DayliReportForm from '@/features/Operaciones/PartesDiarios/components/DayliReportForm';
-import { PreparteDetailTableWrapper } from '@/features/Operaciones/Preparte/components/PreparteDetailTableTable';
+import { PreparteDetailTableWrapper } from '@/features/Operaciones/Preparte/components/PreparteDetailTableWrapper';
 import { cookies } from 'next/headers';
+
 export async function generateMetadata() {
   const cookiesStore = cookies();
   const companyName = cookiesStore.get('actualCompName')?.value;
@@ -26,148 +27,6 @@ export async function generateMetadata() {
 }
 
 async function OperationsPage() {
-  const mockdailyReports = {
-    company_id: 'company_123',
-    created_at: '2025-08-20T22:56:01-03:00',
-    creation_date: '2025-08-20',
-    date: '2025-08-20',
-    id: 'dr_123',
-    is_active: true,
-    status: 'abierto',
-    updated_at: '2025-08-20T22:56:01-03:00',
-    dailyreportrows: [
-      {
-        id: 'drr_123',
-        status: 'pendiente',
-        areas_service_id: 'area_123',
-        cancel_reason: null,
-        created_at: '2025-08-20T10:00:00-03:00',
-        customer_id: 'customer_123',
-        daily_report_id: 'dr_123',
-        description: 'Mantenimiento preventivo',
-        document_path: null,
-        end_time: '2025-08-20T18:00:00-03:00',
-        item_id: 'item_123',
-        remit_number: 'REM-001',
-        sector_service_id: 'sector_123',
-        service_id: 'service_123',
-        start_time: '2025-08-20T09:00:00-03:00',
-        type_service: 'mensual',
-        updated_at: '2025-08-20T10:00:00-03:00',
-        working_day: 'diurno',
-        dailyreport_customer_equipment_relations: [
-          {
-            customer_equipment_id: 'equip_123',
-            daily_report_row_id: 'drr_123',
-            id: 'dcer_123',
-            equipos_clientes: {
-              created_at: '2025-01-01T00:00:00-03:00',
-              customer_id: 'customer_123',
-              id: 'equip_123',
-              name: 'Perforadora XYZ',
-              type: 'Perforador',
-            },
-          },
-        ],
-        service_sectors: {
-          id: 'sector_123',
-          sector_id: 'sector_123',
-          service_id: 'service_123',
-          created_at: '2025-01-01T00:00:00-03:00',
-          sectors: {
-            id: 'sector_123',
-            name: 'Sector Norte',
-            descripcion_corta: 'Norte',
-            created_at: '2025-01-01T00:00:00-03:00',
-          },
-        },
-        service_areas: {
-          area_id: 'area_123',
-          id: 'sa_123',
-          service_id: 'service_123',
-          areas_cliente: {
-            customer_id: 'customer_123',
-            descripcion_corta: 'Área A',
-            id: 'area_123',
-            nombre: 'Área de Producción A',
-          },
-        },
-        customer_services: {
-          id: 'cs_123',
-          service_name: 'Servicio de Mantenimiento',
-        },
-        service_items: {
-          id: 'si_123',
-          item_name: 'Cambio de aceite',
-        },
-        customers: {
-          id: 'customer_123',
-          name: 'Empresa Ejemplo S.A.',
-        },
-        dailyreportemployeerelations: [
-          {
-            employees: {
-              id: 'emp_123',
-              firstname: 'Juan',
-              lastname: 'Pérez',
-              document_number: '30123456',
-              phone: '123456789',
-              email: 'juan.perez@example.com',
-              company_positions: {
-                name: 'Técnico',
-              },
-              contractor_employee: [
-                {
-                  customers: {
-                    name: 'Contratista Ejemplo S.A.',
-                  },
-                },
-              ],
-            },
-          },
-        ],
-        dailyreportequipmentrelations: [
-          {
-            vehicles: {
-              id: 'veh_123',
-              intern_number: 'INT-001',
-              domain: 'ABC123',
-              brand_vehicles: {
-                id: 1,
-                name: 'Toyota',
-                company_id: 'company_123',
-                created_at: '2025-01-01T00:00:00-03:00',
-                is_active: true,
-              },
-              model_vehicles: {
-                id: 1,
-                brand: 1,
-                name: 'Hilux',
-                created_at: '2025-01-01T00:00:00-03:00',
-                is_active: true,
-              },
-              model: 1,
-              year: '2023',
-              sub_type: {
-                name: '4x4',
-              },
-              type: {
-                name: 'Camioneta',
-              },
-              contractor_equipment: [
-                {
-                  customers: {
-                    name: 'Contratista Ejemplo S.A.',
-                  },
-                },
-              ],
-              condition: 'operativo',
-            },
-          },
-        ],
-      },
-    ],
-  };
   const cookiesStore = cookies();
   const dailyReportTableSavedColumns = cookiesStore.get('dailyReportTable')?.value;
   const dailyReportTableSavedFilter = cookiesStore.get('dailyReportTable-filters')?.value;
@@ -219,20 +78,7 @@ async function OperationsPage() {
           buttonAction: '',
           component: (
             <div className="flex w-full gap-4">
-              {/* <Create /> */}
-              {/* <ViewDailysReports /> */}
-              <div className="flex gap-4">
-                {/* <ResizablePanelGroup className="min-h-[400px]" direction="horizontal"> */}
-                {/* <ResizablePanel defaultSize={25} className="p-4">
-                      <DayliReportForm />
-                    </ResizablePanel> */}
-                {/* <ResizableHandle withHandle /> */}
-                {/* <ResizablePanel defaultSize={75} className="p-4"> */}
-                <PreparteDetailTableWrapper dailyReport={mockdailyReports as any} />
-
-                {/* </ResizablePanel>
-                  </ResizablePanelGroup> */}
-              </div>
+              <PreparteDetailTableWrapper />
             </div>
           ),
         },
