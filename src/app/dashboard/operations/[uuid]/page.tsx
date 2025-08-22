@@ -9,9 +9,7 @@ import moment from 'moment';
 import { Suspense } from 'react';
 
 async function page({ params }: { params: { uuid: string } }) {
-  console.time('getDailyReportById');
   const dailyReport = await getDailyReportStatusById(params.uuid);
-  console.timeEnd('getDailyReportById');
   return (
     <Card className="p-4 mx-6 mt-4">
       <div className="flex justify-between mb-4">
