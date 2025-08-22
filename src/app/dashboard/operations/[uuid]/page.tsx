@@ -1,13 +1,17 @@
 import BackButton from '@/components/BackButton';
+import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
-import { getDailyReportById } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { getDailyReportById, getDailyReportStatusById } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { DayliReportDetailTableWrapper } from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTableWrapper';
 import { dailyReportStatus } from '@/features/Operaciones/PartesDiarios/utils/utils';
 import moment from 'moment';
+import { Suspense } from 'react';
 
 async function page({ params }: { params: { uuid: string } }) {
-  const dailyReport = await getDailyReportById(params.uuid);
+  console.time('getDailyReportById');
+  const dailyReport = await getDailyReportStatusById(params.uuid);
+  console.timeEnd('getDailyReportById');
   return (
     <Card className="p-4 mx-6 mt-4">
       <div className="flex justify-between mb-4">
@@ -22,7 +26,9 @@ async function page({ params }: { params: { uuid: string } }) {
         </div>
         <BackButton />
       </div>
-      <DayliReportDetailTableWrapper dailyReport={dailyReport} />
+      <Suspense fallback={<PageTableSkeleton />}>
+        <DayliReportDetailTableWrapper params={params} />
+      </Suspense>
     </Card>
   );
 }

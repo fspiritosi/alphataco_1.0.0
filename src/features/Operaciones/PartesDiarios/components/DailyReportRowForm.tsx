@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Building, CalendarIcon, Check, ChevronsUpDown, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -56,8 +56,8 @@ type DailyReportFormProps = {
   customers: Awaited<ReturnType<typeof getCustomers>>;
   // customers_services: Awaited<ReturnType<typeof getCustomersServices>>;
   // service_items: Awaited<ReturnType<typeof getServiceItems>>;
-  employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
-  equipments: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
+  employeesPromise: ReturnType<typeof getActiveEmployeesForDailyReport>;
+  equipmentsPromise: ReturnType<typeof getActiveEquipmentsForDailyReport>;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   selectedRow?: ReturnType<typeof transformDailyReports>[number] | null;
   setSelectedRow: (row: ReturnType<typeof transformDailyReports>[number] | null) => void;
@@ -162,13 +162,15 @@ export function DailyReportForm({
   defaultValues,
   customers,
   setSelectedRow,
-  employees,
-  equipments,
+  employeesPromise,
+  equipmentsPromise,
   selectedRow,
   disabled,
   formattedData,
   dailyReport,
 }: DailyReportFormProps) {
+  const employees = use(employeesPromise);
+  const equipments = use(equipmentsPromise);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);

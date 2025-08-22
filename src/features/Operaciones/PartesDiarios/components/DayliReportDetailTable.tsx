@@ -11,7 +11,7 @@ import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { use, useCallback, useState } from 'react';
 import {
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
@@ -27,7 +27,7 @@ import DocumentViewerModal from './DocumentViewerFixed';
 import HistoryModal from './HistoryModal';
 import { ServiceDetailModal } from './ServiceDetailModal';
 export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDailyReportById>>) => {
-  const report = reports[0];
+  const report = reports?.[0];
   return report?.dailyreportrows?.map((row) => ({
     id: row.id,
     date: report.date,
@@ -515,22 +515,23 @@ export function getDailyReportColumns(
 }
 
 export function DayliReportDetailTable({
-  dailyReport,
+  dailyReportPromise,
   savedVisibility,
   savedFilter,
   customers,
-  employees,
-  equipments,
-  dailyReportId,
+  employeesPromise,
+  equipmentsPromise,
+  // dailyReportId,
 }: {
-  dailyReportId: string;
-  dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
+  // dailyReportId: string;
+  dailyReportPromise: ReturnType<typeof getDailyReportById>;
   savedVisibility: VisibilityState;
   savedFilter: string[];
   customers: Awaited<ReturnType<typeof getCustomers>>;
-  employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
-  equipments: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
+  employeesPromise: ReturnType<typeof getActiveEmployeesForDailyReport>;
+  equipmentsPromise: ReturnType<typeof getActiveEquipmentsForDailyReport>;
 }) {
+  const dailyReport = use(dailyReportPromise);
   console.log(dailyReport, 'dailyReport');
   const formattedData = transformDailyReports(dailyReport);
   console.log(formattedData, 'formattedData');
@@ -571,8 +572,8 @@ export function DayliReportDetailTable({
       >
         <DailyReportForm
           customers={customers}
-          employees={employees}
-          equipments={equipments}
+          employeesPromise={employeesPromise}
+          equipmentsPromise={equipmentsPromise}
           dailyReport={dailyReport}
           selectedRow={selectedRow}
           setSelectedRow={setSelectedRow}
