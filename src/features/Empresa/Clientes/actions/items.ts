@@ -16,7 +16,7 @@ export async function fetchServiceItems(customer_service_id: string) {
       )
       .eq('customer_service_id', customer_service_id);
 
-    // console.log(items);
+    console.log(items);
 
     if (error) {
       console.error('Error al obtener items del servicio:', error);

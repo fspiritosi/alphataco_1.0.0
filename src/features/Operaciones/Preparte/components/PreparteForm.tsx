@@ -1,15 +1,21 @@
 'use client';
 
 import { fetchContractsByClientId } from '@/app/dashboard/employee/action/actions/actions';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { fetchServiceItems } from '@/features/Empresa/Clientes/actions/items';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Building, CalendarIcon, FileText } from 'lucide-react';
@@ -17,11 +23,20 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Cliente } from '../components/PreparteManager';
+
 // Esquema de validación con Zod
 const formSchema = z.object({
   id: z.string(),
   clienteId: z.string().min(1, 'Por favor selecciona un cliente'),
   contratoId: z.string().min(1, 'Por favor selecciona un contrato'),
+  items: z
+    .array(
+      z.object({
+        id: z.string(),
+        quantity: z.number().min(1, 'La cantidad debe ser al menos 1'),
+      })
+    )
+    .min(1, 'Por favor selecciona al menos un ítem'),
   clienteName: z.string(),
   requestDate: z.date({
     required_error: 'La fecha de solicitud es requerida',
@@ -29,17 +44,24 @@ const formSchema = z.object({
   executionDate: z.date({
     required_error: 'La fecha de ejecución es requerida',
   }),
-  tipo: z.string().min(1, 'Por favor selecciona un tipo de servicio'),
-  jornada: z.string().min(1, 'Por favor selecciona una jornada'),
-  solicitante: z.string().min(1, 'Por favor ingresa el solicitante'),
+  tipo: z.string().min(1, 'El tipo es requerido'),
+  jornada: z.string().min(1, 'La jornada es requerida'),
+  solicitante: z.string().min(1, 'El solicitante es requerido'),
   observaciones: z.string().optional(),
 });
 
 type PreparteItem = z.infer<typeof formSchema>;
+
 interface Contrato {
   id: string;
   service_name: string;
 }
+
+interface Item {
+  id: string;
+  item_name: string;
+}
+
 interface PreparteFormProps {
   formData: PreparteItem;
   clientes: Cliente[];
@@ -57,6 +79,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   });
 
   const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [contractItems, setContractItems] = useState<{ label: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -86,6 +109,36 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     }
   };
 
+  // Fetch items when contratoId changes
+  useEffect(() => {
+    const fetchItems = async () => {
+      if (!form.watch('contratoId')) {
+        setContractItems([]);
+        return;
+      }
+      console.log('Fetching items for contrato:', form.watch('contratoId'));
+
+      setIsLoading(true);
+      try {
+        const items = await fetchServiceItems(form.watch('contratoId'));
+        console.log('Fetched items:', items);
+        setContractItems(
+          items.map((item) => ({
+            label: item.item_name || `Item ${item.id}`,
+            value: item.id.toString(),
+          }))
+        );
+      } catch (error) {
+        console.error('Error fetching contract items:', error);
+        setContractItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchItems();
+  }, [form.watch('contratoId')]);
+
   const handleSubmit = (data: PreparteItem) => {
     // Actualizar el nombre del cliente si es necesario
     const clienteSeleccionado = clientes.find((c) => c.id === data.clienteId);
@@ -113,6 +166,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     onValueChange={(value) => {
                       form.setValue('clienteId', value);
                       form.setValue('contratoId', '');
+                      form.setValue('items', []);
                       handleClienteChange(value);
                     }}
                     value={field.value}
@@ -176,6 +230,90 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Multiselector de items */}
+            <FormField
+              control={form.control}
+              name="items"
+              render={({ field }) => (
+                <FormItem>
+                  <Card>
+                    <CardContent>
+                      <FormLabel>Items</FormLabel>
+                      <MultiSelectCombobox
+                        options={contractItems}
+                        selectedValues={field.value?.map((item) => item.id) || []}
+                        onChange={(selectedIds) => {
+                          const currentItems = form.getValues('items') || [];
+                          const newItems = selectedIds.map((id) => {
+                            const existing = currentItems.find((item) => item.id === id);
+                            return existing || { id, quantity: 1 };
+                          });
+                          field.onChange(newItems);
+                        }}
+                        placeholder={
+                          form.getValues('contratoId') ? 'Seleccionar items' : 'Seleccione un contrato primero'
+                        }
+                        emptyMessage="No hay items disponibles para este contrato"
+                        disabled={!form.getValues('contratoId') || isLoading}
+                      />
+                    </CardContent>
+                    <CardFooter>
+                      <div className="grid grid-cols-2 gap-4 w-full">
+                        {field.value?.map((item) => {
+                          const itemData = contractItems.find((i) => i.value === item.id);
+                          return itemData ? (
+                            <div key={item.id} className="flex items-center justify-between gap-4">
+                              <div className="flex items-center flex-1 min-w-0">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge className="bg-blue-500 text-white flex-1 min-w-0 truncate pr-6 relative group hover:bg-blue-600 transition-colors">
+                                        {itemData.label}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const updatedItems = field.value.filter((i) => i.id !== item.id);
+                                            field.onChange(updatedItems);
+                                          }}
+                                          className="absolute right-1 top-1/2 -translate-y-1/2 opacity-70 hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30"
+                                          aria-label="Eliminar ítem"
+                                        >
+                                          <span className="text-xs font-bold">×</span>
+                                        </button>
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" align="center" className="max-w-xs break-words">
+                                      {itemData.label}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Cant:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const newQuantity = parseInt(e.target.value) || 1;
+                                    const updatedItems = field.value.map((i) =>
+                                      i.id === item.id ? { ...i, quantity: newQuantity } : i
+                                    );
+                                    field.onChange(updatedItems);
+                                  }}
+                                  className="w-16 h-8 text-sm text-center border rounded"
+                                />
+                              </div>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    </CardFooter>
+                  </Card>
                 </FormItem>
               )}
             />

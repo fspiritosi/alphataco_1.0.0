@@ -21,6 +21,10 @@ export type PreparteItem = {
   clienteId: string;
   clienteName: string;
   contratoId: string;
+  items: {
+    id: string;
+    quantity: number;
+  }[];
   requestDate: Date;
   executionDate: Date;
   tipo: string;
@@ -49,6 +53,7 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
     clienteId: '',
     clienteName: '',
     contratoId: '',
+    items: [],
     requestDate: new Date(),
     executionDate: new Date(),
     tipo: '',
@@ -100,6 +105,7 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
       clienteId: '',
       clienteName: '',
       contratoId: '',
+      items: [],
       requestDate: new Date(),
       executionDate: new Date(),
       tipo: '',
@@ -119,6 +125,7 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
       clienteId: item.clienteId,
       clienteName: item.clienteName || '',
       contratoId: item.contratoId || '',
+      items: item.items || [],
       requestDate: item.requestDate || new Date(),
       executionDate: item.executionDate || new Date(),
       tipo: item.tipo || '',
@@ -170,6 +177,7 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
                       clienteId: '',
                       clienteName: '',
                       contratoId: '',
+                      items: [],
                       requestDate: new Date(),
                       executionDate: new Date(),
                       tipo: '',
