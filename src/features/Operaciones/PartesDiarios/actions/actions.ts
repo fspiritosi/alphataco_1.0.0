@@ -999,7 +999,12 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
     //console.log(data);
     const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
 
-    if (error) throw error;
+    console.log(createdRows, 'createdRows');
+
+    if (error) {
+      console.log(error, 'error');
+      throw error;
+    }
 
     // Verificar que se hayan creado las filas
     if (!createdRows || createdRows.length === 0) {

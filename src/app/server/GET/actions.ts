@@ -1074,6 +1074,8 @@ export const fetchPermanentDocumentsByEquipmentId = async (equipmentId: string) 
   } = await supabase.auth.getUser();
   const role = await getActualRole(company_id as string, user?.id as string);
 
+  if (!equipmentId) return [];
+
   if (role === 'Invitado') {
     const { data, error } = await supabase
       .from('documents_equipment')

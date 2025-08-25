@@ -132,6 +132,8 @@ export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarReg
             type_service: row.data_to_clone.type_service!,
           }));
 
+          console.log(formattedRows, 'formattedRows');
+
           await createDailyReportRow(formattedRows);
         }
 
@@ -173,7 +175,7 @@ export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarReg
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-white text-black p-0 gap-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[500px] bg-white text-black p-0 gap-0 overflow-auto max-h-[90vh]">
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-xl">
               Clonar registros del {moment(formattedData?.[0]?.date).format('DD/MM/YYYY')}

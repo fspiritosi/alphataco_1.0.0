@@ -202,8 +202,6 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
     }
   };
 
-  console.log(vehicle, 'ajpra aqio');
-
   const form = useForm<VehicleFormData>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {

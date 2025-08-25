@@ -182,9 +182,11 @@ export function VehicleBasicDataForm({
                       {typesOfVehicles.map((type) => (
                         <CommandItem
                           key={type.id}
-                          value={type.id.toString()}
+                          value={type?.name || ''}
                           onSelect={() => {
-                            form.setValue('type_of_vehicle', type.id.toString());
+                            const typeId = type.id?.toString() || '';
+                            console.log(typeId, 'typeId');
+                            form.setValue('type_of_vehicle', typeId);
                           }}
                         >
                           <Check
@@ -253,8 +255,11 @@ export function VehicleBasicDataForm({
                       {brands.map((brand) => (
                         <CommandItem
                           key={brand.id}
-                          value={brand.id.toString()}
-                          onSelect={() => handleBrandChange(brand.id.toString())}
+                          value={brand?.name || ''}
+                          onSelect={() => {
+                            const brandId = brand.id?.toString() || '';
+                            handleBrandChange(brandId);
+                          }}
                         >
                           <Check
                             className={cn(
@@ -323,9 +328,10 @@ export function VehicleBasicDataForm({
                       {models.map((model) => (
                         <CommandItem
                           key={model.id}
-                          value={model.id.toString()}
+                          value={model?.name || ''}
                           onSelect={() => {
-                            form.setValue('model', model.id.toString());
+                            const modelId = model.id?.toString() || '';
+                            form.setValue('model', modelId);
                           }}
                         >
                           <Check
@@ -417,8 +423,11 @@ export function VehicleBasicDataForm({
                       {types.map((type) => (
                         <CommandItem
                           key={type.id}
-                          value={type.id.toString()}
-                          onSelect={() => handleTypeChange(type.id)}
+                          value={type?.name || ''}
+                          onSelect={() => {
+                            const typeId = type.id?.toString() || '';
+                            handleTypeChange(typeId);
+                          }}
                         >
                           <Check
                             className={cn('mr-2 h-4 w-4', type.id === field.value ? 'opacity-100' : 'opacity-0')}
@@ -469,9 +478,10 @@ export function VehicleBasicDataForm({
                       {subTypes.map((subType) => (
                         <CommandItem
                           key={subType.id}
-                          value={subType.id}
+                          value={subType?.name || ''}
                           onSelect={() => {
-                            form.setValue('subType', subType.id);
+                            const subTypeId = subType.id?.toString() || '';
+                            form.setValue('subType', subTypeId);
                           }}
                         >
                           <Check

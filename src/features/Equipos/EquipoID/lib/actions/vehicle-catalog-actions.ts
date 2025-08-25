@@ -69,7 +69,7 @@ export async function getVehicleTypes() {
 export async function getTypesOfVehicles() {
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from('types_of_vehicles').select('*').order('name');
+  const { data, error } = await supabase.from('types_of_vehicles').select('*').order('name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching types of vehicles:', error);
