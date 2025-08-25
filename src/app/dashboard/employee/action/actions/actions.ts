@@ -51,6 +51,24 @@ export async function fetchContractsByClientId(clientId: string) {
   }
   return data;
 }
+
+export async function fetchAllContracts() {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  const { data, error } = await supabase
+    .from('customer_services')
+    .select('id, service_name')
+    .order('service_name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching contracts:', error);
+    return [];
+  }
+  return data;
+}
 export async function fetchAllContractorForVehicles() {
   const cookiesStore = cookies();
   const supabase = supabaseServer();

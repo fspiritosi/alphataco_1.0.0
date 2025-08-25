@@ -15,10 +15,12 @@ import { Button } from '@/components/ui/button';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Pencil, Trash2 } from 'lucide-react';
-import { PreparteItem } from './PreparteManager';
+import { Contrato, PreparteItem } from './PreparteManager';
 
 interface PreparteTableProps {
   data: PreparteItem[];
+  contratos: Contrato[];
+  items: Array<{ id: string; item_name: string }>;
   onEdit: (item: PreparteItem) => void;
   onDelete: (id: string) => void;
   savedVisibility?: VisibilityState;
@@ -26,7 +28,9 @@ interface PreparteTableProps {
 
 const getColumns = (
   onEdit: (item: PreparteItem) => void,
-  onDelete: (id: string) => void
+  onDelete: (id: string) => void,
+  contratos: Contrato[],
+  items: Array<{ id: string; item_name: string }>
 ): ColumnDef<PreparteItem>[] => [
   {
     accessorKey: 'clienteName',
@@ -35,13 +39,22 @@ const getColumns = (
   {
     accessorKey: 'contratoId',
     header: 'Contrato',
+    cell: ({ row }) => {
+      const contratoId = row.original.contratoId;
+      const contrato = contratos.find((c) => c.id === contratoId);
+      return contrato?.service_name || contratoId || '-';
+    },
   },
   {
     accessorKey: 'items',
     header: 'Item',
     cell: ({ row }) => {
-      const items = row.original.items || [];
-      return items.length > 0 ? items[0].id : '-';
+      const itemIds = row.original.items || [];
+      if (itemIds.length === 0) return '-';
+
+      // Find the item by ID
+      const item = items.find((i) => i.id === itemIds[0]?.id);
+      return item?.item_name || itemIds[0]?.id || '-';
     },
   },
   {
@@ -83,9 +96,9 @@ const getColumns = (
     cell: ({ row }) => <div>{row.getValue('solicitante')}</div>,
   },
   {
-    accessorKey: 'estado',
+    accessorKey: 'status',
     header: 'Estado',
-    cell: ({ row }) => <div>{row.getValue('estado')}</div>,
+    cell: ({ row }) => <div>{row.getValue('status')}</div>,
   },
   {
     accessorKey: 'observaciones',
@@ -127,8 +140,12 @@ const getColumns = (
   },
 ];
 
-export function PreparteTable({ data, onEdit, onDelete, savedVisibility = {} }: PreparteTableProps) {
-  console.log(data);
-
-  return <BaseDataTable columns={getColumns(onEdit, onDelete)} data={data} savedVisibility={savedVisibility} />;
+export function PreparteTable({ data, contratos, items, onEdit, onDelete, savedVisibility = {} }: PreparteTableProps) {
+  return (
+    <BaseDataTable
+      columns={getColumns(onEdit, onDelete, contratos, items)}
+      data={data}
+      savedVisibility={savedVisibility}
+    />
+  );
 }

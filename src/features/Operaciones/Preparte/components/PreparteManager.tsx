@@ -31,18 +31,20 @@ export type PreparteItem = {
   jornada: string;
   solicitante: string;
   observaciones?: string;
+  status?: string;
 };
 
 interface PreparteManagerProps {
   items: PreparteItem[];
   Customers: Cliente[];
   contratos: Contrato[];
+  itemsList: Array<{ id: string; item_name: string }>;
 }
-interface Contrato {
+export interface Contrato {
   id: string;
   service_name: string;
 }
-export function PreparteManager({ items, Customers, contratos }: PreparteManagerProps) {
+export function PreparteManager({ items, itemsList, Customers, contratos }: PreparteManagerProps) {
   const [item, setItem] = useState<PreparteItem[]>(items);
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
@@ -61,7 +63,7 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
     solicitante: '',
     observaciones: '',
   });
-  console.log(items);
+
   const handleInputChange = (field: keyof PreparteItem, value: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -96,6 +98,7 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
         id: `${timestamp}-${index}`, // ID único para cada línea
         items: [item], // Un solo ítem por línea
         clienteName, // Nombre del cliente
+        status: 'pendiente', // Establecer el estado inicial como 'pendiente'
       }));
 
       setItem((prevItems) => [...prevItems, ...newItems]);
@@ -144,8 +147,6 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
   const handleDelete = (id: string) => {
     setItem((prev) => prev.filter((item) => item.id !== id));
   };
-
-  console.log(item);
 
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
@@ -199,7 +200,14 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
       <Card className="w-full max-w-full">
         <CardContent className="p-0">
           <div className="w-full overflow-x-auto">
-            <PreparteTable data={item} onEdit={handleEdit} onDelete={handleDelete} savedVisibility={savedVisibility} />
+            <PreparteTable
+              data={item}
+              contratos={contratos}
+              items={itemsList}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              savedVisibility={savedVisibility}
+            />
           </div>
         </CardContent>
       </Card>
