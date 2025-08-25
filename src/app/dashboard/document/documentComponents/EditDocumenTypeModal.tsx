@@ -71,7 +71,6 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
   const actualCompany = cookies.get('actualComp');
-  // console.log(actualCompany);
   const [showEmployeePreview, setShowEmployeePreview] = useState(false);
   const [showVehiclePreview, setShowVehiclePreview] = useState(false);
   const [showAlertsUpdateModal, setShowAlertsUpdateModal] = useState(false);
@@ -384,13 +383,12 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     };
 
     try {
-      // console.log(formattedValues);
       // 2. Actualizar el documento
       // const { error: updateError } = await supabase.from('document_types').update(formattedValues).eq('id', Equipo.id);
       const updateError = await updateDocumentType(Equipo.id, formattedValues);
 
       if (updateError) {
-        //console.log(updateError);
+        console.error(updateError);
         throw new Error(handleSupabaseError(updateError.message));
       }
 
@@ -588,9 +586,6 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   //     Persona: 'documents_employees',
   //   };
   //   const table = tableNames[Equipo.applies as 'Equipos' | 'Persona'];
-
-  //   console.log(actualCompany);
-  //   console.log(Equipo.id);
 
   //   const { data: existingEntries, error: existingEntriesError } = await supabase
   //     .from(table as 'documents_equipment' | 'documents_employees')

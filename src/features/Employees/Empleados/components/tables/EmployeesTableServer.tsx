@@ -262,10 +262,6 @@ export default function TablaEmployeesSupabase({
         }
 
         const contractors = row.original.contractor_employee || [];
-
-        console.log(contractors[0]?.customers);
-        console.log(filterValue);
-
         // Si no hay contratistas, no mostramos la fila
         if (contractors.length === 0) {
           return false;
@@ -469,9 +465,6 @@ export default function TablaEmployeesSupabase({
 
         const contractors = row.original.contractor_employee || [];
 
-        console.log(contractors[0]?.customers);
-        console.log(filterValue);
-
         // Si no hay contratistas, no mostramos la fila
         if (contractors.length === 0) {
           return false;
@@ -566,8 +559,6 @@ export default function TablaEmployeesSupabase({
     {} as Record<string, string>
   );
 
-  // console.log(datas,'datas')
-
   return (
     <BaseDataTable
       columns={columns}
@@ -658,7 +649,6 @@ export default function TablaEmployeesSupabase({
               select: 'level_of_education' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'level_of_education'>>>) => {
-                console.log(data, 'nivel');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -676,8 +666,6 @@ export default function TablaEmployeesSupabase({
               relation: '{"provinces": "province"}',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'provinces.name'>>>) => {
-                console.log(data, 'provinves');
-
                 const mappedData = data.map((value, index) => {
                   return {
                     label: String(value.display_value),
@@ -782,7 +770,6 @@ export default function TablaEmployeesSupabase({
               },
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
-                console.log(data, 'afectaciones');
                 return data
                   .filter((value) => value.col_value !== null)
                   .map((value) => ({

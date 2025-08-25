@@ -1,4 +1,3 @@
-import { Select } from '@/components/ui/select';
 // import { description } from '@/components/Graficos/RepairsChart';
 import { supabaseServer } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,13 +8,13 @@ export async function GET(request: NextRequest) {
   const company_id = searchParams.get('actual'); // ID de la compañía
   try {
     // Obtener todas las filas del parte diario filtradas por company_id
-    let { data: dailyreportrows, error } = await supabase.from('dailyreportrows' as any)
-    .select(`*,daily_report_id(date,company_id),customer_id(name), service_id(service_name), item_id(item_name)`)
-    // .eq('daily_report_id.company_id', company_id);
-    .eq('daily_report_id.company_id', company_id)
-    .not('daily_report_id', 'is', null);
-    
-    
+    let { data: dailyreportrows, error } = await supabase
+      .from('dailyreportrows' as any)
+      .select(`*,daily_report_id(date,company_id),customer_id(name), service_id(service_name), item_id(item_name)`)
+      // .eq('daily_report_id.company_id', company_id);
+      .eq('daily_report_id.company_id', company_id)
+      .not('daily_report_id', 'is', null);
+
     // .or(`employees.company_id.eq.${company_id},vehicles.company_id.eq.${company_id}`);
     if (error) {
       throw new Error(JSON.stringify(error));
@@ -65,14 +64,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-
 export async function PUT(request: NextRequest) {
   const supabase = supabaseServer();
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   const updateData = await request.json();
-  // console.log('Update data:', updateData);
-  // console.log('ID:', id);
   if (!id) {
     return new NextResponse(JSON.stringify({ error: 'ID is required for updating the daily report row.' }), {
       status: 400,

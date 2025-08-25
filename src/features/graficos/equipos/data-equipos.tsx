@@ -34,7 +34,6 @@ export default async function DataEquipmentChart() {
     active_vehicles?.reduce((sum, vehicle: any) => sum + ((vehicle as any).not_available_units || 0), 0) || 0;
 
   // const inUsePercentage = active_vehicles?.usage_indicator || 0;
-  // console.log(inUsePercentage)
   // Calcular el porcentaje de uso general
   const usagePercentage =
     totalVehicles > 0 ? Math.round(((totalVehicles - totalNotAvailable) / totalVehicles) * 100) : 0;

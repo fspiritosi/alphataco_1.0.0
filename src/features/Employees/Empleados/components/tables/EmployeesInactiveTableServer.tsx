@@ -367,9 +367,6 @@ export default function TablaEmployeesInactiveServer({
 
         const contractors = row.original.contractor_employee || [];
 
-        console.log(contractors[0]?.customers);
-        console.log(filterValue);
-
         // Si no hay contratistas, no mostramos la fila
         if (contractors.length === 0) {
           return false;
@@ -459,8 +456,6 @@ export default function TablaEmployeesInactiveServer({
     {} as Record<string, string>
   );
 
-  // console.log(datas,'datas')
-
   return (
     <BaseDataTable
       columns={columns}
@@ -546,7 +541,6 @@ export default function TablaEmployeesInactiveServer({
               select: 'level_of_education' as '*',
               p_filters: { is_active: 'false' },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'level_of_education'>>>) => {
-                console.log(data, 'nivel');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -564,8 +558,6 @@ export default function TablaEmployeesInactiveServer({
               relation: '{"provinces": "province"}',
               p_filters: { is_active: 'false' },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'provinces.name'>>>) => {
-                console.log(data, 'provinves');
-
                 const mappedData = data.map((value, index) => {
                   return {
                     label: String(value.display_value),

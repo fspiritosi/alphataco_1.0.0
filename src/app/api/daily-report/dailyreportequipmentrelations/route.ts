@@ -24,7 +24,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    //console.log('Cuerpo de la solicitud:', body); // Verificar el cuerpo de la solicitud
 
     // Asegúrate de que body es un array
     if (!Array.isArray(body)) {
@@ -36,8 +35,6 @@ export async function POST(request: NextRequest) {
       daily_report_row_id,
       equipment_id,
     }));
-
-    //console.log('Datos a insertar:', insertData);
 
     let { data, error } = await supabase.from('dailyreportequipmentrelations').insert(insertData);
 

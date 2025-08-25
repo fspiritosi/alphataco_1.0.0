@@ -93,8 +93,6 @@ export default function CodeControlLogin() {
             .select()
             .eq('cuil', cuil || '');
 
-          // console.log(data, error);
-
           if (data && data?.length > 0) {
             const empleado = data[0];
             //Setear una cookie con el id del empleado que se borre en 1 hora

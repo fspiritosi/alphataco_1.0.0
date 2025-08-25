@@ -532,9 +532,7 @@ export function DayliReportDetailTable({
   equipmentsPromise: ReturnType<typeof getActiveEquipmentsForDailyReport>;
 }) {
   const dailyReport = use(dailyReportPromise);
-  console.log(dailyReport, 'dailyReport');
   const formattedData = transformDailyReports(dailyReport);
-  console.log(formattedData, 'formattedData');
   const customerOptions = createFilterOptions(formattedData, (area) => area.customer);
   const servicesOptions = createFilterOptions(formattedData, (area) => area.services);
   const itemsOptions = createFilterOptions(formattedData, (area) => area.item);
@@ -563,8 +561,6 @@ export function DayliReportDetailTable({
   const [selectedRows, setSelectedRows] = useState<DailyReportRow[]>([]);
   const router = useRouter();
 
-  console.log(formattedData, formattedData);
-
   return (
     <>
       <div
@@ -591,7 +587,6 @@ export function DayliReportDetailTable({
         enableRowSelection={(row) => row.original.status !== 'ejecutado'}
         tableId="dailyReportTableDetail"
         onRowSelectionChange={(rows) => {
-          console.log(rows);
           setSelectedRows(rows);
         }}
         toolbarOptions={{
@@ -602,7 +597,6 @@ export function DayliReportDetailTable({
             label: 'Editar',
             icon: <Edit className="h-4 w-4" />,
             onClick: (rows) => {
-              console.log(rows);
               setSelectedRows(rows);
               setIsBulkEditModalOpen(true);
             },

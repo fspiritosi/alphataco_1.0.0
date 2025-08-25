@@ -164,8 +164,6 @@ export function EmployeeTabs({
     });
   }, [form.formState.errors]);
 
-  console.log(form.formState.errors, 'form state');
-
   return (
     <Tabs defaultValue="personalData" className="w-full p-4">
       <TabsList className="grid w-full grid-cols-5">

@@ -44,15 +44,11 @@ export async function PATCH(request: NextRequest, context: any) {
       .update({ condition: body.condition })
       .eq('id', body.vehicle_id);
 
-    // console.log('vehicles', vehicles);
-    // console.log('error', error);
-    // console.log('id', body.vehicle_id);
-
     if (error) {
       throw new Error(JSON.stringify(error));
     }
     return Response.json({ vehicles });
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 }

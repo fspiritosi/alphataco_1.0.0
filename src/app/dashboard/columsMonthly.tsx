@@ -86,22 +86,16 @@ const dateRangeFilter: FilterFn<Colum> = (
   addMeta: (meta: any) => void
 ) => {
   const { from, to } = filterValue || {};
-  // console.log('[dateRangeFilter] row:', row);
-  // console.log('[dateRangeFilter] columnId:', columnId);
-  // console.log('[dateRangeFilter] filterValue:', filterValue);
 
   // Usar el campo period (YYYY-MM) para filtrar por mes y año
   const periodRaw = (row.original as any).period;
   if (!periodRaw) {
-    // console.log('[dateRangeFilter] period es null/undefined, no filtrar este registro');
     return false;
   }
   const periodMoment = moment(periodRaw, 'YYYY-MM');
   if (!periodMoment.isValid()) {
-    // console.log('[dateRangeFilter] period inválido:', periodRaw);
     return false;
   }
-  // console.log('[dateRangeFilter] periodMoment:', periodMoment.format('YYYY-MM'));
 
   // Normalizar from/to a mes y año
   const fromMonthYear = from ? moment(from).startOf('month') : null;
@@ -113,7 +107,6 @@ const dateRangeFilter: FilterFn<Colum> = (
   }
   if (!fromMonthYear && toMonthYear) {
     const result = periodMoment.isSameOrBefore(toMonthYear, 'month');
-    // console.log(`[dateRangeFilter] Comparando <= to (${toMonthYear.format('YYYY-MM')}):`, result);
     return result;
   }
   if (fromMonthYear && toMonthYear) {
@@ -121,7 +114,6 @@ const dateRangeFilter: FilterFn<Colum> = (
 
     return result;
   }
-  // console.log('[dateRangeFilter] Sin from/to, return true');
   return true;
 };
 

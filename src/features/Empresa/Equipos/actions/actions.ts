@@ -21,7 +21,7 @@ export async function FetchTypeOfVehicles() {
 
     return vehicle_type;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -47,7 +47,7 @@ export async function createTypeOfVehicle({ name, is_active = false }: { name: s
 
     return vehicle_type;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -188,7 +188,7 @@ export async function FetchBrandOfVehicles() {
 
     return vehicle_type;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -278,7 +278,7 @@ export async function createBrandOfVehicle({ name, is_active = false }: { name: 
 
     return brand_of_vehicle;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -349,7 +349,7 @@ export async function FetchModelOfVehicles() {
 
     return model_of_vehicle;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -367,13 +367,6 @@ export async function FetchModelOfVehiclesPagination({
 }) {
   const supabase = supabaseServer();
 
-  console.log('FetchModelOfVehiclesPagination called with:', {
-    pageIndex,
-    pageSize,
-    sorting,
-    columnFilters,
-  });
-
   try {
     // Construir la consulta base
     let query = supabase.from('model_vehicles').select(
@@ -389,43 +382,29 @@ export async function FetchModelOfVehiclesPagination({
 
     // Aplicar filtros
     columnFilters.forEach((filter) => {
-      console.log('Applying filter:', {
-        id: filter.id,
-        value: filter.value,
-        type: typeof filter.value,
-        isArray: Array.isArray(filter.value),
-      });
-
       if (!filter.value) return;
 
       if (filter.id === 'brand') {
         // Convert single value to array for consistent handling
         const brandIds = Array.isArray(filter.value) ? filter.value : [filter.value];
-        console.log('Filtering by brand IDs:', brandIds);
         query = query.in('brand', brandIds);
       } else if (filter.id === 'name' && typeof filter.value === 'string') {
-        console.log('Filtering by name:', filter.value);
         query = query.ilike('name', `%${filter.value}%`);
       } else if (Array.isArray(filter.value)) {
-        console.log('Filtering array:', filter.id, filter.value);
         query = query.in(filter.id, filter.value);
       } else {
-        console.log('Filtering exact:', filter.id, filter.value);
         query = query.eq(filter.id, filter.value);
       }
     });
 
     // Aplicar ordenamiento
     if (sorting.length > 0) {
-      console.log('Applying sorting:', sorting);
-
       // First, apply any filters
       const sort = sorting[0]; // For now, handle single sort
 
       if (sort.id === 'brand') {
         // For brand sorting, we'll sort by brand name in the application code
         // since Supabase's order with foreign tables can be tricky
-        console.log('Will sort by brand name in application code');
       } else {
         // For non-brand columns, use regular sorting
         query = query.order(sort.id, {
@@ -441,10 +420,8 @@ export async function FetchModelOfVehiclesPagination({
     // Aplicar paginación
     const from = pageIndex * pageSize;
     const to = from + pageSize - 1;
-    console.log('Applying pagination:', { from, to });
     query = query.range(from, to);
 
-    console.log('Executing query...');
     let { data, error, count } = await query;
 
     if (error) {
@@ -455,8 +432,6 @@ export async function FetchModelOfVehiclesPagination({
         rowCount: 0,
       };
     }
-
-    console.log('Query results before sorting:', { dataCount: data?.length, count });
 
     // Mapear los datos para incluir el nombre de la marca
     let rows = (data || []).map((model) => ({
@@ -471,7 +446,6 @@ export async function FetchModelOfVehiclesPagination({
     // Apply brand name sorting in application code if needed
     if (sorting.length > 0 && sorting[0].id === 'brand') {
       const sort = sorting[0];
-      console.log('Sorting by brand name in application code');
       rows = [...rows].sort((a, b) => {
         const nameA = a.brand_name.toLowerCase();
         const nameB = b.brand_name.toLowerCase();
@@ -522,7 +496,7 @@ export async function createModelOfVehicle({
 
     return model_of_vehicle;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -605,7 +579,7 @@ export async function FetchSubTypeOfVehicles() {
 
     return vehicle_type;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -641,7 +615,7 @@ export async function createSubTypeOfVehicle({
 
     return vehicle_type;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }

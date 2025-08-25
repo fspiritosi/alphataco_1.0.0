@@ -1,16 +1,2 @@
 #!/bin/sh
-# Comentar console.logs automáticamente antes del commit
-
-# Buscar archivos staged con extensión js, ts o tsx
-# FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|ts|tsx)$')
-
-# for file in $FILES; do
-#   if [ -f "$file" ]; then
-#     # Comentar todas las líneas que contengan console.log y actualizar el archivo staged
-#     sed -i.bak 's/^\([[:space:]]*\)console\.log/\1\/\/ console.log/' "$file"
-#     rm "$file.bak"
-#     git add "$file"
-#   fi
-# done
-
 npx lint-staged

@@ -59,8 +59,6 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
   const [reloadMessage, setReloadMessage] = useState<string>('');
 
-  console.log('DiagramEmployeeViewCOPI - employeesData:', employeesData);
-
   /*--------------------- ESQUEMA EMPLEADOS ---------------------------*/
   const formSchema = z.object({
     resources: z
@@ -77,7 +75,6 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     // No es necesario hacer nada más ya que los recursos se actualizan vía onChange
-    console.log('Recursos seleccionados:', values.resources);
   }
 
   /*--------------------- FILTROS DE FECHA ---------------------------*/

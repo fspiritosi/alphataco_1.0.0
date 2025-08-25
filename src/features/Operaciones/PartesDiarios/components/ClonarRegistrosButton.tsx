@@ -132,8 +132,6 @@ export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarReg
             type_service: row.data_to_clone.type_service!,
           }));
 
-          console.log(formattedRows, 'formattedRows');
-
           await createDailyReportRow(formattedRows);
         }
 

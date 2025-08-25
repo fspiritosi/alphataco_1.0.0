@@ -142,7 +142,5 @@ function EmployeeHeaderContent({ employee, isEditable, showEditButton, exitEditM
 }
 
 export function EmployeeHeader(props: EmployeeHeaderProps) {
-  console.log(props, 'props');
-
   return <EmployeeHeaderContent {...props} />;
 }

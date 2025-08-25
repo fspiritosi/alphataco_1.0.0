@@ -21,7 +21,6 @@ export const fetchAllEmployees = async (role?: string) => {
   const supabase = supabaseServer();
 
   const company_id = cookiesStore.get('actualComp')?.value;
-  // console.log(company_id, 'company_id');
   if (!company_id) return [];
 
   const { data, error } = await supabase
@@ -45,10 +44,7 @@ export const fetchAllEmployees2 = async (contractor_id: string) => {
   const supabase = supabaseServer();
 
   const company_id = cookiesStore.get('actualComp')?.value;
-  // console.log(company_id, 'company_id');
   if (!company_id) return [];
-
-  // console.log(contractor_id, 'contractor_id');
 
   const { data, error } = await supabase
     .from('employees')
@@ -71,7 +67,6 @@ export const fetchAllEmployeesOnlyName = async (role?: string) => {
   const supabase = supabaseServer();
 
   const company_id = cookiesStore.get('actualComp')?.value;
-  // console.log(company_id, 'company_id');
   if (!company_id) return [];
 
   const { data, error } = await supabase
@@ -98,8 +93,6 @@ export const fetchSimpleDataEmployee = async () => {
     .from('employees')
     .select('id,firstname,lastname,cuil')
     .eq('company_id', company_id);
-
-  //console.log(data, 'data');
 
   if (error) {
     console.error('Error fetching employees:', error);
@@ -144,10 +137,7 @@ export const fetchAllEmployeesInactives = async (role?: string) => {
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const user = await fetchCurrentUser();
-  // console.log(company_id, 'company_id');
   if (!company_id) return [];
-
-  // console.log(user, 'user');
 
   // if (role === 'Invitado') {
   //   const { data, error } = await supabase

@@ -22,7 +22,7 @@ export async function fetchAllDiagramTypes() {
 
     return diagram_type;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -39,15 +39,15 @@ export async function createDiagramType({ name, color, short_description, work_a
       .from('diagram_type')
       .insert({ name, company_id, color, short_description, work_active, is_active });
 
-    console.log(error, 'error');
+    console.error(error, 'error');
 
     if (!error) {
       return data;
     }
-    console.log(error);
+    console.error(error);
     return [];
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }
@@ -73,12 +73,12 @@ export async function updateDiagramType({
       .eq('id', id || '');
 
     if (error) {
-      console.log(error);
+      console.error(error);
       return [];
     }
     return data;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }

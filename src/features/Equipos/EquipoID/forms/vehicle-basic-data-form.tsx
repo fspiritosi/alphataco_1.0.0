@@ -185,7 +185,6 @@ export function VehicleBasicDataForm({
                           value={type?.name || ''}
                           onSelect={() => {
                             const typeId = type.id?.toString() || '';
-                            console.log(typeId, 'typeId');
                             form.setValue('type_of_vehicle', typeId);
                           }}
                         >

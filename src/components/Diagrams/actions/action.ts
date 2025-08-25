@@ -8,13 +8,6 @@ export async function fetchDiagramReportsData(options: {
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
 }) {
-  console.log('🚀 fetchDiagramReportsData called with options:', {
-    pageIndex: options.pageIndex,
-    pageSize: options.pageSize,
-    sorting: options.sorting,
-    columnFilters: options.columnFilters,
-  });
-
   const supabase = supabaseServer();
 
   // Calcular rango para paginación
@@ -29,8 +22,6 @@ export async function fetchDiagramReportsData(options: {
 
   // Si hay filtro de búsqueda de texto, buscar empleados que coincidan
   if (employeeSearchValue && typeof employeeSearchValue === 'string' && employeeSearchValue.trim()) {
-    console.log('🔍 Buscando empleados con CUIL:', employeeSearchValue);
-
     const { data: employees, error: employeesError } = await supabase
       .from('employees')
       .select('id')
@@ -42,7 +33,6 @@ export async function fetchDiagramReportsData(options: {
     }
 
     searchEmployeeIds = employees?.map((emp) => emp.id) || [];
-    console.log('👥 Empleados encontrados por CUIL:', searchEmployeeIds.length);
 
     // Si no se encontraron empleados, retornar resultado vacío
     if (searchEmployeeIds.length === 0) {
@@ -104,13 +94,11 @@ export async function fetchDiagramReportsData(options: {
 
       // Filtros múltiples para empleados (por IDs)
       if (id === 'employee_name' && Array.isArray(value) && value.length > 0) {
-        console.log('🔍 Aplicando filtro de empleados con IDs:', value);
         query = query.in('employee_id', value);
       }
 
       // Filtros múltiples para tipos de novedad (por nombre)
       if ((id === 'novelty_name' || id === 'Tipo') && Array.isArray(value) && value.length > 0) {
-        console.log('🔍 Aplicando filtro de tipos de novedad:', { id, value });
         // Los valores son nombres de tipos de novedad
         const { data: noveltyTypes, error: noveltyError } = await supabase
           .from('diagram_type')
@@ -119,12 +107,10 @@ export async function fetchDiagramReportsData(options: {
 
         if (!noveltyError && noveltyTypes) {
           const foundNoveltyIds = noveltyTypes.map((type) => type.id);
-          console.log('📋 IDs de tipos de novedad encontrados:', foundNoveltyIds);
           if (foundNoveltyIds.length > 0) {
             query = query.in('diagram_type', foundNoveltyIds);
           } else {
             // Si no se encuentran tipos de novedad, retornar resultado vacío
-            console.log('❌ No se encontraron tipos de novedad para:', value);
             return {
               rows: [],
               pageCount: 0,
@@ -138,7 +124,6 @@ export async function fetchDiagramReportsData(options: {
 
       // Filtros múltiples para posiciones de empresa (por nombre)
       if (id === 'company_position' && Array.isArray(value) && value.length > 0) {
-        console.log('🔍 Aplicando filtro de posiciones:', { id, value });
         // Los valores son nombres de posiciones
         const { data: positions, error: positionError } = await supabase
           .from('company_positions')
@@ -147,12 +132,10 @@ export async function fetchDiagramReportsData(options: {
 
         if (!positionError && positions) {
           const foundPositionIds = positions.map((position) => position.id);
-          console.log('📋 IDs de posiciones encontrados:', foundPositionIds);
           if (foundPositionIds.length > 0) {
             query = query.in('employee_id.company_position', foundPositionIds);
           } else {
             // Si no se encuentran posiciones, retornar resultado vacío
-            console.log('❌ No se encontraron posiciones para:', value);
             return {
               rows: [],
               pageCount: 0,

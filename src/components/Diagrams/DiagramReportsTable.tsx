@@ -34,7 +34,6 @@ function DiagramReportsTableComponent({
 }: DiagramReportsTableProps) {
   const [selectedReport, setSelectedReport] = useState<DiagramReportData | null>(null);
 
-  // console.log(initialData, 'initialData');
   // Definición de columnas
   const columns: ColumnDef<DiagramReportData>[] = [
     {

@@ -155,12 +155,6 @@ export default function RepairNewEntry({
       .refine(
         (value) => {
           if (value) {
-            // console.log('value', value);
-            // console.log('Number(value) > Number(selectedEquipment?.kilometer)', selectedEquipment?.kilometer);
-            // console.log(
-            //   'Number(value) > Number(selectedEquipment?.kilometer)',
-            //   Number(value) > Number(selectedEquipment?.kilometer)
-            // );
             return Number(value) >= Number(selectedEquipment?.kilometer);
           }
         },
@@ -224,8 +218,6 @@ export default function RepairNewEntry({
 
   const [images, setImages] = useState<(string | null)[]>([null, null, null]);
   const [files, setFiles] = useState<(File | undefined)[]>([undefined, undefined, undefined]);
-
-  console.log('equipment', equipment?.[0]);
 
   const verifyIfExistOpenRepairSolicitud = async (repairTypeId: string) => {
     const vehicle_id = equipment?.find(
@@ -454,8 +446,6 @@ export default function RepairNewEntry({
     (repairIter) => repairIter.domain
     // FileText // Icono para documentos
   );
-
-  // console.log(allRepairs, 'allRepairs');
 
   return (
     <ResizablePanelGroup direction="horizontal" className="pt-6 flex flex-wrap sm:flex-nowrap w-full">

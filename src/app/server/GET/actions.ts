@@ -1161,7 +1161,7 @@ export const fetchEquipmentById = async (id: string) => {
     .select('*, brand_vehicles(name), model_vehicles(name),types_of_vehicles(name),type(name)')
     .eq('id', id);
 
-  if (error) console.log('eroor', error);
+  if (error) console.error('eroor', error);
 
   const vehicle = vehicleData?.map((item: any) => ({
     ...item,

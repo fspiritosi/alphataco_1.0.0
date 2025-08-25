@@ -63,9 +63,6 @@ export function SearchEmployee({
     // Obtener los valores actuales del field
     const currentSelected = field?.value || [];
 
-    console.log('currentSelected', currentSelected);
-    console.log('selectedEmployees', selectedEmployees);
-
     // Crear un nuevo array combinando los actuales y los nuevos seleccionados
     const updatedSelected = [...currentSelected, ...selectedEmployees];
 
@@ -116,7 +113,6 @@ export function SearchEmployee({
         </div>
       ),
       filterFn: (row, id, value) => {
-        console.log(value, 'value');
         const fullName = `${row.original.lastname} ${row.original.firstname}`.toLowerCase();
         // Handle array of values for filtering
         return value.some((val: any) => fullName.includes(val.toLowerCase()));
@@ -488,9 +484,6 @@ export function SearchEmployee({
         }
 
         const contractors = row.original.contractor_employee || [];
-
-        console.log(contractors[0]?.customers);
-        console.log(filterValue);
 
         // Si no hay contratistas, no mostramos la fila
         if (contractors.length === 0) {

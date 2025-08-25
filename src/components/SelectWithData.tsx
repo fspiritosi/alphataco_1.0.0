@@ -82,9 +82,6 @@ export const SelectWithData = ({
       </>
     );
   }
-  //console.log(dataToRender, 'options');
-  //console.log(value, 'value');
-  //console.log(field.value, 'field.value');
   return (
     <>
       <Label className="ml-2" htmlFor={label}>

@@ -264,18 +264,6 @@ export function DiagramMassiveForm({
 
   // Función para cargar los datos basados en los filtros seleccionados (copiada de EmployesDiagramWrapper)
   const loadData = async (page: number = 1, append: boolean = false) => {
-    console.log('📊 [DEBUG] loadData - INICIO');
-    console.log('📊 [DEBUG] Parámetros:', { page, append });
-    console.log('📊 [DEBUG] Estado actual:', {
-      currentPage,
-      hasMoreData,
-      isLoading,
-      isLoadingMore,
-      hasSearched,
-      employeesCount: employees.length,
-    });
-
-    console.log('-------------------------------------');
     const supabase = supabaseBrowser();
     const { data, error } = await supabase
       .from('employees')
@@ -285,28 +273,18 @@ export function DiagramMassiveForm({
       .in('workflow_diagram', ['30a94782-6d47-4eb0-be97-318f065b73ff'])
       .in('contractor_employee.customers.id', ['c7493c97-4a23-4ea3-9ff1-65c04d7530d9']);
 
-    console.log(data, 'data');
-    console.log(error, 'data');
-    console.log('-------------------------------------');
     // Si estamos cargando la primera página, reiniciamos el estado
     if (page === 1 && !append) {
-      console.log('📊 [DEBUG] Reiniciando estado para página 1');
       setEmployees([]);
       setCurrentPage(1);
     }
 
-    console.log('📊 [DEBUG] Filtros activos:', activeFilters);
-    console.log('📊 [DEBUG] Filtros completos:', filters);
-
-    console.log('📊 [DEBUG] Estableciendo isLoading = true');
     setIsLoading(true);
 
     try {
-      console.log('📊 [DEBUG] Iniciando construcción de filtros');
       // Construimos los filtros para la función query
       const queryFilters: Filter<'employees'>[] = [];
 
-      console.log('📊 [DEBUG] Company ID disponible:', company_id);
       // Agregar filtro por compañía
       // if (company_id) {
       //   queryFilters.push({
@@ -314,9 +292,7 @@ export function DiagramMassiveForm({
       //     operator: 'eq',
       //     value: company_id,
       //   });
-      //   console.log('📊 [DEBUG] Filtro company_id agregado:', company_id);
       // } else {
-      //   console.log('⚠️ [DEBUG] WARNING: No hay company_id disponible');
       // }
 
       // Agregar filtro por empleados activos
@@ -325,12 +301,10 @@ export function DiagramMassiveForm({
         operator: 'eq',
         value: true,
       });
-      console.log('📊 [DEBUG] Filtro is_active agregado');
 
       // Filtro por nombre (firstname)
       if (filters.firstname && filters.firstname.trim() !== '') {
         const searchTerm = filters.firstname.trim();
-        console.log('Buscando por nombre:', searchTerm);
         queryFilters.push({
           column: 'firstname',
           operator: 'ilike',
@@ -341,7 +315,6 @@ export function DiagramMassiveForm({
       // Filtro por apellido (lastname)
       if (filters.lastname && filters.lastname.trim() !== '') {
         const searchTerm = filters.lastname.trim();
-        console.log('Buscando por apellido:', searchTerm);
         queryFilters.push({
           column: 'lastname',
           operator: 'ilike',
@@ -416,11 +389,6 @@ export function DiagramMassiveForm({
         };
       }
 
-      console.log('📊 [DEBUG] Filtros finales construidos:', queryFilters);
-      console.log('📊 [DEBUG] Total de filtros aplicados:', queryFilters.length);
-      console.log('📊 [DEBUG] Parámetros de consulta:', { filters: queryFilters, page: page, pageSize: 100 });
-
-      console.log('📊 [DEBUG] Ejecutando fetchData...');
       const employeesData = await fetchData({
         filters: queryFilters,
         page: page,
@@ -429,60 +397,30 @@ export function DiagramMassiveForm({
         innerData,
       });
 
-      console.log('📊 [DEBUG] Respuesta de fetchData:', {
-        data: employeesData.data ? `Array de ${employeesData.data.length} elementos` : 'null/undefined',
-        pagination: employeesData.pagination,
-      });
-
-      console.log('📊 [DEBUG] Resultados encontrados:', employeesData.data?.length || 0);
-      if (employeesData.data?.length) {
-        console.log('📊 [DEBUG] Primeros 3 resultados:', employeesData.data.slice(0, 3));
-      } else {
-        console.log('⚠️ [DEBUG] No se encontraron datos o data es null/undefined');
-      }
-
       // Verificar si hay más páginas disponibles
       const totalCount = employeesData.pagination?.total || 0;
       const loadedCount = (page - 1) * 100 + (employeesData.data?.length || 0);
       const hasMore = loadedCount < totalCount;
 
-      console.log('📊 [DEBUG] Paginación:', {
-        totalCount,
-        loadedCount,
-        hasMore,
-        currentPage: page,
-        pageSize: 100,
-      });
-
       setHasMoreData(hasMore);
-      console.log(`📊 [DEBUG] Página ${page}: ${loadedCount} de ${totalCount} registros cargados`);
 
       // Formato para mostrar en el componente
-      console.log('📊 [DEBUG] Formateando empleados...');
       const formattedEmployees = formatEmployees(employeesData);
-      console.log('📊 [DEBUG] Empleados formateados:', formattedEmployees.length);
 
       if (append) {
-        console.log('📊 [DEBUG] Agregando empleados a lista existente');
         setEmployees((prevEmployees) => {
           const newList = [...prevEmployees, ...formattedEmployees];
-          console.log('📊 [DEBUG] Nueva lista total:', newList.length);
           return newList;
         });
       } else {
-        console.log('📊 [DEBUG] Reemplazando lista de empleados');
         setEmployees(formattedEmployees);
       }
-
-      console.log('📊 [DEBUG] loadData - ÉXITO');
     } catch (error) {
       console.error('🚫 [DEBUG] ERROR en loadData:', error);
       console.error('🚫 [DEBUG] Error stack:', error instanceof Error ? error.stack : 'No stack available');
       toast.error('Error al cargar empleados');
     } finally {
-      console.log('📊 [DEBUG] Estableciendo isLoading = false');
       setIsLoading(false);
-      console.log('📊 [DEBUG] loadData - FIN');
     }
   };
 
@@ -618,35 +556,11 @@ export function DiagramMassiveForm({
 
   // Función para manejar el submit del formulario de filtros - copiada de EmployesDiagramWrapper
   const handleFilterSubmit = (e: FormEvent) => {
-    console.log('🔍 [DEBUG] handleFilterSubmit - INICIO');
-    console.log('🔍 [DEBUG] Event:', e);
-    console.log('🔍 [DEBUG] Event type:', e.type);
-
     e.preventDefault();
-    console.log('🔍 [DEBUG] preventDefault() ejecutado');
 
-    console.log('🔍 [DEBUG] Filtros actuales:', {
-      firstname: filters.firstname,
-      lastname: filters.lastname,
-      position: filters.position,
-      workflow: filters.workflow,
-      costCenter: filters.costCenter,
-      covenant: filters.covenant,
-      guild: filters.guild,
-      category: filters.category,
-      'contractor_employee.contractor_id': filters['contractor_employee.contractor_id'],
-    });
-
-    console.log('🔍 [DEBUG] Filtros activos:', activeFilters);
-    console.log('🔍 [DEBUG] Company ID:', company_id);
-
-    console.log('🔍 [DEBUG] Estableciendo hasSearched = true');
     setHasSearched(true);
 
-    console.log('🔍 [DEBUG] Llamando a loadData(1, false)');
     loadData(1, false);
-
-    console.log('🔍 [DEBUG] handleFilterSubmit - FIN');
   };
 
   // Función para cargar más datos - copiada de EmployesDiagramWrapper
@@ -690,46 +604,33 @@ export function DiagramMassiveForm({
 
   // Función para manejar el cambio de work_diagram
   const handleWorkDiagramChange = async (workDiagramId: string) => {
-    console.log('🔧 [DEBUG] handleWorkDiagramChange - workDiagramId:', workDiagramId);
-
     form.setValue('workDiagramId', workDiagramId);
 
     try {
       // Cargar novelties asociadas al work_diagram
       const { inactiveNovelty, activeNovelties } = await fetchNovelties(workDiagramId);
 
-      console.log('🔧 [DEBUG] Novelties cargadas:', {
-        // inactiveNovelty: inactiveNovelty?.diagram_type?.name,
-        activeNoveltiesCount: activeNovelties.length,
-        activeNoveltyNames: activeNovelties.map((n: any) => n.diagram_type?.name),
-      });
-
       setInactiveNovelty(inactiveNovelty);
       setActiveNovelties(activeNovelties);
 
       // Mostrar select solo si hay múltiples active_novelties
       if (activeNovelties.length > 1) {
-        console.log('🔧 [DEBUG] Múltiples novelties activas, mostrando select');
         setShowActiveNoveltySelect(true);
         form.setValue('activeNoveltyId', ''); // Reset selection
       } else if (activeNovelties.length === 1) {
-        console.log('🔧 [DEBUG] Una sola novelty activa, seleccionando automáticamente');
         setShowActiveNoveltySelect(false);
         form.setValue('activeNoveltyId', activeNovelties[0].diagram_type_id);
       } else {
-        console.log('⚠️ [DEBUG] No hay novelties activas configuradas');
         setShowActiveNoveltySelect(false);
         form.setValue('activeNoveltyId', '');
         toast.error('El diagrama de trabajo no tiene novedades activas configuradas');
       }
 
       if (!inactiveNovelty?.diagram_type) {
-        console.log('⚠️ [DEBUG] No hay novelty inactiva configurada');
         toast.error('El diagrama de trabajo no tiene novedad inactiva configurada');
       }
 
       // NUEVO: Configurar filtro de diagrama de trabajo (sin ejecutar búsqueda automática)
-      console.log('🔧 [DEBUG] Configurando filtro de diagrama de trabajo:', workDiagramId);
 
       // Actualizar el filtro de workflow con el diagrama seleccionado
       const newFilters = {
@@ -742,8 +643,6 @@ export function DiagramMassiveForm({
       if (!activeFilters.includes('workflow')) {
         setActiveFilters((prev) => [...prev, 'workflow']);
       }
-
-      console.log('🔧 [DEBUG] Filtro configurado. Use el botón "Aplicar Filtros" para buscar empleados.');
     } catch (error) {
       console.error('🚫 [DEBUG] Error cargando novelties:', error);
       toast.error('Error al cargar las configuraciones del diagrama de trabajo');
@@ -781,8 +680,6 @@ export function DiagramMassiveForm({
   };
 
   const handleVerifyAndSubmit = async (data: FormData) => {
-    console.log('🚀 [DEBUG] handleVerifyAndSubmit - data:', data);
-
     setLoading(true);
 
     try {
@@ -801,25 +698,16 @@ export function DiagramMassiveForm({
         return;
       }
 
-      console.log('🔍 [DEBUG] Respuesta de verificación de conflictos:', conflicts);
-      console.log('🔍 [DEBUG] Tipo de conflicts:', typeof conflicts);
-
       // Acceder correctamente a los conflictos según la estructura de tu función
       const conflictList = (conflicts as any)?.conflicts || [];
-      console.log('🔍 [DEBUG] Lista de conflictos extraída:', conflictList);
 
       if (conflictList && conflictList.length > 0) {
-        console.log(' [DEBUG] Se encontraron conflictos, mostrando modal');
         // Separar conflictos por tipo
         const operationConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'IN_USE');
         const simpleConflicts = conflictList.filter((c: ConflictRecord) => c.conflict_type === 'CAN_UPDATE');
 
-        console.log(' [DEBUG] Conflictos de operaciones:', operationConflicts);
-        console.log(' [DEBUG] Conflictos simples:', simpleConflicts);
-
         onConflictsFound({ operationConflicts, simpleConflicts }, data);
       } else {
-        console.log(' [DEBUG] No hay conflictos, pero mostrando ventana de resumen');
         onConflictsFound({ operationConflicts: [], simpleConflicts: [] }, data);
       }
     } catch (error) {

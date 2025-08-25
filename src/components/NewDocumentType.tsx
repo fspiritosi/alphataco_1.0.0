@@ -344,17 +344,7 @@ export default function NewDocumentType({
           // Usar normalizeString para una comparación más robusta
           const match = normalizeString(employeeValue) === normalizeString(v);
           // Log para depurar company_position
-          if (propertyConfig.accessor_key === 'company_position') {
-            console.log('Filtro company_position:', {
-              empleadoId: employee.id,
-              nombreEmpleado: `${employee.lastname} ${employee.firstname}`,
-              valorBuscado: v,
-              valorEmpleado: employeeValue,
-              valorEmpleadoNormalizado: normalizeString(employeeValue),
-              valorBuscadoNormalizado: normalizeString(v),
-              coincide: match,
-            });
-          }
+
           return match;
         });
 
@@ -593,13 +583,12 @@ export default function NewDocumentType({
       conditions: serializedConditions ? serializedConditions : null,
     };
 
-    console.log('formattedValues', formattedValues);
     toast.promise(
       async () => {
         const { data, error } = await supabase.from('document_types').insert(formattedValues).select();
 
         if (error) {
-          console.log(error);
+          console.error(error);
           throw new Error(handleSupabaseError(error.message));
         }
       },
@@ -623,8 +612,6 @@ export default function NewDocumentType({
       }
     );
   }
-
-  console.log(form.formState.errors, 'error');
 
   function formatName(name: string): string {
     // Capitalize first letter and convert the rest to lowercase

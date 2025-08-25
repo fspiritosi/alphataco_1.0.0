@@ -108,8 +108,6 @@ export async function updateVehicle(id: string, vehicleData: any) {
     throw new Error('No company selected');
   }
 
-  console.log('vehicleData', vehicleData);
-
   // Get IDs for related entities
   // const brandId = await getBrandIdByName(vehicleData.brand);
   // const modelId = await getModelIdByName(vehicleData.model);

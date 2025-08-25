@@ -39,15 +39,10 @@ const dateRangeFilter: FilterFn<Awaited<ReturnType<typeof getDailyReports>>[numb
 ) => {
   const validityRaw = row.original.date;
   const { from, to } = filterValue || {};
-  // console.log('[dateRangeFilter] row:', row);
-  // console.log('[dateRangeFilter] columnId:', columnId);
-  // console.log('[dateRangeFilter] filterValue:', filterValue);
   if (!validityRaw) {
-    // console.log('[dateRangeFilter] No validity value, return false');
     return false;
   }
   if (validityRaw === 'No vence') {
-    // console.log('[dateRangeFilter] Valor "No vence", return false');
     return false;
   }
 
@@ -55,22 +50,18 @@ const dateRangeFilter: FilterFn<Awaited<ReturnType<typeof getDailyReports>>[numb
   const [day, month, year] = validityRaw.split('/');
   const validityMoment = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD');
   if (!validityMoment.isValid()) {
-    // console.log('[dateRangeFilter] Fecha inválida:', `${year}-${month}-${day}`);
     return false;
   }
-  // console.log('[dateRangeFilter] validityMoment:', validityMoment.format());
 
   // Comparaciones con moment
   if (from && !to) {
     const fromMoment = moment(from);
     const result = validityMoment.isSameOrAfter(fromMoment, 'day');
-    // console.log(`[dateRangeFilter] Comparando >= from (${fromMoment.format('YYYY-MM-DD')}):`, result);
     return result;
   }
   if (!from && to) {
     const toMoment = moment(to);
     const result = validityMoment.isSameOrBefore(toMoment, 'day');
-    // console.log(`[dateRangeFilter] Comparando <= to (${toMoment.format('YYYY-MM-DD')}):`, result);
     return result;
   }
   if (from && to) {
@@ -80,7 +71,7 @@ const dateRangeFilter: FilterFn<Awaited<ReturnType<typeof getDailyReports>>[numb
 
     return result;
   }
-  // console.log('[dateRangeFilter] Sin from/to, return true');
+  // ('[dateRangeFilter] Sin from/to, return true');
   return true;
 };
 export const reportColumnas: ColumnDef<Awaited<ReturnType<typeof getDailyReports>>[number]>[] = [

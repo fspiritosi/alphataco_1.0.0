@@ -43,7 +43,6 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
   }
 
   const actualMode = id === 'new' ? 'new' : mode;
-  console.log(vehicle, 'vehicle desde aqui');
 
   return (
     <div className="p-6 space-y-6">

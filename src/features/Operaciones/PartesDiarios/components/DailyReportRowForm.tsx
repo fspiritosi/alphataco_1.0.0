@@ -1106,8 +1106,6 @@ export function DailyReportForm({
                               ?.descripcion_corta || '',
                         }));
 
-                        // console.log(customerAreas);
-
                         // Encontrar el área seleccionada
                         const selectedArea = customerAreas.find((area) => area.id === field.value);
 
@@ -1518,7 +1516,6 @@ export function DailyReportForm({
                                               ? currentValues.filter((id) => id !== employee.id)
                                               : [...currentValues, employee.id];
 
-                                            console.log(newValues, 'newValues');
                                             field.onChange(newValues);
                                           }}
                                         >

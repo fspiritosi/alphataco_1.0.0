@@ -127,7 +127,6 @@ function UploadDocumentEquipment({
     Database['public']['Tables']['documents_equipment']['Row'][]
   >([]);
 
-  //console.log('error', form.formState.errors);
   return (
     <div>
       <CardTitle className="mb-3">Documento no multirecurso</CardTitle>
@@ -361,7 +360,7 @@ function UploadDocumentEquipment({
                         input.onchange = async (e) => {
                           const file = (e.target as HTMLInputElement).files?.[0];
                           setSelectedFile(file);
-                          // console.log('file', file);
+                          // ('file', file);
                           if (file) {
                             const applies = equipments
                               .find((equipment) => equipment.value === form.getValues('applies'))
@@ -387,7 +386,7 @@ function UploadDocumentEquipment({
                               documenExtension,
                               'equipos'
                             );
-                            //console.log('documentUrl', documentUrl);
+                            //('documentUrl', documentUrl);
                             if (documentUrl === 'duplicate') {
                               form.setError('document_path', {
                                 type: 'manual',

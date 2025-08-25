@@ -97,15 +97,10 @@ const dateRangeFilter: FilterFn<ReturnType<typeof formatEmployeeDocumentsSimple>
 ) => {
   const validityRaw = row.original.validity;
   const { from, to } = filterValue || {};
-  // console.log('[dateRangeFilter] row:', row);
-  // console.log('[dateRangeFilter] columnId:', columnId);
-  // console.log('[dateRangeFilter] filterValue:', filterValue);
   if (!validityRaw) {
-    // console.log('[dateRangeFilter] No validity value, return false');
     return false;
   }
   if (validityRaw === 'No vence') {
-    // console.log('[dateRangeFilter] Valor "No vence", return false');
     return false;
   }
 
@@ -113,22 +108,18 @@ const dateRangeFilter: FilterFn<ReturnType<typeof formatEmployeeDocumentsSimple>
   const [day, month, year] = validityRaw.split('/');
   const validityMoment = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD');
   if (!validityMoment.isValid()) {
-    // console.log('[dateRangeFilter] Fecha inválida:', `${year}-${month}-${day}`);
     return false;
   }
-  // console.log('[dateRangeFilter] validityMoment:', validityMoment.format());
 
   // Comparaciones con moment
   if (from && !to) {
     const fromMoment = moment(from);
     const result = validityMoment.isSameOrAfter(fromMoment, 'day');
-    // console.log(`[dateRangeFilter] Comparando >= from (${fromMoment.format('YYYY-MM-DD')}):`, result);
     return result;
   }
   if (!from && to) {
     const toMoment = moment(to);
     const result = validityMoment.isSameOrBefore(toMoment, 'day');
-    // console.log(`[dateRangeFilter] Comparando <= to (${toMoment.format('YYYY-MM-DD')}):`, result);
     return result;
   }
   if (from && to) {
@@ -138,7 +129,6 @@ const dateRangeFilter: FilterFn<ReturnType<typeof formatEmployeeDocumentsSimple>
 
     return result;
   }
-  // console.log('[dateRangeFilter] Sin from/to, return true');
   return true;
 };
 
@@ -519,7 +509,6 @@ export const columnsEmployeeDocument: ColumnDef<ReturnType<typeof formatEmployee
             <DropdownMenuItem
               disabled={row.original.state === 'pendiente'}
               onClick={() =>
-                // console.log('Andamo ruleta en una camioneta',row)
                 handleDownload(row.original.document_url, row.original.documentName, row.original.resource)
               }
             >
@@ -666,7 +655,6 @@ export const columnsEmployeeDocument: ColumnDef<ReturnType<typeof formatEmployee
     header: ({ column }) => <DataTableColumnHeader column={column} title="Vencimiento" />,
     cell: ({ row }) => {
       const isNoPresented = row.original.state === 'pendiente';
-      //console.log(row.original.validity, 'row.original.validity');
 
       if (isNoPresented) {
         return <Badge variant={'destructive'}>Pendiente</Badge>;

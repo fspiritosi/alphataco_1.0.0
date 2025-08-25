@@ -86,21 +86,17 @@ export default function UpdateDocuments({
 
         let newDocumentName = documentName;
         const newExtension = file.name.split('.').pop();
-        console.log(newExtension);
-        console.log(file);
 
         if (versionRegex.test(documentName)) {
           const match = documentName.match(versionRegex);
-          console.log(match, 'match');
           if (match) {
             const currentVersion = parseInt(match[1], 10);
             const newVersion = currentVersion + 1;
             const name = documentName.split('.')[0];
-            console.log(name.replace(versionRegex, `(v${newVersion})`) + `.${newExtension}`, 'newDocumentName');
+
             newDocumentName = name.replace(versionRegex, `(v${newVersion})`) + `.${newExtension}`;
           }
         } else if (dateRegex.test(documentName)) {
-          console.log(filename.validity, 'filename.validity');
           const newDate = moment(filename.validity).format('DD-MM-YYYY');
 
           // Extraer la parte antes de la extensión y la extensión por separado
@@ -112,24 +108,15 @@ export default function UpdateDocuments({
 
           // Construir el nuevo nombre con la nueva extensión
           newDocumentName = `${newBaseName}.${newExtension}`;
-          //console.log(newDocumentName, 'newDocumentName');
         } else if (periodRegex.test(documentName)) {
           const newPeriod = filename.period;
-          //console.log(newPeriod, 'newPeriod');
-          //console.log(documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`, 'newPeriod');
           newDocumentName = documentName.replace(periodRegex, `(${newPeriod})`) + `.${newExtension}`;
         }
-
-        //console.log(documentName);
-        //console.log(newDocumentName);
-        //console.log(montly, 'montly');
 
         if (montly) {
           const { error: newDocumentError, data } = await supabase.storage
             .from('document-files')
             .upload(newDocumentName, file, { upsert: true });
-
-          //console.log(data, 'data');
 
           const { error: updateError } = await supabase
             .from(tableName)
@@ -141,15 +128,13 @@ export default function UpdateDocuments({
             })
             .eq('document_path', documentName);
 
-          console.log(updateError, 'updateError');
-
           if (updateError) {
-            console.log(updateError);
+            console.error(updateError);
             throw new Error(handleSupabaseError(updateError.message));
           }
 
           if (newDocumentError) {
-            console.log(newDocumentError);
+            console.error(newDocumentError);
             throw new Error(handleSupabaseError(newDocumentError.message));
           }
           return;
@@ -158,40 +143,33 @@ export default function UpdateDocuments({
         const { data: fileData, error: downloadError } = await supabase.storage
           .from('document-files')
           .download(documentName);
-        console.log(fileData);
 
         if (downloadError) {
-          console.log(downloadError);
+          console.error(downloadError);
           throw new Error(handleSupabaseError(downloadError.message));
         }
 
         const { error: uploadError, data: finalDocument2 } = await supabase.storage
           .from('document-files-expired')
           .upload(documentName, fileData, { upsert: true });
-        console.log(finalDocument2);
 
         if (uploadError) {
-          console.log(uploadError);
+          console.error(uploadError);
           throw new Error(handleSupabaseError(uploadError.message));
         }
 
         const { error: deleteError, data: deletedDocument } = await supabase.storage
           .from('document-files')
           .remove([documentName]);
-        console.log(deletedDocument);
 
         if (deleteError) {
-          console.log(deleteError);
+          console.error(deleteError);
           throw new Error(handleSupabaseError(deleteError.message));
         }
-
-        console.log(newDocumentName);
 
         const { error: newDocumentError, data: finalDocument } = await supabase.storage
           .from('document-files')
           .upload(newDocumentName, file, { upsert: true });
-
-        console.log(finalDocument);
 
         const { error: updateError } = await supabase
           .from(tableName)
@@ -204,11 +182,11 @@ export default function UpdateDocuments({
           .eq('id', id);
 
         if (updateError) {
-          console.log(updateError);
+          console.error(updateError);
           throw new Error(handleSupabaseError(updateError.message));
         }
         if (newDocumentError) {
-          console.log(newDocumentError);
+          console.error(newDocumentError);
           throw new Error(handleSupabaseError(newDocumentError.message));
         }
 
@@ -233,7 +211,7 @@ export default function UpdateDocuments({
           return 'Documento renovado correctamente';
         },
         error: (error) => {
-          console.log(error);
+          console.error(error);
           return error;
         },
       }

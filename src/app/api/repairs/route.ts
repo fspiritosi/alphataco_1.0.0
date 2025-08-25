@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
     return Response.json({ types_of_repairs });
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
     return Response.json({ types_of_repairs });
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 }
 
@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
     }
     return Response.json({ types_of_repairs });
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 }
 
@@ -62,8 +62,6 @@ export async function DELETE(request: NextRequest) {
   const supabase = supabaseServer();
   const searchParams = request.nextUrl.searchParams;
   const id = searchParams.get('id');
-
-  // console.log('keloke', id);
 
   try {
     const { data: types_of_repairs, error } = await supabase
@@ -76,6 +74,6 @@ export async function DELETE(request: NextRequest) {
     }
     return Response.json({ types_of_repairs });
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 }

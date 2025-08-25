@@ -573,8 +573,8 @@ export async function createDailyReport(date: string[]) {
     .select();
 
   if (error) {
+    console.error(error);
     return [];
-    console.log(error);
   }
   return data;
 }
@@ -819,7 +819,6 @@ export async function updateDailyReportRow(
           await Promise.all(updatePromises);
         }
       } else {
-        console.log('No se encontraron registros recientes para actualizar');
       }
     } catch (error) {
       console.error('Error al actualizar la razón de reasignación:', error);
@@ -996,13 +995,10 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
 
   try {
     // Insertar todas las filas a la vez
-    //console.log(data);
     const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
 
-    console.log(createdRows, 'createdRows');
-
     if (error) {
-      console.log(error, 'error');
+      console.error(error, 'error');
       throw error;
     }
 
@@ -1292,8 +1288,6 @@ export async function getServicesSummaryByType(saveToHistory?: boolean) {
       p_company_id: company_id || user?.app_metadata?.company_id || '',
       save_to_history: saveToHistory || false,
     });
-
-    console.log(data, 'super data');
 
     if (error) {
       console.error('Error fetching services summary aactual:', error);

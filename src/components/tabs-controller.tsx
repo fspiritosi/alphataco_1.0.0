@@ -33,7 +33,6 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
     setActiveTab(value);
     // ✅ USAR FUNCIÓN ESPECÍFICA PARA PESTAÑAS PRINCIPALES
     setMainTabCookie(path, value);
-    console.log(`🔵 Main tab cookie set: main_tab_${path.replace(/\//g, '_')} = ${value}`);
   };
 
   return (
