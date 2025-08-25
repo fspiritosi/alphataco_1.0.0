@@ -16,12 +16,14 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Pencil, Trash2 } from 'lucide-react';
 import { PreparteItem } from './PreparteManager';
+
 interface PreparteTableProps {
   data: PreparteItem[];
   onEdit: (item: PreparteItem) => void;
   onDelete: (id: string) => void;
   savedVisibility?: VisibilityState;
 }
+
 const getColumns = (
   onEdit: (item: PreparteItem) => void,
   onDelete: (id: string) => void
@@ -33,6 +35,22 @@ const getColumns = (
   {
     accessorKey: 'contratoId',
     header: 'Contrato',
+  },
+  {
+    accessorKey: 'items',
+    header: 'Item',
+    cell: ({ row }) => {
+      const items = row.original.items || [];
+      return items.length > 0 ? items[0].id : '-';
+    },
+  },
+  {
+    accessorKey: 'quantity',
+    header: 'Cantidad',
+    cell: ({ row }) => {
+      const items = row.original.items || [];
+      return items.length > 0 ? items[0].quantity : '-';
+    },
   },
   {
     accessorKey: 'requestDate',

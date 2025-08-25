@@ -258,6 +258,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         }
                         emptyMessage="No hay items disponibles para este contrato"
                         disabled={!form.getValues('contratoId') || isLoading}
+                        maxSelections={isEditing ? 1 : null}
                       />
                     </CardContent>
                     <CardFooter>

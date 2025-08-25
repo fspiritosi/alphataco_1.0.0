@@ -89,14 +89,17 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
       );
       toast('El registro ha sido actualizado correctamente.');
     } else {
-      // Lógica para crear
-      const newItem = {
-        ...formData,
-        id: Date.now().toString(),
-        clienteName,
-      };
-      setItem((prevItems) => [...prevItems, newItem]);
-      toast('El nuevo registro ha sido creado correctamente.');
+      // Crear una entrada por cada ítem en el array de items
+      const timestamp = Date.now();
+      const newItems = formData.items.map((item, index) => ({
+        ...formData, // Copiar todos los campos del formulario
+        id: `${timestamp}-${index}`, // ID único para cada línea
+        items: [item], // Un solo ítem por línea
+        clienteName, // Nombre del cliente
+      }));
+
+      setItem((prevItems) => [...prevItems, ...newItems]);
+      toast(`Se han creado ${newItems.length} líneas correctamente.`);
     }
 
     // Limpiar formulario y cerrar
