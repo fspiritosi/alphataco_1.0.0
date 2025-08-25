@@ -18,7 +18,7 @@ export default async function EmpleadoDiagramasChart() {
   const cookiesStore = cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const cookieValue = cookiesStore.get('position-filter')?.value;
-  const employeeIndicator = (await getEmployeeIndicator(company_id, cookieValue?.split(','))) || [
+  const employeeIndicator: any = (await getEmployeeIndicator(company_id, cookieValue?.split(','))) || [
     {
       employees_operativos: 0,
       employees_used: 0,
