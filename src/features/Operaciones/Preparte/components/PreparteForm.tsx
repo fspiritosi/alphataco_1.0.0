@@ -107,6 +107,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 <Select
                   onValueChange={(value) => {
                     form.setValue('clienteId', value);
+                    form.setValue('contratoId', '');
                     handleClienteChange(value);
                   }}
                   value={field.value}
