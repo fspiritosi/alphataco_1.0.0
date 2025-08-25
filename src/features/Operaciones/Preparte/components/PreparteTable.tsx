@@ -31,6 +31,10 @@ const getColumns = (
     header: 'Cliente',
   },
   {
+    accessorKey: 'contratoId',
+    header: 'Contrato',
+  },
+  {
     accessorKey: 'requestDate',
     header: 'Fecha de Solicitud',
     cell: ({ row }) => <div>{new Date(row.getValue('requestDate')).toLocaleDateString()}</div>,

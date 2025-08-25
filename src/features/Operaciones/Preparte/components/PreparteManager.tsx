@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { VisibilityState } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { PreparteForm } from './PreparteForm';
 import { PreparteTable } from './PreparteTable';
 // Tipo de datos para los clientes
@@ -16,28 +17,34 @@ export type Cliente = {
 
 // Tipo de datos para los prepartes
 export type PreparteItem = {
-  id: string;
+  id?: string;
   clienteId: string;
   clienteName: string;
+  contratoId: string;
   requestDate: Date;
   executionDate: Date;
-  observaciones: string;
+  observaciones?: string;
 };
 
 interface PreparteManagerProps {
   items: PreparteItem[];
   Customers: Cliente[];
+  contratos: Contrato[];
 }
-export function PreparteManager({ items, Customers }: PreparteManagerProps) {
+interface Contrato {
+  id: string;
+  service_name: string;
+}
+export function PreparteManager({ items, Customers, contratos }: PreparteManagerProps) {
   const [item, setItem] = useState<PreparteItem[]>(items);
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
   const [open, setOpen] = useState(false);
   const [savedVisibility, setSavedVisibility] = useState<VisibilityState>({});
   const [formData, setFormData] = useState<PreparteItem>({
-    id: '',
     clienteId: '',
     clienteName: '',
+    contratoId: '',
     requestDate: new Date(),
     executionDate: new Date(),
     observaciones: '',
@@ -50,49 +57,61 @@ export function PreparteManager({ items, Customers }: PreparteManagerProps) {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (formData: PreparteItem) => {
+    // Obtener el nombre del cliente seleccionado
+    const clienteSeleccionado = Customers.find((c) => c.id === formData.clienteId);
+    const clienteName = clienteSeleccionado?.name || formData.clienteName || '';
 
-    if (isEditing && currentItem) {
-      // Lógica para actualizar
+    if (isEditing && currentItem?.id) {
+      // Lógica para actualizar usando el estado actualizado
       setItem((prevItems) =>
         prevItems.map((item) =>
           item.id === currentItem.id
             ? {
                 ...formData,
-                clienteName: Customers.find((c) => c.id === formData.clienteId)?.name || '',
-                id: currentItem.id, // Make sure to preserve the ID
+                id: currentItem.id,
+                clienteName,
               }
             : item
         )
       );
+      toast('El registro ha sido actualizado correctamente.');
     } else {
-      // Lógica para crear nuevo
-      const newItem: PreparteItem = {
+      // Lógica para crear
+      const newItem = {
         ...formData,
         id: Date.now().toString(),
-        clienteName: Customers.find((c) => c.id === formData.clienteId)?.name || '',
+        clienteName,
       };
-      setItem((prev) => [...prev, newItem]);
+      setItem((prevItems) => [...prevItems, newItem]);
+      toast('El nuevo registro ha sido creado correctamente.');
     }
 
-    // Limpiar formulario
+    // Limpiar formulario y cerrar
     setFormData({
-      id: '',
       clienteId: '',
       clienteName: '',
+      contratoId: '',
       requestDate: new Date(),
       executionDate: new Date(),
       observaciones: '',
     });
-
     setOpen(false);
     setIsEditing(false);
     setCurrentItem(null);
   };
 
   const handleEdit = (item: PreparteItem) => {
-    setFormData(item);
+    // Asegurarse de que todos los campos requeridos estén presentes
+    setFormData({
+      id: item.id,
+      clienteId: item.clienteId,
+      clienteName: item.clienteName || '',
+      contratoId: item.contratoId || '',
+      requestDate: item.requestDate || new Date(),
+      executionDate: item.executionDate || new Date(),
+      observaciones: item.observaciones || '',
+    });
     setCurrentItem(item);
     setIsEditing(true);
     setOpen(true);
@@ -102,6 +121,8 @@ export function PreparteManager({ items, Customers }: PreparteManagerProps) {
     setItem((prev) => prev.filter((item) => item.id !== id));
   };
 
+  console.log(item);
+
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
       <div className="flex justify-between items-center w-full">
@@ -110,7 +131,7 @@ export function PreparteManager({ items, Customers }: PreparteManagerProps) {
           <SheetTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Nuevo Preparte
+              Nuevo Pedido
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-[500px] sm:w-[540px]">
@@ -120,17 +141,18 @@ export function PreparteManager({ items, Customers }: PreparteManagerProps) {
             <PreparteForm
               formData={formData}
               clientes={Customers as Cliente[]}
+              contratos={contratos as Contrato[]}
               isEditing={isEditing}
               onInputChange={handleInputChange}
-              onSubmit={handleSubmit}
+              onSubmit={(formData) => handleSubmit(formData)}
               onCancel={() => {
                 setOpen(false);
                 setIsEditing(false);
                 setCurrentItem(null);
                 setFormData({
-                  id: '',
                   clienteId: '',
                   clienteName: '',
+                  contratoId: '',
                   requestDate: new Date(),
                   executionDate: new Date(),
                   observaciones: '',

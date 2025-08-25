@@ -1,4 +1,4 @@
-import { fetchContractorCompanies } from '@/app/dashboard/employee/action/actions/actions';
+import { fetchContractorCompanies, fetchContractsByClientId } from '@/app/dashboard/employee/action/actions/actions';
 import { PreparteManager } from './PreparteManager';
 interface PreparteItem {
   id: string;
@@ -14,6 +14,10 @@ type Cliente = {
   id: string;
   name: string;
 };
+type Contrato = {
+  id: string;
+  service_name: string;
+};
 
 const mockPreparteItems: PreparteItem[] = [
   {
@@ -28,10 +32,16 @@ const mockPreparteItems: PreparteItem[] = [
 
 export async function PreparteDetailTableWrapper() {
   const customers = await fetchContractorCompanies();
+  const contratos = await fetchContractsByClientId('');
+  console.log(contratos);
 
   return (
     <div className="flex flex-col">
-      <PreparteManager items={mockPreparteItems as any} Customers={customers as Cliente[]} />
+      <PreparteManager
+        items={mockPreparteItems as any}
+        Customers={customers as Cliente[]}
+        contratos={contratos as Contrato[]}
+      />
     </div>
   );
 }

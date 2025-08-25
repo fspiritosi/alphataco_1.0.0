@@ -69,11 +69,11 @@ async function OperationsPage() {
       },
       {
         value: 'Preparte',
-        name: 'Preparte',
+        name: 'Gestor de pedidos',
         restricted: [''],
         content: {
-          title: 'Ver la lista de prepartes',
-          description: 'Aquí encontrarás todos los prepartes',
+          title: 'Gestor de pedidos',
+          description: 'Aquí encontrarás todos los pedidos',
           buttonActioRestricted: [''],
           buttonAction: '',
           component: (
