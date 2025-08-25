@@ -1,3 +1,4 @@
+import { PostHogProvider } from '@/components/PostHogProvider';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Toaster } from '@/components/ui/toaster';
@@ -25,11 +26,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={`${popinsFont.className} bg-gh_contrast dark:bg-slate-900`}>
-        <ThemeProvider attribute="class" defaultTheme="ligth" enableSystem disableTransitionOnChange>
-          <Toaster />
-          <Sonner richColors={true} />
-          <main>{children}</main>
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider attribute="class" defaultTheme="ligth" enableSystem disableTransitionOnChange>
+            <Toaster />
+            <Sonner richColors={true} />
+            <main>{children}</main>
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

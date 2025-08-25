@@ -522,6 +522,18 @@ export async function getDailyReportById(id: string) {
 
   return dailyReports || [];
 }
+export async function getDailyReportStatusById(id: string) {
+  const supabase = supabaseServer();
+
+  let { data: dailyReports, error } = await supabase.from('dailyreport').select('status,date').eq('id', id);
+
+  if (error) {
+    console.error('Error fetching daily reports:', error);
+    return [];
+  }
+
+  return dailyReports || [];
+}
 export async function checkDailyReportExists(date: string[]) {
   const cookiesStore = cookies();
   const company_id = cookiesStore.get('actualComp')?.value;

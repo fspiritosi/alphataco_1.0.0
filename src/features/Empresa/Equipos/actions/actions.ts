@@ -137,9 +137,9 @@ export async function updateTypeOfVehicle({ id, name, is_active }: { id: string;
     const updateData: { name: string; is_active?: boolean } = { name };
 
     // Solo incluimos is_active si se proporciona explícitamente
-    // if (is_active !== undefined) {
-    //   updateData.is_active = is_active;
-    // }
+    if (is_active !== undefined) {
+      updateData.is_active = is_active;
+    }
 
     // Primero verificamos si el registro existe
     const { data: existing, error: findError } = await supabase.from('type').select('*').eq('id', id).single();
