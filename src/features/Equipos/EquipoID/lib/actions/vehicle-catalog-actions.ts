@@ -14,6 +14,7 @@ export async function getVehicleBrands() {
     .from('brand_vehicles')
     .select('*')
     .or(`company_id.eq.${company_id},company_id.is.null`)
+    .eq('is_active', true)
     .order('name');
 
   if (error) {
@@ -35,6 +36,7 @@ export async function getVehicleModels() {
     .from('model_vehicles')
     .select('*')
     .or(`company_id.eq.${company_id},company_id.is.null`)
+    .eq('is_active', true)
     .order('name');
 
   if (error) {
@@ -45,6 +47,23 @@ export async function getVehicleModels() {
   return data || [];
 }
 
+export async function getVehicleOwners() {
+  const supabase = supabaseServer();
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id) return [];
+
+  const { data, error } = await supabase.from('equipment_owners').select('*').eq('is_active', true).order('name');
+
+  if (error) {
+    console.error('Error fetching vehicle types:', error);
+    return [];
+  }
+
+  return data || [];
+}
+export type getVehicleOwnersType = Awaited<ReturnType<typeof getVehicleOwners>>;
 export async function getVehicleTypes() {
   const supabase = supabaseServer();
   const cookiesStore = cookies();
@@ -56,6 +75,7 @@ export async function getVehicleTypes() {
     .from('type')
     .select('*')
     .or(`company_id.eq.${company_id},company_id.is.null`)
+    .eq('is_active', true)
     .order('name');
 
   if (error) {
@@ -90,7 +110,8 @@ export async function getVehicleSubTypes() {
     .from('sub_type')
     .select('*')
     .or(`company_id.eq.${company_id},company_id.is.null`)
-    .order('name');
+    .order('name')
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching vehicle sub types:', error);
@@ -101,9 +122,15 @@ export async function getVehicleSubTypes() {
 }
 
 export async function getModelsByBrand(brandId: number) {
+  if (!brandId) return [];
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from('model_vehicles').select('*').eq('brand', brandId).order('name');
+  const { data, error } = await supabase
+    .from('model_vehicles')
+    .select('*')
+    .eq('brand', brandId)
+    .order('name')
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching models by brand:', error);
@@ -114,9 +141,15 @@ export async function getModelsByBrand(brandId: number) {
 }
 
 export async function getSubTypesByType(typeId: string) {
+  if (!typeId) return [];
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from('sub_type').select('*').eq('type', typeId).order('name');
+  const { data, error } = await supabase
+    .from('sub_type')
+    .select('*')
+    .eq('type', typeId)
+    .order('name')
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching sub types by type:', error);

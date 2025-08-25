@@ -15,6 +15,7 @@ import {
   getSubTypesByType,
   getTypesOfVehicles,
   getVehicleBrands,
+  getVehicleOwners,
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import { getRole } from '@/lib/utils/getRole';
@@ -67,6 +68,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           costCentersPromise={fetchAllCostCenters()}
           brandsPromise={getVehicleBrands()}
           typesPromise={getVehicleTypes()}
+          ownersPromise={getVehicleOwners()}
           subTypesPromise={getSubTypesByType(vehicle?.type.id!)}
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}

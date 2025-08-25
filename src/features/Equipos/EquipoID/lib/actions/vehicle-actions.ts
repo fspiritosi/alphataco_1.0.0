@@ -17,7 +17,8 @@ export async function getVehicleById(id: string) {
       types_of_vehicles(id, name),
       type(*),
       sub_type(id, name),
-      contractor_equipment(customers(id, name))
+      contractor_equipment(customers(id, name)),
+      equipment_owners(id, name)
     `
     )
     .eq('id', id)

@@ -637,11 +637,6 @@ export async function updateSubTypeOfVehicle({
     // Preparamos los datos a actualizar
     const updateData: { name: string; is_active?: boolean; type: string } = { name, is_active, type: type_id };
 
-    // Solo incluimos is_active si se proporciona explícitamente
-    // if (is_active !== undefined) {
-    //   updateData.is_active = is_active;
-    // }
-
     // Primero verificamos si el registro existe
     const { data: existing, error: findError } = await supabase.from('sub_type').select('*').eq('id', id).single();
 

@@ -14,6 +14,7 @@ import {
   getSubTypesByType,
   getTypesOfVehicles,
   getVehicleBrands,
+  getVehicleOwnersType,
   getVehicleTypes,
 } from '../lib/actions/vehicle-catalog-actions';
 import { getVehicleTypeFields } from '../lib/utils/vehicle-utils';
@@ -27,6 +28,7 @@ interface VehicleBasicDataFormProps {
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   typesOfVehiclesPromise: ReturnType<typeof getTypesOfVehicles>;
+  ownersPromise: Promise<getVehicleOwnersType>;
 }
 
 export function VehicleBasicDataForm({
@@ -37,6 +39,7 @@ export function VehicleBasicDataForm({
   modelsPromise,
   subTypesPromise,
   typesPromise,
+  ownersPromise,
   // hideInput
 }: VehicleBasicDataFormProps) {
   const brands = use(brandsPromise);
@@ -44,6 +47,7 @@ export function VehicleBasicDataForm({
   const typesOfVehicles = use(typesOfVehiclesPromise);
   const [models, setModels] = useState<typeof modelsInitial>(modelsInitial);
   const [loadingModels, setLoadingModels] = useState(false);
+  const owners = use(ownersPromise);
 
   const types = use(typesPromise);
   const subTypesInitial = use(subTypesPromise);
@@ -305,7 +309,7 @@ export function VehicleBasicDataForm({
               <PopoverTrigger asChild>
                 <FormControl>
                   <Button
-                    disabled={readOnly || loadingModels}
+                    disabled={readOnly || loadingModels || !form.getValues('brand')}
                     variant="outline"
                     role="combobox"
                     className={cn('justify-between', !field.value && 'text-muted-foreground')}
@@ -575,6 +579,62 @@ export function VehicleBasicDataForm({
           )}
         />
       )}
+      <FormField
+        control={form.control}
+        name="owner_id"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>
+              Propietario <span className="text-red-500">*</span>
+            </FormLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    disabled={readOnly}
+                    variant="outline"
+                    role="combobox"
+                    className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                  >
+                    {owners.find((owner) => owner.id.toString() === field.value)?.name || 'Seleccionar propietario'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar propietario..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontró ningún propietario</CommandEmpty>
+                    <CommandGroup>
+                      {owners.map((owner) => (
+                        <CommandItem
+                          key={owner.id}
+                          value={owner?.name || ''}
+                          onSelect={() => {
+                            const ownerId = owner.id?.toString() || '';
+                            form.setValue('owner_id', ownerId);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              owner.id.toString() === field.value ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          {owner.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <FormDescription>Selecciona el propietario del equipo</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
       <FormField
         control={form.control}

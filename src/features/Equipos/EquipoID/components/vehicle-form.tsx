@@ -18,6 +18,7 @@ import {
   getSubTypesByType,
   getTypesOfVehicles,
   getVehicleBrands,
+  getVehicleOwnersType,
   getVehicleTypes,
 } from '../lib/actions/vehicle-catalog-actions';
 import { useVehicleFormReset } from '../lib/store/vehicleFormReset';
@@ -36,6 +37,7 @@ interface VehicleFormProps {
   repairsComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
+  ownersPromise: Promise<getVehicleOwnersType>;
 }
 
 const vehicleSchema = z
@@ -44,6 +46,7 @@ const vehicleSchema = z
     type_of_vehicle: z.string().min(1, 'El tipo de equipo es requerido'),
     brand: z.string().min(1, 'La marca es requerida'),
     model: z.string().min(1, 'El modelo es requerido'),
+    owner_id: z.string().optional(),
     year: z
       .string()
       .min(1, 'El año es requerido')
@@ -220,6 +223,7 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       picture: vehicle?.picture || '',
       allocated_to: vehicle?.allocated_to || [],
       cost_center_id: vehicle?.cost_center_id || '',
+      owner_id: vehicle?.equipment_owners?.id || '',
     },
   });
 

@@ -980,6 +980,7 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
   return data;
 };
 export const fetchMonthlyDocumentsByEquipmentId = async (equipmentId: string) => {
+  if (!equipmentId) return [];
   const cookiesStore = cookies();
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
