@@ -17,12 +17,15 @@ export type Cliente = {
 
 // Tipo de datos para los prepartes
 export type PreparteItem = {
-  id?: string;
+  id: string;
   clienteId: string;
   clienteName: string;
   contratoId: string;
   requestDate: Date;
   executionDate: Date;
+  tipo: string;
+  jornada: string;
+  solicitante: string;
   observaciones?: string;
 };
 
@@ -42,11 +45,15 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
   const [open, setOpen] = useState(false);
   const [savedVisibility, setSavedVisibility] = useState<VisibilityState>({});
   const [formData, setFormData] = useState<PreparteItem>({
+    id: '',
     clienteId: '',
     clienteName: '',
     contratoId: '',
     requestDate: new Date(),
     executionDate: new Date(),
+    tipo: '',
+    jornada: '',
+    solicitante: '',
     observaciones: '',
   });
   console.log(items);
@@ -89,11 +96,15 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
 
     // Limpiar formulario y cerrar
     setFormData({
+      id: '',
       clienteId: '',
       clienteName: '',
       contratoId: '',
       requestDate: new Date(),
       executionDate: new Date(),
+      tipo: '',
+      jornada: '',
+      solicitante: '',
       observaciones: '',
     });
     setOpen(false);
@@ -110,6 +121,9 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
       contratoId: item.contratoId || '',
       requestDate: item.requestDate || new Date(),
       executionDate: item.executionDate || new Date(),
+      tipo: item.tipo || '',
+      jornada: item.jornada || '',
+      solicitante: item.solicitante || '',
       observaciones: item.observaciones || '',
     });
     setCurrentItem(item);
@@ -134,31 +148,39 @@ export function PreparteManager({ items, Customers, contratos }: PreparteManager
               Nuevo Pedido
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[500px] sm:w-[540px]">
+          <SheetContent side="right" className="w-[600px] max-w-[60vw] sm:max-w-[60vw]">
             <SheetHeader className="mb-6">
-              <SheetTitle>{isEditing ? 'Editar Preparte' : 'Nuevo Preparte'}</SheetTitle>
+              <SheetTitle>{isEditing ? 'Editar Pedido' : 'Nuevo Pedido'}</SheetTitle>
             </SheetHeader>
-            <PreparteForm
-              formData={formData}
-              clientes={Customers as Cliente[]}
-              contratos={contratos as Contrato[]}
-              isEditing={isEditing}
-              onInputChange={handleInputChange}
-              onSubmit={(formData) => handleSubmit(formData)}
-              onCancel={() => {
-                setOpen(false);
-                setIsEditing(false);
-                setCurrentItem(null);
-                setFormData({
-                  clienteId: '',
-                  clienteName: '',
-                  contratoId: '',
-                  requestDate: new Date(),
-                  executionDate: new Date(),
-                  observaciones: '',
-                });
-              }}
-            />
+            <Card>
+              <CardContent>
+                <PreparteForm
+                  formData={formData}
+                  clientes={Customers as Cliente[]}
+                  contratos={contratos as Contrato[]}
+                  isEditing={isEditing}
+                  onInputChange={handleInputChange}
+                  onSubmit={(formData: PreparteItem) => handleSubmit(formData)}
+                  onCancel={() => {
+                    setOpen(false);
+                    setIsEditing(false);
+                    setCurrentItem(null);
+                    setFormData({
+                      id: '',
+                      clienteId: '',
+                      clienteName: '',
+                      contratoId: '',
+                      requestDate: new Date(),
+                      executionDate: new Date(),
+                      tipo: '',
+                      jornada: '',
+                      solicitante: '',
+                      observaciones: '',
+                    });
+                  }}
+                />
+              </CardContent>
+            </Card>
           </SheetContent>
         </Sheet>
       </div>

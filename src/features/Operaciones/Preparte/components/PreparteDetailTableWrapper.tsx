@@ -4,8 +4,12 @@ interface PreparteItem {
   id: string;
   clienteId: string;
   clienteName: string;
+  contratoId: string;
   requestDate: Date;
   executionDate: Date;
+  tipo: string;
+  jornada: string;
+  solicitante: string;
   observaciones: string;
 }
 
@@ -24,9 +28,13 @@ const mockPreparteItems: PreparteItem[] = [
     id: 'drr_123',
     clienteId: 'customer_123',
     clienteName: 'Empresa Ejemplo S.A.',
+    contratoId: 'contract_123',
     requestDate: new Date('2025-08-20T10:00:00-03:00'),
     executionDate: new Date('2025-08-20T09:00:00-03:00'),
     observaciones: 'Mantenimiento preventivo',
+    tipo: 'Adicional',
+    jornada: 'Jornada 8 horas',
+    solicitante: 'Juan Pérez',
   },
 ];
 

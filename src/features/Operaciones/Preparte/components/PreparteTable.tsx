@@ -45,6 +45,16 @@ const getColumns = (
     cell: ({ row }) => <div>{new Date(row.getValue('executionDate')).toLocaleDateString()}</div>,
   },
   {
+    accessorKey: 'tipo',
+    header: 'Tipo',
+    cell: ({ row }) => <div>{row.getValue('tipo')}</div>,
+  },
+  {
+    accessorKey: 'jornada',
+    header: 'Jornada',
+    cell: ({ row }) => <div>{row.getValue('jornada')}</div>,
+  },
+  {
     accessorKey: 'solicitante',
     header: 'Solicitante',
     cell: ({ row }) => <div>{row.getValue('solicitante')}</div>,

@@ -4,6 +4,7 @@ import { fetchContractsByClientId } from '@/app/dashboard/employee/action/action
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,7 +19,7 @@ import * as z from 'zod';
 import { Cliente } from '../components/PreparteManager';
 // Esquema de validación con Zod
 const formSchema = z.object({
-  id: z.string().optional(),
+  id: z.string(),
   clienteId: z.string().min(1, 'Por favor selecciona un cliente'),
   contratoId: z.string().min(1, 'Por favor selecciona un contrato'),
   clienteName: z.string(),
@@ -28,6 +29,9 @@ const formSchema = z.object({
   executionDate: z.date({
     required_error: 'La fecha de ejecución es requerida',
   }),
+  tipo: z.string().min(1, 'Por favor selecciona un tipo de servicio'),
+  jornada: z.string().min(1, 'Por favor selecciona una jornada'),
+  solicitante: z.string().min(1, 'Por favor ingresa el solicitante'),
   observaciones: z.string().optional(),
 });
 
@@ -94,172 +98,250 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className="space-y-4">
-          {/* Selector de Clientes */}
-          <FormField
-            control={form.control}
-            name="clienteId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Cliente</FormLabel>
-                <Select
-                  onValueChange={(value) => {
-                    form.setValue('clienteId', value);
-                    form.setValue('contratoId', '');
-                    handleClienteChange(value);
-                  }}
-                  value={field.value}
-                >
-                  <FormControl>
+    <div className="overflow-y-auto max-h-[calc(100vh-10rem)] gap-4">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <div className="space-y-4">
+            {/* Selector de Clientes */}
+            <FormField
+              control={form.control}
+              name="clienteId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cliente</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      form.setValue('clienteId', value);
+                      form.setValue('contratoId', '');
+                      handleClienteChange(value);
+                    }}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar cliente">
+                          {field.value ? (
+                            clientes.find((c) => c.id === field.value)?.name || 'Cliente no encontrado'
+                          ) : (
+                            <span className="flex items-center">
+                              <Building className="mr-2 h-4 w-4" />
+                              Seleccionar cliente
+                            </span>
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {clientes.map((cliente) => (
+                        <SelectItem key={cliente.id} value={cliente.id}>
+                          {cliente.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Selector de Contrato */}
+            <FormField
+              control={form.control}
+              name="contratoId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contrato</FormLabel>
+                  <Select
+                    disabled={!form.watch('clienteId') || isLoading}
+                    onValueChange={(value) => form.setValue('contratoId', value)}
+                    value={field.value}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar cliente">
+                      <SelectValue placeholder={isLoading ? 'Cargando contratos...' : 'Seleccionar contrato'}>
                         {field.value ? (
-                          clientes.find((c) => c.id === field.value)?.name || 'Cliente no encontrado'
+                          contratos.find((c) => c.id === field.value)?.service_name || 'Contrato no encontrado'
                         ) : (
                           <span className="flex items-center">
-                            <Building className="mr-2 h-4 w-4" />
-                            Seleccionar cliente
+                            <FileText className="mr-2 h-4 w-4" />
+                            {isLoading ? 'Cargando...' : 'Seleccionar contrato'}
                           </span>
                         )}
                       </SelectValue>
                     </SelectTrigger>
+                    <SelectContent>
+                      {contratos.map((contrato) => (
+                        <SelectItem key={contrato.id} value={contrato.id}>
+                          {contrato.service_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Fecha de Solicitud */}
+            <FormField
+              control={form.control}
+              name="requestDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha de Solicitud</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full justify-start text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccionar fecha</span>}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Fecha de Ejecución Solicitada */}
+            <FormField
+              control={form.control}
+              name="executionDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha de Ejecución Solicitada</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full justify-start text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccionar fecha</span>}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Tipo de servicio */}
+            <FormField
+              control={form.control}
+              name="tipo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de servicio</FormLabel>
+                  <FormControl>
+                    <Select onValueChange={(value) => form.setValue('tipo', value)} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar tipo de servicio">
+                          {field.value ? field.value : 'Seleccionar tipo de servicio'}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Adicional">Adicional</SelectItem>
+                        <SelectItem value="Adicional Permanente">Adicional Permanente</SelectItem>
+                        <SelectItem value="Mensual">Mensual</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </FormControl>
-                  <SelectContent>
-                    {clientes.map((cliente) => (
-                      <SelectItem key={cliente.id} value={cliente.id}>
-                        {cliente.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {/* Selector de Contrato */}
-          <FormField
-            control={form.control}
-            name="contratoId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Contrato</FormLabel>
-                <Select
-                  disabled={!form.watch('clienteId') || isLoading}
-                  onValueChange={(value) => form.setValue('contratoId', value)}
-                  value={field.value}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isLoading ? 'Cargando contratos...' : 'Seleccionar contrato'}>
-                      {field.value ? (
-                        contratos.find((c) => c.id === field.value)?.service_name || 'Contrato no encontrado'
-                      ) : (
-                        <span className="flex items-center">
-                          <FileText className="mr-2 h-4 w-4" />
-                          {isLoading ? 'Cargando...' : 'Seleccionar contrato'}
-                        </span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contratos.map((contrato) => (
-                      <SelectItem key={contrato.id} value={contrato.id}>
-                        {contrato.service_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Jornada */}
+            <FormField
+              control={form.control}
+              name="jornada"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Jornada</FormLabel>
+                  <FormControl>
+                    <Select onValueChange={(value) => form.setValue('jornada', value)} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar jornada">
+                          {field.value ? field.value : 'Seleccionar jornada'}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Jornada 8 horas">Jornada 8 horas</SelectItem>
+                        <SelectItem value="Jornada 12 horas">Jornada 12 horas</SelectItem>
+                        <SelectItem value="Jornada 24 horas">Jornada 24 horas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Solicitante */}
+            <FormField
+              control={form.control}
+              name="solicitante"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Solicitante</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ingrese el solicitante" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Campo de Observaciones */}
+            <FormField
+              control={form.control}
+              name="observaciones"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observaciones</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Ingrese observaciones adicionales..." className="min-h-[100px]" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-          {/* Fecha de Solicitud */}
-          <FormField
-            control={form.control}
-            name="requestDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Fecha de Solicitud</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccionar fecha</span>}
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={es} />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Fecha de Ejecución Solicitada */}
-          <FormField
-            control={form.control}
-            name="executionDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Fecha de Ejecución Solicitada</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccionar fecha</span>}
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={es} />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Campo de Observaciones */}
-          <FormField
-            control={form.control}
-            name="observaciones"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Observaciones</FormLabel>
-                <FormControl>
-                  <Textarea placeholder="Ingrese observaciones adicionales..." className="min-h-[100px]" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="flex justify-end space-x-4 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button type="submit">{isEditing ? 'Actualizar' : 'Guardar'}</Button>
-        </div>
-      </form>
-    </Form>
+          <div className="flex justify-end space-x-4 pt-4">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancelar
+            </Button>
+            <Button type="submit">{isEditing ? 'Actualizar' : 'Guardar'}</Button>
+          </div>
+        </form>
+      </Form>
+    </div>
   );
 }
