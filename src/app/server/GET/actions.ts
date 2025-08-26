@@ -980,6 +980,7 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
   return data;
 };
 export const fetchMonthlyDocumentsByEquipmentId = async (equipmentId: string) => {
+  if (!equipmentId) return [];
   const cookiesStore = cookies();
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
@@ -1074,6 +1075,8 @@ export const fetchPermanentDocumentsByEquipmentId = async (equipmentId: string) 
   } = await supabase.auth.getUser();
   const role = await getActualRole(company_id as string, user?.id as string);
 
+  if (!equipmentId) return [];
+
   if (role === 'Invitado') {
     const { data, error } = await supabase
       .from('documents_equipment')
@@ -1159,7 +1162,7 @@ export const fetchEquipmentById = async (id: string) => {
     .select('*, brand_vehicles(name), model_vehicles(name),types_of_vehicles(name),type(name)')
     .eq('id', id);
 
-  if (error) console.log('eroor', error);
+  if (error) console.error('eroor', error);
 
   const vehicle = vehicleData?.map((item: any) => ({
     ...item,

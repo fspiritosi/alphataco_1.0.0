@@ -183,7 +183,7 @@ export default function SimpleDocument({
           });
 
         if (errorList) {
-          console.log(errorList);
+          console.error(errorList);
         }
 
         if (data?.length && data?.length > 0) {
@@ -195,8 +195,6 @@ export default function SimpleDocument({
               'document_path',
               `${formatedCompanyName}-(${actualCompany?.[0]?.company_cuit})/${formatedAppliesPath}/${formatedAppliesName}/${formatedDocumentTypeName}-(${hasExpiredDate}).${fileExtension}`
             );
-
-          console.log(document, 'document');
 
           if (document?.length) {
             setError('id_document_types', {
@@ -222,7 +220,7 @@ export default function SimpleDocument({
 
         if (error) {
           setLoading(false);
-          console.log(error);
+          console.error(error);
           throw new Error(handleSupabaseError(error.message));
         }
 
@@ -236,11 +234,6 @@ export default function SimpleDocument({
             period: updateEntry.period || null,
           };
 
-          //console.log(data, 'data');
-
-          //console.log(idApplies, 'idApplies');
-          //console.log(updateEntry.applies, 'updateEntry.applies');
-          //console.log(updateEntry.id_document_types, 'updateEntry.id_document_types');
           const { error, data: userupdated } = await supabase
             .from(tableName)
             .update(data)
@@ -249,7 +242,7 @@ export default function SimpleDocument({
 
           if (error) {
             setLoading(false);
-            console.log(error);
+            console.error(error);
             //Eliminar el documento
             await supabase.storage.from('document-files').remove([response?.path]);
             throw new Error('Hubo un error al subir los documentos a la base de datos');
@@ -268,7 +261,7 @@ export default function SimpleDocument({
 
           if (error) {
             setLoading(false);
-            console.log(error);
+            console.error(error);
             //Eliminar el documento
             await supabase.storage.from('document-files').remove([response?.path]);
             throw new Error('Hubo un error al guardar el documento');

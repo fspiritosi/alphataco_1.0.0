@@ -97,7 +97,6 @@ export function EmployeeQuickActions({ employeeId, isActive, email }: EmployeeQu
       setShowDeactivateDialog(true);
     }
   };
-  console.log(isActive, 'isActive');
 
   const handleSendEmail = () => {
     if (email) {

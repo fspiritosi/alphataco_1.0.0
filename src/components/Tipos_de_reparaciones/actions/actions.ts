@@ -17,12 +17,11 @@ export async function fetchAllTypesOfRepairs() {
     // .eq('company_id', company_id || '');
 
     if (error) {
-      // console.log(error);
+      console.error(error);
       return [];
     }
     return types_of_repairs || [];
   } catch (error) {
-    // console.log(error);
     return [];
   }
 }
@@ -40,12 +39,10 @@ export async function createTypeOfRepair(body: any) {
     const { data: types_of_repairs, error } = await supabase.from('types_of_repairs').insert(body).select();
 
     if (error) {
-      // console.log(error);
       return [];
     }
     return types_of_repairs || [];
   } catch (error) {
-    // console.log(error);
     return [];
   }
 }
@@ -66,12 +63,10 @@ export async function updateTypeOfRepair(body: any, id: string) {
       .eq('id', id || '');
 
     if (error) {
-      // console.log(error);
       return [];
     }
     return types_of_repairs || [];
   } catch (error) {
-    // console.log(error);
     return [];
   }
 }
@@ -91,12 +86,10 @@ export async function deleteTypeOfRepair(id: string) {
       .delete()
       .eq('id', id || '');
     if (error) {
-      // console.log(error);
       return [];
     }
     return types_of_repairs || [];
   } catch (error) {
-    // console.log(error);
     return [];
   }
 }
@@ -118,15 +111,11 @@ export async function fetchAllRepairSolicitudes() {
       )
       .not('equipment_id', 'is', null);
 
-    //console.log(data, 'data');
-
     if (error) {
-      console.log(error);
       return [];
     }
     return data || [];
   } catch (error) {
-    // console.log(error);
     return [];
   }
 }
@@ -144,12 +133,10 @@ export async function createRepairSolicitud(data: any) {
     const { data: repair_solicitudes, error } = await supabase.from('repair_solicitudes').insert(data).select();
 
     if (error) {
-      // console.log(error);
       return [];
     }
     return repair_solicitudes || [];
   } catch (error) {
-    // console.log(error);
     return [];
   }
 }

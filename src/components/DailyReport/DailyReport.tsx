@@ -212,7 +212,6 @@ interface RepairsSolicituds {
 }
 
 export default function DailyReport({ reportData, allReport }: DailyReportProps) {
-  // console.log(reportData);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [customers, setCustomers] = useState<Customers[]>([]);
@@ -283,7 +282,6 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
     const companyName = data.data[0].company_name;
     const companyData = data.data[0];
     setCompanyData(companyData);
-    // console.log(companyName);
     setCompanyName(companyName);
     return companyName;
   };
@@ -347,7 +345,6 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
 
   const handleViewDocument = async (documentPath: string, row_id?: string) => {
     const filteredRow = dailyReport.find((row) => row.id === row_id);
-    //console.log(filteredRow);
     setFilteredRow(filteredRow as DailyReportItem);
     const url = await fetchDocument(documentPath); // Asume que fetchDocumentUrl es una función que obtiene la URL del documento
     setDocumentUrl(url);
@@ -370,7 +367,6 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
     fetchItems();
     fetchDiagrams();
   }, []);
-  //console.log(companyName);
 
   useEffect(() => {
     // Filtrar servicios válidos en la fecha del parte diario

@@ -105,29 +105,26 @@ function UploadDocumentEmployee({
     Database['public']['Tables']['documents_employees']['Row'][]
   >([]);
 
-  
   const fetchSelectedEquipmentDocuments = async () => {
     if (default_id) {
-     const { data, error } = await supabase
-       .from('documents_employees')
-       .select('*')
-       .eq('applies', default_id)
-       .neq('document_path', null);
+      const { data, error } = await supabase
+        .from('documents_employees')
+        .select('*')
+        .eq('applies', default_id)
+        .neq('document_path', null);
 
-     if (error) {
-       console.error('error', error);
-       return;
-     }
+      if (error) {
+        console.error('error', error);
+        return;
+      }
 
-     setSelectedResourceDocuments(data);
+      setSelectedResourceDocuments(data);
     }
   };
   useEffect(() => {
     fetchSelectedEquipmentDocuments();
   }, [default_id]);
 
-
-  //console.log('error', form.formState.errors);
   return (
     <div>
       <CardTitle className="mb-3">Documento no multirecurso</CardTitle>
@@ -352,7 +349,6 @@ function UploadDocumentEmployee({
                         input.onchange = async (e) => {
                           const file = (e.target as HTMLInputElement).files?.[0];
                           setSelectedFile(file);
-                          //console.log('file', file);
                           if (file) {
                             const applies = employees.find(
                               (employee) => employee.value === form.getValues('applies')
@@ -377,7 +373,6 @@ function UploadDocumentEmployee({
                               documenExtension,
                               'persona'
                             );
-                            //console.log('documentUrl', documentUrl);
                             if (documentUrl === 'duplicate') {
                               form.setError('document_path', {
                                 type: 'manual',
@@ -403,7 +398,7 @@ function UploadDocumentEmployee({
           <div className="flex justify-around">
             <Button
               variant={'destructive'}
-              type='button'
+              type="button"
               onClick={() => {
                 form.reset();
                 setSelectedFile(undefined);

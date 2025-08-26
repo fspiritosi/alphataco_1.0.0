@@ -88,7 +88,7 @@ export const FetchSharedUsers = async (companyId: string) => {
 
   if (error) {
     // return error;
-    //console.log(error);
+    console.error(error);
     return [];
   } else {
     return data;
@@ -108,7 +108,7 @@ export const FetchSharedUsersProfiles = async (companyId: string) => {
 
   if (error) {
     // return error;
-    //console.log(error);
+    console.error(error);
     return [];
   } else {
     return data;
@@ -142,7 +142,6 @@ export function calculateNameOFDocument(
   const formatedVersion = version.replace(/\./g, '-');
   const formatedFileExtension = file_extension.replace(/\./g, '-');
 
-  //console.log('alokofe');
   return `${formatedCompanyName}-(${company_cuit})/${resource}/${formatedAppliesName}/${formatedDocumentTypeName}-(${formatedVersion}).${formatedFileExtension}`;
 }
 export async function verifyDuplicatedDocument(
@@ -157,12 +156,8 @@ export async function verifyDuplicatedDocument(
   const supabase = supabaseBrowser();
   const path = `${formatedCompanyName}-(${company_cuit})/${resource}/${formatedAppliesPath}`;
 
-  //console.log(path, 'Ruta completa');
-
   const { data, error } = await supabase.storage.from('document-files').list(path);
   //     transporte-sp-srl-(30714153974)/persona/franco-ivan-andres-paratore
-
-  //console.log(data, 'Archivos listados');
 
   if (error) {
     console.error('error', error);
@@ -181,7 +176,6 @@ export async function verifyDuplicatedDocument(
 }
 export const uploadDocumentFile = async (file: File, path: string) => {
   const supabase = supabaseBrowser();
-  //console.log('file', file);
   const { data, error } = await supabase.storage.from('document-files').upload(path, file, {
     cacheControl: '3600',
     upsert: false,
@@ -210,11 +204,9 @@ export const uploadDocument = async (
 ) => {
   const supabase = supabaseBrowser();
   if (mandatory) {
-    //console.log('es mandatorio');
     if (multipleResources) {
       //Hacer un update de todos los registros donde coincida el algun elemento del array de applies y el valor de id_document_types
       const { applies, ...rest } = dataToUpdate;
-      //console.log('es multiple', rest);
       const { data, error } = await supabase
         .from(tableName)
         .update(rest)
@@ -226,7 +218,6 @@ export const uploadDocument = async (
       }
     } else {
       const { applies, ...rest } = dataToUpdate;
-      //console.log('no es multiple', rest);
       const { data, error } = await supabase
         .from(tableName)
         .update(rest)
@@ -242,12 +233,10 @@ export const uploadDocument = async (
     // await uploadDocumentFile(file, dataToUpdate.document_path);
   } else {
     // Crear el documento
-    //console.log('no es mandatorio');
 
     if (multipleResources) {
       //Insertar un nuevo registro por cada elemento del array de applies sin hacer un bucle, formatear y luego hacer un insert del array de objetos
       const { applies, ...rest } = dataToUpdate;
-      //console.log('es multiple', rest);
       const dataToInsert = applies.map((apply: any) => ({
         ...rest,
         applies: apply,
@@ -259,7 +248,6 @@ export const uploadDocument = async (
       }
     } else {
       const { applies, ...rest } = dataToUpdate;
-      //console.log('no es multiple', rest);
       const { data, error } = await supabase
         .from(tableName)
         .insert({
@@ -370,7 +358,6 @@ export const formatEmployeeDocumentsSimple = (
 };
 
 export const formatVehiculesDocuments = (doc: EquipmentDocumentDetailed) => {
-  //console.log('doc.validity',doc.validity);
   return {
     date: moment(doc.created_at).format('DD/MM/YYYY'),
     allocated_to: doc.applies?.type_of_vehicle?.name,
@@ -395,7 +382,6 @@ export const formatVehiculesDocuments = (doc: EquipmentDocumentDetailed) => {
 export const formatSimpleVehiculesDocuments = (
   doc: Awaited<ReturnType<typeof fetchSimplePermanentDocumentsEquipment>>[number]
 ) => {
-  //console.log('doc.validity',doc.validity);
   const latestLog = doc.documents_equipment_logs?.sort(
     (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   )[0];

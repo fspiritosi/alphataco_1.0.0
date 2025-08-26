@@ -1,8 +1,9 @@
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
-import EquipmentBrandsWrapper from './components/EquipmentBrandsWrapper';
-import EquipmentSubTypesWrapper from './components/EquipmentSubTypesWrapper';
-import EquipmentTypesWrapper from './components/EquipmentTypesWrapper';
-import EquipmentsModelWrapper from './components/EquipmentsModelWrapper';
+import EquipmentBrandsWrapper from './brand/EquipmentBrandsWrapper';
+import EquipmentsModelWrapper from './model/EquipmentsModelWrapper';
+import EquipmentSubTypesWrapper from './sub_types/EquipmentSubTypesWrapper';
+import TitularesWrapper from './titulares/TitularesWrapper';
+import EquipmentTypesWrapper from './types/EquipmentTypesWrapper';
 function EquipmentsTabs({ tabValue }: { tabValue: string }) {
   const viewData = {
     defaultValue: 'tipos',
@@ -50,6 +51,17 @@ function EquipmentsTabs({ tabValue }: { tabValue: string }) {
           buttonActioRestricted: [''],
           buttonAction: '',
           component: <EquipmentSubTypesWrapper />,
+        },
+      },
+      {
+        value: 'titulares',
+        name: 'Titulares',
+        restricted: [''],
+        content: {
+          title: 'Titulares',
+          buttonActioRestricted: [''],
+          buttonAction: '',
+          component: <TitularesWrapper />,
         },
       },
     ],

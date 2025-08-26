@@ -96,9 +96,6 @@ function DiagramEmployeeView({
   const groupedDiagrams = useMemo(() => {
     if (!diagrams || !activeEmployees) return {};
 
-    console.log('=== INICIO DE DEPURACIÓN DE DIAGRAMAS ===');
-    console.log('Total de diagramas recibidos:', diagrams.length);
-
     // Primero ordenamos los diagramas por fecha de creación (más reciente primero)
     const sortedDiagrams = [...diagrams].sort(
       (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -147,24 +144,10 @@ function DiagramEmployeeView({
 
     // Log detallado por empleado
     Object.entries(groupedByEmployee).forEach(([empId, empData]: [string, any]) => {
-      console.log(`\n=== Empleado: ${empData.employeeName} (ID: ${empId}) ===`);
-      console.log(`Total de diagramas: ${empData.diagrams.length}`);
-
-      // Mostrar fechas de los diagramas para este empleado
-      console.log('Fechas de diagramas:', empData.diagrams.map((d: any) => d.dateString).join(', '));
-
       // Ordenar los diagramas por fecha para el registro
       const sortedByDate = [...empData.diagrams].sort(
         (a: any, b: any) =>
           new Date(b.year, b.month - 1, b.day).getTime() - new Date(a.year, a.month - 1, a.day).getTime()
-      );
-      console.log(
-        'Diagramas ordenados por fecha:',
-        sortedByDate.map((d: any) => ({
-          date: d.dateString,
-          type: d.diagram_type?.short_description || 'Sin tipo',
-          created: d.created_at,
-        }))
       );
     });
 
@@ -192,11 +175,9 @@ function DiagramEmployeeView({
       return employee?.id;
     });
 
-    console.log('employeesWithDiagrams', employeesWithDiagrams);
     setSelectedResources(employeesWithDiagrams);
   }, []);
 
-  //console.log('grupedDiagrams', groupedDiagrams);
   function exportDiagramasToExcel(
     groupedDiagrams: Record<string, any[]>,
     activeEmployees: any[],
@@ -457,9 +438,6 @@ function DiagramEmployeeView({
 
                         // Debug: Mostrar información cuando no se encuentra un diagrama
                         if (!diagram) {
-                          console.log(
-                            `No se encontró diagrama para ${employee.firstname} ${employee.lastname} en ${dayNum}/${monthNum}/${yearNum}`
-                          );
                         }
 
                         return (

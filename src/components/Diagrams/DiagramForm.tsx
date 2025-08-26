@@ -128,14 +128,11 @@ export function DiagramForm({
   }
   //CREA TODOS LOS REGISTROS EN LA BASE DE DATOS
   function createAll(data: DiagramaToCreate[]) {
-    //console.log(data);
     data.map((novedad) => {
       try {
         createDiagram(novedad);
         setSuccesDiagrams([]);
-      } catch (error) {
-        // console.log(error);
-      }
+      } catch (error) {}
     });
     // router.refresh();
   }
@@ -143,10 +140,8 @@ export function DiagramForm({
   //ACTUALIZA UN REGISTRO EN LA BASE DE DATOS
   async function updateDiagram(values: ErrorToCreate) {
     const data = values;
-    //console.log(data);
     toast.promise(
       async () => {
-        // console.log(values, 'values');
         const valueToSend = JSON.stringify(values);
         const response = await fetch(`${URL}/api/employees/diagrams`, { method: 'PUT', body: valueToSend });
         return response;
@@ -176,9 +171,7 @@ export function DiagramForm({
       try {
         updateDiagram(novedad);
         setErrorsDiagrams([]);
-      } catch (error) {
-        // console.log(error);
-      }
+      } catch (error) {}
     });
     // router.refresh();
   }
@@ -258,8 +251,6 @@ export function DiagramForm({
     setSuccesDiagrams([...succesDiagrams, ...diagramasToCreate]);
     setErrorsDiagrams([...errorsDiagrams, ...errorToCreate]);
   }
-
-  // console.log('errors', form.formState.errors);
 
   return (
     <ResizablePanelGroup direction="horizontal" className="pt-6">
@@ -413,9 +404,7 @@ export function DiagramForm({
                   async (values) => {
                     await onSubmit2(values);
                   },
-                  (errors) => {
-                    // console.log(errors);
-                  }
+                  (errors) => {}
                 );
               }}
             >

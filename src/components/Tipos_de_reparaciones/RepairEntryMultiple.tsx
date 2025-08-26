@@ -179,7 +179,7 @@ export default function RepairNewEntryMultiple({
     }
 
     if (data?.length ?? 0 > 0) {
-      //console.log('dadadad', data);
+      //('dadadad', data);
       toast.error(
         `
         El equipo con dominio o serie "${(data?.[0].equipment_id as any).domain || (data?.[0].equipment_id as any).serie}" ya tiene una solicitud de reparacion con los mismos datos en estado ${data?.[0].state}`
@@ -332,7 +332,6 @@ export default function RepairNewEntryMultiple({
   const [selectedEquipmentss, setSelectedEquipmentss] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
 
-  //console.log(form.formState.errors);
   const domainOptions = createFilterOptions(
     allRepairs,
     (repairIter) => repairIter.domain

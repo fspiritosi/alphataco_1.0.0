@@ -127,9 +127,6 @@ function TablaEmployeesSupabase({ initialData }: { initialData: Awaited<ReturnTy
           initialData={initialData}
           tableId="employeesSupabaseTable"
           enableRowSelection={true}
-          onRowClick={(row) => {
-            console.log('Fila clickeada:', row);
-          }}
           // Configuración para server-side con Supabase
           serverSide={true}
           fetchData={fetchEmployeesData}

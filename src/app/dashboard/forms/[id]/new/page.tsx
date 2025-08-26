@@ -16,11 +16,8 @@ async function page({ params }: { params: { id: string } }) {
     intern_number: equipment.intern_number || '',
   }));
 
-  // console.log('params', params);
-
   const currentUser = await getCurrentProfile();
   const formInfo = await fetchCustomFormById(params.id);
-  // console.log('formInfo', formInfo?.[0].name);
   return (
     <div className="px-7">
       {/* <VehicleInspectionChecklist equipments={equipments} form_Info={formInfo} currentUser={currentUser} /> */}

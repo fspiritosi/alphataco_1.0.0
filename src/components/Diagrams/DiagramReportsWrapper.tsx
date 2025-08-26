@@ -19,7 +19,6 @@ const fetchNoveltyTypesForReports = async (company_id: string) => {
   const response = await query('diagram_type', 'id,name,color,short_description', [
     { column: 'company_id', value: company_id },
   ]);
-  console.log(response, 'response');
   return response;
 };
 
@@ -43,7 +42,6 @@ export async function DiagramReportsWrapper() {
   const noveltyTypes = await fetchNoveltyTypesForReports(company_id!);
   const companyPositions = await fetchCompanyPositions();
 
-  console.log(noveltyTypes, 'noveltyTypes');
   const savedFilters = cookieStore.get('diagramReportsTable-filters')?.value;
 
   // Renderizar la tabla de reportes

@@ -25,40 +25,11 @@ export function DataTableSearchInput({
   const debouncedValue = useDebounce(inputValue, debounceMs);
   const currentValue = value;
 
-  console.log('🔍 DataTableSearchInput - Rendering with props:', {
-    placeholder,
-    value,
-    disabled,
-    debounceMs,
-    onChangeType: typeof onChange,
-  });
-
-  console.log('🔍 DataTableSearchInput - State:', {
-    debouncedValue,
-    currentValue,
-    inputValue,
-    willTriggerChange: debouncedValue !== currentValue,
-  });
-
-  // // Sincronizar el valor inicial y cuando se resetea desde el exterior
-  // React.useEffect(() => {
-  //   console.log('🔄 DataTableSearchInput - Syncing external value:', {
-  //     externalValue: value,
-  //     currentInputValue: inputValue,
-  //     willUpdate: value !== inputValue
-  //   });
-  //   setInputValue(value);
-  // }, [value]);
-
   return (
     <Input
       placeholder={placeholder}
       value={inputValue}
       onChange={(event) => {
-        console.log('⌨️ DataTableSearchInput - Input onChange:', {
-          newValue: event.target.value,
-          placeholder,
-        });
         setInputValue(event.target.value);
       }}
       className={className}

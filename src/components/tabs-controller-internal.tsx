@@ -41,9 +41,6 @@ export function TabsControllerInternal({
     // ✅ USAR FUNCIÓN ESPECÍFICA PARA SUB-PESTAÑAS
     if (currentMainTab) {
       setSubTabCookie(path, currentMainTab, value);
-      console.log(
-        `🟢 Sub tab cookie set: sub_tab_${path.replace(/\//g, '_')}_${currentMainTab.replace(/\s+/g, '_')} = ${value}`
-      );
     }
   };
 

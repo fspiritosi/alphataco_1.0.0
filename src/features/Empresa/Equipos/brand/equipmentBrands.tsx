@@ -10,7 +10,6 @@ function EquipmentBrands({ vehicleBrands }: { vehicleBrands: any[] }) {
   const queryClient = React.useMemo(() => new QueryClient(), []);
   const handleSuccess = () => {
     // Aquí podrías mostrar un mensaje de éxito o actualizar la lista
-    console.log('Operación exitosa');
     queryClient.invalidateQueries({ queryKey: ['equipment-brands-table-brand'] });
   };
 

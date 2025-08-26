@@ -1846,6 +1846,44 @@ export type Database = {
           },
         ];
       };
+      equipment_owners: {
+        Row: {
+          company_id: string | null;
+          contract_type: Database['public']['Enums']['contract_type_enum'];
+          created_at: string | null;
+          cuit: string;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+        };
+        Insert: {
+          company_id?: string | null;
+          contract_type: Database['public']['Enums']['contract_type_enum'];
+          created_at?: string | null;
+          cuit: string;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+        };
+        Update: {
+          company_id?: string | null;
+          contract_type?: Database['public']['Enums']['contract_type_enum'];
+          created_at?: string | null;
+          cuit?: string;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'equipment_owners_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       equipos_clientes: {
         Row: {
           created_at: string;
@@ -2040,6 +2078,47 @@ export type Database = {
           name?: string | null;
         };
         Relationships: [];
+      };
+      kpi_daily_indicators: {
+        Row: {
+          company_id: string;
+          created_at: string;
+          grouping_values: Json;
+          id: string;
+          metrics: Json;
+          snapshot_date: string;
+          source: string;
+          updated_at: string;
+        };
+        Insert: {
+          company_id: string;
+          created_at?: string;
+          grouping_values?: Json;
+          id?: string;
+          metrics?: Json;
+          snapshot_date: string;
+          source: string;
+          updated_at?: string;
+        };
+        Update: {
+          company_id?: string;
+          created_at?: string;
+          grouping_values?: Json;
+          id?: string;
+          metrics?: Json;
+          snapshot_date?: string;
+          source?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'kpi_daily_indicators_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       measure_units: {
         Row: {
@@ -2872,6 +2951,7 @@ export type Database = {
           is_active: boolean | null;
           kilometer: string | null;
           model: number | null;
+          owner_id: string | null;
           picture: string | null;
           reason_for_termination: Database['public']['Enums']['termination_reason_enum'] | null;
           serie: string | null;
@@ -2879,6 +2959,7 @@ export type Database = {
           subType: string | null;
           termination_date: string | null;
           type: string;
+          type_of_contract: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
           type_operative_id: string | null;
           user_id: string | null;
@@ -2899,6 +2980,7 @@ export type Database = {
           is_active?: boolean | null;
           kilometer?: string | null;
           model?: number | null;
+          owner_id?: string | null;
           picture?: string | null;
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
@@ -2906,6 +2988,7 @@ export type Database = {
           subType?: string | null;
           termination_date?: string | null;
           type: string;
+          type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
           type_operative_id?: string | null;
           user_id?: string | null;
@@ -2926,6 +3009,7 @@ export type Database = {
           is_active?: boolean | null;
           kilometer?: string | null;
           model?: number | null;
+          owner_id?: string | null;
           picture?: string | null;
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
@@ -2933,6 +3017,7 @@ export type Database = {
           subType?: string | null;
           termination_date?: string | null;
           type?: string;
+          type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle?: number;
           type_operative_id?: string | null;
           user_id?: string | null;
@@ -2972,6 +3057,13 @@ export type Database = {
             columns: ['cost_center_id'];
             isOneToOne: false;
             referencedRelation: 'cost_center';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'vehicles_owner_id_fkey';
+            columns: ['owner_id'];
+            isOneToOne: false;
+            referencedRelation: 'equipment_owners';
             referencedColumns: ['id'];
           },
           {
@@ -3153,6 +3245,19 @@ export type Database = {
             };
         Returns: Json;
       };
+      collect_daily_indicators: {
+        Args:
+          | { company_id_param: number }
+          | {
+              p_company_id: string;
+              p_company_position_ids?: string[];
+              p_date?: string;
+              p_position_uuids?: string[];
+              p_vehicle_type_ids?: string[];
+              p_vehicle_types?: string[];
+            };
+        Returns: undefined;
+      };
       controlar_alertas_documentos: {
         Args: { tipo_documento_id?: string };
         Returns: undefined;
@@ -3222,6 +3327,10 @@ export type Database = {
           workflow_diagram: string | null;
         }[];
       };
+      get_company_for_user: {
+        Args: { user_id: string };
+        Returns: string;
+      };
       get_dailyreportrow_history: {
         Args: { p_row_id: string };
         Returns: {
@@ -3255,6 +3364,19 @@ export type Database = {
         }[];
       };
       get_employee_usage_indicator: {
+        Args:
+          | { company_id_param: number }
+          | { company_uuid: string }
+          | { p_company_id?: string; p_position_uuids?: string[] };
+        Returns: {
+          dimensions: Json;
+          indicator_key: string;
+          metrics: Json;
+          snapshot_date: string;
+          source: string;
+        }[];
+      };
+      get_employee_usage_indicator_original: {
         Args: { position_uuids?: string[]; save_to_table?: boolean };
         Returns: {
           employees_operativos: number;
@@ -3262,8 +3384,25 @@ export type Database = {
           indicator: number;
         }[];
       };
+      get_kpi_indicators: {
+        Args: {
+          p_company_id: string;
+          p_end_date?: string;
+          p_indicator_key?: string;
+          p_start_date?: string;
+        };
+        Returns: {
+          created_at: string;
+          dimensions: Json;
+          indicator_key: string;
+          metrics: Json;
+          snapshot_date: string;
+          source: string;
+          updated_at: string;
+        }[];
+      };
       get_services_summary_by_type: {
-        Args: { p_company_id: string; save_to_history?: boolean };
+        Args: { company_id_param: number } | { p_company_id: string; save_to_history?: boolean };
         Returns: {
           percentage: number;
           service_count: number;
@@ -3271,7 +3410,50 @@ export type Database = {
         }[];
       };
       get_vehicle_usage_indicator: {
-        Args: { p_vehicle_type_ids: string[] } | { p_vehicle_types: string[] };
+        Args: { company_id_param: number } | { p_company_id?: string; p_vehicle_type_ids?: string[] };
+        Returns: {
+          dimensions: Json;
+          indicator_key: string;
+          metrics: Json;
+          snapshot_date: string;
+          source: string;
+        }[];
+      };
+      get_vehicle_usage_indicator_nueva1: {
+        Args: { p_company_id?: string; p_vehicle_type_ids?: string[] };
+        Returns: {
+          available_units: number;
+          not_available_units: number;
+          type_id: string;
+          type_name: string;
+          usage_indicator: number;
+          used_units: number;
+        }[];
+      };
+      get_vehicle_usage_indicator_original: {
+        Args: { p_vehicle_type_ids?: string[] };
+        Returns: {
+          available_units: number;
+          not_available_units: number;
+          type_id: string;
+          type_name: string;
+          usage_indicator: number;
+          used_units: number;
+        }[];
+      };
+      get_vehicle_usage_indicator_otro: {
+        Args: { p_company_id?: number; p_vehicle_type_ids?: number[] };
+        Returns: {
+          available_units: number;
+          not_available_units: number;
+          type_id: number;
+          type_name: string;
+          usage_indicator: number;
+          used_units: number;
+        }[];
+      };
+      get_vehicle_usage_indicator_text: {
+        Args: { p_vehicle_types: string[] };
         Returns: {
           available_units: number;
           type: string;
@@ -3341,6 +3523,16 @@ export type Database = {
         Args: { reason: string };
         Returns: undefined;
       };
+      upsert_kpi_daily_indicator: {
+        Args: {
+          p_company_id: string;
+          p_grouping_values: Json;
+          p_metrics: Json;
+          p_snapshot_date: string;
+          p_source?: string;
+        };
+        Returns: undefined;
+      };
       verificar_documentos_vencidos_prueba: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
@@ -3349,6 +3541,8 @@ export type Database = {
     Enums: {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
       condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
+      contract_type_enum: 'Leasing' | 'Alquiler';
+      contract_type_vehicles_enum: 'Leasing' | 'Alquiler' | 'Propio';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
         | 'pendiente'
@@ -3519,6 +3713,8 @@ export const Constants = {
     Enums: {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
       condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
+      contract_type_enum: ['Leasing', 'Alquiler'],
+      contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],

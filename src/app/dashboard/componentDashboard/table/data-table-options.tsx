@@ -430,10 +430,7 @@ export function DataTableOptions({ row }: any) {
         <DropdownMenuItem onClick={() => handleOpenViewModal(domain)}>Historial de Modificaciones</DropdownMenuItem>
         <DropdownMenuItem
           disabled={row.original.state === 'pendiente'}
-          onClick={() =>
-            // console.log('Andamo ruleta en una camioneta',row)
-            handleDownload(row.original.document_url, row.original.documentName, row.original.resource)
-          }
+          onClick={() => handleDownload(row.original.document_url, row.original.documentName, row.original.resource)}
         >
           Descargar documento
         </DropdownMenuItem>

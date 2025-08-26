@@ -122,7 +122,6 @@ export default function EmployesDiagramWrapper() {
       setEmployees([]);
       setCurrentPage(1);
     }
-    console.log('activeFilters', activeFilters);
     // if (!activeFilters.length) {
     //   return;
     // }
@@ -142,7 +141,6 @@ export default function EmployesDiagramWrapper() {
       // Filtro por nombre (firstname)
       if (filters.firstname && filters.firstname.trim() !== '') {
         const searchTerm = filters.firstname.trim();
-        console.log('Buscando por nombre:', searchTerm);
         queryFilters.push({
           column: 'firstname',
           operator: 'ilike',
@@ -153,7 +151,6 @@ export default function EmployesDiagramWrapper() {
       // Filtro por apellido (lastname)
       if (filters.lastname && filters.lastname.trim() !== '') {
         const searchTerm = filters.lastname.trim();
-        console.log('Buscando por apellido:', searchTerm);
         queryFilters.push({
           column: 'lastname',
           operator: 'ilike',
@@ -265,23 +262,14 @@ export default function EmployesDiagramWrapper() {
         }
       }
 
-      console.log('Filtros aplicados:', queryFilters);
-      console.log('Ejecutando consulta de empleados...');
-
       // Ejecutar la consulta con los filtros construidos
       // @ts-ignore - Ignoramos errores temporalmente mientras resolvemos tipados
       const employeesData = await fetchData({ filters: queryFilters, page: page, pageSize: 100 });
-
-      console.log('Resultados encontrados:', employeesData.data?.length || 0);
-      if (employeesData.data?.length) {
-        console.log('Primeros resultados:', employeesData.data.slice(0, 3));
-      }
 
       // Verificar si hay más páginas disponibles
       const totalCount = employeesData.pagination?.total || 0;
       const loadedCount = (page - 1) * 100 + (employeesData.data?.length || 0);
       setHasMoreData(loadedCount < totalCount);
-      console.log(`Página ${page}: ${loadedCount} de ${totalCount} registros cargados`);
 
       // if (employeesData.error) {
       //   console.error('Error al buscar empleados:', employeesData.error);
@@ -359,8 +347,6 @@ export default function EmployesDiagramWrapper() {
         orderBy: 'name',
       });
 
-      console.log(categoriesData, 'categoriesData');
-
       setFilterOptions({
         guilds: guildsData || [],
         categories: categoriesData || [],
@@ -423,16 +409,7 @@ export default function EmployesDiagramWrapper() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    console.log('Filtros aplicados:', {
-      firstname: filters.firstname,
-      lastname: filters.lastname,
-      position: filters.position,
-      workflow: filters.workflow,
-      costCenter: filters.costCenter,
-      covenant: filters.covenant,
-      guild: filters.guild,
-      category: filters.category,
-    });
+
     setHasSearched(true);
     loadData(1, false);
   };
@@ -454,7 +431,6 @@ export default function EmployesDiagramWrapper() {
   // const loadDiagrams = async (employees: any[]) => {
   //   try {
   //     const diagramsData = [];
-  //     console.log(`Cargando diagramas para ${employees.length} empleados...`);
 
   //     // Consultar diagramas por lotes para mejor rendimiento
   //     for (const employee of employees) {
@@ -480,9 +456,6 @@ export default function EmployesDiagramWrapper() {
   //     console.error('Error al cargar diagramas:', error);
   //   }
   // };
-
-  console.log(employees, 'employeesemployees');
-  console.log(activeFilters, 'activeFilters');
 
   return (
     <div className="space-y-6">

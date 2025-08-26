@@ -10,7 +10,7 @@ export default async function DataEquipmentChart() {
   const cookiesStore = cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const cookieValue = cookiesStore.get('type-filter')?.value;
-  const active_vehicles = await getVehiclesDisponibleFilterType(
+  const active_vehicles: any = await getVehiclesDisponibleFilterType(
     ['ea07ff34-13fb-4483-b5bc-8389e41c7d89', '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf'],
     company_id
   );
@@ -19,22 +19,22 @@ export default async function DataEquipmentChart() {
   // Calcular el total de vehículos (suma de todos los estados)
   const totalVehicles =
     active_vehicles?.reduce(
-      (sum, vehicle: any) => sum + vehicle.available_units + vehicle.not_available_units || 0,
+      (sum: any, vehicle: any) => sum + vehicle.available_units + vehicle.not_available_units || 0,
       0
     ) || 0;
 
   // Unidades disponibles
   const totalAvailable =
-    active_vehicles?.reduce((sum, vehicle) => sum + (vehicle.available_units - vehicle.used_units || 0), 0) || 0;
+    active_vehicles?.reduce((sum: any, vehicle: any) => sum + (vehicle.available_units - vehicle.used_units || 0), 0) ||
+    0;
   // Unidades en uso
-  const totalInUse = active_vehicles?.reduce((sum, vehicle) => sum + (vehicle.used_units || 0), 0) || 0;
-  const totalActive = active_vehicles?.reduce((sum, vehicle) => sum + (vehicle.available_units || 0), 0) || 0;
+  const totalInUse = active_vehicles?.reduce((sum: any, vehicle: any) => sum + (vehicle.used_units || 0), 0) || 0;
+  const totalActive = active_vehicles?.reduce((sum: any, vehicle: any) => sum + (vehicle.available_units || 0), 0) || 0;
   // Unidades no disponibles
   const totalNotAvailable =
-    active_vehicles?.reduce((sum, vehicle: any) => sum + ((vehicle as any).not_available_units || 0), 0) || 0;
+    active_vehicles?.reduce((sum: any, vehicle: any) => sum + ((vehicle as any).not_available_units || 0), 0) || 0;
 
   // const inUsePercentage = active_vehicles?.usage_indicator || 0;
-  // console.log(inUsePercentage)
   // Calcular el porcentaje de uso general
   const usagePercentage =
     totalVehicles > 0 ? Math.round(((totalVehicles - totalNotAvailable) / totalVehicles) * 100) : 0;

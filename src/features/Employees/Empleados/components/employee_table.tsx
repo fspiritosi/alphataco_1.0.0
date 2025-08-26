@@ -9,8 +9,6 @@ async function EmployeeTable() {
   const savedVisibility = cookiesStore.get(`activeEmployeesServerTable`)?.value;
   const savedFilters = cookiesStore.get(`activeEmployeesServerTable-filters`)?.value;
 
-  console.log(company_id, 'company_id');
-
   const initialData = await fetchEmployeesData({
     pageIndex: 0,
     pageSize: 10,

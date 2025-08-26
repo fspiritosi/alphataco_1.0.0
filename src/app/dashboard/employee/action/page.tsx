@@ -54,10 +54,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 
   if (mode !== 'new') {
     try {
-      const startTime = performance.now();
       employee = await getEmployeeById(employee_id);
-      const endTime = performance.now();
-      console.log(`Time taken to fetch employee: ${endTime - startTime}ms`);
       if (!employee) {
         notFound();
       }

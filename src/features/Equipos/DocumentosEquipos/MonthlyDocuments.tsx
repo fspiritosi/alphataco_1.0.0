@@ -24,7 +24,6 @@ function MonthlyDocumentsEquipment({
     (name) => name
   );
 
-  // console.log(monthlyDocuments[0], 'monthlyDocuments');
   return (
     <BaseDataTable
       tableId="monthly-documents-vehicles"

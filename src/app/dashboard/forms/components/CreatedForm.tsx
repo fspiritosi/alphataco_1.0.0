@@ -92,7 +92,7 @@ function CreatedForm() {
     if (!companyId) return;
     const { data, error } = await supabase.from('custom_form').select('*').eq('company_id', companyId);
     if (error) {
-      console.log(error);
+      console.error(error);
     }
     if (data) {
       setCreatedFormsState(data);

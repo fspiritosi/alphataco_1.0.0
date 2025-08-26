@@ -75,13 +75,6 @@ export function ConflictResolutionModal({ conflicts, formData, onResolve, onCanc
         return;
       }
 
-      console.log('🔄 [DEBUG] Ejecutando creación masiva con resolución de conflictos:', {
-        employeeIds: formData.employeeIds,
-        workDiagramId: formData.workDiagramId,
-        activeNoveltyId: formData.activeNoveltyId,
-        dateRange: formData.dateRange,
-      });
-
       // Usar la función SQL corregida con los parámetros correctos
       const { data: result, error } = await supabase.rpc('process_massive_diagram_creation_v2', {
         p_employee_ids: formData.employeeIds,

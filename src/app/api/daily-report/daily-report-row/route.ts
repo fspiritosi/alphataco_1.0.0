@@ -61,45 +61,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// export async function PUT(request: NextRequest) {
-//   const supabase = supabaseServer();
-//   const { searchParams } = new URL(request.url);
-//   const id = searchParams.get('id');
-//   const updateData = await request.json();
-//   console.log('Update data:', updateData);
-//   console.log('ID:', id);
-//   if (!id) {
-//     return new NextResponse(JSON.stringify({ error: 'ID is required for updating the daily report row.' }), { status: 400 });
-//   }
-
-//   try {
-//     const { data, error } = await supabase
-//       .from('dailyreportrows')
-//       .update(updateData)
-//       .eq('id', id);
-
-//     if (error) {
-//       console.error('Error from Supabase:', error);
-//       return new NextResponse(JSON.stringify({
-//         error: error.message || 'Error desconocido',
-//         details: error.details || null,
-//         hint: error.hint || null
-//       }), { status: 500 });
-//     }
-
-//     return new NextResponse(JSON.stringify({ data }), { status: 200 });
-//   } catch (error) {
-//     console.error('Error inesperado al actualizar la fila de reporte diario:', error);
-//     return new NextResponse(JSON.stringify({ error: (error as any).message || 'Unexpected error occurred.' }), { status: 500 });
-//   }
-// }
 export async function PUT(request: NextRequest) {
   const supabase = supabaseServer();
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   const updateData = await request.json();
-  // console.log('Update data:', updateData);
-  // console.log('ID:', id);
   if (!id) {
     return new NextResponse(JSON.stringify({ error: 'ID is required for updating the daily report row.' }), {
       status: 400,

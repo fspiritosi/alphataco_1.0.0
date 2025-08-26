@@ -299,7 +299,6 @@ export const useLoggedUserStore = create<State>((set, get) => {
 
     set({ sharedCompanies: share_company_users as SharedCompanies });
     // const router = useRouter()
-    //console.log('manyCompanies user si');
     if (error) {
       console.error('Error al obtener el perfil:', error);
     } else {
@@ -316,24 +315,18 @@ export const useLoggedUserStore = create<State>((set, get) => {
 
       const savedCompany = localStorage.getItem('company_id') || ''; //! una empresa te comparte
 
-      //console.log('savedCompany', savedCompany);
-
       if (savedCompany) {
         const company = share_company_users?.find(
           (company) => company.company_id.id === JSON.parse(savedCompany)
         )?.company_id;
 
-        //console.log('savedCompany', company);
-
         if (company) {
-          //console.log('setSavedCompany', company);
           setActualCompany(company);
           return;
         }
       }
 
       selectedCompany = get()?.allCompanies.filter((company) => company.by_defect);
-      //console.log('selectedCompany', selectedCompany);
 
       if (data?.length > 1) {
         if (selectedCompany) {
@@ -377,8 +370,6 @@ export const useLoggedUserStore = create<State>((set, get) => {
       set({ profile: data || [] });
       set({ codeControlRole: data?.[0].role });
 
-      //console.log('profile user si');
-
       howManyCompanies(data[0]?.id);
     }
   };
@@ -396,11 +387,6 @@ export const useLoggedUserStore = create<State>((set, get) => {
       profileUser(user?.id || '');
     }
   };
-
-  if (typeof window !== 'undefined') {
-    // loggedUser();
-    //console.log('loggedUser user si');
-  }
 
   let selectedCompany: Company;
 

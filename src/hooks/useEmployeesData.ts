@@ -31,7 +31,6 @@ export const useEmployeesData = () => {
         const { data, error } = await supabase.from('contractor_employee').insert(allocated_to).select();
       }
 
-      //console.log(employee);
       const { data, error } = await supabase
         .from('employees')
         .update({
@@ -44,8 +43,6 @@ export const useEmployeesData = () => {
         .select();
 
       if (error) {
-        // console.log(employee, 'employee');
-        console.log(error, 'error');
         const message = await errorTranslate(error.message);
         throw new Error(String(message).replaceAll('"', ''));
       }

@@ -96,7 +96,6 @@ export default function TablaEquipmentServer({
         return value.includes(row.getValue(id));
       },
     },
-
     {
       accessorKey: 'chassis',
       id: 'chassis',
@@ -111,12 +110,13 @@ export default function TablaEquipmentServer({
       header: ({ column }) => <DataTableColumnHeader column={column} title="Foto" />,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {row.original.picture ? <img className="h-4 w-4 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
+          {row.original.picture ? <img className="size-8 rounded-full" src={row.original.picture} alt="Foto" /> : '-'}
         </div>
       ),
       enableSorting: false,
       excludeFromExport: true, // No exportar la columna de foto
     },
+
     {
       accessorKey: 'status',
       id: 'status',
@@ -136,12 +136,24 @@ export default function TablaEquipmentServer({
         return value.includes(row.getValue(id));
       },
     },
+
     {
       accessorKey: 'sub_type.name',
       id: 'sub_type.name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sub Tipo" />,
       cell: ({ row }) => {
         return row.original.sub_type?.name ? <Badge>{row.original.sub_type?.name || ''}</Badge> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'equipment_owners.name',
+      id: 'equipment_owners.name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
+      cell: ({ row }) => {
+        return row.original.equipment_owners?.name ? <Badge>{row.original.equipment_owners?.name || ''}</Badge> : '-';
       },
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -337,7 +349,6 @@ export default function TablaEquipmentServer({
               select: 'domain' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'domain'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -354,7 +365,23 @@ export default function TablaEquipmentServer({
               select: 'chassis' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'chassis'>>>) => {
-                console.log(data, 'datadata');
+                return data.map((value) => ({
+                  label: String(value.display_value),
+                  value: String(value.col_value),
+                  count: value.col_count,
+                }));
+              },
+            },
+          },
+          {
+            columnId: 'equipment_owners.name',
+            title: 'Propietario',
+            config: {
+              tableName: 'vehicles',
+              select: 'equipment_owners.name' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
+              relation: '{"equipment_owners": "owner_id"}',
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'equipment_owners.name'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -371,7 +398,6 @@ export default function TablaEquipmentServer({
               select: 'status' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'status'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -390,7 +416,6 @@ export default function TablaEquipmentServer({
               relation: '{"type": "type"}',
 
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type.name'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -408,7 +433,6 @@ export default function TablaEquipmentServer({
               p_filters: { is_active: 'true', company_id: company_id! },
               relation: '{"sub_type": "subType"}',
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'sub_type.name'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),

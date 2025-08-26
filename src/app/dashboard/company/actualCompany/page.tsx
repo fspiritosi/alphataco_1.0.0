@@ -40,11 +40,7 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           title: 'Empresa',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            // <Suspense fallback={<Skeleton />}>
-            <General tabValue="general" subtab={searchParams?.subtab} />
-            // </Suspense>
-          ),
+          component: <General tabValue="general" subtab={searchParams?.subtab} />,
         },
       },
       {
@@ -63,9 +59,7 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
             </Link>
           ),
           component: (
-            // <Suspense fallback={<Skeleton />}>
             <ComercialTab tabValue="comerce" subtab={searchParams?.subtab} localStorageName="customersColumns" />
-            // </Suspense>
           ),
         },
       },
@@ -78,11 +72,7 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           title: 'RRHH',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            // <Suspense fallback={<Skeleton />}>
-            <RrhhComponent tabValue="rrhh" subtab={searchParams?.subtab} />
-            // </Suspense>
-          ),
+          component: <RrhhComponent tabValue="rrhh" subtab={searchParams?.subtab} />,
         },
       },
       {
@@ -93,19 +83,11 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           title: 'Equipos',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: (
-            // <Suspense fallback={<Skeleton />}>
-            <EquipmentsTabs tabValue="vehicles" />
-            // </Suspense>
-          ),
+          component: <EquipmentsTabs tabValue="vehicles" />,
         },
       },
     ],
   };
 
-  return (
-    // <Suspense fallback={<CompanySkeleton />}>
-    <Viewcomponent viewData={viewData} />
-    // </Suspense>
-  );
+  return <Viewcomponent viewData={viewData} />;
 }

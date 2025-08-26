@@ -7,7 +7,6 @@ import {
 import DynamicFormWrapper from '@/components/CheckList/DynamicFormWrapper';
 
 async function page({ params }: { params: { id: string } }) {
-  // console.log('params', params);
   const answer = await fetchAnswerById(params.id);
   const equipments = (await fetchAllEquipment()).map((equipment) => ({
     label: equipment.domain

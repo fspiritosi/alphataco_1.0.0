@@ -271,7 +271,6 @@ export function ExpiredDataTable<TData, TValue>({
             const { data, error } = await supabase.storage.from('document-files').download(doc.document_url);
 
             if (error) {
-              // console.log('Salio este error', error);
               throw new Error(handleSupabaseError(error.message));
             }
 

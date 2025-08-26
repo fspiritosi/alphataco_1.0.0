@@ -13,6 +13,7 @@ import {
   getSubTypesByType,
   getTypesOfVehicles,
   getVehicleBrands,
+  getVehicleOwnersType,
   getVehicleTypes,
 } from '../lib/actions/vehicle-catalog-actions';
 
@@ -20,19 +21,21 @@ import {
 export type VehicleFormData = {
   type_of_vehicle: string;
   brand: string;
-  model: string;
+  owner_id: string | null;
+  model: string | null;
   year: string;
   engine?: string;
   type?: string;
-  subType?: string;
+  subType?: string | null;
   chassis?: string;
   serie?: string;
   domain?: string;
   kilometer?: string;
   intern_number?: string;
-  picture?: string;
+  picture?: string | null;
   allocated_to?: string[];
   cost_center_id?: string;
+  type_of_contract?: string | null;
 };
 
 interface VehicleTabsProps {
@@ -49,6 +52,7 @@ interface VehicleTabsProps {
   repairsComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
+  ownersPromise: Promise<getVehicleOwnersType>;
 }
 
 export function VehicleTabs({
@@ -65,6 +69,7 @@ export function VehicleTabs({
   repairsComponent,
   typesPromise,
   subTypesPromise,
+  ownersPromise,
 }: VehicleTabsProps) {
   const readOnly = mode === 'view';
   const showDocuments = vehicleId && mode !== 'new';
@@ -92,6 +97,7 @@ export function VehicleTabs({
       'chassis',
       'serie',
       'domain',
+      'owner_id',
     ];
     // const technicalDataFields = ['engine', 'type', 'subType', 'chassis', 'serie', 'domain'];
     const assignmentDataFields = ['allocated_to', 'cost_center_id'];
@@ -136,6 +142,7 @@ export function VehicleTabs({
         <div className="mt-6">
           <TabsContent value="basicData" className="space-y-4">
             <VehicleBasicDataForm
+              ownersPromise={ownersPromise}
               brandsPromise={brandsPromise}
               modelsPromise={modelsPromise}
               typesPromise={typesPromise}

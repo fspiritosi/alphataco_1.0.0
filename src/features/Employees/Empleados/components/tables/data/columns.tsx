@@ -725,9 +725,6 @@ export const employeeColumns: ColumnDef<ReturnType<typeof formatEmployeesForTabl
 
       const contractors = row.original.contractor_employee || [];
 
-      // console.log(contractors[0]?.customers);
-      // console.log(filterValue);
-
       // Si no hay contratistas, no mostramos la fila
       if (contractors.length === 0) {
         return false;
