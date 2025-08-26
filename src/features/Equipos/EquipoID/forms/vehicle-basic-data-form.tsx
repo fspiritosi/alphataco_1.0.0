@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Check, ChevronsUpDown, Upload, X } from 'lucide-react';
 import { use, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
+import { VehicleFormData } from '../components/vehicle-tabs';
 import {
   getModelsByBrand,
   getSubTypesByType,
@@ -20,7 +21,7 @@ import {
 import { getVehicleTypeFields } from '../lib/utils/vehicle-utils';
 
 interface VehicleBasicDataFormProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<VehicleFormData>;
   readOnly?: boolean;
   brandsPromise: ReturnType<typeof getVehicleBrands>;
   modelsPromise: ReturnType<typeof getModelsByBrand>;
@@ -47,7 +48,8 @@ export function VehicleBasicDataForm({
   const typesOfVehicles = use(typesOfVehiclesPromise);
   const [models, setModels] = useState<typeof modelsInitial>(modelsInitial);
   const [loadingModels, setLoadingModels] = useState(false);
-  const owners = use(ownersPromise);
+  const ownersInitial = use(ownersPromise);
+  const [owners, setOwners] = useState<typeof ownersInitial>(ownersInitial);
 
   const types = use(typesPromise);
   const subTypesInitial = use(subTypesPromise);
@@ -56,9 +58,10 @@ export function VehicleBasicDataForm({
   const [loadingSubTypes, setLoadingSubTypes] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(form.getValues('picture') || null);
   const typeOfVehicle = form.watch('type_of_vehicle');
-  const year = form.watch('year');
   const typeFields = getVehicleTypeFields(typeOfVehicle);
   const hideInput = form.watch('type_of_vehicle') === '1' ? true : false;
+  console.log(hideInput, 'hideInput');
+  const typeOfContract = form.watch('type_of_contract');
 
   const handleBrandChange = async (id: string) => {
     form.setValue('brand', id);
@@ -114,6 +117,16 @@ export function VehicleBasicDataForm({
     }
   };
 
+  const handleTypeOfContractChange = (type: string) => {
+    form.setValue('owner_id', null);
+    if (type === 'Leasing') {
+      setOwners(ownersInitial.filter((owner) => owner.contract_type === 'Leasing'));
+    }
+    if (type === 'Alquiler') {
+      setOwners(ownersInitial.filter((owner) => owner.contract_type === 'Alquiler'));
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {!readOnly && (
@@ -158,18 +171,18 @@ export function VehicleBasicDataForm({
         control={form.control}
         name="type_of_vehicle"
         render={({ field }) => (
-          <FormItem className="flex flex-col">
+          <FormItem className="flex flex-col  h-full">
             <FormLabel>
               Tipo de equipo <span className="text-red-500">*</span>
             </FormLabel>
             <Popover>
-              <PopoverTrigger asChild>
-                <FormControl>
+              <PopoverTrigger className="mt-2" asChild>
+                <FormControl className="mt-2">
                   <Button
                     disabled={readOnly}
                     variant="outline"
                     role="combobox"
-                    className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                    className={cn('justify-between mt-2', !field.value && 'text-muted-foreground')}
                   >
                     {typesOfVehicles.find((type) => type.id.toString() === field.value)?.name ||
                       'Seleccionar tipo de equipo'}
@@ -206,7 +219,7 @@ export function VehicleBasicDataForm({
                 </Command>
               </PopoverContent>
             </Popover>
-            <FormDescription>Selecciona el tipo de equipo</FormDescription>
+            <FormDescription className="mt-0">Selecciona el tipo de equipo</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -215,7 +228,7 @@ export function VehicleBasicDataForm({
         control={form.control}
         name="domain"
         render={({ field }) => (
-          <FormItem className={cn(!hideInput && 'hidden')}>
+          <FormItem className={cn('flex flex-col h-full', !hideInput && 'hidden')}>
             <FormLabel>Dominio del equipo</FormLabel>
             <FormControl>
               <Input {...field} disabled={readOnly} placeholder="Ingrese el dominio del equipo" />
@@ -287,7 +300,7 @@ export function VehicleBasicDataForm({
         control={form.control}
         name="kilometer"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="flex flex-col">
             <FormLabel>Kilometraje del equipo</FormLabel>
             <FormControl className="m-0">
               <Input className="m-0" {...field} disabled={readOnly} placeholder="Ingrese el kilometraje del equipo" />
@@ -361,7 +374,7 @@ export function VehicleBasicDataForm({
         control={form.control}
         name="year"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="flex flex-col">
             <FormLabel>
               Año <span className="text-red-500">*</span>
             </FormLabel>
@@ -385,7 +398,7 @@ export function VehicleBasicDataForm({
         control={form.control}
         name="engine"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="flex flex-col">
             <FormLabel>Motor del equipo</FormLabel>
             <FormControl>
               <Input {...field} disabled={readOnly} placeholder="Ingrese el tipo de motor" />
@@ -508,7 +521,7 @@ export function VehicleBasicDataForm({
         control={form.control}
         name="chassis"
         render={({ field }) => (
-          <FormItem className={cn(!hideInput && 'hidden')}>
+          <FormItem className={cn('flex flex-col', !hideInput && 'hidden')}>
             <FormLabel>
               Chasis del equipo {typeFields.requireChassis && <span className="text-red-500">*</span>}
             </FormLabel>
@@ -525,7 +538,7 @@ export function VehicleBasicDataForm({
         control={form.control}
         name="serie"
         render={({ field }) => (
-          <FormItem className={cn(hideInput && 'hidden')}>
+          <FormItem className={cn('flex flex-col', hideInput && 'hidden')}>
             <FormLabel>Serie del equipo {typeFields.requireSerie && <span className="text-red-500">*</span>}</FormLabel>
             <FormControl>
               <Input {...field} disabled={readOnly} placeholder="Ingrese la serie" />
@@ -541,7 +554,7 @@ export function VehicleBasicDataForm({
           control={form.control}
           name="domain"
           render={({ field }) => (
-            <FormItem className={cn(!hideInput && 'hidden')}>
+            <FormItem className={cn('flex flex-col', !hideInput && 'hidden')}>
               <FormLabel>
                 Dominio del equipo {typeFields.requireDomain && <span className="text-red-500">*</span>}
               </FormLabel>
@@ -568,7 +581,7 @@ export function VehicleBasicDataForm({
           control={form.control}
           name="kilometer"
           render={({ field }) => (
-            <FormItem className={cn(!hideInput && 'hidden')}>
+            <FormItem className={cn('flex flex-col', !hideInput && 'hidden')}>
               <FormLabel>Kilometraje</FormLabel>
               <FormControl>
                 <Input {...field} disabled={readOnly} placeholder="Kilometraje" type="number" min="0" />
@@ -581,12 +594,10 @@ export function VehicleBasicDataForm({
       )}
       <FormField
         control={form.control}
-        name="owner_id"
+        name="type_of_contract"
         render={({ field }) => (
           <FormItem className="flex flex-col">
-            <FormLabel>
-              Propietario <span className="text-red-500">*</span>
-            </FormLabel>
+            <FormLabel>Tipo de Contrato</FormLabel>
             <Popover>
               <PopoverTrigger asChild>
                 <FormControl>
@@ -596,33 +607,28 @@ export function VehicleBasicDataForm({
                     role="combobox"
                     className={cn('justify-between', !field.value && 'text-muted-foreground')}
                   >
-                    {owners.find((owner) => owner.id.toString() === field.value)?.name || 'Seleccionar propietario'}
+                    {field.value || 'Seleccionar tipo de contrato'}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-full p-0">
                 <Command>
-                  <CommandInput placeholder="Buscar propietario..." />
+                  <CommandInput placeholder="Buscar tipo de contrato..." />
                   <CommandList>
-                    <CommandEmpty>No se encontró ningún propietario</CommandEmpty>
+                    <CommandEmpty>No se encontró ningún tipo de contrato</CommandEmpty>
                     <CommandGroup>
-                      {owners.map((owner) => (
+                      {['Leasing', 'Alquiler', 'Propio'].map((type) => (
                         <CommandItem
-                          key={owner.id}
-                          value={owner?.name || ''}
+                          key={type}
+                          value={type}
                           onSelect={() => {
-                            const ownerId = owner.id?.toString() || '';
-                            form.setValue('owner_id', ownerId);
+                            handleTypeOfContractChange(type);
+                            form.setValue('type_of_contract', type);
                           }}
                         >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4',
-                              owner.id.toString() === field.value ? 'opacity-100' : 'opacity-0'
-                            )}
-                          />
-                          {owner.name}
+                          <Check className={cn('mr-2 h-4 w-4', type === field.value ? 'opacity-100' : 'opacity-0')} />
+                          {type}
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -630,17 +636,73 @@ export function VehicleBasicDataForm({
                 </Command>
               </PopoverContent>
             </Popover>
-            <FormDescription>Selecciona el propietario del equipo</FormDescription>
+            <FormDescription>Selecciona el tipo de contrato del equipo</FormDescription>
             <FormMessage />
           </FormItem>
         )}
       />
+      {typeOfContract !== 'Propio' && (
+        <FormField
+          control={form.control}
+          name="owner_id"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Propietario</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      disabled={readOnly}
+                      variant="outline"
+                      role="combobox"
+                      className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                    >
+                      {owners.find((owner) => owner.id.toString() === field.value)?.name || 'Seleccionar propietario'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Buscar propietario..." />
+                    <CommandList>
+                      <CommandEmpty>No se encontró ningún propietario</CommandEmpty>
+                      <CommandGroup>
+                        {owners.map((owner) => (
+                          <CommandItem
+                            key={owner.id}
+                            value={owner?.name || ''}
+                            onSelect={() => {
+                              const ownerId = owner.id?.toString() || '';
+                              form.setValue('owner_id', ownerId);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4',
+                                owner.id.toString() === field.value ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            {owner.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <FormDescription>Selecciona el propietario del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
 
       <FormField
         control={form.control}
         name="intern_number"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="flex flex-col">
             <FormLabel>Número interno del equipo</FormLabel>
             <FormControl>
               <Input {...field} disabled={readOnly} placeholder="Ingrese el número interno" />

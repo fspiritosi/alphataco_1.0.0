@@ -21,7 +21,7 @@ import {
 export type VehicleFormData = {
   type_of_vehicle: string;
   brand: string;
-  owner_id: string;
+  owner_id: string | null;
   model: string;
   year: string;
   engine?: string;
@@ -35,6 +35,7 @@ export type VehicleFormData = {
   picture?: string;
   allocated_to?: string[];
   cost_center_id?: string;
+  type_of_contract?: string;
 };
 
 interface VehicleTabsProps {

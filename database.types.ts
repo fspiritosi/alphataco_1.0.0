@@ -2959,6 +2959,7 @@ export type Database = {
           subType: string | null;
           termination_date: string | null;
           type: string;
+          type_of_contract: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
           type_operative_id: string | null;
           user_id: string | null;
@@ -2987,6 +2988,7 @@ export type Database = {
           subType?: string | null;
           termination_date?: string | null;
           type: string;
+          type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle: number;
           type_operative_id?: string | null;
           user_id?: string | null;
@@ -3015,6 +3017,7 @@ export type Database = {
           subType?: string | null;
           termination_date?: string | null;
           type?: string;
+          type_of_contract?: Database['public']['Enums']['contract_type_vehicles_enum'] | null;
           type_of_vehicle?: number;
           type_operative_id?: string | null;
           user_id?: string | null;
@@ -3539,6 +3542,7 @@ export type Database = {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
       condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
       contract_type_enum: 'Leasing' | 'Alquiler';
+      contract_type_vehicles_enum: 'Leasing' | 'Alquiler' | 'Propio';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
         | 'pendiente'
@@ -3710,6 +3714,7 @@ export const Constants = {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
       condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
       contract_type_enum: ['Leasing', 'Alquiler'],
+      contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],

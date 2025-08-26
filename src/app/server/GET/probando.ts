@@ -231,6 +231,7 @@ export async function fetchEmployeesData(options: {
       // company_id_column: 'company_id',
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
       columnFilters: [...options.columnFilters],
+      is_active: true,
       filters: options.filters?.concat([
         {
           column: 'is_active',
@@ -284,6 +285,7 @@ export async function fetchEquipmentData(options: {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
       company_id_column: 'company_id',
+      is_active: true,
       filters: options.filters?.concat([
         {
           column: 'is_active',

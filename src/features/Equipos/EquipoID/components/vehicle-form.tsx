@@ -46,7 +46,7 @@ const vehicleSchema = z
     type_of_vehicle: z.string().min(1, 'El tipo de equipo es requerido'),
     brand: z.string().min(1, 'La marca es requerida'),
     model: z.string().min(1, 'El modelo es requerido'),
-    owner_id: z.string().optional(),
+    owner_id: z.string().optional().nullable(),
     year: z
       .string()
       .min(1, 'El año es requerido')
@@ -58,6 +58,7 @@ const vehicleSchema = z
         },
         { message: 'El año debe ser mayor a 1900 y menor al año actual' }
       ),
+    type_of_contract: z.enum(['Leasing', 'Alquiler', 'Propio']).optional(),
 
     // Technical Data
     engine: z.string().optional(),
@@ -76,7 +77,7 @@ const vehicleSchema = z
   })
   .refine(
     (data) => {
-      if (data.type_of_vehicle === '1') {
+      if (data.type_of_vehicle === '2') {
         return !!data.type;
       }
       return true;
@@ -85,7 +86,7 @@ const vehicleSchema = z
   )
   .refine(
     (data) => {
-      if (data.type_of_vehicle === '1') {
+      if (data.type_of_vehicle === '2') {
         return !!data.subType;
       }
       return true;
@@ -103,7 +104,8 @@ const vehicleSchema = z
   )
   .refine(
     (data) => {
-      if (data.type_of_vehicle === '1') {
+      console.log(data.type_of_vehicle, 'data.type_of_vehicle');
+      if (data.type_of_vehicle === '2') {
         return !!data.serie && data.serie.length >= 2 && data.serie.length <= 30;
       }
       return true;
@@ -224,6 +226,7 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       allocated_to: vehicle?.allocated_to || [],
       cost_center_id: vehicle?.cost_center_id || '',
       owner_id: vehicle?.equipment_owners?.id || '',
+      type_of_contract: vehicle?.type_of_contract || '',
     },
   });
 
@@ -232,6 +235,8 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       form.reset();
     }
   }, [resetTrigger]);
+
+  console.log(form.formState.errors, 'error');
 
   const refresh = (createdVehicleId?: string | undefined) => {
     if (!createdVehicleId) {

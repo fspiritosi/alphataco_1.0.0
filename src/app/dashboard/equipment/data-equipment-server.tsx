@@ -136,23 +136,24 @@ export default function TablaEquipmentServer({
         return value.includes(row.getValue(id));
       },
     },
-    {
-      accessorKey: 'equipment_owners.name',
-      id: 'equipment_owners.name',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
-      cell: ({ row }) => {
-        return <Badge>{row.original.equipment_owners?.name || ''}</Badge>;
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
-      },
-    },
+
     {
       accessorKey: 'sub_type.name',
       id: 'sub_type.name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sub Tipo" />,
       cell: ({ row }) => {
         return row.original.sub_type?.name ? <Badge>{row.original.sub_type?.name || ''}</Badge> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'equipment_owners.name',
+      id: 'equipment_owners.name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
+      cell: ({ row }) => {
+        return row.original.equipment_owners?.name ? <Badge>{row.original.equipment_owners?.name || ''}</Badge> : '-';
       },
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));

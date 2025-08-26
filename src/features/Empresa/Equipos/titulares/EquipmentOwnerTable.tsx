@@ -28,6 +28,15 @@ export function getEquipmentOwnerColumns(
       },
     },
     {
+      accessorKey: 'cuit',
+      id: 'cuit',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Cuit" />,
+      cell: ({ row }) => <span className="font-medium">{row.original.cuit}</span>,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'type',
       id: 'Tipo',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
@@ -79,17 +88,17 @@ function EquipmentOwnerTable({ equipmentOwners, onEdit = () => {} }: EquipmentOw
   const filtersCookie = Cookies.get('equipment-owners-table-filters');
   // Inicializar la visibilidad y los filtros desde las cookies
 
-  // Opciones para el filtro de estado
-  const statusOptions = [
-    { label: 'Activo', value: 'true' },
-    { label: 'Inactivo', value: 'false' },
-  ];
-
   // Generar opciones de nombres para los filtros
   const nameOptions = React.useMemo(() => {
     return equipmentOwners.map((type) => ({
       label: type.name,
       value: type.name,
+    }));
+  }, [equipmentOwners]);
+  const cuitOptions = React.useMemo(() => {
+    return equipmentOwners.map((type) => ({
+      label: type.cuit,
+      value: type.cuit,
     }));
   }, [equipmentOwners]);
   const nameOptionsType = React.useMemo(() => {
@@ -104,6 +113,11 @@ function EquipmentOwnerTable({ equipmentOwners, onEdit = () => {} }: EquipmentOw
       columnId: 'Nombre',
       title: 'Nombre',
       options: nameOptions,
+    },
+    {
+      columnId: 'cuit',
+      title: 'CUIT',
+      options: cuitOptions,
     },
     {
       columnId: 'Estado',
@@ -125,9 +139,9 @@ function EquipmentOwnerTable({ equipmentOwners, onEdit = () => {} }: EquipmentOw
       columns={getEquipmentOwnerColumns(onEdit, equipmentOwners)}
       data={equipmentOwners}
       tableId="equipment-owners-table"
-      savedVisibility={visibilityCookie ? JSON.parse(visibilityCookie) : []}
+      savedVisibility={visibilityCookie ? JSON.parse(visibilityCookie) : {}}
       toolbarOptions={{
-        initialVisibleFilters: filtersCookie ? JSON.parse(filtersCookie) : {},
+        initialVisibleFilters: filtersCookie ? JSON.parse(filtersCookie) : [],
         showFilterOptions: true,
         filterableColumns,
       }}
