@@ -26,7 +26,10 @@ export type PreparteItem = {
     quantity: number;
   }[];
   requestDate: Date;
-  executionDate: Date;
+  executionDate: {
+    from: Date;
+    to?: Date;
+  };
   tipo: string;
   jornada: string;
   solicitante: string;
@@ -44,6 +47,20 @@ export interface Contrato {
   id: string;
   service_name: string;
 }
+
+// Helper function to get all dates between two dates
+const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
+  const dates: Date[] = [];
+  const currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    dates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return dates;
+};
+
 export function PreparteManager({ items, itemsList, Customers, contratos }: PreparteManagerProps) {
   const [item, setItem] = useState<PreparteItem[]>(items);
   const [isEditing, setIsEditing] = useState(false);
@@ -57,7 +74,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
     contratoId: '',
     items: [],
     requestDate: new Date(),
-    executionDate: new Date(),
+    executionDate: {
+      from: new Date(),
+      to: undefined,
+    },
     tipo: '',
     jornada: '',
     solicitante: '',
@@ -72,12 +92,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
   };
 
   const handleSubmit = (formData: PreparteItem) => {
-    // Obtener el nombre del cliente seleccionado
     const clienteSeleccionado = Customers.find((c) => c.id === formData.clienteId);
     const clienteName = clienteSeleccionado?.name || formData.clienteName || '';
 
     if (isEditing && currentItem?.id) {
-      // Lógica para actualizar usando el estado actualizado
       setItem((prevItems) =>
         prevItems.map((item) =>
           item.id === currentItem.id
@@ -89,23 +107,42 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
             : item
         )
       );
-      toast('El registro ha sido actualizado correctamente.');
+      toast('Pedido actualizado correctamente');
     } else {
-      // Crear una entrada por cada ítem en el array de items
+      // Get all dates in range
+      const dates = formData.executionDate.to
+        ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
+        : [new Date(formData.executionDate.from)];
+
+      // Generate a base timestamp for consistent IDs
       const timestamp = Date.now();
-      const newItems = formData.items.map((item, index) => ({
-        ...formData, // Copiar todos los campos del formulario
-        id: `${timestamp}-${index}`, // ID único para cada línea
-        items: [item], // Un solo ítem por línea
-        clienteName, // Nombre del cliente
-        status: 'pendiente', // Establecer el estado inicial como 'pendiente'
-      }));
+
+      // Create a new order for each item on each date
+      const newItems = dates.flatMap((date, dateIndex) =>
+        formData.items.map((item, itemIndex) => {
+          // Create a new date object for each item to avoid reference issues
+          const executionDate = new Date(date);
+
+          return {
+            ...formData,
+            id: `preparte_${timestamp}_${itemIndex}_${date.getTime()}`,
+            items: [{ ...item }], // Single item per order with its own reference
+            executionDate: {
+              from: executionDate,
+              // No need for 'to' in individual items
+            },
+            clienteName,
+            status: 'pendiente',
+            requestDate: new Date(formData.requestDate), // Ensure new date object
+          };
+        })
+      );
 
       setItem((prevItems) => [...prevItems, ...newItems]);
       toast(`Se han creado ${newItems.length} líneas correctamente.`);
     }
 
-    // Limpiar formulario y cerrar
+    // Reset form
     setFormData({
       id: '',
       clienteId: '',
@@ -113,7 +150,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
       contratoId: '',
       items: [],
       requestDate: new Date(),
-      executionDate: new Date(),
+      executionDate: {
+        from: new Date(),
+        to: undefined,
+      },
       tipo: '',
       jornada: '',
       solicitante: '',
@@ -183,7 +223,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
                       contratoId: '',
                       items: [],
                       requestDate: new Date(),
-                      executionDate: new Date(),
+                      executionDate: {
+                        from: new Date(),
+                        to: undefined,
+                      },
                       tipo: '',
                       jornada: '',
                       solicitante: '',

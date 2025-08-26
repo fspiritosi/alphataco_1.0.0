@@ -41,9 +41,17 @@ const formSchema = z.object({
   requestDate: z.date({
     required_error: 'La fecha de solicitud es requerida',
   }),
-  executionDate: z.date({
-    required_error: 'La fecha de ejecución es requerida',
-  }),
+  executionDate: z
+    .object({
+      from: z.date(),
+      to: z.date().optional(),
+    })
+    .refine((data) => {
+      if (data.from && data.to) {
+        return data.from <= data.to;
+      }
+      return true;
+    }, 'La fecha de inicio debe ser anterior a la fecha de fin'),
   tipo: z.string().min(1, 'El tipo es requerido'),
   jornada: z.string().min(1, 'La jornada es requerida'),
   solicitante: z.string().min(1, 'El solicitante es requerido'),
@@ -374,17 +382,29 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccionar fecha</span>}
+                          {field.value?.from ? (
+                            field.value.to ? (
+                              <>
+                                {format(field.value.from, 'PPP', { locale: es })} -{' '}
+                                {format(field.value.to, 'PPP', { locale: es })}
+                              </>
+                            ) : (
+                              format(field.value.from, 'PPP', { locale: es })
+                            )
+                          ) : (
+                            <span>Seleccionar rango de fechas</span>
+                          )}
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
                       <Calendar
-                        mode="single"
-                        selected={field.value}
+                        mode="range"
+                        selected={field.value || undefined}
                         onSelect={field.onChange}
                         initialFocus
                         locale={es}
+                        numberOfMonths={2}
                       />
                     </PopoverContent>
                   </Popover>

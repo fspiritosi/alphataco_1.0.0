@@ -73,7 +73,10 @@ const getColumns = (
   {
     accessorKey: 'executionDate',
     header: 'Fecha de Ejecución',
-    cell: ({ row }) => <div>{new Date(row.getValue('executionDate')).toLocaleDateString()}</div>,
+    cell: ({ row }) => {
+      const executionDate = row.original.executionDate?.from;
+      return executionDate ? new Date(executionDate).toLocaleDateString() : '-';
+    },
   },
   {
     accessorKey: 'tipo',
@@ -141,6 +144,7 @@ const getColumns = (
 ];
 
 export function PreparteTable({ data, contratos, items, onEdit, onDelete, savedVisibility = {} }: PreparteTableProps) {
+  console.log(data);
   return (
     <BaseDataTable
       columns={getColumns(onEdit, onDelete, contratos, items)}
