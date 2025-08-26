@@ -35,7 +35,7 @@ export type VehicleFormData = {
   picture?: string | null;
   allocated_to?: string[];
   cost_center_id?: string;
-  type_of_contract?: string;
+  type_of_contract?: string | null;
 };
 
 interface VehicleTabsProps {
