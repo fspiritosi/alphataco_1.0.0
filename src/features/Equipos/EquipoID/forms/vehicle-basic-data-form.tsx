@@ -65,7 +65,7 @@ export function VehicleBasicDataForm({
 
   const handleBrandChange = async (id: string) => {
     form.setValue('brand', id);
-    form.setValue('model', ''); // Reset model when brand changes
+    form.setValue('model', null); // Reset model when brand changes
 
     const selectedBrand = brands.find((b) => b.id.toString() === id);
     if (selectedBrand) {
@@ -96,12 +96,12 @@ export function VehicleBasicDataForm({
 
   const removeImage = () => {
     setImagePreview(null);
-    form.setValue('picture', '');
+    form.setValue('picture', null);
   };
 
   const handleTypeChange = async (typeId: string) => {
     form.setValue('type', typeId);
-    form.setValue('subType', ''); // Reset subtype when type changes
+    form.setValue('subType', null); // Reset subtype when type changes
 
     const selectedType = types.find((t) => t.id === typeId);
     if (selectedType) {

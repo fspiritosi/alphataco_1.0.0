@@ -63,13 +63,13 @@ const vehicleSchema = z
     // Technical Data
     engine: z.string().optional(),
     type: z.string().optional(),
-    subType: z.string().optional(),
+    subType: z.string().optional().nullable(),
     chassis: z.string().optional(),
     serie: z.string().optional(),
     domain: z.string().optional().nullable(),
     kilometer: z.string().optional(),
     intern_number: z.string().optional(),
-    picture: z.string().optional(),
+    picture: z.string().optional().nullable(),
 
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
