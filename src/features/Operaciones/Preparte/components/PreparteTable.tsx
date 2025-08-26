@@ -89,9 +89,14 @@ const getColumns = (
     cell: ({ row }) => <div>{row.getValue('jornada')}</div>,
   },
   {
-    accessorKey: 'horario',
-    header: 'Horario',
-    cell: ({ row }) => <div>{row.getValue('horario')}</div>,
+    accessorKey: 'start_time',
+    header: 'H. Inicio',
+    cell: ({ row }) => <div>{row.getValue('start_time')}</div>,
+  },
+  {
+    accessorKey: 'end_time',
+    header: 'H. Fin',
+    cell: ({ row }) => <div>{row.getValue('end_time')}</div>,
   },
   {
     accessorKey: 'solicitante',

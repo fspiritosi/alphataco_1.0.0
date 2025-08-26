@@ -9,6 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -19,11 +20,11 @@ import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Building, CalendarIcon, FileText } from 'lucide-react';
+import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Cliente } from '../components/PreparteManager';
-
 // Esquema de validación con Zod
 const formSchema = z.object({
   id: z.string(),
@@ -54,7 +55,12 @@ const formSchema = z.object({
     }, 'La fecha de inicio debe ser anterior a la fecha de fin'),
   tipo: z.string().min(1, 'El tipo es requerido'),
   jornada: z.string().min(1, 'La jornada es requerida'),
+  start_time: z.string().optional(),
+  end_time: z.string().optional(),
   solicitante: z.string().min(1, 'El solicitante es requerido'),
+  status: z.enum(['pendiente', 'reprogramado', 'cancelado', 'rechazado', 'confirmado']).default('pendiente'),
+  cancel_reason: z.string().optional(),
+  reprogram_date: z.date().optional(),
   observaciones: z.string().optional(),
 });
 
@@ -159,10 +165,14 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   };
 
   return (
-    <div className="overflow-y-auto max-h-[calc(100vh-10rem)] gap-4">
+    <div className=" gap-4 space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           <div className="space-y-4">
+            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Building className="h-4 w-4" />
+              Datos del Cliente
+            </h4>
             {/* Selector de Clientes */}
             <FormField
               control={form.control}
@@ -180,7 +190,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     value={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-background">
                         <SelectValue placeholder="Seleccionar cliente">
                           {field.value ? (
                             clientes.find((c) => c.id === field.value)?.name || 'Cliente no encontrado'
@@ -217,7 +227,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     onValueChange={(value) => form.setValue('contratoId', value)}
                     value={field.value}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-background">
                       <SelectValue placeholder={isLoading ? 'Cargando contratos...' : 'Seleccionar contrato'}>
                         {field.value ? (
                           contratos.find((c) => c.id === field.value)?.service_name || 'Contrato no encontrado'
@@ -413,8 +423,34 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               )}
             />
 
-            {/* Tipo de servicio */}
+            {/* Jornada */}
             <FormField
+              control={form.control}
+              name="jornada"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Jornada</FormLabel>
+                  <FormControl>
+                    <Select onValueChange={(value) => form.setValue('jornada', value)} value={field.value}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Seleccionar jornada">
+                          {field.value ? field.value : 'Seleccionar jornada'}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Jornada 8 horas">Jornada 8 horas</SelectItem>
+                        <SelectItem value="Jornada 12 horas">Jornada 12 horas</SelectItem>
+                        <SelectItem value="Jornada 24 horas">Jornada 24 horas</SelectItem>
+                        <SelectItem value="por horario">Por horario</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Tipo de servicio */}
+            {/* <FormField
               control={form.control}
               name="tipo"
               render={({ field }) => (
@@ -422,7 +458,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormLabel>Tipo de servicio</FormLabel>
                   <FormControl>
                     <Select onValueChange={(value) => form.setValue('tipo', value)} value={field.value}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-background">
                         <SelectValue placeholder="Seleccionar tipo de servicio">
                           {field.value ? field.value : 'Seleccionar tipo de servicio'}
                         </SelectValue>
@@ -437,32 +473,85 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormMessage />
                 </FormItem>
               )}
-            />
-            {/* Jornada */}
+            /> */}
             <FormField
               control={form.control}
-              name="jornada"
+              name="tipo"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Jornada</FormLabel>
+                <FormItem className="space-y-3">
+                  <FormLabel>Tipo de servicio</FormLabel>
                   <FormControl>
-                    <Select onValueChange={(value) => form.setValue('jornada', value)} value={field.value}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar jornada">
-                          {field.value ? field.value : 'Seleccionar jornada'}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Jornada 8 horas">Jornada 8 horas</SelectItem>
-                        <SelectItem value="Jornada 12 horas">Jornada 12 horas</SelectItem>
-                        <SelectItem value="Jornada 24 horas">Jornada 24 horas</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      className="flex flex-col space-y-1"
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem
+                            defaultValue={field.value}
+                            defaultChecked={field.value === 'mensual'}
+                            value="mensual"
+                            className="bg-background"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Mensual</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem
+                            defaultValue={field.value}
+                            defaultChecked={field.value === 'adicional'}
+                            value="adicional"
+                            className="bg-background"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Adicional</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem
+                            defaultValue={field.value}
+                            defaultChecked={field.value === 'adicional_permanente'}
+                            value="adicional_permanente"
+                            className="bg-background"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Adicional Permanente</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {/* Horario (condicional) */}
+            {form.watch('jornada') === 'por horario' && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="start_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora de inicio</FormLabel>
+                      <Input type="time" {...field} className="bg-background" />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="end_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora de fin</FormLabel>
+                      <Input type="time" {...field} className="bg-background" />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
             {/* Solicitante */}
             <FormField
               control={form.control}
@@ -471,12 +560,146 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 <FormItem>
                   <FormLabel>Solicitante</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ingrese el solicitante" {...field} />
+                    <Input placeholder="Ingrese el solicitante" className="bg-background" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {isEditing && (
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => {
+                  // Obtener el valor actual del estado
+                  const currentStatusWatch = form.watch('status');
+                  // const currentStatus = field.value as string;
+
+                  return (
+                    <FormItem>
+                      <FormLabel>Estado</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                        }}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccione un estado" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem
+                            className="hover:bg-accent"
+                            value="pendiente"
+                            disabled={field.value === 'pendiente'}
+                          >
+                            Pendiente
+                          </SelectItem>
+                          <SelectItem className="hover:bg-accent" value="reprogramado">
+                            Reprogramado
+                          </SelectItem>
+                          <SelectItem className="hover:bg-accent" value="cancelado">
+                            Cancelado
+                          </SelectItem>
+                          <SelectItem value="rechazado">Rechazado</SelectItem>
+                          <SelectItem value="confirmado">Confirmado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+
+                      {/* Campo de número de remito - Solo visible cuando el estado es 'ejecutado' */}
+                      {/* {currentStatusWatch === 'confirmado' && (
+                                        <div className="mt-6">
+                                          <FormField
+                                            control={form.control}
+                                            name="remit_number"
+                                            render={({ field: remitField }) => (
+                                              <FormItem>
+                                                <FormLabel>Número de Remito</FormLabel>
+                                                <FormControl>
+                                                  <Input
+                                                    placeholder="Ingrese el número de remito"
+                                                    {...remitField}
+                                                    value={remitField.value || ''}
+                                                  />
+                                                </FormControl>
+                                                <FormMessage />
+                                              </FormItem>
+                                            )}
+                                          />
+                                        </div>
+                                      )} */}
+                      {currentStatusWatch === 'cancelado' && (
+                        <div className="mt-6">
+                          <FormField
+                            control={form.control}
+                            name="cancel_reason"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Motivo de cancelación</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Ingrese el motivo de cancelación"
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+                      {currentStatusWatch === 'reprogramado' && (
+                        <div className="mt-6">
+                          <FormField
+                            control={form.control}
+                            name="reprogram_date"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel className="mt-2">Fecha de reprogramación</FormLabel>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button
+                                        variant={'outline'}
+                                        className={cn(
+                                          'pl-3 text-left font-normal',
+                                          !field.value && 'text-muted-foreground'
+                                        )}
+                                      >
+                                        {field.value ? (
+                                          format(field.value, 'PPP', { locale: es })
+                                        ) : (
+                                          <span>Seleccionar fecha</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={field.value}
+                                      onSelect={field.onChange}
+                                      disabled={(date) => moment(date).isBefore(moment())}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+                    </FormItem>
+                  );
+                }}
+              />
+            )}
             {/* Campo de Observaciones */}
             <FormField
               control={form.control}
@@ -485,7 +708,11 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 <FormItem>
                   <FormLabel>Observaciones</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Ingrese observaciones adicionales..." className="min-h-[100px]" {...field} />
+                    <Textarea
+                      placeholder="Ingrese observaciones adicionales..."
+                      className="min-h-[100px] bg-background"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

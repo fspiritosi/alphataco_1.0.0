@@ -32,9 +32,13 @@ export type PreparteItem = {
   };
   tipo: string;
   jornada: string;
+  start_time?: string;
+  end_time?: string;
   solicitante: string;
   observaciones?: string;
-  status?: string;
+  status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado';
+  cancel_reason?: string;
+  reprogram_date?: Date;
 };
 
 interface PreparteManagerProps {
@@ -80,7 +84,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
     },
     tipo: '',
     jornada: '',
+    start_time: '',
+    end_time: '',
     solicitante: '',
+    status: 'pendiente',
     observaciones: '',
   });
 
@@ -132,7 +139,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
               // No need for 'to' in individual items
             },
             clienteName,
-            status: 'pendiente',
+            status: 'pendiente' as const,
             requestDate: new Date(formData.requestDate), // Ensure new date object
           };
         })
@@ -156,7 +163,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
       },
       tipo: '',
       jornada: '',
+      start_time: '',
+      end_time: '',
       solicitante: '',
+      status: 'pendiente',
       observaciones: '',
     });
     setOpen(false);
@@ -176,7 +186,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
       executionDate: item.executionDate || new Date(),
       tipo: item.tipo || '',
       jornada: item.jornada || '',
+      start_time: item.start_time || '',
+      end_time: item.end_time || '',
       solicitante: item.solicitante || '',
+      status: item.status || 'pendiente',
       observaciones: item.observaciones || '',
     });
     setCurrentItem(item);
@@ -190,7 +203,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
 
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
-      <div className="flex justify-between items-center w-full">
+      <div className="overflow-y-auto flex justify-between items-center w-full">
         <h2 className="text-2xl font-bold">Gestión de Prepartes</h2>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -199,43 +212,46 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
               Nuevo Pedido
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[600px] max-w-[60vw] sm:max-w-[60vw]">
+          <SheetContent side="right" className="overflow-y-auto w-[750px] max-w-[75vw] sm:max-w-[75vw]">
             <SheetHeader className="mb-6">
               <SheetTitle>{isEditing ? 'Editar Pedido' : 'Nuevo Pedido'}</SheetTitle>
             </SheetHeader>
-            <Card>
-              <CardContent>
-                <PreparteForm
-                  formData={formData}
-                  clientes={Customers as Cliente[]}
-                  contratos={contratos as Contrato[]}
-                  isEditing={isEditing}
-                  onInputChange={handleInputChange}
-                  onSubmit={(formData: PreparteItem) => handleSubmit(formData)}
-                  onCancel={() => {
-                    setOpen(false);
-                    setIsEditing(false);
-                    setCurrentItem(null);
-                    setFormData({
-                      id: '',
-                      clienteId: '',
-                      clienteName: '',
-                      contratoId: '',
-                      items: [],
-                      requestDate: new Date(),
-                      executionDate: {
-                        from: new Date(),
-                        to: undefined,
-                      },
-                      tipo: '',
-                      jornada: '',
-                      solicitante: '',
-                      observaciones: '',
-                    });
-                  }}
-                />
-              </CardContent>
-            </Card>
+            {/* <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full"> */}
+            <PreparteForm
+              formData={formData}
+              clientes={Customers as Cliente[]}
+              contratos={contratos as Contrato[]}
+              isEditing={isEditing}
+              onInputChange={handleInputChange}
+              onSubmit={(formData: PreparteItem) => handleSubmit(formData)}
+              onCancel={() => {
+                setOpen(false);
+                setIsEditing(false);
+                setCurrentItem(null);
+                setFormData({
+                  id: '',
+                  clienteId: '',
+                  clienteName: '',
+                  contratoId: '',
+                  items: [],
+                  requestDate: new Date(),
+                  executionDate: {
+                    from: new Date(),
+                    to: undefined,
+                  },
+                  tipo: '',
+                  jornada: '',
+                  start_time: '',
+                  end_time: '',
+                  solicitante: '',
+                  status: 'pendiente',
+                  cancel_reason: '',
+                  reprogram_date: new Date(),
+                  observaciones: '',
+                });
+              }}
+            />
+            {/* </div>  */}
           </SheetContent>
         </Sheet>
       </div>
