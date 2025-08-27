@@ -407,14 +407,35 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="range"
-                        selected={field.value || undefined}
-                        onSelect={field.onChange}
-                        initialFocus
-                        locale={es}
-                        numberOfMonths={2}
-                      />
+                      {isEditing ? (
+                        // Modo edición (single)
+                        <Calendar
+                          mode="single"
+                          selected={field.value?.from}
+                          onSelect={(date) => {
+                            if (date) {
+                              field.onChange({ from: date, to: date });
+                            }
+                          }}
+                          initialFocus
+                          locale={es}
+                          numberOfMonths={2}
+                        />
+                      ) : (
+                        // Modo creación (range)
+                        <Calendar
+                          mode="range"
+                          selected={field.value || { from: undefined, to: undefined }}
+                          onSelect={(range) => {
+                            if (range) {
+                              field.onChange(range);
+                            }
+                          }}
+                          initialFocus
+                          locale={es}
+                          numberOfMonths={2}
+                        />
+                      )}
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
@@ -448,31 +469,34 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 </FormItem>
               )}
             />
+            {/* Horario (condicional) */}
+            {form.watch('jornada') === 'por horario' && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="start_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora de inicio</FormLabel>
+                      <Input type="time" {...field} className="bg-background" />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="end_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora de fin</FormLabel>
+                      <Input type="time" {...field} className="bg-background" />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
             {/* Tipo de servicio */}
-            {/* <FormField
-              control={form.control}
-              name="tipo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de servicio</FormLabel>
-                  <FormControl>
-                    <Select onValueChange={(value) => form.setValue('tipo', value)} value={field.value}>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Seleccionar tipo de servicio">
-                          {field.value ? field.value : 'Seleccionar tipo de servicio'}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Adicional">Adicional</SelectItem>
-                        <SelectItem value="Adicional Permanente">Adicional Permanente</SelectItem>
-                        <SelectItem value="Mensual">Mensual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            /> */}
             <FormField
               control={form.control}
               name="tipo"
@@ -524,33 +548,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 </FormItem>
               )}
             />
-            {/* Horario (condicional) */}
-            {form.watch('jornada') === 'por horario' && (
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="start_time"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hora de inicio</FormLabel>
-                      <Input type="time" {...field} className="bg-background" />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="end_time"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hora de fin</FormLabel>
-                      <Input type="time" {...field} className="bg-background" />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            )}
+
             {/* Solicitante */}
             <FormField
               control={form.control}
