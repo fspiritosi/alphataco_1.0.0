@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { createPreparte } from '@/features/Operaciones/Preparte/actions/preparte';
 import { VisibilityState } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -18,10 +19,9 @@ export type Cliente = {
 // Tipo de datos para los prepartes
 export type PreparteItem = {
   id: string;
-  clienteId: string;
-  clienteName: string;
-  contratoId: string;
-  items: {
+  cliente_id: string;
+  contrato_id: string;
+  item: {
     id: string;
     quantity: number;
   }[];
@@ -39,6 +39,7 @@ export type PreparteItem = {
   status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado';
   cancel_reason?: string;
   reprogram_date?: Date;
+  quantity?: number;
 };
 
 interface PreparteManagerProps {
@@ -46,6 +47,7 @@ interface PreparteManagerProps {
   Customers: Cliente[];
   contratos: Contrato[];
   itemsList: Array<{ id: string; item_name: string }>;
+  prepartes: PreparteItem[];
 }
 export interface Contrato {
   id: string;
@@ -65,7 +67,7 @@ const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
   return dates;
 };
 
-export function PreparteManager({ items, itemsList, Customers, contratos }: PreparteManagerProps) {
+export function PreparteManager({ items, itemsList, Customers, contratos, prepartes }: PreparteManagerProps) {
   const [item, setItem] = useState<PreparteItem[]>(items);
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
@@ -73,10 +75,9 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
   const [savedVisibility, setSavedVisibility] = useState<VisibilityState>({});
   const [formData, setFormData] = useState<PreparteItem>({
     id: '',
-    clienteId: '',
-    clienteName: '',
-    contratoId: '',
-    items: [],
+    cliente_id: '',
+    contrato_id: '',
+    item: [],
     requestDate: new Date(),
     executionDate: {
       from: new Date(),
@@ -98,90 +99,133 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
     }));
   };
 
-  const handleSubmit = (formData: PreparteItem) => {
-    const clienteSeleccionado = Customers.find((c) => c.id === formData.clienteId);
-    const clienteName = clienteSeleccionado?.name || formData.clienteName || '';
+  // const handleSubmit = (formData: PreparteItem) => {
+  //   const clienteSeleccionado = Customers.find((c) => c.id === formData.clienteId);
+  //   const clienteName = clienteSeleccionado?.name || formData.clienteName || '';
 
-    if (isEditing && currentItem?.id) {
-      setItem((prevItems) =>
-        prevItems.map((item) =>
-          item.id === currentItem.id
-            ? {
-                ...formData,
-                id: currentItem.id,
-                clienteName,
-              }
-            : item
-        )
-      );
-      toast('Pedido actualizado correctamente');
-    } else {
+  //   if (isEditing && currentItem?.id) {
+  //     setItem((prevItems) =>
+  //       prevItems.map((item) =>
+  //         item.id === currentItem.id
+  //           ? {
+  //               ...formData,
+  //               id: currentItem.id,
+  //               clienteName,
+  //             }
+  //           : item
+  //       )
+  //     );
+  //     toast('Pedido actualizado correctamente');
+  //   } else {
+  //     // Get all dates in range
+  //     const dates = formData.executionDate.to
+  //       ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
+  //       : [new Date(formData.executionDate.from)];
+
+  //     // Generate a base timestamp for consistent IDs
+  //     const timestamp = Date.now();
+
+  //     // Create a new order for each item on each date
+  //     const newItems = dates.flatMap((date, dateIndex) =>
+  //       formData.items.map((item, itemIndex) => {
+  //         // Create a new date object for each item to avoid reference issues
+  //         const executionDate = new Date(date);
+
+  //         return {
+  //           ...formData,
+  //           id: `preparte_${timestamp}_${itemIndex}_${date.getTime()}`,
+  //           items: [{ ...item }], // Single item per order with its own reference
+  //           executionDate: {
+  //             from: executionDate,
+  //             // No need for 'to' in individual items
+  //           },
+  //           clienteName,
+  //           status: 'pendiente' as const,
+  //           requestDate: new Date(formData.requestDate), // Ensure new date object
+  //         };
+  //       })
+  //     );
+
+  //     setItem((prevItems) => [...prevItems, ...newItems]);
+  //     toast(`Se han creado ${newItems.length} líneas correctamente.`);
+  //   }
+
+  //   // Reset form
+  //   setFormData({
+  //     id: '',
+  //     clienteId: '',
+  //     clienteName: '',
+  //     contratoId: '',
+  //     items: [],
+  //     requestDate: new Date(),
+  //     executionDate: {
+  //       from: new Date(),
+  //       to: undefined,
+  //     },
+  //     tipo: '',
+  //     jornada: '',
+  //     start_time: '',
+  //     end_time: '',
+  //     solicitante: '',
+  //     status: 'pendiente',
+  //     observaciones: '',
+  //   });
+  //   setOpen(false);
+  //   setIsEditing(false);
+  //   setCurrentItem(null);
+  // };
+
+  // In your component
+  const handleSubmit = async (formData: PreparteItem) => {
+    try {
       // Get all dates in range
       const dates = formData.executionDate.to
         ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
         : [new Date(formData.executionDate.from)];
 
-      // Generate a base timestamp for consistent IDs
-      const timestamp = Date.now();
+      // Prepare all prepartes to create
+      const prepartesToCreate = formData.item
+        .flatMap((item) =>
+          dates.map((date) => ({
+            cliente_id: formData.cliente_id,
+            contrato_id: formData.contrato_id,
+            tipo: formData.tipo,
+            jornada: formData.jornada,
+            start_time: formData.start_time || null,
+            end_time: formData.end_time || null,
+            solicitante: formData.solicitante,
+            status: 'pendiente',
+            item: item.id,
+            quantity: item.quantity,
+            observaciones: formData.observaciones || null,
+            executionDate: date.toISOString(),
+            requestDate: formData.requestDate.toISOString(),
+          }))
+        )
+        .flat();
+      console.log(prepartesToCreate);
 
-      // Create a new order for each item on each date
-      const newItems = dates.flatMap((date, dateIndex) =>
-        formData.items.map((item, itemIndex) => {
-          // Create a new date object for each item to avoid reference issues
-          const executionDate = new Date(date);
+      // Create all prepartes in a single database call
+      const createdPrepartes = await createPreparte(prepartesToCreate as any);
 
-          return {
-            ...formData,
-            id: `preparte_${timestamp}_${itemIndex}_${date.getTime()}`,
-            items: [{ ...item }], // Single item per order with its own reference
-            executionDate: {
-              from: executionDate,
-              // No need for 'to' in individual items
-            },
-            clienteName,
-            status: 'pendiente' as const,
-            requestDate: new Date(formData.requestDate), // Ensure new date object
-          };
-        })
-      );
+      // Show success message with the number of created items
+      toast.success(`Se crearon ${createdPrepartes.length} prepartes correctamente`);
 
-      setItem((prevItems) => [...prevItems, ...newItems]);
-      toast(`Se han creado ${newItems.length} líneas correctamente.`);
+      // Reset form
+      // onCancel();
+    } catch (error) {
+      console.error('Error saving prepartes:', error);
+      toast.error('Error al guardar los prepartes');
     }
-
-    // Reset form
-    setFormData({
-      id: '',
-      clienteId: '',
-      clienteName: '',
-      contratoId: '',
-      items: [],
-      requestDate: new Date(),
-      executionDate: {
-        from: new Date(),
-        to: undefined,
-      },
-      tipo: '',
-      jornada: '',
-      start_time: '',
-      end_time: '',
-      solicitante: '',
-      status: 'pendiente',
-      observaciones: '',
-    });
-    setOpen(false);
-    setIsEditing(false);
-    setCurrentItem(null);
   };
 
   const handleEdit = (item: PreparteItem) => {
     // Asegurarse de que todos los campos requeridos estén presentes
     setFormData({
       id: item.id,
-      clienteId: item.clienteId,
-      clienteName: item.clienteName || '',
-      contratoId: item.contratoId || '',
-      items: item.items || [],
+      cliente_id: item.cliente_id,
+      contrato_id: item.contrato_id || '',
+      item: item.item || [],
       requestDate: item.requestDate || new Date(),
       executionDate: item.executionDate || new Date(),
       tipo: item.tipo || '',
@@ -190,6 +234,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
       end_time: item.end_time || '',
       solicitante: item.solicitante || '',
       status: item.status || 'pendiente',
+      quantity: item.quantity || 1,
       observaciones: item.observaciones || '',
     });
     setCurrentItem(item);
@@ -230,10 +275,9 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
                 setCurrentItem(null);
                 setFormData({
                   id: '',
-                  clienteId: '',
-                  clienteName: '',
-                  contratoId: '',
-                  items: [],
+                  cliente_id: '',
+                  contrato_id: '',
+                  item: [],
                   requestDate: new Date(),
                   executionDate: {
                     from: new Date(),
@@ -260,7 +304,8 @@ export function PreparteManager({ items, itemsList, Customers, contratos }: Prep
         <CardContent className="p-0">
           <div className="w-full overflow-x-auto">
             <PreparteTable
-              data={item}
+              data={prepartes}
+              Customers={Customers}
               contratos={contratos}
               items={itemsList}
               onEdit={handleEdit}

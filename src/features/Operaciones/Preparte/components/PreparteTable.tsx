@@ -12,14 +12,15 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Cliente } from '@/features/Operaciones/Preparte/components/PreparteManager';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Contrato, PreparteItem } from './PreparteManager';
-
 interface PreparteTableProps {
   data: PreparteItem[];
   contratos: Contrato[];
+  Customers: Cliente[];
   items: Array<{ id: string; item_name: string }>;
   onEdit: (item: PreparteItem) => void;
   onDelete: (id: string) => void;
@@ -29,40 +30,46 @@ interface PreparteTableProps {
 const getColumns = (
   onEdit: (item: PreparteItem) => void,
   onDelete: (id: string) => void,
+  Customers: Cliente[],
   contratos: Contrato[],
   items: Array<{ id: string; item_name: string }>
 ): ColumnDef<PreparteItem>[] => [
   {
-    accessorKey: 'clienteName',
+    accessorKey: 'cliente_id',
     header: 'Cliente',
+    cell: ({ row }) => {
+      const clienteId = row.original.cliente_id;
+      const cliente = Customers.find((c) => c.id === clienteId);
+      return cliente?.name || clienteId || '-';
+    },
   },
   {
-    accessorKey: 'contratoId',
+    accessorKey: 'contrato_id',
     header: 'Contrato',
     cell: ({ row }) => {
-      const contratoId = row.original.contratoId;
+      const contratoId = row.original.contrato_id;
       const contrato = contratos.find((c) => c.id === contratoId);
       return contrato?.service_name || contratoId || '-';
     },
   },
   {
-    accessorKey: 'items',
+    accessorKey: 'item',
     header: 'Item',
     cell: ({ row }) => {
-      const itemIds = row.original.items || [];
-      if (itemIds.length === 0) return '-';
+      const itemId = row.original.item; // Now it's a direct string ID
+      if (!itemId) return '-';
 
       // Find the item by ID
-      const item = items.find((i) => i.id === itemIds[0]?.id);
-      return item?.item_name || itemIds[0]?.id || '-';
+      const itemFila = items.find((i) => (i.id as string) === itemId.toString());
+      return itemFila?.item_name || itemId || '-';
     },
   },
   {
     accessorKey: 'quantity',
     header: 'Cantidad',
     cell: ({ row }) => {
-      const items = row.original.items || [];
-      return items.length > 0 ? items[0].quantity : '-';
+      const quantity = row.original.quantity;
+      return quantity || '-';
     },
   },
   {
@@ -74,8 +81,8 @@ const getColumns = (
     accessorKey: 'executionDate',
     header: 'Fecha de Ejecución',
     cell: ({ row }) => {
-      const executionDate = row.original.executionDate?.from;
-      return executionDate ? new Date(executionDate).toLocaleDateString() : '-';
+      const executionDate = row.original.executionDate;
+      return executionDate ? new Date(executionDate as any).toLocaleDateString() : '-';
     },
   },
   {
@@ -148,11 +155,20 @@ const getColumns = (
   },
 ];
 
-export function PreparteTable({ data, contratos, items, onEdit, onDelete, savedVisibility = {} }: PreparteTableProps) {
+export function PreparteTable({
+  data,
+  Customers,
+  contratos,
+  items,
+  onEdit,
+  onDelete,
+  savedVisibility = {},
+}: PreparteTableProps) {
   console.log(data);
+  console.log(items);
   return (
     <BaseDataTable
-      columns={getColumns(onEdit, onDelete, contratos, items)}
+      columns={getColumns(onEdit, onDelete, Customers, contratos, items)}
       data={data}
       savedVisibility={savedVisibility}
     />

@@ -28,9 +28,9 @@ import { Cliente } from '../components/PreparteManager';
 // Esquema de validación con Zod
 const formSchema = z.object({
   id: z.string(),
-  clienteId: z.string().min(1, 'Por favor selecciona un cliente'),
-  contratoId: z.string().min(1, 'Por favor selecciona un contrato'),
-  items: z
+  cliente_id: z.string().min(1, 'Por favor selecciona un cliente'),
+  contrato_id: z.string().min(1, 'Por favor selecciona un contrato'),
+  item: z
     .array(
       z.object({
         id: z.string(),
@@ -38,7 +38,6 @@ const formSchema = z.object({
       })
     )
     .min(1, 'Por favor selecciona al menos un ítem'),
-  clienteName: z.string(),
   requestDate: z.date({
     required_error: 'La fecha de solicitud es requerida',
   }),
@@ -99,16 +98,16 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   useEffect(() => {
     if (form.formState.isSubmitSuccessful) return;
 
-    const clienteId = form.getValues('clienteId');
+    const clienteId = form.getValues('cliente_id');
     if (clienteId) {
       handleClienteChange(clienteId);
     }
-  }, [form, form.watch('clienteId')]);
+  }, [form, form.watch('cliente_id')]);
 
   const handleClienteChange = async (clienteId: string) => {
     if (!clienteId) {
       setContratos([]);
-      form.setValue('contratoId', '');
+      form.setValue('contrato_id', '');
       return;
     }
 
@@ -126,15 +125,15 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   // Fetch items when contratoId changes
   useEffect(() => {
     const fetchItems = async () => {
-      if (!form.watch('contratoId')) {
+      if (!form.watch('contrato_id')) {
         setContractItems([]);
         return;
       }
-      console.log('Fetching items for contrato:', form.watch('contratoId'));
+      console.log('Fetching items for contrato:', form.watch('contrato_id'));
 
       setIsLoading(true);
       try {
-        const items = await fetchServiceItems(form.watch('contratoId'));
+        const items = await fetchServiceItems(form.watch('contrato_id'));
         console.log('Fetched items:', items);
         setContractItems(
           items.map((item) => ({
@@ -151,13 +150,13 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     };
 
     fetchItems();
-  }, [form.watch('contratoId')]);
+  }, [form.watch('contrato_id')]);
 
   const handleSubmit = (data: PreparteItem) => {
     // Actualizar el nombre del cliente si es necesario
-    const clienteSeleccionado = clientes.find((c) => c.id === data.clienteId);
+    const clienteSeleccionado = clientes.find((c) => c.id === data.cliente_id);
     if (clienteSeleccionado) {
-      data.clienteName = clienteSeleccionado.name;
+      data.cliente_id = clienteSeleccionado.id;
     }
 
     // Llamar a la función onSubmit con los datos del formulario
@@ -176,15 +175,15 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
             {/* Selector de Clientes */}
             <FormField
               control={form.control}
-              name="clienteId"
+              name="cliente_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cliente</FormLabel>
                   <Select
                     onValueChange={(value) => {
-                      form.setValue('clienteId', value);
-                      form.setValue('contratoId', '');
-                      form.setValue('items', []);
+                      form.setValue('cliente_id', value);
+                      form.setValue('contrato_id', '');
+                      form.setValue('item', []);
                       handleClienteChange(value);
                     }}
                     value={field.value}
@@ -218,13 +217,13 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
             {/* Selector de Contrato */}
             <FormField
               control={form.control}
-              name="contratoId"
+              name="contrato_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contrato</FormLabel>
                   <Select
-                    disabled={!form.watch('clienteId') || isLoading}
-                    onValueChange={(value) => form.setValue('contratoId', value)}
+                    disabled={!form.watch('cliente_id') || isLoading}
+                    onValueChange={(value) => form.setValue('contrato_id', value)}
                     value={field.value}
                   >
                     <SelectTrigger className="bg-background">
@@ -254,7 +253,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
             {/* Multiselector de items */}
             <FormField
               control={form.control}
-              name="items"
+              name="item"
               render={({ field }) => (
                 <FormItem>
                   <Card>
@@ -264,7 +263,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         options={contractItems}
                         selectedValues={field.value?.map((item) => item.id) || []}
                         onChange={(selectedIds) => {
-                          const currentItems = form.getValues('items') || [];
+                          const currentItems = form.getValues('item') || [];
                           const newItems = selectedIds.map((id) => {
                             const existing = currentItems.find((item) => item.id === id);
                             return existing || { id, quantity: 1 };
@@ -272,10 +271,10 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                           field.onChange(newItems);
                         }}
                         placeholder={
-                          form.getValues('contratoId') ? 'Seleccionar items' : 'Seleccione un contrato primero'
+                          form.getValues('contrato_id') ? 'Seleccionar items' : 'Seleccione un contrato primero'
                         }
                         emptyMessage="No hay items disponibles para este contrato"
-                        disabled={!form.getValues('contratoId') || isLoading}
+                        disabled={!form.getValues('contrato_id') || isLoading}
                         maxSelections={isEditing ? 1 : null}
                       />
                     </CardContent>
