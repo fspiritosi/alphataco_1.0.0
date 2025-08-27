@@ -5,7 +5,9 @@ import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
 import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { ChartBarServiceHistory } from '@/features/Dashboard/Estadisticas/Components/BarServiceHistory';
+import { ServicesHistory } from '@/features/Dashboard/Estadisticas/Components/ServicesHistory';
+import { getDailyReportsLatest, getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DataEquipmentChart from '@/features/graficos/equipos/data-equipos';
 import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
 import EmpleadoDiagramasChart from '@/features/graficos/rrhh/data-empleado-diagramas';
@@ -15,6 +17,7 @@ export default async function DashboardComponent() {
   const employees = fetchAllEmployeesCount();
   const equipments = fetchAllVehiclesCount();
   const servicesSummary = getServicesSummaryByType();
+  const dailyReports = getDailyReportsLatest();
 
   return (
     <div className="">
@@ -23,9 +26,10 @@ export default async function DashboardComponent() {
         {/* <CardTitle className="text-[2vw]">Bienvenido a tu dashboard</CardTitle> */}
       </section>
       <Tabs defaultValue="Principal" className="w-full">
-        <TabsList className="ml-6">
+        <TabsList className="ml-6 bg-white dark:bg-muted">
           <TabsTrigger value="Principal">Principal</TabsTrigger>
           <TabsTrigger value="Documentacion">Documentacion</TabsTrigger>
+          <TabsTrigger value="Estadisticas">Estadisticas</TabsTrigger>
           {/* <TabsTrigger value="Empleados">Empleados</TabsTrigger> */}
           {/* <TabsTrigger value="Mantenimiento">Mantenimiento</TabsTrigger> */}
         </TabsList>
@@ -85,11 +89,12 @@ export default async function DashboardComponent() {
             </section>
           </section>
         </TabsContent>
-        {/* <TabsContent value="Empleados">
-          <div className="flex flex-col justify-center">
-            <EmpleadoDiagramasChart />
-          </div>
-        </TabsContent> */}
+        <TabsContent className="w-full" value="Estadisticas">
+          <section className="md:mx-7 grid grid-cols-1 mt-6  gap-3 mb-4 ">
+            <ServicesHistory dailyReports={dailyReports} />
+            <ChartBarServiceHistory dailyReports={dailyReports} />
+          </section>
+        </TabsContent>
       </Tabs>
     </div>
   );
