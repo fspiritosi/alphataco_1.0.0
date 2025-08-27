@@ -3,9 +3,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { createPreparte } from '@/features/Operaciones/Preparte/actions/preparte';
+import { createPreparte, deletePreparte, updatePreparte } from '@/features/Operaciones/Preparte/actions/preparte';
 import { VisibilityState } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PreparteForm } from './PreparteForm';
@@ -91,7 +92,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     status: 'pendiente',
     observaciones: '',
   });
-
+  const router = useRouter();
   const handleInputChange = (field: keyof PreparteItem, value: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -99,93 +100,75 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     }));
   };
 
-  // const handleSubmit = (formData: PreparteItem) => {
-  //   const clienteSeleccionado = Customers.find((c) => c.id === formData.clienteId);
-  //   const clienteName = clienteSeleccionado?.name || formData.clienteName || '';
-
-  //   if (isEditing && currentItem?.id) {
-  //     setItem((prevItems) =>
-  //       prevItems.map((item) =>
-  //         item.id === currentItem.id
-  //           ? {
-  //               ...formData,
-  //               id: currentItem.id,
-  //               clienteName,
-  //             }
-  //           : item
-  //       )
-  //     );
-  //     toast('Pedido actualizado correctamente');
-  //   } else {
+  // const handleSubmit = async (formData: PreparteItem) => {
+  //   try {
   //     // Get all dates in range
   //     const dates = formData.executionDate.to
   //       ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
   //       : [new Date(formData.executionDate.from)];
 
-  //     // Generate a base timestamp for consistent IDs
-  //     const timestamp = Date.now();
+  //     // Prepare all prepartes to create
+  //     const prepartesToCreate = formData.item
+  //       .flatMap((item) =>
+  //         dates.map((date) => ({
+  //           cliente_id: formData.cliente_id,
+  //           contrato_id: formData.contrato_id,
+  //           tipo: formData.tipo,
+  //           jornada: formData.jornada,
+  //           start_time: formData.start_time || null,
+  //           end_time: formData.end_time || null,
+  //           solicitante: formData.solicitante,
+  //           status: 'pendiente',
+  //           item: item.id,
+  //           quantity: item.quantity,
+  //           observaciones: formData.observaciones || null,
+  //           executionDate: date.toISOString(),
+  //           requestDate: formData.requestDate.toISOString(),
+  //         }))
+  //       )
+  //       .flat();
+  //     console.log(prepartesToCreate);
 
-  //     // Create a new order for each item on each date
-  //     const newItems = dates.flatMap((date, dateIndex) =>
-  //       formData.items.map((item, itemIndex) => {
-  //         // Create a new date object for each item to avoid reference issues
-  //         const executionDate = new Date(date);
+  //     // Create all prepartes in a single database call
+  //     const createdPrepartes = await createPreparte(prepartesToCreate as any);
 
-  //         return {
-  //           ...formData,
-  //           id: `preparte_${timestamp}_${itemIndex}_${date.getTime()}`,
-  //           items: [{ ...item }], // Single item per order with its own reference
-  //           executionDate: {
-  //             from: executionDate,
-  //             // No need for 'to' in individual items
-  //           },
-  //           clienteName,
-  //           status: 'pendiente' as const,
-  //           requestDate: new Date(formData.requestDate), // Ensure new date object
-  //         };
-  //       })
-  //     );
+  //     // Show success message with the number of created items
+  //     toast.success(`Se crearon ${createdPrepartes.length} prepartes correctamente`);
 
-  //     setItem((prevItems) => [...prevItems, ...newItems]);
-  //     toast(`Se han creado ${newItems.length} líneas correctamente.`);
+  //     // Reset form
+  //     // onCancel();
+  //   } catch (error) {
+  //     console.error('Error saving prepartes:', error);
+  //     toast.error('Error al guardar los prepartes');
   //   }
-
-  //   // Reset form
-  //   setFormData({
-  //     id: '',
-  //     clienteId: '',
-  //     clienteName: '',
-  //     contratoId: '',
-  //     items: [],
-  //     requestDate: new Date(),
-  //     executionDate: {
-  //       from: new Date(),
-  //       to: undefined,
-  //     },
-  //     tipo: '',
-  //     jornada: '',
-  //     start_time: '',
-  //     end_time: '',
-  //     solicitante: '',
-  //     status: 'pendiente',
-  //     observaciones: '',
-  //   });
-  //   setOpen(false);
-  //   setIsEditing(false);
-  //   setCurrentItem(null);
   // };
 
-  // In your component
   const handleSubmit = async (formData: PreparteItem) => {
     try {
-      // Get all dates in range
-      const dates = formData.executionDate.to
-        ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
-        : [new Date(formData.executionDate.from)];
+      if (isEditing && currentItem?.id) {
+        // Update existing preparte
+        const updatedPreparte = {
+          ...formData,
+          id: currentItem.id,
+          item: formData.item[0]?.id || null,
+          quantity: formData.item[0]?.quantity || 1,
+          // Convert executionDate to string if it's an object
+          executionDate:
+            typeof formData.executionDate === 'object'
+              ? formData.executionDate.from.toISOString()
+              : formData.executionDate,
+          updated_at: new Date().toISOString(),
+        };
 
-      // Prepare all prepartes to create
-      const prepartesToCreate = formData.item
-        .flatMap((item) =>
+        await updatePreparte(currentItem.id, updatedPreparte as any);
+        toast.success('Preparte actualizado correctamente');
+      } else {
+        // Create new prepartes
+        const dates = formData.executionDate.to
+          ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
+          : [new Date(formData.executionDate.from)];
+
+        const prepartesToCreate = formData.item.flatMap((item) =>
           dates.map((date) => ({
             cliente_id: formData.cliente_id,
             contrato_id: formData.contrato_id,
@@ -201,33 +184,53 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
             executionDate: date.toISOString(),
             requestDate: formData.requestDate.toISOString(),
           }))
-        )
-        .flat();
-      console.log(prepartesToCreate);
+        );
 
-      // Create all prepartes in a single database call
-      const createdPrepartes = await createPreparte(prepartesToCreate as any);
+        const createdPrepartes = await createPreparte(prepartesToCreate as any);
+        toast.success(`Se crearon ${createdPrepartes.length} prepartes correctamente`);
+      }
 
-      // Show success message with the number of created items
-      toast.success(`Se crearon ${createdPrepartes.length} prepartes correctamente`);
+      // Reset form and close
+      setFormData({
+        id: '',
+        cliente_id: '',
+        contrato_id: '',
+        item: [],
+        requestDate: new Date(),
+        executionDate: { from: new Date() },
+        tipo: '',
+        jornada: '',
+        start_time: '',
+        end_time: '',
+        solicitante: '',
+        status: 'pendiente',
+        observaciones: '',
+      });
+      setOpen(false);
+      setIsEditing(false);
+      setCurrentItem(null);
 
-      // Reset form
-      // onCancel();
+      // Optionally refresh the prepartes list here
+      // const updatedPrepartes = await listPrepartes();
+      // setItem(updatedPrepartes);
     } catch (error) {
-      console.error('Error saving prepartes:', error);
-      toast.error('Error al guardar los prepartes');
+      console.error('Error saving preparte:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al guardar el preparte');
     }
+    router.refresh();
   };
-
   const handleEdit = (item: PreparteItem) => {
-    // Asegurarse de que todos los campos requeridos estén presentes
+    // Convert the item string to the expected array format
+    const itemArray =
+      typeof item.item === 'string' ? [{ id: item.item, quantity: item.quantity || 1 }] : item.item || [];
+
     setFormData({
       id: item.id,
       cliente_id: item.cliente_id,
       contrato_id: item.contrato_id || '',
-      item: item.item || [],
-      requestDate: item.requestDate || new Date(),
-      executionDate: item.executionDate || new Date(),
+      item: itemArray, // Use the converted array
+      requestDate: item.requestDate ? new Date(item.requestDate) : new Date(),
+      executionDate: item.executionDate ? { from: new Date(item.executionDate as any) } : { from: new Date() },
       tipo: item.tipo || '',
       jornada: item.jornada || '',
       start_time: item.start_time || '',
@@ -237,13 +240,18 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
       quantity: item.quantity || 1,
       observaciones: item.observaciones || '',
     });
+
     setCurrentItem(item);
     setIsEditing(true);
     setOpen(true);
+    router.refresh();
   };
 
   const handleDelete = (id: string) => {
+    deletePreparte(id);
     setItem((prev) => prev.filter((item) => item.id !== id));
+    toast.success('Preparte eliminado correctamente');
+    router.refresh();
   };
 
   return (
