@@ -19,11 +19,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Building, CalendarIcon, FileText } from 'lucide-react';
+import { Building, CalendarIcon } from 'lucide-react';
 import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import * as z from 'zod';
+import { createPreparte } from '../actions/preparte';
 import { Cliente } from '../components/PreparteManager';
 // Esquema de validación con Zod
 const formSchema = z.object({
@@ -94,7 +96,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [contractItems, setContractItems] = useState<{ label: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [reprogramDate, setReprogramDate] = useState<Date | null>(null);
   useEffect(() => {
     if (form.formState.isSubmitSuccessful) return;
 
@@ -152,17 +154,82 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     fetchItems();
   }, [form.watch('contrato_id')]);
 
-  const handleSubmit = (data: PreparteItem) => {
-    // Actualizar el nombre del cliente si es necesario
-    const clienteSeleccionado = clientes.find((c) => c.id === data.cliente_id);
-    if (clienteSeleccionado) {
-      data.cliente_id = clienteSeleccionado.id;
+  // const handleSubmit = (data: PreparteItem) => {
+  //   // Actualizar el nombre del cliente si es necesario
+  //   const clienteSeleccionado = clientes.find((c) => c.id === data.cliente_id);
+  //   if (clienteSeleccionado) {
+  //     data.cliente_id = clienteSeleccionado.id;
+  //   }
+
+  //   // Llamar a la función onSubmit con los datos del formulario
+  //   onSubmit(data);
+  // };
+  const handleSubmit = async (data: PreparteItem) => {
+    console.log('Iniciando handleSubmit con data:', data);
+
+    try {
+      console.log('Status actual:', data.status);
+      console.log('reprogramDate:', data.reprogram_date);
+
+      if (data.status === 'reprogramado' && data.reprogram_date) {
+        console.log('Iniciando proceso de reprogramación');
+
+        // Crear nuevo ítem con la nueva fecha
+        const newItem = {
+          ...data,
+          id: crypto.randomUUID(),
+          status: 'pendiente',
+          executionDate: new Date(data.reprogram_date),
+          item: data.item[0]?.id, // Tomamos solo el ID del primer ítem
+          observaciones: `[${new Date().toLocaleDateString('es-ES')}] Reprogramado de ${format(data.executionDate.from, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
+        };
+
+        console.log('Nuevo item a crear:', JSON.stringify(newItem, null, 2));
+
+        try {
+          console.log('Intentando crear nuevo item...');
+          const result = await createPreparte(newItem as any);
+          console.log('Nuevo item creado:', result);
+        } catch (createError) {
+          console.error('Error al crear nuevo item:', createError);
+          throw createError;
+        }
+
+        // Actualizar ítem original
+        const updatedOriginal = {
+          ...data,
+          status: 'reprogramado',
+          observaciones: `[${new Date().toLocaleDateString('es-ES')}] Se reprogramó para ${format(data.reprogram_date, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
+        };
+
+        console.log('Actualizando item original:', JSON.stringify(updatedOriginal, null, 2));
+
+        try {
+          console.log('Intentando actualizar item original...');
+          await onSubmit(updatedOriginal as any);
+          console.log('Item original actualizado');
+        } catch (updateError) {
+          console.error('Error al actualizar item original:', updateError);
+          throw updateError;
+        }
+
+        toast.success('Servicio reprogramado correctamente');
+        onCancel();
+        return;
+      }
+
+      // Lógica normal de guardado
+      console.log('Guardado normal, no es reprogramación');
+      const clienteSeleccionado = clientes.find((c) => c.id === data.cliente_id);
+      if (clienteSeleccionado) {
+        data.cliente_id = clienteSeleccionado.id;
+      }
+      onSubmit(data);
+    } catch (error) {
+      console.error('Error en handleSubmit:', error);
+      toast.error(`Error al guardar el servicio: ${(error as Error).message}`);
     }
-
-    // Llamar a la función onSubmit con los datos del formulario
-    onSubmit(data);
   };
-
   return (
     <div className=" gap-4 space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
       <Form {...form}>
@@ -179,7 +246,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cliente</FormLabel>
-                  <Select
+                  {/* <Select
                     onValueChange={(value) => {
                       form.setValue('cliente_id', value);
                       form.setValue('contrato_id', '');
@@ -209,7 +276,20 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </Select> */}
+                  <MultiSelectCombobox
+                    options={clientes.map((cliente) => ({
+                      label: cliente.name,
+                      value: cliente.id,
+                    }))}
+                    selectedValues={field.value ? [field.value] : []} // Asegurar que sea un array
+                    onChange={(selectedIds) => {
+                      field.onChange(selectedIds[0] || ''); // Tomar el primer ID o string vacío
+                    }}
+                    placeholder={clientes.find((c) => c.id === field.value)?.name || 'Seleccionar cliente'}
+                    emptyMessage="No hay clientes disponibles"
+                    maxSelections={1} // Para selección única
+                  />
                   <FormMessage />
                 </FormItem>
               )}
@@ -221,7 +301,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contrato</FormLabel>
-                  <Select
+                  {/* <Select
                     disabled={!form.watch('cliente_id') || isLoading}
                     onValueChange={(value) => form.setValue('contrato_id', value)}
                     value={field.value}
@@ -245,7 +325,21 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
+                  </Select> */}
+                  <MultiSelectCombobox
+                    options={contratos.map((contrato) => ({
+                      label: contrato.service_name,
+                      value: contrato.id,
+                    }))}
+                    selectedValues={field.value ? [field.value] : []} // Asegurar que sea un array
+                    onChange={(selectedIds) => {
+                      field.onChange(selectedIds[0] || ''); // Tomar el primer ID o string vacío
+                    }}
+                    placeholder={contratos.find((c) => c.id === field.value)?.service_name || 'Seleccionar contrato'}
+                    emptyMessage="No hay contratos disponibles"
+                    disabled={!form.watch('cliente_id') || isLoading}
+                    maxSelections={1} // Para selección única
+                  />
                   <FormMessage />
                 </FormItem>
               )}
