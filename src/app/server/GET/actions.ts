@@ -1837,9 +1837,10 @@ export async function getVehiclesDisponibleFilterType(type_row_id?: string[], co
   const { data, error } = await supabase.rpc('get_vehicle_usage_indicator', {
     p_vehicle_type_ids: type_row_id || [],
     p_company_id: company_id || null,
+    save_to_table: false,
   } as any);
 
-  if (error) console.error(error);
+  if (error) console.error(error, 'get_vehicle_usage_indicator');
   else return data;
 }
 
@@ -1849,7 +1850,8 @@ export async function getEmployeeIndicator(company_id?: string, p_row_id: string
   try {
     const { data, error } = await supabase.rpc('get_employee_usage_indicator', {
       p_company_id: company_id || null,
-      p_position_uuids: p_row_id.length > 0 ? p_row_id : null,
+      position_uuids: p_row_id.length > 0 ? p_row_id : null,
+      save_to_table: false,
     } as any);
 
     if (error) {
@@ -1894,7 +1896,9 @@ export async function getDiagramIndicator(p_company_position_ids?: string[]) {
     p_month: new Date().getMonth() + 1,
     p_year: new Date().getFullYear(),
     p_company_position_ids: p_company_position_ids || undefined,
-  });
+    save_to_table: false,
+  } as any);
+
   if (error) console.error(error);
   else return data;
 }
