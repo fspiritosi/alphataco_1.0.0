@@ -695,7 +695,9 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                             Cancelado
                           </SelectItem>
                           <SelectItem value="rechazado">Rechazado</SelectItem>
-                          <SelectItem value="confirmado">Confirmado</SelectItem>
+                          <SelectItem value="confirmado" disabled={true}>
+                            Confirmado
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

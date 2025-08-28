@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Check, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Contrato, PreparteItem } from './PreparteManager';
 interface PreparteTableProps {
   data: PreparteItem[];
@@ -34,6 +35,8 @@ const getColumns = (
   onEdit: (item: PreparteItem) => void,
   onDelete: (id: string) => void,
   onConfirm: (item: PreparteItem) => void,
+  deleteItemId: string | null,
+  setDeleteItemId: (id: string | null) => void,
   Customers: Cliente[],
   contratos: Contrato[],
   items: Array<{ id: string; item_name: string }>
@@ -145,21 +148,23 @@ const getColumns = (
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Eliminar</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </AlertDialogTrigger>
+              {/* Diálogo de eliminar */}
+              <AlertDialog
+                open={deleteItemId === row.original.id}
+                onOpenChange={(open) => !open && setDeleteItemId(null)}
+              >
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteItemId(row.original.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Eliminar</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>¿Estás seguro que deseas eliminar este preparte?</AlertDialogTitle>
@@ -170,7 +175,10 @@ const getColumns = (
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                     <AlertDialogAction
-                      onClick={() => onDelete(row.original.id)}
+                      onClick={() => {
+                        onDelete(row.original.id);
+                        setDeleteItemId(null);
+                      }}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
                       Eliminar
@@ -180,27 +188,46 @@ const getColumns = (
               </AlertDialog>
             </>
           )}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={!isPending}
-                  onClick={() => onConfirm(row.original)}
-                  className={cn(
-                    'text-green-600 hover:bg-green-50 hover:text-green-700',
-                    !isPending && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  <Check className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Confirmar y enviar a parte diario</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+
+          <AlertDialog>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!isPending}
+                      className={cn(
+                        'text-green-600 hover:bg-green-50 hover:text-green-700',
+                        !isPending && 'opacity-50 cursor-not-allowed'
+                      )}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Confirmar y enviar a parte diario</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Confirmar preparte?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  ¿Estás seguro de que deseas confirmar este pedido y enviarlo al parte diario? Si no existe un parte
+                  diario para la fecha seleccionada, se creara uno nuevo y si existe se agregara el pe a este.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onConfirm(row.original)} className="bg-green-600 hover:bg-green-700">
+                  Confirmar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       );
     },
@@ -217,11 +244,11 @@ export function PreparteTable({
   onConfirm,
   savedVisibility = {},
 }: PreparteTableProps) {
-  console.log(data);
-  console.log(items);
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [confirmItem, setConfirmItem] = useState<PreparteItem | null>(null);
   return (
     <BaseDataTable
-      columns={getColumns(onEdit, onDelete, onConfirm, Customers, contratos, items)}
+      columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
       data={data}
       savedVisibility={savedVisibility}
     />

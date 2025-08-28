@@ -344,7 +344,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
               items={itemsList}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              onConfirm={handleConfirm}
+              onConfirm={handleConfirm as any}
               savedVisibility={savedVisibility}
             />
           </div>
