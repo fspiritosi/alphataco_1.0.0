@@ -12,10 +12,12 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Cliente } from '@/features/Operaciones/Preparte/components/PreparteManager';
+import { cn } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Check, Pencil, Trash2 } from 'lucide-react';
 import { Contrato, PreparteItem } from './PreparteManager';
 interface PreparteTableProps {
   data: PreparteItem[];
@@ -24,12 +26,14 @@ interface PreparteTableProps {
   items: Array<{ id: string; item_name: string }>;
   onEdit: (item: PreparteItem) => void;
   onDelete: (id: string) => void;
+  onConfirm: (item: PreparteItem) => void; // New prop
   savedVisibility?: VisibilityState;
 }
 
 const getColumns = (
   onEdit: (item: PreparteItem) => void,
   onDelete: (id: string) => void,
+  onConfirm: (item: PreparteItem) => void,
   Customers: Cliente[],
   contratos: Contrato[],
   items: Array<{ id: string; item_name: string }>
@@ -123,39 +127,80 @@ const getColumns = (
     id: 'actions',
     cell: ({ row }) => {
       const status = row.getValue('status');
-      if (status !== 'pendiente') {
-        return null;
-      }
+      const isPending = status === 'pendiente';
 
       return (
         <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => onEdit(row.original)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás seguro que deceas eliminar este preparte?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción no se puede deshacer. Se eliminará el registro permanentemente.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => onDelete(row.original.id)}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          {isPending && (
+            <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(row.original)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Editar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Eliminar</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Estás seguro que deseas eliminar este preparte?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta acción no se puede deshacer. Se eliminará el registro permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => onDelete(row.original.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!isPending}
+                  onClick={() => onConfirm(row.original)}
+                  className={cn(
+                    'text-green-600 hover:bg-green-50 hover:text-green-700',
+                    !isPending && 'opacity-50 cursor-not-allowed'
+                  )}
                 >
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Check className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Confirmar y enviar a parte diario</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       );
     },
@@ -169,13 +214,14 @@ export function PreparteTable({
   items,
   onEdit,
   onDelete,
+  onConfirm,
   savedVisibility = {},
 }: PreparteTableProps) {
   console.log(data);
   console.log(items);
   return (
     <BaseDataTable
-      columns={getColumns(onEdit, onDelete, Customers, contratos, items)}
+      columns={getColumns(onEdit, onDelete, onConfirm, Customers, contratos, items)}
       data={data}
       savedVisibility={savedVisibility}
     />

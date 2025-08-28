@@ -3,8 +3,14 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  checkDailyReportExists,
+  createDailyReport,
+  createDailyReportRow,
+} from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { createPreparte, deletePreparte, updatePreparte } from '@/features/Operaciones/Preparte/actions/preparte';
 import { VisibilityState } from '@tanstack/react-table';
+import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -55,6 +61,19 @@ export interface Contrato {
   service_name: string;
 }
 
+export interface itemDaily {
+  id: string;
+  cliente_id: string;
+  contrato_id: string;
+  item: string;
+  start_time: string;
+  end_time: string;
+  jornada: string;
+  description: string;
+  status: string;
+  executionDate: string;
+}
+
 // Helper function to get all dates between two dates
 const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
   const dates: Date[] = [];
@@ -99,49 +118,6 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
       [field]: value,
     }));
   };
-
-  // const handleSubmit = async (formData: PreparteItem) => {
-  //   try {
-  //     // Get all dates in range
-  //     const dates = formData.executionDate.to
-  //       ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
-  //       : [new Date(formData.executionDate.from)];
-
-  //     // Prepare all prepartes to create
-  //     const prepartesToCreate = formData.item
-  //       .flatMap((item) =>
-  //         dates.map((date) => ({
-  //           cliente_id: formData.cliente_id,
-  //           contrato_id: formData.contrato_id,
-  //           tipo: formData.tipo,
-  //           jornada: formData.jornada,
-  //           start_time: formData.start_time || null,
-  //           end_time: formData.end_time || null,
-  //           solicitante: formData.solicitante,
-  //           status: 'pendiente',
-  //           item: item.id,
-  //           quantity: item.quantity,
-  //           observaciones: formData.observaciones || null,
-  //           executionDate: date.toISOString(),
-  //           requestDate: formData.requestDate.toISOString(),
-  //         }))
-  //       )
-  //       .flat();
-  //     console.log(prepartesToCreate);
-
-  //     // Create all prepartes in a single database call
-  //     const createdPrepartes = await createPreparte(prepartesToCreate as any);
-
-  //     // Show success message with the number of created items
-  //     toast.success(`Se crearon ${createdPrepartes.length} prepartes correctamente`);
-
-  //     // Reset form
-  //     // onCancel();
-  //   } catch (error) {
-  //     console.error('Error saving prepartes:', error);
-  //     toast.error('Error al guardar los prepartes');
-  //   }
-  // };
 
   const handleSubmit = async (formData: PreparteItem) => {
     try {
@@ -246,6 +222,56 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     setOpen(true);
     router.refresh();
   };
+  const handleConfirm = async (item: itemDaily) => {
+    console.log(item);
+    try {
+      // 1. Formatear la fecha de ejecución
+      const executionDate = format(new Date(item.executionDate), 'yyyy-MM-dd');
+      console.log(executionDate);
+      // 2. Verificar si ya existe un parte diario para esta fecha
+      const existingReports = await checkDailyReportExists([executionDate]);
+      let dailyReportId = existingReports[0]?.id;
+      console.log(dailyReportId);
+      // 3. Si no existe, crear un nuevo parte diario
+      if (!dailyReportId) {
+        const newReport = await createDailyReport([executionDate]);
+        if (!newReport?.[0]?.id) {
+          throw new Error('No se pudo crear el parte diario');
+        }
+        dailyReportId = newReport[0].id;
+      }
+
+      // 4. Crear la fila en el parte diario
+      const dailyReportData = {
+        daily_report_id: dailyReportId,
+        customer_id: item.cliente_id,
+        service_id: item.contrato_id,
+        item_id: item.item,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        working_day: item.jornada,
+        description: item.description,
+        status: 'sin_recursos_asignados',
+        // execution_date: executionDate,
+        // Añadir aquí cualquier otro campo requerido
+      };
+      console.log(dailyReportData);
+      await createDailyReportRow([dailyReportData as any]);
+
+      // 5. Actualizar el estado del preparte a 'confirmado'
+      await updatePreparte(item.id, {
+        ...item,
+        status: 'confirmado',
+      });
+
+      toast.success('Preparte confirmado y enviado al parte diario');
+      // Actualizar la lista de prepartes
+      router.refresh();
+    } catch (error) {
+      console.error('Error al confirmar el preparte:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al confirmar el preparte');
+    }
+  };
 
   const handleDelete = (id: string) => {
     deletePreparte(id);
@@ -318,6 +344,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
               items={itemsList}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onConfirm={handleConfirm}
               savedVisibility={savedVisibility}
             />
           </div>
