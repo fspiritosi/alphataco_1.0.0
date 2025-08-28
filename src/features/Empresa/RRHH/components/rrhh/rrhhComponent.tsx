@@ -1,4 +1,4 @@
-import CovenantTreeFile from '@/app/dashboard/company/actualCompany/covenant/CovenantTreeFile';
+import CovenantTreeFileWrapper from '@/app/dashboard/company/actualCompany/covenant/CovenantTreeFileWrapper';
 import ViewComponentInternal from '@/components/ViewComponentInternal';
 import ContractTypeTabWrapper from '@/features/Empresa/RRHH/components/ContractTypeTabWrapper';
 import DiagramTypeComponentWrapper from '@/features/Empresa/RRHH/components/Diagrams/DiagramTypeComponentWrapper';
@@ -44,7 +44,7 @@ export default function RrhhComponent({ tabValue, subtab }: { subtab?: string; t
           title: 'CCT',
           buttonActioRestricted: [''],
           buttonAction: '',
-          component: <CovenantTreeFile />,
+          component: <CovenantTreeFileWrapper />,
         },
       },
       {

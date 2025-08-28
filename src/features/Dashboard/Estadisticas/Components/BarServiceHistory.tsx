@@ -87,46 +87,8 @@ export function ChartBarServiceHistory({ dailyReports }: { dailyReports: Promise
     // Mapear a keys seguras para CSS vars y Recharts
     const seriesKeys = customerNames.map((n) => slugify(n) || 'sin-cliente');
 
-    // Paleta derivada del naranja base (#ff9800)
-    const BASE_ORANGE = '#ff9800';
-    const shadeColor = (hex: string, percent: number) => {
-      const clean = hex.replace('#', '');
-      const num = parseInt(
-        clean.length === 3
-          ? clean
-              .split('')
-              .map((c) => c + c)
-              .join('')
-          : clean,
-        16
-      );
-      const r = (num >> 16) & 0xff;
-      const g = (num >> 8) & 0xff;
-      const b = num & 0xff;
-      const p = Math.max(-100, Math.min(100, percent)) / 100;
-      const calc = (c: number) => {
-        const v = p < 0 ? c * (1 + p) : c + (255 - c) * p;
-        return Math.round(Math.max(0, Math.min(255, v)));
-      };
-      const rr = calc(r);
-      const gg = calc(g);
-      const bb = calc(b);
-      const toHex = (c: number) => c.toString(16).padStart(2, '0');
-      return `#${toHex(rr)}${toHex(gg)}${toHex(bb)}`;
-    };
-    const buildPalette = (base: string, size = 24) => {
-      const out: string[] = [];
-      // distribuimos porcentajes de -45% a +35% para obtener tonos oscuros y claros
-      const start = -45;
-      const end = 35;
-      for (let i = 0; i < size; i++) {
-        const t = i / Math.max(1, size - 1);
-        const pct = start + (end - start) * t;
-        out.push(shadeColor(base, pct));
-      }
-      return out;
-    };
-    const palette = buildPalette(BASE_ORANGE, 24);
+    // Usar paleta de colores variados del sistema
+    const getChartColor = (index: number) => `hsl(var(--chart-${(index % 5) + 1}))`;
 
     // Construir config del chart dinámicamente por cliente
     const chartConfig: ChartConfig = {
@@ -136,7 +98,7 @@ export function ChartBarServiceHistory({ dailyReports }: { dailyReports: Promise
       const key = seriesKeys[idx];
       (chartConfig as any)[key] = {
         label: name,
-        color: palette[idx % palette.length],
+        color: getChartColor(idx),
       };
     });
 
