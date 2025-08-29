@@ -8,7 +8,12 @@ import {
   createDailyReport,
   createDailyReportRow,
 } from '@/features/Operaciones/PartesDiarios/actions/actions';
-import { createPreparte, deletePreparte, updatePreparte } from '@/features/Operaciones/Preparte/actions/preparte';
+import {
+  createPreparte,
+  deletePreparte,
+  getLastOrderNumber,
+  updatePreparte,
+} from '@/features/Operaciones/Preparte/actions/preparte';
 import { VisibilityState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
@@ -45,7 +50,9 @@ export type PreparteItem = {
   observaciones?: string;
   status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado';
   cancel_reason?: string;
-  reprogram_date?: Date;
+  rejected_reason?: string;
+  reprogram_reason?: string;
+  reprogram?: Date;
   quantity?: number;
 };
 
@@ -119,6 +126,90 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     }));
   };
 
+  const generateOrderNumber = async () => {
+    const lastOrderNumber = await getLastOrderNumber();
+    const lastNumber = parseInt(lastOrderNumber.split('-')[1]);
+    const newNumber = String(lastNumber + 1).padStart(4, '0');
+    return `PED-${newNumber}`;
+  };
+
+  // const handleSubmit = async (formData: PreparteItem) => {
+  //   try {
+  //     if (isEditing && currentItem?.id) {
+  //       // Update existing preparte
+  //       const updatedPreparte = {
+  //         ...formData,
+  //         id: currentItem.id,
+  //         item: formData.item[0]?.id || null,
+  //         quantity: formData.item[0]?.quantity || 1,
+  //         // Convert executionDate to string if it's an object
+  //         executionDate:
+  //           typeof formData.executionDate === 'object'
+  //             ? formData.executionDate.from.toISOString()
+  //             : formData.executionDate,
+  //         updated_at: new Date().toISOString(),
+  //       };
+
+  //       await updatePreparte(currentItem.id, updatedPreparte as any);
+  //       toast.success('Preparte actualizado correctamente');
+  //     } else {
+  //       // Create new prepartes
+  //       const dates = formData.executionDate.to
+  //         ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
+  //         : [new Date(formData.executionDate.from)];
+
+  //       const prepartesToCreate = formData.item.flatMap((item) =>
+  //         dates.map((date) => ({
+  //           cliente_id: formData.cliente_id,
+  //           contrato_id: formData.contrato_id,
+  //           tipo: formData.tipo,
+  //           jornada: formData.jornada,
+  //           start_time: formData.start_time || null,
+  //           end_time: formData.end_time || null,
+  //           solicitante: formData.solicitante,
+  //           status: 'pendiente',
+  //           item: item.id,
+  //           quantity: item.quantity,
+  //           observaciones: formData.observaciones || null,
+  //           executionDate: date.toISOString(),
+  //           requestDate: formData.requestDate.toISOString(),
+  //         }))
+  //       );
+
+  //       const createdPrepartes = await createPreparte(prepartesToCreate as any);
+  //       toast.success(`Se crearon ${createdPrepartes.length} prepartes correctamente`);
+  //     }
+
+  //     // Reset form and close
+  //     setFormData({
+  //       id: '',
+  //       cliente_id: '',
+  //       contrato_id: '',
+  //       item: [],
+  //       requestDate: new Date(),
+  //       executionDate: { from: new Date() },
+  //       tipo: '',
+  //       jornada: '',
+  //       start_time: '',
+  //       end_time: '',
+  //       solicitante: '',
+  //       status: 'pendiente',
+  //       observaciones: '',
+  //     });
+  //     setOpen(false);
+  //     setIsEditing(false);
+  //     setCurrentItem(null);
+
+  //     // Optionally refresh the prepartes list here
+  //     // const updatedPrepartes = await listPrepartes();
+  //     // setItem(updatedPrepartes);
+  //   } catch (error) {
+  //     console.error('Error saving preparte:', error);
+  //     toast.error(error instanceof Error ? error.message : 'Error al guardar el preparte');
+  //   }
+  //   router.refresh();
+  // };
+
   const handleSubmit = async (formData: PreparteItem) => {
     try {
       if (isEditing && currentItem?.id) {
@@ -128,12 +219,13 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
           id: currentItem.id,
           item: formData.item[0]?.id || null,
           quantity: formData.item[0]?.quantity || 1,
-          // Convert executionDate to string if it's an object
           executionDate:
             typeof formData.executionDate === 'object'
               ? formData.executionDate.from.toISOString()
               : formData.executionDate,
           updated_at: new Date().toISOString(),
+          // Si el estado es 'reprogramado', guardamos el ID del preparte original
+          reprogram: formData.status === 'reprogramado' ? currentItem.id : formData.reprogram,
         };
 
         await updatePreparte(currentItem.id, updatedPreparte as any);
@@ -159,6 +251,8 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
             observaciones: formData.observaciones || null,
             executionDate: date.toISOString(),
             requestDate: formData.requestDate.toISOString(),
+            // Si es una reprogramación, guardamos el ID del preparte original
+            reprogram: formData.status === 'reprogramado' ? formData.reprogram : null,
           }))
         );
 
@@ -181,14 +275,11 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
         solicitante: '',
         status: 'pendiente',
         observaciones: '',
+        reprogram: undefined,
       });
       setOpen(false);
       setIsEditing(false);
       setCurrentItem(null);
-
-      // Optionally refresh the prepartes list here
-      // const updatedPrepartes = await listPrepartes();
-      // setItem(updatedPrepartes);
     } catch (error) {
       console.error('Error saving preparte:', error);
       toast.error(error instanceof Error ? error.message : 'Error al guardar el preparte');
@@ -197,9 +288,10 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
   };
   const handleEdit = (item: PreparteItem) => {
     // Convert the item string to the expected array format
+    console.log(item);
     const itemArray =
       typeof item.item === 'string' ? [{ id: item.item, quantity: item.quantity || 1 }] : item.item || [];
-
+    console.log(itemArray);
     setFormData({
       id: item.id,
       cliente_id: item.cliente_id,
@@ -283,7 +375,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
       <div className="overflow-y-auto flex justify-between items-center w-full">
-        <h2 className="text-2xl font-bold">Gestión de Prepartes</h2>
+        <h2 className="text-2xl font-bold">Gestión de Pedidos</h2>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button>
@@ -324,7 +416,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
                   solicitante: '',
                   status: 'pendiente',
                   cancel_reason: '',
-                  reprogram_date: new Date(),
+                  reprogram: new Date(),
                   observaciones: '',
                 });
               }}

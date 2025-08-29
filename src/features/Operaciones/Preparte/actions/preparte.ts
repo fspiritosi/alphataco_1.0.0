@@ -174,3 +174,22 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
 
   return data;
 }
+
+export async function getLastOrderNumber() {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from('preparte' as any)
+    .select('numero_pedido')
+    .not('numero_pedido', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    console.error('Error al obtener el último número de pedido:', error);
+    return 'PED-0000';
+  }
+
+  return data?.numero_pedido || 'PED-0000';
+}

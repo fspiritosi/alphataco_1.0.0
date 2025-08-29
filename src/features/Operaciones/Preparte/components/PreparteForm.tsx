@@ -1,10 +1,8 @@
 'use client';
 
 import { fetchContractsByClientId } from '@/app/dashboard/employee/action/actions/actions';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
@@ -12,14 +10,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { fetchServiceItems } from '@/features/Empresa/Clientes/actions/items';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Building, CalendarIcon } from 'lucide-react';
+import { Building, CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -28,43 +24,76 @@ import * as z from 'zod';
 import { createPreparte } from '../actions/preparte';
 import { Cliente } from '../components/PreparteManager';
 // Esquema de validación con Zod
-const formSchema = z.object({
-  id: z.string(),
-  cliente_id: z.string().min(1, 'Por favor selecciona un cliente'),
-  contrato_id: z.string().min(1, 'Por favor selecciona un contrato'),
-  item: z
-    .array(
-      z.object({
-        id: z.string(),
-        quantity: z.number().min(1, 'La cantidad debe ser al menos 1'),
+const formSchema = z
+  .object({
+    id: z.string(),
+    cliente_id: z.string().min(1, 'Por favor selecciona un cliente'),
+    contrato_id: z.string().min(1, 'Por favor selecciona un contrato'),
+    item: z
+      .array(
+        z.object({
+          id: z.string(),
+          quantity: z.number().min(1, 'La cantidad debe ser al menos 1'),
+        })
+      )
+      .min(1, 'Por favor selecciona al menos un ítem'),
+    requestDate: z.date({
+      required_error: 'La fecha de solicitud es requerida',
+    }),
+    executionDate: z
+      .object({
+        from: z.date(),
+        to: z.date().optional(),
       })
-    )
-    .min(1, 'Por favor selecciona al menos un ítem'),
-  requestDate: z.date({
-    required_error: 'La fecha de solicitud es requerida',
-  }),
-  executionDate: z
-    .object({
-      from: z.date(),
-      to: z.date().optional(),
-    })
-    .refine((data) => {
-      if (data.from && data.to) {
-        return data.from <= data.to;
-      }
-      return true;
-    }, 'La fecha de inicio debe ser anterior a la fecha de fin'),
-  tipo: z.string().min(1, 'El tipo es requerido'),
-  jornada: z.string().min(1, 'La jornada es requerida'),
-  start_time: z.string().optional(),
-  end_time: z.string().optional(),
-  solicitante: z.string().min(1, 'El solicitante es requerido'),
-  status: z.enum(['pendiente', 'reprogramado', 'cancelado', 'rechazado', 'confirmado']).default('pendiente'),
-  cancel_reason: z.string().optional(),
-  reprogram_date: z.date().optional(),
-  observaciones: z.string().optional(),
-});
-
+      .refine((data) => {
+        if (data.from && data.to) {
+          return data.from <= data.to;
+        }
+        return true;
+      }, 'La fecha de inicio debe ser anterior a la fecha de fin'),
+    tipo: z.string().min(1, 'El tipo es requerido'),
+    jornada: z.string().min(1, 'La jornada es requerida'),
+    start_time: z.string().optional(),
+    end_time: z.string().optional(),
+    solicitante: z.string().min(1, 'El solicitante es requerido'),
+    status: z.enum(['pendiente', 'reprogramado', 'cancelado', 'rechazado', 'confirmado']).default('pendiente'),
+    cancel_reason: z.string().optional(),
+    rejected_reason: z.string().optional(),
+    reprogram_reason: z.string().optional(),
+    reprogram: z.date().optional(),
+    observaciones: z.string().optional(),
+  })
+  .refine(
+    (data) => data.status !== 'reprogramado' || (data.reprogram !== undefined && data.reprogram instanceof Date),
+    {
+      message: "Debe proporcionar una fecha válida de reprogramación cuando el estado es 'reprogramado'",
+      path: ['reprogram'],
+    }
+  )
+  .refine(
+    (data) => data.status !== 'cancelado' || (data.cancel_reason !== undefined && data.cancel_reason.trim().length > 0),
+    {
+      message: "La razón de cancelación es obligatoria cuando el estado es 'cancelado'",
+      path: ['cancel_reason'],
+    }
+  )
+  .refine(
+    (data) =>
+      data.status !== 'rechazado' || (data.rejected_reason !== undefined && data.rejected_reason.trim().length > 0),
+    {
+      message: "La razón de rechazo es obligatoria cuando el estado es 'rechazado'",
+      path: ['rejected_reason'],
+    }
+  )
+  .refine(
+    (data) =>
+      data.status !== 'reprogramado' ||
+      (data.reprogram_reason !== undefined && data.reprogram_reason.trim().length > 0),
+    {
+      message: "La razón del reprogramado es obligatoria cuando el estado es 'reprogramado'",
+      path: ['reprogram_reason'],
+    }
+  );
 type PreparteItem = z.infer<typeof formSchema>;
 
 interface Contrato {
@@ -97,6 +126,36 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   const [contractItems, setContractItems] = useState<{ label: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [reprogramDate, setReprogramDate] = useState<Date | null>(null);
+  // Reemplaza la línea actual de inicialización de selectedItems por:
+  const [selectedItems, setSelectedItems] = useState<Array<{ id: string; quantity: number }>>(() => {
+    if (formData?.item) {
+      const items = Array.isArray(formData.item)
+        ? formData.item
+        : [{ id: formData.item, quantity: formData.item || 1 }];
+      return items.length > 0 ? items : [{ id: '', quantity: 1 }];
+    }
+    return [{ id: '', quantity: 1 }];
+  });
+  // Add this state at the top of your component
+  // const [itemRows, setItemRows] = useState([{ id: 1, itemId: '', quantity: 1 }]);
+  // Add this function to handle item selection
+  console.log('selectedItems', selectedItems);
+  const handleAddItem = () => {
+    setSelectedItems((prev) => [...prev, { id: '', quantity: 1 }]);
+  };
+
+  // Add this function to handle item removal
+  const handleRemoveItem = (id: string) => {
+    if (selectedItems.length > 1) {
+      setSelectedItems(selectedItems.filter((row) => row.id !== id));
+    }
+  };
+
+  // Add this function to update an item
+  const updateItemRow = (id: string, updates: Partial<(typeof selectedItems)[0]>) => {
+    setSelectedItems(selectedItems.map((row) => (row.id === id ? { ...row, ...updates } : row)));
+  };
+
   useEffect(() => {
     if (form.formState.isSubmitSuccessful) return;
 
@@ -154,24 +213,14 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     fetchItems();
   }, [form.watch('contrato_id')]);
 
-  // const handleSubmit = (data: PreparteItem) => {
-  //   // Actualizar el nombre del cliente si es necesario
-  //   const clienteSeleccionado = clientes.find((c) => c.id === data.cliente_id);
-  //   if (clienteSeleccionado) {
-  //     data.cliente_id = clienteSeleccionado.id;
-  //   }
-
-  //   // Llamar a la función onSubmit con los datos del formulario
-  //   onSubmit(data);
-  // };
   const handleSubmit = async (data: PreparteItem) => {
     console.log('Iniciando handleSubmit con data:', data);
 
     try {
       console.log('Status actual:', data.status);
-      console.log('reprogramDate:', data.reprogram_date);
+      console.log('reprogramDate:', data.reprogram);
 
-      if (data.status === 'reprogramado' && data.reprogram_date) {
+      if (data.status === 'reprogramado' && data.reprogram) {
         console.log('Iniciando proceso de reprogramación');
 
         // Crear nuevo ítem con la nueva fecha
@@ -179,9 +228,10 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
           ...data,
           id: crypto.randomUUID(),
           status: 'pendiente',
-          executionDate: new Date(data.reprogram_date),
+          executionDate: new Date(data.reprogram),
           item: data.item[0]?.id, // Tomamos solo el ID del primer ítem
-          observaciones: `[${new Date().toLocaleDateString('es-ES')}] Reprogramado de ${format(data.executionDate.from, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
+          reprogram: data.id,
+          // observaciones: `[${new Date().toLocaleDateString('es-ES')}] Reprogramado de ${format(data.executionDate.from, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
         };
 
         console.log('Nuevo item a crear:', JSON.stringify(newItem, null, 2));
@@ -199,7 +249,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
         const updatedOriginal = {
           ...data,
           status: 'reprogramado',
-          observaciones: `[${new Date().toLocaleDateString('es-ES')}] Se reprogramó para ${format(data.reprogram_date, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
+          observaciones: `[${new Date().toLocaleDateString('es-ES')}] Se reprogramó para ${format(data.reprogram, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
         };
 
         console.log('Actualizando item original:', JSON.stringify(updatedOriginal, null, 2));
@@ -230,6 +280,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
       toast.error(`Error al guardar el servicio: ${(error as Error).message}`);
     }
   };
+  console.log(selectedItems);
   return (
     <div className=" gap-4 space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
       <Form {...form}>
@@ -344,91 +395,6 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 </FormItem>
               )}
             />
-            {/* Multiselector de items */}
-            <FormField
-              control={form.control}
-              name="item"
-              render={({ field }) => (
-                <FormItem>
-                  <Card>
-                    <CardContent>
-                      <FormLabel>Items</FormLabel>
-                      <MultiSelectCombobox
-                        options={contractItems}
-                        selectedValues={field.value?.map((item) => item.id) || []}
-                        onChange={(selectedIds) => {
-                          const currentItems = form.getValues('item') || [];
-                          const newItems = selectedIds.map((id) => {
-                            const existing = currentItems.find((item) => item.id === id);
-                            return existing || { id, quantity: 1 };
-                          });
-                          field.onChange(newItems);
-                        }}
-                        placeholder={
-                          form.getValues('contrato_id') ? 'Seleccionar items' : 'Seleccione un contrato primero'
-                        }
-                        emptyMessage="No hay items disponibles para este contrato"
-                        disabled={!form.getValues('contrato_id') || isLoading}
-                        maxSelections={isEditing ? 1 : null}
-                      />
-                    </CardContent>
-                    <CardFooter>
-                      <div className="grid grid-cols-2 gap-4 w-full">
-                        {field.value?.map((item) => {
-                          const itemData = contractItems.find((i) => i.value === item.id);
-                          return itemData ? (
-                            <div key={item.id} className="flex items-center justify-between gap-4">
-                              <div className="flex items-center flex-1 min-w-0">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge className="bg-blue-500 text-white flex-1 min-w-0 truncate pr-6 relative group hover:bg-blue-600 transition-colors">
-                                        {itemData.label}
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const updatedItems = field.value.filter((i) => i.id !== item.id);
-                                            field.onChange(updatedItems);
-                                          }}
-                                          className="absolute right-1 top-1/2 -translate-y-1/2 opacity-70 hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30"
-                                          aria-label="Eliminar ítem"
-                                        >
-                                          <span className="text-xs font-bold">×</span>
-                                        </button>
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" align="center" className="max-w-xs break-words">
-                                      {itemData.label}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Cant:</span>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) => {
-                                    const newQuantity = parseInt(e.target.value) || 1;
-                                    const updatedItems = field.value.map((i) =>
-                                      i.id === item.id ? { ...i, quantity: newQuantity } : i
-                                    );
-                                    field.onChange(updatedItems);
-                                  }}
-                                  className="w-16 h-8 text-sm text-center border rounded"
-                                />
-                              </div>
-                            </div>
-                          ) : null;
-                        })}
-                      </div>
-                    </CardFooter>
-                  </Card>
-                </FormItem>
-              )}
-            />
 
             {/* Fecha de Solicitud */}
             <FormField
@@ -456,7 +422,12 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       <Calendar
                         mode="single"
                         selected={field.value}
-                        onSelect={field.onChange}
+                        onSelect={(selectedDate) => {
+                          if (selectedDate && selectedDate < new Date()) {
+                            return;
+                          }
+                          field.onChange(selectedDate);
+                        }}
                         initialFocus
                         locale={es}
                       />
@@ -520,10 +491,12 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         <Calendar
                           mode="range"
                           selected={field.value || { from: undefined, to: undefined }}
+                          fromDate={new Date()} // Usar fromDate en lugar de minDate
                           onSelect={(range) => {
-                            if (range) {
-                              field.onChange(range);
+                            if (range?.from && range?.to && range.from > range.to) {
+                              return; // No permitir que la fecha desde sea mayor que la fecha hasta
                             }
+                            field.onChange(range);
                           }}
                           initialFocus
                           locale={es}
@@ -676,13 +649,13 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         defaultValue={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-background">
                             <SelectValue placeholder="Seleccione un estado" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem
-                            className="hover:bg-accent"
+                            className="hover:bg-accent bg-background"
                             value="pendiente"
                             disabled={field.value === 'pendiente'}
                           >
@@ -702,28 +675,6 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       </Select>
                       <FormMessage />
 
-                      {/* Campo de número de remito - Solo visible cuando el estado es 'ejecutado' */}
-                      {/* {currentStatusWatch === 'confirmado' && (
-                                        <div className="mt-6">
-                                          <FormField
-                                            control={form.control}
-                                            name="remit_number"
-                                            render={({ field: remitField }) => (
-                                              <FormItem>
-                                                <FormLabel>Número de Remito</FormLabel>
-                                                <FormControl>
-                                                  <Input
-                                                    placeholder="Ingrese el número de remito"
-                                                    {...remitField}
-                                                    value={remitField.value || ''}
-                                                  />
-                                                </FormControl>
-                                                <FormMessage />
-                                              </FormItem>
-                                            )}
-                                          />
-                                        </div>
-                                      )} */}
                       {currentStatusWatch === 'cancelado' && (
                         <div className="mt-6">
                           <FormField
@@ -737,6 +688,29 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                                     placeholder="Ingrese el motivo de cancelación"
                                     {...field}
                                     value={field.value || ''}
+                                    className="bg-background"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+                      {currentStatusWatch === 'rechazado' && (
+                        <div className="mt-6">
+                          <FormField
+                            control={form.control}
+                            name="rejected_reason"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Motivo de rechazo</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Ingrese el motivo de rechazo"
+                                    {...field}
+                                    value={field.value || ''}
+                                    className="bg-background"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -749,7 +723,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         <div className="mt-6">
                           <FormField
                             control={form.control}
-                            name="reprogram_date"
+                            name="reprogram"
                             render={({ field }) => (
                               <FormItem className="flex flex-col">
                                 <FormLabel className="mt-2">Fecha de reprogramación</FormLabel>
@@ -786,6 +760,24 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                               </FormItem>
                             )}
                           />
+                          <FormField
+                            control={form.control}
+                            name="reprogram_reason"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Motivo del Reprogramado</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Ingrese el motivo del reprogramado"
+                                    {...field}
+                                    value={field.value || ''}
+                                    className="bg-background"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
                       )}
                     </FormItem>
@@ -793,6 +785,115 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 }}
               />
             )}
+
+            {/* Multiselector de items */}
+            <FormField
+              control={form.control}
+              name="item"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="space-y-4">
+                    {selectedItems.map((row, index) => {
+                      const selectedItem = contractItems.find((item) => item.value === row.id);
+                      console.log(selectedItem);
+                      return (
+                        <div key={row.id} className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <FormLabel>{index === 0 ? 'Item' : ''}</FormLabel>
+                            <MultiSelectCombobox
+                              options={contractItems.filter(
+                                (item) => !selectedItems.some((r) => r.id === item.value && r.id !== row.id)
+                              )}
+                              selectedValues={row.id ? [row.id] : []}
+                              onChange={(selectedIds) => {
+                                const newItemId = selectedIds[0] || '';
+                                updateItemRow(row.id, { id: newItemId });
+
+                                // Update form value
+                                const updatedItems = selectedItems
+                                  .filter((r) => r.id)
+                                  .map((r) => ({
+                                    id: r.id,
+                                    quantity: r.quantity,
+                                  }));
+
+                                if (newItemId) {
+                                  updatedItems.push({
+                                    id: newItemId,
+                                    quantity: row.quantity,
+                                  });
+                                }
+
+                                field.onChange(updatedItems);
+                              }}
+                              placeholder="Seleccionar item"
+                              emptyMessage="No hay items disponibles"
+                              disabled={!form.getValues('contrato_id') || isLoading}
+                              maxSelections={1}
+                            />
+                          </div>
+
+                          <div className="w-20">
+                            <FormLabel>{index === 0 ? 'Cantidad' : ''}</FormLabel>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={row.quantity}
+                              disabled={!row.id}
+                              onChange={(e) => {
+                                const newQuantity = parseInt(e.target.value) || 1;
+                                updateItemRow(row.id, { quantity: newQuantity });
+
+                                // Update form value
+                                const updatedItems = selectedItems
+                                  .filter((r) => r.id)
+                                  .map((r) => ({
+                                    id: r.id,
+                                    quantity: r.id === row.id ? newQuantity : r.quantity,
+                                  }));
+
+                                field.onChange(updatedItems);
+                              }}
+                              className="w-full bg-background"
+                            />
+                          </div>
+                          {selectedItems.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                handleRemoveItem(row.id);
+                                // Update form value after removal
+                                const updatedItems = selectedItems
+                                  .filter((r) => r.id !== row.id && r.id)
+                                  .map((r) => ({
+                                    id: r.id,
+                                    quantity: r.quantity,
+                                  }));
+                                field.onChange(updatedItems);
+                              }}
+                              className="mb-2"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {!isEditing && selectedItems.some((item) => item.id) && (
+                      <div className="flex justify-center mt-4">
+                        <Button type="button" variant="outline" size="sm" onClick={handleAddItem}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Agregar ítem
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </FormItem>
+              )}
+            />
+
             {/* Campo de Observaciones */}
             <FormField
               control={form.control}
