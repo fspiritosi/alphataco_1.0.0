@@ -21,6 +21,7 @@ import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { ArrowUpDown, Check, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { Contrato, PreparteItem } from './PreparteManager';
+
 interface PreparteTableProps {
   data: PreparteItem[];
   contratos: Contrato[];
@@ -71,6 +72,47 @@ const getColumns = (
       const executionDate = row.original.executionDate;
       return executionDate ? new Date(executionDate as any).toLocaleDateString() : '-';
     },
+  },
+  {
+    accessorKey: 'numero_pedido',
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          className="p-0 hover:bg-transparent"
+        >
+          N° Pedido
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    enableSorting: true,
+    sortingFn: (rowA, rowB, columnId) => {
+      // Get the values
+      const valueA = rowA.getValue(columnId) as string;
+      const valueB = rowB.getValue(columnId) as string;
+
+      // If either value is missing, sort them to the end
+      if (!valueA) return 1;
+      if (!valueB) return -1;
+
+      // Extract the numeric part after 'PED-'
+      const numA = parseInt(valueA.split('-')[1] || '0', 10);
+      const numB = parseInt(valueB.split('-')[1] || '0', 10);
+
+      return numA - numB;
+    },
+    cell: ({ row }) => row.original.numero_pedido || '-',
+    filterFn: (row, id, value) => {
+      if (!value) return true;
+      const rowValue = row.getValue(id) as string;
+      if (!rowValue) return false;
+      // Handle both string and array of strings for the value
+      const searchValue = Array.isArray(value) ? value[0] : value;
+      return rowValue.toLowerCase().includes(searchValue.toLowerCase());
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'cliente_id',
@@ -332,22 +374,10 @@ export function PreparteTable({
   savedVisibility = {},
 }: PreparteTableProps) {
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-  const createUniqueOptions = (options: any[]) => {
-    const uniqueOptions = options.reduce(
-      (acc, option) => {
-        if (!acc.some((o: any) => o.value === option.value)) {
-          acc.push(option);
-        }
-        return acc;
-      },
-      [] as typeof options
-    );
-    return uniqueOptions;
-  };
+
   const uniqueClientIds = [...new Set(data.map((item) => item.cliente_id))];
   const filteredCustomers = Customers.filter((customer) => uniqueClientIds.includes(customer.id));
 
-  // Repite el mismo patrón para contratos e items
   const uniqueContratoIds = [...new Set(data.map((item) => item.contrato_id))];
   const filteredContratos = contratos.filter((contrato) => uniqueContratoIds.includes(contrato.id));
 
@@ -355,16 +385,13 @@ export function PreparteTable({
   const allItemIds = data.flatMap((item) => (Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]));
   const uniqueItemIds = [...new Set(allItemIds)];
   const filteredItems = items.filter((item) => uniqueItemIds.includes(item.id));
-  // const uniqueCustomers = createUniqueOptions(Customers);
-  // const uniqueContratos = createUniqueOptions(contratos);
-  // const uniqueItems = createUniqueOptions(items);
+
   console.log(data);
   return (
     <BaseDataTable
       columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
       data={data}
       tableId="preparte-table"
-      serverSide={false}
       savedVisibility={savedVisibility}
       toolbarOptions={{
         filterableColumns: [
@@ -393,6 +420,10 @@ export function PreparteTable({
               { value: 'rechazado', label: 'Rechazado' },
               { value: 'confirmado', label: 'Confirmado' },
             ],
+          },
+          {
+            columnId: 'numero_pedido',
+            title: 'N° Pedido',
           },
         ],
       }}

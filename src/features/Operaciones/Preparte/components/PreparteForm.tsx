@@ -61,6 +61,8 @@ const formSchema = z
     rejected_reason: z.string().optional(),
     reprogram_reason: z.string().optional(),
     reprogram: z.date().optional(),
+    quantity: z.number().optional(),
+    numero_pedido: z.string().optional(),
     observaciones: z.string().optional(),
   })
   .refine(
@@ -231,6 +233,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
           executionDate: new Date(data.reprogram),
           item: data.item[0]?.id, // Tomamos solo el ID del primer ítem
           reprogram: data.id,
+          numero_pedido: data.numero_pedido,
           // observaciones: `[${new Date().toLocaleDateString('es-ES')}] Reprogramado de ${format(data.executionDate.from, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
         };
 
@@ -423,7 +426,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                         mode="single"
                         selected={field.value}
                         onSelect={(selectedDate) => {
-                          if (selectedDate && selectedDate < new Date()) {
+                          if (selectedDate && selectedDate > new Date()) {
                             return;
                           }
                           field.onChange(selectedDate);

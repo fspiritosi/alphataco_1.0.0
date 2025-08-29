@@ -18,6 +18,7 @@ export type Preparte = {
   executionDate: string;
   requestDate: string;
   quantity?: number;
+  numero_pedido: string;
 };
 
 // Create a new preparte
@@ -66,6 +67,7 @@ export async function createPreparte(
       executionDate: item.executionDate,
       requestDate: item.requestDate,
       quantity: item.quantity,
+      numero_pedido: item.numero_pedido,
     }));
 
     const { data, error } = await supabase
