@@ -540,7 +540,7 @@ export default function VehiclesForm2({
             .eq('id', vehicle?.id)
             .eq('company_id', actualCompany);
 
-          console.log(updatedERROR, 'updatedERROR');
+          console.error(updatedERROR, 'updatedERROR');
 
           const id = vehicle?.id;
           const fileExtension = imageFile?.name.split('.').pop();
@@ -569,7 +569,7 @@ export default function VehiclesForm2({
           setReadOnly(true);
           router.refresh();
         } catch (error) {
-          console.log(error);
+          console.error(error);
           throw new Error('Error al editar el equipo');
         }
       },

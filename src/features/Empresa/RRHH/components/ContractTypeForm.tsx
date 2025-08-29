@@ -32,8 +32,6 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(!!editingContractType);
 
-  // console.log(editingContractType, 'editingContractType');
-
   useEffect(() => {
     if (editingContractType) {
       reset({

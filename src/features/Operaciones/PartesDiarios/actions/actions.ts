@@ -573,8 +573,8 @@ export async function createDailyReport(date: string[]) {
     .select();
 
   if (error) {
+    console.error(error);
     return [];
-    console.log(error);
   }
   return data;
 }
@@ -819,7 +819,6 @@ export async function updateDailyReportRow(
           await Promise.all(updatePromises);
         }
       } else {
-        console.log('No se encontraron registros recientes para actualizar');
       }
     } catch (error) {
       console.error('Error al actualizar la razón de reasignación:', error);
@@ -996,10 +995,12 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
 
   try {
     // Insertar todas las filas a la vez
-    //console.log(data);
     const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
 
-    if (error) throw error;
+    if (error) {
+      console.error(error, 'error');
+      throw error;
+    }
 
     // Verificar que se hayan creado las filas
     if (!createdRows || createdRows.length === 0) {
@@ -1266,6 +1267,32 @@ export interface ServicesSummary {
   percentage: number;
 }
 
+export async function getDailyReportsLatest() {
+  const supabase = supabaseServer();
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let { data: dailyReports, error } = await supabase
+    .from('dailyreport')
+    .select(`id,date,dailyreportrows(*,customers(id,name))`)
+    .gte('date', moment().startOf('month').format('YYYY-MM-DD'))
+    .lte('date', moment().endOf('month').format('YYYY-MM-DD'))
+    .order('date', { ascending: false })
+    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+
+  if (error) {
+    console.error('Error fetching daily reports:', error);
+    return [];
+  }
+
+  return dailyReports || [];
+}
+
+export type getDailyReportsLatestType = Awaited<ReturnType<typeof getDailyReportsLatest>>;
+
 /**
  * Obtiene el resumen de servicios por tipo de operación
  * Llama a la función RPC get_services_summary_by_type
@@ -1287,8 +1314,6 @@ export async function getServicesSummaryByType(saveToHistory?: boolean) {
       p_company_id: company_id || user?.app_metadata?.company_id || '',
       save_to_history: saveToHistory || false,
     });
-
-    console.log(data, 'super data');
 
     if (error) {
       console.error('Error fetching services summary aactual:', error);

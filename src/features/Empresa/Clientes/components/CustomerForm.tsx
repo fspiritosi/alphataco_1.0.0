@@ -145,7 +145,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
         loading: 'Guardando cliente...',
         success: 'Cliente guardado correctamente',
         error: (error) => {
-          console.log(error);
+          console.error(error);
           return error || 'Error al guardar el cliente';
         },
       }

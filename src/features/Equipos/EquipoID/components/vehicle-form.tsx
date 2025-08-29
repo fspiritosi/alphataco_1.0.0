@@ -18,6 +18,7 @@ import {
   getSubTypesByType,
   getTypesOfVehicles,
   getVehicleBrands,
+  getVehicleOwnersType,
   getVehicleTypes,
 } from '../lib/actions/vehicle-catalog-actions';
 import { useVehicleFormReset } from '../lib/store/vehicleFormReset';
@@ -36,6 +37,7 @@ interface VehicleFormProps {
   repairsComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
+  ownersPromise: Promise<getVehicleOwnersType>;
 }
 
 const vehicleSchema = z
@@ -44,6 +46,7 @@ const vehicleSchema = z
     type_of_vehicle: z.string().min(1, 'El tipo de equipo es requerido'),
     brand: z.string().min(1, 'La marca es requerida'),
     model: z.string().min(1, 'El modelo es requerido'),
+    owner_id: z.string().optional().nullable(),
     year: z
       .string()
       .min(1, 'El año es requerido')
@@ -55,17 +58,18 @@ const vehicleSchema = z
         },
         { message: 'El año debe ser mayor a 1900 y menor al año actual' }
       ),
+    type_of_contract: z.enum(['Leasing', 'Alquiler', 'Propio']).optional(),
 
     // Technical Data
     engine: z.string().optional(),
     type: z.string().optional(),
-    subType: z.string().optional(),
+    subType: z.string().optional().nullable(),
     chassis: z.string().optional(),
     serie: z.string().optional(),
     domain: z.string().optional().nullable(),
     kilometer: z.string().optional(),
     intern_number: z.string().optional(),
-    picture: z.string().optional(),
+    picture: z.string().optional().nullable(),
 
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
@@ -73,7 +77,7 @@ const vehicleSchema = z
   })
   .refine(
     (data) => {
-      if (data.type_of_vehicle === '1') {
+      if (data.type_of_vehicle === '2') {
         return !!data.type;
       }
       return true;
@@ -82,7 +86,7 @@ const vehicleSchema = z
   )
   .refine(
     (data) => {
-      if (data.type_of_vehicle === '1') {
+      if (data.type_of_vehicle === '2') {
         return !!data.subType;
       }
       return true;
@@ -100,7 +104,8 @@ const vehicleSchema = z
   )
   .refine(
     (data) => {
-      if (data.type_of_vehicle === '1') {
+      console.log(data.type_of_vehicle, 'data.type_of_vehicle');
+      if (data.type_of_vehicle === '2') {
         return !!data.serie && data.serie.length >= 2 && data.serie.length <= 30;
       }
       return true;
@@ -202,26 +207,26 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
     }
   };
 
-  console.log(vehicle, 'ajpra aqio');
-
   const form = useForm<VehicleFormData>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
       type_of_vehicle: vehicle?.types_of_vehicles?.id?.toString() || '',
       brand: vehicle?.brand_vehicles?.id?.toString() || '',
-      model: vehicle?.model_vehicles?.id?.toString() || '',
+      model: vehicle?.model_vehicles?.id?.toString() || null,
       year: vehicle?.year || '',
       engine: vehicle?.engine || '',
       type: vehicle?.type.id || '',
-      subType: vehicle?.sub_type?.id || '',
+      subType: vehicle?.sub_type?.id || null,
       chassis: vehicle?.chassis || '',
       serie: vehicle?.serie || '',
       domain: vehicle?.domain || '',
       kilometer: vehicle?.kilometer || '',
       intern_number: vehicle?.intern_number || '',
-      picture: vehicle?.picture || '',
+      picture: vehicle?.picture || null,
       allocated_to: vehicle?.allocated_to || [],
       cost_center_id: vehicle?.cost_center_id || '',
+      owner_id: vehicle?.equipment_owners?.id || null,
+      type_of_contract: vehicle?.type_of_contract || null,
     },
   });
 
@@ -230,6 +235,8 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       form.reset();
     }
   }, [resetTrigger]);
+
+  console.log(form.formState.errors, 'error');
 
   const refresh = (createdVehicleId?: string | undefined) => {
     if (!createdVehicleId) {

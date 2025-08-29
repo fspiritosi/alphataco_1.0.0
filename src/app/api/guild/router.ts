@@ -22,11 +22,8 @@ export async function POST(request: NextRequest) {
 
 // Leer registros de la tabla 'guild'
 export async function GET(request: NextRequest) {
-  const supabase = supabaseServer();
   const searchParams = request.nextUrl.searchParams;
   const company_id = searchParams.get('company_id');
-
-  //console.log(company_id,'company_id');
 
   try {
     if (!company_id) {

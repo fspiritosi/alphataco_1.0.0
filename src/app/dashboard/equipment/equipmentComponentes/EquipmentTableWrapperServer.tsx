@@ -29,7 +29,6 @@ async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: Equipm
     ],
     server: true,
   });
-  console.log(initialData);
   return (
     <>
       <TablaEquipmentServer

@@ -5,7 +5,6 @@ export async function GET(request: NextRequest) {
   const supabase = supabaseServer();
   const searchParams = request.nextUrl.searchParams;
   const company_id = searchParams.get('actual');
-  //console.log('company_id', company_id);
   try {
     let { data: dailyReports, error } = await supabase
       .from('dailyreport')
@@ -60,7 +59,6 @@ export async function PUT(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   // const companyId = searchParams.get('actual');
   const id = searchParams.get('id');
-  //console.log('id', id);
   const { date, status } = await request.json();
   const statusPayload = status === 'cerrado' ? false : status;
   try {

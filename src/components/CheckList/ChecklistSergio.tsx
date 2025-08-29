@@ -145,12 +145,6 @@ export default function VehicleInspectionChecklist({
   const [activeTab, setActiveTab] = useState('luces');
   const params = useParams();
   const router = useRouter();
-  // const params = new URLSearchParams(searchParams as any);
-
-  // console.log(
-  //   'equipments?.find((equipment) => equipment.value === default_equipment_id)',
-  //   equipments?.find((equipment) => equipment.value === default_equipment_id)
-  // );
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -188,8 +182,6 @@ export default function VehicleInspectionChecklist({
     });
 
     //Comparar el kilometraje con el del equipo y si es mayor actualizarlo
-    // console.log('equipment', equipment);
-    // console.log(' data.movil', data.movil);
     if (equipment && Number(data.kilometraje) > Number(equipment.kilometer)) {
       await UpdateVehicle(equipment.value, { kilometer: data.kilometraje });
     }

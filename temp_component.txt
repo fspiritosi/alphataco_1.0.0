@@ -2,11 +2,7 @@
               control={form.control}
               name="area_id"
               render={({ field }) => {
-                console.log('FIELD VALUE:', field.value);
-                console.log('FIELD VALUE TYPE:', typeof field.value, Array.isArray(field.value));
-                if (Array.isArray(field.value)) {
-                  field.value.forEach(val => console.log('VALUE ITEM:', val, typeof val));
-                }
+              
                 
                 // Asegurarnos de que field.value sea siempre un array de strings
                 const safeValues = Array.isArray(field.value) 
@@ -15,7 +11,6 @@
                     ? [String(field.value)] 
                     : [];
                 
-                console.log('SAFE VALUES:', safeValues);
                     
                 // Procesar opciones para asegurar que sean strings
                 const options = filteredAreas?.map((area) => ({
@@ -23,7 +18,6 @@
                   value: String(area.id) // Asegurar que el valor sea string
                 })) || [];
                 
-                console.log('OPTIONS:', options);
                 
                 return (
                 <FormItem>
@@ -34,7 +28,6 @@
                     emptyMessage="No se encontraron areas"
                     selectedValues={safeValues}
                     onChange={(values) => {
-                      console.log('SELECTED VALUES:', values);
                       field.onChange(values);
                     }}
                     disabled={view}

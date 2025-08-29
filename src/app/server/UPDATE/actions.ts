@@ -14,7 +14,7 @@ export const CreateNewFormAnswer = async (formId: string, formAnswer: any) => {
     answer: formAnswer,
   });
   if (error) {
-    console.log(error, 'error');
+    console.error(error, 'error');
   }
 
   return data;
@@ -27,10 +27,9 @@ export const UpdateVehicle = async (vehicleId: string, vehicleData: any) => {
   if (!company_id) return [];
   const { data, error } = await supabase.from('vehicles').update(vehicleData).eq('id', vehicleId);
   if (error) {
-    console.log('error', error);
+    console.error('error', error);
     // throw error;
   }
-  //console.log('data', data);
 };
 export const updateModulesSharedUser = async ({ id, modules }: { id: string; modules: ModulosEnum[] }) => {
   const supabase = supabaseServer();
@@ -52,7 +51,7 @@ export const UpdateDiagramsById = async (diagramData: { diagram_type: string; di
   const promises = diagramData.map(async ({ diagram_type, diagramId }) => {
     const { data, error } = await supabase.from('employees_diagram').update({ diagram_type }).eq('id', diagramId);
     if (error) {
-      console.log('error', error);
+      console.error('error', error);
     }
     return data;
   });
@@ -70,7 +69,7 @@ export const CreateDiagrams = async (diagramData: EmployeeDiagramInsert[]) => {
   const promises = diagramData.map(async (diagram) => {
     const { data, error } = await supabase.from('employees_diagram').insert(diagram);
     if (error) {
-      console.log('error', error);
+      console.error('error', error);
     }
     return data;
   });

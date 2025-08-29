@@ -4,8 +4,6 @@ export async function GET(request: NextRequest) {
   const supabase = supabaseServer();
   const searchParams = request.nextUrl.searchParams;
   const company_id = searchParams.get('actual');
-  const user_id = searchParams.get('user');
-  // console.log(user_id); //AQUI ME QUEDE
   try {
     let { data: employees, error } = await supabase
       .from('employees')
@@ -34,7 +32,6 @@ export async function GET(request: NextRequest) {
       // .select('*')
       // Filters
       .eq('company_id', company_id || '');
-    //console.log(employees)
     if (error) {
       throw new Error(JSON.stringify(error));
     }

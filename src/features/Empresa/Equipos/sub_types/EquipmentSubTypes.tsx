@@ -19,7 +19,6 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
 
   const handleSuccess = () => {
     // Aquí podrías mostrar un mensaje de éxito o actualizar la lista
-    console.log('Operación exitosa');
   };
 
   return (

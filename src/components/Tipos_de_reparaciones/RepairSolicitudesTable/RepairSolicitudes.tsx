@@ -18,8 +18,6 @@ export default async function RepairSolicitudes({
 }) {
   const repair_solicitudes = await fetchAllRepairSolicitudes();
 
-  // console.log(repair_solicitudes);
-
   const Allrepairs = default_equipment_id
     ? repair_solicitudes.filter((repair) => repair.equipment_id === default_equipment_id)
     : repair_solicitudes;
@@ -92,7 +90,6 @@ export default async function RepairSolicitudes({
     (repair: any) => repair.code_item
     // FileText // Icono para documentos
   );
-  console.log(code, 'code');
 
   return (
     <>

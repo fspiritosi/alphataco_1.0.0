@@ -42,7 +42,6 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
     // if (!selectedCompany && (allCompanies?.length > 0 || sharedCompanies?.length > 0)) {
     //   const firstCompany = allCompanies[0] || sharedCompanies[0];
     //   setSelectedCompany(firstCompany);
-    //   console.log(firstCompany);
     //   Cookies.set('actualComp', firstCompany.id);
     //   handleNewCompany(firstCompany);
     // }

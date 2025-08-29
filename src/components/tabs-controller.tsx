@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { setMainTabCookie } from '@/shared/actions/actions';
+import Cookies from 'js-cookie';
 import type React from 'react';
 import { Suspense, useEffect, useState } from 'react';
 
@@ -20,6 +21,10 @@ interface TabsControllerProps {
   path: string;
 }
 
+export async function setMainTabCookieClientSide(path: string, mainTab: string) {
+  const cookieKey = `main_tab_${path.replace(/\//g, '_')}`;
+  Cookies.set(cookieKey, mainTab);
+}
 export function TabsController({ defaultValue, tabsValues, path }: TabsControllerProps) {
   const [activeTab, setActiveTab] = useState<string>(defaultValue);
 
@@ -33,7 +38,6 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
     setActiveTab(value);
     // ✅ USAR FUNCIÓN ESPECÍFICA PARA PESTAÑAS PRINCIPALES
     setMainTabCookie(path, value);
-    console.log(`🔵 Main tab cookie set: main_tab_${path.replace(/\//g, '_')} = ${value}`);
   };
 
   return (

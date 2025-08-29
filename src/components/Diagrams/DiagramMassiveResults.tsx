@@ -93,8 +93,6 @@ interface Props {
 export function DiagramMassiveResults({ results, onStartOver }: Props) {
   const [downloading, setDownloading] = useState(false);
 
-  console.log('🔧 [DEBUG] DiagramMassiveResults - results:', results);
-
   //   {
   //     "summary": {
   //         "records_created": 0,

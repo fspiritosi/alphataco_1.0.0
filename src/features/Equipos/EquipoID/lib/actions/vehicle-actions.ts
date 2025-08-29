@@ -17,7 +17,8 @@ export async function getVehicleById(id: string) {
       types_of_vehicles(id, name),
       type(*),
       sub_type(id, name),
-      contractor_equipment(customers(id, name))
+      contractor_equipment(customers(id, name)),
+      equipment_owners(id, name)
     `
     )
     .eq('id', id)
@@ -107,8 +108,6 @@ export async function updateVehicle(id: string, vehicleData: any) {
   if (!company_id) {
     throw new Error('No company selected');
   }
-
-  console.log('vehicleData', vehicleData);
 
   // Get IDs for related entities
   // const brandId = await getBrandIdByName(vehicleData.brand);

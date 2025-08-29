@@ -143,8 +143,6 @@ function PositionsTable({
   const name = createFilterOptions(positions, (position) => position.name);
   const positionsOptions = createFilterOptions(allPositions, (name) => name);
 
-  // console.log(formattedData);
-
   return (
     <div className="ml-4">
       <div className="flex justify-between">

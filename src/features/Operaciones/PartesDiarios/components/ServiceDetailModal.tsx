@@ -101,7 +101,6 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
                 <div
                   key={employee.id}
                   className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:bg-blue-100 transition-colors"
-                  onClick={() => console.log(employee.id)}
                 >
                   <div>
                     <div className="font-semibold text-blue-900 text-lg mb-3">
@@ -167,13 +166,10 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
             </h3>
             <div className="grid gap-4">
               {serviceData.equipment_references?.map((equipment) => {
-                console.log(equipment, 'equipment');
-
                 return (
                   <div
                     key={equipment.id}
                     className="bg-green-50 border border-green-200 rounded-lg p-4 hover:bg-green-100 transition-colors"
-                    onClick={() => console.log(equipment.id)}
                   >
                     <div>
                       <div className="font-semibold text-green-900 text-lg mb-3 flex items-center">

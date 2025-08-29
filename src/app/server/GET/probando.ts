@@ -63,39 +63,30 @@ export async function queryWithPagination<
 
       if (!value) continue;
 
-      console.log('🔍 queryWithPagination - Procesando filtro:', { id, value, type: typeof value });
-
       // Manejar filtros de relaciones anidadas (ej: provinces.name, contractor_employee.customers.name)
       if (id.includes('.')) {
-        console.log('🔗 Filtro de relación detectado:', { id, value });
-
         // Para relaciones anidadas, construir la cadena de relación completa
         const parts = id.split('.');
         const columnName = parts[parts.length - 1]; // La última parte es la columna
-        console.log();
 
         if (value === null || value[0] === 'null' || value[0] === null) {
-          console.log('🚫 Aplicando filtro NOT NULL para relación simple deberia desde aqui');
-          console.log(columnName, 'columnName');
-          console.log(parts, 'parts');
           query = query.is(id, null);
         } else {
           // Para relaciones de múltiples niveles, necesitamos aplicar NOT NULL en cada nivel
           if (parts.length > 2) {
             // Relación de múltiples niveles (ej: contractor_employee.customers.name)
-            console.log('🔗 Relación de múltiples niveles detectada:', { parts });
 
             // Aplicar NOT NULL para cada nivel de la relación
             for (let i = 0; i < parts.length - 1; i++) {
               const relationPath = parts.slice(0, i + 1).join('.');
-              console.log('🚫 Aplicando filtro NOT NULL para nivel:', { relationPath });
+
               query = query.not(relationPath, 'is', null);
             }
           } else {
             // Relación simple (ej: provinces.name)
 
             const [relationTable] = parts;
-            console.log('🚫 Aplicando filtro NOT NULL para relación simple:', { relationTable });
+
             query = query.not(relationTable, 'is', null);
           }
         }
@@ -103,12 +94,10 @@ export async function queryWithPagination<
         // Luego aplicar el filtro específico
         // Para filtros múltiples en relaciones - usar operador IN
         if (Array.isArray(value) && value.length > 0 && value[0] !== 'null' && value[0] !== null) {
-          console.log('📋 Aplicando filtro IN en relación:', { id, values: value });
           query = query.in(id, value);
         }
         // Para filtros de texto en relaciones
         else if (typeof value === 'string' && value.trim()) {
-          console.log('📝 Aplicando filtro de texto en relación:', { id, value });
           query = query.ilike(id, `%${value}%`);
         }
       }
@@ -116,11 +105,8 @@ export async function queryWithPagination<
       else {
         // Filtro de texto (búsqueda)
         if (typeof value === 'string' && value.trim()) {
-          console.log('📝 Aplicando filtro de texto directo:', { id, value });
-
           // Caso especial para búsqueda en lastname: buscar en firstname y lastname
           if (id === 'lastname') {
-            console.log('🔍 Búsqueda especial en nombre completo (firstname + lastname)');
             query = query.or(`firstname.ilike.%${value}%,lastname.ilike.%${value}%`);
           } else {
             query = query.ilike(id, `%${value}%`);
@@ -129,16 +115,12 @@ export async function queryWithPagination<
 
         // Filtros múltiples (arrays)
         if (Array.isArray(value) && value.length > 0) {
-          console.log('📋 Aplicando filtro múltiple directo:', { id, values: value });
-
           // Separar valores null de valores normales
           const nullValues = value.filter((v) => v === 'null' || v === null || v === '' || v === undefined);
           const normalValues = value.filter((v) => v !== 'null' && v !== null && v !== '' && v !== undefined);
 
           // Si hay valores null, aplicar filtro específico para null
           if (nullValues.length > 0) {
-            console.log('🔍 Detectados valores null/vacíos:', { nullValues, normalValues });
-
             if (normalValues.length > 0) {
               // Combinar filtros: valores normales OR valores null/vacíos
               const normalFilter = `${id}.in.(${normalValues.join(',')})`;
@@ -146,7 +128,7 @@ export async function queryWithPagination<
               query = query.or(`${normalFilter},${nullFilter}`);
             } else {
               // Solo valores null/vacíos - usar filtro simple
-              console.log('🎯 Aplicando filtro solo para valores null');
+
               query = query.is(id, null);
             }
           } else {
@@ -212,19 +194,11 @@ export async function queryWithPagination<
   // Aplicar paginación
   query = query.range(from, to);
   if (typeof options.is_active === 'boolean') {
-    console.log('company_id_column', options.company_id_column);
     query = query.eq('is_active' as any, options.is_active as any);
   }
 
   // Ejecutar query
   const { data, error, count } = await query;
-
-  console.log('🚀 queryWithPagination - Error:', {
-    error: error,
-  });
-  console.log('🚀 queryWithPagination - encontrados:', {
-    count,
-  });
 
   if (error) {
     console.error('🚨 Error en queryWithPagination:', error);
@@ -257,6 +231,7 @@ export async function fetchEmployeesData(options: {
       // company_id_column: 'company_id',
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
       columnFilters: [...options.columnFilters],
+      is_active: true,
       filters: options.filters?.concat([
         {
           column: 'is_active',
@@ -266,7 +241,6 @@ export async function fetchEmployeesData(options: {
       ]),
     }
   );
-  // console.log('🚀 fetchEmployeesData - Resultado:', data);
   return data;
 }
 export async function fetchInactiveEmployeesData(options: {
@@ -276,14 +250,6 @@ export async function fetchInactiveEmployeesData(options: {
   columnFilters: ColumnFiltersState;
   filters?: Filter<'employees'>[];
 }) {
-  console.log('🚀 fetchEmployeesData - Opciones recibidas:', {
-    pageIndex: options.pageIndex,
-    pageSize: options.pageSize,
-    sorting: options.sorting,
-    columnFilters: options.columnFilters,
-    filters: options.filters,
-  });
-
   const data = await queryWithPagination(
     'employees',
     'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
@@ -301,8 +267,6 @@ export async function fetchInactiveEmployeesData(options: {
     }
   );
 
-  console.log('🚀 fetchEmployeesData - Resultado:', data);
-
   return data;
 }
 
@@ -316,11 +280,12 @@ export async function fetchEquipmentData(options: {
 }) {
   const data = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
     {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
       company_id_column: 'company_id',
+      is_active: true,
       filters: options.filters?.concat([
         {
           column: 'is_active',
@@ -331,8 +296,6 @@ export async function fetchEquipmentData(options: {
       server: options.server,
     }
   );
-
-  console.log('🚀 fetchEquipmentData - Resultado:', data);
 
   return data;
 }
@@ -346,7 +309,7 @@ export async function fetchInactiveEquipmentData(options: {
 }) {
   const data = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
     {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
@@ -362,8 +325,6 @@ export async function fetchInactiveEquipmentData(options: {
       server: options.server,
     }
   );
-
-  console.log('🚀 fetchEquipmentData - Resultado:', data);
 
   return data;
 }
@@ -404,7 +365,7 @@ export async function fetchAllEquipmentsData(options: {
 }) {
   const result = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    '*,equipment_owners(id,name),brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
     {
       pageIndex: 0,
       pageSize: 10000, // Límite alto para obtener todos los datos
@@ -431,7 +392,7 @@ export async function fetchAllInactiveEquipmentsData(options: {
 }) {
   const result = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
     {
       pageIndex: 0,
       pageSize: 10000, // Límite alto para obtener todos los datos
@@ -544,8 +505,6 @@ export async function querySelectDistinct<
 ) {
   const supabase = supabaseBrowser();
 
-  console.log(p_filters, 'p_filtersp_filters');
-
   const { data, error } = await supabase.rpc('select_distinct_values', {
     p_table_name: tableName,
     p_column_path: select,
@@ -555,7 +514,7 @@ export async function querySelectDistinct<
   });
 
   if (error) {
-    console.log('❌ ERROR:', error);
+    console.error('❌ ERROR:', error);
     throw error;
   }
 

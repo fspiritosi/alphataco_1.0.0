@@ -106,7 +106,7 @@ export default function ReplaceDocument({
           });
 
         if (error) {
-          console.log(error);
+          console.error(error);
           throw new Error(handleSupabaseError(error.message));
         }
 
@@ -116,8 +116,6 @@ export default function ReplaceDocument({
             cacheControl: '3600',
             upsert: true,
           });
-
-        // console.log('filename.validity', filename.validity ? format(filename.validity as Date, 'dd/MM/yyyy') : null);
 
         const { error: updateError } = await supabase
           .from(tableName)
@@ -129,12 +127,12 @@ export default function ReplaceDocument({
           .eq('id', appliesId || '');
 
         if (updateError) {
-          //console.log(updateError);
+          console.error(updateError);
           throw new Error(handleSupabaseError(updateError?.message));
         }
 
         if (finalerror) {
-          //console.log(finalerror);
+          console.error(finalerror);
           throw new Error(handleSupabaseError(finalerror?.message));
         }
 

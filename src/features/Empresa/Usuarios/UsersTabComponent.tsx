@@ -8,21 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { cookies } from 'next/headers';
 
-//import cookies from 'js-cookie';
-//import { cookies } from 'next/headers';
-//import { useLoggedUserStore } from '@/store/loggedUser';
 export default async function UsersTabComponent() {
-  // const URL = process.env.NEXT_PUBLIC_BASE_URL;
-
-  // const coockiesStore = cookies();
-  // const company_id = coockiesStore.get('actualComp')?.value;
-
-  //const { data: company } = await fetch(`${URL}/api/company/?actual=${company_id}`).then((res) => res.json());
-  //const { data: ownerUser } = await fetch(`${URL}/api/profile/?user=${company[0]?.owner_id}`).then((res) => res.json());
-  //const { company_users } = await fetch(`${URL}/api/company/users/?actual=${company_id}`).then((res) => res.json());
   const ownerUser = await getOwnerUser();
   const company_users = await getAllUsers();
-  //console.log('usuarios', company_users);
   const owner = ownerUser?.map((user: any) => {
     return {
       email: user.email,

@@ -24,7 +24,6 @@ export function ResoursesChart({ employees, equipments }: { employees: Promise<n
 
   const employeesCount = use(employees);
   const equipmentsCount = use(equipments);
-  // console.log(employeesCount, equipmentsCount);
 
   const dataChart = [
     {

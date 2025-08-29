@@ -71,18 +71,11 @@ export function DataTableExportExcelServer<TData>({
       const currentSorting = table.getState().sorting;
       const currentFilters = table.getState().columnFilters;
 
-      console.log('🚀 Exportando datos con filtros:', {
-        sorting: currentSorting,
-        filters: currentFilters,
-      });
-
       // Obtener todos los datos con los filtros aplicados
       const allData = await fetchAllData({
         sorting: currentSorting,
         columnFilters: currentFilters,
       });
-
-      console.log('📊 Datos obtenidos para exportar:', allData.length);
 
       // Procesar los datos para exportar
       const exportData = allData.map((rowData) => {

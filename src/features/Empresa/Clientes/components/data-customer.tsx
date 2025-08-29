@@ -99,22 +99,7 @@ export function DataCustomers<TData extends Customer, TValue>({
 
   const [equipments, setEquipment] = useState<Awaited<ReturnType<typeof fetchAllEquipment>>>();
 
-  // useEffect(()=>{
-  //   if(selectedCustomer?.id){
-  //     const fetchEmployees = async () => {
-  //       console.log('trayendo empleados')
-  //       const employees = await fetchAllEmployeesOnlyName();
-
-  //       setAllEmployees(employees.map(employee=>({
-  //         label:employee.lastname+' '+employee.firstname,
-  //         value:employee.id
-  //       })));
-  //     };
-  //     fetchEmployees();
-  //   }
-  // },[selectedCustomer?.id])
   useEffect(() => {
-    console.log(selectedCustomer, 'selectedCustomer');
     if (selectedCustomer?.id) {
       setEmployees(
         selectedCustomer?.contractor_employee

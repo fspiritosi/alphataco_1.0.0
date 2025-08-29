@@ -342,7 +342,6 @@ export default function TablaEquipmentServerInactive({
               select: 'domain' as '*',
               p_filters: { is_active: 'false', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'domain'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -359,7 +358,6 @@ export default function TablaEquipmentServerInactive({
               select: 'chassis' as '*',
               p_filters: { is_active: 'false', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'chassis'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -376,7 +374,6 @@ export default function TablaEquipmentServerInactive({
               select: 'status' as '*',
               p_filters: { is_active: 'false', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'status'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -395,7 +392,6 @@ export default function TablaEquipmentServerInactive({
               relation: '{"type": "type"}',
 
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type.name'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),
@@ -413,7 +409,6 @@ export default function TablaEquipmentServerInactive({
               p_filters: { is_active: 'false', company_id: company_id! },
               relation: '{"sub_type": "subType"}',
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'sub_type.name'>>>) => {
-                console.log(data, 'datadata');
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),

@@ -16,7 +16,6 @@ export const fetchCurrentCompany = async () => {
     const { allCompanies, sharedCompanies } = await fetchUserCompanies(user?.id || '');
     const firstCompany = allCompanies[0] || sharedCompanies[0];
     if (firstCompany) {
-      console.log(firstCompany.id);
       // Establecer cookie desde el servidor
       cookiesjs.set('actualComp', firstCompany.id);
       company_id = firstCompany.id;

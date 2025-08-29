@@ -20,7 +20,6 @@ async function SideBarContainer() {
   const user = await fetchCurrentUser();
   const company = await fetchCurrentCompany();
   const userData: any = await verifyUserRoleInCompany();
-  //console.log(userData, 'userData');
   const { data: credentialUser, error: profileError } = await supabase
     .from('profile')
     .select('*')
@@ -71,7 +70,7 @@ async function SideBarContainer() {
   `
     )
     .eq('owner_id', user?.id || '');
-  if (error) console.log(error);
+  if (error) console.error(error);
   let { data: share_company_users, error: sharedError } = await supabase
     .from('share_company_users')
     .select(
@@ -117,7 +116,7 @@ async function SideBarContainer() {
     )
     .eq('profile_id', user?.id || '');
 
-  if (sharedError) console.log(sharedError);
+  if (sharedError) console.error(sharedError);
 
   let role: any;
 
@@ -126,7 +125,6 @@ async function SideBarContainer() {
 
   if (actualCompany) {
     const is_owner = (companies?.find((company) => company.id === actualCompany) as any)?.owner_id.id === user?.id;
-    // console.log(is_owner, 'is_owner', share_company_users);
     const is_shared = share_company_users?.find(
       (company: any) => company.company_id.id === actualCompany && company.profile_id === user?.id
     );

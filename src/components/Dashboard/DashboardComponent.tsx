@@ -5,17 +5,21 @@ import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
 import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { ChartBarServiceHistory } from '@/features/Dashboard/Estadisticas/Components/BarServiceHistory';
+import { ServicesHistory } from '@/features/Dashboard/Estadisticas/Components/ServicesHistory';
+import { getDailyReportsLatest, getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DataEquipmentChart from '@/features/graficos/equipos/data-equipos';
 import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
 import EmpleadoDiagramasChart from '@/features/graficos/rrhh/data-empleado-diagramas';
 import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
+import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
+
 export default async function DashboardComponent() {
   const employees = fetchAllEmployeesCount();
   const equipments = fetchAllVehiclesCount();
   const servicesSummary = getServicesSummaryByType();
-
+  const dailyReports = getDailyReportsLatest();
   return (
     <div className="">
       <section className="grid sm:grid-cols-2 grid-cols-1 gap-6 mx-7">
@@ -23,9 +27,12 @@ export default async function DashboardComponent() {
         {/* <CardTitle className="text-[2vw]">Bienvenido a tu dashboard</CardTitle> */}
       </section>
       <Tabs defaultValue="Principal" className="w-full">
-        <TabsList className="ml-6">
+        <TabsList className="ml-6 bg-white dark:bg-muted">
           <TabsTrigger value="Principal">Principal</TabsTrigger>
           <TabsTrigger value="Documentacion">Documentacion</TabsTrigger>
+          <FeatureFlagShow featureFlagName="mostrar_tab_de_graficos_en_dashboard">
+            <TabsTrigger value="Estadisticas">Estadisticas</TabsTrigger>
+          </FeatureFlagShow>
           {/* <TabsTrigger value="Empleados">Empleados</TabsTrigger> */}
           {/* <TabsTrigger value="Mantenimiento">Mantenimiento</TabsTrigger> */}
         </TabsList>
@@ -85,11 +92,14 @@ export default async function DashboardComponent() {
             </section>
           </section>
         </TabsContent>
-        {/* <TabsContent value="Empleados">
-          <div className="flex flex-col justify-center">
-            <EmpleadoDiagramasChart />
-          </div>
-        </TabsContent> */}
+        <FeatureFlagShow featureFlagName="mostrar_tab_de_graficos_en_dashboard">
+          <TabsContent className="w-full" value="Estadisticas">
+            <section className="md:mx-7 grid grid-cols-1 mt-6  gap-3 mb-4 ">
+              <ServicesHistory dailyReports={dailyReports} />
+              <ChartBarServiceHistory dailyReports={dailyReports} />
+            </section>
+          </TabsContent>
+        </FeatureFlagShow>
       </Tabs>
     </div>
   );

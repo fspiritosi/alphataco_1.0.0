@@ -55,7 +55,6 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
 
     toast.promise(
       async () => {
-        // console.log('method', method);
         if (method === 'PUT') {
           await updateDiagramType(values);
         } else {

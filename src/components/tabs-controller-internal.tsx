@@ -3,6 +3,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { setSubTabCookie } from '@/shared/actions/actions';
+import Cookies from 'js-cookie';
 import type React from 'react';
 import { Suspense, useEffect, useState } from 'react';
 
@@ -20,6 +21,10 @@ interface TabsControllerInternalProps {
   }[];
   path: string;
   currentMainTab?: string;
+}
+export async function setSubTabCookieClientSide(path: string, mainTab: string, subTab: string) {
+  const cookieKey = `sub_tab_${path.replace(/\//g, '_')}_${mainTab.replace(/\s+/g, '_')}`;
+  Cookies.set(cookieKey, subTab);
 }
 
 export function TabsControllerInternal({
@@ -41,9 +46,6 @@ export function TabsControllerInternal({
     // ✅ USAR FUNCIÓN ESPECÍFICA PARA SUB-PESTAÑAS
     if (currentMainTab) {
       setSubTabCookie(path, currentMainTab, value);
-      console.log(
-        `🟢 Sub tab cookie set: sub_tab_${path.replace(/\//g, '_')}_${currentMainTab.replace(/\s+/g, '_')} = ${value}`
-      );
     }
   };
 
