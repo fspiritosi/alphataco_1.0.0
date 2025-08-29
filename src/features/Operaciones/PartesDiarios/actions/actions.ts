@@ -1267,6 +1267,32 @@ export interface ServicesSummary {
   percentage: number;
 }
 
+export async function getDailyReportsLatest() {
+  const supabase = supabaseServer();
+  const cookieStore = cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let { data: dailyReports, error } = await supabase
+    .from('dailyreport')
+    .select(`id,date,dailyreportrows(*,customers(id,name))`)
+    .gte('date', moment().startOf('month').format('YYYY-MM-DD'))
+    .lte('date', moment().endOf('month').format('YYYY-MM-DD'))
+    .order('date', { ascending: false })
+    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+
+  if (error) {
+    console.error('Error fetching daily reports:', error);
+    return [];
+  }
+
+  return dailyReports || [];
+}
+
+export type getDailyReportsLatestType = Awaited<ReturnType<typeof getDailyReportsLatest>>;
+
 /**
  * Obtiene el resumen de servicios por tipo de operación
  * Llama a la función RPC get_services_summary_by_type

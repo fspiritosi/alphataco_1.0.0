@@ -3,7 +3,7 @@ import DocumentNav from '@/components/DocumentNav';
 import ViewComponent from '@/components/ViewComponent';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
-import CovenantTreeFile from '../company/actualCompany/covenant/CovenantTreeFile';
+import CovenantTreeFileWrapper from '../company/actualCompany/covenant/CovenantTreeFileWrapper';
 import EmployeeDocumentsTabs from '../document/documentComponents/EmployeeDocumentsTabs';
 import EmployeeListTabs from '../document/documentComponents/EmployeeListTabs';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
@@ -96,7 +96,7 @@ const EmployeePage = ({ searchParams }: { searchParams: { tab: string; subtab?: 
           title: 'Convenios colectivos de trabajo',
           description: 'Lista de Convenios colectivos de trabajo',
           buttonActioRestricted: [''],
-          component: <CovenantTreeFile />,
+          component: <CovenantTreeFileWrapper />,
         },
       },
       // {

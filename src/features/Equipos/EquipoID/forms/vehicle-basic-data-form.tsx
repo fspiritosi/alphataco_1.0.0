@@ -60,7 +60,6 @@ export function VehicleBasicDataForm({
   const typeOfVehicle = form.watch('type_of_vehicle');
   const typeFields = getVehicleTypeFields(typeOfVehicle);
   const hideInput = form.watch('type_of_vehicle') === '1' ? true : false;
-  console.log(hideInput, 'hideInput');
   const typeOfContract = form.watch('type_of_contract');
 
   const handleBrandChange = async (id: string) => {

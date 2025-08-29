@@ -104,7 +104,6 @@ const vehicleSchema = z
   )
   .refine(
     (data) => {
-      console.log(data.type_of_vehicle, 'data.type_of_vehicle');
       if (data.type_of_vehicle === '2') {
         return !!data.serie && data.serie.length >= 2 && data.serie.length <= 30;
       }
@@ -235,8 +234,6 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       form.reset();
     }
   }, [resetTrigger]);
-
-  console.log(form.formState.errors, 'error');
 
   const refresh = (createdVehicleId?: string | undefined) => {
     if (!createdVehicleId) {
