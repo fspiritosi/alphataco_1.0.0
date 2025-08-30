@@ -22,6 +22,7 @@ import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { ArrowUpDown, Check, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { Contrato, PreparteItem } from './PreparteManager';
+
 interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
@@ -82,6 +83,18 @@ const getColumns = (
       const dateB = new Date(rowB.getValue(columnId)).getTime();
       return dateA - dateB;
     },
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      if (!value || typeof value !== 'object') return true;
+      const v = value as { from?: Date | null; to?: Date | null };
+      const cellVal = row.getValue(id);
+      if (!cellVal) return false;
+      const d = new Date(cellVal as any).getTime();
+      if (Number.isNaN(d)) return false;
+      const fromOk = v.from ? d >= new Date(v.from).setHours(0, 0, 0, 0) : true;
+      const toOk = v.to ? d <= new Date(v.to).setHours(23, 59, 59, 999) : true;
+      return fromOk && toOk;
+    },
   },
   {
     accessorKey: 'executionDate',
@@ -89,6 +102,18 @@ const getColumns = (
     cell: ({ row }) => {
       const executionDate = row.original.executionDate;
       return executionDate ? new Date(executionDate as any).toLocaleDateString() : '-';
+    },
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      if (!value || typeof value !== 'object') return true;
+      const v = value as { from?: Date | null; to?: Date | null };
+      const cellVal = row.getValue(id);
+      if (!cellVal) return false;
+      const d = new Date(cellVal as any).getTime();
+      if (Number.isNaN(d)) return false;
+      const fromOk = v.from ? d >= new Date(v.from).setHours(0, 0, 0, 0) : true;
+      const toOk = v.to ? d <= new Date(v.to).setHours(23, 59, 59, 999) : true;
+      return fromOk && toOk;
     },
   },
   {
@@ -538,6 +563,26 @@ export function PreparteTable({
                 });
               },
             },
+          },
+          {
+            columnId: 'requestDate',
+            title: 'Fecha de Solicitud',
+            type: 'date-range',
+            showFrom: true,
+            showTo: true,
+            fromPlaceholder: 'Desde',
+            toPlaceholder: 'Hasta',
+            // defaultValues: { from: null, to: null }, // opcional
+          },
+          {
+            columnId: 'executionDate',
+            title: 'Fecha de Ejecución',
+            type: 'date-range',
+            showFrom: true,
+            showTo: true,
+            fromPlaceholder: 'Desde',
+            toPlaceholder: 'Hasta',
+            // defaultValues: { from: null, to: null }, // opcional
           },
           // ... otros filtros
         ],

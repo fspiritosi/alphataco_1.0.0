@@ -222,11 +222,44 @@ export async function fetchPrepartes({
     }
 
     // Aplicar filtros
-    columnFilters.forEach((filter) => {
-      if (filter.value) {
-        query = query.eq(filter.id, filter.value);
+    const toStartOfDayISO = (d: any) => {
+      const date = typeof d === 'string' || typeof d === 'number' ? new Date(d) : (d as Date);
+      if (Number.isNaN(date?.getTime?.())) return undefined;
+      date.setHours(0, 0, 0, 0);
+      return date.toISOString();
+    };
+    const toEndOfDayISO = (d: any) => {
+      const date = typeof d === 'string' || typeof d === 'number' ? new Date(d) : (d as Date);
+      if (Number.isNaN(date?.getTime?.())) return undefined;
+      date.setHours(23, 59, 59, 999);
+      return date.toISOString();
+    };
+
+    for (const filter of columnFilters || []) {
+      const { id, value } = filter || {};
+      if (value == null || value === '') continue;
+
+      // Rango de fechas: { from?: Date|string|null, to?: Date|string|null }
+      if (typeof value === 'object' && value !== null && ('from' in value || 'to' in value)) {
+        const fromISO = (value as any)?.from ? toStartOfDayISO((value as any).from) : undefined;
+        const toISO = (value as any)?.to ? toEndOfDayISO((value as any).to) : undefined;
+        if (fromISO) query = query.gte(id, fromISO);
+        if (toISO) query = query.lte(id, toISO);
+        continue;
       }
-    });
+
+      // Filtros facetados: array de valores
+      if (Array.isArray(value)) {
+        const vals = value.filter((v) => v !== undefined && v !== null && v !== '');
+        if (vals.length > 0) {
+          query = query.in(id, vals);
+        }
+        continue;
+      }
+
+      // Fallback: igualdad simple
+      query = query.eq(id, value);
+    }
 
     // Aplicar paginación
     const from = pageIndex * pageSize;
