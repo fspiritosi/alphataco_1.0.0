@@ -8,10 +8,10 @@ export const description = 'A pie chart with a label';
 export function EquiposChart({ chartData, chartConfig, date }: { chartData: any; chartConfig: any; date: string }) {
   const totalChartData = [
     {
-      novedad: 'Total',
+      novedad: 'Activos',
       total: chartData
         ?.filter((item: any) => item.novedad === 'Chasis' || item.novedad === 'Tractor')
-        .reduce((acc: number, item: any) => acc + (item.disponibles || 0) + (item.noDisponibles || 0), 0),
+        .reduce((acc: number, item: any) => acc + (item.disponibles || 0), 0),
       fill: '#34C759', // Green color for Total
     },
     {
