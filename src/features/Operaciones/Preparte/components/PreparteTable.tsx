@@ -16,21 +16,39 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Cliente } from '@/features/Operaciones/Preparte/components/PreparteManager';
 import { cn } from '@/lib/utils';
+import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { ArrowUpDown, Check, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { Contrato, PreparteItem } from './PreparteManager';
-
 interface PreparteTableProps {
   data: PreparteItem[];
-  contratos: Contrato[];
   Customers: Cliente[];
+  contratos: Contrato[];
   items: Array<{ id: string; item_name: string }>;
   onEdit: (item: PreparteItem) => void;
   onDelete: (id: string) => void;
-  onConfirm: (item: PreparteItem) => void; // New prop
+  onConfirm: (item: PreparteItem) => void;
   savedVisibility?: VisibilityState;
+
+  // Nueva prop para la carga de datos
+  fetchData: (opciones: {
+    pageIndex: number; // Página actual (0-based)
+    pageSize: number; // Elementos por página
+    sorting: any[]; // Ordenamiento
+    columnFilters: any[]; // Filtros aplicados
+  }) => Promise<{
+    rows: PreparteItem[]; // Datos de la página actual
+    pageCount: number; // Total de páginas
+    rowCount: number; // Total de registros
+  }>;
+
+  // Opcional: Para exportar todos los datos
+  fetchAllData?: (opciones: { sorting: any[]; columnFilters: any[] }) => Promise<PreparteItem[]>;
+
+  // Estado de carga
+  isLoading?: boolean;
 }
 
 const getColumns = (
@@ -105,12 +123,17 @@ const getColumns = (
     },
     cell: ({ row }) => row.original.numero_pedido || '-',
     filterFn: (row, id, value) => {
-      if (!value) return true;
       const rowValue = row.getValue(id) as string;
       if (!rowValue) return false;
+
+      // If no filter value is provided, show all rows
+      if (!value || (Array.isArray(value) && value.length === 0)) return true;
+
       // Handle both string and array of strings for the value
-      const searchValue = Array.isArray(value) ? value[0] : value;
-      return rowValue.toLowerCase().includes(searchValue.toLowerCase());
+      const searchValues = Array.isArray(value) ? value : [value];
+
+      // Check if any of the search values match (case insensitive)
+      return searchValues.some((searchValue) => rowValue.toLowerCase().includes(searchValue.toString().toLowerCase()));
     },
     enableColumnFilter: true,
   },
@@ -179,6 +202,10 @@ const getColumns = (
     accessorKey: 'jornada',
     header: 'Jornada',
     cell: ({ row }) => <div>{row.getValue('jornada')}</div>,
+    filterFn: (row, id, value) => {
+      return value.includes(String(row.getValue(id)));
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'start_time',
@@ -197,39 +224,32 @@ const getColumns = (
   },
   {
     accessorKey: 'status',
-    header: 'Estado',
+    id: 'status',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
-      const status = row.getValue('status');
-      let statusElement: React.ReactNode;
+      type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
+      type StatusType = 'pendiente' | 'confirmado' | 'cancelado' | 'rechazado' | 'default';
 
-      switch (status) {
-        case 'pendiente':
-          statusElement = <Badge variant="default">Pendiente</Badge>;
-          break;
-        case 'reprogramado':
-          statusElement = <Badge variant="warning">Reprogramado</Badge>;
-          break;
-        case 'cancelado':
-          statusElement = <Badge variant="destructive">Cancelado</Badge>;
-          break;
-        case 'rechazado':
-          statusElement = <Badge variant="destructive">Rechazado</Badge>;
-          break;
-        case 'confirmado':
-          statusElement = <Badge variant="success">Confirmado</Badge>;
-          break;
-        default:
-          statusElement = status as string;
-      }
+      const variantStatus: Record<StatusType, BadgeVariant> = {
+        pendiente: 'default',
+        confirmado: 'success',
+        cancelado: 'destructive',
+        rechazado: 'destructive',
+        default: 'default',
+      };
 
-      return <div>{statusElement}</div>;
+      return (
+        <Badge
+          variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
+          className="capitalize"
+        >
+          {row.original.status || 'Sin estado'}
+        </Badge>
+      );
     },
     filterFn: (row, id, value) => {
-      // value es el array de valores seleccionados en el filtro
-      if (!value || value.length === 0) return true;
-      return value.includes(row.getValue(id));
+      return value.includes(String(row.getValue(id)));
     },
-    enableColumnFilter: true,
   },
   {
     accessorKey: 'reason',
@@ -372,59 +392,154 @@ export function PreparteTable({
   onDelete,
   onConfirm,
   savedVisibility = {},
+  fetchData,
+  fetchAllData,
+  isLoading = false,
 }: PreparteTableProps) {
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-
+  const uniqueStatuses = [...new Set(data.map((item) => item.status))];
   const uniqueClientIds = [...new Set(data.map((item) => item.cliente_id))];
   const filteredCustomers = Customers.filter((customer) => uniqueClientIds.includes(customer.id));
 
   const uniqueContratoIds = [...new Set(data.map((item) => item.contrato_id))];
   const filteredContratos = contratos.filter((contrato) => uniqueContratoIds.includes(contrato.id));
 
+  const [initialVisibleFilters] = useState<string[]>(() => {
+    try {
+      if (typeof window === 'undefined') return [];
+      const savedState = localStorage.getItem('table-filters-preparte-table');
+      if (!savedState) return [];
+      const parsedState = JSON.parse(savedState);
+      const activeFilterIds = Array.isArray(parsedState?.columnFilters)
+        ? parsedState.columnFilters
+            .filter((filter: any) => {
+              const v = filter?.value;
+              if (Array.isArray(v)) return v.length > 0;
+              if (v && typeof v === 'object') return Object.keys(v).length > 0; // date-range or objects
+              return Boolean(v);
+            })
+            .map((filter: any) => filter.id)
+        : [];
+      return activeFilterIds;
+    } catch (_) {
+      return [];
+    }
+  });
+
   // Para items, necesitarías aplanar el array de items primero
   const allItemIds = data.flatMap((item) => (Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]));
   const uniqueItemIds = [...new Set(allItemIds)];
   const filteredItems = items.filter((item) => uniqueItemIds.includes(item.id));
 
-  console.log(data);
   return (
     <BaseDataTable
       columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
       data={data}
       tableId="preparte-table"
       savedVisibility={savedVisibility}
+      serverSide={true} // Habilitar modo servidor
+      fetchData={fetchData}
+      fetchAllData={fetchAllData}
       toolbarOptions={{
+        initialVisibleFilters: initialVisibleFilters,
         filterableColumns: [
           {
             columnId: 'cliente_id',
             title: 'Cliente',
-            options: filteredCustomers.map((c: any) => ({ value: c.id, label: c.name })),
+            config: {
+              tableName: 'preparte' as any,
+              select: 'cliente_id' as any,
+              // p_filters: { company_id: company_id! },
+              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                return data.map((item) => {
+                  const customer = Customers.find((c) => c.id === item.col_value);
+                  const displayName = customer ? customer.name : `Cliente ${item.col_value}`;
+                  return {
+                    label: displayName,
+                    value: item.col_value,
+                    count: item.col_count,
+                  };
+                });
+              },
+            },
           },
           {
             columnId: 'contrato_id',
             title: 'Contrato',
-            options: filteredContratos.map((c: any) => ({ value: c.id, label: c.service_name })),
-          },
-          {
-            columnId: 'item',
-            title: 'Item',
-            options: filteredItems.map((c: any) => ({ value: c.id, label: c.item_name })),
+            config: {
+              tableName: 'preparte' as any,
+              select: 'contrato_id' as any,
+              // p_filters: { company_id: company_id! },
+              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                return data.map((item) => {
+                  const contrato = contratos.find((c) => c.id === item.col_value);
+                  const displayName = contrato ? contrato.service_name : `Contrato ${item.col_value}`;
+                  return {
+                    label: displayName,
+                    value: item.col_value,
+                    count: item.col_count,
+                  };
+                });
+              },
+            },
           },
           {
             columnId: 'status',
             title: 'Estado',
-            options: [
-              { value: 'pendiente', label: 'Pendiente' },
-              { value: 'reprogramado', label: 'Reprogramado' },
-              { value: 'cancelado', label: 'Cancelado' },
-              { value: 'rechazado', label: 'Rechazado' },
-              { value: 'confirmado', label: 'Confirmado' },
-            ],
+            config: {
+              tableName: 'preparte' as any,
+              select: 'status' as any,
+              // p_filters: { company_id: company_id! },
+              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                return data.map((item) => ({
+                  label: item.col_value.charAt(0).toUpperCase() + item.col_value.slice(1),
+                  value: item.col_value,
+                  count: item.col_count,
+                }));
+              },
+            },
           },
           {
-            columnId: 'numero_pedido',
-            title: 'N° Pedido',
+            columnId: 'jornada',
+            title: 'Jornada',
+            config: {
+              tableName: 'preparte' as any,
+              select: 'jornada' as any,
+              // p_filters: { company_id: company_id! },
+              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                return data.map((item) => {
+                  const item1 = items.find((c) => c.id === item.col_value);
+                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                  return {
+                    label: displayName,
+                    value: item.col_value,
+                    count: item.col_count,
+                  };
+                });
+              },
+            },
           },
+          {
+            columnId: 'tipo',
+            title: 'Tipo',
+            config: {
+              tableName: 'preparte' as any,
+              select: 'tipo' as any,
+              // p_filters: { company_id: company_id! },
+              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                return data.map((item) => {
+                  const item1 = items.find((c) => c.id === item.col_value);
+                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                  return {
+                    label: displayName,
+                    value: item.col_value,
+                    count: item.col_count,
+                  };
+                });
+              },
+            },
+          },
+          // ... otros filtros
         ],
       }}
     />

@@ -11,6 +11,7 @@ import {
 import {
   createPreparte,
   deletePreparte,
+  fetchPrepartes,
   getLastOrderNumber,
   updatePreparte,
 } from '@/features/Operaciones/Preparte/actions/preparte';
@@ -101,6 +102,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
   const [open, setOpen] = useState(false);
   const [savedVisibility, setSavedVisibility] = useState<VisibilityState>({});
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<PreparteItem>({
     id: '',
     cliente_id: '',
@@ -133,6 +135,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     const newNumber = String(lastNumber + 1).padStart(4, '0');
     return `PED-${newNumber}`;
   };
+  console.log(savedVisibility);
 
   const handleSubmit = async (formData: PreparteItem) => {
     try {
@@ -299,6 +302,33 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     router.refresh();
   };
 
+  const handleFetchData = async (opciones: {
+    pageIndex: number;
+    pageSize: number;
+    sorting: any[];
+    columnFilters: any[];
+  }) => {
+    try {
+      setIsLoading(true);
+      return await fetchPrepartes(opciones);
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      return { rows: [], pageCount: 0, rowCount: 0 };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const handleFetchAllData = async (opciones: { sorting: any[]; columnFilters: any[] }) => {
+    try {
+      setIsLoading(true);
+      return await fetchPrepartes(opciones as any);
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      return { rows: [] };
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
       <div className="overflow-y-auto flex justify-between items-center w-full">
@@ -357,7 +387,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
         <CardContent className="p-2">
           <div className="w-full overflow-x-auto">
             <PreparteTable
-              data={prepartes}
+              data={prepartes} // Datos iniciales
               Customers={Customers}
               contratos={contratos}
               items={itemsList}
@@ -365,6 +395,8 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
               onDelete={handleDelete}
               onConfirm={handleConfirm as any}
               savedVisibility={savedVisibility}
+              fetchData={handleFetchData}
+              isLoading={isLoading}
             />
           </div>
         </CardContent>

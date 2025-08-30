@@ -195,3 +195,58 @@ export async function getLastOrderNumber() {
 
   return data?.numero_pedido || 'PED-0000';
 }
+
+export async function fetchPrepartes({
+  pageIndex = 0,
+  pageSize = 10,
+  sorting = [],
+  columnFilters = [],
+}: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: any[];
+  columnFilters: any[];
+}) {
+  const supabase = supabaseServer();
+
+  try {
+    // Construir la consulta base
+    let query = supabase.from('preparte' as any).select('*', { count: 'exact' });
+
+    // Aplicar ordenamiento
+    if (sorting.length > 0) {
+      const { id, desc } = sorting[0];
+      query = query.order(id, { ascending: !desc });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    // Aplicar filtros
+    columnFilters.forEach((filter) => {
+      if (filter.value) {
+        query = query.eq(filter.id, filter.value);
+      }
+    });
+
+    // Aplicar paginación
+    const from = pageIndex * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, count, error } = await query.range(from, to);
+
+    if (error) throw error;
+
+    return {
+      rows: data || [],
+      pageCount: Math.ceil((count || 0) / pageSize),
+      rowCount: count || 0,
+    };
+  } catch (error) {
+    console.error('Error al cargar prepartes:', error);
+    return {
+      rows: [],
+      pageCount: 0,
+      rowCount: 0,
+    };
+  }
+}
