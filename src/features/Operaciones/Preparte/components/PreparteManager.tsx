@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import {
   checkDailyReportExists,
   createDailyReport,
+  createDailyReportCustomerEquipmentRelations,
   createDailyReportRow,
 } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import {
@@ -13,6 +14,7 @@ import {
   deletePreparte,
   fetchPrepartes,
   getLastOrderNumber,
+  getPreparteById,
   updatePreparte,
 } from '@/features/Operaciones/Preparte/actions/preparte';
 import { VisibilityState } from '@tanstack/react-table';
@@ -23,10 +25,33 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PreparteForm } from './PreparteForm';
 import { PreparteTable } from './PreparteTable';
+
 // Tipo de datos para los clientes
 export type Cliente = {
   id: string;
   name: string;
+  // relaciones opcionales necesarias para sector/área/equipos (alineado con Partes Diarios)
+  customer_services?: Array<{
+    id: string;
+    service_id: string;
+    service_sectors?: Array<{
+      id: string;
+      service_id: string;
+      sectors?: { id: string; name: string } | null;
+    }>;
+    service_areas?: Array<{
+      id: string;
+      service_id: string;
+      areas_cliente?: { id: string; nombre: string } | null;
+    }>;
+    equipos_clientes?: Array<{
+      id: string;
+      name: string;
+    }>;
+  }>;
+  // equipos a nivel de cliente
+  sector_customer?: Array<{ id: string; sector_id: string; sectors?: { id: string; name: string } | null }>;
+  equipos_clientes?: Array<{ id: string; name: string }>;
 };
 
 // Tipo de datos para los prepartes
@@ -56,6 +81,10 @@ export type PreparteItem = {
   reprogram?: Date;
   quantity?: number;
   numero_pedido?: string;
+  // nuevos campos
+  sector_service_id: string;
+  areas_service_id: string;
+  equipos_cliente: string[];
 };
 
 interface PreparteManagerProps {
@@ -65,6 +94,7 @@ interface PreparteManagerProps {
   itemsList: Array<{ id: string; item_name: string }>;
   prepartes: PreparteItem[];
 }
+
 export interface Contrato {
   id: string;
   service_name: string;
@@ -103,6 +133,8 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
   const [open, setOpen] = useState(false);
   const [savedVisibility, setSavedVisibility] = useState<VisibilityState>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const [formData, setFormData] = useState<PreparteItem>({
     id: '',
     cliente_id: '',
@@ -120,8 +152,19 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     solicitante: '',
     status: 'pendiente',
     observaciones: '',
+    // defaults nuevos
+    sector_service_id: '',
+    areas_service_id: '',
+    equipos_cliente: [],
   });
+
   const router = useRouter();
+
+  // Función para forzar refresh de la tabla
+  const refreshTable = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
   const handleInputChange = (field: keyof PreparteItem, value: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -135,7 +178,6 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     const newNumber = String(lastNumber + 1).padStart(4, '0');
     return `PED-${newNumber}`;
   };
-  console.log(savedVisibility);
 
   const handleSubmit = async (formData: PreparteItem) => {
     try {
@@ -154,10 +196,17 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
           numero_pedido: formData.numero_pedido,
           // Si el estado es 'reprogramado', guardamos el ID del preparte original
           reprogram: formData.status === 'reprogramado' ? currentItem.id : formData.reprogram,
+          // incluir sector/área/equipos si existen
+          sector_service_id: formData.sector_service_id ?? '',
+          areas_service_id: formData.areas_service_id ?? '',
+          equipos_cliente: formData.equipos_cliente ?? [],
         };
 
         await updatePreparte(currentItem.id, updatedPreparte as any);
         toast.success('Pedido actualizado correctamente');
+
+        // Refresh de la tabla
+        refreshTable();
       } else {
         // Generar número de pedido
         const numeroPedido = await generateOrderNumber();
@@ -182,14 +231,21 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
             observaciones: formData.observaciones || null,
             executionDate: date.toISOString(),
             requestDate: formData.requestDate.toISOString(),
-            numero_pedido: numeroPedido, // Añadir el número de pedido generado
+            numero_pedido: numeroPedido,
+            // nuevos campos
+            sector_service_id: formData.sector_service_id ?? '',
+            areas_service_id: formData.areas_service_id ?? '',
+            equipos_cliente: formData.equipos_cliente ?? [],
           }))
         );
-        console.log(prepartesToCreate);
+
         const createdPrepartes = await createPreparte(prepartesToCreate as any);
         toast.success(
           `Se crearon ${createdPrepartes.length} pedidos correctamente con el número de pedido ${numeroPedido}`
         );
+
+        // Refresh de la tabla
+        refreshTable();
       }
 
       // Reset form and close
@@ -207,27 +263,71 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
         solicitante: '',
         status: 'pendiente',
         observaciones: '',
+        // reset nuevos campos
+        sector_service_id: '',
+        areas_service_id: '',
+        equipos_cliente: [],
       });
       setOpen(false);
       setIsEditing(false);
       setCurrentItem(null);
-      router.refresh();
     } catch (error) {
       console.error('Error saving preparte:', error);
       toast.error(error instanceof Error ? error.message : 'Error al guardar el pedido');
     }
   };
+
   const handleEdit = (item: PreparteItem) => {
     // Convert the item string to the expected array format
-    console.log(item);
     const itemArray =
       typeof item.item === 'string' ? [{ id: item.item, quantity: item.quantity || 1 }] : item.item || [];
-    console.log(itemArray);
+
+    // Normalize sector/area/equipos for edit UI
+    const cliente = Customers.find((c) => c.id === item.cliente_id);
+    const service = cliente?.customer_services?.find((s) => s.service_id === item.contrato_id);
+
+    // Sector mapping -> to service_sectors.id
+    let sectorForForm = item.sector_service_id || '';
+    if (service?.service_sectors && service.service_sectors.length) {
+      const direct = service.service_sectors.find((ss) => ss.id === sectorForForm);
+      if (!direct) {
+        const bySectorId = service.service_sectors.find((ss) => ss.sectors?.id === sectorForForm);
+        if (bySectorId) {
+          sectorForForm = bySectorId.id;
+        } else {
+          const sc = cliente?.sector_customer?.find(
+            (x: any) => x.id === sectorForForm || x.sector_id === sectorForForm
+          );
+          if (sc?.sector_id) {
+            const via = service.service_sectors.find((ss) => ss.sectors?.id === sc.sector_id);
+            if (via) sectorForForm = via.id;
+          }
+        }
+      }
+    }
+
+    // Area mapping -> to service_areas.id
+    let areaForForm = item.areas_service_id || '';
+    if (service?.service_areas && service.service_areas.length) {
+      const directA = service.service_areas.find((sa) => sa.id === areaForForm);
+      if (!directA) {
+        const byAreaCliente = service.service_areas.find((sa) => sa.areas_cliente?.id === areaForForm);
+        if (byAreaCliente) areaForForm = byAreaCliente.id;
+      }
+    }
+
+    // Equipos mapping -> ensure array for multiselect
+    const equiposForForm = Array.isArray(item.equipos_cliente)
+      ? item.equipos_cliente
+      : item.equipos_cliente
+        ? [item.equipos_cliente as unknown as string]
+        : [];
+
     setFormData({
       id: item.id,
       cliente_id: item.cliente_id,
       contrato_id: item.contrato_id || '',
-      item: itemArray, // Use the converted array
+      item: itemArray,
       requestDate: item.requestDate ? new Date(item.requestDate) : new Date(),
       executionDate: item.executionDate ? { from: new Date(item.executionDate as any) } : { from: new Date() },
       tipo: item.tipo || '',
@@ -239,24 +339,29 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
       quantity: item.quantity || 1,
       observaciones: item.observaciones || '',
       numero_pedido: item.numero_pedido || '',
+      // nuevos campos (mapped for UI expectations)
+      sector_service_id: sectorForForm,
+      areas_service_id: areaForForm,
+      equipos_cliente: equiposForForm,
     });
 
     setCurrentItem(item);
     setIsEditing(true);
     setOpen(true);
-    router.refresh();
   };
-  const handleConfirm = async (item: itemDaily) => {
-    console.log(item);
+
+  const handleConfirm = async (item: PreparteItem) => {
     try {
-      // 1. Formatear la fecha de ejecución
-      const executionDate = format(new Date(item.executionDate), 'yyyy-MM-dd');
-      console.log(executionDate);
-      // 2. Verificar si ya existe un parte diario para esta fecha
+      // 1. Format execution date
+      const execSrc: any = item.executionDate;
+      const execDateInput = typeof execSrc === 'object' && execSrc?.from ? execSrc.from : execSrc;
+      const executionDate = format(new Date(execDateInput), 'yyyy-MM-dd');
+
+      // 2. Check if daily report exists for this date
       const existingReports = await checkDailyReportExists([executionDate]);
       let dailyReportId = existingReports[0]?.id;
-      console.log(dailyReportId);
-      // 3. Si no existe, crear un nuevo parte diario
+
+      // 3. Create new daily report if it doesn't exist
       if (!dailyReportId) {
         const newReport = await createDailyReport([executionDate]);
         if (!newReport?.[0]?.id) {
@@ -265,41 +370,76 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
         dailyReportId = newReport[0].id;
       }
 
-      // 4. Crear la fila en el parte diario
+      // 4. Get the current preparte record to ensure we have the latest data
+      const currentItem = await getPreparteById(item.id);
+
+      if (!currentItem) {
+        throw new Error('No se pudo cargar el pedido');
+      }
+
+      // 5. Create daily report row
       const dailyReportData = {
         daily_report_id: dailyReportId,
-        customer_id: item.cliente_id,
-        service_id: item.contrato_id,
-        item_id: item.item,
-        ...(item.start_time && { start_time: item.start_time }), // Only include if not empty
-        ...(item.end_time && { end_time: item.end_time }), // Only include if not empty
-        working_day: item.jornada,
-        description: item.description || '',
+        customer_id: currentItem.cliente_id,
+        service_id: currentItem.contrato_id,
+        item_id: Array.isArray(currentItem.item) ? currentItem.item[0]?.id : currentItem.item,
+        start_time: currentItem.start_time || null,
+        end_time: currentItem.end_time || null,
+        working_day: currentItem.jornada,
+        description: currentItem.observaciones || '',
+        sector_service_id: currentItem.sector_service_id,
+        areas_service_id: currentItem.areas_service_id,
+        type_service: currentItem.tipo,
         status: 'sin_recursos_asignados',
       };
-      console.log(dailyReportData);
-      await createDailyReportRow([dailyReportData as any]);
 
-      // 5. Actualizar el estado del preparte a 'confirmado'
-      await updatePreparte(item.id, {
-        ...item,
+      const createdRows = await createDailyReportRow([dailyReportData as any]);
+      const createdRowId = createdRows?.[0]?.id;
+
+      if (!createdRowId) {
+        throw new Error('No se pudo crear la fila en el parte diario');
+      }
+
+      // 6. Handle equipment if needed
+      if (currentItem.equipos_cliente) {
+        const equipmentIds = Array.isArray(currentItem.equipos_cliente)
+          ? currentItem.equipos_cliente
+          : [currentItem.equipos_cliente].filter(Boolean);
+
+        if (equipmentIds.length > 0) {
+          await createDailyReportCustomerEquipmentRelations(createdRowId, equipmentIds);
+        }
+      }
+
+      // 7. Update preparte status
+      await updatePreparte(currentItem.id, {
         status: 'confirmado',
+        updated_at: new Date().toISOString(),
       });
 
+      // Refresh de la tabla
+      refreshTable();
+
       toast.success('Pedido confirmado y enviado al parte diario');
-      // Actualizar la lista de prepartes
-      router.refresh();
     } catch (error) {
       console.error('Error al confirmar el pedido:', error);
       toast.error(error instanceof Error ? error.message : 'Error al confirmar el pedido');
     }
   };
 
-  const handleDelete = (id: string) => {
-    deletePreparte(id);
-    setItem((prev) => prev.filter((item) => item.id !== id));
-    toast.success('Pedido eliminado correctamente');
-    router.refresh();
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePreparte(id);
+      setItem((prev) => prev.filter((item) => item.id !== id));
+
+      // Refresh de la tabla
+      refreshTable();
+
+      toast.success('Pedido eliminado correctamente');
+    } catch (error) {
+      console.error('Error al eliminar:', error);
+      toast.error('Error al eliminar el pedido');
+    }
   };
 
   const handleFetchData = async (opciones: {
@@ -318,6 +458,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
       setIsLoading(false);
     }
   };
+
   const handleFetchAllData = async (opciones: { sorting: any[]; columnFilters: any[] }) => {
     try {
       setIsLoading(true);
@@ -329,6 +470,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
       setIsLoading(false);
     }
   };
+
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
       <div className="overflow-y-auto flex justify-between items-center w-full">
@@ -344,7 +486,6 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
             <SheetHeader className="mb-6">
               <SheetTitle>{isEditing ? 'Editar Pedido' : 'Nuevo Pedido'}</SheetTitle>
             </SheetHeader>
-            {/* <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full"> */}
             <PreparteForm
               formData={formData}
               clientes={Customers as Cliente[]}
@@ -375,10 +516,12 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
                   cancel_reason: '',
                   reprogram: new Date(),
                   observaciones: '',
+                  sector_service_id: '',
+                  areas_service_id: '',
+                  equipos_cliente: [],
                 });
               }}
             />
-            {/* </div>  */}
           </SheetContent>
         </Sheet>
       </div>
@@ -387,16 +530,17 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
         <CardContent className="p-2">
           <div className="w-full overflow-x-auto">
             <PreparteTable
-              data={prepartes} // Datos iniciales
+              data={prepartes}
               Customers={Customers}
               contratos={contratos}
               items={itemsList}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              onConfirm={handleConfirm as any}
+              onConfirm={handleConfirm}
               savedVisibility={savedVisibility}
               fetchData={handleFetchData}
               isLoading={isLoading}
+              refreshKey={refreshKey}
             />
           </div>
         </CardContent>

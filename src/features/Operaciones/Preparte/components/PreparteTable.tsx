@@ -32,6 +32,7 @@ interface PreparteTableProps {
   onDelete: (id: string) => void;
   onConfirm: (item: PreparteItem) => void;
   savedVisibility?: VisibilityState;
+  refreshKey?: number;
 
   // Nueva prop para la carga de datos
   fetchData: (opciones: {
@@ -147,19 +148,19 @@ const getColumns = (
       return numA - numB;
     },
     cell: ({ row }) => row.original.numero_pedido || '-',
-    filterFn: (row, id, value) => {
-      const rowValue = row.getValue(id) as string;
-      if (!rowValue) return false;
+    // filterFn: (row, id, value) => {
+    //   const rowValue = row.getValue(id) as string;
+    //   if (!rowValue) return false;
 
-      // If no filter value is provided, show all rows
-      if (!value || (Array.isArray(value) && value.length === 0)) return true;
+    //   // If no filter value is provided, show all rows
+    //   if (!value || (Array.isArray(value) && value.length === 0)) return true;
 
-      // Handle both string and array of strings for the value
-      const searchValues = Array.isArray(value) ? value : [value];
+    //   // Handle both string and array of strings for the value
+    //   const searchValues = Array.isArray(value) ? value : [value];
 
-      // Check if any of the search values match (case insensitive)
-      return searchValues.some((searchValue) => rowValue.toLowerCase().includes(searchValue.toString().toLowerCase()));
-    },
+    //   // Check if any of the search values match (case insensitive)
+    //   return searchValues.some((searchValue) => rowValue.toLowerCase().includes(searchValue.toString().toLowerCase()));
+    // },
     enableColumnFilter: true,
   },
   {
@@ -191,6 +192,81 @@ const getColumns = (
       return value.includes(row.getValue(id));
     },
     enableColumnFilter: true,
+  },
+  {
+    accessorKey: 'sector_service_id',
+    header: 'Sector (Cliente)',
+    cell: ({ row }) => {
+      const sectorServiceId = row.original.sector_service_id;
+      const clienteId = row.original.cliente_id;
+      const contratoId = row.original.contrato_id;
+      if (!sectorServiceId) return '-';
+      const cliente = Customers.find((c) => c.id === clienteId);
+      const service = cliente?.customer_services?.find((s) => s.service_id === contratoId);
+      const sectorLink =
+        service?.service_sectors?.find((ss) => ss.id === sectorServiceId || ss?.sectors?.id === sectorServiceId) ||
+        // Fallback: search across all customers/services
+        Customers.flatMap((c) => c.customer_services || [])
+          .flatMap((svc) => svc.service_sectors || [])
+          .find((ss) => ss.id === sectorServiceId || ss?.sectors?.id === sectorServiceId);
+      if (!sectorLink?.sectors?.name) {
+        const sc = cliente?.sector_customer?.find(
+          (x: any) => x.id === sectorServiceId || x.sector_id === sectorServiceId
+        );
+        return sc?.sectors?.name || sectorServiceId || '-';
+      }
+      return sectorLink?.sectors?.name || sectorServiceId || '-';
+    },
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      if (!value || value.length === 0) return true;
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: 'areas_service_id',
+    header: 'Área (Cliente)',
+    cell: ({ row }) => {
+      const areaServiceId = row.original.areas_service_id;
+      const clienteId = row.original.cliente_id;
+      const contratoId = row.original.contrato_id;
+      if (!areaServiceId) return '-';
+      const cliente = Customers.find((c) => c.id === clienteId);
+      const service = cliente?.customer_services?.find((s) => s.service_id === contratoId);
+      const areaLink =
+        service?.service_areas?.find((sa) => sa.id === areaServiceId || sa?.areas_cliente?.id === areaServiceId) ||
+        // Fallback: search across all customers/services
+        Customers.flatMap((c) => c.customer_services || [])
+          .flatMap((svc) => svc.service_areas || [])
+          .find((sa) => sa.id === areaServiceId || sa?.areas_cliente?.id === areaServiceId);
+      return areaLink?.areas_cliente?.nombre || areaServiceId || '-';
+    },
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      if (!value || value.length === 0) return true;
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: 'equipos_cliente',
+    header: 'Equipo Cliente',
+    cell: ({ row }) => {
+      const value: any = (row.original as any).equipos_cliente;
+      if (!value) return '-';
+      const cliente = Customers.find((c) => c.id === row.original.cliente_id);
+      const equiposCatalog: Array<{ id: string; name: string }> =
+        cliente?.equipos_clientes || cliente?.customer_services?.flatMap((cs) => cs.equipos_clientes || []) || [];
+      const toName = (id: string) => equiposCatalog.find((e) => e.id === id)?.name || id;
+      if (Array.isArray(value)) return value.length ? value.map((id) => toName(id)).join(', ') : '-';
+      return typeof value === 'string' ? toName(value) : '-';
+    },
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      const cellVal: any = row.getValue(id);
+      if (!value || value.length === 0) return true;
+      if (Array.isArray(cellVal)) return cellVal.some((cv) => value.includes(cv));
+      return value.includes(cellVal);
+    },
   },
   {
     accessorKey: 'item',
@@ -320,44 +396,6 @@ const getColumns = (
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              {/* Diálogo de eliminar */}
-              {/* <AlertDialog
-                open={deleteItemId === row.original.id}
-                onOpenChange={(open) => !open && setDeleteItemId(null)}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteItemId(row.original.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Eliminar</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Estás seguro que deseas eliminar este preparte?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acción no se puede deshacer. Se eliminará el registro permanentemente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => {
-                        onDelete(row.original.id);
-                        setDeleteItemId(null);
-                      }}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Eliminar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog> */}
             </>
           )}
 
@@ -409,7 +447,7 @@ const getColumns = (
 ];
 
 export function PreparteTable({
-  data,
+  data: tableData,
   Customers,
   contratos,
   items,
@@ -420,13 +458,16 @@ export function PreparteTable({
   fetchData,
   fetchAllData,
   isLoading = false,
+  refreshKey = 0,
 }: PreparteTableProps) {
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-  const uniqueStatuses = [...new Set(data.map((item) => item.status))];
-  const uniqueClientIds = [...new Set(data.map((item) => item.cliente_id))];
+
+  // Usar directamente los datos de las props
+  const uniqueStatuses = [...new Set(tableData.map((item) => item.status))];
+  const uniqueClientIds = [...new Set(tableData.map((item) => item.cliente_id))];
   const filteredCustomers = Customers.filter((customer) => uniqueClientIds.includes(customer.id));
 
-  const uniqueContratoIds = [...new Set(data.map((item) => item.contrato_id))];
+  const uniqueContratoIds = [...new Set(tableData.map((item) => item.contrato_id))];
   const filteredContratos = contratos.filter((contrato) => uniqueContratoIds.includes(contrato.id));
 
   const [initialVisibleFilters] = useState<string[]>(() => {
@@ -452,19 +493,21 @@ export function PreparteTable({
   });
 
   // Para items, necesitarías aplanar el array de items primero
-  const allItemIds = data.flatMap((item) => (Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]));
+  const allItemIds = tableData.flatMap((item) => (Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]));
   const uniqueItemIds = [...new Set(allItemIds)];
   const filteredItems = items.filter((item) => uniqueItemIds.includes(item.id));
 
   return (
     <BaseDataTable
       columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
-      data={data}
+      data={tableData}
       tableId="preparte-table"
       savedVisibility={savedVisibility}
-      serverSide={true} // Habilitar modo servidor
+      serverSide={true}
       fetchData={fetchData}
       fetchAllData={fetchAllData}
+      queryKey={`preparte-table-${refreshKey}`} // Usar refreshKey para forzar recarga
+      // isLoading={isLoading}
       toolbarOptions={{
         initialVisibleFilters: initialVisibleFilters,
         filterableColumns: [
@@ -474,7 +517,6 @@ export function PreparteTable({
             config: {
               tableName: 'preparte' as any,
               select: 'cliente_id' as any,
-              // p_filters: { company_id: company_id! },
               mapper: (data: Array<{ col_value: string; col_count: number }>) => {
                 return data.map((item) => {
                   const customer = Customers.find((c) => c.id === item.col_value);
@@ -494,7 +536,6 @@ export function PreparteTable({
             config: {
               tableName: 'preparte' as any,
               select: 'contrato_id' as any,
-              // p_filters: { company_id: company_id! },
               mapper: (data: Array<{ col_value: string; col_count: number }>) => {
                 return data.map((item) => {
                   const contrato = contratos.find((c) => c.id === item.col_value);
@@ -506,6 +547,83 @@ export function PreparteTable({
                   };
                 });
               },
+            },
+          },
+          {
+            columnId: 'sector_service_id',
+            title: 'Sector (Cliente)',
+            config: {
+              tableName: 'preparte' as any,
+              select: 'sector_service_id' as any,
+              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                data.map((item) => {
+                  const id = item.col_value;
+                  let label = id || '-';
+                  for (const c of Customers) {
+                    for (const svc of c.customer_services || []) {
+                      const ss = svc.service_sectors?.find((x) => x.id === id || x.sectors?.id === id);
+                      if (ss?.sectors?.name) {
+                        label = ss.sectors.name;
+                        break;
+                      }
+                    }
+                  }
+                  // Fallback: sector_customer mapping at client level
+                  const sc = (Customers as any).sector_customer?.find((x: any) => x.id === id || x.sector_id === id);
+                  if (sc?.sectors?.name) {
+                    label = sc.sectors.name;
+                  }
+                  return { label, value: id, count: item.col_count };
+                }),
+            },
+          },
+          {
+            columnId: 'areas_service_id',
+            title: 'Área (Cliente)',
+            config: {
+              tableName: 'preparte' as any,
+              select: 'areas_service_id' as any,
+              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                data.map((item) => {
+                  const id = item.col_value;
+                  let label = id || '-';
+                  for (const c of Customers) {
+                    for (const svc of c.customer_services || []) {
+                      const sa = svc.service_areas?.find((x) => x.id === id || x.areas_cliente?.id === id);
+                      if (sa?.areas_cliente?.nombre) {
+                        label = sa.areas_cliente.nombre;
+                        break;
+                      }
+                    }
+                  }
+                  return { label, value: id, count: item.col_count };
+                }),
+            },
+          },
+          {
+            columnId: 'equipos_cliente',
+            title: 'Equipo Cliente',
+            config: {
+              tableName: 'preparte' as any,
+              select: 'equipos_cliente' as any,
+              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                data.map((item) => {
+                  const id = item.col_value;
+                  let label = id || '-';
+                  // Buscar en catálogo de equipos de todos los clientes
+                  outer: for (const c of Customers) {
+                    const allEquipos = [
+                      ...(c.equipos_clientes || []),
+                      ...(c.customer_services || []).flatMap((cs) => cs.equipos_clientes || []),
+                    ];
+                    const eq = allEquipos.find((e) => e.id === id);
+                    if (eq?.name) {
+                      label = eq.name;
+                      break outer;
+                    }
+                  }
+                  return { label, value: id, count: item.col_count };
+                }),
             },
           },
           {
@@ -584,7 +702,26 @@ export function PreparteTable({
             toPlaceholder: 'Hasta',
             // defaultValues: { from: null, to: null }, // opcional
           },
-          // ... otros filtros
+          {
+            columnId: 'numero_pedido',
+            title: 'N° Pedido',
+            config: {
+              tableName: 'preparte' as any,
+              select: 'numero_pedido' as any,
+              // p_filters: { company_id: company_id! },
+              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                return data.map((item) => {
+                  const item1 = items.find((c) => c.id === item.col_value);
+                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                  return {
+                    label: displayName,
+                    value: item.col_value,
+                    count: item.col_count,
+                  };
+                });
+              },
+            },
+          },
         ],
       }}
     />

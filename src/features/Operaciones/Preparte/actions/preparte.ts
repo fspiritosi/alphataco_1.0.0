@@ -14,11 +14,16 @@ export type Preparte = {
   solicitante: string;
   status?: string;
   item?: string | null;
-  observaciones?: string;
+  observaciones?: string | null;
   executionDate: string;
   requestDate: string;
   quantity?: number;
   numero_pedido: string;
+  sector_service_id?: string | null;
+  areas_service_id?: string | null;
+  equipos_cliente?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 // Create a new preparte
@@ -53,7 +58,80 @@ export async function createPreparte(
       throw new Error('No hay datos válidos para insertar');
     }
 
-    const validatedData = dataToInsert.map((item) => ({
+    // Normalizar claves foráneas antes de insertar
+    const normalized = await Promise.all(
+      dataToInsert.map(async (item) => {
+        let sector_fk: string | null | undefined = item.sector_service_id ?? null;
+        let area_fk: string | null | undefined = item.areas_service_id ?? null;
+        try {
+          // Si viene un id de service_sectors, obtener el service_sectors.id correspondiente al sector_id
+          if (sector_fk) {
+            // Primero verificar si el ID existe en service_sectors
+            const { data: ss, error: ssErr } = await supabase
+              .from('service_sectors')
+              .select('id, sector_id')
+              .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${item.contrato_id})`)
+              .maybeSingle?.();
+            // .maybeSingle puede no existir según versión; fallback a single
+            // @ts-ignore
+            if (!ss && !ssErr) {
+              const { data: ss2 } = await supabase
+                .from('service_sectors')
+                .select('id, sector_id')
+                .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${item.contrato_id})`)
+                .single();
+              // @ts-ignore
+              if (ss2) {
+                // @ts-ignore
+                sector_fk = ss2.id as string | undefined;
+              }
+            } else if (ss) {
+              // @ts-ignore
+              sector_fk = ss.id as string | undefined;
+            }
+          }
+        } catch (e) {
+          console.warn('No se pudo normalizar sector_service_id, usando valor original:', e);
+        }
+
+        try {
+          // Si viene un id de service_areas desde el form, obtener el service_areas.id correspondiente al area_id
+          if (area_fk) {
+            // Primero verificar si el ID existe en service_areas
+            const { data: sa, error: saErr } = await supabase
+              .from('service_areas')
+              .select('id, area_id')
+              .or(`id.eq.${area_fk},and(area_id.eq.${area_fk},service_id.eq.${item.contrato_id})`)
+              .maybeSingle?.();
+
+            if (sa) {
+              // Si encontramos el registro, usar el ID de service_areas
+              area_fk = sa.id;
+            } else if (!saErr) {
+              // Si no hay error pero no se encontró, intentar con el ID directo
+              console.warn('No se encontró el área en service_areas, usando ID directo');
+            } else {
+              console.error('Error buscando el área:', saErr);
+              area_fk = null;
+            }
+          }
+        } catch (e) {
+          console.warn('No se pudo normalizar areas_service_id, usando valor original:', e);
+        }
+
+        return {
+          ...item,
+          sector_service_id: sector_fk ?? null,
+          areas_service_id: area_fk ?? null,
+          // Guardar solo el primer equipo seleccionado (si viene array del form)
+          equipos_cliente: Array.isArray(item.equipos_cliente)
+            ? item.equipos_cliente[0] ?? null
+            : item.equipos_cliente ?? null,
+        };
+      })
+    );
+
+    const validatedData = normalized.map((item) => ({
       cliente_id: item.cliente_id,
       contrato_id: item.contrato_id,
       tipo: item.tipo,
@@ -68,6 +146,9 @@ export async function createPreparte(
       requestDate: item.requestDate,
       quantity: item.quantity,
       numero_pedido: item.numero_pedido,
+      sector_service_id: item.sector_service_id ?? null,
+      areas_service_id: item.areas_service_id ?? null,
+      equipos_cliente: item.equipos_cliente ?? null,
     }));
 
     const { data, error } = await supabase
@@ -90,12 +171,106 @@ export async function createPreparte(
 // Update an existing preparte
 export async function updatePreparte(id: string, preparteData: Partial<Preparte>) {
   const supabase = supabaseServer();
+
+  // Construir payload: solo tocar sector/área/equipos si vienen en el payload
+  const payload: any = {
+    ...preparteData,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Equipos: solo si la clave está presente
+  if ('equipos_cliente' in preparteData) {
+    payload.equipos_cliente = Array.isArray(preparteData.equipos_cliente)
+      ? preparteData.equipos_cliente?.[0] ?? null
+      : preparteData.equipos_cliente ?? null;
+  }
+
+  // Sector: normalizar solo si la clave está presente y tiene valor
+  if ('sector_service_id' in preparteData) {
+    let sector_fk: string | null | undefined = preparteData.sector_service_id ?? null;
+    if (sector_fk) {
+      // Obtener cliente_id solo si es necesario para normalizar
+      let clienteId = preparteData.cliente_id as string | undefined;
+      if (!clienteId) {
+        const { data: current } = await supabase
+          .from('preparte' as any)
+          .select('cliente_id')
+          .eq('id', id)
+          .single();
+        clienteId = current?.cliente_id as string | undefined;
+      }
+
+      try {
+        const { data: ss, error: ssErr } = await supabase
+          .from('service_sectors')
+          .select('id, sector_id')
+          .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${clienteId})`)
+          .maybeSingle?.();
+        // @ts-ignore fallback
+        if (!ss && !ssErr) {
+          const { data: ss2 } = await supabase
+            .from('service_sectors')
+            .select('id, sector_id')
+            .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${clienteId})`)
+            .single();
+          // @ts-ignore
+          if (ss2) {
+            // @ts-ignore
+            sector_fk = ss2.id as string | undefined;
+          }
+        } else if (ss) {
+          // @ts-ignore
+          sector_fk = ss.id as string | undefined;
+        }
+      } catch (e) {
+        console.warn('[updatePreparte] No se pudo normalizar sector_service_id, usando valor original:', e);
+      }
+    }
+    payload.sector_service_id = sector_fk; // puede ser string o null si explícitamente se envió null
+  }
+
+  // Área: normalizar solo si la clave está presente y tiene valor
+  if ('areas_service_id' in preparteData) {
+    let area_fk: string | null | undefined = preparteData.areas_service_id ?? null;
+    if (area_fk) {
+      // Obtener contrato_id solo si es necesario para normalizar
+      let contratoId = preparteData.contrato_id as string | undefined;
+      if (!contratoId) {
+        const { data: current } = await supabase
+          .from('preparte' as any)
+          .select('contrato_id')
+          .eq('id', id)
+          .single();
+        contratoId = current?.contrato_id as string | undefined;
+      }
+
+      try {
+        const { data: sa, error: saErr } = await supabase
+          .from('service_areas')
+          .select('id, area_id')
+          .or(`id.eq.${area_fk},and(area_id.eq.${area_fk},service_id.eq.${contratoId})`)
+          .maybeSingle?.();
+
+        if (sa) {
+          // Si encontramos el registro, usar el ID de service_areas
+          area_fk = sa.id;
+        } else if (!saErr) {
+          // Si no hay error pero no se encontró, intentar con el ID directo
+          console.warn('[updatePreparte] No se encontró el área en service_areas, usando ID directo');
+        } else {
+          console.error('[updatePreparte] Error buscando el área:', saErr);
+          area_fk = null;
+        }
+      } catch (e) {
+        console.warn('[updatePreparte] No se pudo normalizar areas_service_id, usando valor original:', e);
+      }
+    }
+    payload.areas_service_id = area_fk; // puede ser string o null si explícitamente se envió null
+  }
+
   const { data, error } = await supabase
     .from('preparte' as any)
-    .update({
-      ...preparteData,
-      updated_at: new Date().toISOString(),
-    })
+    .update(payload)
     .eq('id', id)
     .select()
     .single();

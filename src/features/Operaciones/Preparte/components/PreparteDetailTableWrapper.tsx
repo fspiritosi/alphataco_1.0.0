@@ -1,4 +1,4 @@
-import { fetchAllContracts, fetchContractorCompanies } from '@/app/dashboard/employee/action/actions/actions';
+import { fetchAllContracts } from '@/app/dashboard/employee/action/actions/actions';
 import { fetchServiceItems } from '@/features/Operaciones/Preparte/actions/actions';
 import { listPrepartes } from '@/features/Operaciones/Preparte/actions/preparte';
 import { PreparteManager } from './PreparteManager';
@@ -42,7 +42,8 @@ const mockPreparteItems: PreparteItem[] = [
 
 export async function PreparteDetailTableWrapper() {
   const [customers, contratos, itemsList, prepartes] = await Promise.all([
-    fetchContractorCompanies(),
+    // Traer clientes con relaciones anidadas (sectores, áreas, equipos)
+    (await import('@/features/Operaciones/Preparte/actions/actions')).fetchCustomersWithRelations(),
     fetchAllContracts(),
     fetchServiceItems(),
     listPrepartes(),

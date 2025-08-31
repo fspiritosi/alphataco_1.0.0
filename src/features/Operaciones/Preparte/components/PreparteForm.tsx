@@ -11,6 +11,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchServiceItems } from '@/features/Empresa/Clientes/actions/items';
+import {
+  fetchAreasByContract,
+  fetchEquipmentsByCustomer,
+  fetchSectorsByContract,
+} from '@/features/Operaciones/Preparte/actions/actions';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -22,7 +27,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
 import { createPreparte } from '../actions/preparte';
-import { Cliente } from '../components/PreparteManager';
+import type { Cliente } from './PreparteManager';
 // Esquema de validación con Zod
 const formSchema = z
   .object({
@@ -64,6 +69,9 @@ const formSchema = z
     quantity: z.number().optional(),
     numero_pedido: z.string().optional(),
     observaciones: z.string().optional(),
+    sector_service_id: z.string({ required_error: 'Sector del cliente es obligatorio' }).uuid('Sector inválido'),
+    areas_service_id: z.string({ required_error: 'Área del cliente es obligatoria' }).uuid('Área inválida'),
+    equipos_cliente: z.array(z.string().uuid()).optional().default([]),
   })
   .refine(
     (data) => data.status !== 'reprogramado' || (data.reprogram !== undefined && data.reprogram instanceof Date),
@@ -128,6 +136,10 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   const [contractItems, setContractItems] = useState<{ label: string; value: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [reprogramDate, setReprogramDate] = useState<Date | null>(null);
+  // Opciones dependientes del contrato (solo id+name)
+  const [sectorList, setSectorList] = useState<Array<{ id: string; name: string }>>([]);
+  const [areaList, setAreaList] = useState<Array<{ id: string; name: string }>>([]);
+  const [equipmentList, setEquipmentList] = useState<Array<{ id: string; name: string }>>([]);
   // Reemplaza la línea actual de inicialización de selectedItems por:
   const [selectedItems, setSelectedItems] = useState<Array<{ id: string; quantity: number }>>(() => {
     if (formData?.item) {
@@ -141,7 +153,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   // Add this state at the top of your component
   // const [itemRows, setItemRows] = useState([{ id: 1, itemId: '', quantity: 1 }]);
   // Add this function to handle item selection
-  console.log('selectedItems', selectedItems);
+
   const handleAddItem = () => {
     setSelectedItems((prev) => [...prev, { id: '', quantity: 1 }]);
   };
@@ -192,12 +204,11 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
         setContractItems([]);
         return;
       }
-      console.log('Fetching items for contrato:', form.watch('contrato_id'));
 
       setIsLoading(true);
       try {
         const items = await fetchServiceItems(form.watch('contrato_id'));
-        console.log('Fetched items:', items);
+
         setContractItems(
           items.map((item) => ({
             label: item.item_name || `Item ${item.id}`,
@@ -215,16 +226,44 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     fetchItems();
   }, [form.watch('contrato_id')]);
 
+  // Cargar sectores/áreas/equipos (id+name) cuando hay cliente y contrato seleccionados
+  useEffect(() => {
+    const loadDependentOptions = async () => {
+      const customerId = form.watch('cliente_id');
+      const serviceId = form.watch('contrato_id');
+
+      if (!customerId || !serviceId) {
+        setSectorList([]);
+        setAreaList([]);
+        setEquipmentList([]);
+        return;
+      }
+      try {
+        const [sectors, areas] = await Promise.all([
+          fetchSectorsByContract(serviceId),
+          fetchAreasByContract(serviceId),
+        ]);
+
+        setSectorList(sectors);
+        setAreaList(areas);
+        // Equipos: por cliente
+        const equipmentsByCustomer = await fetchEquipmentsByCustomer(customerId);
+
+        setEquipmentList(equipmentsByCustomer);
+      } catch (e) {
+        console.error('Error loading dependent options:', e);
+        setSectorList([]);
+        setAreaList([]);
+        setEquipmentList([]);
+      }
+    };
+
+    loadDependentOptions();
+  }, [form.watch('cliente_id'), form.watch('contrato_id')]);
+
   const handleSubmit = async (data: PreparteItem) => {
-    console.log('Iniciando handleSubmit con data:', data);
-
     try {
-      console.log('Status actual:', data.status);
-      console.log('reprogramDate:', data.reprogram);
-
       if (data.status === 'reprogramado' && data.reprogram) {
-        console.log('Iniciando proceso de reprogramación');
-
         // Crear nuevo ítem con la nueva fecha
         const newItem = {
           ...data,
@@ -237,12 +276,8 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
           // observaciones: `[${new Date().toLocaleDateString('es-ES')}] Reprogramado de ${format(data.executionDate.from, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
         };
 
-        console.log('Nuevo item a crear:', JSON.stringify(newItem, null, 2));
-
         try {
-          console.log('Intentando crear nuevo item...');
           const result = await createPreparte(newItem as any);
-          console.log('Nuevo item creado:', result);
         } catch (createError) {
           console.error('Error al crear nuevo item:', createError);
           throw createError;
@@ -255,12 +290,8 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
           observaciones: `[${new Date().toLocaleDateString('es-ES')}] Se reprogramó para ${format(data.reprogram, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
         };
 
-        console.log('Actualizando item original:', JSON.stringify(updatedOriginal, null, 2));
-
         try {
-          console.log('Intentando actualizar item original...');
           await onSubmit(updatedOriginal as any);
-          console.log('Item original actualizado');
         } catch (updateError) {
           console.error('Error al actualizar item original:', updateError);
           throw updateError;
@@ -272,7 +303,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
       }
 
       // Lógica normal de guardado
-      console.log('Guardado normal, no es reprogramación');
+
       const clienteSeleccionado = clientes.find((c) => c.id === data.cliente_id);
       if (clienteSeleccionado) {
         data.cliente_id = clienteSeleccionado.id;
@@ -283,7 +314,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
       toast.error(`Error al guardar el servicio: ${(error as Error).message}`);
     }
   };
-  console.log(selectedItems);
+
   return (
     <div className=" gap-4 space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
       <Form {...form}>
@@ -300,37 +331,6 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cliente</FormLabel>
-                  {/* <Select
-                    onValueChange={(value) => {
-                      form.setValue('cliente_id', value);
-                      form.setValue('contrato_id', '');
-                      form.setValue('item', []);
-                      handleClienteChange(value);
-                    }}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Seleccionar cliente">
-                          {field.value ? (
-                            clientes.find((c) => c.id === field.value)?.name || 'Cliente no encontrado'
-                          ) : (
-                            <span className="flex items-center">
-                              <Building className="mr-2 h-4 w-4" />
-                              Seleccionar cliente
-                            </span>
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clientes.map((cliente) => (
-                        <SelectItem key={cliente.id} value={cliente.id}>
-                          {cliente.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select> */}
                   <MultiSelectCombobox
                     options={clientes.map((cliente) => ({
                       label: cliente.name,
@@ -338,7 +338,15 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     }))}
                     selectedValues={field.value ? [field.value] : []} // Asegurar que sea un array
                     onChange={(selectedIds) => {
-                      field.onChange(selectedIds[0] || ''); // Tomar el primer ID o string vacío
+                      const value = selectedIds[0] || '';
+                      field.onChange(value);
+                      // reset dependientes
+                      form.setValue('contrato_id', '');
+                      form.setValue('sector_service_id', '');
+                      form.setValue('areas_service_id', '');
+                      form.setValue('equipos_cliente', []);
+                      setContractItems([]);
+                      handleClienteChange(value);
                     }}
                     placeholder={clientes.find((c) => c.id === field.value)?.name || 'Seleccionar cliente'}
                     emptyMessage="No hay clientes disponibles"
@@ -355,31 +363,6 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contrato</FormLabel>
-                  {/* <Select
-                    disabled={!form.watch('cliente_id') || isLoading}
-                    onValueChange={(value) => form.setValue('contrato_id', value)}
-                    value={field.value}
-                  >
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder={isLoading ? 'Cargando contratos...' : 'Seleccionar contrato'}>
-                        {field.value ? (
-                          contratos.find((c) => c.id === field.value)?.service_name || 'Contrato no encontrado'
-                        ) : (
-                          <span className="flex items-center">
-                            <FileText className="mr-2 h-4 w-4" />
-                            {isLoading ? 'Cargando...' : 'Seleccionar contrato'}
-                          </span>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contratos.map((contrato) => (
-                        <SelectItem key={contrato.id} value={contrato.id}>
-                          {contrato.service_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select> */}
                   <MultiSelectCombobox
                     options={contratos.map((contrato) => ({
                       label: contrato.service_name,
@@ -387,7 +370,12 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     }))}
                     selectedValues={field.value ? [field.value] : []} // Asegurar que sea un array
                     onChange={(selectedIds) => {
-                      field.onChange(selectedIds[0] || ''); // Tomar el primer ID o string vacío
+                      const value = selectedIds[0] || '';
+                      field.onChange(value);
+                      // reset dependientes del contrato
+                      form.setValue('sector_service_id', '');
+                      form.setValue('areas_service_id', '');
+                      form.setValue('equipos_cliente', []);
                     }}
                     placeholder={contratos.find((c) => c.id === field.value)?.service_name || 'Seleccionar contrato'}
                     emptyMessage="No hay contratos disponibles"
@@ -789,6 +777,188 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               />
             )}
 
+            {/* Sector del Cliente */}
+            <FormField
+              control={form.control}
+              name="sector_service_id"
+              render={({ field }) => {
+                const selectedCustomer = clientes.find((c) => c.id === form.watch('cliente_id')) as Cliente | undefined;
+                const selectedServiceId = form.watch('contrato_id');
+                const baseSectorOptions = sectorList.map((s) => ({ label: s.name, value: s.id }));
+                // If current selected value isn't in options, try to derive label from relations and inject it
+                let sectorOptions = baseSectorOptions;
+                if (field.value && !baseSectorOptions.some((o) => o.value === field.value)) {
+                  const svc = selectedCustomer?.customer_services?.find((s) => s.service_id === selectedServiceId);
+                  const matchByServiceSectorId = svc?.service_sectors?.find((ss) => ss.id === field.value);
+                  const matchBySectorId = svc?.service_sectors?.find((ss) => ss.sectors?.id === field.value);
+                  // Fallback across all services for the cliente if contrato_id not matched yet
+                  const anySvcMatchByServiceSectorId =
+                    matchByServiceSectorId ||
+                    selectedCustomer?.customer_services
+                      ?.flatMap((s) => s.service_sectors || [])
+                      .find((ss) => ss.id === field.value);
+                  const anySvcMatchBySectorId =
+                    matchBySectorId ||
+                    selectedCustomer?.customer_services
+                      ?.flatMap((s) => s.service_sectors || [])
+                      .find((ss) => ss.sectors?.id === field.value);
+
+                  // Fallback if current value is a sector_customer.id or sector_id
+                  const sc = selectedCustomer?.sector_customer?.find(
+                    (x: any) => x?.id === field.value || x?.sector_id === field.value
+                  );
+                  const viaSectorCustomer = sc
+                    ? selectedCustomer?.customer_services
+                        ?.flatMap((s) => s.service_sectors || [])
+                        .find((ss) => ss.sectors?.id === sc.sector_id)
+                    : undefined;
+                  if (!anySvcMatchByServiceSectorId && !anySvcMatchBySectorId && viaSectorCustomer) {
+                    form.setValue('sector_service_id', viaSectorCustomer.id as any, {
+                      shouldDirty: false,
+                      shouldValidate: false,
+                    });
+                  }
+
+                  // If the current value is sectors.id, normalize it to the matching service_sectors.id
+                  const normalizeToServiceSector =
+                    anySvcMatchByServiceSectorId || anySvcMatchBySectorId || viaSectorCustomer;
+                  if (normalizeToServiceSector && field.value !== normalizeToServiceSector.id) {
+                    form.setValue('sector_service_id', normalizeToServiceSector.id as any, {
+                      shouldDirty: false,
+                      shouldValidate: false,
+                    });
+                  }
+
+                  const derivedLabel =
+                    matchByServiceSectorId?.sectors?.name ||
+                    matchBySectorId?.sectors?.name ||
+                    anySvcMatchByServiceSectorId?.sectors?.name ||
+                    anySvcMatchBySectorId?.sectors?.name ||
+                    sc?.sectors?.name;
+                  if (derivedLabel) {
+                    sectorOptions = [{ label: derivedLabel, value: field.value }, ...baseSectorOptions];
+                  }
+                }
+
+                return (
+                  <FormItem>
+                    <FormLabel>Sector del Cliente</FormLabel>
+                    <MultiSelectCombobox
+                      options={sectorOptions}
+                      selectedValues={field.value ? [field.value] : []}
+                      onChange={(vals) => field.onChange(vals[0] || '')}
+                      placeholder={
+                        field.value
+                          ? sectorOptions.find((o) => o.value === field.value)?.label || 'Seleccionar sector'
+                          : 'Seleccionar sector'
+                      }
+                      disabled={!selectedCustomer || !selectedServiceId}
+                      emptyMessage={
+                        !selectedCustomer || !selectedServiceId
+                          ? 'Seleccione un cliente y contrato'
+                          : 'Sin sectores disponibles para este contrato'
+                      }
+                      maxSelections={1}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+
+            {/* Área del Cliente */}
+            <FormField
+              control={form.control}
+              name="areas_service_id"
+              render={({ field }) => {
+                const selectedCustomer = clientes.find((c) => c.id === form.watch('cliente_id')) as Cliente | undefined;
+                const selectedServiceId = form.watch('contrato_id');
+                const baseAreaOptions = areaList.map((a) => ({ label: a.name, value: a.id }));
+                // If current selected value isn't in options, try to derive label from relations and inject it
+                let areaOptions = baseAreaOptions;
+                if (field.value && !baseAreaOptions.some((o) => o.value === field.value)) {
+                  const svc = selectedCustomer?.customer_services?.find((s) => s.service_id === selectedServiceId);
+                  const matchByServiceAreaId = svc?.service_areas?.find((sa) => sa.id === field.value);
+                  const matchByAreaClienteId = svc?.service_areas?.find((sa) => sa.areas_cliente?.id === field.value);
+                  // Fallback across all services for the cliente
+                  const anySvcMatchByServiceAreaId =
+                    matchByServiceAreaId ||
+                    selectedCustomer?.customer_services
+                      ?.flatMap((s) => s.service_areas || [])
+                      .find((sa) => sa.id === field.value);
+                  const anySvcMatchByAreaClienteId =
+                    matchByAreaClienteId ||
+                    selectedCustomer?.customer_services
+                      ?.flatMap((s) => s.service_areas || [])
+                      .find((sa) => sa.areas_cliente?.id === field.value);
+                  const derivedLabel =
+                    matchByServiceAreaId?.areas_cliente?.nombre ||
+                    matchByAreaClienteId?.areas_cliente?.nombre ||
+                    anySvcMatchByServiceAreaId?.areas_cliente?.nombre ||
+                    anySvcMatchByAreaClienteId?.areas_cliente?.nombre;
+                  if (derivedLabel) {
+                    areaOptions = [{ label: derivedLabel, value: field.value }, ...baseAreaOptions];
+                  }
+                }
+                return (
+                  <FormItem>
+                    <FormLabel>Área del Cliente</FormLabel>
+                    <MultiSelectCombobox
+                      options={areaOptions}
+                      selectedValues={field.value ? [field.value] : []}
+                      onChange={(vals) => field.onChange(vals[0] || '')}
+                      placeholder={
+                        field.value
+                          ? areaOptions.find((o) => o.value === field.value)?.label || 'Seleccionar área'
+                          : 'Seleccionar área'
+                      }
+                      disabled={!selectedCustomer || !selectedServiceId}
+                      emptyMessage={
+                        !selectedCustomer || !selectedServiceId
+                          ? 'Seleccione un cliente y contrato'
+                          : 'Sin áreas disponibles para este contrato'
+                      }
+                      maxSelections={1}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+
+            {/* Equipos del Cliente */}
+            <FormField
+              control={form.control}
+              name="equipos_cliente"
+              render={({ field }) => {
+                const selectedCustomer = clientes.find((c) => c.id === form.watch('cliente_id')) as Cliente | undefined;
+                const selectedServiceId = form.watch('contrato_id');
+                const equiposOptions = equipmentList.map((e) => ({ label: e.name, value: e.id }));
+                const selectedValues = Array.isArray(field.value) ? field.value : [];
+                return (
+                  <FormItem>
+                    <FormLabel>Equipos del Cliente</FormLabel>
+                    <MultiSelectCombobox
+                      options={equiposOptions}
+                      selectedValues={selectedValues}
+                      onChange={(vals) => field.onChange(vals)}
+                      placeholder={
+                        selectedValues.length > 0 ? `${selectedValues.length} seleccionado(s)` : 'Seleccionar equipos'
+                      }
+                      disabled={!selectedCustomer || !selectedServiceId}
+                      emptyMessage={
+                        !selectedCustomer || !selectedServiceId
+                          ? 'Seleccione un cliente y contrato'
+                          : 'Sin equipos disponibles para este contrato/cliente'
+                      }
+                      maxSelections={1}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+
             {/* Multiselector de items */}
             <FormField
               control={form.control}
@@ -798,7 +968,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <div className="space-y-4">
                     {selectedItems.map((row, index) => {
                       const selectedItem = contractItems.find((item) => item.value === row.id);
-                      console.log(selectedItem);
+
                       return (
                         <div key={row.id} className="flex items-end gap-2">
                           <div className="flex-1">
