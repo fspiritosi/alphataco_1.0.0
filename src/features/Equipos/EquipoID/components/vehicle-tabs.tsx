@@ -25,7 +25,7 @@ export type VehicleFormData = {
   model: string | null;
   year: string;
   engine?: string;
-  type?: string;
+  type?: string | null;
   subType?: string | null;
   chassis?: string;
   serie?: string;
@@ -34,7 +34,7 @@ export type VehicleFormData = {
   intern_number?: string;
   picture?: string | null;
   allocated_to?: string[];
-  cost_center_id?: string;
+  cost_center_id?: string | null;
   type_of_contract?: string | null;
 };
 
