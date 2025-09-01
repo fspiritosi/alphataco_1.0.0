@@ -1,9 +1,10 @@
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import Viewcomponent from '@/components/ViewComponent';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import DailyReportTable from '@/features/Operaciones/PartesDiarios/DailyReportTable';
 import { getDailyReportsForCurrentMonth } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DayliReportForm from '@/features/Operaciones/PartesDiarios/components/DayliReportForm';
-import DailyReportTable from '@/features/Operaciones/PartesDiarios/DailyReportTable';
+import { PreparteDetailTableWrapper } from '@/features/Operaciones/Preparte/components/PreparteDetailTableWrapper';
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {
@@ -57,7 +58,7 @@ async function OperationsPage() {
                     <DailyReportTable
                       savedVisibility={dailyReportTableSavedColumns ? JSON.parse(dailyReportTableSavedColumns) : {}}
                       savedFilter={dailyReportTableSavedFilter ? JSON.parse(dailyReportTableSavedFilter) : []}
-                      dailyReports={dailyReports}
+                      dailyReports={dailyReports as any}
                     />
                   </ResizablePanel>
                 </ResizablePanelGroup>
@@ -66,6 +67,23 @@ async function OperationsPage() {
           ),
         },
       },
+      {
+        value: 'Preparte',
+        name: 'Gestor de pedidos',
+        restricted: [''],
+        content: {
+          title: 'Gestor de pedidos',
+          description: 'Aquí encontrarás todos los pedidos',
+          buttonActioRestricted: [''],
+          buttonAction: '',
+          component: (
+            <div className="flex w-full gap-4">
+              <PreparteDetailTableWrapper />
+            </div>
+          ),
+        },
+      },
+
       // {
       //   value: 'dailyReportsDetailTable',
       //   name: 'Detalle de Partes diarios',
