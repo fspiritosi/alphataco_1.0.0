@@ -34,7 +34,7 @@ export async function handleSubmit(
           })
           .eq('id', editingService?.id)
       : await supabase.from('service_items').insert({
-          customer_service_id: editingService?.id || editService?.id,
+          customer_service_id: editService?.id,
           item_name: values.item_name,
           item_description: values.item_description,
           code_item: values.code_item,
