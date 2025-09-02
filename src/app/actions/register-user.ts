@@ -111,20 +111,19 @@ export async function registerUserWithRole(values: any, company: string) {
         subject: 'Bienvenido a Nuestra Plataforma',
         userEmail: values.email,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-
-            <img src="${process.env.NEXT_PUBLIC_BASE_URL}/gh_logo.png" alt="Grupo H" style="width: 100px; margin-bottom: 16px;" />
-
-            <h2>Bienvenido ${values.firstname} ${values.lastname}</h2>
-            <p>Tu cuenta ha sido creada exitosamente.</p>
-            <p><strong>Usuario:</strong> ${values.email}</p>
-            <p><strong>Contraseña:</strong> ${values.password}</p>
-            <p>La contraseña actual es genérica. Por favor, ingresa a la plataforma para crear tu contraseña personalizada.</p>
-            <a href="${loginUrl}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">
-              Iniciar sesión
-            </a>
-          </div>
-        `,
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <img src="${process.env.NEXT_PUBLIC_BASE_URL}/gh_logo.png" alt="Grupo H" style="width: 100px; margin-bottom: 16px;" />
+      <h2>Bienvenido ${values.firstname} ${values.lastname}</h2>
+      <p>Tu cuenta ha sido creada exitosamente.</p>
+      <p><strong>Usuario:</strong> ${values.email}</p>
+      <p><strong>Contraseña:</strong> ${values.password}</p>
+      <p>La contraseña actual es genérica. Por favor, ingresa a la plataforma para crear tu contraseña personalizada.</p>
+      <a href="${process.env.NEXT_PUBLIC_BASE_URL}/reset_password/confirm?email=${encodeURIComponent(values.email)}"
+   style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">
+  Iniciar sesión
+</a>
+    </div>
+  `,
       });
 
       // console.log('✅ Resultado del envío de email:', emailResult);
