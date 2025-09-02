@@ -120,8 +120,8 @@ export default function ServiceItemsForm({
       code_item: '',
       item_number: '',
       is_active: true,
-      customer_id: '',
-      customer_service_id: '',
+      // customer_id: '',
+      // customer_service_id: '',
     });
 
     setIsEditing(false);
