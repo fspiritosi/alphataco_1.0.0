@@ -40,18 +40,60 @@ export const useAuthData = () => {
       }
       return data;
     },
+    // recoveryPassword: async (email: string) => {
+    //   localStorage.setItem('email', email);
+
+    //   let { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    //     redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL!}/reset_password/update-user`,
+    //   });
+    //   if (error) {
+    //     const message = await errorTranslate(error.message);
+    //     throw new Error(String(message).replaceAll('"', ''));
+    //   }
+    //   return data;
+    // },
     recoveryPassword: async (email: string) => {
       localStorage.setItem('email', email);
 
-      let { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL!}/reset_password/update-user`,
-      });
-      if (error) {
-        const message = await errorTranslate(error.message);
+      try {
+        // Llamar a tu API personalizada
+        const response = await fetch('/api/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: email,
+            subject: 'Restablecer contraseña',
+            userEmail: email,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Restablece tu contraseña</h2>
+                <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
+                <p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL}/reset_password/update-user" 
+                   style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">
+                  Restablecer contraseña
+                </a>
+                <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
+              </div>
+            `,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Error al enviar el correo');
+        }
+
+        return { success: true, message: 'Correo de restablecimiento enviado' };
+      } catch (error) {
+        const message = await errorTranslate(error instanceof Error ? error.message : 'Error desconocido');
         throw new Error(String(message).replaceAll('"', ''));
       }
-      return data;
     },
+
     updateUser: async ({ password }: { password: string }) => {
       const email = localStorage.getItem('email');
       const user = (await filterByEmail(email)) as profileUser[];
