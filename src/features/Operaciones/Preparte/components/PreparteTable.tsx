@@ -64,6 +64,7 @@ const getColumns = (
   items: Array<{ id: string; item_name: string }>
 ): ColumnDef<PreparteItem>[] => [
   {
+    id: 'requestDate',
     accessorKey: 'requestDate',
     header: ({ column }) => {
       return (
@@ -78,24 +79,17 @@ const getColumns = (
       );
     },
     enableSorting: true,
-    cell: ({ row }) => <div>{new Date(row.getValue('requestDate')).toLocaleDateString()}</div>,
+    enableHiding: false,
+    cell: ({ row }) => {
+      const requestDate = row.getValue('requestDate');
+      return requestDate ? new Date(requestDate as string).toLocaleDateString() : '-';
+    },
     sortingFn: (rowA, rowB, columnId) => {
       const dateA = new Date(rowA.getValue(columnId)).getTime();
       const dateB = new Date(rowB.getValue(columnId)).getTime();
       return dateA - dateB;
     },
-    enableColumnFilter: true,
-    filterFn: (row, id, value) => {
-      if (!value || typeof value !== 'object') return true;
-      const v = value as { from?: Date | null; to?: Date | null };
-      const cellVal = row.getValue(id);
-      if (!cellVal) return false;
-      const d = new Date(cellVal as any).getTime();
-      if (Number.isNaN(d)) return false;
-      const fromOk = v.from ? d >= new Date(v.from).setHours(0, 0, 0, 0) : true;
-      const toOk = v.to ? d <= new Date(v.to).setHours(23, 59, 59, 999) : true;
-      return fromOk && toOk;
-    },
+    enableColumnFilter: false,
   },
   {
     accessorKey: 'executionDate',
@@ -132,6 +126,7 @@ const getColumns = (
       );
     },
     enableSorting: true,
+    enableHiding: false,
     sortingFn: (rowA, rowB, columnId) => {
       // Get the values
       const valueA = rowA.getValue(columnId) as string;
