@@ -14,7 +14,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
 interface UpdateUserPasswordFormProps {
-  email: string;
+  email?: string;
 }
 export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) => {
   const { updateUser } = useAuthData();
@@ -35,7 +35,7 @@ export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) =
 
     toast.promise(
       async () => {
-        await updateUser({ password: values.password, email });
+        await updateUser({ password: values.password, email: email! });
       },
       {
         loading: 'Actualizada contraseña...',
