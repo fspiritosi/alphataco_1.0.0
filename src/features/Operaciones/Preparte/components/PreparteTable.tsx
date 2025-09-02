@@ -329,13 +329,14 @@ const getColumns = (
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
-      type StatusType = 'pendiente' | 'confirmado' | 'cancelado' | 'rechazado' | 'default';
+      type StatusType = 'pendiente' | 'confirmado' | 'cancelado' | 'rechazado' | 'vencido' | 'default';
 
       const variantStatus: Record<StatusType, BadgeVariant> = {
         pendiente: 'default',
         confirmado: 'success',
         cancelado: 'destructive',
         rechazado: 'destructive',
+        vencido: 'destructive',
         default: 'default',
       };
 

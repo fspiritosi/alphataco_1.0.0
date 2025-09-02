@@ -61,7 +61,9 @@ const formSchema = z
     start_time: z.string().optional(),
     end_time: z.string().optional(),
     solicitante: z.string().min(1, 'El solicitante es requerido'),
-    status: z.enum(['pendiente', 'reprogramado', 'cancelado', 'rechazado', 'confirmado']).default('pendiente'),
+    status: z
+      .enum(['pendiente', 'reprogramado', 'cancelado', 'rechazado', 'confirmado', 'vencido'])
+      .default('pendiente'),
     cancel_reason: z.string().optional(),
     rejected_reason: z.string().optional(),
     reprogram_reason: z.string().optional(),

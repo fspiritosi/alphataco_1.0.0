@@ -74,7 +74,7 @@ export type PreparteItem = {
   end_time?: string;
   solicitante: string;
   observaciones?: string;
-  status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado';
+  status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado' | 'vencido';
   cancel_reason?: string;
   rejected_reason?: string;
   reprogram_reason?: string;
