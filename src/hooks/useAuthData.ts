@@ -94,8 +94,7 @@ export const useAuthData = () => {
       }
     },
 
-    updateUser: async ({ password }: { password: string }) => {
-      const email = localStorage.getItem('email');
+    updateUser: async ({ password, email }: { password: string; email: string }) => {
       const user = (await filterByEmail(email)) as profileUser[];
 
       if (user?.length === 0) throw new Error('Usuario no encontrado');

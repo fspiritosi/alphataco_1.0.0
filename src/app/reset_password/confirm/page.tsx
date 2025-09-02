@@ -1,15 +1,22 @@
-import { UpdateUserPasswordForm } from '@/components/UpdateUserPasswordForm';
-
+// src/app/reset_password/confirm/page.tsx
 import RenderBanner from '@/components/RenderBanner';
+import { UpdateUserPasswordForm } from '@/components/UpdateUserPasswordForm';
 import { CardDescription, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import Link from 'next/link';
-export default function ConfirmUserPassword() {
+
+interface PageProps {
+  searchParams: { [key: string]: string | string[] | undefined };
+}
+
+export default function ConfirmUserPassword({ searchParams }: PageProps) {
+  const email = typeof searchParams.email === 'string' ? searchParams.email : '';
+
   return (
     <section className="min-h-screen overflow-hidden bg-white dark:bg-transparent">
-      <div className="container relative flex-col grid-cols-1 justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0  md:px-2 p-0">
+      <div className="container relative flex-col grid-cols-1 justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 md:px-2 p-0">
         <RenderBanner />
-        <div className="lg:p-8 relative z-50   md:p-8 pt-7 p-0 flex flex-col justify-center items-center w-full">
+        <div className="lg:p-8 relative z-50 md:p-8 pt-7 p-0 flex flex-col justify-center items-center w-full">
           <Link className="relative z-20 lg:hidden items-center font-bold text-2xl flex" href="/">
             <Image
               src="https://zktcbhhlcksopklpnubj.supabase.co/storage/v1/object/public/logo/24417298440.png"
@@ -20,7 +27,7 @@ export default function ConfirmUserPassword() {
             />
             Grupo Horizonte
           </Link>
-          <div className="w-full overflow-y-auto ">
+          <div className="w-full overflow-y-auto">
             <CardTitle className="text-3xl font-semibold tracking-tight lg:text-left text-center mb-2">
               Establece tu nueva contraseña
             </CardTitle>
@@ -29,7 +36,7 @@ export default function ConfirmUserPassword() {
               primer inicio de sesión. Elije una contraseña que sea fácil de recordar para vos. Debe contener un mínimo
               de 6 caracteres, 1 mayúscula, 1 minúscula, 1 numero y 1 símbolo.
             </CardDescription>
-            <UpdateUserPasswordForm />
+            <UpdateUserPasswordForm email={email} />
           </div>
         </div>
       </div>

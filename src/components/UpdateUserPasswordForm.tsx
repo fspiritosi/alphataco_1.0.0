@@ -13,8 +13,10 @@ import { EyeIcon } from './svg/openEye';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
-
-export const UpdateUserPasswordForm = () => {
+interface UpdateUserPasswordFormProps {
+  email: string;
+}
+export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) => {
   const { updateUser } = useAuthData();
   const [showPassword, setShowPassword] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
@@ -33,7 +35,7 @@ export const UpdateUserPasswordForm = () => {
 
     toast.promise(
       async () => {
-        await updateUser(values);
+        await updateUser({ password: values.password, email });
       },
       {
         loading: 'Actualizada contraseña...',
