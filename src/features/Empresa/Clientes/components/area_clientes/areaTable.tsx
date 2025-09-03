@@ -106,33 +106,6 @@ export function getAreaColums(
     },
   ];
 }
-// [
-//   {
-//       id: 'nombre',
-//       header: 'Nombre',
-//       cell: ({ row }) => row.getValue('nombre'),
-//   },
-//   {
-//       id: 'cliente',
-//       header: 'Cliente',
-//       cell: ({ row }) => row.getValue('cliente'),
-//   },
-//   {
-//       id: 'descripcion_corta',
-//       header: 'Descripción',
-//       cell: ({ row }) => row.getValue('descripcion_corta'),
-//   },
-//   {
-//       id: 'provincias',
-//       header: 'Provincias',
-//       cell: ({ row }) => row.getValue('provincias'),
-//   },
-//   {
-//       id: 'actions',
-//       header: 'Acciones',
-//       cell: ({ row }) => row.getValue('actions'),
-//   },
-// ]
 
 function AreaTable({ areas, savedFilters, selectedArea, setSelectedArea, setMode, mode }: AreaTableProp) {
   // Leer las cookies necesarias

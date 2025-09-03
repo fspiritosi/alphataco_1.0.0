@@ -5,8 +5,9 @@ import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
 import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChartBarServiceHistory } from '@/features/Dashboard/Estadisticas/Components/BarServiceHistory';
-import { ServicesHistory } from '@/features/Dashboard/Estadisticas/Components/ServicesHistory';
+import { ChartBarServiceHistory } from '@/features/Dashboard/Estadisticas/Operaciones/Components/BarServiceHistory';
+import { ServicesHistory } from '@/features/Dashboard/Estadisticas/Operaciones/Components/ServicesHistory';
+import { AbsenteeismDashboard } from '@/features/Dashboard/Estadisticas/RecursosHumanos/absenteeism-dashboard';
 import { getDailyReportsLatest, getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DataEquipmentChart from '@/features/graficos/equipos/data-equipos';
 import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
@@ -94,10 +95,32 @@ export default async function DashboardComponent() {
         </TabsContent>
         <FeatureFlagShow featureFlagName="mostrar_tab_de_graficos_en_dashboard">
           <TabsContent className="w-full" value="Estadisticas">
-            <section className="md:mx-7 grid grid-cols-1 mt-6  gap-3 mb-4 ">
-              <ServicesHistory dailyReports={dailyReports} />
-              <ChartBarServiceHistory dailyReports={dailyReports} />
-            </section>
+            <Tabs defaultValue="operaciones" className="w-full">
+              <TabsList className="ml-6 bg-white dark:bg-muted">
+                <TabsTrigger value="operaciones">Operaciones</TabsTrigger>
+                <TabsTrigger value="rrhh">RRHH</TabsTrigger>
+                <TabsTrigger value="mantenimiento">Mantenimiento</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="operaciones">
+                <section className="md:mx-7 grid grid-cols-1 mt-6 gap-3 mb-4">
+                  <ServicesHistory dailyReports={dailyReports} />
+                  <ChartBarServiceHistory dailyReports={dailyReports} />
+                </section>
+              </TabsContent>
+
+              <TabsContent value="rrhh">
+                <Card className="md:mx-7 grid grid-cols-1 mt-6 gap-3 mb-4 p-4">
+                  <AbsenteeismDashboard />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="mantenimiento">
+                <section className="md:mx-7 grid grid-cols-1 mt-6 gap-3 mb-4">
+                  {/* Maintenance statistics content will go here */}
+                </section>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </FeatureFlagShow>
       </Tabs>

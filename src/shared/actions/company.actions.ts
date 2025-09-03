@@ -42,6 +42,9 @@ export const fetchCurrentCompany = async () => {
 
 export const fetchUserCompanies = async (userId: string) => {
   const supabase = supabaseServer();
+  if (!userId) {
+    return { sharedCompanies: [], allCompanies: [] };
+  }
 
   // Obtener compañías compartidas
   const { data: sharedCompanies, error: sharedError } = await supabase

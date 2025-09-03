@@ -73,7 +73,7 @@ const vehicleSchema = z
 
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
-    cost_center_id: z.string().optional(),
+    cost_center_id: z.string().optional().nullable(),
   })
   .refine(
     (data) => {
