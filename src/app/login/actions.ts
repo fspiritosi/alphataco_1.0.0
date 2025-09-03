@@ -23,6 +23,7 @@ export async function login(formData: FormData) {
   // })
 
   if (error) {
+    console.log('error', error);
     return handleSupabaseError(error.message);
   }
   if (user.session) {
