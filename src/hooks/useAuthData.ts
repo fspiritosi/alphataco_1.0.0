@@ -53,7 +53,7 @@ export const useAuthData = () => {
     //   return data;
     // },
     recoveryPassword: async (email: string) => {
-      localStorage.setItem('email', email);
+      // localStorage.setItem('email', email);
 
       try {
         // Llamar a tu API personalizada
@@ -71,7 +71,7 @@ export const useAuthData = () => {
                 <h2>Restablece tu contraseña</h2>
                 <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
                 <p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
-                <a href="${process.env.NEXT_PUBLIC_BASE_URL}/reset_password/update-user" 
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL}/reset_password/update-user?email=${email}" 
                    style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">
                   Restablecer contraseña
                 </a>
