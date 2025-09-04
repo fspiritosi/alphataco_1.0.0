@@ -2,8 +2,9 @@ import { AbsenteeismTrendChart } from './components/AbsenteeismTrendChart';
 import { DepartmentAbsenceCharts } from './components/DepartmentAbsenceCharts';
 import { DepartmentSummaryTable } from './components/DepartmentSummaryTable';
 import { DetailedAbsenceTable } from './components/DetailedAbsenceTable';
-import { EmployeeAbsenceTable } from './components/employee-absence-table';
+import { HeadcountTrendChart } from './components/HeadcountTrendChart';
 import { SummaryCards } from './components/SummaryCards';
+import { EmployeeAbsenceTable } from './components/employee-absence-table';
 
 const summaryData = {
   dotacionAnterior: 433,
@@ -194,6 +195,7 @@ export function AbsenteeismDashboard() {
         <div className="w-full lg:w-[calc(50%-1rem)] space-y-8">
           <DepartmentAbsenceCharts />
           <DetailedAbsenceTable />
+          <HeadcountTrendChart />
         </div>
       </div>
 

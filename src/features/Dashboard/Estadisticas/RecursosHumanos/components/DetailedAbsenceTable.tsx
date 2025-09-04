@@ -3,6 +3,12 @@ import Cookies from 'js-cookie';
 import { getDailyAbsenceTimeseries } from '../actions/actions';
 import { DetailedAbsenceTableComponent } from './charts/detailed-absence-table';
 
+function getCurrentMonthYearLabel(date = new Date()) {
+  const month = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(date);
+  const year = date.getFullYear();
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`;
+}
+
 export async function DetailedAbsenceTable() {
   const data = await getDailyAbsenceTimeseries({});
   console.log(data, 'getDailyAbsenceTimeseries');
@@ -16,7 +22,7 @@ export async function DetailedAbsenceTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Ausentismo Diario - Agosto 2025</CardTitle>
+        <CardTitle className="text-lg font-semibold">Ausentismo Diario - {getCurrentMonthYearLabel()}</CardTitle>
         <CardDescription>
           Esta tabla muestra la serie diaria de ausentismo del período seleccionado para analizar su evolución día a
           día.
