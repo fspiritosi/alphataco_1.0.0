@@ -427,7 +427,7 @@ function DiagramFormUpdated({
                       emptyMessage="No hay tipos de novedades"
                       selectedValues={field.value as any}
                       onChange={field.onChange}
-                      disabled={defaultId ? true : false}
+                      // disabled={defaultId ? true : false}
                       maxSelections={1}
                     />
                     <FormMessage />

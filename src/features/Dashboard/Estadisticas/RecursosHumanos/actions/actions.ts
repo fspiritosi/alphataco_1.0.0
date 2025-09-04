@@ -37,8 +37,8 @@ export async function getAbsenteeismSummary({
 
   const { data, error } = await supabase.rpc('hr_get_absenteeism_summary', {
     p_company_id: companyId,
-    p_from: fromDate,
-    p_to: toDate,
+    p_from: fromDate || new Date().toISOString().split('T')[0],
+    p_to: toDate || new Date().toISOString().split('T')[0],
     save_to_table: saveToTable,
   });
 

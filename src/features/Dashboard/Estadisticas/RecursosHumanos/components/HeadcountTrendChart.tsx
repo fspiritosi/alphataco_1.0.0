@@ -10,31 +10,31 @@ import { type ChartConfig } from '@/components/ui/chart';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { YearMonthPicker } from '@/components/ui/year-month-picker';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { AbsenteeismTrendChartComponent } from './charts/absenteeism-trend-chart';
+import { HeadcountTrendChartComponent } from './charts/headcount-trend-chart';
 
 const chartConfig = {
-  percentage: {
-    label: 'Ausentismo',
-    color: 'hsl(var(--chart-1))',
+  dotacion: {
+    label: 'Dotación',
+    color: 'hsl(var(--chart-2))',
   },
 } satisfies ChartConfig;
 
-type TrendData = {
+type HeadcountTrendData = {
   date: string;
-  percentage: number;
+  dotacion: number;
 };
 
 const formatDate = (d: Date) =>
   new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
 
-export function AbsenteeismTrendChart() {
+export function HeadcountTrendChart() {
   const [timeRange, setTimeRange] = React.useState<'7d' | '30d' | '90d'>('7d');
-  const [data, setData] = React.useState<TrendData[]>([]);
+  const [data, setData] = React.useState<HeadcountTrendData[]>([]);
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined);
 
   React.useEffect(() => {
     const fetchData = async () => {
-      const companyId = Cookies.get('actualComp')?.replace(/^"|"/g, '') || '';
+      const companyId = Cookies.get('actualComp')?.replace(/^|"|"$/g, '') || '';
       if (!companyId) {
         setData([]);
         return;
@@ -56,7 +56,7 @@ export function AbsenteeismTrendChart() {
       }
 
       const supabase = supabaseBrowser();
-      const { data: rpcData, error } = await supabase.rpc('hr_get_absenteeism_trend', {
+      const { data: rpcData, error } = await supabase.rpc('hr_get_daily_absence_timeseries', {
         p_company_id: companyId,
         p_from: formatDate(from),
         p_to: formatDate(to),
@@ -64,20 +64,24 @@ export function AbsenteeismTrendChart() {
       });
 
       if (error) {
-        console.error('Error fetching absenteeism trend:', error);
+        console.error('Error fetching daily absence timeseries:', error);
         setData([]);
         return;
       }
 
-      setData((rpcData as TrendData[]) ?? []);
+      const mapped = ((rpcData as any[]) ?? []).map((d) => ({
+        date: d.fecha ?? d.date,
+        dotacion: typeof d.totalDotacion === 'number' ? d.totalDotacion : d.dotacion ?? 0,
+      }));
+      setData(mapped);
     };
 
     fetchData();
   }, [timeRange, selectedDate]);
 
-  const currentValue = data[data.length - 1]?.percentage ?? 0;
-  const previousValue = data[data.length - 2]?.percentage ?? 0;
-  const firstValue = data[0]?.percentage ?? 0;
+  const currentValue = data[data.length - 1]?.dotacion ?? 0;
+  const previousValue = data[data.length - 2]?.dotacion ?? 0;
+  const firstValue = data[0]?.dotacion ?? 0;
   const trend = timeRange === '7d' ? currentValue - previousValue : currentValue - firstValue;
   const isPositive = trend > 0;
 
@@ -106,20 +110,20 @@ export function AbsenteeismTrendChart() {
   const trendTextSuffix = selectedDate
     ? 'en el mes seleccionado'
     : timeRange === '7d'
-      ? 'desde el día anterior'
-      : 'en el período seleccionado';
+      ? 'respecto al día anterior'
+      : timeRange === '30d'
+        ? 'respecto al inicio de los 30 días'
+        : 'respecto al inicio de los 3 meses';
 
   const clearDateFilter = () => {
     setSelectedDate(undefined);
   };
 
-  const years = Array.from({ length: 5 }, (_, i) => (selectedDate?.getFullYear() || new Date().getFullYear()) - i - 1);
-
   return (
     <Card className="pt-0">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
         <div className="grid flex-1 gap-1">
-          <CardTitle className="text-lg font-semibold">Variación de Ausentismo</CardTitle>
+          <CardTitle className="text-lg font-semibold">Variación de Dotación</CardTitle>
           <CardDescription>
             {selectedDate ? `Mostrando datos de ${rangeLabel}` : `Mostrando últimos ${rangeLabel}`}
           </CardDescription>
@@ -159,7 +163,7 @@ export function AbsenteeismTrendChart() {
         </Select>
       </CardHeader>
       <CardContent>
-        <AbsenteeismTrendChartComponent
+        <HeadcountTrendChartComponent
           chartConfig={chartConfig}
           data={data}
           showLabels={!selectedDate && timeRange === '7d'}
@@ -167,10 +171,10 @@ export function AbsenteeismTrendChart() {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 leading-none font-medium">
-          {isPositive ? 'Incremento' : 'Reducción'} de {Math.abs(trend).toFixed(2)}% {trendTextSuffix}
-          <TrendingUp className={`h-4 w-4 ${isPositive ? 'text-red-500' : 'text-green-500 rotate-180'}`} />
+          {isPositive ? 'Incremento' : 'Reducción'} de {Math.abs(trend)} {trendTextSuffix}
+          <TrendingUp className={`h-4 w-4 ${isPositive ? 'text-green-500' : 'text-red-500 rotate-180'}`} />
         </div>
-        <div className="text-muted-foreground leading-none">Ausentismo actual: {currentValue}%</div>
+        <div className="text-muted-foreground leading-none">Dotación actual: {currentValue}</div>
       </CardFooter>
     </Card>
   );
