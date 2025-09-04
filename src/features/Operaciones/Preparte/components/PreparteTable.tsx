@@ -13,16 +13,28 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Cliente } from '@/features/Operaciones/Preparte/components/PreparteManager';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { ArrowUpDown, Check, Pencil } from 'lucide-react';
+import { format, isFuture, isToday, startOfDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { ArrowUpDown, CalendarIcon, Check, Pencil } from 'lucide-react';
 import { useState } from 'react';
+import { updatePreparte } from '../actions/preparte';
 import { Contrato, PreparteItem } from './PreparteManager';
-
 interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
@@ -375,6 +387,45 @@ const getColumns = (
     cell: ({ row }) => {
       const status = row.getValue('status');
       const isPending = status === 'pendiente';
+      const isVencido = status === 'vencido';
+      const [showDatePicker, setShowDatePicker] = useState(false);
+      const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+      const handleConfirmWithDate = async () => {
+        if (!row.original.id) return;
+
+        const esVencido = row.original.status === 'vencido';
+        const observacionesActualizadas = esVencido
+          ? `Parte confirmado vencido para la fecha ${format(selectedDate, 'dd/MM/yyyy', { locale: es })}. ${row.original.observaciones || ''}`.trim()
+          : row.original.observaciones;
+
+        try {
+          // Actualizar el preparte en la base de datos
+          const updateData = esVencido
+            ? {
+                observaciones: observacionesActualizadas,
+                status: 'vencido', // Mantener como vencido si es el caso
+              }
+            : {};
+
+          await updatePreparte(row.original.id, updateData);
+
+          // Enviar al parte diario
+          onConfirm({
+            ...row.original,
+            executionDate: selectedDate as any,
+            ...(esVencido && {
+              observaciones: observacionesActualizadas,
+              status: 'vencido', // Mantener como vencido si es el caso
+            }),
+          });
+
+          setShowDatePicker(false);
+        } catch (error) {
+          console.error('Error al actualizar el preparte:', error);
+          // Aquí podrías agregar un toast o alerta de error
+        }
+      };
 
       return (
         <div className="flex space-x-2">
@@ -400,15 +451,27 @@ const getColumns = (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertDialogTrigger asChild>
-                    {(isPending || status === 'confirmado') && (
+                    {(isPending || isVencido || status === 'confirmado') && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        disabled={!isPending}
                         className={cn(
                           'text-green-600 hover:bg-green-50 hover:text-green-700',
-                          !isPending && 'opacity-50 cursor-not-allowed'
+                          (!isPending && !isVencido) ||
+                            (isVencido && row.original.observaciones?.includes('Parte confirmado vencido'))
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
                         )}
+                        onClick={(e) => {
+                          if (isVencido) {
+                            if (!row.original.observaciones?.includes('Parte confirmado vencido')) {
+                              e.preventDefault();
+                              setShowDatePicker(true);
+                            } else {
+                              e.preventDefault();
+                            }
+                          }
+                        }}
                       >
                         <Check className="h-4 w-4" />
                       </Button>
@@ -436,6 +499,56 @@ const getColumns = (
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          {/* Date Picker Modal for Vencido status */}
+          <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Seleccionar Fecha</DialogTitle>
+                <DialogDescription>Por favor selecciona una nueva fecha para este preparte vencido.</DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={'outline'}
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !selectedDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, 'PPP', { locale: es }) : <span>Selecciona una fecha</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date && (isToday(date) || isFuture(date))) {
+                          setSelectedDate(date);
+                        }
+                      }}
+                      initialFocus
+                      locale={es}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDatePicker(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  disabled={!selectedDate || selectedDate < startOfDay(new Date())}
+                  onClick={handleConfirmWithDate}
+                >
+                  Confirmar con fecha seleccionada
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       );
     },
