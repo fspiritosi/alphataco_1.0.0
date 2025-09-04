@@ -32,7 +32,26 @@ export function AbsenteeismTrendChartComponent({ chartConfig, data, showLabels }
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          tickFormatter={(value) => value.split('/')[0]}
+          tickFormatter={(value: string) => {
+            if (!value) return '';
+            // Si ya viene como D/M o DD/MM(/YYYY), tomar día/mes
+            if (value.includes('/')) {
+              const parts = value.split('/');
+              if (parts.length >= 2) return `${parts[0]}/${parts[1]}`;
+            }
+            // ISO YYYY-MM-DD -> D/M
+            const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+            if (iso) {
+              const [, , m, d] = iso;
+              return `${parseInt(d, 10)}/${parseInt(m, 10)}`;
+            }
+            // Intento de parseo genérico
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) {
+              return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
+            }
+            return value;
+          }}
         />
         <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
         <Line

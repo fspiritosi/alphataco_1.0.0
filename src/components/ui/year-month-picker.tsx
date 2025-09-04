@@ -1,76 +1,67 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import { format, setMonth, setYear } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
-import { es } from "date-fns/locale"
+import { format, setMonth, setYear } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 interface YearMonthPickerProps {
-  date?: Date
-  setDate?: (date: Date | undefined) => void
+  date?: Date;
+  setDate?: (date: Date | undefined) => void;
+  placeholder?: string;
 }
 
-export function YearMonthPicker({ date, setDate }: YearMonthPickerProps) {
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date)
-  const [isOpen, setIsOpen] = React.useState(false)
+export function YearMonthPicker({ date, setDate, placeholder = 'Selecciona un período' }: YearMonthPickerProps) {
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date);
+  const [isOpen, setIsOpen] = React.useState(false);
 
-  const years = Array.from({ length: 10 }, (_, i) => (selectedDate?.getFullYear() || new Date().getFullYear()) - 5 + i)
-  const months = Array.from({ length: 12 }, (_, i) => i)
+  const years = Array.from({ length: 10 }, (_, i) => (selectedDate?.getFullYear() || new Date().getFullYear()) - 5 + i);
+  const months = Array.from({ length: 12 }, (_, i) => i);
 
   const handleDateChange = (newDate: Date | undefined) => {
-    setSelectedDate(newDate)
+    setSelectedDate(newDate);
     if (setDate) {
-      setDate(newDate)
+      setDate(newDate);
     }
-  }
+  };
 
   const handleYearChange = (year: string) => {
     if (selectedDate) {
-      handleDateChange(setYear(selectedDate, parseInt(year)))
+      handleDateChange(setYear(selectedDate, parseInt(year)));
     } else {
-      handleDateChange(setYear(new Date(), parseInt(year)))
+      handleDateChange(setYear(new Date(), parseInt(year)));
     }
-  }
+  };
 
   const handleMonthChange = (month: string) => {
     if (selectedDate) {
-      handleDateChange(setMonth(selectedDate, parseInt(month)))
+      handleDateChange(setMonth(selectedDate, parseInt(month)));
     } else {
-      handleDateChange(setMonth(new Date(), parseInt(month)))
+      handleDateChange(setMonth(new Date(), parseInt(month)));
     }
-  }
+  };
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant={"outline"}
-          className={cn(
-            " justify-start text-left font-normal",
-            !selectedDate && "text-muted-foreground"
-          )}
+          variant={'outline'}
+          className={cn(' justify-start text-left font-normal', !selectedDate && 'text-muted-foreground')}
           onClick={() => setIsOpen(true)}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {selectedDate ? format(selectedDate, "MMMM yyyy", { locale: es }) : <span>Selecciona un período</span>}
+          {selectedDate ? format(selectedDate, 'MMMM yyyy', { locale: es }) : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <div className="grid grid-cols-2 gap-2 p-3">
           <div>
-            <Select
-              value={selectedDate?.getFullYear().toString()}
-              onValueChange={handleYearChange}
-            >
+            <Select value={selectedDate?.getFullYear().toString()} onValueChange={handleYearChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Año" />
               </SelectTrigger>
@@ -84,17 +75,14 @@ export function YearMonthPicker({ date, setDate }: YearMonthPickerProps) {
             </Select>
           </div>
           <div>
-            <Select
-              value={selectedDate?.getMonth().toString()}
-              onValueChange={handleMonthChange}
-            >
+            <Select value={selectedDate?.getMonth().toString()} onValueChange={handleMonthChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Mes" />
               </SelectTrigger>
               <SelectContent>
                 {months.map((month) => (
                   <SelectItem key={month} value={month.toString()}>
-                    {format(setMonth(new Date(), month), "MMMM", { locale: es })}
+                    {format(setMonth(new Date(), month), 'MMMM', { locale: es })}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -103,5 +91,5 @@ export function YearMonthPicker({ date, setDate }: YearMonthPickerProps) {
         </div>
       </PopoverContent>
     </Popover>
-  )
+  );
 }

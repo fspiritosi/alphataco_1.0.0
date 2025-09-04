@@ -3,7 +3,8 @@
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, FilterFn, Row } from '@tanstack/react-table';
+import moment from 'moment';
 
 interface EmployeeAbsence {
   legajo: number;
@@ -23,6 +24,62 @@ interface EmployeeAbsenceTableProps {
   savedVisibility: Record<string, boolean>;
   savedFiltersFromCookie: string[];
 }
+
+const dateRangeFilter: FilterFn<EmployeeAbsence> = (
+  row: Row<EmployeeAbsence>,
+  columnId: string,
+  filterValue: { from?: Date | null; to?: Date | null },
+  addMeta: (meta: any) => void
+) => {
+  const { from, to } = filterValue || {};
+
+  const desdeStr = row.original.desde;
+  const hastaStr = row.original.hasta;
+
+  // Si faltan fechas en el registro, no se incluye en el resultado
+  if (!desdeStr || !hastaStr) {
+    return false;
+  }
+
+  // Parseo estricto del formato DD/MM/YYYY
+  const desde = moment(desdeStr, 'DD/MM/YYYY', true);
+  const hasta = moment(hastaStr, 'DD/MM/YYYY', true);
+
+  if (!desde.isValid() || !hasta.isValid()) {
+    return false;
+  }
+
+  // Normalizamos los límites del filtro (inicio/fin del día) si existen
+  let fromMoment = from ? moment(from).startOf('day') : null;
+  let toMoment = to ? moment(to).endOf('day') : null;
+
+  // Si el usuario invierte el rango, lo normalizamos
+  if (fromMoment && toMoment && fromMoment.isAfter(toMoment)) {
+    const tmp = fromMoment;
+    fromMoment = toMoment;
+    toMoment = tmp;
+  }
+
+  // Solo FROM: incluir registros que comienzan en o después de FROM
+  if (fromMoment && !toMoment) {
+    return desde.isSameOrAfter(fromMoment, 'day');
+  }
+
+  // Solo TO: incluir registros que finalizan en o antes de TO
+  if (!fromMoment && toMoment) {
+    return hasta.isSameOrBefore(toMoment, 'day');
+  }
+
+  // FROM y TO: incluir registros completamente dentro del rango [FROM, TO]
+  if (fromMoment && toMoment) {
+    const startsInRange = desde.isSameOrAfter(fromMoment, 'day');
+    const endsInRange = hasta.isSameOrBefore(toMoment, 'day');
+    return startsInRange && endsInRange;
+  }
+
+  // Sin filtros: no se restringe
+  return true;
+};
 
 function getEmployeeColumns(): ColumnDef<EmployeeAbsence>[] {
   return [
@@ -92,11 +149,13 @@ function getEmployeeColumns(): ColumnDef<EmployeeAbsence>[] {
       accessorKey: 'desde',
       id: 'Desde',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Desde" />,
+      filterFn: dateRangeFilter as any,
     },
     {
       accessorKey: 'hasta',
       id: 'Hasta',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Hasta" />,
+      filterFn: dateRangeFilter as any,
     },
     {
       accessorKey: 'diasCaidos',
@@ -136,7 +195,19 @@ export function EmployeeAbsenceTableComponent({
       tableId={tableId}
       toolbarOptions={{
         initialVisibleFilters: savedFiltersFromCookie,
+
         filterableColumns: [
+          // { showFrom: true, columnId: 'Desde', title: 'Desde' },
+          // { showTo: true, columnId: 'Hasta', title: 'Hasta' },
+          {
+            columnId: 'Desde',
+            title: 'Periodo',
+            type: 'date-range',
+            fromPlaceholder: 'Desde',
+            toPlaceholder: 'Hasta',
+            showFrom: true,
+            showTo: true,
+          },
           { columnId: 'Línea', title: 'Línea', options: lineaOptions },
           { columnId: 'Motivo', title: 'Motivo', options: motivoOptions },
           { columnId: 'Tarea', title: 'Tarea', options: tareaOptions },

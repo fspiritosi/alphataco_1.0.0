@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Wrench } from 'lucide-react';
+import { Clock, Users, Wrench } from 'lucide-react';
 import { IndicatorChart } from '../indicatorChart';
 
 export default function IndicatorCardChasisTractor({
@@ -65,32 +65,6 @@ export default function IndicatorCardChasisTractor({
               </div>
             </CardContent>
           </Card>
-
-          {/* <Card
-            className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
-            variant={
-              activeEquipment !== undefined
-                ? activeEquipment >= condiciones_indicadores.success
-                  ? 'success'
-                  : activeEquipment >= condiciones_indicadores.warning
-                    ? 'warning'
-                    : 'destructive'
-                : 'destructive'
-            }
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Activity className="w-4 h-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-600">En operación</p>
-                  <p className="text-xl font-bold text-gray-900">{activeEquipment}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card> */}
-
           <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={
@@ -115,7 +89,7 @@ export default function IndicatorCardChasisTractor({
               </div>
             </CardContent>
           </Card>
-          {/* <Card
+          <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={
               activeEquipment !== undefined
@@ -133,12 +107,12 @@ export default function IndicatorCardChasisTractor({
                   <Clock className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-600">Disponibles</p>
-                  <p className="text-xl font-bold text-gray-900">{disponibleEquipmentNumber}</p>
+                  <p className="text-xs font-medium text-gray-600">Total</p>
+                  <p className="text-xl font-bold text-gray-900">{totalVehicles}</p>
                 </div>
               </div>
             </CardContent>
-          </Card> */}
+          </Card>
         </div>
         <IndicatorChart
           chartConfig={indicatorChartConfig}
