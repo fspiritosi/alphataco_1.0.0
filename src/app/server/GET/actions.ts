@@ -1423,6 +1423,7 @@ export const verifyUserRoleInCompany = async () => {
   if (!company_id) return '';
 
   const user = await fetchCurrentUser();
+  if (!user) return '';
   const { data, error } = await supabase
     .from('share_company_users')
     .select('*')

@@ -20,7 +20,7 @@ export function handleSupabaseError(error: string): string {
     const saveErrorMenssage = async () => {
       await supabase.from('handle_errors').insert({
         menssage: error,
-        path: window.location.pathname,
+        path: typeof window !== 'undefined' ? window.location.pathname : '',
       });
     };
 

@@ -793,6 +793,41 @@ export type Database = {
           },
         ];
       };
+      daily_indicators: {
+        Row: {
+          company_id: string;
+          created_at: string;
+          id: string;
+          metrics: Json;
+          snapshot_date: string;
+          source: Database['public']['Enums']['indicator_function'];
+        };
+        Insert: {
+          company_id: string;
+          created_at?: string;
+          id?: string;
+          metrics?: Json;
+          snapshot_date: string;
+          source: Database['public']['Enums']['indicator_function'];
+        };
+        Update: {
+          company_id?: string;
+          created_at?: string;
+          id?: string;
+          metrics?: Json;
+          snapshot_date?: string;
+          source?: Database['public']['Enums']['indicator_function'];
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'kpi_daily_indicators_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       dailyreport: {
         Row: {
           company_id: string;
@@ -2079,47 +2114,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      kpi_daily_indicators: {
-        Row: {
-          company_id: string;
-          created_at: string;
-          grouping_values: Json;
-          id: string;
-          metrics: Json;
-          snapshot_date: string;
-          source: string;
-          updated_at: string;
-        };
-        Insert: {
-          company_id: string;
-          created_at?: string;
-          grouping_values?: Json;
-          id?: string;
-          metrics?: Json;
-          snapshot_date: string;
-          source: string;
-          updated_at?: string;
-        };
-        Update: {
-          company_id?: string;
-          created_at?: string;
-          grouping_values?: Json;
-          id?: string;
-          metrics?: Json;
-          snapshot_date?: string;
-          source?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'kpi_daily_indicators_company_id_fkey';
-            columns: ['company_id'];
-            isOneToOne: false;
-            referencedRelation: 'company';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
       measure_units: {
         Row: {
           id: number;
@@ -2718,39 +2712,6 @@ export type Database = {
           },
         ];
       };
-      storage_migrations: {
-        Row: {
-          created_at: string | null;
-          document_id: string;
-          error_message: string | null;
-          executed_at: string | null;
-          id: string;
-          new_path: string;
-          old_path: string;
-          status: string | null;
-        };
-        Insert: {
-          created_at?: string | null;
-          document_id: string;
-          error_message?: string | null;
-          executed_at?: string | null;
-          id?: string;
-          new_path: string;
-          old_path: string;
-          status?: string | null;
-        };
-        Update: {
-          created_at?: string | null;
-          document_id?: string;
-          error_message?: string | null;
-          executed_at?: string | null;
-          id?: string;
-          new_path?: string;
-          old_path?: string;
-          status?: string | null;
-        };
-        Relationships: [];
-      };
       sub_type: {
         Row: {
           company_id: string | null;
@@ -3246,16 +3207,14 @@ export type Database = {
         Returns: Json;
       };
       collect_daily_indicators: {
-        Args:
-          | { company_id_param: number }
-          | {
-              p_company_id: string;
-              p_company_position_ids?: string[];
-              p_date?: string;
-              p_position_uuids?: string[];
-              p_vehicle_type_ids?: string[];
-              p_vehicle_types?: string[];
-            };
+        Args: {
+          p_company_id: string;
+          p_company_position_ids?: string[];
+          p_date?: string;
+          p_position_uuids?: string[];
+          p_vehicle_type_ids?: string[];
+          p_vehicle_types?: string[];
+        };
         Returns: undefined;
       };
       controlar_alertas_documentos: {
@@ -3327,6 +3286,14 @@ export type Database = {
           workflow_diagram: string | null;
         }[];
       };
+      get_company_counts_indicator: {
+        Args: { p_company_id?: string; save_to_table?: boolean };
+        Returns: {
+          employee_count: number;
+          total_count: number;
+          vehicle_count: number;
+        }[];
+      };
       get_company_for_user: {
         Args: { user_id: string };
         Returns: string;
@@ -3348,10 +3315,12 @@ export type Database = {
       };
       get_employee_diagram_count_by_day: {
         Args: {
+          p_company_id?: string;
           p_company_position_ids?: string[];
           p_day: number;
           p_month: number;
           p_year: number;
+          save_to_table?: boolean;
         };
         Returns: Json;
       };
@@ -3364,45 +3333,19 @@ export type Database = {
         }[];
       };
       get_employee_usage_indicator: {
-        Args:
-          | { company_id_param: number }
-          | { company_uuid: string }
-          | { p_company_id?: string; p_position_uuids?: string[] };
-        Returns: {
-          dimensions: Json;
-          indicator_key: string;
-          metrics: Json;
-          snapshot_date: string;
-          source: string;
-        }[];
-      };
-      get_employee_usage_indicator_original: {
-        Args: { position_uuids?: string[]; save_to_table?: boolean };
+        Args: {
+          p_company_id?: string;
+          position_uuids?: string[];
+          save_to_table?: boolean;
+        };
         Returns: {
           employees_operativos: number;
           employees_used: number;
           indicator: number;
         }[];
       };
-      get_kpi_indicators: {
-        Args: {
-          p_company_id: string;
-          p_end_date?: string;
-          p_indicator_key?: string;
-          p_start_date?: string;
-        };
-        Returns: {
-          created_at: string;
-          dimensions: Json;
-          indicator_key: string;
-          metrics: Json;
-          snapshot_date: string;
-          source: string;
-          updated_at: string;
-        }[];
-      };
       get_services_summary_by_type: {
-        Args: { company_id_param: number } | { p_company_id: string; save_to_history?: boolean };
+        Args: { p_company_id: string; save_to_history?: boolean };
         Returns: {
           percentage: number;
           service_count: number;
@@ -3410,17 +3353,11 @@ export type Database = {
         }[];
       };
       get_vehicle_usage_indicator: {
-        Args: { company_id_param: number } | { p_company_id?: string; p_vehicle_type_ids?: string[] };
-        Returns: {
-          dimensions: Json;
-          indicator_key: string;
-          metrics: Json;
-          snapshot_date: string;
-          source: string;
-        }[];
-      };
-      get_vehicle_usage_indicator_nueva1: {
-        Args: { p_company_id?: string; p_vehicle_type_ids?: string[] };
+        Args: {
+          p_company_id?: string;
+          p_vehicle_type_ids?: string[];
+          save_to_table?: boolean;
+        };
         Returns: {
           available_units: number;
           not_available_units: number;
@@ -3430,36 +3367,44 @@ export type Database = {
           used_units: number;
         }[];
       };
-      get_vehicle_usage_indicator_original: {
-        Args: { p_vehicle_type_ids?: string[] };
-        Returns: {
-          available_units: number;
-          not_available_units: number;
-          type_id: string;
-          type_name: string;
-          usage_indicator: number;
-          used_units: number;
-        }[];
+      hr_get_absenteeism_summary: {
+        Args: {
+          p_company_id: string;
+          p_from?: string;
+          p_to?: string;
+          save_to_table?: boolean;
+        };
+        Returns: Json;
       };
-      get_vehicle_usage_indicator_otro: {
-        Args: { p_company_id?: number; p_vehicle_type_ids?: number[] };
-        Returns: {
-          available_units: number;
-          not_available_units: number;
-          type_id: number;
-          type_name: string;
-          usage_indicator: number;
-          used_units: number;
-        }[];
+      hr_get_absenteeism_trend: {
+        Args: {
+          p_company_id: string;
+          p_from?: string;
+          p_to?: string;
+          save_to_table?: boolean;
+        };
+        Returns: Json;
       };
-      get_vehicle_usage_indicator_text: {
-        Args: { p_vehicle_types: string[] };
-        Returns: {
-          available_units: number;
-          type: string;
-          usage_indicator: number;
-          used_units: number;
-        }[];
+      hr_get_current_absent_employees: {
+        Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
+        Returns: Json;
+      };
+      hr_get_daily_absence_timeseries: {
+        Args: {
+          p_company_id: string;
+          p_from?: string;
+          p_to?: string;
+          save_to_table?: boolean;
+        };
+        Returns: Json;
+      };
+      hr_get_department_absence_reasons: {
+        Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
+        Returns: Json;
+      };
+      hr_get_department_absence_summary: {
+        Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
+        Returns: Json;
       };
       migrate_document: {
         Args: { execute_migration?: boolean; target_id: string };
@@ -3506,6 +3451,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
+      run_daily_indicators_for_all_companies: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       select_distinct_values: {
         Args: {
           p_column_path: string;
@@ -3521,16 +3470,6 @@ export type Database = {
       };
       set_reassignment_reason: {
         Args: { reason: string };
-        Returns: undefined;
-      };
-      upsert_kpi_daily_indicator: {
-        Args: {
-          p_company_id: string;
-          p_grouping_values: Json;
-          p_metrics: Json;
-          p_snapshot_date: string;
-          p_source?: string;
-        };
         Returns: undefined;
       };
       verificar_documentos_vencidos_prueba: {
@@ -3556,6 +3495,17 @@ export type Database = {
       document_applies: 'Persona' | 'Equipos' | 'Empresa';
       document_type_enum: 'DNI' | 'LE' | 'LC' | 'PASAPORTE';
       gender_enum: 'Masculino' | 'Femenino' | 'No Declarado';
+      indicator_function:
+        | 'get_vehicle_usage_indicator'
+        | 'get_employee_usage_indicator'
+        | 'get_employee_diagram_count_by_day'
+        | 'get_company_counts_indicator'
+        | 'hr_get_absenteeism_summary'
+        | 'hr_get_absenteeism_trend'
+        | 'hr_get_current_absent_employees'
+        | 'hr_get_daily_absence_timeseries'
+        | 'hr_get_department_absence_reasons'
+        | 'hr_get_department_absence_summary';
       level_of_education_enum: 'Primario' | 'Secundario' | 'Terciario' | 'Universitario' | 'PosGrado';
       marital_status_enum: 'Casado' | 'Soltero' | 'Divorciado' | 'Viudo' | 'Separado' | 'Union de hecho';
       modulos:
@@ -3721,6 +3671,18 @@ export const Constants = {
       document_applies: ['Persona', 'Equipos', 'Empresa'],
       document_type_enum: ['DNI', 'LE', 'LC', 'PASAPORTE'],
       gender_enum: ['Masculino', 'Femenino', 'No Declarado'],
+      indicator_function: [
+        'get_vehicle_usage_indicator',
+        'get_employee_usage_indicator',
+        'get_employee_diagram_count_by_day',
+        'get_company_counts_indicator',
+        'hr_get_absenteeism_summary',
+        'hr_get_absenteeism_trend',
+        'hr_get_current_absent_employees',
+        'hr_get_daily_absence_timeseries',
+        'hr_get_department_absence_reasons',
+        'hr_get_department_absence_summary',
+      ],
       level_of_education_enum: ['Primario', 'Secundario', 'Terciario', 'Universitario', 'PosGrado'],
       marital_status_enum: ['Casado', 'Soltero', 'Divorciado', 'Viudo', 'Separado', 'Union de hecho'],
       modulos: [

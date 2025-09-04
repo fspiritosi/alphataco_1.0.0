@@ -1,0 +1,202 @@
+'use server';
+
+import { supabaseServer } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+
+// Helper para obtener company_id desde cookies
+function getCompanyId() {
+  const cookiesStore = cookies();
+  return cookiesStore.get('actualComp')?.value || '';
+}
+
+// Helper para obtener user_id
+async function getUserId() {
+  const supabase = supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id || '';
+}
+
+// 1. Resumen general de ausentismo
+export async function getAbsenteeismSummary({
+  fromDate,
+  toDate,
+  saveToTable = false,
+}: {
+  fromDate?: string;
+  toDate?: string;
+  saveToTable?: boolean;
+}) {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  const { data, error } = await supabase.rpc('hr_get_absenteeism_summary', {
+    p_company_id: companyId,
+    p_from: fromDate,
+    p_to: toDate,
+    save_to_table: saveToTable,
+  });
+
+  if (error) {
+    console.error('Error fetching absenteeism summary:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// 2. Tendencia de ausentismo
+export async function getAbsenteeismTrend({
+  fromDate,
+  toDate,
+  saveToTable = false,
+}: {
+  fromDate?: string;
+  toDate?: string;
+  saveToTable?: boolean;
+}) {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    return [];
+  }
+
+  const { data, error } = await supabase.rpc('hr_get_absenteeism_trend', {
+    p_company_id: companyId,
+    p_from: fromDate,
+    p_to: toDate,
+    save_to_table: saveToTable,
+  });
+
+  if (error) {
+    console.error('Error fetching absenteeism trend:', error);
+    return [];
+  }
+
+  return data;
+}
+
+// 3. Empleados ausentes actualmente
+export async function getCurrentAbsentEmployees({
+  date,
+  saveToTable = false,
+}: {
+  date?: string;
+  saveToTable?: boolean;
+}) {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  const { data, error } = await supabase.rpc('hr_get_current_absent_employees', {
+    p_company_id: companyId,
+    p_date: date,
+    save_to_table: saveToTable,
+  });
+
+  if (error) {
+    console.error('Error fetching current absent employees:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// 4. Serie temporal diaria de ausentismo
+export async function getDailyAbsenceTimeseries({
+  fromDate,
+  toDate,
+  saveToTable = false,
+}: {
+  fromDate?: string;
+  toDate?: string;
+  saveToTable?: boolean;
+}) {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  const { data, error } = await supabase.rpc('hr_get_daily_absence_timeseries', {
+    p_company_id: companyId,
+    p_from: fromDate,
+    p_to: toDate,
+    save_to_table: saveToTable,
+  });
+
+  if (error) {
+    console.error('Error fetching daily absence timeseries:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// 5. Razones de ausencia por departamento
+export async function getDepartmentAbsenceReasons({
+  date,
+  saveToTable = false,
+}: {
+  date?: string;
+  saveToTable?: boolean;
+}) {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  const { data, error } = await supabase.rpc('hr_get_department_absence_reasons', {
+    p_company_id: companyId,
+    p_date: date,
+    save_to_table: saveToTable,
+  });
+
+  if (error) {
+    console.error('Error fetching department absence reasons:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// 6. Resumen de ausentismo por departamento
+export async function getDepartmentAbsenceSummary({
+  date,
+  saveToTable = false,
+}: {
+  date?: string;
+  saveToTable?: boolean;
+}) {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  const { data, error } = await supabase.rpc('hr_get_department_absence_summary', {
+    p_company_id: companyId,
+    p_date: date,
+    save_to_table: saveToTable,
+  });
+
+  if (error) {
+    console.error('Error fetching department absence summary:', error);
+    throw error;
+  }
+
+  return data;
+}
