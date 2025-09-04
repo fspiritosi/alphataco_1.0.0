@@ -413,7 +413,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
 
       // 7. Update preparte status
       await updatePreparte(currentItem.id, {
-        status: 'confirmado',
+        status: currentItem.status === 'vencido' ? 'vencido' : 'confirmado',
         updated_at: new Date().toISOString(),
       });
 

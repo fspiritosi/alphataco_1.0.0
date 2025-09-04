@@ -47,7 +47,15 @@ const formSchema = z
     }),
     executionDate: z
       .object({
-        from: z.date(),
+        from: z
+          .date({
+            required_error: 'La fecha de ejecución es requerida',
+          })
+          .refine((date) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date >= today;
+          }, 'La fecha de ejecución no puede ser anterior al día actual'),
         to: z.date().optional(),
       })
       .refine((data) => {

@@ -1,6 +1,6 @@
 'use client';
+
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useAuthData } from '@/hooks/useAuthData';
 import { changePassSchema } from '@/zodSchemas/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -13,11 +13,13 @@ import { EyeIcon } from './svg/openEye';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
+
 interface UpdateUserPasswordFormProps {
   email?: string;
+  token?: string;
 }
-export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) => {
-  const { updateUser } = useAuthData();
+
+export const UpdateUserPasswordForm = ({ email, token }: UpdateUserPasswordFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
   const router = useRouter();
@@ -30,20 +32,47 @@ export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) =
     },
   });
 
+  const resetPasswordWithToken = async (token: string, email: string, password: string) => {
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al actualizar la contraseña');
+      }
+
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof changePassSchema>) => {
+    if (!email || !token) {
+      toast.error('Faltan parámetros requeridos para cambiar la contraseña');
+      return;
+    }
+
     setShowLoader(true);
 
     toast.promise(
       async () => {
-        await updateUser({ password: values.password, email: email! });
+        await resetPasswordWithToken(token, email, values.password);
       },
       {
-        loading: 'Actualizada contraseña...',
-        success: (data) => {
+        loading: 'Actualizando contraseña...',
+        success: () => {
           return 'Tu contraseña ha sido cambiada con éxito. Ya puedes iniciar sesión con tu nueva contraseña.';
         },
         error: (error) => {
-          return error;
+          return error.message || 'Error al cambiar la contraseña';
         },
         finally: () => {
           setShowLoader(false);
@@ -72,7 +101,12 @@ export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) =
                     {...field}
                   />
                 </FormControl>
-                <Toggle onClick={() => setShowPassword(!showPassword)} variant={'outline'}>
+                <Toggle
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  variant={'outline'}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
                   {showPassword ? <CloseEyeIcon /> : <EyeIcon />}
                 </Toggle>
               </div>
@@ -97,7 +131,12 @@ export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) =
                     {...field}
                   />
                 </FormControl>
-                <Toggle onClick={() => setShowPassword(!showPassword)} variant={'outline'}>
+                <Toggle
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  variant={'outline'}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
                   {showPassword ? <CloseEyeIcon /> : <EyeIcon />}
                 </Toggle>
               </div>
@@ -107,7 +146,7 @@ export const UpdateUserPasswordForm = ({ email }: UpdateUserPasswordFormProps) =
           )}
         />
         <Button type="submit" disabled={showLoader}>
-          Cambiar contraseña
+          {showLoader ? 'Cambiando contraseña...' : 'Cambiar contraseña'}
         </Button>
       </form>
     </Form>
