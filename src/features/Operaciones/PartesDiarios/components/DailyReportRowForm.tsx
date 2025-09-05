@@ -646,6 +646,7 @@ export function DailyReportForm({
     // Restablecer estados
     setSelectedCustomerId(null);
     setSelectedServiceId(null);
+    setSelectedCustomer(null);
     setIsServiceDisabled(true);
     setIsSectorDisabled(true); // Asegurar que el campo de sector esté deshabilitado
     setIsAreaDisabled(true); // Asegurar que el campo de área esté deshabilitado
