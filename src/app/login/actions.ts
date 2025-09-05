@@ -63,3 +63,70 @@ export async function googleLogin(url: string) {
     redirect(data.url); // use the redirect API for your server framework
   }
 }
+
+export async function verifyResetToken(token: string, email: string) {
+  const supabase = supabaseServer();
+
+  try {
+    // Verificar que el token existe y es válido
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('password_reset_tokens' as any)
+      .select(
+        `
+        *,
+        profile:profile_id (email)
+      `
+      )
+      .eq('token', token)
+      .eq('used', false)
+      .gt('expires', new Date().toISOString())
+      .single();
+
+    if (tokenError || !tokenData) {
+      return {
+        success: false,
+        error: 'Token inválido o expirado',
+      };
+    }
+
+    // Verificar que el email coincide
+    if (tokenData.profile.email !== email) {
+      return {
+        success: false,
+        error: 'Token no coincide con el email',
+      };
+    }
+
+    return {
+      success: true,
+      profileId: tokenData.profile_id,
+    };
+  } catch (error) {
+    console.error('Error verificando token:', error);
+    return {
+      success: false,
+      error: 'Error al verificar el token',
+    };
+  }
+}
+
+export async function markTokenAsUsed(token: string) {
+  const supabase = supabaseServer();
+
+  try {
+    const { error } = await supabase
+      .from('password_reset_tokens' as any)
+      .update({ used: true })
+      .eq('token', token);
+
+    if (error) {
+      console.error('Error marcando token como usado:', error);
+      return { success: false };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error marcando token como usado:', error);
+    return { success: false };
+  }
+}

@@ -9,6 +9,7 @@ interface PageProps {
 }
 export default function UpdateUserPassword({ searchParams }: PageProps) {
   const email = typeof searchParams.email === 'string' ? searchParams.email : '';
+  const token = typeof searchParams.token === 'string' ? searchParams.token : '';
 
   return (
     <section className="min-h-screen overflow-hidden bg-white dark:bg-transparent">
@@ -34,7 +35,7 @@ export default function UpdateUserPassword({ searchParams }: PageProps) {
               recordar para ti. Asegúrate de que tu contraseña tenga al menos 6 caracteres, incluya una combinación de
               letras mayúsculas, minúsculas, números o símbolos.
             </CardDescription>
-            <UpdateUserPasswordForm email={email} />
+            <UpdateUserPasswordForm email={email} token={token} />
           </div>
         </div>
       </div>

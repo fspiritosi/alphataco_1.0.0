@@ -1,4 +1,5 @@
 // src/app/reset_password/confirm/page.tsx
+import { verifyResetToken } from '@/app/login/actions';
 import RenderBanner from '@/components/RenderBanner';
 import { UpdateUserPasswordForm } from '@/components/UpdateUserPasswordForm';
 import { CardDescription, CardTitle } from '@/components/ui/card';
@@ -9,8 +10,21 @@ interface PageProps {
   searchParams: { [key: string]: string | string[] | undefined };
 }
 
-export default function ConfirmUserPassword({ searchParams }: PageProps) {
+export default async function ConfirmUserPassword({ searchParams }: PageProps) {
   const email = typeof searchParams.email === 'string' ? searchParams.email : '';
+  const token = typeof searchParams.token === 'string' ? searchParams.token : '';
+
+  // Verificar el token si está presente
+  let tokenValid = false;
+  let tokenError = '';
+
+  if (token && email) {
+    const tokenVerification = await verifyResetToken(token, email);
+    tokenValid = tokenVerification.success;
+    if (!tokenValid) {
+      tokenError = tokenVerification.error || 'Token inválido';
+    }
+  }
 
   return (
     <section className="min-h-screen overflow-hidden bg-white dark:bg-transparent">
@@ -29,14 +43,36 @@ export default function ConfirmUserPassword({ searchParams }: PageProps) {
           </Link>
           <div className="w-full overflow-y-auto">
             <CardTitle className="text-3xl font-semibold tracking-tight lg:text-left text-center mb-2">
-              Establece tu nueva contraseña
+              {token && email ? 'Establece tu nueva contraseña' : 'Solicitud inválida'}
             </CardTitle>
-            <CardDescription className="text-pretty mb-9 text-black/70 text-md lg:text-left text-center">
-              Por razones de seguridad, es necesario que crees una nueva contraseña. Esto solo te lo pediremos en tu
-              primer inicio de sesión. Elije una contraseña que sea fácil de recordar para vos. Debe contener un mínimo
-              de 6 caracteres, 1 mayúscula, 1 minúscula, 1 numero y 1 símbolo.
-            </CardDescription>
-            <UpdateUserPasswordForm email={email} />
+
+            {token && email ? (
+              tokenValid ? (
+                <>
+                  <CardDescription className="text-pretty mb-9 text-black/70 text-md lg:text-left text-center">
+                    Por razones de seguridad, es necesario que crees una nueva contraseña. Esto solo te lo pediremos en
+                    tu primer inicio de sesión. Elije una contraseña que sea fácil de recordar para vos. Debe contener
+                    un mínimo de 6 caracteres, 1 mayúscula, 1 minúscula, 1 numero y 1 símbolo.
+                  </CardDescription>
+                  <UpdateUserPasswordForm email={email} token={token} />
+                </>
+              ) : (
+                <div className="text-center p-6 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 font-medium">Enlace inválido o expirado</p>
+                  <p className="text-red-500 text-sm mt-2">{tokenError}</p>
+                  <p className="text-gray-600 text-sm mt-4">
+                    Por favor, solicita un nuevo enlace de recuperación de contraseña.
+                  </p>
+                </div>
+              )
+            ) : (
+              <div className="text-center p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-600 font-medium">Faltan parámetros requeridos</p>
+                <p className="text-gray-600 text-sm mt-2">
+                  El enlace de recuperación debe incluir un token válido y dirección de email.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
