@@ -17,12 +17,13 @@ import { fetchAllEmployees2 } from '@/shared/actions/employees.actions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
+import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { assignEmployeesToCustomer, assignEquipmentsToCustomer } from '../actions';
-import { fechAllCustomers } from '../actions/create';
+import { fechAllCustomers, fechAllDataCustomersById } from '../actions/create';
 import { CustomerForm } from './CustomerForm';
 import ServiceTable from './Services/ServiceTable';
 // Form related imports removed for simplicity
@@ -38,6 +39,130 @@ interface Customer {
   company_id: string;
   reason_for_termination?: string | null;
   termination_date?: string | null;
+  contractor_employee?: Array<{
+    employees: {
+      id: string;
+      firstname: string;
+      lastname: string;
+      // Agrega otras propiedades de empleado según sea necesario
+    };
+  }>;
+}
+
+interface Employee {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string | null;
+  phone: string;
+  document_number: string;
+  document_type: 'DNI' | 'LE' | 'LC' | 'PASAPORTE' | null;
+  cuil: string;
+  gender: 'Masculino' | 'Femenino' | 'No Declarado' | null;
+  born_date: string | null;
+  birthplace: string;
+  marital_status: 'Casado' | 'Soltero' | 'Divorciado' | 'Viudo' | 'Separado' | 'Union de hecho' | null;
+  nationality: 'Argentina' | 'Extranjero' | null;
+  street: string;
+  street_number: string;
+  city: number | null;
+  province: number;
+  postal_code: string | null;
+  company_id: string | null;
+  company_position: string | null;
+  hierarchical_position: string | null;
+  cost_center_id: string | null;
+  guild_id: string | null;
+  affiliate_status: 'Dentro de convenio' | 'Fuera de convenio' | null;
+  status: 'Avalado' | 'No avalado' | 'Incompleto' | 'Completo' | 'Completo con doc vencida' | null;
+  is_active: boolean | null;
+  created_at: string;
+  updated_at?: string;
+  termination_date: string | null;
+  reason_for_termination:
+    | 'Despido sin causa'
+    | 'Renuncia'
+    | 'Despido con causa'
+    | 'Acuerdo de partes'
+    | 'Fin de contrato'
+    | 'Fallecimiento'
+    | null;
+  allocated_to?: string[] | null;
+  category_id?: string | null;
+  covenants_id?: string | null;
+  date_of_admission?: string;
+  file?: string;
+  level_of_education?: 'Primario' | 'Secundario' | 'Terciario' | 'Universitario' | 'PosGrado' | null;
+  normal_hours?: string | null;
+  picture?: string | null;
+  type_of_contract?: string | null;
+  workflow_diagram?: string | null;
+
+  // Nested objects
+  company_positions: {
+    id: string;
+    name: string | null;
+    hierarchical_position_id: string[] | null;
+    is_active: boolean | null;
+    created_at: string;
+  } | null;
+
+  hierarchy: {
+    id: string;
+    name: string;
+    is_active: boolean | null;
+    created_at: string;
+  } | null;
+
+  cities: {
+    id: number;
+    name: string;
+    province_id: number;
+    created_at: string;
+  } | null;
+
+  provinces: {
+    id: number;
+    name: string;
+    created_at: string;
+  } | null;
+
+  work_diagram: {
+    id: string;
+    name: string;
+    active_working_days: number | null;
+    inactive_working_days: number | null;
+    inactive_novelty: string | null;
+    is_active: boolean | null;
+    created_at: string;
+  } | null;
+
+  countries: {
+    id: string;
+    name: string;
+    created_at: string;
+  } | null;
+
+  cost_center: {
+    id: string;
+    name: string;
+    is_active: boolean | null;
+    created_at: string;
+  } | null;
+
+  contractor_employee: Array<{
+    id: string;
+    contractor_id: string | null;
+    employee_id: string | null;
+    created_at: string;
+  }>;
+}
+
+interface ContractorEmployee {
+  id: string;
+  contractor_id: string | null;
+  employee_id: string | null;
+  created_at: string;
 }
 
 interface DataCustomersProps<TData, TValue> {
@@ -85,25 +210,119 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Timestamp de inicio del componente
 
   const router = useRouter();
-  const [selectedCustomer, setSelectedCustomer] = useState<Awaited<ReturnType<typeof fechAllCustomers>>[number] | null>(
-    null
-  );
+  const [selectedCustomer, setSelectedCustomer] = useState<
+    Awaited<ReturnType<typeof fechAllDataCustomersById>>[0] | null
+  >(null);
 
-  // Medir tiempo de resolución de employeesPromise
-  const [employees, setEmployees] = useState(
-    selectedCustomer?.contractor_employee
-      ?.map((employee) => employee.employees)
-      ?.sort((a, b) => (a?.lastname || '').localeCompare(b?.lastname || ''))
-  );
-  // const [allEmployees,setAllEmployees] = useState<{label:string,value:string}[]>([])
+  // Estado para empleados
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [equipments, setEquipment] = useState<Awaited<ReturnType<typeof fetchAllEquipment>>>();
+  const [showForm, setShowForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEmployeesLoading, setIsEmployeesLoading] = useState(false);
+  const [isEquipmentLoading, setIsEquipmentLoading] = useState(false);
+
+  // Manejador para cargar datos del cliente
+  const handleSelectCustomer = async (customer: Awaited<ReturnType<typeof fechAllCustomers>>[number]) => {
+    if (!customer?.id) return;
+
+    setIsLoading(true);
+    try {
+      // Reset the selected customer first to clear previous state
+      setSelectedCustomer(null);
+      setEmployees([]);
+
+      const customerData = await fechAllDataCustomersById(customer.id);
+      if (customerData && customerData.length > 0) {
+        const fullCustomer = customerData[0];
+        setSelectedCustomer(fullCustomer);
+
+        // Update employees if they exist
+        if (fullCustomer.contractor_employee?.length) {
+          const employeeList = fullCustomer.contractor_employee
+            .map((ce) => ce.employees)
+            .filter(
+              (e): e is NonNullable<typeof e> =>
+                e !== null &&
+                e !== undefined &&
+                typeof e.id === 'string' &&
+                typeof e.firstname === 'string' &&
+                typeof e.lastname === 'string'
+            )
+            .map((e) => ({
+              ...e,
+              // Ensure all required fields have proper defaults if they might be undefined
+              affiliate_status: e.affiliate_status || null,
+              allocated_to: e.allocated_to || null,
+              // Add other fields as needed
+            })) as Employee[]; // Type assertion here
+
+          setEmployees(employeeList);
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar los datos del cliente:', error);
+      toast.error('Error al cargar los datos del cliente');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRowClick = (row: TData) => {
+    const customer = row as unknown as Awaited<ReturnType<typeof fechAllCustomers>>[number];
+    setSelectedCustomer(customer as any);
+    setShowForm(true);
+    setIsEditing(false);
+
+    // Cargar datos adicionales en segundo plano
+    handleLoadAdditionalData(customer.id);
+  };
+
+  const handleLoadAdditionalData = async (customerId: string) => {
+    if (!customerId) return;
+
+    setIsLoading(true);
+    try {
+      const customerData = await fechAllDataCustomersById(customerId);
+      if (customerData?.[0]) {
+        setSelectedCustomer((prev) => ({ ...prev, ...customerData[0] }));
+
+        if (customerData[0].contractor_employee?.length) {
+          const employeeList = customerData[0].contractor_employee
+            .map((ce) => ce.employees)
+            .filter(
+              (e): e is NonNullable<typeof e> =>
+                e !== null &&
+                typeof e.id === 'string' &&
+                typeof e.firstname === 'string' &&
+                typeof e.lastname === 'string'
+            )
+            .map((e) => ({
+              ...e,
+              affiliate_status: e.affiliate_status || null,
+              allocated_to: e.allocated_to || null,
+            })) as Employee[];
+
+          setEmployees(employeeList);
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar datos adicionales:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Medir tiempo de resolución de employeesPromise
+  // const [allEmployees,setAllEmployees] = useState<{label:string,value:string}[]>([])
 
   useEffect(() => {
     if (selectedCustomer?.id) {
       setEmployees(
         selectedCustomer?.contractor_employee
-          .map((employee) => employee.employees)
+          ?.map((employee) => employee.employees)
+          .filter((e): e is NonNullable<typeof e> => e !== null && e !== undefined)
           .sort((a, b) => (a?.lastname || '').localeCompare(b?.lastname || ''))
       );
     }
@@ -140,8 +359,10 @@ export function DataCustomers<TData extends Customer, TValue>({
   const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : savedFilters || [];
 
   const fetchEmployees = async () => {
+    setIsEmployeesLoading(true);
     const employees = await fetchAllEmployees2(selectedCustomer?.id!);
     setEmployees(employees);
+    setIsEmployeesLoading(false);
   };
 
   // Memoize the customer employees filter
@@ -150,17 +371,15 @@ export function DataCustomers<TData extends Customer, TValue>({
       return [];
     }
 
-    const filtered = employees.filter((employee) => {
-      const hasMatchingContractor =
-        employee?.contractor_employee?.some((contractor: any) => {
-          const contractorId = contractor.contractor_id?.id || contractor.contractor_id;
+    return employees.filter((employee) => {
+      return (
+        employee?.contractor_employee?.some((contractor: ContractorEmployee) => {
+          if (!contractor.contractor_id) return false;
+          const contractorId = contractor.contractor_id;
           return contractorId === selectedCustomer.id;
-        }) || false;
-
-      return hasMatchingContractor;
+        }) || false
+      );
     });
-
-    return filtered;
   }, [employees, selectedCustomer, isEmployeeDialogOpen]);
   // Formulario para empleados
   const form = useForm({
@@ -288,45 +507,17 @@ export function DataCustomers<TData extends Customer, TValue>({
     await fetchEmployees();
   };
 
-  // // Server action para asignar empleados a un cliente
-  // async function asignarEmpleadosACliente(clienteId: string, empleadosIds: string[]) {
-  //   try {
-  //     const response = await assignEmployeesToCustomer(clienteId, empleadosIds);
-
-  //     if (!response.success) {
-  //       throw new Error(response.error || 'Error desconocido al asignar empleados');
-  //     }
-
-  //     return response;
-  //   } catch (error) {
-  //     console.error('Error en asignarEmpleadosACliente:', error);
-  //     throw error;
-  //   }
-  // }
-
-  const [showForm, setShowForm] = useState(false);
-
-  const handleRowClick = (row: TData) => {
-    setSelectedCustomer(row as any);
-    setShowForm(true);
-    setIsEditing(false);
-  };
-
-  const transformEmployeeData = React.useCallback((employee: any) => {
-    return {
-      ...employee,
-      city: employee.city ? parseInt(employee.city) : null,
-      province: employee.province ? parseInt(employee.province) : null,
-      company_position: employee.company_position || null,
-      hierarchical_position: employee.hierarchical_position || null,
-      workflow_diagram: employee.workflow_diagram || null,
-    };
-  }, []);
-
   // Memoize transformed employees (completo para la tabla)
   const transformedEmployees = React.useMemo(() => {
-    return customerEmployees.map(transformEmployeeData);
-  }, [customerEmployees, isEmployeeDialogOpen, employees]);
+    return customerEmployees.map((employee) => ({
+      ...employee,
+      city: employee.city ? Number(employee.city) : null,
+      province: employee.province ? Number(employee.province) : null,
+      company_position: employee.company_position || null,
+      hierarchical_position: employee.hierarchical_position || null,
+      work_diagram: employee.work_diagram || null,
+    }));
+  }, [customerEmployees]);
   // Datos optimizados para el multiselect - siempre mostrar todos los empleados
   const multiselectEmployees = React.useMemo(() => {
     if (!employees) return [];
@@ -351,8 +542,9 @@ export function DataCustomers<TData extends Customer, TValue>({
     return equipments.filter((equipment) => {
       // Verifica si el equipo está vinculado a través de contractor_equipment
       return (
-        equipment.contractor_equipment?.some((contractor) => contractor.contractor_id?.id === selectedCustomer.id) ||
-        false
+        equipment.contractor_equipment?.some(
+          (contractor: any) => contractor.contractor_id?.id === selectedCustomer.id
+        ) || false
       );
     });
   }, [equipments, selectedCustomer]);
@@ -458,26 +650,29 @@ export function DataCustomers<TData extends Customer, TValue>({
               </div>
 
               {/* {transformedEmployees.length > 0 ? ( */}
-              <EmployeesTableReusable
-                onRowClick={(employee) => handleRowClick(employee as any)}
-                // employeesPromise={Promise.resolve(transformedEmployees)}
-                transformedEmployees={
-                  (employees?.filter((employee) => {
-                    const hasMatchingContractor =
-                      employee?.contractor_employee?.some((contractor: any) => {
-                        const contractorId = contractor.contractor_id?.id || contractor.contractor_id;
-                        return contractorId === selectedCustomer?.id;
-                      }) || false;
+              {isEmployeesLoading ? (
+                <div className="flex justify-center items-center h-full">
+                  <Loader2 className="animate-spin" />
+                </div>
+              ) : (
+                <EmployeesTableReusable
+                  onRowClick={(employee) => handleRowClick(employee as any)}
+                  // employeesPromise={Promise.resolve(transformedEmployees)}
+                  transformedEmployees={
+                    (employees?.filter((employee) => {
+                      const hasMatchingContractor =
+                        employee?.contractor_employee?.some((contractor: any) => {
+                          const contractorId = contractor.contractor_id?.id || contractor.contractor_id;
+                          return contractorId === selectedCustomer?.id;
+                        }) || false;
 
-                    return hasMatchingContractor;
-                  }) as any) || []
-                }
-                tableId="employees-table"
-                savedVisibility={savedVisibility}
-              />
-              {/* ) : ( */}
-              {/* <div className="text-center py-4 text-muted-foreground">No hay empleados asignados a este cliente.</div> */}
-              {/* )} */}
+                      return hasMatchingContractor;
+                    }) as any) || []
+                  }
+                  tableId="employees-table"
+                  savedVisibility={savedVisibility}
+                />
+              )}
             </div>
           </TabsContent>
 
@@ -545,12 +740,18 @@ export function DataCustomers<TData extends Customer, TValue>({
                   </DialogContent>
                 </Dialog>
               </div>
-              <EquipmentTable
-                savedFilters={savedFiltersEquipmentTable}
-                columns={EquipmentColums || []}
-                data={customerEquipments || []}
-                savedVisibility={savedVisibilityEquipment}
-              />
+              {isEquipmentLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <EquipmentTable
+                  savedFilters={savedFiltersEquipmentTable}
+                  columns={EquipmentColums || []}
+                  data={customerEquipments || []}
+                  savedVisibility={savedVisibilityEquipment}
+                />
+              )}
             </div>
           </TabsContent>
 
@@ -582,61 +783,69 @@ export function DataCustomers<TData extends Customer, TValue>({
   // Si no estamos en modo edición ni hay un ID seleccionado, mostramos la tabla con opción de crear
   return (
     <div>
-      <div className="mb-4">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="gh_orange">Registrar Cliente</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl">
-            <CustomerForm
-              company_id={company_id}
-              onSuccess={() => {
-                // Cerrar el diálogo después de guardar
-                const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
-                if (dialog) dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+      {isLoading ? (
+        <div className="flex justify-center items-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        <div>
+          <div className="mb-4">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="gh_orange">Registrar Cliente</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl">
+                <CustomerForm
+                  company_id={company_id}
+                  onSuccess={() => {
+                    // Cerrar el diálogo después de guardar
+                    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+                    if (dialog) dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
 
-      <BaseDataTable
-        data={(data as unknown as TData[]) || []}
-        savedVisibility={savedVisibility}
-        columns={columns}
-        tableId="customers-table"
-        onRowClick={handleRowClick}
-        toolbarOptions={{
-          initialVisibleFilters: savedFiltersFromCookie,
-          filterableColumns: [
-            {
-              columnId: 'Nombre',
-              title: 'Nombre',
-              options: names,
-            },
-            {
-              columnId: 'Cuit',
-              title: 'Cuit',
-              options: cuit,
-            },
-            {
-              columnId: 'Email',
-              title: 'Email',
-              options: client_email,
-            },
-            {
-              columnId: 'Telefono',
-              title: 'Telefono',
-              options: client_phone,
-            },
-            {
-              columnId: 'Estado',
-              title: 'Estado',
-              options: active_customer,
-            },
-          ],
-        }}
-      />
+          <BaseDataTable
+            data={(data as unknown as TData[]) || []}
+            savedVisibility={savedVisibility}
+            columns={columns}
+            tableId="customers-table"
+            onRowClick={handleRowClick}
+            toolbarOptions={{
+              initialVisibleFilters: savedFiltersFromCookie,
+              filterableColumns: [
+                {
+                  columnId: 'Nombre',
+                  title: 'Nombre',
+                  options: names,
+                },
+                {
+                  columnId: 'Cuit',
+                  title: 'Cuit',
+                  options: cuit,
+                },
+                {
+                  columnId: 'Email',
+                  title: 'Email',
+                  options: client_email,
+                },
+                {
+                  columnId: 'Telefono',
+                  title: 'Telefono',
+                  options: client_phone,
+                },
+                {
+                  columnId: 'Estado',
+                  title: 'Estado',
+                  options: active_customer,
+                },
+              ],
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

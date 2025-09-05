@@ -15,15 +15,21 @@ export default async function DataCustomersWrapper() {
   const cookiesStore = cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
-  const customers = await fechAllCustomers();
-  const contractorCompanies = customers?.filter((company) => company.company_id.toString() === actualCompany);
-  const areas = await fetchAreasWithProvinces();
-  const sectors = await fetchAllSectors();
+  // Consultas que no dependen entre sí
+  const [customers, areas, sectors, services, employees, measure_units] = await Promise.all([
+    fechAllCustomers(),
+    fetchAreasWithProvinces(),
+    fetchAllSectors(),
+    fetchServices(actualCompany || ''),
+    fetchAllEmployeesOnlyName(),
+    fetchMeasureUnits(),
+  ]);
+
+  // Esta consulta depende de sectors
+
   const contractorSectors = await fetchAllContractorSectorBySectorIds(sectors?.map((sector) => sector.id) || []);
 
-  const services = await fetchServices(actualCompany || '');
-  const employees = await fetchAllEmployeesOnlyName();
-  const measure_units = await fetchMeasureUnits();
+  const contractorCompanies = customers?.filter((company) => company.company_id.toString() === actualCompany);
 
   // Get cookies
   const savedCustomers = cookiesStore.get('customers-table')?.value;
