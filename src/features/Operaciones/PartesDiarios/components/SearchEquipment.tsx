@@ -43,6 +43,8 @@ export function SearchEquipment({
       cancel_reason?: string | undefined;
       reprogram_date?: Date | undefined;
       reasigment_reason?: string | undefined;
+      completed_day?: boolean | undefined;
+      completed_night?: boolean | undefined;
     },
     'equipment'
   >;

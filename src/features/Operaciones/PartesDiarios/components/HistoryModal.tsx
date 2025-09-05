@@ -45,7 +45,9 @@ export default function HistoryModal({
 
   const fetchHistory = async () => {
     try {
+      setIsLoading(true);
       const data = await getDailyReportRowHistory(dailyReportRowId);
+      console.log(data, 'data');
       setHistoryData(data || []);
     } catch (error) {
       console.error('Error fetching history:', error);
@@ -53,9 +55,12 @@ export default function HistoryModal({
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
-    fetchHistory();
-  }, [dailyReportRowId]);
+    if (open && historyData.length === 0) {
+      fetchHistory();
+    }
+  }, [open, dailyReportRowId]);
 
   // Ordenar el historial por fecha (más reciente primero)
   const sortedHistory = [...historyData].sort(
@@ -121,6 +126,44 @@ export default function HistoryModal({
         return 'Creación';
       default:
         return actionType;
+    }
+  };
+
+  // Función para traducir nombres de campos al español
+  const getFieldDisplayName = (fieldName: string, field: string) => {
+    // Traducciones de campos
+    const fieldTranslations: Record<string, string> = {
+      completed_night: 'Completado Nocturno',
+      completed_day: 'Completado Diurno',
+      status: 'Estado',
+      description: 'Descripción',
+      start_time: 'Hora de Inicio',
+      end_time: 'Hora de Fin',
+      service_type: 'Tipo de Servicio',
+      working_day: 'Jornada Laboral',
+      customer: 'Cliente',
+      service: 'Servicio',
+      item: 'Item',
+      sin_recursos_asignados: 'Sin Recursos Asignados',
+    };
+
+    // Priorizar traducciones locales sobre el fieldName del backend
+    return fieldTranslations[field] || fieldName || field;
+  };
+
+  // Función para formatear valores de display
+  const getValueDisplay = (value: any, field: string) => {
+    if (value === null || value === undefined) {
+      return 'Sin valor';
+    }
+
+    // Formateo específico por campo
+    switch (field) {
+      case 'completed_night':
+      case 'completed_day':
+        return value === true ? 'Completado' : value === false ? 'No completado' : value;
+      default:
+        return value.replaceAll('_', ' ');
     }
   };
 
@@ -370,17 +413,17 @@ export default function HistoryModal({
                                     className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                                   >
                                     <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
-                                      {change.fieldName || change.field}
+                                      {getFieldDisplayName(change.fieldName, change.field)}
                                     </h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                       <div className="bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-700 relative overflow-hidden">
                                         <div className="absolute top-0 left-0 w-1 h-full bg-red-400 dark:bg-red-600"></div>
-                                        <span className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1 capitalize">
                                           <X className="h-3 w-3 text-red-500" />
                                           Valor anterior
                                         </span>
-                                        <span className="font-medium text-slate-900 dark:text-slate-200">
-                                          {change.oldValueDisplay || change.oldValue || (
+                                        <span className="font-medium text-slate-900 dark:text-slate-200 capitalize">
+                                          {getValueDisplay(change.oldValue, change.field) || (
                                             <span className="text-slate-400 dark:text-slate-500 italic">Sin valor</span>
                                           )}
                                         </span>
@@ -392,7 +435,7 @@ export default function HistoryModal({
                                           Valor nuevo
                                         </span>
                                         <span className="font-medium text-slate-900 dark:text-slate-200">
-                                          {change.newValueDisplay || change.newValue || (
+                                          {getValueDisplay(change.newValue, change.field) || (
                                             <span className="text-slate-400 dark:text-slate-500 italic">Sin valor</span>
                                           )}
                                         </span>

@@ -10,8 +10,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
-import { useRouter } from 'next/navigation';
-import { use, useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
@@ -22,68 +21,80 @@ import { BulkEditModal } from './BulkEditModal';
 import { ClonarRegistrosButton } from './ClonarRegistrosButton';
 import { DailyReportForm } from './DailyReportRowForm';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
-import DocumentUploadModal from './DocumentUploadModal';
 import DocumentViewerModal from './DocumentViewerFixed';
 import HistoryModal from './HistoryModal';
 import { ServiceDetailModal } from './ServiceDetailModal';
 export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDailyReportById>>) => {
   const report = reports?.[0];
-  return report?.dailyreportrows?.map((row) => ({
-    id: row.id,
-    date: report.date,
-    type_service: row.type_service,
-    customer: row.customers?.name,
-    cancel_reason: row.cancel_reason,
-    employees: row.dailyreportemployeerelations.map((rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname),
-    equipment:
-      row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
-    customer_equipment:
-      row.dailyreport_customer_equipment_relations.map((rel) => {
-        return {
-          name: rel.equipos_clientes?.name,
-          type: rel.equipos_clientes?.type,
-          id: rel.equipos_clientes?.id,
-          relacion_id: rel.id,
-        };
-      }) || [],
-    services: row.customer_services?.service_name,
-    item: row.service_items?.item_name,
-    start_time: row.start_time,
-    end_time: row.end_time,
-    status: row.status,
-    working_day: row.working_day,
-    sector_customer_id: row.service_sectors?.id,
-    sector_service_name: row.service_sectors?.sectors?.name,
-    areas_customer_id: row.service_areas?.id,
-    areas_customer_name: row.service_areas?.areas_cliente?.descripcion_corta,
-    description: row.description || '',
-    document_path: row.document_path,
-    remit_number: row.remit_number,
-    employees_references: row.dailyreportemployeerelations.map((rel) => ({
-      ...rel.employees,
-      name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
-      id: rel.employees?.id,
-    })),
-    equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
-      ...rel.vehicles,
-      name: rel.vehicles?.domain || rel.vehicles?.intern_number,
-      id: rel.vehicles?.id,
-      brand_vehicles: rel.vehicles?.brand_vehicles?.name,
-    })),
-    data_to_clone: {
-      customer_id: row.customers?.id,
-      service_id: row.customer_services?.id,
-      item_id: row.service_items?.id,
-      working_day: row.working_day,
+  return report?.dailyreportrows
+    ?.map((row) => ({
+      id: row.id,
+      date: report.date,
+      type_service: row.type_service,
+      customer: row.customers?.name,
+      cancel_reason: row.cancel_reason,
+      employees: row.dailyreportemployeerelations.map(
+        (rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname
+      ),
+      equipment:
+        row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
+      customer_equipment:
+        row.dailyreport_customer_equipment_relations.map((rel) => {
+          return {
+            name: rel.equipos_clientes?.name,
+            type: rel.equipos_clientes?.type,
+            id: rel.equipos_clientes?.id,
+            relacion_id: rel.id,
+          };
+        }) || [],
+      services: row.customer_services?.service_name,
+      item: row.service_items?.item_name,
       start_time: row.start_time,
       end_time: row.end_time,
-      description: row.description,
-      type_service: row.type_service,
-      // daily_report_id: row.id,
-      areas_service_id: row.areas_service_id,
-      sector_service_id: row.sector_service_id,
-    },
-  }));
+      status: row.status,
+      working_day: row.working_day,
+      sector_customer_id: row.service_sectors?.id,
+      sector_service_name: row.service_sectors?.sectors?.name,
+      completed_night: row.completed_night as boolean,
+      completed_day: row.completed_day as boolean,
+      areas_customer_id: row.service_areas?.id,
+      areas_customer_name: row.service_areas?.areas_cliente?.descripcion_corta,
+      description: row.description || '',
+      document_path: row.document_path,
+      remit_number: row.remit_number,
+      employees_references: row.dailyreportemployeerelations.map((rel) => ({
+        ...rel.employees,
+        name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
+        id: rel.employees?.id,
+      })),
+      equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
+        ...rel.vehicles,
+        name: rel.vehicles?.domain || rel.vehicles?.intern_number,
+        id: rel.vehicles?.id,
+        brand_vehicles: rel.vehicles?.brand_vehicles?.name,
+      })),
+      data_to_clone: {
+        customer_id: row.customers?.id,
+        service_id: row.customer_services?.id,
+        item_id: row.service_items?.id,
+        working_day: row.working_day,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        description: row.description,
+        type_service: row.type_service,
+        // daily_report_id: row.id,
+        areas_service_id: row.areas_service_id,
+        sector_service_id: row.sector_service_id,
+      },
+    }))
+    .sort((a, b) => {
+      // First sort by customer name
+      const customerCompare = (a.customer || '').localeCompare(b.customer || '');
+      if (customerCompare !== 0) return customerCompare;
+
+      // Then sort by item name
+      return (a.item || '').localeCompare(b.item || '');
+    });
 };
 
 export type DailyReportRow = ReturnType<typeof transformDailyReports>[number];
@@ -396,6 +407,19 @@ export function getDailyReportColumns(
           );
         }
 
+        const is24Hours = row.original.working_day === 'jornada 24 horas';
+
+        if (is24Hours && status !== 'ejecutado') {
+          const completedDay = row.original.completed_day;
+          const completedNight = row.original.completed_night;
+
+          return (
+            <Badge variant={variants[status as keyof typeof badgeVariants]} className="font-medium capitalize">
+              {completedDay || completedNight ? 'Ejecutado parcial' : status.replaceAll('_', ' ')}
+            </Badge>
+          );
+        }
+
         return (
           <Badge variant={variants[status as keyof typeof badgeVariants]} className="font-medium capitalize">
             {status.replaceAll('_', ' ')}
@@ -418,7 +442,8 @@ export function getDailyReportColumns(
           const documentComponent = row.original.document_path ? (
             <DocumentViewerModal documentUrl={row.original.document_path} documentData={row.original} />
           ) : (
-            <DocumentUploadModal documentData={row.original} />
+            // <DocumentUploadModal documentData={row.original} />
+            <Badge>Remito</Badge>
           );
 
           // Si es de hoy, añadir también un botón de editar
@@ -515,7 +540,7 @@ export function getDailyReportColumns(
 }
 
 export function DayliReportDetailTable({
-  dailyReportPromise,
+  dailyReport,
   savedVisibility,
   savedFilter,
   customers,
@@ -524,15 +549,23 @@ export function DayliReportDetailTable({
   // dailyReportId,
 }: {
   // dailyReportId: string;
-  dailyReportPromise: ReturnType<typeof getDailyReportById>;
+  dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   savedVisibility: VisibilityState;
   savedFilter: string[];
   customers: Awaited<ReturnType<typeof getCustomers>>;
   employeesPromise: ReturnType<typeof getActiveEmployeesForDailyReport>;
   equipmentsPromise: ReturnType<typeof getActiveEquipmentsForDailyReport>;
 }) {
-  const dailyReport = use(dailyReportPromise);
-  const formattedData = transformDailyReports(dailyReport);
+  // const dailyReport = await dailyReportPromise;
+  const [formattedData, setFormattedData] = useState(transformDailyReports(dailyReport));
+
+  useEffect(() => {
+    setFormattedData(transformDailyReports(dailyReport));
+  }, [dailyReport]);
+  const refetchDailyReport = async () => {
+    const dailyReportetected = await getDailyReportById(dailyReport[0].id);
+    setFormattedData(transformDailyReports(dailyReportetected));
+  };
   const customerOptions = createFilterOptions(formattedData, (area) => area.customer);
   const servicesOptions = createFilterOptions(formattedData, (area) => area.services);
   const itemsOptions = createFilterOptions(formattedData, (area) => area.item);
@@ -553,13 +586,14 @@ export function DayliReportDetailTable({
   const typeServiceOptions = createFilterOptions(formattedData, (area) => area.type_service);
 
   const handleEditRow = useCallback((row: (typeof formattedData)[0]) => {
+    console.log('row', row);
     setSelectedRow(row);
     document.getElementById('open-button-daily-report')?.click();
   }, []);
   // Estado para controlar la apertura del modal
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DailyReportRow[]>([]);
-  const router = useRouter();
+  // const router = useRouter();
 
   return (
     <>
@@ -575,6 +609,7 @@ export function DayliReportDetailTable({
           setSelectedRow={setSelectedRow}
           formattedData={formattedData}
           defaultValues={selectedRow}
+          refetchDailyReport={refetchDailyReport}
           disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
         />
         <ClonarRegistrosButton formattedData={formattedData} selectedRows={selectedRows} />
@@ -667,7 +702,7 @@ export function DayliReportDetailTable({
         selectedRows={selectedRows}
         onSuccess={() => {
           // Recargar datos o refrescar la tabla
-          router.refresh();
+          refetchDailyReport();
           // O cualquier otra función que recargue los datos
         }}
       />

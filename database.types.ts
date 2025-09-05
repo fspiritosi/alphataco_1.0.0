@@ -978,6 +978,8 @@ export type Database = {
         Row: {
           areas_service_id: string | null;
           cancel_reason: string | null;
+          completed_day: boolean | null;
+          completed_night: boolean | null;
           created_at: string | null;
           customer_id: string | null;
           daily_report_id: string | null;
@@ -998,6 +1000,8 @@ export type Database = {
         Insert: {
           areas_service_id?: string | null;
           cancel_reason?: string | null;
+          completed_day?: boolean | null;
+          completed_night?: boolean | null;
           created_at?: string | null;
           customer_id?: string | null;
           daily_report_id?: string | null;
@@ -1018,6 +1022,8 @@ export type Database = {
         Update: {
           areas_service_id?: string | null;
           cancel_reason?: string | null;
+          completed_day?: boolean | null;
+          completed_night?: boolean | null;
           created_at?: string | null;
           customer_id?: string | null;
           daily_report_id?: string | null;
