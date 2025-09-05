@@ -260,6 +260,7 @@ export function DailyReportForm({
   const duplicateEmployees = checkEmployeeDuplicates(currentEmployeesWatch || []);
   const duplicateEquipments = checkEquipmentDuplicates(currentEquipmentWatch || []);
 
+  console.log(selectedRow, 'selectedRowselectedRow');
   // If arrays have different lengths, they've changed
   // If arrays have same length, check if any item is different
   const equipmentHasChanged = selectedRow?.equipment_references
@@ -449,6 +450,7 @@ export function DailyReportForm({
           | '..'
       );
     }
+    console.log(selectedCustomer, 'selectedCustomer');
 
     if (defaultValues && selectedCustomer) {
       const customer = selectedCustomer;
@@ -522,7 +524,7 @@ export function DailyReportForm({
         form.setValue('equipment', equipmentIds);
       }
     }
-  }, [selectedCustomer, defaultValues, form, customers, selectedServiceId]);
+  }, [selectedCustomer, defaultValues, form, customers, selectedServiceId, selectedRow]);
 
   // Filtrar servicios activos del cliente seleccionado
   const customerServices = useMemo(() => {
@@ -531,7 +533,7 @@ export function DailyReportForm({
     return selectedCustomer.customer_services.filter(
       (service) => service.is_active && (!service.service_validity || new Date(service.service_validity) >= new Date())
     );
-  }, [selectedCustomer]);
+  }, [selectedCustomer, selectedRow]);
 
   // Filtrar ítems activos del servicio seleccionado
   const serviceItems = useMemo(() => {
@@ -542,7 +544,7 @@ export function DailyReportForm({
 
     // Retornar los ítems activos del servicio seleccionado
     return selectedService?.service_items?.filter((item) => item.is_active) || [];
-  }, [selectedCustomer, selectedServiceId]);
+  }, [selectedCustomer, selectedServiceId, selectedRow]);
 
   // Filtrar empleados del cliente seleccionado
   const filteredEmployees = useMemo(() => {
@@ -555,7 +557,7 @@ export function DailyReportForm({
           (employee.workflow_diagram || employee.employees_diagram?.length > 0) // Verificar si tiene diagrama de trabajo
       ) || []
     );
-  }, [employees, selectedCustomerId]);
+  }, [employees, selectedCustomerId, selectedRow]);
 
   // Filtrar equipos del cliente seleccionado
   const filteredEquipments = useMemo(() => {
@@ -565,7 +567,7 @@ export function DailyReportForm({
         equipment.contractor_equipment?.some((ce) => ce.customers?.id === selectedCustomerId)
       ) || []
     );
-  }, [equipments, selectedCustomerId]);
+  }, [equipments, selectedCustomerId, selectedRow]);
 
   // Manejar cambio de cliente
   const handleCustomerChange = (customerId: string) => {

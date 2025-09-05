@@ -1,9 +1,14 @@
 'use client';
 
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
+import Cookies from 'js-cookie';
+import moment from 'moment';
+import { useState } from 'react';
+import { EmployeeAbsenceTableComponent } from './employee-absence-table';
 
 interface DailyAbsence {
   fecha: string;
@@ -20,6 +25,24 @@ interface DetailedAbsenceTableProps {
   data: DailyAbsence[];
   savedVisibility: Record<string, boolean>;
   savedFiltersFromCookie: string[];
+}
+
+// Tipado de la respuesta de la API
+interface EmployeeAbsence {
+  legajo: number;
+  nombre: string;
+  tarea: string;
+  linea: string;
+  turno: string;
+  motivo: string;
+  desde: string;
+  hasta: string;
+  observaciones: string;
+  diasCaidos: number;
+}
+
+interface DailyAbsenceDetailApiResponse {
+  data: EmployeeAbsence[];
 }
 
 function getDetailedColumns(): ColumnDef<DailyAbsence>[] {
@@ -88,22 +111,88 @@ export function DetailedAbsenceTableComponent({
   const tableId = 'detailedAbsenceTable';
   const fechaOptions = createFilterOptions(data, (d) => d.fecha);
 
+  // Estado del modal y carga de detalle por fecha
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<EmployeeAbsence[]>([]);
+
+  // Lectura de cookies para la tabla de empleados dentro del modal
+  const employeeTableId = 'employeeAbsenceTable';
+  const visibilityCookie = Cookies.get(employeeTableId);
+  const filtersCookie = Cookies.get(`${employeeTableId}-filters`);
+  const savedVisibilityEmployees = visibilityCookie ? JSON.parse(visibilityCookie) : {};
+  const savedFiltersEmployees = filtersCookie ? JSON.parse(filtersCookie) : [];
+
+  const handleRowClick = async (row: DailyAbsence) => {
+    try {
+      setSelectedDate(row.fecha);
+      setIsOpen(true);
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+      if (row.fecha) params.set('date', moment(row.fecha).format('YYYY-MM-DD'));
+      const res = await fetch(`/api/hr/daily-absence-detail?${params.toString()}`);
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || 'Error al obtener el detalle de ausencias');
+      }
+      const json: DailyAbsenceDetailApiResponse = await res.json();
+      setEmployees(Array.isArray(json?.data) ? json.data : []);
+    } catch (e: any) {
+      setError(e?.message || 'Error desconocido');
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <BaseDataTable
-      columns={getDetailedColumns()}
-      data={data}
-      savedVisibility={savedVisibility}
-      tableId={tableId}
-      toolbarOptions={{
-        initialVisibleFilters: savedFiltersFromCookie,
-        filterableColumns: [
-          {
-            columnId: 'Fecha',
-            title: 'Fecha',
-            options: fechaOptions,
-          },
-        ],
-      }}
-    />
+    <>
+      <BaseDataTable
+        columns={getDetailedColumns()}
+        data={data}
+        savedVisibility={savedVisibility}
+        tableId={tableId}
+        onRowClick={handleRowClick}
+        toolbarOptions={{
+          initialVisibleFilters: savedFiltersFromCookie,
+          filterableColumns: [
+            {
+              columnId: 'Fecha',
+              title: 'Fecha',
+              options: fechaOptions,
+            },
+          ],
+        }}
+      />
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>
+              Empleados ausentes {selectedDate ? `el ${moment(selectedDate).format('DD/MM/YYYY')}` : ''}
+            </DialogTitle>
+            <DialogDescription>Detalle de empleados ausentes en la fecha seleccionada.</DialogDescription>
+          </DialogHeader>
+
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">Cargando...</div>
+          ) : error ? (
+            <div className="py-8 text-center text-destructive">{error}</div>
+          ) : employees.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No hay empleados ausentes para esta fecha.</div>
+          ) : (
+            <EmployeeAbsenceTableComponent
+              data={employees}
+              savedVisibility={savedVisibilityEmployees}
+              savedFiltersFromCookie={savedFiltersEmployees}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

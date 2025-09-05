@@ -553,6 +553,7 @@ export function DayliReportDetailTable({
   const typeServiceOptions = createFilterOptions(formattedData, (area) => area.type_service);
 
   const handleEditRow = useCallback((row: (typeof formattedData)[0]) => {
+    console.log('row', row);
     setSelectedRow(row);
     document.getElementById('open-button-daily-report')?.click();
   }, []);

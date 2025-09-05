@@ -200,3 +200,26 @@ export async function getDepartmentAbsenceSummary({
 
   return data;
 }
+
+export async function getDailyAbsenceDetail({ date, saveToTable = false }: { date?: string; saveToTable?: boolean }) {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  // Reutilizamos el RPC de empleados ausentes actuales, filtrado por fecha
+  const { data, error } = await supabase.rpc('hr_get_current_absent_employees', {
+    p_company_id: companyId,
+    p_date: date,
+    save_to_table: saveToTable,
+  });
+
+  if (error) {
+    console.error('Error fetching daily absence detail:', error);
+    throw error;
+  }
+
+  return data;
+}
