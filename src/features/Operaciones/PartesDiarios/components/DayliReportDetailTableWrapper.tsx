@@ -20,10 +20,10 @@ export async function DayliReportDetailTableWrapper({
   const customers = await getCustomers();
   const employees = getActiveEmployeesForDailyReport();
   const equipments = getActiveEquipmentsForDailyReport();
-  const dailyReport = getDailyReportById(params.uuid);
+  const dailyReport = await getDailyReportById(params.uuid);
   return (
     <DayliReportDetailTable
-      dailyReportPromise={dailyReport}
+      dailyReport={dailyReport}
       savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
       savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
       // dailyReportId={dailyReport[0]?.id}

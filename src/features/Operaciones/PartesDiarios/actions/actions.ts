@@ -707,8 +707,6 @@ interface EquipmentRelation {
   created_at?: string;
 }
 
-import { Database } from '../../../../../database.types';
-
 type DailyReportRowStatus = Database['public']['Enums']['daily_report_status'];
 type DailyReportTypeEnum = Database['public']['Enums']['daily_report_type_enum'];
 

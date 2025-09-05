@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Building, CalendarIcon, Check, ChevronsUpDown, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { use, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -30,6 +29,7 @@ import {
 } from '../actions/actions';
 
 import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Sheet,
@@ -52,6 +52,7 @@ import { SearchEquipment } from './SearchEquipment';
 type DailyReportFormProps = {
   // onSubmit: (data: DailyReportFormValues) => void;
   // onCancel: () => void;
+  refetchDailyReport: () => void;
   defaultValues?: ReturnType<typeof transformDailyReports>[number] | null;
   customers: Awaited<ReturnType<typeof getCustomers>>;
   // customers_services: Awaited<ReturnType<typeof getCustomersServices>>;
@@ -72,6 +73,8 @@ export const dailyReportSchema = z
     customer: z.string().min(1, 'Debe seleccionar un cliente'),
     services: z.string().min(1, 'Debe seleccionar un servicio'),
     item: z.string().min(1, 'Debe seleccionar un ítem'),
+    completed_day: z.boolean().nullable(),
+    completed_night: z.boolean().nullable(),
     employees: z.array(z.string()).default([]).optional(),
     equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
@@ -94,19 +97,19 @@ export const dailyReportSchema = z
     reprogram_date: z.date().optional(),
     reasigment_reason: z.string().optional(),
   })
-  .refine(
-    (data) => {
-      // Si el estado es 'ejecutado', el campo remit_number es obligatorio
-      if (data.status === 'ejecutado') {
-        return data.remit_number && data.remit_number.trim() !== '';
-      }
-      return true;
-    },
-    {
-      message: 'El número de remito es obligatorio cuando el estado es "Ejecutado"',
-      path: ['remit_number'],
-    }
-  )
+  // .refine(
+  //   (data) => {
+  //     // Si el estado es 'ejecutado', el campo remit_number es obligatorio
+  //     if (data.status === 'ejecutado') {
+  //       return data.remit_number && data.remit_number.trim() !== '';
+  //     }
+  //     return true;
+  //   },
+  //   {
+  //     message: 'El número de remito es obligatorio cuando el estado es "Ejecutado"',
+  //     path: ['remit_number'],
+  //   }
+  // )
   .refine(
     (data) => {
       if (data.working_day === 'por horario') {
@@ -168,6 +171,7 @@ export function DailyReportForm({
   disabled,
   formattedData,
   dailyReport,
+  refetchDailyReport,
 }: DailyReportFormProps) {
   const employees = use(employeesPromise);
   const equipments = use(equipmentsPromise);
@@ -176,7 +180,7 @@ export function DailyReportForm({
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
   const [isSectorDisabled, setIsSectorDisabled] = useState<boolean>(true);
   const [isAreaDisabled, setIsAreaDisabled] = useState<boolean>(true);
-  const router = useRouter();
+  // const router = useRouter();
   // Filtros de clientes
   const activeCustomers = customers?.filter((c) => c.is_active) || [];
 
@@ -313,6 +317,8 @@ export function DailyReportForm({
       remit_number: data.remit_number || null,
       type_service: data.type_service,
       cancel_reason: data.cancel_reason || null,
+      completed_day: data.completed_day || null,
+      completed_night: data.completed_night || null,
     };
 
     toast.promise(
@@ -412,7 +418,6 @@ export function DailyReportForm({
         // Restablecer los estados locales
         setSelectedCustomerId(null);
         setSelectedServiceId(null);
-        router.refresh();
       },
       {
         loading: selectedRow ? 'Actualizando parte diario...' : 'Creando parte diario...',
@@ -420,6 +425,7 @@ export function DailyReportForm({
         error: selectedRow ? 'Error al actualizar parte diario' : 'Error al crear parte diario',
       }
     );
+    refetchDailyReport();
   };
 
   useEffect(() => {
@@ -496,6 +502,8 @@ export function DailyReportForm({
       form.setValue('cancel_reason', defaultValues.cancel_reason || '');
       form.setValue('start_time', defaultValues.start_time?.substring(0, 5) || '');
       form.setValue('end_time', defaultValues.end_time?.substring(0, 5) || '');
+      form.setValue('completed_day', defaultValues.completed_day || false);
+      form.setValue('completed_night', defaultValues.completed_night || false);
 
       // Establecer sector
       if (defaultValues.sector_customer_id) {
@@ -1309,7 +1317,8 @@ export function DailyReportForm({
                           <FormMessage />
 
                           {/* Campo de número de remito - Solo visible cuando el estado es 'ejecutado' */}
-                          {currentStatusWatch === 'ejecutado' && (
+                          {/* {currentStatusWatch === 'ejecutado' && ( */}
+                          {false && (
                             <div className="mt-6">
                               <FormField
                                 control={form.control}
@@ -1433,7 +1442,7 @@ export function DailyReportForm({
                           </div>
                         </div>
                       )}
-                      <SearchEmployee field={field} employees={filteredEmployees} />
+                      <SearchEmployee field={field as any} employees={filteredEmployees} />
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -1614,7 +1623,7 @@ export function DailyReportForm({
                           </div>
                         </div>
                       )}
-                      <SearchEquipment field={field} equipment={filteredEquipments} />
+                      <SearchEquipment field={field as any} equipment={filteredEquipments} />
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -1831,6 +1840,35 @@ export function DailyReportForm({
                     </FormItem>
                   )}
                 />
+                {form.watch('working_day') === 'jornada 24 horas' && (
+                  <div className="flex flex-row gap-4 items-center">
+                    <FormField
+                      control={form.control}
+                      name="completed_day"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                          <FormControl>
+                            <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <FormLabel className=" font-normal m-0">Completado Día</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="completed_night"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                          <FormControl>
+                            <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <FormLabel className="font-normal">Completado Noche</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 {/* Horario (condicional) */}
                 {form.watch('working_day') === 'por horario' && (
