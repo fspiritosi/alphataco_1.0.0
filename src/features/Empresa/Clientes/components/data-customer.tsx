@@ -228,46 +228,62 @@ export function DataCustomers<TData extends Customer, TValue>({
     if (!customer?.id) return;
 
     setIsLoading(true);
+    setIsEmployeesLoading(true);
+    setIsEquipmentLoading(true);
+
     try {
-      // Reset the selected customer first to clear previous state
       setSelectedCustomer(null);
       setEmployees([]);
 
       const customerData = await fechAllDataCustomersById(customer.id);
-      if (customerData && customerData.length > 0) {
-        const fullCustomer = customerData[0];
-        setSelectedCustomer(fullCustomer);
-
-        // Update employees if they exist
-        if (fullCustomer.contractor_employee?.length) {
-          const employeeList = fullCustomer.contractor_employee
-            .map((ce) => ce.employees)
-            .filter(
-              (e): e is NonNullable<typeof e> =>
-                e !== null &&
-                e !== undefined &&
-                typeof e.id === 'string' &&
-                typeof e.firstname === 'string' &&
-                typeof e.lastname === 'string'
-            )
-            .map((e) => ({
-              ...e,
-              // Ensure all required fields have proper defaults if they might be undefined
-              affiliate_status: e.affiliate_status || null,
-              allocated_to: e.allocated_to || null,
-              // Add other fields as needed
-            })) as Employee[]; // Type assertion here
-
-          setEmployees(employeeList);
-        }
+      if (customerData?.[0]) {
+        setSelectedCustomer(customerData[0]);
+        setIsEmployeesLoading(false);
       }
     } catch (error) {
-      console.error('Error al cargar los datos del cliente:', error);
-      toast.error('Error al cargar los datos del cliente');
+      console.error('Error loading customer data:', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Cargar empleados cuando cambia el cliente seleccionado
+  useEffect(() => {
+    const loadEmployees = async () => {
+      if (!selectedCustomer?.id) return;
+
+      setIsEmployeesLoading(true);
+      try {
+        const employeesData = await fetchAllEmployees2(selectedCustomer.id);
+        setEmployees(employeesData);
+      } catch (error) {
+        console.error('Error loading employees:', error);
+      } finally {
+        setIsEmployeesLoading(false);
+      }
+    };
+
+    loadEmployees();
+  }, [selectedCustomer?.id]);
+
+  // Cargar equipos cuando cambia el cliente seleccionado
+  useEffect(() => {
+    const loadEquipment = async () => {
+      if (!selectedCustomer?.id) return;
+
+      setIsEquipmentLoading(true);
+      try {
+        const equipmentData = await fetchAllEquipment();
+        setEquipment(equipmentData);
+      } catch (error) {
+        console.error('Error loading equipment:', error);
+      } finally {
+        setIsEquipmentLoading(false);
+      }
+    };
+
+    loadEquipment();
+  }, [selectedCustomer?.id]);
 
   const handleRowClick = (row: TData) => {
     const customer = row as unknown as Awaited<ReturnType<typeof fechAllCustomers>>[number];
