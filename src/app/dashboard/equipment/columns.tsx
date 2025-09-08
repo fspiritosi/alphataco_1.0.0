@@ -586,7 +586,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
     id: 'Modelo',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Modelo" />,
     cell: ({ row }) => {
-      return <div>{row.original.model.name}</div>;
+      return <div>{row.original.model?.name}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));

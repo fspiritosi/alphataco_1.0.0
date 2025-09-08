@@ -211,7 +211,7 @@ export async function updateCustomer(formData: FormData) {
   }
 }
 
-export async function fechAllCustomers() {
+export async function fechAllDataCustomersById(id: string) {
   const supabase = supabaseServer();
   const coockiesStore = cookies();
   const actualCompany = coockiesStore.get('actualComp')?.value;
@@ -222,6 +222,29 @@ export async function fechAllCustomers() {
         '*,contractor_employee(employees(*,company_positions(*),hierarchy(*),cities(*),provinces(*),work_diagram(*),countries(*),contractor_employee(*),cost_center(*)))'
       )
       // .eq('is_active', true)
+      .eq('id', id || '')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      return [];
+    }
+
+    return data;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function fechAllCustomers() {
+  const supabase = supabaseServer();
+  const coockiesStore = cookies();
+  const actualCompany = coockiesStore.get('actualComp')?.value;
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
       .eq('company_id', actualCompany || '')
       .order('name', { ascending: true });
 
