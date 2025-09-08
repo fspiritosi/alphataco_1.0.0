@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
+import moment from 'moment';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -70,6 +71,7 @@ const vehicleSchema = z
     kilometer: z.string().optional(),
     intern_number: z.string().optional(),
     picture: z.string().optional().nullable(),
+    contract_expiration_date: z.date().optional().nullable(),
 
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
@@ -226,6 +228,9 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       cost_center_id: vehicle?.cost_center_id || null,
       owner_id: vehicle?.equipment_owners?.id || null,
       type_of_contract: vehicle?.type_of_contract || null,
+      contract_expiration_date: vehicle?.contract_expiration_date
+        ? moment(vehicle.contract_expiration_date).toDate()
+        : null,
     },
   });
 

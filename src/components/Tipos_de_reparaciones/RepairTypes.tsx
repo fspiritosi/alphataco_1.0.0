@@ -13,6 +13,7 @@ function RepairTypes({
   subtab,
   tabValue,
   path,
+  hiddenTabs,
 }: {
   type_of_repair_new_entry?: boolean;
   type_of_repair_new_entry2?: boolean;
@@ -25,6 +26,7 @@ function RepairTypes({
   subtab?: string;
   tabValue: string;
   path?: string;
+  hiddenTabs?: string[];
 }) {
   const viewData: ViewDataObj = {
     defaultValue: subtab || 'created_solicitudes',
@@ -66,7 +68,7 @@ function RepairTypes({
           component: <RepairEntryWrapper equipment_id={equipment_id} />,
         },
       },
-    ],
+    ].filter((tab) => !hiddenTabs?.includes(tab.value)),
   };
 
   return (

@@ -1,12 +1,15 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Check, ChevronsUpDown, Upload, X } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { CalendarIcon, Check, ChevronsUpDown, Upload, X } from 'lucide-react';
 import { use, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { VehicleFormData } from '../components/vehicle-tabs';
@@ -691,6 +694,43 @@ export function VehicleBasicDataForm({
                 </PopoverContent>
               </Popover>
               <FormDescription>Selecciona el propietario del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+      {typeOfContract !== 'Propio' && typeOfContract && (
+        <FormField
+          control={form.control}
+          name="contract_expiration_date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Fecha de vencimiento del {typeOfContract}</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      disabled={readOnly}
+                      variant={'outline'}
+                      className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                    >
+                      {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccionar fecha</span>}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value ? new Date(field.value) : undefined}
+                    onSelect={field.onChange}
+                    captionLayout="dropdown"
+                    fromYear={new Date().getFullYear() - 1}
+                    toYear={new Date().getFullYear() + 10}
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormDescription>Selecciona la fecha de vencimiento del {typeOfContract}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
