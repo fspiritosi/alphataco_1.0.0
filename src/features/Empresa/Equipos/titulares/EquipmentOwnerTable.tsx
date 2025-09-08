@@ -15,6 +15,7 @@ const defaultVisibility: VisibilityState = {
 } as const;
 export function getEquipmentOwnerColumns(
   onEdit: (equipmentSubType: FetchEquipmentOwnersType[0]) => void,
+  onViewEquipment: (equipmentSubType: FetchEquipmentOwnersType[0]) => void,
   equipmentOwners: FetchEquipmentOwnersType
 ): ColumnDef<FetchEquipmentOwnersType[0]>[] {
   return [
@@ -69,9 +70,19 @@ export function getEquipmentOwnerColumns(
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+          <Button
+            size="sm"
+            variant="link"
+            className="hover:text-green-600"
+            onClick={() => onViewEquipment(row.original)}
+          >
+            Ver Equipos
+          </Button>
+        </div>
       ),
       enableSorting: false,
     },
@@ -80,9 +91,14 @@ export function getEquipmentOwnerColumns(
 interface EquipmentOwnerTableProps {
   equipmentOwners: FetchEquipmentOwnersType;
   onEdit?: (equipmentType: FetchEquipmentOwnersType[0]) => void;
+  onViewEquipment?: (equipmentType: FetchEquipmentOwnersType[0]) => void;
 }
 
-function EquipmentOwnerTable({ equipmentOwners, onEdit = () => {} }: EquipmentOwnerTableProps) {
+function EquipmentOwnerTable({
+  equipmentOwners,
+  onEdit = () => {},
+  onViewEquipment = () => {},
+}: EquipmentOwnerTableProps) {
   // Leer las cookies necesarias
   const visibilityCookie = Cookies.get('equipment-owners-table');
   const filtersCookie = Cookies.get('equipment-owners-table-filters');
@@ -136,7 +152,7 @@ function EquipmentOwnerTable({ equipmentOwners, onEdit = () => {} }: EquipmentOw
 
   return (
     <BaseDataTable
-      columns={getEquipmentOwnerColumns(onEdit, equipmentOwners)}
+      columns={getEquipmentOwnerColumns(onEdit, onViewEquipment, equipmentOwners)}
       data={equipmentOwners}
       tableId="equipment-owners-table"
       savedVisibility={visibilityCookie ? JSON.parse(visibilityCookie) : {}}
