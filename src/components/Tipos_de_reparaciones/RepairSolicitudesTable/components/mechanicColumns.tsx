@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
@@ -40,7 +41,45 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
     id: 'Dominio',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.domain}</div>;
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                className="hover:underline"
+                href={`/dashboard/equipment/action?action=view&id=${row.original.vehicle_id}`}
+              >
+                {row.original.domain}
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Ver legajo</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: 'type_of_equipment',
+    id: 'Tipo de equipo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de equipo" />,
+    cell: ({ row }) => {
+      return <div className="flex items-center">{row.original.type_of_equipment}</div>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: 'sub_type_of_equipment',
+    id: 'Sub tipo de equipo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sub tipo de equipo" />,
+    cell: ({ row }) => {
+      return <div className="flex items-center">{row.original.sub_type_of_equipment}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));

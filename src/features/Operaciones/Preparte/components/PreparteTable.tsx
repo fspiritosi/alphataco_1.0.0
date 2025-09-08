@@ -286,10 +286,10 @@ const getColumns = (
       const itemFila = items.find((i) => (i.id as string) === itemId.toString());
       return itemFila?.item_name || itemId || '-';
     },
-    filterFn: (row, id, value) => {
-      if (!value || value.length === 0) return true;
-      return value.includes(row.getValue(id));
-    },
+    // filterFn: (row, id, value) => {
+    //   if (!value || value.length === 0) return true;
+    //   return value.includes(row.getValue(id));
+    // },
     enableColumnFilter: true,
   },
   {
@@ -817,6 +817,26 @@ export function PreparteTable({
             config: {
               tableName: 'preparte' as any,
               select: 'numero_pedido' as any,
+              // p_filters: { company_id: company_id! },
+              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                return data.map((item) => {
+                  const item1 = items.find((c) => c.id === item.col_value);
+                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                  return {
+                    label: displayName,
+                    value: item.col_value,
+                    count: item.col_count,
+                  };
+                });
+              },
+            },
+          },
+          {
+            columnId: 'item',
+            title: 'Item',
+            config: {
+              tableName: 'preparte' as any,
+              select: 'item' as any,
               // p_filters: { company_id: company_id! },
               mapper: (data: Array<{ col_value: string; col_count: number }>) => {
                 return data.map((item) => {

@@ -107,7 +107,7 @@ export async function fetchAllRepairSolicitudes() {
     let { data, error } = await supabase
       .from('repair_solicitudes')
       .select(
-        '*,user_id(*),employees(*),vehicles(*,type(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
+        '*,user_id(*),employees(*),vehicles(*,type(*),subType(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
       )
       .not('equipment_id', 'is', null);
 

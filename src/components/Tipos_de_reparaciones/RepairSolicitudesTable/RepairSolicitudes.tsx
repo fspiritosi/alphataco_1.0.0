@@ -21,7 +21,7 @@ export default async function RepairSolicitudes({
   const Allrepairs = default_equipment_id
     ? repair_solicitudes.filter((repair) => repair.equipment_id === default_equipment_id)
     : repair_solicitudes;
-
+  console.log(Allrepairs);
   const repairsFormatted = Allrepairs?.map((repair) => {
     return {
       id: repair.id,
@@ -42,7 +42,8 @@ export default async function RepairSolicitudes({
       status: repair.vehicles?.status,
       chassis: repair.vehicles?.chassis,
       picture: repair.vehicles?.picture,
-      type_of_equipment: repair.vehicles?.type.name,
+      type_of_equipment: repair.vehicles?.type.name || 'No especificado',
+      sub_type_of_equipment: (repair.vehicles?.subType as any)?.name || 'No especificado',
       solicitud_status: repair.state,
       type_of_maintenance: repair.types_of_repairs?.type_of_maintenance,
       user_images: repair.user_images,
@@ -55,7 +56,7 @@ export default async function RepairSolicitudes({
       kilometer: repair.kilometer,
     };
   });
-
+  console.log(repairsFormatted);
   const names = createFilterOptions(
     repairsFormatted,
     (repair) => repair.title
@@ -90,6 +91,12 @@ export default async function RepairSolicitudes({
     (repair: any) => repair.code_item
     // FileText // Icono para documentos
   );
+  const type_of_equipment = createFilterOptions(
+    repairsFormatted,
+    (repair: any) => repair.type_of_equipment
+    // FileText // Icono para documentos
+  );
+  const sub_type_of_equipment = createFilterOptions(repairsFormatted, (repair: any) => repair.sub_type_of_equipment);
 
   return (
     <>
@@ -126,6 +133,16 @@ export default async function RepairSolicitudes({
               columnId: 'Dominio',
               title: 'Dominio',
               options: domain,
+            },
+            {
+              columnId: 'Tipo de equipo',
+              title: 'Tipo de equipo',
+              options: type_of_equipment,
+            },
+            {
+              columnId: 'Sub tipo de equipo',
+              title: 'Sub tipo de equipo',
+              options: sub_type_of_equipment,
             },
             {
               columnId: 'Codigo',
