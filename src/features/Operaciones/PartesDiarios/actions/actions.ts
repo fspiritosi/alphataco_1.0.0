@@ -653,14 +653,12 @@ export async function getActiveEmployeesForDailyReport() {
       'employees_diagram!inner(*,diagram_type(*)),contractor_employee(customers(id,name)),*,hierarchy(id,name),cities(id,name),provinces(id,name),empleado_aptitudes(aptitudes_tecnicas(nombre)),company_positions(*),work_diagram(id,name),cost_center(id,name)'
     )
     .eq('is_active', true)
-    .eq('employees_diagram.day', day)
+    .or(`day.eq.${day},day.eq.${day + 1}`, { referencedTable: 'employees_diagram' })
     .eq('employees_diagram.month', month)
     .eq('employees_diagram.year', year)
     .eq('employees_diagram.diagram_type.work_active', true)
     .not('employees_diagram.diagram_type', 'is', null)
     .eq('company_id', company_id || user?.app_metadata?.company_id || '');
-
-  // 'hierarchy(id,name),cities(id,name),provinces(id,name),contractor_employee(customers(id,name)),empleado_aptitudes(aptitudes_tecnicas(nombre)),employees_diagram!inner(*,diagram_type(*)),contractor_employee(*),*,company_positions(*),work_diagram(id,name),cost_center(id,name)'
 
   if (error) {
     console.error('Error al obtener empleados con diagrama:', error);

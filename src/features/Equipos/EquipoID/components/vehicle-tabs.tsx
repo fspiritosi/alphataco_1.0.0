@@ -36,6 +36,7 @@ export type VehicleFormData = {
   allocated_to?: string[];
   cost_center_id?: string | null;
   type_of_contract?: string | null;
+  contract_expiration_date?: Date | null;
 };
 
 interface VehicleTabsProps {

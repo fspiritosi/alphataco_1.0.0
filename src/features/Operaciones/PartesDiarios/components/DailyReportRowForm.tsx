@@ -73,8 +73,8 @@ export const dailyReportSchema = z
     customer: z.string().min(1, 'Debe seleccionar un cliente'),
     services: z.string().min(1, 'Debe seleccionar un servicio'),
     item: z.string().min(1, 'Debe seleccionar un ítem'),
-    completed_day: z.boolean().nullable(),
-    completed_night: z.boolean().nullable(),
+    completed_day: z.boolean().nullable().optional(),
+    completed_night: z.boolean().nullable().optional(),
     employees: z.array(z.string()).default([]).optional(),
     equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
@@ -311,7 +311,9 @@ export function DailyReportForm({
       end_time: data.end_time || null,
       description: data.description,
       daily_report_id: dailyReport[0]?.id,
-      status: (data.status as DailyReportRowStatus) || 'pendiente',
+      // Set status to 'ejecutado' if both completed_day and completed_night are true
+      status:
+        data.completed_day && data.completed_night ? 'ejecutado' : (data.status as DailyReportRowStatus) || 'pendiente',
       areas_service_id: data.areas_service_id,
       sector_service_id: data.sector_service_id,
       remit_number: data.remit_number || null,
@@ -1699,7 +1701,7 @@ export function DailyReportForm({
                                     <CommandGroup key={type} heading={type.charAt(0).toUpperCase() + type.slice(1)}>
                                       {typesMap[type].map((equipment) => (
                                         <CommandItem
-                                          value={equipment.intern_number || equipment.domain || ''}
+                                          value={equipment.domain || ''}
                                           key={equipment.id}
                                           disabled={!selectedCustomerId}
                                           onSelect={() => {
@@ -1840,7 +1842,7 @@ export function DailyReportForm({
                     </FormItem>
                   )}
                 />
-                {form.watch('working_day') === 'jornada 24 horas' && (
+                {form.watch('working_day') === 'jornada 24 horas' && selectedRow && (
                   <div className="flex flex-row gap-4 items-center">
                     <FormField
                       control={form.control}

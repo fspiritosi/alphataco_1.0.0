@@ -82,3 +82,23 @@ export async function FetchEquipmentOwners() {
 }
 
 export type FetchEquipmentOwnersType = Awaited<ReturnType<typeof FetchEquipmentOwners>>;
+
+export async function fetchEquipmentByOwnerId(owner_id: string) {
+  const supabase = supabaseServer();
+
+  console.log('owner_id', owner_id);
+
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select(
+      '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)'
+    )
+    .eq('owner_id', owner_id);
+
+  if (error) {
+    console.error('Error fetching equipment by owner ID:', error);
+    throw new Error(`Error fetching equipment by owner ID: ${error.message}`);
+  }
+  return data;
+}
+export type FetchEquipmentByOwnerIdType = Awaited<ReturnType<typeof fetchEquipmentByOwnerId>>;
