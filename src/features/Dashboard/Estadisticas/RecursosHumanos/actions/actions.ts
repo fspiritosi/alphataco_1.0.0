@@ -50,6 +50,65 @@ export async function getAbsenteeismSummary({
   return data;
 }
 
+// Obtener distribución de empleados por género y posición
+export async function getEmployeesByGenderAndPosition() {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select(
+      `
+      gender,
+      company_position,
+      company_positions!inner(name)
+    `
+    )
+    .eq('company_id', companyId)
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Error fetching employees by gender and position:', error);
+    throw error;
+  }
+
+  return data;
+}
+export type GetEmployeesByGenderAndPositionType = Awaited<ReturnType<typeof getEmployeesByGenderAndPosition>>;
+
+// Obtener distribución de empleados por tipo de contrato
+export async function getEmployeesByContractType() {
+  const supabase = supabaseServer();
+  const companyId = getCompanyId();
+
+  if (!companyId) {
+    throw new Error('No se encontró el ID de la empresa');
+  }
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select(
+      `
+      type_of_contract
+    `
+    )
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .not('type_of_contract', 'is', null);
+
+  if (error) {
+    console.error('Error fetching employees by contract type:', error);
+    throw error;
+  }
+
+  return data;
+}
+export type GetEmployeesByContractType = Awaited<ReturnType<typeof getEmployeesByContractType>>;
+
 // 2. Tendencia de ausentismo
 export async function getAbsenteeismTrend({
   fromDate,
