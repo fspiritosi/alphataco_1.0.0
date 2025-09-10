@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   checkDailyReportExists,
@@ -598,7 +597,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
                 });
               }}
             />
-            {isEditing && currentItem?.numero_pedido && (
+            {/* {isEditing && currentItem?.numero_pedido && (
               <div className="mt-4 space-y-2">
                 <label className="text-sm font-medium">
                   Cambiar imagen del pedido (aplica a todo el N° {currentItem.numero_pedido})
@@ -613,7 +612,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
                   }}
                 />
               </div>
-            )}
+            )} */}
           </SheetContent>
         </Sheet>
       </div>

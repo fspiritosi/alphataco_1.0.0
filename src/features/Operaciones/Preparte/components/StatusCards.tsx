@@ -43,7 +43,7 @@ export function StatusCards({ data, onStatusClick, selectedStatus }: StatusCards
           )}
           onClick={() => onStatusClick(null)}
         >
-          <CardInfo title="Total" value={total} valueClassname={!selectedStatus ? 'text-primary' : ''} />
+          <CardInfo title="Todos" value={total} valueClassname={!selectedStatus ? 'text-primary' : ''} />
         </div>
 
         {Object.entries(statusConfig).map(([status, { label, color }]) => {

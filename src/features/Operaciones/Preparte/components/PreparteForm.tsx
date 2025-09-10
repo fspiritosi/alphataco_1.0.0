@@ -1119,7 +1119,22 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
             />
 
             {/* Imagen del pedido */}
-            {!isEditing ? (
+            {isEditing ? (
+              <FormItem>
+                <FormLabel>
+                  {`Cambiar imagen del pedido${form?.watch('numero_pedido') ? ` (aplica a todo el N° ${form.watch('numero_pedido')})` : ''}`}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="bg-background"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            ) : (
               <FormItem>
                 <FormLabel>Documento adjunto (Imagen o PDF)</FormLabel>
                 <FormControl>
@@ -1130,17 +1145,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                   />
                 </FormControl>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Este archivo se asociará al pedido y se replicará en todas las líneas creadas.
-                </p>
-              </FormItem>
-            ) : (
-              <FormItem>
-                <FormLabel>Imagen del pedido</FormLabel>
-                <p className="text-xs text-muted-foreground mt-1">
-                  La imagen se gestiona a nivel del pedido. Use el control "Cambiar imagen del pedido" en el panel de
-                  edición.
-                </p>
+                <FormMessage />
               </FormItem>
             )}
 

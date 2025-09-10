@@ -35,8 +35,6 @@ export async function createPreparte(
   const supabase = supabaseServer();
 
   try {
-    console.log('📦 Data recibida en createPreparte:', JSON.stringify(prepartesData, null, 2));
-
     // SOLUCIÓN: Manejar explícitamente el array doble
     let dataToInsert: Omit<Preparte, 'id'>[];
 
@@ -52,8 +50,6 @@ export async function createPreparte(
     else {
       dataToInsert = [prepartesData];
     }
-
-    console.log('🔄 Data normalizada:', JSON.stringify(dataToInsert, null, 2));
 
     // Validar que tenemos datos válidos
     if (dataToInsert.length === 0) {
@@ -572,7 +568,7 @@ export async function movePreparteFile(
       const match = listData?.find((f: any) => withoutSpaces(f.name) === withoutSpaces(candName));
       if (match) {
         const resolved = parentDir ? `${parentDir}/${match.name}` : match.name;
-        console.log('✅ Nombre real del objeto resuelto:', resolved);
+
         return resolved;
       }
       return candidate;
@@ -584,7 +580,6 @@ export async function movePreparteFile(
 
   // Resolver posible desincronización de espacios en el nombre
   fromPath = await resolveActualObject(fromPath);
-  console.log('🗂️ Bucket:', BUCKET, '| fromPath final:', fromPath);
 
   const currentExt = fromPath.split('.').pop()?.toLowerCase() || 'jpg';
   const targetPath = `${empresaDir}/${contratoDir}/${numeroPedido}/${numeroPedido}.${currentExt}`;
