@@ -35,6 +35,7 @@ import { ArrowUpDown, CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
 import { Contrato, PreparteItem } from './PreparteManager';
+import { Status, StatusCards } from './StatusCards';
 
 interface PreparteTableProps {
   data: PreparteItem[];
@@ -64,6 +65,11 @@ interface PreparteTableProps {
 
   // Estado de carga
   isLoading?: boolean;
+}
+
+interface StatusFilter {
+  value: Status | null;
+  label: string;
 }
 
 const getColumns = (
@@ -328,11 +334,12 @@ const getColumns = (
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
-      type StatusType = 'pendiente' | 'confirmado' | 'cancelado' | 'rechazado' | 'vencido' | 'default';
+      type StatusType = 'pendiente' | 'confirmado' | 'cancelado' | 'rechazado' | 'vencido' | 'reprogramado' | 'default';
 
       const variantStatus: Record<StatusType, BadgeVariant> = {
         pendiente: 'default',
         confirmado: 'success',
+        reprogramado: 'warning',
         cancelado: 'destructive',
         rechazado: 'destructive',
         vencido: 'destructive',
@@ -342,7 +349,10 @@ const getColumns = (
       return (
         <Badge
           variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
-          className="capitalize"
+          className={cn(
+            'capitalize whitespace-nowrap',
+            row.original.status === 'pendiente' ? 'bg-black text-white' : ''
+          )}
         >
           {row.original.status || 'Sin estado'}
         </Badge>
@@ -606,6 +616,19 @@ export function PreparteTable({
   refreshKey = 0,
 }: PreparteTableProps) {
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  // Filtro de estado para inyectar al server-side
+  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+
+  // Envolver fetchData para agregar el filtro por estado como columnFilter (server-side)
+  const handleFetchData = async (opts: any) => {
+    return fetchData({
+      ...opts,
+      columnFilters: [
+        ...(opts?.columnFilters || []),
+        ...(statusFilter ? [{ id: 'status', value: [statusFilter] }] : []),
+      ],
+    });
+  };
 
   // Usar directamente los datos de las props
   const uniqueStatuses = [...new Set(tableData.map((item) => item.status))];
@@ -643,252 +666,255 @@ export function PreparteTable({
   const filteredItems = items.filter((item) => uniqueItemIds.includes(item.id));
 
   return (
-    <BaseDataTable
-      columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
-      data={tableData}
-      tableId="preparte-table"
-      savedVisibility={savedVisibility}
-      serverSide={true}
-      fetchData={fetchData}
-      fetchAllData={fetchAllData}
-      queryKey={`preparte-table-${refreshKey}`} // Usar refreshKey para forzar recarga
-      // isLoading={isLoading}
-      toolbarOptions={{
-        initialVisibleFilters: initialVisibleFilters,
-        filterableColumns: [
-          {
-            columnId: 'cliente_id',
-            title: 'Cliente',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'cliente_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const customer = Customers.find((c) => c.id === item.col_value);
-                  const displayName = customer ? customer.name : `Cliente ${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+    <>
+      <StatusCards data={tableData} onStatusClick={(status) => setStatusFilter(status)} selectedStatus={statusFilter} />
+      <BaseDataTable
+        columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
+        data={tableData}
+        tableId="preparte-table"
+        savedVisibility={savedVisibility}
+        serverSide={true}
+        fetchData={handleFetchData}
+        fetchAllData={fetchAllData}
+        queryKey={`preparte-table-${refreshKey}-${statusFilter ?? 'all'}`} // Refetch al cambiar estado
+        // isLoading={isLoading}
+        toolbarOptions={{
+          initialVisibleFilters: initialVisibleFilters,
+          filterableColumns: [
+            {
+              columnId: 'cliente_id',
+              title: 'Cliente',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'cliente_id' as any,
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const customer = Customers.find((c) => c.id === item.col_value);
+                    const displayName = customer ? customer.name : `Cliente ${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'contrato_id',
-            title: 'Contrato',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'contrato_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const contrato = contratos.find((c) => c.id === item.col_value);
-                  const displayName = contrato ? contrato.service_name : `Contrato ${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'contrato_id',
+              title: 'Contrato',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'contrato_id' as any,
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const contrato = contratos.find((c) => c.id === item.col_value);
+                    const displayName = contrato ? contrato.service_name : `Contrato ${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'sector_service_id',
-            title: 'Sector (Cliente)',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'sector_service_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
-                data.map((item) => {
-                  const id = item.col_value;
-                  let label = id || '-';
-                  for (const c of Customers) {
-                    for (const svc of c.customer_services || []) {
-                      const ss = svc.service_sectors?.find((x) => x.id === id || x.sectors?.id === id);
-                      if (ss?.sectors?.name) {
-                        label = ss.sectors.name;
-                        break;
+            {
+              columnId: 'sector_service_id',
+              title: 'Sector (Cliente)',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'sector_service_id' as any,
+                mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                  data.map((item) => {
+                    const id = item.col_value;
+                    let label = id || '-';
+                    for (const c of Customers) {
+                      for (const svc of c.customer_services || []) {
+                        const ss = svc.service_sectors?.find((x) => x.id === id || x.sectors?.id === id);
+                        if (ss?.sectors?.name) {
+                          label = ss.sectors.name;
+                          break;
+                        }
                       }
                     }
-                  }
-                  // Fallback: sector_customer mapping at client level
-                  const sc = (Customers as any).sector_customer?.find((x: any) => x.id === id || x.sector_id === id);
-                  if (sc?.sectors?.name) {
-                    label = sc.sectors.name;
-                  }
-                  return { label, value: id, count: item.col_count };
-                }),
+                    // Fallback: sector_customer mapping at client level
+                    const sc = (Customers as any).sector_customer?.find((x: any) => x.id === id || x.sector_id === id);
+                    if (sc?.sectors?.name) {
+                      label = sc.sectors.name;
+                    }
+                    return { label, value: id, count: item.col_count };
+                  }),
+              },
             },
-          },
-          {
-            columnId: 'areas_service_id',
-            title: 'Área (Cliente)',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'areas_service_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
-                data.map((item) => {
-                  const id = item.col_value;
-                  let label = id || '-';
-                  for (const c of Customers) {
-                    for (const svc of c.customer_services || []) {
-                      const sa = svc.service_areas?.find((x) => x.id === id || x.areas_cliente?.id === id);
-                      if (sa?.areas_cliente?.nombre) {
-                        label = sa.areas_cliente.nombre;
-                        break;
+            {
+              columnId: 'areas_service_id',
+              title: 'Área (Cliente)',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'areas_service_id' as any,
+                mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                  data.map((item) => {
+                    const id = item.col_value;
+                    let label = id || '-';
+                    for (const c of Customers) {
+                      for (const svc of c.customer_services || []) {
+                        const sa = svc.service_areas?.find((x) => x.id === id || x.areas_cliente?.id === id);
+                        if (sa?.areas_cliente?.nombre) {
+                          label = sa.areas_cliente.nombre;
+                          break;
+                        }
                       }
                     }
-                  }
-                  return { label, value: id, count: item.col_count };
-                }),
+                    return { label, value: id, count: item.col_count };
+                  }),
+              },
             },
-          },
-          {
-            columnId: 'equipos_cliente',
-            title: 'Equipo Cliente',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'equipos_cliente' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
-                data.map((item) => {
-                  const id = item.col_value;
-                  let label = id || '-';
-                  // Buscar en catálogo de equipos de todos los clientes
-                  outer: for (const c of Customers) {
-                    const allEquipos = [
-                      ...(c.equipos_clientes || []),
-                      ...(c.customer_services || []).flatMap((cs) => cs.equipos_clientes || []),
-                    ];
-                    const eq = allEquipos.find((e) => e.id === id);
-                    if (eq?.name) {
-                      label = eq.name;
-                      break outer;
+            {
+              columnId: 'equipos_cliente',
+              title: 'Equipo Cliente',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'equipos_cliente' as any,
+                mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                  data.map((item) => {
+                    const id = item.col_value;
+                    let label = id || '-';
+                    // Buscar en catálogo de equipos de todos los clientes
+                    outer: for (const c of Customers) {
+                      const allEquipos = [
+                        ...(c.equipos_clientes || []),
+                        ...(c.customer_services || []).flatMap((cs) => cs.equipos_clientes || []),
+                      ];
+                      const eq = allEquipos.find((e) => e.id === id);
+                      if (eq?.name) {
+                        label = eq.name;
+                        break outer;
+                      }
                     }
-                  }
-                  return { label, value: id, count: item.col_count };
-                }),
-            },
-          },
-          {
-            columnId: 'status',
-            title: 'Estado',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'status' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => ({
-                  label: item.col_value.charAt(0).toUpperCase() + item.col_value.slice(1),
-                  value: item.col_value,
-                  count: item.col_count,
-                }));
+                    return { label, value: id, count: item.col_count };
+                  }),
               },
             },
-          },
-          {
-            columnId: 'jornada',
-            title: 'Jornada',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'jornada' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
+            {
+              columnId: 'status',
+              title: 'Estado',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'status' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => ({
+                    label: item.col_value.charAt(0).toUpperCase() + item.col_value.slice(1),
                     value: item.col_value,
                     count: item.col_count,
-                  };
-                });
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'tipo',
-            title: 'Tipo',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'tipo' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'jornada',
+              title: 'Jornada',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'jornada' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'requestDate',
-            title: 'Fecha de Solicitud',
-            type: 'date-range',
-            showFrom: true,
-            showTo: true,
-            fromPlaceholder: 'Desde',
-            toPlaceholder: 'Hasta',
-            // defaultValues: { from: null, to: null }, // opcional
-          },
-          {
-            columnId: 'executionDate',
-            title: 'Fecha de Ejecución',
-            type: 'date-range',
-            showFrom: true,
-            showTo: true,
-            fromPlaceholder: 'Desde',
-            toPlaceholder: 'Hasta',
-            // defaultValues: { from: null, to: null }, // opcional
-          },
-          {
-            columnId: 'numero_pedido',
-            title: 'N° Pedido',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'numero_pedido' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'tipo',
+              title: 'Tipo',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'tipo' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'item',
-            title: 'Item',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'item' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'requestDate',
+              title: 'Fecha de Solicitud',
+              type: 'date-range',
+              showFrom: true,
+              showTo: true,
+              fromPlaceholder: 'Desde',
+              toPlaceholder: 'Hasta',
+              // defaultValues: { from: null, to: null }, // opcional
+            },
+            {
+              columnId: 'executionDate',
+              title: 'Fecha de Ejecución',
+              type: 'date-range',
+              showFrom: true,
+              showTo: true,
+              fromPlaceholder: 'Desde',
+              toPlaceholder: 'Hasta',
+              // defaultValues: { from: null, to: null }, // opcional
+            },
+            {
+              columnId: 'numero_pedido',
+              title: 'N° Pedido',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'numero_pedido' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-        ],
-      }}
-    />
+            {
+              columnId: 'item',
+              title: 'Item',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'item' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
+              },
+            },
+          ],
+        }}
+      />
+    </>
   );
 }
