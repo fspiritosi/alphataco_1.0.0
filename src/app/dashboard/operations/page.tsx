@@ -36,6 +36,22 @@ async function OperationsPage() {
     path: '/dashboard/operations',
     tabsValues: [
       {
+        value: 'Preparte',
+        name: 'Gestor de pedidos',
+        restricted: [''],
+        content: {
+          title: 'Gestor de pedidos',
+          description: 'Aquí encontrarás todos los pedidos',
+          buttonActioRestricted: [''],
+          buttonAction: '',
+          component: (
+            <div className="flex w-full gap-4">
+              <PreparteDetailTableWrapper />
+            </div>
+          ),
+        },
+      },
+      {
         value: 'dailyReportsTable',
         name: 'Partes diarios',
         restricted: [''],
@@ -63,22 +79,6 @@ async function OperationsPage() {
                   </ResizablePanel>
                 </ResizablePanelGroup>
               </div>
-            </div>
-          ),
-        },
-      },
-      {
-        value: 'Preparte',
-        name: 'Gestor de pedidos',
-        restricted: [''],
-        content: {
-          title: 'Gestor de pedidos',
-          description: 'Aquí encontrarás todos los pedidos',
-          buttonActioRestricted: [''],
-          buttonAction: '',
-          component: (
-            <div className="flex w-full gap-4">
-              <PreparteDetailTableWrapper />
             </div>
           ),
         },

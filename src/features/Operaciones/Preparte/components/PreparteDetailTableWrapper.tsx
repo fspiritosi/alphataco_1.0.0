@@ -25,21 +25,6 @@ type Contrato = {
   service_name: string;
 };
 
-const mockPreparteItems: PreparteItem[] = [
-  {
-    id: 'drr_123',
-    clienteId: 'customer_123',
-    clienteName: 'Empresa Ejemplo S.A.',
-    contratoId: 'contract_123',
-    requestDate: new Date('2025-08-20T10:00:00-03:00'),
-    executionDate: new Date('2025-08-20T09:00:00-03:00'),
-    observaciones: 'Mantenimiento preventivo',
-    tipo: 'Adicional',
-    jornada: 'Jornada 8 horas',
-    solicitante: 'Juan Pérez',
-  },
-];
-
 export async function PreparteDetailTableWrapper() {
   const [customers, contratos, itemsList, prepartes] = await Promise.all([
     // Traer clientes con relaciones anidadas (sectores, áreas, equipos)
@@ -52,7 +37,7 @@ export async function PreparteDetailTableWrapper() {
   return (
     <div className="flex flex-col">
       <PreparteManager
-        items={mockPreparteItems as any}
+        // items={mockPreparteItems as any}
         Customers={customers as Cliente[]}
         contratos={contratos as Contrato[]}
         itemsList={itemsList as any}

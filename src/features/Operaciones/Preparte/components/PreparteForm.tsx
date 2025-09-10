@@ -16,6 +16,7 @@ import {
   fetchEquipmentsByCustomer,
   fetchSectorsByContract,
 } from '@/features/Operaciones/Preparte/actions/actions';
+import { useImageUpload } from '@/hooks/useUploadImage';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -28,6 +29,7 @@ import { toast } from 'sonner';
 import * as z from 'zod';
 import { createPreparte } from '../actions/preparte';
 import type { Cliente } from './PreparteManager';
+
 // Esquema de validación con Zod
 const formSchema = z
   .object({
@@ -82,6 +84,7 @@ const formSchema = z
     sector_service_id: z.string({ required_error: 'Sector del cliente es obligatorio' }).uuid('Sector inválido'),
     areas_service_id: z.string({ required_error: 'Área del cliente es obligatoria' }).uuid('Área inválida'),
     equipos_cliente: z.array(z.string().uuid()).optional().default([]),
+    image_url: z.string().optional(),
   })
   .refine(
     (data) => data.status !== 'reprogramado' || (data.reprogram !== undefined && data.reprogram instanceof Date),
@@ -160,6 +163,8 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     }
     return [{ id: '', quantity: 1 }];
   });
+  // Archivo seleccionado (no forma parte del schema del formulario)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   // Add this state at the top of your component
   // const [itemRows, setItemRows] = useState([{ id: 1, itemId: '', quantity: 1 }]);
   // Add this function to handle item selection
@@ -271,8 +276,25 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     loadDependentOptions();
   }, [form.watch('cliente_id'), form.watch('contrato_id')]);
 
+  const { uploadImage } = useImageUpload();
+
   const handleSubmit = async (data: PreparteItem) => {
     try {
+      // 1) Si hay archivo seleccionado, subirlo desde el formulario usando el hook
+      if (selectedFile) {
+        try {
+          const bucket = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
+          const tempUrl = await uploadImage(selectedFile, bucket);
+          // Guardar la URL temporal en el formulario para que el manager la procese
+          form.setValue('image_url', tempUrl as any);
+          (data as any).image_url = tempUrl;
+        } catch (e) {
+          console.error('Error subiendo archivo:', e);
+          toast.error('No se pudo subir el archivo. Intente nuevamente.');
+          return;
+        }
+      }
+
       if (data.status === 'reprogramado' && data.reprogram) {
         // Crear nuevo ítem con la nueva fecha
         const newItem = {
@@ -1095,13 +1117,39 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 </FormItem>
               )}
             />
-          </div>
 
-          <div className="flex justify-end space-x-4 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancelar
-            </Button>
-            <Button type="submit">{isEditing ? 'Actualizar' : 'Guardar'}</Button>
+            {/* Imagen del pedido */}
+            {!isEditing ? (
+              <FormItem>
+                <FormLabel>Documento adjunto (Imagen o PDF)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="bg-background"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                </FormControl>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Este archivo se asociará al pedido y se replicará en todas las líneas creadas.
+                </p>
+              </FormItem>
+            ) : (
+              <FormItem>
+                <FormLabel>Imagen del pedido</FormLabel>
+                <p className="text-xs text-muted-foreground mt-1">
+                  La imagen se gestiona a nivel del pedido. Use el control "Cambiar imagen del pedido" en el panel de
+                  edición.
+                </p>
+              </FormItem>
+            )}
+
+            <div className="flex justify-end space-x-4 pt-4">
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancelar
+              </Button>
+              <Button type="submit">{isEditing ? 'Actualizar' : 'Guardar'}</Button>
+            </div>
           </div>
         </form>
       </Form>

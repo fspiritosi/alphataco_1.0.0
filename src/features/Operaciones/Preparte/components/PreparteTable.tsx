@@ -31,10 +31,11 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowUpDown, CalendarIcon, Check, Pencil } from 'lucide-react';
+import { ArrowUpDown, CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
 import { Contrato, PreparteItem } from './PreparteManager';
+
 interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
@@ -156,17 +157,8 @@ const getColumns = (
     },
     cell: ({ row }) => row.original.numero_pedido || '-',
     // filterFn: (row, id, value) => {
-    //   const rowValue = row.getValue(id) as string;
-    //   if (!rowValue) return false;
-
-    //   // If no filter value is provided, show all rows
-    //   if (!value || (Array.isArray(value) && value.length === 0)) return true;
-
-    //   // Handle both string and array of strings for the value
-    //   const searchValues = Array.isArray(value) ? value : [value];
-
-    //   // Check if any of the search values match (case insensitive)
-    //   return searchValues.some((searchValue) => rowValue.toLowerCase().includes(searchValue.toString().toLowerCase()));
+    //   if (!value || value.length === 0) return true;
+    //   return value.includes(row.getValue(id));
     // },
     enableColumnFilter: true,
   },
@@ -381,6 +373,50 @@ const getColumns = (
   {
     accessorKey: 'observaciones',
     header: 'Observaciones',
+  },
+  {
+    id: 'preparteImage',
+    header: 'Imagen',
+    cell: ({ row }) => {
+      const url = row.original.preparteImage as string | undefined;
+      const [open, setOpen] = useState(false);
+      if (!url) return <span className="text-gray-400">-</span>;
+      const isPdf = url.toLowerCase().includes('.pdf');
+      return (
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => setOpen(true)}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Ver {isPdf ? 'documento' : 'imagen'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="sm:max-w-[800px]">
+              <DialogHeader>
+                <DialogTitle>Vista previa</DialogTitle>
+                <DialogDescription>{isPdf ? 'Documento PDF' : 'Imagen subida del pedido'}</DialogDescription>
+              </DialogHeader>
+              <div className="w-full max-h-[75vh] overflow-auto flex justify-center items-center">
+                {isPdf ? (
+                  <iframe src={url} className="w-full h-[70vh]" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={url} alt="preparte" className="max-w-full max-h-[70vh] object-contain" />
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      );
+    },
+    enableHiding: false,
   },
   {
     id: 'actions',

@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   checkDailyReportExists,
@@ -15,8 +16,11 @@ import {
   fetchPrepartes,
   getLastOrderNumber,
   getPreparteById,
+  movePreparteFile,
   updatePreparte,
+  updatePreparteImageByOrderNumber,
 } from '@/features/Operaciones/Preparte/actions/preparte';
+import { useImageUpload } from '@/hooks/useUploadImage';
 import { VisibilityState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
@@ -85,10 +89,12 @@ export type PreparteItem = {
   sector_service_id: string;
   areas_service_id: string;
   equipos_cliente: string[];
+  preparteImage?: string;
+  image_url?: string;
 };
 
 interface PreparteManagerProps {
-  items: PreparteItem[];
+  // items: PreparteItem[];
   Customers: Cliente[];
   contratos: Contrato[];
   itemsList: Array<{ id: string; item_name: string }>;
@@ -126,14 +132,16 @@ const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
   return dates;
 };
 
-export function PreparteManager({ items, itemsList, Customers, contratos, prepartes }: PreparteManagerProps) {
-  const [item, setItem] = useState<PreparteItem[]>(items);
+export function PreparteManager({ itemsList, Customers, contratos, prepartes }: PreparteManagerProps) {
+  const [item, setItem] = useState<PreparteItem[]>(prepartes);
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
   const [open, setOpen] = useState(false);
   const [savedVisibility, setSavedVisibility] = useState<VisibilityState>({});
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { uploadImage } = useImageUpload();
+  const [changingImage, setChangingImage] = useState(false);
 
   const [formData, setFormData] = useState<PreparteItem>({
     id: '',
@@ -156,6 +164,8 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
     sector_service_id: '',
     areas_service_id: '',
     equipos_cliente: [],
+    preparteImage: '',
+    image_url: '',
   });
 
   const router = useRouter();
@@ -187,7 +197,7 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
           ...formData,
           id: currentItem.id,
           item: formData.item[0]?.id || null,
-          quantity: formData.item[0]?.quantity || 1,
+          quantity: 1, // Always set quantity to 1
           executionDate:
             typeof formData.executionDate === 'object'
               ? formData.executionDate.from.toISOString()
@@ -200,6 +210,8 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
           sector_service_id: formData.sector_service_id ?? '',
           areas_service_id: formData.areas_service_id ?? '',
           equipos_cliente: formData.equipos_cliente ?? [],
+          // persistir en columna DB
+          preparteImage: formData.image_url || currentItem.preparteImage || null,
         };
 
         await updatePreparte(currentItem.id, updatedPreparte as any);
@@ -216,28 +228,51 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
           ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
           : [new Date(formData.executionDate.from)];
 
-        const prepartesToCreate = formData.item.flatMap((item) =>
-          dates.map((date) => ({
-            cliente_id: formData.cliente_id,
-            contrato_id: formData.contrato_id,
-            tipo: formData.tipo,
-            jornada: formData.jornada,
-            start_time: formData.start_time || null,
-            end_time: formData.end_time || null,
-            solicitante: formData.solicitante,
-            status: 'pendiente',
-            item: item.id,
-            quantity: item.quantity,
-            observaciones: formData.observaciones || null,
-            executionDate: date.toISOString(),
-            requestDate: formData.requestDate.toISOString(),
-            numero_pedido: numeroPedido,
-            // nuevos campos
-            sector_service_id: formData.sector_service_id ?? '',
-            areas_service_id: formData.areas_service_id ?? '',
-            equipos_cliente: formData.equipos_cliente ?? [],
-          }))
-        );
+        // Si image_url viene del formulario (ya subido), mover a la estructura final y renombrar con el número de pedido
+        let uploadedUrl: string | undefined = formData.image_url || undefined;
+        if (formData.image_url) {
+          const cliente = Customers.find((c) => c.id === formData.cliente_id);
+          const contrato = contratos.find((c) => c.id === formData.contrato_id);
+          uploadedUrl = await movePreparteFile(
+            formData.image_url,
+            cliente?.name || 'empresa',
+            contrato?.service_name || 'servicio',
+            numeroPedido
+          );
+        }
+
+        // Create one line per item with quantity 1
+        const prepartesToCreate = [] as any[];
+
+        for (const item of formData.item) {
+          // For each quantity of the item, create a separate line
+          for (let i = 0; i < (item.quantity || 1); i++) {
+            // For each date in the range
+            for (const date of dates) {
+              prepartesToCreate.push({
+                cliente_id: formData.cliente_id,
+                contrato_id: formData.contrato_id,
+                tipo: formData.tipo,
+                jornada: formData.jornada,
+                start_time: formData.start_time || null,
+                end_time: formData.end_time || null,
+                solicitante: formData.solicitante,
+                status: 'pendiente',
+                item: item.id,
+                quantity: 1, // Always 1 per line
+                observaciones: formData.observaciones || null,
+                executionDate: date.toISOString(),
+                requestDate: formData.requestDate.toISOString(),
+                numero_pedido: numeroPedido,
+                sector_service_id: formData.sector_service_id ?? '',
+                areas_service_id: formData.areas_service_id ?? '',
+                equipos_cliente: formData.equipos_cliente ?? [],
+                // persistir en columna DB (misma URL para todas las filas del mismo pedido)
+                preparteImage: uploadedUrl || null,
+              });
+            }
+          }
+        }
 
         const createdPrepartes = await createPreparte(prepartesToCreate as any);
         toast.success(
@@ -255,18 +290,24 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
         contrato_id: '',
         item: [],
         requestDate: new Date(),
-        executionDate: { from: new Date() },
+        executionDate: {
+          from: new Date(),
+          to: undefined,
+        },
         tipo: '',
         jornada: '',
         start_time: '',
         end_time: '',
         solicitante: '',
         status: 'pendiente',
+        cancel_reason: '',
+        reprogram: new Date(),
         observaciones: '',
-        // reset nuevos campos
         sector_service_id: '',
         areas_service_id: '',
         equipos_cliente: [],
+        preparteImage: '',
+        image_url: '',
       });
       setOpen(false);
       setIsEditing(false);
@@ -343,11 +384,44 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
       sector_service_id: sectorForForm,
       areas_service_id: areaForForm,
       equipos_cliente: equiposForForm,
+      preparteImage: item.preparteImage || '',
+      image_url: '',
     });
 
     setCurrentItem(item);
     setIsEditing(true);
     setOpen(true);
+  };
+
+  const handleChangeOrderImage = async (file: File) => {
+    if (!currentItem?.numero_pedido) {
+      toast.error('No hay número de pedido para actualizar');
+      return;
+    }
+    try {
+      setChangingImage(true);
+      const bucket = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
+      // 1) Subir a bucket
+      const tempUrl = await uploadImage(file, bucket);
+      // 2) Mover/renombrar a la ruta final
+      const cliente = Customers.find((c) => c.id === currentItem?.cliente_id);
+      const contrato = contratos.find((c) => c.id === currentItem?.contrato_id);
+      const finalUrl = await movePreparteFile(
+        tempUrl,
+        cliente?.name || 'empresa',
+        contrato?.service_name || 'servicio',
+        currentItem.numero_pedido
+      );
+      // 3) Propagar a todas las filas del pedido
+      await updatePreparteImageByOrderNumber(currentItem.numero_pedido, finalUrl);
+      toast.success('Imagen del pedido actualizada');
+      refreshTable();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'No se pudo actualizar la imagen del pedido');
+    } finally {
+      setChangingImage(false);
+    }
   };
 
   const handleConfirm = async (item: PreparteItem) => {
@@ -519,9 +593,27 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
                   sector_service_id: '',
                   areas_service_id: '',
                   equipos_cliente: [],
+                  preparteImage: '',
+                  image_url: '',
                 });
               }}
             />
+            {isEditing && currentItem?.numero_pedido && (
+              <div className="mt-4 space-y-2">
+                <label className="text-sm font-medium">
+                  Cambiar imagen del pedido (aplica a todo el N° {currentItem.numero_pedido})
+                </label>
+                <Input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  disabled={changingImage}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleChangeOrderImage(f);
+                  }}
+                />
+              </div>
+            )}
           </SheetContent>
         </Sheet>
       </div>
