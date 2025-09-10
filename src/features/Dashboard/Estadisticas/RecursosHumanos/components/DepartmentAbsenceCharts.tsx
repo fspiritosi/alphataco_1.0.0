@@ -43,7 +43,7 @@ export async function DepartmentAbsenceCharts() {
 
   return (
     <Card>
-      <CardHeader className="items-center pb-0">
+      <CardHeader className=" pb-0">
         <CardTitle className="text-lg font-semibold">Motivos de Ausencia por Departamento</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
           Solo se muestran los departamentos con ausentes. Los que no registran ausencias no aparecen.

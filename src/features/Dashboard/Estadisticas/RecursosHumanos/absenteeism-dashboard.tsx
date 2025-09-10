@@ -5,6 +5,7 @@ import { DetailedAbsenceTable } from './components/DetailedAbsenceTable';
 import { HeadcountTrendChart } from './components/HeadcountTrendChart';
 import { SummaryCards } from './components/SummaryCards';
 import { EmployeeAbsenceTable } from './components/employee-absence-table';
+import EmployeeDistributionCharts from './components/employee-distribution-charts';
 
 const summaryData = {
   dotacionAnterior: 433,
@@ -191,6 +192,7 @@ export function AbsenteeismDashboard() {
         <div className="w-full lg:w-[calc(50%-1rem)] space-y-8">
           <AbsenteeismTrendChart />
           <DepartmentSummaryTable />
+          <EmployeeDistributionCharts />
         </div>
         <div className="w-full lg:w-[calc(50%-1rem)] space-y-8">
           <DepartmentAbsenceCharts />
