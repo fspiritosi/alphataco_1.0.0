@@ -326,7 +326,7 @@ export function BaseDataTable<
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div>
+      <div className="relative">
         <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
           {toolbarOptions && (
             <DataTableToolbar
@@ -350,87 +350,71 @@ export function BaseDataTable<
               {...toolbarProps}
             />
           )}
-          <div className="rounded-md border">
-            <div className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => {
-                          return (
-                            <TableHead key={header.id} colSpan={header.colSpan}>
-                              {header.isPlaceholder
-                                ? null
-                                : flexRender(header.column.columnDef.header, header.getContext())}
-                            </TableHead>
-                          );
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <tbody className="relative">
-                    <tr>
-                      <td colSpan={columns.length} className="p-0 border-0">
-                        <div className="max-h-[50vh] overflow-y-auto">
-                          <table className="w-full">
-                            <TableBody>
-                              {isLoading ? (
-                                <TableRow>
-                                  <TableCell colSpan={columns.length} className="h-24">
-                                    <div className="flex flex-col space-y-3">
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                      <Skeleton className="h-9 w-full " />
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ) : table?.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                  <TableRow
-                                    className={
-                                      typeof row_classname === 'string'
-                                        ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
-                                        : row_classname
-                                          ? row_classname(row.original)
-                                          : onRowClick
-                                            ? 'hover:cursor-pointer'
-                                            : ''
-                                    }
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && 'selected'}
-                                    onClick={() => onRowClick && onRowClick(row.original)}
-                                  >
-                                    {row.getVisibleCells().map((cell) => (
-                                      <TableCell key={cell.id}>
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                      </TableCell>
-                                    ))}
-                                  </TableRow>
-                                ))
-                              ) : (
-                                <TableRow>
-                                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    Sin resultados
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </table>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </Table>
-              </div>
-            </div>
+          <div className="rounded-md border max-h-[60vh] relative overflow-x-auto overflow-y-auto">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} colSpan={header.colSpan} className="sticky top-0 z-10 bg-background">
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24">
+                      <div className="flex flex-col space-y-3">
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                        <Skeleton className="h-9 w-full " />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : table?.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      className={
+                        typeof row_classname === 'string'
+                          ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
+                          : row_classname
+                            ? row_classname(row.original)
+                            : onRowClick
+                              ? 'hover:cursor-pointer'
+                              : ''
+                      }
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      onClick={() => onRowClick && onRowClick(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      Sin resultados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
           {paginationComponent ? (
             React.cloneElement(paginationComponent as React.ReactElement, {

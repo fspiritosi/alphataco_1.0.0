@@ -526,23 +526,21 @@ export function PreparteManager({ items, itemsList, Customers, contratos, prepar
         </Sheet>
       </div>
 
-      <Card className="w-full max-w-full">
+      <Card className="w-full">
         <CardContent className="p-2">
-          <div className="w-full overflow-x-auto">
-            <PreparteTable
-              data={prepartes}
-              Customers={Customers}
-              contratos={contratos}
-              items={itemsList}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onConfirm={handleConfirm}
-              savedVisibility={savedVisibility}
-              fetchData={handleFetchData}
-              isLoading={isLoading}
-              refreshKey={refreshKey}
-            />
-          </div>
+          <PreparteTable
+            data={prepartes}
+            Customers={Customers}
+            contratos={contratos}
+            items={itemsList}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onConfirm={handleConfirm}
+            savedVisibility={savedVisibility}
+            fetchData={handleFetchData}
+            isLoading={isLoading}
+            refreshKey={refreshKey}
+          />
         </CardContent>
       </Card>
     </div>

@@ -37,6 +37,7 @@ export type VehicleFormData = {
   cost_center_id?: string | null;
   type_of_contract?: string | null;
   contract_expiration_date?: Date | null;
+  contract_start_date?: Date | null;
 };
 
 interface VehicleTabsProps {
@@ -99,6 +100,9 @@ export function VehicleTabs({
       'serie',
       'domain',
       'owner_id',
+      'type_of_contract',
+      'contract_expiration_date',
+      'contract_start_date',
     ];
     // const technicalDataFields = ['engine', 'type', 'subType', 'chassis', 'serie', 'domain'];
     const assignmentDataFields = ['allocated_to', 'cost_center_id'];

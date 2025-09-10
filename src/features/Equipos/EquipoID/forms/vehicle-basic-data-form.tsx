@@ -702,6 +702,51 @@ export function VehicleBasicDataForm({
       {typeOfContract !== 'Propio' && typeOfContract && (
         <FormField
           control={form.control}
+          name="contract_start_date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Fecha de inicio del {typeOfContract}</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      disabled={readOnly}
+                      variant={'outline'}
+                      className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                    >
+                      {field.value ? (
+                        format(field.value, 'PPP', { locale: es })
+                      ) : (
+                        <span>Seleccionar fecha de inicio</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value ? new Date(field.value) : undefined}
+                    onSelect={field.onChange}
+                    disabled={(date) => {
+                      const expDate = form.getValues('contract_expiration_date');
+                      return expDate ? date > new Date(expDate) : false;
+                    }}
+                    captionLayout="dropdown"
+                    fromYear={new Date().getFullYear() - 1}
+                    toYear={new Date().getFullYear() + 10}
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormDescription>Selecciona la fecha de inicio del {typeOfContract}</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+      {typeOfContract !== 'Propio' && typeOfContract && (
+        <FormField
+          control={form.control}
           name="contract_expiration_date"
           render={({ field }) => (
             <FormItem className="flex flex-col">
@@ -714,7 +759,11 @@ export function VehicleBasicDataForm({
                       variant={'outline'}
                       className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
                     >
-                      {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccionar fecha</span>}
+                      {field.value ? (
+                        format(field.value, 'PPP', { locale: es })
+                      ) : (
+                        <span>Seleccionar fecha de vencimiento</span>
+                      )}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -724,6 +773,10 @@ export function VehicleBasicDataForm({
                     mode="single"
                     selected={field.value ? new Date(field.value) : undefined}
                     onSelect={field.onChange}
+                    disabled={(date) => {
+                      const startDate = form.getValues('contract_start_date');
+                      return startDate ? date < new Date(startDate) : false;
+                    }}
                     captionLayout="dropdown"
                     fromYear={new Date().getFullYear() - 1}
                     toYear={new Date().getFullYear() + 10}

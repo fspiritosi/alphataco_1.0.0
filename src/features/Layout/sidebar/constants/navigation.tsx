@@ -1,3 +1,4 @@
+import { HandshakeIcon } from '@/components/Icons';
 import {
   Building2,
   Calendar,
@@ -43,6 +44,12 @@ export const navigationLinks: NavigationLink[] = [
     href: '/dashboard/equipment',
     icon: <Truck size={sizeIcons} />,
     position: 4,
+  },
+  {
+    name: 'Comercial',
+    href: '/dashboard/comercial',
+    icon: <HandshakeIcon />,
+    position: 5,
   },
   {
     name: 'Documentación',

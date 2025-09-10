@@ -31,7 +31,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowUpDown, CalendarIcon, Check, Pencil } from 'lucide-react';
+import { CalendarIcon, Check, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
 import { Contrato, PreparteItem } from './PreparteManager';
@@ -78,23 +78,12 @@ const getColumns = (
   {
     id: 'requestDate',
     accessorKey: 'requestDate',
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 hover:bg-transparent"
-        >
-          Fecha de Solicitud
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    enableSorting: true,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de Solicitud" />,
     enableHiding: false,
     cell: ({ row }) => {
       const requestDate = row.getValue('requestDate');
-      return requestDate ? new Date(requestDate as string).toLocaleDateString() : '-';
+      const data = requestDate ? new Date(requestDate as string).toLocaleDateString() : '-';
+      return <div>{data}</div>;
     },
     sortingFn: (rowA, rowB, columnId) => {
       const dateA = new Date(rowA.getValue(columnId)).getTime();
@@ -105,7 +94,7 @@ const getColumns = (
   },
   {
     accessorKey: 'executionDate',
-    header: 'Fecha de Ejecución',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de Ejecución" />,
     cell: ({ row }) => {
       const executionDate = row.original.executionDate;
       return executionDate ? new Date(executionDate as any).toLocaleDateString() : '-';
@@ -125,18 +114,7 @@ const getColumns = (
   },
   {
     accessorKey: 'numero_pedido',
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 hover:bg-transparent"
-        >
-          N° Pedido
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="N° Pedido" />,
     enableSorting: true,
     enableHiding: false,
     sortingFn: (rowA, rowB, columnId) => {
@@ -172,7 +150,7 @@ const getColumns = (
   },
   {
     accessorKey: 'cliente_id',
-    header: 'Cliente',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
     cell: ({ row }) => {
       const clienteId = row.original.cliente_id;
       const cliente = Customers.find((c) => c.id === clienteId);
@@ -188,7 +166,7 @@ const getColumns = (
   },
   {
     accessorKey: 'contrato_id',
-    header: 'Contrato',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Contrato" />,
     cell: ({ row }) => {
       const contratoId = row.original.contrato_id;
       const contrato = contratos.find((c) => c.id === contratoId);
@@ -202,7 +180,7 @@ const getColumns = (
   },
   {
     accessorKey: 'sector_service_id',
-    header: 'Sector (Cliente)',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sector (Cliente)" />,
     cell: ({ row }) => {
       const sectorServiceId = row.original.sector_service_id;
       const clienteId = row.original.cliente_id;
@@ -232,7 +210,7 @@ const getColumns = (
   },
   {
     accessorKey: 'areas_service_id',
-    header: 'Área (Cliente)',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Área (Cliente)" />,
     cell: ({ row }) => {
       const areaServiceId = row.original.areas_service_id;
       const clienteId = row.original.cliente_id;
@@ -256,7 +234,7 @@ const getColumns = (
   },
   {
     accessorKey: 'equipos_cliente',
-    header: 'Equipo Cliente',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo Cliente" />,
     cell: ({ row }) => {
       const value: any = (row.original as any).equipos_cliente;
       if (!value) return '-';
@@ -277,7 +255,7 @@ const getColumns = (
   },
   {
     accessorKey: 'item',
-    header: 'Item',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Item" />,
     cell: ({ row }) => {
       const itemId = row.original.item; // Now it's a direct string ID
       if (!itemId) return '-';
@@ -294,7 +272,7 @@ const getColumns = (
   },
   {
     accessorKey: 'quantity',
-    header: 'Cantidad',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Cantidad" />,
     cell: ({ row }) => {
       const quantity = row.original.quantity;
       return quantity || '-';
@@ -303,12 +281,12 @@ const getColumns = (
 
   {
     accessorKey: 'tipo',
-    header: 'Tipo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
     cell: ({ row }) => <div>{row.getValue('tipo')}</div>,
   },
   {
     accessorKey: 'jornada',
-    header: 'Jornada',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Jornada" />,
     cell: ({ row }) => <div>{row.getValue('jornada')}</div>,
     filterFn: (row, id, value) => {
       return value.includes(String(row.getValue(id)));
@@ -317,17 +295,17 @@ const getColumns = (
   },
   {
     accessorKey: 'start_time',
-    header: 'H. Inicio',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="H. Inicio" />,
     cell: ({ row }) => <div>{row.getValue('start_time')}</div>,
   },
   {
     accessorKey: 'end_time',
-    header: 'H. Fin',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="H. Fin" />,
     cell: ({ row }) => <div>{row.getValue('end_time')}</div>,
   },
   {
     accessorKey: 'solicitante',
-    header: 'Solicitante',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Solicitante" />,
     cell: ({ row }) => <div>{row.getValue('solicitante')}</div>,
   },
   {

@@ -1,6 +1,8 @@
 'use client';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -8,6 +10,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
 import moment from 'moment';
 import { useState } from 'react';
+import { getCurrentAbsentEmployees } from '../../actions/actions';
 import { EmployeeAbsenceTableComponent } from './employee-absence-table';
 
 interface DailyAbsence {
@@ -39,10 +42,16 @@ interface EmployeeAbsence {
   hasta: string;
   observaciones: string;
   diasCaidos: number;
+  employee_id?: string;
 }
 
 interface DailyAbsenceDetailApiResponse {
   data: EmployeeAbsence[];
+  detalles?: {
+    altas_info?: EmployeeAbsence[];
+    bajas_info?: EmployeeAbsence[];
+    ausentes_info?: EmployeeAbsence[];
+  };
 }
 
 function getDetailedColumns(): ColumnDef<DailyAbsence>[] {
@@ -117,6 +126,11 @@ export function DetailedAbsenceTableComponent({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<EmployeeAbsence[]>([]);
+  const [detalles, setDetalles] = useState<{
+    altas_info?: EmployeeAbsence[];
+    bajas_info?: EmployeeAbsence[];
+    ausentes_info?: EmployeeAbsence[];
+  } | null>(null);
 
   // Lectura de cookies para la tabla de empleados dentro del modal
   const employeeTableId = 'employeeAbsenceTable';
@@ -132,15 +146,23 @@ export function DetailedAbsenceTableComponent({
       setLoading(true);
       setError(null);
 
-      const params = new URLSearchParams();
-      if (row.fecha) params.set('date', moment(row.fecha).format('YYYY-MM-DD'));
-      const res = await fetch(`/api/hr/daily-absence-detail?${params.toString()}`);
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Error al obtener el detalle de ausencias');
+      // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para la función RPC
+      const [day, month, year] = row.fecha.split('/');
+      const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+      console.log('Fecha original:', row.fecha);
+      console.log('Fecha convertida a ISO:', isoDate);
+
+      const data: any = await getCurrentAbsentEmployees({ date: isoDate });
+      console.log('Datos recibidos:', data);
+      // data puede venir como { data: EmployeeAbsence[], detalles: { ... } } según el RPC
+      if (data?.detalles) {
+        setDetalles(data.detalles);
+        setEmployees(data.data || data.detalles.ausentes_info || []);
+      } else {
+        setDetalles(null);
+        setEmployees(data?.data || []);
       }
-      const json: DailyAbsenceDetailApiResponse = await res.json();
-      setEmployees(Array.isArray(json?.data) ? json.data : []);
     } catch (e: any) {
       setError(e?.message || 'Error desconocido');
       setEmployees([]);
@@ -179,17 +201,97 @@ export function DetailedAbsenceTableComponent({
           </DialogHeader>
 
           {loading ? (
-            <div className="py-8 text-center text-muted-foreground">Cargando...</div>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-4">
+                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-4 w-1/4" />
+              </div>
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center space-x-4">
+                  <Skeleton className="h-4 w-1/6" />
+                  <Skeleton className="h-4 w-1/6" />
+                  <Skeleton className="h-4 w-1/6" />
+                  <Skeleton className="h-4 w-1/6" />
+                  <Skeleton className="h-4 w-1/6" />
+                  <Skeleton className="h-4 w-1/6" />
+                </div>
+              ))}
+            </div>
           ) : error ? (
             <div className="py-8 text-center text-destructive">{error}</div>
-          ) : employees.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">No hay empleados ausentes para esta fecha.</div>
+          ) : !detalles ? (
+            employees.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">No hay empleados para esta fecha.</div>
+            ) : (
+              <EmployeeAbsenceTableComponent
+                data={employees}
+                savedVisibility={savedVisibilityEmployees}
+                savedFiltersFromCookie={savedFiltersEmployees}
+              />
+            )
           ) : (
-            <EmployeeAbsenceTableComponent
-              data={employees}
-              savedVisibility={savedVisibilityEmployees}
-              savedFiltersFromCookie={savedFiltersEmployees}
-            />
+            <Tabs
+              defaultValue={
+                (detalles?.bajas_info?.length || 0) > 0
+                  ? 'bajas'
+                  : (detalles?.ausentes_info?.length || 0) > 0
+                    ? 'ausentes'
+                    : (detalles?.altas_info?.length || 0) > 0
+                      ? 'altas'
+                      : 'ausentes'
+              }
+              className="w-full"
+            >
+              <TabsList>
+                <TabsTrigger disabled={(detalles.bajas_info?.length || 0) < 1} value="bajas">
+                  Bajas ({detalles?.bajas_info?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger disabled={(detalles.ausentes_info?.length || 0) < 1} value="ausentes">
+                  Ausentes ({detalles?.ausentes_info?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger disabled={(detalles.altas_info?.length || 0) < 1} value="altas">
+                  Altas ({detalles?.altas_info?.length || 0})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="bajas" className="mt-4">
+                {detalles?.bajas_info && detalles.bajas_info.length > 0 ? (
+                  <EmployeeAbsenceTableComponent
+                    data={detalles.bajas_info}
+                    savedVisibility={savedVisibilityEmployees}
+                    savedFiltersFromCookie={savedFiltersEmployees}
+                  />
+                ) : (
+                  <div className="py-6 text-center text-muted-foreground">Sin bajas para esta fecha.</div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="ausentes" className="mt-4">
+                {detalles?.ausentes_info && detalles.ausentes_info.length > 0 ? (
+                  <EmployeeAbsenceTableComponent
+                    data={detalles.ausentes_info}
+                    savedVisibility={savedVisibilityEmployees}
+                    savedFiltersFromCookie={savedFiltersEmployees}
+                  />
+                ) : (
+                  <div className="py-6 text-center text-muted-foreground">Sin ausentes para esta fecha.</div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="altas" className="mt-4">
+                {detalles?.altas_info && detalles.altas_info.length > 0 ? (
+                  <EmployeeAbsenceTableComponent
+                    data={detalles.altas_info}
+                    savedVisibility={savedVisibilityEmployees}
+                    savedFiltersFromCookie={savedFiltersEmployees}
+                  />
+                ) : (
+                  <div className="py-6 text-center text-muted-foreground">Sin altas para esta fecha.</div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>

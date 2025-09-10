@@ -25,7 +25,7 @@ export async function EmployeeAbsenceTable() {
       </CardHeader>
       <CardContent>
         <EmployeeAbsenceTableComponent
-          data={data as any}
+          data={(data as any)?.data}
           savedVisibility={savedVisibility}
           savedFiltersFromCookie={savedFiltersFromCookie}
         />
