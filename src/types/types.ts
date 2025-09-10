@@ -202,6 +202,7 @@ export type TypeOfVehicle = {
   name: string;
   created_at: string;
 };
+
 export type Brand = {
   id: string;
   name: string;
@@ -623,6 +624,7 @@ export type FormattedSolicitudesRepair = {
   solicitud_status: string;
   type_of_maintenance: string;
   type_of_equipment: string;
+  sub_type_of_equipment: string;
   updated_at: string | null;
   user_images: string[];
   intern_number: string;
