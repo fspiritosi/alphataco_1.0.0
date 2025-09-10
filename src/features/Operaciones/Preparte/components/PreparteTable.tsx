@@ -31,7 +31,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowUpDown, CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
+import { CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
 import { Contrato, PreparteItem } from './PreparteManager';
@@ -85,23 +85,23 @@ const getColumns = (
   {
     id: 'requestDate',
     accessorKey: 'requestDate',
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 hover:bg-transparent"
-        >
-          Fecha de Solicitud
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de Solicitud" />,
+    // return (
+    //   <Button
+    //     variant="ghost"
+    //     onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+    //     className="p-0 hover:bg-transparent"
+    //   >
+    //     Fecha de Solicitud
+    //     <ArrowUpDown className="ml-2 h-4 w-4" />
+    //   </Button>
+    // );
+
     enableSorting: true,
     enableHiding: false,
     cell: ({ row }) => {
       const requestDate = row.getValue('requestDate');
-      return requestDate ? new Date(requestDate as string).toLocaleDateString() : '-';
+      return <div>{requestDate ? new Date(requestDate as string).toLocaleDateString() : '-'}</div>;
     },
     sortingFn: (rowA, rowB, columnId) => {
       const dateA = new Date(rowA.getValue(columnId)).getTime();
@@ -112,10 +112,10 @@ const getColumns = (
   },
   {
     accessorKey: 'executionDate',
-    header: 'Fecha de Ejecución',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de Ejecución" />,
     cell: ({ row }) => {
       const executionDate = row.original.executionDate;
-      return executionDate ? new Date(executionDate as any).toLocaleDateString() : '-';
+      return <div>{executionDate ? new Date(executionDate as any).toLocaleDateString() : '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -132,18 +132,18 @@ const getColumns = (
   },
   {
     accessorKey: 'numero_pedido',
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 hover:bg-transparent"
-        >
-          N° Pedido
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="N° Pedido" />,
+    // return (
+    //   <Button
+    //     variant="ghost"
+    //     onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+    //     className="p-0 hover:bg-transparent"
+    //   >
+    //     N° Pedido
+    //     <ArrowUpDown className="ml-2 h-4 w-4" />
+    //   </Button>
+    // );
+
     enableSorting: true,
     enableHiding: false,
     sortingFn: (rowA, rowB, columnId) => {
@@ -161,7 +161,7 @@ const getColumns = (
 
       return numA - numB;
     },
-    cell: ({ row }) => row.original.numero_pedido || '-',
+    cell: ({ row }) => <div>{row.original.numero_pedido || '-'}</div>,
     // filterFn: (row, id, value) => {
     //   if (!value || value.length === 0) return true;
     //   return value.includes(row.getValue(id));
@@ -170,11 +170,11 @@ const getColumns = (
   },
   {
     accessorKey: 'cliente_id',
-    header: 'Cliente',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
     cell: ({ row }) => {
       const clienteId = row.original.cliente_id;
       const cliente = Customers.find((c) => c.id === clienteId);
-      return cliente?.name || clienteId || '-';
+      return <div>{cliente?.name || clienteId || '-'}</div>;
     },
     filterFn: (row, id, value) => {
       if (!value || value.length === 0) return true;
@@ -186,11 +186,11 @@ const getColumns = (
   },
   {
     accessorKey: 'contrato_id',
-    header: 'Contrato',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Contrato" />,
     cell: ({ row }) => {
       const contratoId = row.original.contrato_id;
       const contrato = contratos.find((c) => c.id === contratoId);
-      return contrato?.service_name || contratoId || '-';
+      return <div>{contrato?.service_name || contratoId || '-'}</div>;
     },
     filterFn: (row, id, value) => {
       if (!value || value.length === 0) return true;
@@ -200,7 +200,7 @@ const getColumns = (
   },
   {
     accessorKey: 'sector_service_id',
-    header: 'Sector (Cliente)',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sector (Cliente)" />,
     cell: ({ row }) => {
       const sectorServiceId = row.original.sector_service_id;
       const clienteId = row.original.cliente_id;
@@ -218,9 +218,9 @@ const getColumns = (
         const sc = cliente?.sector_customer?.find(
           (x: any) => x.id === sectorServiceId || x.sector_id === sectorServiceId
         );
-        return sc?.sectors?.name || sectorServiceId || '-';
+        return <div>{sc?.sectors?.name || sectorServiceId || '-'}</div>;
       }
-      return sectorLink?.sectors?.name || sectorServiceId || '-';
+      return <div>{sectorLink?.sectors?.name || sectorServiceId || '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -230,7 +230,7 @@ const getColumns = (
   },
   {
     accessorKey: 'areas_service_id',
-    header: 'Área (Cliente)',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Área (Cliente)" />,
     cell: ({ row }) => {
       const areaServiceId = row.original.areas_service_id;
       const clienteId = row.original.cliente_id;
@@ -244,7 +244,7 @@ const getColumns = (
         Customers.flatMap((c) => c.customer_services || [])
           .flatMap((svc) => svc.service_areas || [])
           .find((sa) => sa.id === areaServiceId || sa?.areas_cliente?.id === areaServiceId);
-      return areaLink?.areas_cliente?.nombre || areaServiceId || '-';
+      return <div>{areaLink?.areas_cliente?.nombre || areaServiceId || '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -254,7 +254,7 @@ const getColumns = (
   },
   {
     accessorKey: 'equipos_cliente',
-    header: 'Equipo Cliente',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo Cliente" />,
     cell: ({ row }) => {
       const value: any = (row.original as any).equipos_cliente;
       if (!value) return '-';
@@ -263,7 +263,7 @@ const getColumns = (
         cliente?.equipos_clientes || cliente?.customer_services?.flatMap((cs) => cs.equipos_clientes || []) || [];
       const toName = (id: string) => equiposCatalog.find((e) => e.id === id)?.name || id;
       if (Array.isArray(value)) return value.length ? value.map((id) => toName(id)).join(', ') : '-';
-      return typeof value === 'string' ? toName(value) : '-';
+      return <div>{typeof value === 'string' ? toName(value) : '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -275,14 +275,31 @@ const getColumns = (
   },
   {
     accessorKey: 'item',
-    header: 'Item',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Item" />,
     cell: ({ row }) => {
-      const itemId = row.original.item; // Now it's a direct string ID
-      if (!itemId) return '-';
+      const itemValue = row.original.item;
+
+      // Handle case where item is an array of objects
+      if (Array.isArray(itemValue)) {
+        return (
+          <div>
+            {itemValue.map((item, index) => (
+              <div key={index}>
+                {items.find((i) => i.id === item.id)?.item_name || item.id || '-'}
+                {item.quantity ? ` (${item.quantity})` : ''}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Handle case where item is a string ID
+      const itemId = itemValue;
+      if (!itemId) return <div>-</div>;
 
       // Find the item by ID
-      const itemFila = items.find((i) => (i.id as string) === itemId.toString());
-      return itemFila?.item_name || itemId || '-';
+      const itemFila = items.find((i) => i.id === itemId);
+      return <div>{itemFila?.item_name || itemId || '-'}</div>;
     },
     // filterFn: (row, id, value) => {
     //   if (!value || value.length === 0) return true;
@@ -292,21 +309,21 @@ const getColumns = (
   },
   {
     accessorKey: 'quantity',
-    header: 'Cantidad',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Cantidad" />,
     cell: ({ row }) => {
       const quantity = row.original.quantity;
-      return quantity || '-';
+      return <div>{quantity || '-'}</div>;
     },
   },
 
   {
     accessorKey: 'tipo',
-    header: 'Tipo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
     cell: ({ row }) => <div>{row.getValue('tipo')}</div>,
   },
   {
     accessorKey: 'jornada',
-    header: 'Jornada',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Jornada" />,
     cell: ({ row }) => <div>{row.getValue('jornada')}</div>,
     filterFn: (row, id, value) => {
       return value.includes(String(row.getValue(id)));
@@ -315,17 +332,17 @@ const getColumns = (
   },
   {
     accessorKey: 'start_time',
-    header: 'H. Inicio',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="H. Inicio" />,
     cell: ({ row }) => <div>{row.getValue('start_time')}</div>,
   },
   {
     accessorKey: 'end_time',
-    header: 'H. Fin',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="H. Fin" />,
     cell: ({ row }) => <div>{row.getValue('end_time')}</div>,
   },
   {
     accessorKey: 'solicitante',
-    header: 'Solicitante',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Solicitante" />,
     cell: ({ row }) => <div>{row.getValue('solicitante')}</div>,
   },
   {
@@ -347,15 +364,17 @@ const getColumns = (
       };
 
       return (
-        <Badge
-          variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
-          className={cn(
-            'capitalize whitespace-nowrap',
-            row.original.status === 'pendiente' ? 'bg-black text-white' : ''
-          )}
-        >
-          {row.original.status || 'Sin estado'}
-        </Badge>
+        <div>
+          <Badge
+            variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
+            className={cn(
+              'capitalize whitespace-nowrap',
+              row.original.status === 'pendiente' ? 'bg-black text-white' : ''
+            )}
+          >
+            {row.original.status || 'Sin estado'}
+          </Badge>
+        </div>
       );
     },
     filterFn: (row, id, value) => {
@@ -364,29 +383,40 @@ const getColumns = (
   },
   {
     accessorKey: 'reason',
-    header: 'Motivo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo" />,
     cell: ({ row }) => {
       const { status, cancel_reason, rejected_reason, reprogram_reason } = row.original;
-
-      if (status === 'cancelado' && cancel_reason) {
-        return <div>{cancel_reason}</div>;
-      } else if (status === 'rechazado' && rejected_reason) {
-        return <div>{rejected_reason}</div>;
-      } else if (status === 'reprogramado' && reprogram_reason) {
-        return <div>{reprogram_reason}</div>;
-      } else {
-        return <div className="text-gray-400">-</div>;
-      }
+      const text =
+        status === 'cancelado'
+          ? cancel_reason || '-'
+          : status === 'rechazado'
+            ? rejected_reason || '-'
+            : status === 'reprogramado'
+              ? reprogram_reason || '-'
+              : '-';
+      return (
+        <div className="truncate whitespace-nowrap max-w-[320px]" title={text}>
+          {text}
+        </div>
+      );
     },
   },
 
   {
     accessorKey: 'observaciones',
-    header: 'Observaciones',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Observaciones" />,
+    cell: ({ row }) => {
+      const observaciones = row.original.observaciones || '-';
+      return (
+        <div className="truncate whitespace-nowrap max-w-[360px]" title={observaciones}>
+          {observaciones}
+        </div>
+      );
+    },
   },
   {
-    id: 'preparteImage',
-    header: 'Imagen',
+    accessorKey: 'preparteImage',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Imagen" />,
     cell: ({ row }) => {
       const url = row.original.preparteImage as string | undefined;
       const [open, setOpen] = useState(false);
@@ -429,7 +459,8 @@ const getColumns = (
     enableHiding: false,
   },
   {
-    id: 'actions',
+    accessorKey: 'actions',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
     cell: ({ row }) => {
       const status = row.getValue('status');
       const isPending = status === 'pendiente';
@@ -474,7 +505,7 @@ const getColumns = (
       };
 
       return (
-        <div className="flex space-x-2">
+        <div>
           {isPending && (
             <>
               <TooltipProvider>
@@ -667,7 +698,13 @@ export function PreparteTable({
 
   return (
     <>
-      <StatusCards data={tableData} onStatusClick={(status) => setStatusFilter(status)} selectedStatus={statusFilter} />
+      <div className="flex w-full">
+        <StatusCards
+          data={tableData}
+          onStatusClick={(status) => setStatusFilter(status)}
+          selectedStatus={statusFilter}
+        />
+      </div>
       <BaseDataTable
         columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
         data={tableData}

@@ -33,35 +33,37 @@ export function StatusCards({ data, onStatusClick, selectedStatus }: StatusCards
   const total = data.length;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-6">
-      {/* Total Card */}
-      <div
-        className={cn(
-          'cursor-pointer transition-all hover:shadow-md w-[90px]',
-          !selectedStatus ? 'ring-2 ring-primary rounded-lg' : ''
-        )}
-        onClick={() => onStatusClick(null)}
-      >
-        <CardInfo title="Total" value={total} valueClassname={!selectedStatus ? 'text-primary' : ''} />
+    <div className="flex w-full overflow-x-auto pb-2 mb-6">
+      <div className="flex flex-nowrap gap-2 min-w-max w-full">
+        {/* Total Card */}
+        <div
+          className={cn(
+            'cursor-pointer transition-all hover:shadow-md flex-1 min-w-0',
+            !selectedStatus ? 'ring-2 ring-primary rounded-lg' : ''
+          )}
+          onClick={() => onStatusClick(null)}
+        >
+          <CardInfo title="Total" value={total} valueClassname={!selectedStatus ? 'text-primary' : ''} />
+        </div>
+
+        {Object.entries(statusConfig).map(([status, { label, color }]) => {
+          const count = statusCounts[status as Status] || 0;
+          const isSelected = selectedStatus === status;
+
+          return (
+            <div
+              key={status}
+              className={cn(
+                'cursor-pointer transition-all hover:shadow-md flex-1 min-w-0',
+                isSelected ? 'ring-2 ring-primary rounded-lg' : ''
+              )}
+              onClick={() => onStatusClick(status as Status)}
+            >
+              <CardInfo title={label} value={count} valueClassname={isSelected ? 'text-primary' : color} />
+            </div>
+          );
+        })}
       </div>
-
-      {Object.entries(statusConfig).map(([status, { label, color }]) => {
-        const count = statusCounts[status as Status] || 0;
-        const isSelected = selectedStatus === status;
-
-        return (
-          <div
-            key={status}
-            className={cn(
-              'cursor-pointer transition-all hover:shadow-md w-[135px]',
-              isSelected ? 'ring-2 ring-primary rounded-lg' : ''
-            )}
-            onClick={() => onStatusClick(status as Status)}
-          >
-            <CardInfo title={label} value={count} valueClassname={isSelected ? 'text-primary' : color} />
-          </div>
-        );
-      })}
     </div>
   );
 }
