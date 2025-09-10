@@ -1,12 +1,9 @@
-import { buttonVariants } from '@/components/ui/button';
 import Viewcomponent from '@/components/ViewComponent';
-import ComercialTab from '@/features/Empresa/Clientes/ComercialTab';
 import EquipmentsTabs from '@/features/Empresa/Equipos/equipmentsTabs';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import General from '@/features/Empresa/General/General';
 import RrhhComponent from '@/features/Empresa/RRHH/components/rrhh/rrhhComponent';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 
 export async function generateMetadata() {
   const cookiesStore = cookies();
@@ -43,26 +40,26 @@ export default async function CompanyPage({ searchParams }: { searchParams: { ta
           component: <General tabValue="general" subtab={searchParams?.subtab} />,
         },
       },
-      {
-        value: 'comerce',
-        name: 'Comercial',
-        restricted: [''],
-        content: {
-          title: 'Comercial',
-          buttonActioRestricted: [''],
-          buttonAction: (
-            <Link
-              href={'/dashboard/company/actualCompany/customers/action?action=new'}
-              className={buttonVariants({ variant: 'gh_orange', size: 'sm', className: 'font-semibold' })}
-            >
-              Registrar Cliente
-            </Link>
-          ),
-          component: (
-            <ComercialTab tabValue="comerce" subtab={searchParams?.subtab} localStorageName="customersColumns" />
-          ),
-        },
-      },
+      // {
+      //   value: 'comerce',
+      //   name: 'Comercial',
+      //   restricted: [''],
+      //   content: {
+      //     title: 'Comercial',
+      //     buttonActioRestricted: [''],
+      //     buttonAction: (
+      //       <Link
+      //         href={'/dashboard/company/actualCompany/customers/action?action=new'}
+      //         className={buttonVariants({ variant: 'gh_orange', size: 'sm', className: 'font-semibold' })}
+      //       >
+      //         Registrar Cliente
+      //       </Link>
+      //     ),
+      //     component: (
+      //       <ComercialTab tabValue="comerce" subtab={searchParams?.subtab} localStorageName="customersColumns" />
+      //     ),
+      //   },
+      // },
 
       {
         value: 'rrhh',

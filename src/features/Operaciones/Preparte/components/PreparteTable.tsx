@@ -86,22 +86,11 @@ const getColumns = (
     id: 'requestDate',
     accessorKey: 'requestDate',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de Solicitud" />,
-    // return (
-    //   <Button
-    //     variant="ghost"
-    //     onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-    //     className="p-0 hover:bg-transparent"
-    //   >
-    //     Fecha de Solicitud
-    //     <ArrowUpDown className="ml-2 h-4 w-4" />
-    //   </Button>
-    // );
-
-    enableSorting: true,
     enableHiding: false,
     cell: ({ row }) => {
       const requestDate = row.getValue('requestDate');
-      return <div>{requestDate ? new Date(requestDate as string).toLocaleDateString() : '-'}</div>;
+      const data = requestDate ? new Date(requestDate as string).toLocaleDateString() : '-';
+      return <div>{data}</div>;
     },
     sortingFn: (rowA, rowB, columnId) => {
       const dateA = new Date(rowA.getValue(columnId)).getTime();
@@ -133,17 +122,6 @@ const getColumns = (
   {
     accessorKey: 'numero_pedido',
     header: ({ column }) => <DataTableColumnHeader column={column} title="N° Pedido" />,
-    // return (
-    //   <Button
-    //     variant="ghost"
-    //     onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-    //     className="p-0 hover:bg-transparent"
-    //   >
-    //     N° Pedido
-    //     <ArrowUpDown className="ml-2 h-4 w-4" />
-    //   </Button>
-    // );
-
     enableSorting: true,
     enableHiding: false,
     sortingFn: (rowA, rowB, columnId) => {

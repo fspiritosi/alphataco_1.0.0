@@ -183,7 +183,7 @@ export function BaseDataTable<TData, TValue>({
   });
 
   return (
-    <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
+    <div className={`space-y-4 ${className} w-full grid grid-cols-1 relative`}>
       {toolbarOptions && (
         <DataTableToolbarBase
           table={table}
@@ -202,14 +202,14 @@ export function BaseDataTable<TData, TValue>({
           tableId={tableId}
         />
       )}
-      <div className="rounded-md border">
+      <div className="rounded-md border max-h-[60vh] relative overflow-x-auto overflow-y-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
+                    <TableHead key={header.id} colSpan={header.colSpan} className="sticky top-0 z-10 bg-background">
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   );

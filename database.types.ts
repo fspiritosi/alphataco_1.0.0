@@ -2238,6 +2238,171 @@ export type Database = {
           },
         ];
       };
+      password_reset_tokens: {
+        Row: {
+          created_at: string | null;
+          expires: string;
+          id: string;
+          profile_id: string | null;
+          token: string;
+          used: boolean | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          expires: string;
+          id?: string;
+          profile_id?: string | null;
+          token: string;
+          used?: boolean | null;
+        };
+        Update: {
+          created_at?: string | null;
+          expires?: string;
+          id?: string;
+          profile_id?: string | null;
+          token?: string;
+          used?: boolean | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'password_reset_tokens_profile_id_fkey';
+            columns: ['profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      preparte: {
+        Row: {
+          areas_service_id: string | null;
+          cancel_reason: string | null;
+          cliente_id: string;
+          company_id: string | null;
+          contrato_id: string;
+          created_at: string | null;
+          end_time: string | null;
+          equipos_cliente: string | null;
+          executionDate: string;
+          id: string;
+          item: string | null;
+          jornada: string;
+          numero_pedido: string | null;
+          observaciones: string | null;
+          preparteImage: string | null;
+          quantity: number | null;
+          rejected_reason: string | null;
+          reprogram: string | null;
+          reprogram_reason: string | null;
+          requestDate: string | null;
+          sector_service_id: string | null;
+          solicitante: string;
+          start_time: string | null;
+          status: Database['public']['Enums']['preparte_status'] | null;
+          tipo: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          areas_service_id?: string | null;
+          cancel_reason?: string | null;
+          cliente_id: string;
+          company_id?: string | null;
+          contrato_id: string;
+          created_at?: string | null;
+          end_time?: string | null;
+          equipos_cliente?: string | null;
+          executionDate: string;
+          id?: string;
+          item?: string | null;
+          jornada: string;
+          numero_pedido?: string | null;
+          observaciones?: string | null;
+          preparteImage?: string | null;
+          quantity?: number | null;
+          rejected_reason?: string | null;
+          reprogram?: string | null;
+          reprogram_reason?: string | null;
+          requestDate?: string | null;
+          sector_service_id?: string | null;
+          solicitante: string;
+          start_time?: string | null;
+          status?: Database['public']['Enums']['preparte_status'] | null;
+          tipo: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          areas_service_id?: string | null;
+          cancel_reason?: string | null;
+          cliente_id?: string;
+          company_id?: string | null;
+          contrato_id?: string;
+          created_at?: string | null;
+          end_time?: string | null;
+          equipos_cliente?: string | null;
+          executionDate?: string;
+          id?: string;
+          item?: string | null;
+          jornada?: string;
+          numero_pedido?: string | null;
+          observaciones?: string | null;
+          preparteImage?: string | null;
+          quantity?: number | null;
+          rejected_reason?: string | null;
+          reprogram?: string | null;
+          reprogram_reason?: string | null;
+          requestDate?: string | null;
+          sector_service_id?: string | null;
+          solicitante?: string;
+          start_time?: string | null;
+          status?: Database['public']['Enums']['preparte_status'] | null;
+          tipo?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'preparte_areas_service_id_fkey';
+            columns: ['areas_service_id'];
+            isOneToOne: false;
+            referencedRelation: 'service_areas';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'preparte_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'preparte_equipos_cliente_fkey';
+            columns: ['equipos_cliente'];
+            isOneToOne: false;
+            referencedRelation: 'equipos_clientes';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'preparte_item_fkey';
+            columns: ['item'];
+            isOneToOne: false;
+            referencedRelation: 'service_items';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'preparte_reprogram_fkey';
+            columns: ['reprogram'];
+            isOneToOne: false;
+            referencedRelation: 'preparte';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'preparte_sector_service_id_fkey';
+            columns: ['sector_service_id'];
+            isOneToOne: false;
+            referencedRelation: 'service_sectors';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       profile: {
         Row: {
           avatar: string | null;
@@ -2910,6 +3075,7 @@ export type Database = {
           company_id: string | null;
           condition: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date: string | null;
+          contract_start_date: string | null;
           cost_center_id: string | null;
           created_at: string;
           domain: string | null;
@@ -2940,6 +3106,7 @@ export type Database = {
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date?: string | null;
+          contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;
           domain?: string | null;
@@ -2970,6 +3137,7 @@ export type Database = {
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date?: string | null;
+          contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;
           domain?: string | null;
@@ -3415,6 +3583,10 @@ export type Database = {
         Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
         Returns: Json;
       };
+      marcar_prepartes_vencidos: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       migrate_document: {
         Args: { execute_migration?: boolean; target_id: string };
         Returns: {
@@ -3529,6 +3701,7 @@ export type Database = {
         | 'formularios';
       nationality_enum: 'Argentina' | 'Extranjero';
       notification_categories: 'vencimiento' | 'noticia' | 'advertencia' | 'aprobado' | 'rechazado';
+      preparte_status: 'pendiente' | 'cancelado' | 'reprogramado' | 'rechazado' | 'vencido';
       reason_for_termination_enum:
         | 'Despido sin causa'
         | 'Renuncia'
@@ -3707,6 +3880,7 @@ export const Constants = {
       ],
       nationality_enum: ['Argentina', 'Extranjero'],
       notification_categories: ['vencimiento', 'noticia', 'advertencia', 'aprobado', 'rechazado'],
+      preparte_status: ['pendiente', 'cancelado', 'reprogramado', 'rechazado', 'vencido'],
       reason_for_termination_enum: [
         'Despido sin causa',
         'Renuncia',

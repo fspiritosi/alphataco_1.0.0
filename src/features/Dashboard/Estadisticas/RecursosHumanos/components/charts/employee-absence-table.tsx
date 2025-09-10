@@ -5,6 +5,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, FilterFn, Row } from '@tanstack/react-table';
 import moment from 'moment';
+import Link from 'next/link';
 
 interface EmployeeAbsence {
   legajo: number;
@@ -17,6 +18,7 @@ interface EmployeeAbsence {
   hasta: string;
   observaciones: string;
   diasCaidos: number;
+  id?: string; // opcional para enlazar al detalle del empleado
 }
 
 interface EmployeeAbsenceTableProps {
@@ -93,6 +95,20 @@ function getEmployeeColumns(): ColumnDef<EmployeeAbsence>[] {
       accessorKey: 'nombre',
       id: 'Apellido y Nombre',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Apellido y Nombre" />,
+      cell: ({ row }) => {
+        const emp = row.original;
+        return emp.id ? (
+          <Link
+            href={`/dashboard/employee/action?action=view&employee_id=${emp.id}`}
+            className="text-primary hover:underline"
+            target="_blank"
+          >
+            {emp.nombre}
+          </Link>
+        ) : (
+          <span>{emp.nombre}</span>
+        );
+      },
     },
     {
       accessorKey: 'tarea',

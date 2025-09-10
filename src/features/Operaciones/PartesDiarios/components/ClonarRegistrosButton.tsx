@@ -4,13 +4,13 @@ import { DialogFooter } from '@/components/ui/dialog';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar } from 'lucide-react';
+import { CalendarCheck } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -168,7 +168,7 @@ export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarReg
   return (
     <>
       <Button onClick={() => setOpen(true)} className="flex items-center gap-2 ml-2">
-        <Calendar className="h-4 w-4" />
+        <CalendarCheck className="h-4 w-4" />
         Clonar Registros
       </Button>
 
@@ -186,40 +186,19 @@ export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarReg
           <div className="px-8 py-4">
             {/* Aquí va el calendario y las fechas seleccionadas */}
             <div className="space-y-4">
-              <div className="rounded-md border border-input bg-background p-4">
+              <div className="rounded-md  border-input bg-background p-4">
                 {/* <div className="text-sm font-medium mb-2">Selecciona fechas para clonar:</div> */}
                 <div className="w-full">
-                  <CalendarComponent
+                  <Calendar
                     mode="multiple"
                     selected={fechasSeleccionadas}
-                    disabled={(date) => moment(date).isBefore(moment().subtract(1, 'days'))}
                     onSelect={(dates: Date[] | undefined) => {
-                      if (!dates) return;
-                      // Actualizamos todas las fechas seleccionadas
-                      setFechasSeleccionadas(dates);
+                      setFechasSeleccionadas(dates ?? []);
                     }}
+                    captionLayout="dropdown"
                     locale={es}
-                    className="w-full"
-                    classNames={{
-                      months: 'w-full',
-                      month: 'w-full',
-                      caption: 'mb-4     text-center',
-                      caption_label: 'text-sm font-medium',
-                      nav: 'flex gap-1',
-                      nav_button: 'h-7 w-7 p-0',
-                      table: 'w-full',
-                      head_row: 'flex w-full justify-between',
-                      head_cell: 'text-muted-foreground rounded-md w-10 font-normal text-[0.8rem] text-center',
-                      row: 'flex w-full mt-2 justify-between',
-                      cell: 'text-center text-sm p-0',
-                      day: 'h-9 w-9 p-0 font-normal hover:bg-accent rounded-md',
-                      day_selected: 'bg-primary text-primary-foreground hover:bg-primary/90',
-                      day_today: 'bg-accent text-accent-foreground',
-                      day_outside: 'text-muted-foreground opacity-50',
-                      day_disabled: 'text-muted-foreground opacity-50',
-                      day_range_middle: 'aria-selected:bg-accent aria-selected:text-accent-foreground',
-                      day_hidden: 'invisible',
-                    }}
+                    className="rounded-lg border shadow-sm w-full"
+                    disabled={(date) => moment(date).isBefore(moment().subtract(1, 'days'))}
                   />
                 </div>
               </div>
