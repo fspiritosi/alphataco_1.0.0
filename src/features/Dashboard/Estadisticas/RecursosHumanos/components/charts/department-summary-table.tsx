@@ -71,7 +71,6 @@ export function DepartmentSummaryTableComponent({
       data={data}
       savedVisibility={savedVisibility}
       tableId={tableId}
-      stickyHeader
       toolbarOptions={{
         initialVisibleFilters: savedFiltersFromCookie,
         filterableColumns: [
