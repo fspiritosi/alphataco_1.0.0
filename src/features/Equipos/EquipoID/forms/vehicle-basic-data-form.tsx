@@ -790,6 +790,23 @@ export function VehicleBasicDataForm({
         />
       )}
 
+      {typeOfContract !== 'Propio' && typeOfContract && (
+        <FormField
+          control={form.control}
+          name="contract_number"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Número de Contrato</FormLabel>
+              <FormControl>
+                <Input {...field} disabled={readOnly} placeholder="Ingrese el número de contrato" />
+              </FormControl>
+              <FormDescription>Ingrese el número de contrato del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
       <FormField
         control={form.control}
         name="intern_number"

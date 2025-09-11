@@ -3075,6 +3075,7 @@ export type Database = {
           company_id: string | null;
           condition: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date: string | null;
+          contract_number: string | null;
           contract_start_date: string | null;
           cost_center_id: string | null;
           created_at: string;
@@ -3106,6 +3107,7 @@ export type Database = {
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date?: string | null;
+          contract_number?: string | null;
           contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;
@@ -3137,6 +3139,7 @@ export type Database = {
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date?: string | null;
+          contract_number?: string | null;
           contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;

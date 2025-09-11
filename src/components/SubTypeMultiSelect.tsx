@@ -85,8 +85,9 @@ export function SubTypeMultiSelect({
 
   return (
     <MultiSelect values={selectedValues} onValuesChange={onChange}>
-      <MultiSelectTrigger className="w-full overflow-hidden" disabled={isDisabled}>
+      <MultiSelectTrigger className="w-full max-w-[400px]" disabled={isDisabled}>
         <MultiSelectValue
+          overflowBehavior="wrap-when-open"
           placeholder={
             selectedTypes.length === 0
               ? 'Primero selecciona un tipo'

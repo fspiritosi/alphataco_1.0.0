@@ -73,6 +73,7 @@ const vehicleSchema = z
     picture: z.string().optional().nullable(),
     contract_expiration_date: z.date().optional().nullable(),
     contract_start_date: z.date().optional().nullable(),
+    contract_number: z.string().optional().nullable(),
 
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
@@ -233,6 +234,7 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
         ? moment(vehicle.contract_expiration_date).toDate()
         : null,
       contract_start_date: vehicle?.contract_start_date ? moment(vehicle.contract_start_date).toDate() : null,
+      contract_number: vehicle?.contract_number || '',
     },
   });
 
