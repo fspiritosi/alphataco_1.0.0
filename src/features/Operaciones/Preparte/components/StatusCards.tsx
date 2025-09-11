@@ -39,7 +39,9 @@ export function StatusCards({ data, onStatusClick, selectedStatus }: StatusCards
         <div
           className={cn(
             'cursor-pointer transition-all hover:shadow-md flex-1 min-w-0',
-            !selectedStatus ? 'ring-2 ring-primary rounded-lg' : ''
+            !selectedStatus
+              ? 'border-2 border-primary rounded-lg'
+              : 'focus:border-2 focus:border-primary focus:rounded-lg'
           )}
           onClick={() => onStatusClick(null)}
         >
@@ -55,7 +57,9 @@ export function StatusCards({ data, onStatusClick, selectedStatus }: StatusCards
               key={status}
               className={cn(
                 'cursor-pointer transition-all hover:shadow-md flex-1 min-w-0',
-                isSelected ? 'ring-2 ring-primary rounded-lg' : ''
+                isSelected
+                  ? 'border-2 border-primary rounded-lg'
+                  : 'focus:border-2 focus:border-primary focus:rounded-lg'
               )}
               onClick={() => onStatusClick(status as Status)}
             >
