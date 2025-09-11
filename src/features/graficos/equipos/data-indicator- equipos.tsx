@@ -108,12 +108,12 @@ export default async function EquipmentChart() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         {/* <EquiposChart chartData={newChartData} chartConfig={chartConfig} date={date} /> */}
-        <div className="h-[390px]">
+        <div className="w-full">
           <InteractiveChart chartData={active_vehicles} />
         </div>
         {/* </div>
       <div className="w-full pb-2">  */}
-        <div className="flex  h-[390px] ">
+        <div className="flex">
           <IndicatorCard
             totalVehicles={totalVehicles}
             disponibleEquipmentPorcent={usagePercentage}
