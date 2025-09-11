@@ -651,7 +651,9 @@ export function DailyReportForm({
       type_service: undefined,
       cancel_reason: '',
       reprogram_date: undefined,
+      equipos_cliente: [],
     });
+    form.reset();
 
     // Restablecer estados
     setSelectedCustomerId(null);
