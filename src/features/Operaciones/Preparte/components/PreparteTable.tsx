@@ -31,10 +31,12 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Check, Pencil } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
 import { Contrato, PreparteItem } from './PreparteManager';
+import { Status, StatusCards } from './StatusCards';
+
 interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
@@ -63,6 +65,11 @@ interface PreparteTableProps {
 
   // Estado de carga
   isLoading?: boolean;
+}
+
+interface StatusFilter {
+  value: Status | null;
+  label: string;
 }
 
 const getColumns = (
@@ -97,7 +104,7 @@ const getColumns = (
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de Ejecución" />,
     cell: ({ row }) => {
       const executionDate = row.original.executionDate;
-      return executionDate ? new Date(executionDate as any).toLocaleDateString() : '-';
+      return <div>{executionDate ? new Date(executionDate as any).toLocaleDateString() : '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -132,19 +139,10 @@ const getColumns = (
 
       return numA - numB;
     },
-    cell: ({ row }) => row.original.numero_pedido || '-',
+    cell: ({ row }) => <div>{row.original.numero_pedido || '-'}</div>,
     // filterFn: (row, id, value) => {
-    //   const rowValue = row.getValue(id) as string;
-    //   if (!rowValue) return false;
-
-    //   // If no filter value is provided, show all rows
-    //   if (!value || (Array.isArray(value) && value.length === 0)) return true;
-
-    //   // Handle both string and array of strings for the value
-    //   const searchValues = Array.isArray(value) ? value : [value];
-
-    //   // Check if any of the search values match (case insensitive)
-    //   return searchValues.some((searchValue) => rowValue.toLowerCase().includes(searchValue.toString().toLowerCase()));
+    //   if (!value || value.length === 0) return true;
+    //   return value.includes(row.getValue(id));
     // },
     enableColumnFilter: true,
   },
@@ -154,7 +152,7 @@ const getColumns = (
     cell: ({ row }) => {
       const clienteId = row.original.cliente_id;
       const cliente = Customers.find((c) => c.id === clienteId);
-      return cliente?.name || clienteId || '-';
+      return <div>{cliente?.name || clienteId || '-'}</div>;
     },
     filterFn: (row, id, value) => {
       if (!value || value.length === 0) return true;
@@ -170,7 +168,7 @@ const getColumns = (
     cell: ({ row }) => {
       const contratoId = row.original.contrato_id;
       const contrato = contratos.find((c) => c.id === contratoId);
-      return contrato?.service_name || contratoId || '-';
+      return <div>{contrato?.service_name || contratoId || '-'}</div>;
     },
     filterFn: (row, id, value) => {
       if (!value || value.length === 0) return true;
@@ -198,9 +196,9 @@ const getColumns = (
         const sc = cliente?.sector_customer?.find(
           (x: any) => x.id === sectorServiceId || x.sector_id === sectorServiceId
         );
-        return sc?.sectors?.name || sectorServiceId || '-';
+        return <div>{sc?.sectors?.name || sectorServiceId || '-'}</div>;
       }
-      return sectorLink?.sectors?.name || sectorServiceId || '-';
+      return <div>{sectorLink?.sectors?.name || sectorServiceId || '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -224,7 +222,7 @@ const getColumns = (
         Customers.flatMap((c) => c.customer_services || [])
           .flatMap((svc) => svc.service_areas || [])
           .find((sa) => sa.id === areaServiceId || sa?.areas_cliente?.id === areaServiceId);
-      return areaLink?.areas_cliente?.nombre || areaServiceId || '-';
+      return <div>{areaLink?.areas_cliente?.nombre || areaServiceId || '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -243,7 +241,7 @@ const getColumns = (
         cliente?.equipos_clientes || cliente?.customer_services?.flatMap((cs) => cs.equipos_clientes || []) || [];
       const toName = (id: string) => equiposCatalog.find((e) => e.id === id)?.name || id;
       if (Array.isArray(value)) return value.length ? value.map((id) => toName(id)).join(', ') : '-';
-      return typeof value === 'string' ? toName(value) : '-';
+      return <div>{typeof value === 'string' ? toName(value) : '-'}</div>;
     },
     enableColumnFilter: true,
     filterFn: (row, id, value) => {
@@ -257,12 +255,29 @@ const getColumns = (
     accessorKey: 'item',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Item" />,
     cell: ({ row }) => {
-      const itemId = row.original.item; // Now it's a direct string ID
-      if (!itemId) return '-';
+      const itemValue = row.original.item;
+
+      // Handle case where item is an array of objects
+      if (Array.isArray(itemValue)) {
+        return (
+          <div>
+            {itemValue.map((item, index) => (
+              <div key={index}>
+                {items.find((i) => i.id === item.id)?.item_name || item.id || '-'}
+                {item.quantity ? ` (${item.quantity})` : ''}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Handle case where item is a string ID
+      const itemId = itemValue;
+      if (!itemId) return <div>-</div>;
 
       // Find the item by ID
-      const itemFila = items.find((i) => (i.id as string) === itemId.toString());
-      return itemFila?.item_name || itemId || '-';
+      const itemFila = items.find((i) => i.id === itemId);
+      return <div>{itemFila?.item_name || itemId || '-'}</div>;
     },
     // filterFn: (row, id, value) => {
     //   if (!value || value.length === 0) return true;
@@ -275,7 +290,7 @@ const getColumns = (
     header: ({ column }) => <DataTableColumnHeader column={column} title="Cantidad" />,
     cell: ({ row }) => {
       const quantity = row.original.quantity;
-      return quantity || '-';
+      return <div>{quantity || '-'}</div>;
     },
   },
 
@@ -314,11 +329,12 @@ const getColumns = (
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
-      type StatusType = 'pendiente' | 'confirmado' | 'cancelado' | 'rechazado' | 'vencido' | 'default';
+      type StatusType = 'pendiente' | 'confirmado' | 'cancelado' | 'rechazado' | 'vencido' | 'reprogramado' | 'default';
 
       const variantStatus: Record<StatusType, BadgeVariant> = {
         pendiente: 'default',
         confirmado: 'success',
+        reprogramado: 'warning',
         cancelado: 'destructive',
         rechazado: 'destructive',
         vencido: 'destructive',
@@ -326,12 +342,17 @@ const getColumns = (
       };
 
       return (
-        <Badge
-          variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
-          className="capitalize"
-        >
-          {row.original.status || 'Sin estado'}
-        </Badge>
+        <div>
+          <Badge
+            variant={row.original.status ? variantStatus[row.original.status as StatusType] || 'default' : 'default'}
+            className={cn(
+              'capitalize whitespace-nowrap',
+              row.original.status === 'pendiente' ? 'bg-black text-white' : ''
+            )}
+          >
+            {row.original.status || 'Sin estado'}
+          </Badge>
+        </div>
       );
     },
     filterFn: (row, id, value) => {
@@ -340,32 +361,89 @@ const getColumns = (
   },
   {
     accessorKey: 'reason',
-    header: 'Motivo',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo" />,
     cell: ({ row }) => {
       const { status, cancel_reason, rejected_reason, reprogram_reason } = row.original;
-
-      if (status === 'cancelado' && cancel_reason) {
-        return <div>{cancel_reason}</div>;
-      } else if (status === 'rechazado' && rejected_reason) {
-        return <div>{rejected_reason}</div>;
-      } else if (status === 'reprogramado' && reprogram_reason) {
-        return <div>{reprogram_reason}</div>;
-      } else {
-        return <div className="text-gray-400">-</div>;
-      }
+      const text =
+        status === 'cancelado'
+          ? cancel_reason || '-'
+          : status === 'rechazado'
+            ? rejected_reason || '-'
+            : status === 'reprogramado'
+              ? reprogram_reason || '-'
+              : '-';
+      return (
+        <div className="truncate whitespace-nowrap max-w-[320px]" title={text}>
+          {text}
+        </div>
+      );
     },
   },
 
   {
     accessorKey: 'observaciones',
-    header: 'Observaciones',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Observaciones" />,
+    cell: ({ row }) => {
+      const observaciones = row.original.observaciones || '-';
+      return (
+        <div className="truncate whitespace-nowrap max-w-[360px]" title={observaciones}>
+          {observaciones}
+        </div>
+      );
+    },
   },
   {
-    id: 'actions',
+    accessorKey: 'preparteImage',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Imagen" />,
+    cell: ({ row }) => {
+      const url = row.original.preparteImage as string | undefined;
+      const [open, setOpen] = useState(false);
+      if (!url) return <span className="text-gray-400">-</span>;
+      const isPdf = url.toLowerCase().includes('.pdf');
+      return (
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => setOpen(true)}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Ver {isPdf ? 'documento' : 'imagen'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="sm:max-w-[800px]">
+              <DialogHeader>
+                <DialogTitle>Vista previa</DialogTitle>
+                <DialogDescription>{isPdf ? 'Documento PDF' : 'Imagen subida del pedido'}</DialogDescription>
+              </DialogHeader>
+              <div className="w-full max-h-[75vh] overflow-auto flex justify-center items-center">
+                {isPdf ? (
+                  <iframe src={url} className="w-full h-[70vh]" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={url} alt="preparte" className="max-w-full max-h-[70vh] object-contain" />
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      );
+    },
+    enableHiding: false,
+  },
+  {
+    accessorKey: 'actions',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
     cell: ({ row }) => {
       const status = row.getValue('status');
       const isPending = status === 'pendiente';
       const isVencido = status === 'vencido';
+      const isConfirmed = status === 'confirmado';
       const [showDatePicker, setShowDatePicker] = useState(false);
       const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
@@ -406,7 +484,7 @@ const getColumns = (
       };
 
       return (
-        <div className="flex space-x-2">
+        <div>
           {isPending && (
             <>
               <TooltipProvider>
@@ -428,36 +506,42 @@ const getColumns = (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    {(isPending || isVencido || status === 'confirmado') && (
+                  {isPending || isVencido ? (
+                    <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
                         className={cn(
                           'text-green-600 hover:bg-green-50 hover:text-green-700',
-                          (!isPending && !isVencido) ||
-                            (isVencido && row.original.observaciones?.includes('Parte confirmado vencido'))
+                          isVencido && row.original.observaciones?.includes('Parte confirmado vencido')
                             ? 'opacity-50 cursor-not-allowed'
                             : ''
                         )}
                         onClick={(e) => {
-                          if (isVencido) {
-                            if (!row.original.observaciones?.includes('Parte confirmado vencido')) {
-                              e.preventDefault();
-                              setShowDatePicker(true);
-                            } else {
-                              e.preventDefault();
-                            }
+                          if (isVencido && !row.original.observaciones?.includes('Parte confirmado vencido')) {
+                            e.preventDefault();
+                            setShowDatePicker(true);
+                          } else if (isVencido) {
+                            e.preventDefault();
                           }
                         }}
                       >
                         <Check className="h-4 w-4" />
                       </Button>
-                    )}
-                  </AlertDialogTrigger>
+                    </AlertDialogTrigger>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-green-600 opacity-50 cursor-not-allowed"
+                      disabled
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  )}
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Confirmar y enviar a parte diario</p>
+                  <p>{isConfirmed ? 'Ya confirmado' : 'Confirmar y enviar a parte diario'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -534,7 +618,7 @@ const getColumns = (
 ];
 
 export function PreparteTable({
-  data: tableData,
+  data: tableDataProp,
   Customers,
   contratos,
   items,
@@ -548,13 +632,39 @@ export function PreparteTable({
   refreshKey = 0,
 }: PreparteTableProps) {
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  // Filtro de estado para inyectar al server-side
+  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+
+  // Estado local para tableData
+  const [tableData, setTableData] = useState<PreparteItem[]>(tableDataProp);
+
+  // Actualizar tableData cuando cambia la prop data
+  useEffect(() => {
+    setTableData(tableDataProp);
+  }, [tableDataProp]);
+
+  // Envolver fetchData para agregar el filtro por estado como columnFilter (server-side)
+  const handleFetchData = async (opts: any) => {
+    const result = await fetchData({
+      ...opts,
+      columnFilters: [
+        ...(opts?.columnFilters || []),
+        ...(statusFilter ? [{ id: 'status', value: [statusFilter] }] : []),
+      ],
+    });
+
+    // Actualizar tableData con los nuevos datos
+    setTableData(result.rows);
+
+    return result;
+  };
 
   // Usar directamente los datos de las props
-  const uniqueStatuses = [...new Set(tableData.map((item) => item.status))];
-  const uniqueClientIds = [...new Set(tableData.map((item) => item.cliente_id))];
+  const uniqueStatuses = [...new Set(tableDataProp.map((item) => item.status))];
+  const uniqueClientIds = [...new Set(tableDataProp.map((item) => item.cliente_id))];
   const filteredCustomers = Customers.filter((customer) => uniqueClientIds.includes(customer.id));
 
-  const uniqueContratoIds = [...new Set(tableData.map((item) => item.contrato_id))];
+  const uniqueContratoIds = [...new Set(tableDataProp.map((item) => item.contrato_id))];
   const filteredContratos = contratos.filter((contrato) => uniqueContratoIds.includes(contrato.id));
 
   const [initialVisibleFilters] = useState<string[]>(() => {
@@ -580,257 +690,272 @@ export function PreparteTable({
   });
 
   // Para items, necesitarías aplanar el array de items primero
-  const allItemIds = tableData.flatMap((item) => (Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]));
+  const allItemIds = tableDataProp.flatMap((item) =>
+    Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]
+  );
   const uniqueItemIds = [...new Set(allItemIds)];
   const filteredItems = items.filter((item) => uniqueItemIds.includes(item.id));
 
   return (
-    <BaseDataTable
-      columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
-      data={tableData}
-      tableId="preparte-table"
-      savedVisibility={savedVisibility}
-      serverSide={true}
-      fetchData={fetchData}
-      fetchAllData={fetchAllData}
-      queryKey={`preparte-table-${refreshKey}`} // Usar refreshKey para forzar recarga
-      // isLoading={isLoading}
-      toolbarOptions={{
-        initialVisibleFilters: initialVisibleFilters,
-        filterableColumns: [
-          {
-            columnId: 'cliente_id',
-            title: 'Cliente',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'cliente_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const customer = Customers.find((c) => c.id === item.col_value);
-                  const displayName = customer ? customer.name : `Cliente ${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+    <>
+      <div className="flex w-full">
+        <StatusCards
+          data={tableDataProp}
+          onStatusClick={(status) => setStatusFilter(status)}
+          selectedStatus={statusFilter}
+        />
+      </div>
+      <BaseDataTable
+        columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, items)}
+        data={tableData}
+        tableId="preparte-table"
+        savedVisibility={savedVisibility}
+        serverSide={true}
+        fetchData={handleFetchData}
+        fetchAllData={fetchAllData}
+        queryKey={`preparte-table-${refreshKey}-${statusFilter ?? 'all'}`} // Refetch al cambiar estado
+        // isLoading={isLoading}
+        toolbarOptions={{
+          initialVisibleFilters: initialVisibleFilters,
+          filterableColumns: [
+            {
+              columnId: 'cliente_id',
+              title: 'Cliente',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'cliente_id' as any,
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const customer = Customers.find((c) => c.id === item.col_value);
+                    const displayName = customer ? customer.name : `Cliente ${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'contrato_id',
-            title: 'Contrato',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'contrato_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const contrato = contratos.find((c) => c.id === item.col_value);
-                  const displayName = contrato ? contrato.service_name : `Contrato ${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'contrato_id',
+              title: 'Contrato',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'contrato_id' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const contrato = contratos.find((c) => c.id === item.col_value);
+                    const displayName = contrato ? contrato.service_name : `Contrato ${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'sector_service_id',
-            title: 'Sector (Cliente)',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'sector_service_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
-                data.map((item) => {
-                  const id = item.col_value;
-                  let label = id || '-';
-                  for (const c of Customers) {
-                    for (const svc of c.customer_services || []) {
-                      const ss = svc.service_sectors?.find((x) => x.id === id || x.sectors?.id === id);
-                      if (ss?.sectors?.name) {
-                        label = ss.sectors.name;
-                        break;
+            {
+              columnId: 'sector_service_id',
+              title: 'Sector (Cliente)',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'sector_service_id' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                  data.map((item) => {
+                    const id = item.col_value;
+                    let label = id || '-';
+                    for (const c of Customers) {
+                      for (const svc of c.customer_services || []) {
+                        const ss = svc.service_sectors?.find((x) => x.id === id || x?.sectors?.id === id);
+                        if (ss?.sectors?.name) {
+                          label = ss.sectors.name;
+                          break;
+                        }
                       }
                     }
-                  }
-                  // Fallback: sector_customer mapping at client level
-                  const sc = (Customers as any).sector_customer?.find((x: any) => x.id === id || x.sector_id === id);
-                  if (sc?.sectors?.name) {
-                    label = sc.sectors.name;
-                  }
-                  return { label, value: id, count: item.col_count };
-                }),
+                    // Fallback: sector_customer mapping at client level
+                    const sc = (Customers as any).sector_customer?.find((x: any) => x.id === id || x.sector_id === id);
+                    if (sc?.sectors?.name) {
+                      label = sc.sectors.name;
+                    }
+                    return { label, value: id, count: item.col_count };
+                  }),
+              },
             },
-          },
-          {
-            columnId: 'areas_service_id',
-            title: 'Área (Cliente)',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'areas_service_id' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
-                data.map((item) => {
-                  const id = item.col_value;
-                  let label = id || '-';
-                  for (const c of Customers) {
-                    for (const svc of c.customer_services || []) {
-                      const sa = svc.service_areas?.find((x) => x.id === id || x.areas_cliente?.id === id);
-                      if (sa?.areas_cliente?.nombre) {
-                        label = sa.areas_cliente.nombre;
-                        break;
+            {
+              columnId: 'areas_service_id',
+              title: 'Área (Cliente)',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'areas_service_id' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                  data.map((item) => {
+                    const id = item.col_value;
+                    let label = id || '-';
+                    for (const c of Customers) {
+                      for (const svc of c.customer_services || []) {
+                        const sa = svc.service_areas?.find((x) => x.id === id || x?.areas_cliente?.id === id);
+                        if (sa?.areas_cliente?.nombre) {
+                          label = sa.areas_cliente.nombre;
+                          break;
+                        }
                       }
                     }
-                  }
-                  return { label, value: id, count: item.col_count };
-                }),
+                    return { label, value: id, count: item.col_count };
+                  }),
+              },
             },
-          },
-          {
-            columnId: 'equipos_cliente',
-            title: 'Equipo Cliente',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'equipos_cliente' as any,
-              mapper: (data: Array<{ col_value: string; col_count: number }>) =>
-                data.map((item) => {
-                  const id = item.col_value;
-                  let label = id || '-';
-                  // Buscar en catálogo de equipos de todos los clientes
-                  outer: for (const c of Customers) {
-                    const allEquipos = [
-                      ...(c.equipos_clientes || []),
-                      ...(c.customer_services || []).flatMap((cs) => cs.equipos_clientes || []),
-                    ];
-                    const eq = allEquipos.find((e) => e.id === id);
-                    if (eq?.name) {
-                      label = eq.name;
-                      break outer;
+            {
+              columnId: 'equipos_cliente',
+              title: 'Equipo Cliente',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'equipos_cliente' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) =>
+                  data.map((item) => {
+                    const id = item.col_value;
+                    let label = id || '-';
+                    // Buscar en catálogo de equipos de todos los clientes
+                    outer: for (const c of Customers) {
+                      const allEquipos = [
+                        ...(c.equipos_clientes || []),
+                        ...(c.customer_services || []).flatMap((cs) => cs.equipos_clientes || []),
+                      ];
+                      const eq = allEquipos.find((e) => e.id === id);
+                      if (eq?.name) {
+                        label = eq.name;
+                        break outer;
+                      }
                     }
-                  }
-                  return { label, value: id, count: item.col_count };
-                }),
-            },
-          },
-          {
-            columnId: 'status',
-            title: 'Estado',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'status' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => ({
-                  label: item.col_value.charAt(0).toUpperCase() + item.col_value.slice(1),
-                  value: item.col_value,
-                  count: item.col_count,
-                }));
+                    return { label, value: id, count: item.col_count };
+                  }),
               },
             },
-          },
-          {
-            columnId: 'jornada',
-            title: 'Jornada',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'jornada' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
+            {
+              columnId: 'status',
+              title: 'Estado',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'status' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => ({
+                    label: item.col_value.charAt(0).toUpperCase() + item.col_value.slice(1),
                     value: item.col_value,
                     count: item.col_count,
-                  };
-                });
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'tipo',
-            title: 'Tipo',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'tipo' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'jornada',
+              title: 'Jornada',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'jornada' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'requestDate',
-            title: 'Fecha de Solicitud',
-            type: 'date-range',
-            showFrom: true,
-            showTo: true,
-            fromPlaceholder: 'Desde',
-            toPlaceholder: 'Hasta',
-            // defaultValues: { from: null, to: null }, // opcional
-          },
-          {
-            columnId: 'executionDate',
-            title: 'Fecha de Ejecución',
-            type: 'date-range',
-            showFrom: true,
-            showTo: true,
-            fromPlaceholder: 'Desde',
-            toPlaceholder: 'Hasta',
-            // defaultValues: { from: null, to: null }, // opcional
-          },
-          {
-            columnId: 'numero_pedido',
-            title: 'N° Pedido',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'numero_pedido' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'tipo',
+              title: 'Tipo',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'tipo' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-          {
-            columnId: 'item',
-            title: 'Item',
-            config: {
-              tableName: 'preparte' as any,
-              select: 'item' as any,
-              // p_filters: { company_id: company_id! },
-              mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                return data.map((item) => {
-                  const item1 = items.find((c) => c.id === item.col_value);
-                  const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                  return {
-                    label: displayName,
-                    value: item.col_value,
-                    count: item.col_count,
-                  };
-                });
+            {
+              columnId: 'requestDate',
+              title: 'Fecha de Solicitud',
+              type: 'date-range',
+              showFrom: true,
+              showTo: true,
+              fromPlaceholder: 'Desde',
+              toPlaceholder: 'Hasta',
+              // defaultValues: { from: null, to: null }, // opcional
+            },
+            {
+              columnId: 'executionDate',
+              title: 'Fecha de Ejecución',
+              type: 'date-range',
+              showFrom: true,
+              showTo: true,
+              fromPlaceholder: 'Desde',
+              toPlaceholder: 'Hasta',
+              // defaultValues: { from: null, to: null }, // opcional
+            },
+            {
+              columnId: 'numero_pedido',
+              title: 'N° Pedido',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'numero_pedido' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
               },
             },
-          },
-        ],
-      }}
-    />
+            {
+              columnId: 'item',
+              title: 'Item',
+              config: {
+                tableName: 'preparte' as any,
+                select: 'item' as any,
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
+                  return data.map((item) => {
+                    const item1 = items.find((c) => c.id === item.col_value);
+                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
+                    return {
+                      label: displayName,
+                      value: item.col_value,
+                      count: item.col_count,
+                    };
+                  });
+                },
+              },
+            },
+          ],
+        }}
+      />
+    </>
   );
 }

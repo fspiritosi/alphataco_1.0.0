@@ -22,6 +22,8 @@ export type Preparte = {
   sector_service_id?: string | null;
   areas_service_id?: string | null;
   equipos_cliente?: string | null;
+  // nueva columna para almacenar la URL o ruta de la imagen del preparte
+  preparteImage?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -33,8 +35,6 @@ export async function createPreparte(
   const supabase = supabaseServer();
 
   try {
-    console.log('📦 Data recibida en createPreparte:', JSON.stringify(prepartesData, null, 2));
-
     // SOLUCIÓN: Manejar explícitamente el array doble
     let dataToInsert: Omit<Preparte, 'id'>[];
 
@@ -50,8 +50,6 @@ export async function createPreparte(
     else {
       dataToInsert = [prepartesData];
     }
-
-    console.log('🔄 Data normalizada:', JSON.stringify(dataToInsert, null, 2));
 
     // Validar que tenemos datos válidos
     if (dataToInsert.length === 0) {
@@ -149,6 +147,7 @@ export async function createPreparte(
       sector_service_id: item.sector_service_id ?? null,
       areas_service_id: item.areas_service_id ?? null,
       equipos_cliente: item.equipos_cliente ?? null,
+      preparteImage: (item as any).preparteImage ?? null,
     }));
 
     const { data, error } = await supabase
@@ -177,6 +176,9 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
     ...preparteData,
     updated_at: new Date().toISOString(),
   };
+
+  // Nunca enviar columnas que no existen en la tabla
+  if ('image_url' in payload) delete payload.image_url;
 
   // Equipos: solo si la clave está presente
   if ('equipos_cliente' in preparteData) {
@@ -268,6 +270,11 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
     payload.areas_service_id = area_fk; // puede ser string o null si explícitamente se envió null
   }
 
+  // Si viene la url/route de la imagen, incluirla tal cual
+  if ('preparteImage' in preparteData) {
+    (payload as any).preparteImage = preparteData.preparteImage ?? null;
+  }
+
   const { data, error } = await supabase
     .from('preparte' as any)
     .update(payload)
@@ -297,6 +304,23 @@ export async function deletePreparte(id: string) {
   }
 
   return { success: true };
+}
+
+// Actualiza la imagen para todas las filas que comparten el mismo número de pedido
+export async function updatePreparteImageByOrderNumber(numero_pedido: string, imageUrl: string) {
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from('preparte' as any)
+    .update({ preparteImage: imageUrl, updated_at: new Date().toISOString() })
+    .eq('numero_pedido', numero_pedido)
+    .select();
+
+  if (error) {
+    console.error('Error updating images by numero_pedido:', error);
+    throw new Error('Error al actualizar la imagen del pedido');
+  }
+
+  return data;
 }
 
 // Get preparte by ID
@@ -355,20 +379,21 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
 export async function getLastOrderNumber() {
   const supabase = supabaseServer();
 
+  // Evitar .single() que dispara PGRST116 cuando no hay filas
   const { data, error } = await supabase
     .from('preparte' as any)
     .select('numero_pedido')
     .not('numero_pedido', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
 
   if (error) {
     console.error('Error al obtener el último número de pedido:', error);
     return 'PED-0000';
   }
 
-  return data?.numero_pedido || 'PED-0000';
+  if (!data || data.length === 0) return 'PED-0000';
+  return (data[0] as any)?.numero_pedido || 'PED-0000';
 }
 
 export async function fetchPrepartes({
@@ -457,4 +482,123 @@ export async function fetchPrepartes({
       rowCount: 0,
     };
   }
+}
+
+// Mueve un archivo ya subido en el bucket a la ruta final y retorna la URL pública final
+export async function movePreparteFile(
+  fromPublicUrl: string,
+  clienteName: string,
+  contratoName: string,
+  numeroPedido: string
+): Promise<string> {
+  const supabase = supabaseServer();
+
+  // Bucket configurable por env
+  const DEFAULT_BUCKET = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
+
+  // Normalizar nombres para la ruta (solo para carpetas)
+  const normalize = (s: string) =>
+    s
+      ?.normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '-')
+      .toLowerCase() || '';
+
+  const empresaDir = normalize(clienteName) || 'empresa';
+  const contratoDir = normalize(contratoName) || 'servicio';
+
+  const baseUrl = process.env.NEXT_PUBLIC_PROJECT_URL as string;
+  const detectBucketFromUrl = (): string | null => {
+    try {
+      const u = new URL(fromPublicUrl);
+      const parts = u.pathname.split('/').filter(Boolean);
+      // .../storage/v1/object/public/<bucket>/<rest>
+      const publicIdx = parts.findIndex((p) => p === 'public');
+      if (publicIdx >= 0 && parts[publicIdx + 1]) return parts[publicIdx + 1];
+      return null;
+    } catch {
+      return null;
+    }
+  };
+  const detectedBucket = detectBucketFromUrl();
+  const BUCKET = detectedBucket || DEFAULT_BUCKET;
+  const prefix = `${baseUrl}/${BUCKET}/`;
+
+  // Obtener el path relativo del objeto subido de forma robusta
+  const extractFromPath = (): string => {
+    try {
+      const urlObj = new URL(fromPublicUrl);
+      const parts = urlObj.pathname.split('/').filter(Boolean);
+      // Buscar el bucket en el pathname y tomar lo que le sigue
+      const bucketIdx = parts.findIndex((p) => p === BUCKET);
+      if (bucketIdx >= 0) {
+        return decodeURIComponent(parts.slice(bucketIdx + 1).join('/'));
+      }
+      // Fallback: si coincide con el prefijo exacto
+      const byPrefix = fromPublicUrl.startsWith(prefix) ? fromPublicUrl.slice(prefix.length) : undefined;
+      if (byPrefix) return decodeURIComponent(byPrefix);
+      // Último segmento sin querystring
+      const clean = fromPublicUrl.split('?')[0];
+      const last = clean.split('/').pop() || '';
+      return decodeURIComponent(last);
+    } catch {
+      // Si no es URL válida, usar heurística simple
+      const clean = fromPublicUrl.split('?')[0];
+      const last = clean.split('/').pop() || '';
+      return decodeURIComponent(last);
+    }
+  };
+
+  let fromPath = extractFromPath();
+  if (fromPath.startsWith('/')) fromPath = fromPath.slice(1);
+
+  // Si el cliente removió espacios de la URL (ej: via replace(/\s/g, '')), intentar resolver el nombre real
+  const resolveActualObject = async (candidate: string): Promise<string> => {
+    // Buscar en la raíz del bucket (ya que el hook sube al root con el nombre del archivo)
+    const parentDir = candidate.includes('/') ? candidate.split('/').slice(0, -1).join('/') : '';
+    const candName = candidate.split('/').pop() as string;
+    const withoutSpaces = (s: string) => s.replace(/\s+/g, '');
+    try {
+      const { data: listData, error: listErr } = await supabase.storage.from(BUCKET).list(parentDir);
+      if (listErr) {
+        console.warn('⚠️ No se pudo listar el bucket para resolver nombre real:', listErr.message);
+        return candidate; // continuar con candidate aunque pueda fallar
+      }
+      // Buscar match ignorando espacios y case-sensitive básico
+      const match = listData?.find((f: any) => withoutSpaces(f.name) === withoutSpaces(candName));
+      if (match) {
+        const resolved = parentDir ? `${parentDir}/${match.name}` : match.name;
+
+        return resolved;
+      }
+      return candidate;
+    } catch (e) {
+      console.warn('⚠️ Error resolviendo nombre real del objeto:', e);
+      return candidate;
+    }
+  };
+
+  // Resolver posible desincronización de espacios en el nombre
+  fromPath = await resolveActualObject(fromPath);
+
+  const currentExt = fromPath.split('.').pop()?.toLowerCase() || 'jpg';
+  const targetPath = `${empresaDir}/${contratoDir}/${numeroPedido}/${numeroPedido}.${currentExt}`;
+
+  // Mover a la estructura deseada
+  if (fromPath !== targetPath) {
+    // Intento 1: mover
+    let { error } = await supabase.storage.from(BUCKET).move(fromPath, targetPath);
+    if (error && /already exists/i.test(error.message)) {
+      // Si ya existe, eliminar destino y reintentar una vez
+      const parent = `${empresaDir}/${contratoDir}/${numeroPedido}`;
+      const fileName = `${numeroPedido}.${currentExt}`;
+      await supabase.storage.from(BUCKET).remove([`${parent}/${fileName}`]);
+      const retry = await supabase.storage.from(BUCKET).move(fromPath, targetPath);
+      error = retry.error as any;
+    }
+    if (error) throw new Error(`No se pudo mover el archivo en Storage: ${error.message}`);
+  }
+
+  // URL pública final
+  return `${baseUrl}/${BUCKET}/${targetPath}`;
 }

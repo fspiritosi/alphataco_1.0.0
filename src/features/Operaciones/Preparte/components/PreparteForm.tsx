@@ -16,6 +16,7 @@ import {
   fetchEquipmentsByCustomer,
   fetchSectorsByContract,
 } from '@/features/Operaciones/Preparte/actions/actions';
+import { useImageUpload } from '@/hooks/useUploadImage';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -28,6 +29,7 @@ import { toast } from 'sonner';
 import * as z from 'zod';
 import { createPreparte } from '../actions/preparte';
 import type { Cliente } from './PreparteManager';
+
 // Esquema de validación con Zod
 const formSchema = z
   .object({
@@ -82,6 +84,7 @@ const formSchema = z
     sector_service_id: z.string({ required_error: 'Sector del cliente es obligatorio' }).uuid('Sector inválido'),
     areas_service_id: z.string({ required_error: 'Área del cliente es obligatoria' }).uuid('Área inválida'),
     equipos_cliente: z.array(z.string().uuid()).optional().default([]),
+    image_url: z.string().optional(),
   })
   .refine(
     (data) => data.status !== 'reprogramado' || (data.reprogram !== undefined && data.reprogram instanceof Date),
@@ -160,6 +163,8 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     }
     return [{ id: '', quantity: 1 }];
   });
+  // Archivo seleccionado (no forma parte del schema del formulario)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   // Add this state at the top of your component
   // const [itemRows, setItemRows] = useState([{ id: 1, itemId: '', quantity: 1 }]);
   // Add this function to handle item selection
@@ -271,8 +276,28 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     loadDependentOptions();
   }, [form.watch('cliente_id'), form.watch('contrato_id')]);
 
+  const { uploadImage } = useImageUpload();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (data: PreparteItem) => {
     try {
+      setIsSubmitting(true);
+      // 1) Si hay archivo seleccionado, subirlo desde el formulario usando el hook
+      if (selectedFile) {
+        try {
+          const bucket = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
+          const tempUrl = await uploadImage(selectedFile, bucket);
+          // Guardar la URL temporal en el formulario para que el manager la procese
+          form.setValue('image_url', tempUrl as any);
+          (data as any).image_url = tempUrl;
+        } catch (e) {
+          console.error('Error subiendo archivo:', e);
+          toast.error('No se pudo subir el archivo. Intente nuevamente.');
+          return;
+        }
+      }
+
       if (data.status === 'reprogramado' && data.reprogram) {
         // Crear nuevo ítem con la nueva fecha
         const newItem = {
@@ -318,10 +343,12 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
       if (clienteSeleccionado) {
         data.cliente_id = clienteSeleccionado.id;
       }
-      onSubmit(data);
+      await onSubmit(data);
     } catch (error) {
       console.error('Error en handleSubmit:', error);
       toast.error(`Error al guardar el servicio: ${(error as Error).message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1095,13 +1122,74 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 </FormItem>
               )}
             />
-          </div>
 
-          <div className="flex justify-end space-x-4 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancelar
-            </Button>
-            <Button type="submit">{isEditing ? 'Actualizar' : 'Guardar'}</Button>
+            {/* Imagen del pedido */}
+            {isEditing ? (
+              <FormItem>
+                <FormLabel>
+                  {`Cambiar imagen del pedido${form?.watch('numero_pedido') ? ` (aplica a todo el N° ${form.watch('numero_pedido')})` : ''}`}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="bg-background"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            ) : (
+              <FormItem>
+                <FormLabel>Documento adjunto (Imagen o PDF)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="bg-background"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+
+            <div className="flex justify-end space-x-4 pt-4">
+              <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    {isEditing ? 'Actualizando...' : 'Guardando...'}
+                  </>
+                ) : isEditing ? (
+                  'Actualizar'
+                ) : (
+                  'Guardar'
+                )}
+              </Button>
+            </div>
           </div>
         </form>
       </Form>
