@@ -19,6 +19,7 @@ export async function getEmployeesName() {
             lastname
         `
     )
+    .eq('is_active', true)
     .order('lastname', { ascending: true });
 
   if (error) {
