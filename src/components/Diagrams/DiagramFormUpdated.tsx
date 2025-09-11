@@ -59,6 +59,8 @@ function DiagramFormUpdated({
   diagrams_types: DiagramType[];
   defaultId?: string;
 }) {
+  const [existingDiagrams, setExistingDiagrams] = useState<EmployeeDiagramWithDiagramType[]>([]);
+  const [newDiagrams, setNewDiagrams] = useState<DiagramaToCreate[]>([]);
   const [errorsDiagrams, setErrorsDiagrams] = useState<ErrorToCreate[]>([]);
   const [succesDiagrams, setSuccesDiagrams] = useState<DiagramaToCreate[]>([]);
   const employeesOptions = employees.map((employee) => ({
