@@ -32,7 +32,7 @@ import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
 import { Contrato, PreparteItem } from './PreparteManager';
 import { Status, StatusCards } from './StatusCards';
@@ -443,6 +443,7 @@ const getColumns = (
       const status = row.getValue('status');
       const isPending = status === 'pendiente';
       const isVencido = status === 'vencido';
+      const isConfirmed = status === 'confirmado';
       const [showDatePicker, setShowDatePicker] = useState(false);
       const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
@@ -505,36 +506,42 @@ const getColumns = (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    {(isPending || isVencido || status === 'confirmado') && (
+                  {isPending || isVencido ? (
+                    <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
                         className={cn(
                           'text-green-600 hover:bg-green-50 hover:text-green-700',
-                          (!isPending && !isVencido) ||
-                            (isVencido && row.original.observaciones?.includes('Parte confirmado vencido'))
+                          isVencido && row.original.observaciones?.includes('Parte confirmado vencido')
                             ? 'opacity-50 cursor-not-allowed'
                             : ''
                         )}
                         onClick={(e) => {
-                          if (isVencido) {
-                            if (!row.original.observaciones?.includes('Parte confirmado vencido')) {
-                              e.preventDefault();
-                              setShowDatePicker(true);
-                            } else {
-                              e.preventDefault();
-                            }
+                          if (isVencido && !row.original.observaciones?.includes('Parte confirmado vencido')) {
+                            e.preventDefault();
+                            setShowDatePicker(true);
+                          } else if (isVencido) {
+                            e.preventDefault();
                           }
                         }}
                       >
                         <Check className="h-4 w-4" />
                       </Button>
-                    )}
-                  </AlertDialogTrigger>
+                    </AlertDialogTrigger>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-green-600 opacity-50 cursor-not-allowed"
+                      disabled
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  )}
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Confirmar y enviar a parte diario</p>
+                  <p>{isConfirmed ? 'Ya confirmado' : 'Confirmar y enviar a parte diario'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -611,7 +618,7 @@ const getColumns = (
 ];
 
 export function PreparteTable({
-  data: tableData,
+  data: tableDataProp,
   Customers,
   contratos,
   items,
@@ -628,23 +635,36 @@ export function PreparteTable({
   // Filtro de estado para inyectar al server-side
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
 
+  // Estado local para tableData
+  const [tableData, setTableData] = useState<PreparteItem[]>(tableDataProp);
+
+  // Actualizar tableData cuando cambia la prop data
+  useEffect(() => {
+    setTableData(tableDataProp);
+  }, [tableDataProp]);
+
   // Envolver fetchData para agregar el filtro por estado como columnFilter (server-side)
   const handleFetchData = async (opts: any) => {
-    return fetchData({
+    const result = await fetchData({
       ...opts,
       columnFilters: [
         ...(opts?.columnFilters || []),
         ...(statusFilter ? [{ id: 'status', value: [statusFilter] }] : []),
       ],
     });
+
+    // Actualizar tableData con los nuevos datos
+    setTableData(result.rows);
+
+    return result;
   };
 
   // Usar directamente los datos de las props
-  const uniqueStatuses = [...new Set(tableData.map((item) => item.status))];
-  const uniqueClientIds = [...new Set(tableData.map((item) => item.cliente_id))];
+  const uniqueStatuses = [...new Set(tableDataProp.map((item) => item.status))];
+  const uniqueClientIds = [...new Set(tableDataProp.map((item) => item.cliente_id))];
   const filteredCustomers = Customers.filter((customer) => uniqueClientIds.includes(customer.id));
 
-  const uniqueContratoIds = [...new Set(tableData.map((item) => item.contrato_id))];
+  const uniqueContratoIds = [...new Set(tableDataProp.map((item) => item.contrato_id))];
   const filteredContratos = contratos.filter((contrato) => uniqueContratoIds.includes(contrato.id));
 
   const [initialVisibleFilters] = useState<string[]>(() => {
@@ -670,7 +690,9 @@ export function PreparteTable({
   });
 
   // Para items, necesitarías aplanar el array de items primero
-  const allItemIds = tableData.flatMap((item) => (Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]));
+  const allItemIds = tableDataProp.flatMap((item) =>
+    Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]
+  );
   const uniqueItemIds = [...new Set(allItemIds)];
   const filteredItems = items.filter((item) => uniqueItemIds.includes(item.id));
 
@@ -678,7 +700,7 @@ export function PreparteTable({
     <>
       <div className="flex w-full">
         <StatusCards
-          data={tableData}
+          data={tableDataProp}
           onStatusClick={(status) => setStatusFilter(status)}
           selectedStatus={statusFilter}
         />
@@ -721,6 +743,7 @@ export function PreparteTable({
               config: {
                 tableName: 'preparte' as any,
                 select: 'contrato_id' as any,
+                // p_filters: { company_id: company_id! },
                 mapper: (data: Array<{ col_value: string; col_count: number }>) => {
                   return data.map((item) => {
                     const contrato = contratos.find((c) => c.id === item.col_value);
@@ -740,13 +763,14 @@ export function PreparteTable({
               config: {
                 tableName: 'preparte' as any,
                 select: 'sector_service_id' as any,
+                // p_filters: { company_id: company_id! },
                 mapper: (data: Array<{ col_value: string; col_count: number }>) =>
                   data.map((item) => {
                     const id = item.col_value;
                     let label = id || '-';
                     for (const c of Customers) {
                       for (const svc of c.customer_services || []) {
-                        const ss = svc.service_sectors?.find((x) => x.id === id || x.sectors?.id === id);
+                        const ss = svc.service_sectors?.find((x) => x.id === id || x?.sectors?.id === id);
                         if (ss?.sectors?.name) {
                           label = ss.sectors.name;
                           break;
@@ -768,13 +792,14 @@ export function PreparteTable({
               config: {
                 tableName: 'preparte' as any,
                 select: 'areas_service_id' as any,
+                // p_filters: { company_id: company_id! },
                 mapper: (data: Array<{ col_value: string; col_count: number }>) =>
                   data.map((item) => {
                     const id = item.col_value;
                     let label = id || '-';
                     for (const c of Customers) {
                       for (const svc of c.customer_services || []) {
-                        const sa = svc.service_areas?.find((x) => x.id === id || x.areas_cliente?.id === id);
+                        const sa = svc.service_areas?.find((x) => x.id === id || x?.areas_cliente?.id === id);
                         if (sa?.areas_cliente?.nombre) {
                           label = sa.areas_cliente.nombre;
                           break;
@@ -791,6 +816,7 @@ export function PreparteTable({
               config: {
                 tableName: 'preparte' as any,
                 select: 'equipos_cliente' as any,
+                // p_filters: { company_id: company_id! },
                 mapper: (data: Array<{ col_value: string; col_count: number }>) =>
                   data.map((item) => {
                     const id = item.col_value;

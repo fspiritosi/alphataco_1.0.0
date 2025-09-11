@@ -218,6 +218,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
         // Refresh de la tabla
         refreshTable();
+        router.refresh();
       } else {
         // Generar número de pedido
         const numeroPedido = await generateOrderNumber();
@@ -280,6 +281,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
         // Refresh de la tabla
         refreshTable();
+        router.refresh();
       }
 
       // Reset form and close
@@ -415,6 +417,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
       await updatePreparteImageByOrderNumber(currentItem.numero_pedido, finalUrl);
       toast.success('Imagen del pedido actualizada');
       refreshTable();
+      router.refresh();
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'No se pudo actualizar la imagen del pedido');
@@ -492,7 +495,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
       // Refresh de la tabla
       refreshTable();
-
+      router.refresh();
       toast.success('Pedido confirmado y enviado al parte diario');
     } catch (error) {
       console.error('Error al confirmar el pedido:', error);
@@ -507,7 +510,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
       // Refresh de la tabla
       refreshTable();
-
+      router.refresh();
       toast.success('Pedido eliminado correctamente');
     } catch (error) {
       console.error('Error al eliminar:', error);
