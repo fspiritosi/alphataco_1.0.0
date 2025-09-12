@@ -20,11 +20,9 @@ export async function login(formData: FormData) {
   //     emailRedirectTo: 'http://localhost:3000/login/auth/callback',
   //   },
   // })
-  console.log(error);
 
   if (error) {
-    console.log(error.message);
-    return { error: error.message };
+    return { error: error?.message };
   }
   if (user.session) {
     redirect(`/dashboard`);

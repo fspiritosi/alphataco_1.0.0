@@ -41,19 +41,15 @@ export const LoginButton = () => {
     toast.promise(
       async () => {
         const error = await login(formData);
-
-        console.log(error);
-
         if (error) {
-          throw new Error(error.error);
+          throw new Error(error?.error);
         }
       },
       {
         loading: 'Iniciando Sesión...',
         success: '¡Bienvenido!',
         error: (error) => {
-          console.log(error.message);
-          return error.message;
+          return error?.message;
         },
       }
     );
