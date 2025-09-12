@@ -2,7 +2,7 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ## Getting Started
 
-First, run the development server:
+First, run the development server claro que si:
 
 ```bash
 npm run dev
@@ -85,23 +85,23 @@ git push
 ##### Crear un PR para incluir los cambios de la migración en DEV.
 
 ## Server actions
+
 ### Uso
+
 1. Definir el metodo a usar [GET, POST, UPDATE, DELETE]
 2. Importar y desestructurar la funcion  
    `import {  getAllDocumentTypes } from '@/app/server/{METODO}/actions';`
 3. Ejemplo de uso
    `  const employees = await getAllEmployees()`
 
-
 ### Creacion
-1. Segun el metodo a utilizar ir a la ruta  [GET, POST, UPDATE, DELETE]  
-`@/app/server/{METODO}/actions`
-2. Ir al final del archivo y crear la funcion:   
-2.1 Nombre de la funcion: El nombre debe estar siempre en camelCase siguiendo la siguiente estructura metodoFiltroEntidad
+
+1. Segun el metodo a utilizar ir a la ruta [GET, POST, UPDATE, DELETE]  
+   `@/app/server/{METODO}/actions`
+2. Ir al final del archivo y crear la funcion:  
+   2.1 Nombre de la funcion: El nombre debe estar siempre en camelCase siguiendo la siguiente estructura metodoFiltroEntidad
    `typescriptgetAllEmployees()`
    `getActivesEmployees()`
-   
-
 
 ## Manejo del tipado
 
@@ -112,7 +112,7 @@ Declara los tipos globales utilizando `declare global`:
 ```typescript
 declare global {
   type Database = DB;
-  type Vehicles = DB['public']['Tables']['vehicles']['Row']; 
+  type Vehicles = DB['public']['Tables']['vehicles']['Row'];
   type Brand = DB['public']['Tables']['brand_vehicles']['Row'];
   type TypeOfDocuments = DB['public']['Tables']['document_types']['Row'];
   type Company = DB['public']['Tables']['company']['Row'];
@@ -133,9 +133,8 @@ Para exportar tipos que incluyen relaciones, puedes seguir estos pasos:
 3. **Definir la Nueva Interfaz con la Relación**:
    Define una nueva interfaz que extienda el tipo resultante de `Omit` y agrega el campo de la relación con el tipo correspondiente. En este caso, agregamos el campo `brand` con el tipo `Brand`.
 
-
-
 ```typescript
 export interface VehiclesWithBrand extends Omit<Vehicles, 'brand'> {
   brand: Brand; // Relación con la tabla de marcas
 }
+```
