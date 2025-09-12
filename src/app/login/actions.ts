@@ -1,6 +1,5 @@
 'use server';
 
-import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseServer } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -21,10 +20,11 @@ export async function login(formData: FormData) {
   //     emailRedirectTo: 'http://localhost:3000/login/auth/callback',
   //   },
   // })
+  console.log(error);
 
   if (error) {
-    console.log('error', error);
-    return handleSupabaseError(error.message);
+    console.log(error.message);
+    return { error: error.message };
   }
   if (user.session) {
     redirect(`/dashboard`);

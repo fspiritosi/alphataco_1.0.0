@@ -42,15 +42,18 @@ export const LoginButton = () => {
       async () => {
         const error = await login(formData);
 
+        console.log(error);
+
         if (error) {
-          throw new Error(error);
+          throw new Error(error.error);
         }
       },
       {
         loading: 'Iniciando Sesión...',
         success: '¡Bienvenido!',
         error: (error) => {
-          return error;
+          console.log(error.message);
+          return error.message;
         },
       }
     );
