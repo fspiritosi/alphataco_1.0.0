@@ -134,8 +134,6 @@ function DiagramFormUpdated({
 
     const employeeDiagrams = await getEmployeeDiagramByIdandDate(employee_id[0], initialDate, finalDate);
 
-    console.log(employeeDiagrams, 'employeeDiagrams'); // Tengo los diagramas existentes
-
     const existing: any = [];
     const newDates: { day: number; month: number; year: number; diagram_type: string; employee_id: string }[] = [];
 

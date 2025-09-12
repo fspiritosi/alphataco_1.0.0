@@ -264,7 +264,6 @@ export function DailyReportForm({
   const duplicateEmployees = checkEmployeeDuplicates(currentEmployeesWatch || []);
   const duplicateEquipments = checkEquipmentDuplicates(currentEquipmentWatch || []);
 
-  console.log(selectedRow, 'selectedRowselectedRow');
   // If arrays have different lengths, they've changed
   // If arrays have same length, check if any item is different
   const equipmentHasChanged = selectedRow?.equipment_references
@@ -458,7 +457,6 @@ export function DailyReportForm({
           | '..'
       );
     }
-    console.log(selectedCustomer, 'selectedCustomer');
 
     if (defaultValues && selectedCustomer) {
       const customer = selectedCustomer;

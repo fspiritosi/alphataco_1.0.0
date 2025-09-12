@@ -111,7 +111,7 @@ function EquipmentSubTypesTable({
     }));
   }, [vehicleSubTypes]);
   const nameOptionsType = React.useMemo(() => {
-    return vehicleTypes.map((type) => ({
+    return vehicleTypes?.map((type) => ({
       label: type.name,
       value: type.id,
     }));

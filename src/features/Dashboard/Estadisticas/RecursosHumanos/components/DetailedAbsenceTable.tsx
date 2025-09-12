@@ -11,7 +11,6 @@ function getCurrentMonthYearLabel(date = new Date()) {
 
 export async function DetailedAbsenceTable() {
   const data = await getDailyAbsenceTimeseries({});
-  console.log(data, 'getDailyAbsenceTimeseries');
   const tableId = 'detailedAbsenceTable';
   const visibilityCookie = Cookies.get(tableId);
   const filtersCookie = Cookies.get(`${tableId}-filters`);

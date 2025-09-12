@@ -5,7 +5,6 @@ import { EmployeeAbsenceTableComponent } from './charts/employee-absence-table';
 
 export async function EmployeeAbsenceTable() {
   const data = await getCurrentAbsentEmployees({});
-  console.log(data, 'getCurrentAbsentEmployees');
 
   const tableId = 'employeeAbsenceTable';
   const visibilityCookie = Cookies.get(tableId);

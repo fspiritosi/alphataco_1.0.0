@@ -53,7 +53,7 @@ export function TypeMultiSelect({ selectedValues, onChange, disabled = false }: 
       </MultiSelectTrigger>
       <MultiSelectContent>
         <MultiSelectGroup>
-          {vehicleTypes.map((type) => (
+          {vehicleTypes?.map((type) => (
             <MultiSelectItem key={type.id} value={type.id}>
               {type.name}
             </MultiSelectItem>

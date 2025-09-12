@@ -86,8 +86,6 @@ export type FetchEquipmentOwnersType = Awaited<ReturnType<typeof FetchEquipmentO
 export async function fetchEquipmentByOwnerId(owner_id: string) {
   const supabase = supabaseServer();
 
-  console.log('owner_id', owner_id);
-
   const { data, error } = await supabase
     .from('vehicles')
     .select(

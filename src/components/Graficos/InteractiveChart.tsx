@@ -49,7 +49,6 @@ const charts_types = [
 ];
 
 const chartRender = ({ data }: { data: any[] }) => {
-  console.log(data, 'data');
   const [chartType, setChartType] = useState('bar');
 
   const dynamicHeight = useMemo(() => {
@@ -163,7 +162,6 @@ const chartRender = ({ data }: { data: any[] }) => {
 };
 
 export function InteractiveChart({ chartData }: { chartData: any }) {
-  console.log(chartData, 'chartData');
   const [filters, setFilters] = useState<{ typeIds: string[]; subTypeIds: string[] }>({ typeIds: [], subTypeIds: [] });
   const [displayMode, setDisplayMode] = useState<'types' | 'subtypes'>('types');
 
@@ -263,8 +261,6 @@ export function InteractiveChart({ chartData }: { chartData: any }) {
       };
     });
   }, [chartData, filters, displayMode]);
-
-  console.log(chartDataTransformed, 'chartDataTransformed');
 
   const handleFiltersChange = useCallback((newFilters: { typeIds: string[]; subTypeIds: string[] }) => {
     setFilters(newFilters);

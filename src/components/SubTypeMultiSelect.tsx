@@ -47,9 +47,7 @@ export function SubTypeMultiSelect({
 
         for (const typeId of selectedTypes) {
           const subTypes = await getSubTypesByType(typeId);
-          console.log('subTypes', subTypes);
           allSubTypes.push(...(subTypes as any));
-          console.log('allSubTypes', allSubTypes);
         }
 
         // Remove duplicates based on id

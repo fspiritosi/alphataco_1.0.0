@@ -5,7 +5,6 @@ import { DepartmentSummaryTableComponent } from './charts/department-summary-tab
 
 export async function DepartmentSummaryTable() {
   const data = await getDepartmentAbsenceSummary({});
-  console.log(data, 'getDepartmentAbsenceSummary');
 
   const tableId = 'departmentSummaryTable';
   const visibilityCookie = Cookies.get(tableId);

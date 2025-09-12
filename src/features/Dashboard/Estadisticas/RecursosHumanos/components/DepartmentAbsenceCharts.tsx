@@ -5,7 +5,6 @@ import { DepartmentAbsenceChartsComponent } from './charts/department-absence-ch
 
 export async function DepartmentAbsenceCharts() {
   const data: any = await getDepartmentAbsenceReasons({});
-  console.log(data, 'getDepartmentAbsenceReasons');
 
   // Filtrar solo departamentos que tengan algún ausente (algún motivo con valor > 0)
   const filteredData = Array.isArray(data)

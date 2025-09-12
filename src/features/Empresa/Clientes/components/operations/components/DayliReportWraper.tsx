@@ -291,8 +291,6 @@ export default function DailyReportWrapper() {
     return filtered.map((it) => ({ label: it.name, value: it.id }));
   }, [filterOptions.items, filters.service]);
 
-  console.log(tableData);
-
   return (
     <div className="space-y-6">
       <Card>
