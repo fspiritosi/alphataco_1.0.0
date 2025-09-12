@@ -14,20 +14,11 @@ export async function login(formData: FormData) {
   };
 
   const { error, data: user } = await supabase.auth.signInWithPassword(data);
-  // const { error, data: user } = await supabase.auth.signInWithOtp({
-  //   email: data.email,
-  //   options: {
-  //     emailRedirectTo: 'http://localhost:3000/login/auth/callback',
-  //   },
-  // })
 
   if (error) {
     return { error: error?.message };
-  }
-  if (user.session) {
-    redirect(`/dashboard`);
   } else {
-    redirect('/login');
+    return user;
   }
 }
 

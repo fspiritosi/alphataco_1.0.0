@@ -83,7 +83,7 @@
     "react-resizable-panels": "^2.0.19",
     "recharts": "^2.13.3",
     "resend": "^3.2.0",
-    "sonner": "^1.7.4",
+    "sonner": "1.4.41",
     "swiper": "^11.0.5",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
