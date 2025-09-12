@@ -290,7 +290,10 @@ export function getDailyReportColumns(
               return (
                 <Badge
                   variant={isDuplicated ? 'outline' : 'default'}
-                  className={cn('select-none text-nowrap', isDuplicated && 'border border-orange-500 bg-orange-50')}
+                  className={cn(
+                    'select-none text-nowrap dark:text-black',
+                    isDuplicated && 'border border-orange-500 bg-orange-50'
+                  )}
                   key={employee}
                 >
                   {employee}
@@ -322,7 +325,10 @@ export function getDailyReportColumns(
               return (
                 <Badge
                   variant={isDuplicated ? 'outline' : 'default'}
-                  className={cn('select-none text-nowrap', isDuplicated && 'border border-orange-500 bg-orange-50')}
+                  className={cn(
+                    'select-none text-nowrap dark:text-black',
+                    isDuplicated && 'border border-orange-500 bg-orange-50'
+                  )}
                   key={equipmentItem}
                 >
                   {equipmentItem}
