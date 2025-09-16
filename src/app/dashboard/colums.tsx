@@ -708,7 +708,7 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
             <AlertDialogTrigger asChild>
               {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
             </AlertDialogTrigger>
-            <AlertDialogContent asChild>
+            <AlertDialogContent>
               <AlertDialogHeader>
                 <div className="max-h-[90vh] overflow-y-auto">
                   <div className="space-y-3">
