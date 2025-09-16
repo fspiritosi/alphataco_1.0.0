@@ -57,7 +57,7 @@ export async function queryWithPagination<
   let query = supabase.from(tableName).select(select, { count: 'exact' });
 
   // Aplicar filtros
-  if (options.columnFilters) {
+  if (options.columnFilters?.length) {
     for (const filter of options.columnFilters) {
       const { id, value } = filter as any;
 
@@ -98,7 +98,32 @@ export async function queryWithPagination<
         }
         // Para filtros de texto en relaciones
         else if (typeof value === 'string' && value.trim()) {
-          query = query.ilike(id, `%${value}%`);
+          const parts = id.split('.');
+          const columnName = parts[parts.length - 1];
+          // Soportar búsqueda por nombre completo cuando el id termina en 'lastname' (e.g., 'employees.lastname')
+          if (columnName === 'lastname') {
+            const foreignPath = parts.slice(0, -1).join('.');
+            // Dividir el valor de búsqueda en palabras individuales
+            const searchWords = value
+              .trim()
+              .split(/\s+/)
+              .filter((word) => word.length > 0);
+
+            if (searchWords.length === 1) {
+              // Una sola palabra: buscar en firstname O lastname
+              const orExpr = `lastname.ilike.*${searchWords[0]}*,firstname.ilike.*${searchWords[0]}*`;
+              query = query.or(orExpr, { referencedTable: foreignPath as any });
+            } else {
+              // Múltiples palabras: cada palabra debe aparecer en firstname O lastname
+              // Construir condiciones AND para cada palabra
+              searchWords.forEach((word) => {
+                const orExpr = `lastname.ilike.*${word}*,firstname.ilike.*${word}*`;
+                query = query.or(orExpr, { referencedTable: foreignPath as any });
+              });
+            }
+          } else {
+            query = query.ilike(id, `%${value}%`);
+          }
         }
       }
       // Filtros en columnas directas de la tabla principal
@@ -107,7 +132,21 @@ export async function queryWithPagination<
         if (typeof value === 'string' && value.trim()) {
           // Caso especial para búsqueda en lastname: buscar en firstname y lastname
           if (id === 'lastname') {
-            query = query.or(`firstname.ilike.%${value}%,lastname.ilike.%${value}%`);
+            // Dividir el valor de búsqueda en palabras individuales
+            const searchWords = value
+              .trim()
+              .split(/\s+/)
+              .filter((word) => word.length > 0);
+
+            if (searchWords.length === 1) {
+              // Una sola palabra: buscar en firstname O lastname
+              query = query.or(`firstname.ilike.*${searchWords[0]}*,lastname.ilike.*${searchWords[0]}*`);
+            } else {
+              // Múltiples palabras: cada palabra debe aparecer en firstname O lastname
+              searchWords.forEach((word) => {
+                query = query.or(`firstname.ilike.*${word}*,lastname.ilike.*${word}*`);
+              });
+            }
           } else {
             query = query.ilike(id, `%${value}%`);
           }
@@ -140,11 +179,39 @@ export async function queryWithPagination<
         // Filtros de rango de fechas
         if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
           const dateRange = value as { from?: Date | null; to?: Date | null };
-          if (dateRange.from) {
-            query = query.gte(id, dateRange.from.toISOString().split('T')[0]);
-          }
-          if (dateRange.to) {
-            query = query.lte(id, dateRange.to.toISOString().split('T')[0]);
+
+          // Manejo especial para tablas con columnas day, month, year separadas
+          if (id === 'date' && tableName === 'employees_diagram') {
+            if (dateRange.from) {
+              const fromDate = new Date(dateRange.from);
+              const fromDay = fromDate.getDate();
+              const fromMonth = fromDate.getMonth() + 1; // getMonth() retorna 0-11
+              const fromYear = fromDate.getFullYear();
+
+              // Aplicar condiciones AND para fecha desde
+              query = query.or(
+                `and(year.gt.${fromYear}),and(year.eq.${fromYear},month.gt.${fromMonth}),and(year.eq.${fromYear},month.eq.${fromMonth},day.gte.${fromDay})`
+              );
+            }
+            if (dateRange.to) {
+              const toDate = new Date(dateRange.to);
+              const toDay = toDate.getDate();
+              const toMonth = toDate.getMonth() + 1; // getMonth() retorna 0-11
+              const toYear = toDate.getFullYear();
+
+              // Aplicar condiciones AND para fecha hasta
+              query = query.or(
+                `and(year.lt.${toYear}),and(year.eq.${toYear},month.lt.${toMonth}),and(year.eq.${toYear},month.eq.${toMonth},day.lte.${toDay})`
+              );
+            }
+          } else {
+            // Manejo estándar para columnas de fecha normales
+            if (dateRange.from) {
+              query = query.gte(id, dateRange.from.toISOString().split('T')[0]);
+            }
+            if (dateRange.to) {
+              query = query.lte(id, dateRange.to.toISOString().split('T')[0]);
+            }
           }
         }
       }

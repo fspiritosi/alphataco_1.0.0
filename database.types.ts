@@ -1849,6 +1849,7 @@ export type Database = {
           diagram_type: string;
           employee_id: string;
           id: string;
+          is_active: boolean | null;
           month: number;
           year: number;
         };
@@ -1858,6 +1859,7 @@ export type Database = {
           diagram_type?: string;
           employee_id?: string;
           id?: string;
+          is_active?: boolean | null;
           month: number;
           year: number;
         };
@@ -1867,6 +1869,7 @@ export type Database = {
           diagram_type?: string;
           employee_id?: string;
           id?: string;
+          is_active?: boolean | null;
           month?: number;
           year?: number;
         };
@@ -3655,6 +3658,10 @@ export type Database = {
       set_reassignment_reason: {
         Args: { reason: string };
         Returns: undefined;
+      };
+      update_employee_diagram_status: {
+        Args: { p_employee_id: string; p_is_active: boolean };
+        Returns: Json;
       };
       verificar_documentos_vencidos_prueba: {
         Args: Record<PropertyKey, never>;

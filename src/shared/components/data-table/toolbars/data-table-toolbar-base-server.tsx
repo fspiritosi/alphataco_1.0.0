@@ -152,7 +152,7 @@ export function DataTableToolbar<
   // const
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between z-50">
       <div className="flex flex-1 items-center gap-2 flex-wrap">
         {bulkAction?.enabled && hasSelectedRows && (
           <Button

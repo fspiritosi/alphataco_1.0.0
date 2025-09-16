@@ -86,7 +86,7 @@ export function DataTableViewOptions<TData>({ table, tableId }: DataTableViewOpt
       {isOpen && (
         <div className="absolute right-0 z-10 mt-2 min-w-[200px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-950 p-1 shadow-md">
           <div className="flex items-center justify-between p-2 font-medium">
-            <CardDescription>Mostrar columnass</CardDescription>
+            <CardDescription>Mostrar columnas</CardDescription>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsOpen(false)}>
               <X className="h-4 w-4" />
             </Button>

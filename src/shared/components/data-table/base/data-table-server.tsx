@@ -112,6 +112,7 @@ interface DataTableProps<
   }>;
   fetchAllData?: (options: { sorting: SortingState; columnFilters: ColumnFiltersState }) => Promise<TData[]>;
   queryKey?: string;
+  initialSorting?: SortingState; // Nueva prop para ordenamiento inicial
 }
 const queryClient = new QueryClient();
 export function BaseDataTable<
@@ -137,6 +138,7 @@ export function BaseDataTable<
   fetchAllData,
   queryKey = 'table-data',
   initialData,
+  initialSorting = [],
 }: DataTableProps<TData, TValue, TableName, Query>) {
   // Cargar el estado guardado de las cookies
   const queryClient = React.useMemo(() => new QueryClient(), [tableId]);
@@ -146,7 +148,7 @@ export function BaseDataTable<
   }, [tableId]);
 
   const [rowSelection, setRowSelection] = React.useState({});
-  const [sorting, setSorting] = React.useState<SortingState>(savedState?.sorting || []);
+  const [sorting, setSorting] = React.useState<SortingState>(savedState?.sorting || initialSorting);
   const [pageSize, setPageSize] = React.useState<number>(savedState?.pagination?.pageSize || 10);
   const [pageIndex, setPageIndex] = React.useState<number>(savedState?.pagination?.pageIndex || 0);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
