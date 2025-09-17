@@ -420,7 +420,10 @@ export function getDailyReportColumns(
           const completedNight = row.original.completed_night;
 
           return (
-            <Badge variant={variants[status as keyof typeof badgeVariants]} className="font-medium capitalize">
+            <Badge
+              variant={completedDay || completedNight ? 'info' : variants[status as keyof typeof badgeVariants]}
+              className={'font-medium capitalize'}
+            >
               {completedDay || completedNight ? 'Ejecutado parcial' : status.replaceAll('_', ' ')}
             </Badge>
           );
