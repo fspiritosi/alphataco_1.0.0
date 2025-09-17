@@ -43,9 +43,7 @@ export const LoginButton = () => {
     toast.promise(
       async () => {
         const data: any = await login(formData);
-        console.log(data);
         if (data.error) {
-          console.log('entro en el bloque de error');
           console.log(data.error);
           throw new Error(data.error);
         }

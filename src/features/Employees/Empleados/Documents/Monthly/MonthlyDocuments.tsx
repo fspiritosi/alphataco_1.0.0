@@ -3,7 +3,7 @@ import { fetchEmployeeMonthlyDocuments } from '@/app/server/GET/actions';
 import { formatEmployeeDocumentsSimple } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { cookies } from 'next/headers';
-import { createFilterOptions } from '../components/utils/utils';
+import { createFilterOptions } from '../../components/utils/utils';
 
 async function MonthlyDocuments({}) {
   const monthlyDocuments = (await fetchEmployeeMonthlyDocuments()).map(formatEmployeeDocumentsSimple);

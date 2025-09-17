@@ -112,7 +112,7 @@ Mensaje: Error en la aplicación - ${error.message || 'Error desconocido'}`);
               {error.stack && (
                 <div className="mt-2">
                   <p className="text-xs font-medium text-gray-700 mb-1">Ubicación del error:</p>
-                  <div className="text-xs text-gray-600 font-mono bg-white p-2 rounded border max-h-20 overflow-y-auto">
+                  <div className="text-xs text-gray-600 font-mono bg-white p-2 rounded border max-h-40 overflow-y-auto">
                     {error.stack
                       .split('\n')
                       .slice(0, 3)

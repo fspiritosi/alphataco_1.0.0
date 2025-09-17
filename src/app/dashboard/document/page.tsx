@@ -1,7 +1,7 @@
 import DocumentNav from '@/components/DocumentNav';
 import Viewcomponent from '@/components/ViewComponent';
+import EmployeeDocumentsTabs from '../../../features/Employees/Empleados/Documents/EmployeeDocumentsTabs';
 import CompanyTabsWrapper from './documentComponents/CompanyTabsWrapper';
-import EmployeeDocumentsTabs from './documentComponents/EmployeeDocumentsTabs';
 import EquipmentTabs from './documentComponents/EquipmentTabs';
 import TypesDocumentsViewWrapper from './documentComponents/TypesDocumentsViewWrapper';
 

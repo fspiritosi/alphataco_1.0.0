@@ -1,6 +1,6 @@
 import { fetchEmployeesData } from '@/app/server/GET/probando';
 import { cookies } from 'next/headers';
-import TablaEmployeesSupabase from './tables/EmployeesTableServer';
+import TablaEmployeesSupabase from './components/EmployeesTableServer';
 
 async function EmployeeTable() {
   const cookiesStore = cookies();

@@ -109,8 +109,6 @@ function TableReportDiagram({
       id: 'date',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
       cell: ({ row }) => {
-        console.log(row.original);
-
         return (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />

@@ -15,8 +15,6 @@ async function DiagramReportsTableComponent() {
     server: true,
   });
 
-  console.log(initialData);
-
   return (
     <TableReportDiagram
       initialData={initialData}
