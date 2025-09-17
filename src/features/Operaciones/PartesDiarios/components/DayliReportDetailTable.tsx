@@ -21,7 +21,6 @@ import { BulkEditModal } from './BulkEditModal';
 import { ClonarRegistrosButton } from './ClonarRegistrosButton';
 import { DailyReportForm } from './DailyReportRowForm';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
-import DocumentViewerModal from './DocumentViewerFixed';
 import HistoryModal from './HistoryModal';
 import { ServiceDetailModal } from './ServiceDetailModal';
 export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDailyReportById>>) => {
@@ -446,71 +445,31 @@ export function getDailyReportColumns(
         // Comprobamos si la fecha es hoy
         const isToday = moment(row.original.date).isSame(moment(), 'day');
 
-        // Si el estado es 'ejecutado'
-        if (row.original.status === 'ejecutado') {
-          const documentComponent = row.original.document_path ? (
-            <DocumentViewerModal documentUrl={row.original.document_path} documentData={row.original} />
-          ) : (
-            // <DocumentUploadModal documentData={row.original} />
-            <Badge>Remito</Badge>
-          );
-
-          // Si es de hoy, añadir también un botón de editar
-          if (isToday) {
-            return (
-              <div className="flex items-center gap-1">
-                {documentComponent}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 hover:text-blue-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit(row.original);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Editar</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            );
-          }
-
-          // Si no es de hoy, solo mostrar el componente de documento
-          return documentComponent;
-        }
-
         // Para otros estados, mostrar botones de editar/eliminar
         return (
           <div className={cn('flex gap-1', moment(row.original.date).isBefore(moment()) ? 'gap-0 justify-center' : '')}>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 p-0 hover:text-blue-500"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(row.original);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>Editar</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {(row.original.status !== 'ejecutado' || (isToday && row.original.status === 'ejecutado')) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 hover:text-blue-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(row.original);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Editar</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
