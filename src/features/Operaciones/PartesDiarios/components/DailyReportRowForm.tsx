@@ -724,7 +724,7 @@ export function DailyReportForm({
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  disabled={disabled || selectedRow}
+                                  disabled={disabled || selectedRow != null}
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
                                 >
                                   {field.value
