@@ -149,11 +149,22 @@ export default function TablaEquipmentServer({
       },
     },
     {
+      accessorKey: 'type_of_contract',
+      id: 'type_of_contract',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de contrato" />,
+      cell: ({ row }) => {
+        return row.original.type_of_contract ? <div>{row.original.type_of_contract || ''}</div> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'equipment_owners.name',
       id: 'equipment_owners.name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
       cell: ({ row }) => {
-        return row.original.equipment_owners?.name ? <Badge>{row.original.equipment_owners?.name || ''}</Badge> : '-';
+        return row.original.equipment_owners?.name ? <div>{row.original.equipment_owners?.name || ''}</div> : '-';
       },
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -365,6 +376,22 @@ export default function TablaEquipmentServer({
               select: 'chassis' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'chassis'>>>) => {
+                return data.map((value) => ({
+                  label: String(value.display_value),
+                  value: String(value.col_value),
+                  count: value.col_count,
+                }));
+              },
+            },
+          },
+          {
+            columnId: 'type_of_contract',
+            title: 'Tipo de contrato',
+            config: {
+              tableName: 'vehicles',
+              select: 'type_of_contract' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type_of_contract'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),

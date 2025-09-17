@@ -32,6 +32,12 @@ export async function toggleEmployeeStatus(
     })
     .eq('id', employeeId);
 
+  // Después de actualizar el empleado, agregar:
+  await supabase.rpc('update_employee_diagram_status', {
+    p_employee_id: employeeId, // usar el ID del empleado
+    p_is_active: activate,
+  });
+
   if (error) {
     throw new Error(error.message);
   }

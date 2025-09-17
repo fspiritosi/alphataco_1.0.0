@@ -38,6 +38,7 @@ export type VehicleFormData = {
   type_of_contract?: string | null;
   contract_expiration_date?: Date | null;
   contract_start_date?: Date | null;
+  contract_number?: string;
 };
 
 interface VehicleTabsProps {

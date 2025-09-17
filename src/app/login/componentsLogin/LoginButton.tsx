@@ -1,12 +1,14 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { loginSchema } from '@/zodSchemas/schemas';
+import { useRouter } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 import { login } from '../actions';
 
 export const LoginButton = () => {
   const { pending } = useFormStatus();
+  const router = useRouter();
 
   const clientAccion = async (formData: FormData) => {
     const values = Object.fromEntries(formData.entries());
@@ -40,17 +42,25 @@ export const LoginButton = () => {
     }
     toast.promise(
       async () => {
-        const error = await login(formData);
-
-        if (error) {
-          throw new Error(error);
+        const data: any = await login(formData);
+        console.log(data);
+        if (data.error) {
+          console.log('entro en el bloque de error');
+          console.log(data.error);
+          throw new Error(data.error);
         }
+        return 'success';
       },
       {
         loading: 'Iniciando Sesión...',
-        success: '¡Bienvenido!',
+        success: () => {
+          router.push('/dashboard');
+          return '¡Bienvenido!';
+        },
         error: (error) => {
-          return error;
+          console.log(error, 'este es el error');
+          // Remove console.log in production code
+          return error?.message || 'Error desconocido';
         },
       }
     );

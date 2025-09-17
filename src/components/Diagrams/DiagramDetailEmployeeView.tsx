@@ -246,7 +246,7 @@ export function DiagramDetailEmployeeView({
         <TabsContent value="NuevoDiagrama">
           <DiagramFormUpdated
             employees={activeEmploees}
-            diagrams={diagrams as EmployeeDiagramWithDiagramType[]}
+            //diagrams={diagrams as EmployeeDiagramWithDiagramType[]}
             diagrams_types={diagrams_types}
             defaultId={activeEmploees[0].id}
           />

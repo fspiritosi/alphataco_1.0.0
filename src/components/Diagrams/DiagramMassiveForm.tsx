@@ -1207,7 +1207,7 @@ export function DiagramMassiveForm({
           <p>No se encontraron empleados para los filtros seleccionados.</p>
         </div>
       ) : (
-        <div className="p-6 bg-white rounded-lg border text-center">
+        <div className="p-6  rounded-lg border text-center">
           <p>Para mostrar empleados debe aplicar al menos un filtro.</p>
         </div>
       )}

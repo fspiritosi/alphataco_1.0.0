@@ -21,7 +21,6 @@ export default async function RepairSolicitudes({
   const Allrepairs = default_equipment_id
     ? repair_solicitudes.filter((repair) => repair.equipment_id === default_equipment_id)
     : repair_solicitudes;
-  console.log(Allrepairs);
   const repairsFormatted = Allrepairs?.map((repair) => {
     return {
       id: repair.id,
@@ -56,7 +55,6 @@ export default async function RepairSolicitudes({
       kilometer: repair.kilometer,
     };
   });
-  console.log(repairsFormatted);
   const names = createFilterOptions(
     repairsFormatted,
     (repair) => repair.title

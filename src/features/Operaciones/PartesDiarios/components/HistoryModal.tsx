@@ -47,7 +47,6 @@ export default function HistoryModal({
     try {
       setIsLoading(true);
       const data = await getDailyReportRowHistory(dailyReportRowId);
-      console.log(data, 'data');
       setHistoryData(data || []);
     } catch (error) {
       console.error('Error fetching history:', error);

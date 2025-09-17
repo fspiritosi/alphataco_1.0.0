@@ -54,27 +54,60 @@ interface SearchInputProps {
   onFilterChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  searchValue: string;
+  setSearchValue: (value: string) => void;
 }
 
-function SearchInput({ placeholder, onFilterChange, className, disabled }: SearchInputProps) {
-  const [searchValue, setSearchValue] = React.useState('');
+function SearchInput({
+  placeholder,
+  searchValue,
+  setSearchValue,
+  onFilterChange,
+  className,
+  disabled,
+}: SearchInputProps) {
   const debouncedSearchValue = useDebounce(searchValue, 300);
 
-  React.useEffect(() => {
-    onFilterChange(debouncedSearchValue);
-  }, [debouncedSearchValue]);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onFilterChange(searchValue);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onFilterChange(searchValue);
+    }
+  };
 
   return (
-    <Input
-      placeholder={placeholder}
-      value={searchValue}
-      onChange={(event) => setSearchValue(event.target.value)}
-      className={className}
-      disabled={disabled}
-    />
+    <form onSubmit={handleSubmit} className="relative">
+      <Input
+        placeholder={placeholder}
+        value={searchValue}
+        onChange={(event) => setSearchValue(event.target.value)}
+        onKeyDown={handleKeyDown}
+        className={`${className} pr-10`}
+        disabled={disabled}
+      />
+      <Button type="submit" variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </Button>
+    </form>
   );
 }
-
 // DataTableToolbarProps también es genérico para Query
 interface DataTableToolbarProps<
   TData,
@@ -120,6 +153,7 @@ export function DataTableToolbar<
 }: DataTableToolbarProps<TData, TableName, Query>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const columnVisibility = table.getState().columnVisibility;
+  const [searchValue, setSearchValue] = React.useState('');
 
   const [visibleFilters, setVisibleFilters] = React.useState<string[]>(initialVisibleFilters || []);
 
@@ -152,7 +186,7 @@ export function DataTableToolbar<
   // const
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between z-50">
       <div className="flex flex-1 items-center gap-2 flex-wrap">
         {bulkAction?.enabled && hasSelectedRows && (
           <Button
@@ -174,6 +208,8 @@ export function DataTableToolbar<
             const tableColumn = table.getColumn(column.columnId);
             return tableColumn && columnVisibility[column.columnId] !== false ? (
               <SearchInput
+                searchValue={searchValue}
+                setSearchValue={setSearchValue}
                 key={column.columnId}
                 placeholder={column.placeholder || `Buscar...`}
                 onFilterChange={(value) => tableColumn.setFilterValue(value)}
@@ -261,6 +297,7 @@ export function DataTableToolbar<
             onClick={() => {
               table.resetColumnFilters();
               setDateFilters({});
+              setSearchValue('');
             }}
             className="h-8 px-2 lg:px-3"
             disabled={isLoading}

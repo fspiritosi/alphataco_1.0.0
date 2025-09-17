@@ -38,7 +38,6 @@ export async function fetchContractsByClientId(clientId: string) {
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
-  console.log(clientId);
   const { data, error } = await supabase
     .from('customer_services')
     .select('id, service_name')

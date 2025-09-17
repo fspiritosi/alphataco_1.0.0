@@ -45,15 +45,6 @@ interface EmployeeAbsence {
   employee_id?: string;
 }
 
-interface DailyAbsenceDetailApiResponse {
-  data: EmployeeAbsence[];
-  detalles?: {
-    altas_info?: EmployeeAbsence[];
-    bajas_info?: EmployeeAbsence[];
-    ausentes_info?: EmployeeAbsence[];
-  };
-}
-
 function getDetailedColumns(): ColumnDef<DailyAbsence>[] {
   return [
     {
@@ -150,11 +141,7 @@ export function DetailedAbsenceTableComponent({
       const [day, month, year] = row.fecha.split('/');
       const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-      console.log('Fecha original:', row.fecha);
-      console.log('Fecha convertida a ISO:', isoDate);
-
       const data: any = await getCurrentAbsentEmployees({ date: isoDate });
-      console.log('Datos recibidos:', data);
       // data puede venir como { data: EmployeeAbsence[], detalles: { ... } } según el RPC
       if (data?.detalles) {
         setDetalles(data.detalles);

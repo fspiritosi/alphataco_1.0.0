@@ -9,11 +9,11 @@ import WelcomeComponent from './welcome-component';
 
 export default async function Home() {
   // Mover las consultas dentro de la función del componente para evitar errores durante el build
-  const data = await query('employees', '*');
+  // const data = await query('employees', '*');
   const role = await getRole();
   return (
-    <Suspense fallback={<DashboardSkeleton data={data} />}>
-      {!role && <DashboardSkeleton data={data} />}
+    <Suspense fallback={<DashboardSkeleton />}>
+      {!role && <DashboardSkeleton />}
       {role === 'Invitado' && typeof role === 'string' ? <WelcomeComponent /> : <DashboardComponent />}
     </Suspense>
   );

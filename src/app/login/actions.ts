@@ -1,6 +1,5 @@
 'use server';
 
-import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseServer } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -15,21 +14,11 @@ export async function login(formData: FormData) {
   };
 
   const { error, data: user } = await supabase.auth.signInWithPassword(data);
-  // const { error, data: user } = await supabase.auth.signInWithOtp({
-  //   email: data.email,
-  //   options: {
-  //     emailRedirectTo: 'http://localhost:3000/login/auth/callback',
-  //   },
-  // })
 
   if (error) {
-    console.log('error', error);
-    return handleSupabaseError(error.message);
-  }
-  if (user.session) {
-    redirect(`/dashboard`);
+    return { error: error?.message };
   } else {
-    redirect('/login');
+    return user;
   }
 }
 

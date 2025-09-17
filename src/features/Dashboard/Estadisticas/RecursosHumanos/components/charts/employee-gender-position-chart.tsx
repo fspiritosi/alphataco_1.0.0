@@ -231,8 +231,6 @@ export function EmployeeGenderPositionChartComponent({ data }: EmployeeGenderPos
 //   }
 // }, [filteredData, selectedPosition]);
 
-// console.log(chartData2, 'chartData2')
-
 {
   /* <div className="mb-4">
         <Select value={selectedPosition} onValueChange={setSelectedPosition}>
