@@ -3,12 +3,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import DocumentUploadModal from '@/features/Operaciones/PartesDiarios/components/DocumentUploadModal';
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, Eye } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
-
 // Se ha modificado la interfaz para que customer_equipment acepte un array de objetos
 interface TableRow {
   id: string;
@@ -43,6 +43,7 @@ interface EnhancedComercialReportTableProps {
   onViewHistory?: (row: TableRow) => void;
   showActions: boolean;
   filterableColumns?: any[];
+  refetchDailyReports?: () => void;
 }
 
 export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTableProps> = ({
@@ -52,6 +53,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
   onViewHistory,
   showActions,
   filterableColumns,
+  refetchDailyReports,
 }) => {
   const columns = useMemo<ColumnDef<TableRow>[]>(() => {
     const baseColumns: ColumnDef<TableRow>[] = [
@@ -132,15 +134,29 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         header: 'Estado',
         cell: ({ row }) => {
           const status = row.original.status;
+          const statusText =
+            {
+              pendiente: 'Pendiente',
+              sin_recursos_asignados: 'Sin recursos asignados',
+              ejecutado: 'Ejecutado',
+              reprogramado: 'Reprogramado',
+              cancelado: 'Cancelado',
+              en_certificacion: 'En certificación',
+            }[status] || status;
+
           const statusColors: Record<
             string,
-            'default' | 'outline' | 'secondary' | 'destructive' | 'success' | null | undefined
+            'default' | 'outline' | 'secondary' | 'destructive' | 'success' | 'warning' | null | undefined
           > = {
-            aprobado: 'success',
-            'en curso': 'secondary',
+            pendiente: 'secondary',
+            sin_recursos_asignados: 'warning',
+            ejecutado: 'success',
+            reprogramado: 'outline',
             cancelado: 'destructive',
+            en_certificacion: 'default',
           };
-          return <Badge variant={statusColors[status]}>{status}</Badge>;
+
+          return <Badge variant={statusColors[status] || 'default'}>{statusText}</Badge>;
         },
       },
       {
@@ -182,9 +198,10 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         id: 'actions',
         header: 'Acciones',
         cell: ({ row }) => {
+          const isEnCertificacion = row.original.status === 'en_certificacion';
           return (
             <div className="flex space-x-2">
-              {onEdit && (
+              {onEdit && !isEnCertificacion && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -224,6 +241,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                   </Tooltip>
                 </TooltipProvider>
               )}
+              {isEnCertificacion && <DocumentUploadModal documentData={row.original as any} />}
             </div>
           );
         },
@@ -231,7 +249,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
     }
 
     return baseColumns;
-  }, [onEdit, onView, onViewHistory, showActions]);
+  }, [onEdit, onView, onViewHistory, showActions, refetchDailyReports]);
 
   const handleRowClick = useCallback((row: TableRow) => {
     if (row.document_url) {

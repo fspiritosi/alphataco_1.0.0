@@ -150,7 +150,7 @@ export function DailyReportForm({
 
   const activeCustomers = customers?.filter((c) => c.is_active) || [];
   const router = useRouter();
-  console.log(selectedRow);
+
   const form = useForm<DailyReportFormValues>({
     resolver: zodResolver(dailyReportSchema),
     defaultValues: {
@@ -177,7 +177,7 @@ export function DailyReportForm({
   const currentEmployeesWatch = form.watch('employees');
   const currentEquipmentWatch = form.watch('equipment');
   const currentStatus = form.watch('status');
-  console.log(selectedRow);
+
   const checkEmployeeDuplicates = (employeeIds: string[]) => {
     if (!formattedData || !employeeIds?.length) return [];
     const duplicates: string[] = [];
@@ -212,14 +212,10 @@ export function DailyReportForm({
       !selectedRow.employees_references.every((employee: any) => currentEmployeesWatch?.includes(employee.id!))
     : false;
 
-  console.log(selectedRow);
   const onSubmit = async (data: DailyReportFormValues) => {
-    console.log('data', data);
     try {
       const currentStatusInRow = selectedRow?.status;
       const isChangingToCertificacion = data.status === 'en_certificacion';
-      console.log(currentStatusInRow);
-      console.log(isChangingToCertificacion);
       if (isChangingToCertificacion) {
         if (!data.remit_number) {
           toast.error('El número de remito es obligatorio para el estado "En certificación".');
@@ -235,14 +231,8 @@ export function DailyReportForm({
         status: data.status,
         remit_number: isChangingToCertificacion ? data.remit_number : null,
       };
-      console.log(updateData);
-      console.log(selectedRow.id);
-      console.log('Intentando actualizar con los siguientes datos:', updateData);
-
       await updateDailyReportStatusAndRemitNumber(selectedRow.id, updateData as any);
 
-      // Si la función se ejecuta con éxito, se mostrará este mensaje
-      console.log('Actualización exitosa.');
       toast.success('Parte diario actualizado exitosamente.');
 
       document.getElementById('close-button-daily-report')?.click();
@@ -1001,53 +991,53 @@ export function DailyReportForm({
                 <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Badge className="h-4 w-4" />
-                    Estado y Motivos
+                    Estado
                   </h4>
                   <div className="grid grid-cols-1 gap-4 w-full">
                     <FormField
                       control={form.control}
                       name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Estado</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Seleccione un estado" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="ejecutado" disabled={selectedRow?.status === 'ejecutado'}>
-                                Ejecutado
-                              </SelectItem>
-                              <SelectItem value="reprogramado" disabled={selectedRow?.status === 'ejecutado'}>
-                                Reprogramado
-                              </SelectItem>
-                              <SelectItem value="cancelado" disabled={selectedRow?.status === 'ejecutado'}>
-                                Cancelado
-                              </SelectItem>
-                              <SelectItem value="en_certificacion">En certificacion</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {(form.watch('status') === 'cancelado' || selectedRow?.status === 'cancelado') && (
-                      <FormField
-                        control={form.control}
-                        name="cancel_reason"
-                        render={({ field }) => (
+                      render={({ field }) => {
+                        const isEditable = field.value === 'ejecutado' && !disabled;
+                        const statusOptions = [
+                          { value: 'pendiente', label: 'Pendiente' },
+                          { value: 'sin_recursos_asignados', label: 'Sin recursos asignados' },
+                          { value: 'ejecutado', label: 'Ejecutado' },
+                          { value: 'reprogramado', label: 'Reprogramado' },
+                          { value: 'cancelado', label: 'Cancelado' },
+                          { value: 'en_certificacion', label: 'En certificación' },
+                        ];
+
+                        // Filter options based on current status
+                        const filteredOptions =
+                          field.value === 'ejecutado'
+                            ? statusOptions.filter(
+                                (opt) => opt.value === 'ejecutado' || opt.value === 'en_certificacion'
+                              )
+                            : statusOptions;
+
+                        return (
                           <FormItem>
-                            <FormLabel>Motivo de cancelación</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Ingrese el motivo de cancelación" {...field} />
-                            </FormControl>
+                            <FormLabel>Estado</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!isEditable}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar estado" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {filteredOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
-                        )}
-                      />
-                    )}
+                        );
+                      }}
+                    />
                   </div>
                 </div>
                 {/* Descripción */}
@@ -1076,9 +1066,7 @@ export function DailyReportForm({
                   <Button
                     type="button"
                     onClick={() => {
-                      console.log('1. Botón clickeado');
                       const formData = form.getValues();
-                      console.log('2. Datos del formulario:', formData);
                       onSubmit(formData).catch(console.error);
                     }}
                   >

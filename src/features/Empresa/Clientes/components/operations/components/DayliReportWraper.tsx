@@ -245,12 +245,10 @@ export default function DailyReportWrapper() {
   }, [handleSearch]);
 
   const handleViewRow = useCallback((row: any) => {
-    console.log('Ver detalles:', row);
     alert(`Viendo detalles de: ${row.customer} - ${row.services}`);
   }, []);
 
   const handleViewHistory = useCallback((row: any) => {
-    console.log('Ver historial:', row);
     alert(`Viendo historial de: ${row.customer} - ${row.services}`);
   }, []);
 
@@ -433,8 +431,7 @@ export default function DailyReportWrapper() {
   const statusOptions = useMemo(
     () => [
       { value: 'pendiente', label: 'Pendiente' },
-      { value: 'en_progreso', label: 'En Progreso' },
-      { value: 'completado', label: 'Completado' },
+      { value: 'en_certificacion', label: 'En Certificación' },
       { value: 'ejecutado', label: 'Ejecutado' },
       { value: 'reprogramado', label: 'Reprogramado' },
       { value: 'cancelado', label: 'Cancelado' },
