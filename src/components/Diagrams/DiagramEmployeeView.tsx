@@ -391,7 +391,7 @@ function DiagramEmployeeView({
 
                         // Debug: Mostrar información cuando no se encuentra un diagrama
                         if (!diagram) {
-                          console.log(
+                          console.error(
                             `No se encontró diagrama para ${employee.firstname} ${employee.lastname} en ${dayNum}/${monthNum}/${yearNum}`
                           );
                         }

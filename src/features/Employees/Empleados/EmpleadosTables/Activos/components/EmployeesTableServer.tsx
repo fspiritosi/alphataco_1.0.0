@@ -400,11 +400,11 @@ export default function TablaEmployeesSupabase({
     },
     {
       //Tipo de contrato
-      accessorKey: 'type_of_contract',
-      id: 'type_of_contract',
+      accessorKey: 'types_of_contract.name',
+      id: 'types_of_contract.name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de Contrato" />,
       cell: ({ row }) => {
-        return <div>{row.original.type_of_contract || '-'}</div>;
+        return <div>{row.original.types_of_contract?.name || '-'}</div>;
       },
       filterFn: (row, id, value) => {
         return value.includes(String(row.getValue(id)));

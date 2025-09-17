@@ -1941,7 +1941,7 @@ export async function getEmployeeById(employeeId: string) {
       company_position,
       workflow_diagram,
       normal_hours,
-      type_of_contract,
+      types_of_contract(id,name),
       date_of_admission,
       guild_id,
       covenants_id,

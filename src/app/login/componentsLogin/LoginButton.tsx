@@ -44,7 +44,7 @@ export const LoginButton = () => {
       async () => {
         const data: any = await login(formData);
         if (data.error) {
-          console.log(data.error);
+          console.error(data.error);
           throw new Error(data.error);
         }
         return 'success';
@@ -56,8 +56,7 @@ export const LoginButton = () => {
           return '¡Bienvenido!';
         },
         error: (error) => {
-          console.log(error, 'este es el error');
-          // Remove console.log in production code
+          console.error(error, 'este es el error');
           return error?.message || 'Error desconocido';
         },
       }

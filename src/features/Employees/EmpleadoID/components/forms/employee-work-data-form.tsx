@@ -42,6 +42,8 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
   const initialGuildId = form.getValues('guild_id');
   const initialCovenantId = form.getValues('covenants_id');
 
+  console.log(form.watch('type_of_contract'));
+
   // Estados para filtrado dinámico con valores iniciales
   const [filteredCompanyPositions, setFilteredCompanyPositions] = useState(() => {
     return initialHierarchicalPosition
@@ -287,7 +289,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
                 </FormControl>
                 <SelectContent>
                   {typeOfContracts.map((contract) => (
-                    <SelectItem key={contract.name} value={contract.name}>
+                    <SelectItem key={contract.id} value={contract.id}>
                       {contract.name}
                     </SelectItem>
                   ))}

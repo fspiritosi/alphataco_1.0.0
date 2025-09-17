@@ -15,8 +15,6 @@ async function PermanentDocuments() {
     filters: [],
   });
 
-  console.log(initialData);
-
   return (
     <div>
       <TablaPermanentDocumentServer
