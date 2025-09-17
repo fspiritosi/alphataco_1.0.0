@@ -1849,6 +1849,7 @@ export type Database = {
           diagram_type: string;
           employee_id: string;
           id: string;
+          is_active: boolean | null;
           month: number;
           year: number;
         };
@@ -1858,6 +1859,7 @@ export type Database = {
           diagram_type?: string;
           employee_id?: string;
           id?: string;
+          is_active?: boolean | null;
           month: number;
           year: number;
         };
@@ -1867,6 +1869,7 @@ export type Database = {
           diagram_type?: string;
           employee_id?: string;
           id?: string;
+          is_active?: boolean | null;
           month?: number;
           year?: number;
         };
@@ -3075,6 +3078,7 @@ export type Database = {
           company_id: string | null;
           condition: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date: string | null;
+          contract_number: string | null;
           contract_start_date: string | null;
           cost_center_id: string | null;
           created_at: string;
@@ -3106,6 +3110,7 @@ export type Database = {
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date?: string | null;
+          contract_number?: string | null;
           contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;
@@ -3137,6 +3142,7 @@ export type Database = {
           company_id?: string | null;
           condition?: Database['public']['Enums']['condition_enum'] | null;
           contract_expiration_date?: string | null;
+          contract_number?: string | null;
           contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;
@@ -3653,6 +3659,10 @@ export type Database = {
         Args: { reason: string };
         Returns: undefined;
       };
+      update_employee_diagram_status: {
+        Args: { p_employee_id: string; p_is_active: boolean };
+        Returns: Json;
+      };
       verificar_documentos_vencidos_prueba: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
@@ -3671,7 +3681,8 @@ export type Database = {
         | 'reprogramado'
         | 'cancelado'
         | '.'
-        | '..';
+        | '..'
+        | 'en_certificacion';
       daily_report_type_enum: 'mensual' | 'adicional' | 'adicional_permanente';
       document_applies: 'Persona' | 'Equipos' | 'Empresa';
       document_type_enum: 'DNI' | 'LE' | 'LC' | 'PASAPORTE';
@@ -3848,7 +3859,16 @@ export const Constants = {
       contract_type_enum: ['Leasing', 'Alquiler'],
       contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
-      daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
+      daily_report_status: [
+        'pendiente',
+        'sin_recursos_asignados',
+        'ejecutado',
+        'reprogramado',
+        'cancelado',
+        '.',
+        '..',
+        'en_certificacion',
+      ],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
       document_applies: ['Persona', 'Equipos', 'Empresa'],
       document_type_enum: ['DNI', 'LE', 'LC', 'PASAPORTE'],
