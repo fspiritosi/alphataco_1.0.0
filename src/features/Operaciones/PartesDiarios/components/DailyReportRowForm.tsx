@@ -403,6 +403,7 @@ export function DailyReportForm({
           customer: '',
           services: '',
           item: '',
+          equipos_cliente: [],
           employees: [],
           equipment: [],
           working_day: '',
@@ -588,6 +589,7 @@ export function DailyReportForm({
       form.setValue('item', '');
       form.setValue('sector_service_id', '');
       form.setValue('areas_service_id', '');
+      form.setValue('equipos_cliente', []);
       setSelectedServiceId(null);
 
       // Verificar si el cliente tiene sectores y áreas disponibles
@@ -722,7 +724,7 @@ export function DailyReportForm({
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  disabled={disabled}
+                                  disabled={disabled || selectedRow}
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
                                 >
                                   {field.value
