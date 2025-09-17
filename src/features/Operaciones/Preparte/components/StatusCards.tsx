@@ -13,7 +13,7 @@ interface StatusCardsProps {
 }
 
 const statusConfig: Record<Status, { label: string; color: string }> = {
-  pendiente: { label: 'Pendientes', color: 'text-black' },
+  pendiente: { label: 'Pendientes', color: 'text-black dark:text-white' },
   reprogramado: { label: 'Reprogramados', color: 'text-yellow-600' },
   confirmado: { label: 'Confirmados', color: 'text-green-600' },
   cancelado: { label: 'Cancelados', color: 'text-red-600' },

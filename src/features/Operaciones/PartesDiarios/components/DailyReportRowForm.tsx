@@ -1842,35 +1842,37 @@ export function DailyReportForm({
                     </FormItem>
                   )}
                 />
-                {form.watch('working_day') === 'jornada 24 horas' && selectedRow && (
-                  <div className="flex flex-row gap-4 items-center">
-                    <FormField
-                      control={form.control}
-                      name="completed_day"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                          <FormControl>
-                            <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
-                          </FormControl>
-                          <FormLabel className=" font-normal m-0">Completado Día</FormLabel>
-                        </FormItem>
-                      )}
-                    />
+                {form.watch('status') === 'pendiente' &&
+                  form.watch('working_day') === 'jornada 24 horas' &&
+                  selectedRow && (
+                    <div className="flex flex-row gap-4 items-center">
+                      <FormField
+                        control={form.control}
+                        name="completed_day"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                            <FormControl>
+                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
+                            </FormControl>
+                            <FormLabel className=" font-normal m-0">Completado Día</FormLabel>
+                          </FormItem>
+                        )}
+                      />
 
-                    <FormField
-                      control={form.control}
-                      name="completed_night"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                          <FormControl>
-                            <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
-                          </FormControl>
-                          <FormLabel className="font-normal">Completado Noche</FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
+                      <FormField
+                        control={form.control}
+                        name="completed_night"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                            <FormControl>
+                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
+                            </FormControl>
+                            <FormLabel className="font-normal">Completado Noche</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
 
                 {/* Horario (condicional) */}
                 {form.watch('working_day') === 'por horario' && (
