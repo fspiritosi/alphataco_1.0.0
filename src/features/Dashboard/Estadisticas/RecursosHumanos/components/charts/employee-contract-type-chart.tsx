@@ -17,12 +17,13 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function EmployeeContractTypeChartComponent({ data }: EmployeeContractTypeChartProps) {
+  console.log(data);
   const [chartData, setChartData] = useState(() => {
     // Contar empleados por tipo de contrato
     const contractCounts = new Map<string, number>();
 
     data.forEach((employee) => {
-      const contractType = employee.type_of_contract || 'Sin especificar';
+      const contractType = employee.types_of_contract?.name || 'Sin especificar';
       contractCounts.set(contractType, (contractCounts.get(contractType) || 0) + 1);
     });
 
