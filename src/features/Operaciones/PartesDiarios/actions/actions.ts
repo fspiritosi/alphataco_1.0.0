@@ -522,6 +522,39 @@ export async function getDailyReportById(id: string) {
 
   return dailyReports || [];
 }
+export async function updateDailyReportStatusAndRemitNumber(
+  id: string,
+  data: { status: string; remit_number: string }
+) {
+  console.log(data);
+  console.log(id);
+  const supabase = supabaseServer();
+
+  const { data: dato, error } = await supabase
+    .from('dailyreportrows')
+    .update({
+      status: data.status as
+        | 'pendiente'
+        | 'sin_recursos_asignados'
+        | 'ejecutado'
+        | 'reprogramado'
+        | 'cancelado'
+        | '.'
+        | '..'
+        | 'en_certificacion'
+        | undefined,
+      remit_number: data.remit_number,
+    })
+    .eq('id', id)
+    .select();
+
+  if (error) {
+    console.error('Error updating daily report status and remit number:', error);
+    throw error;
+  }
+
+  return data;
+}
 export async function getDailyReportStatusById(id: string) {
   const supabase = supabaseServer();
 
@@ -727,6 +760,34 @@ export interface DailyReportRowData {
   created_at?: string | null;
   updated_at?: string | null;
   cancel_reason?: string | null;
+}
+export async function updateDailyReportStatus(id: string, newStatus: string) {
+  const supabase = supabaseServer();
+  console.log(id);
+  console.log(newStatus);
+  const { data: updatedRow, error: updateError } = await supabase
+    .from('dailyreportrows')
+    .update({
+      status: newStatus as
+        | 'pendiente'
+        | 'sin_recursos_asignados'
+        | 'ejecutado'
+        | 'reprogramado'
+        | 'cancelado'
+        | '.'
+        | '..'
+        | 'en_certificacion'
+        | undefined,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateError) {
+    console.error('Error al actualizar el estado de la fila:', updateError);
+    throw updateError;
+  }
+  return updatedRow;
 }
 
 export async function updateDailyReportRow(
