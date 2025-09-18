@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import DocumentUploadModal from '@/features/Operaciones/PartesDiarios/components/DocumentUploadModal';
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
+import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/components/ServiceDetailModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit, Eye } from 'lucide-react';
@@ -344,9 +345,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => onView(row.original as TableRow)}>
-                        <Eye size={16} />
-                      </Button>
+                      <ServiceDetailModal serviceData={row.original as any} />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Ver detalles</p>
