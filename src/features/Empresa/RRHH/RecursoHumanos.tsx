@@ -1,7 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cookies } from 'next/headers';
+import ContractTypesTab from './TypeContract/ContractTypeTab';
 import { fetchAllContractTypes } from './actions/actions';
-import ContractTypesTab from './components/ContractTypeTab';
 
 type ContractType = {
   id: string;

@@ -1,6 +1,6 @@
 import CovenantTreeFileWrapper from '@/app/dashboard/company/actualCompany/covenant/CovenantTreeFileWrapper';
 import ViewComponentInternal from '@/components/ViewComponentInternal';
-import ContractTypeTabWrapper from '@/features/Empresa/RRHH/components/ContractTypeTabWrapper';
+import ContractTypeTabWrapper from '@/features/Empresa/RRHH/TypeContract/ContractTypeTabWrapper';
 import DiagramTypeComponentWrapper from '@/features/Empresa/RRHH/components/Diagrams/DiagramTypeComponentWrapper';
 import PositionsTab from '../rrhh/company_positions/positionsTab';
 import AptitudesTab from './aptitudesTecnicas/aptitudesTab';

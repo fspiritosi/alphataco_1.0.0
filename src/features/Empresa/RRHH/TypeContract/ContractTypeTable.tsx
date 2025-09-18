@@ -6,7 +6,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
-import { VerActivosButton } from './rrhh/verActivosButton';
+import { VerActivosButton } from '../components/rrhh/verActivosButton';
 interface ContractTypeTableProps {
   contractTypes: ContractType[];
   onEdit: (contractType: ContractType) => void;

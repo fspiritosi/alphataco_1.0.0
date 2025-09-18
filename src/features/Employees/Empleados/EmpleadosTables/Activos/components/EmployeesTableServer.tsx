@@ -730,13 +730,16 @@ export default function TablaEmployeesSupabase({
             },
           },
           {
-            columnId: columnKeys.type_of_contract,
+            columnId: 'types_of_contract.name',
             title: 'Tipo de Contrato',
             config: {
               tableName: 'employees',
-              select: 'type_of_contract' as '*',
+              select: 'types_of_contract.name' as '*',
+              relation: '{"types_of_contract": "type_of_contract"}',
               p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'type_of_contract'>>>) => {
+              mapper: (
+                data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'types_of_contract.name'>>>
+              ) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),

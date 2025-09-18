@@ -1,6 +1,6 @@
-import { fetchAllContractTypes } from '@/features/Empresa/RRHH/actions/actions';
 import { cookies } from 'next/headers';
 import ContractTypesTab from './ContractTypeTab';
+import { fetchAllContractTypes } from './actions/actions';
 
 export default async function ContractTypeTabWrapper() {
   const cookiesStore = cookies();
