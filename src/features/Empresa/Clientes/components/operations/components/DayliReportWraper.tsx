@@ -12,10 +12,17 @@ import {
   getServicesByCustomer,
   type Service,
 } from '@/features/Empresa/Clientes/components/operations/actions/actions';
-import ComercialReportTable from '@/features/Empresa/Clientes/components/operations/components/ComercialReportTable';
+import {
+  getActiveEmployeesForDailyReport,
+  getActiveEquipmentsForDailyReport,
+  getCustomers,
+  getDailyReportById,
+} from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { DataTableDatePicker } from '@/shared/components/data-table/filters/data-table-date-picker';
 import { Filter, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DailyReportForm } from './DailyReportRowForm';
+import EnhancedComercialReportTable from './EnhancedComercialReportTable';
 
 interface ReportFilters {
   customer?: string[];
@@ -24,6 +31,9 @@ interface ReportFilters {
   employee?: string[];
   equipment?: string[];
   item?: string[];
+  customerEquipment?: string[];
+  areas?: string[];
+  sectors?: string[];
   dateFrom?: Date | null;
   dateTo?: Date | null;
 }
@@ -47,7 +57,78 @@ interface FilterOptions {
   employees: FilterOption[];
   equipment: FilterOption[];
   items: ItemFilterOption[];
+  customerEquipments: FilterOption[];
+  areas: FilterOption[];
+  sectors: FilterOption[];
 }
+
+export const transformDailyReports = (reports: any[]) => {
+  return reports
+    ?.map((row) => ({
+      id: row.id,
+      date: row.date,
+      type_service: row.type_service,
+      customer: row.customers?.name,
+      cancel_reason: row.cancel_reason,
+      employees: row.dailyreportemployeerelations.map(
+        (rel: any) => rel.employees?.firstname + ' ' + rel.employees?.lastname
+      ),
+      equipment:
+        row.dailyreportequipmentrelations.map((rel: any) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
+      customer_equipment:
+        row.dailyreport_customer_equipment_relations.map((rel: any) => {
+          return {
+            name: rel.equipos_clientes?.name,
+            type: rel.equipos_clientes?.type,
+            id: rel.equipos_clientes?.id,
+            relacion_id: rel.id,
+          };
+        }) || [],
+      services: row.customer_services?.service_name,
+      item: row.service_items?.item_name,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      status: row.status,
+      working_day: row.working_day,
+      sector_customer_id: row.service_sectors?.id,
+      sector: row.service_sectors?.sectors?.name,
+      completed_night: row.completed_night as boolean,
+      completed_day: row.completed_day as boolean,
+      areas_customer_id: row.service_areas?.id,
+      area: row.service_areas?.areas_cliente?.descripcion_corta,
+      description: row.description || '',
+      document_path: row.document_path,
+      remit_number: row.remit_number,
+      employees_references: row.dailyreportemployeerelations.map((rel: any) => ({
+        ...rel.employees,
+        name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
+        id: rel.employees?.id,
+      })),
+      equipment_references: row.dailyreportequipmentrelations.map((rel: any) => ({
+        ...rel.vehicles,
+        name: rel.vehicles?.domain || rel.vehicles?.intern_number,
+        id: rel.vehicles?.id,
+        brand_vehicles: rel.vehicles?.brand_vehicles?.name,
+      })),
+      data_to_clone: {
+        customer_id: row.customers?.id,
+        service_id: row.customer_services?.id,
+        item_id: row.service_items?.id,
+        working_day: row.working_day,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        description: row.description,
+        type_service: row.type_service,
+        areas_service_id: row.areas_service_id,
+        sector_service_id: row.sector_service_id,
+      },
+    }))
+    .sort((a, b) => {
+      const customerCompare = (a.customer || '').localeCompare(b.customer || '');
+      if (customerCompare !== 0) return customerCompare;
+      return (a.item || '').localeCompare(b.item || '');
+    });
+};
 
 export default function DailyReportWrapper() {
   const [filters, setFilters] = useState<ReportFilters>({
@@ -57,10 +138,14 @@ export default function DailyReportWrapper() {
     employee: [],
     equipment: [],
     item: [],
+    customerEquipment: [],
+    areas: [],
+    sectors: [],
     dateFrom: null,
     dateTo: null,
   });
-  const [tableData, setTableData] = useState<any[]>([]);
+
+  const [rawTableData, setRawTableData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
@@ -69,95 +154,45 @@ export default function DailyReportWrapper() {
     employees: [],
     equipment: [],
     items: [],
+    customerEquipments: [],
+    areas: [],
+    sectors: [],
   });
 
-  // Load filter options on component mount
-  useEffect(() => {
-    const loadFilterOptions = async () => {
-      try {
-        const options = await getFilterOptions();
-        setFilterOptions({
-          customers: options.customers,
-          services: options.services,
-          employees: options.employees,
-          equipment: options.equipment || [],
-          items: options.items || [],
-        });
-      } catch (error) {
-        console.error('Error loading filter options:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'No se pudieron cargar las opciones de filtro',
-        });
-      }
-    };
+  const [selectedRow, setSelectedRow] = useState<any | null>(null);
+  const [openForm, setOpenForm] = useState(false);
+  const [customers, setCustomers] = useState<Awaited<ReturnType<typeof getCustomers>>>([]);
+  const [employeesPromise, setEmployeesPromise] = useState<ReturnType<typeof getActiveEmployeesForDailyReport> | null>(
+    null
+  );
+  const [equipmentsPromise, setEquipmentsPromise] = useState<ReturnType<
+    typeof getActiveEquipmentsForDailyReport
+  > | null>(null);
+  const [dailyReport, setDailyReport] = useState<Awaited<ReturnType<typeof getDailyReportById>> | null>(null);
 
-    loadFilterOptions();
-  }, []);
+  const handleEditRow = useCallback(async (row: any) => {
+    setSelectedRow(row);
+    setOpenForm(true);
 
-  // Handle multi-select changes
-  const handleMultiSelectChange = useCallback((key: keyof ReportFilters, values: string[]) => {
-    setFilters((prev) => ({ ...prev, [key]: values }));
-  }, []);
-
-  // Load services for selected customers
-  const loadServices = useCallback(async (customerIds: string[]) => {
     try {
-      let services: Service[] = [];
+      const allCustomers = await getCustomers();
+      setCustomers(allCustomers);
 
-      if (customerIds.length > 0) {
-        // Get services for all selected customers
-        const servicesPromises = customerIds.map((id) => getServicesByCustomer(id));
-        const servicesArrays = await Promise.all(servicesPromises);
-        services = servicesArrays.flat();
-      } else {
-        // If no customers selected, show all services
-        const options = await getFilterOptions();
-        services = options.services || [];
-      }
+      const employeesData = getActiveEmployeesForDailyReport();
+      setEmployeesPromise(employeesData);
 
-      // Fallback: if no services found for given customers, show all services
-      if (!services.length) {
-        const options = await getFilterOptions();
-        services = options.services || [];
-      }
-
-      setFilterOptions((prev) => ({
-        ...prev,
-        services: services.map((s) => ({
-          id: s.id,
-          name: s.name,
-          customer_id: s.customer_id,
-        })),
-      }));
+      const equipmentsData = getActiveEquipmentsForDailyReport();
+      setEquipmentsPromise(equipmentsData);
     } catch (error) {
-      console.error('Error loading services:', error);
+      console.error('Error fetching data for form:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'No se pudieron cargar los servicios',
+        description: 'No se pudieron cargar los datos del formulario.',
       });
     }
   }, []);
 
-  // Handle customer selection change
-  const handleCustomerChange = useCallback(
-    (values: string[]) => {
-      setFilters((prev) => ({ ...prev, customer: values, service: [], item: [] })); // Reset services and items when customers change
-
-      // Load services for the selected customers
-      loadServices(values);
-    },
-    [loadServices]
-  );
-
-  // Handle service selection change: reset items to keep selections valid
-  const handleServiceChange = useCallback((values: string[]) => {
-    setFilters((prev) => ({ ...prev, service: values, item: [] }));
-  }, []);
-
-  // Handle search with current filters
   const handleSearch = useCallback(async () => {
     if (loading) return;
 
@@ -165,17 +200,19 @@ export default function DailyReportWrapper() {
     setHasSearched(true);
 
     try {
-      // Convert filters to API format
       const cleanFilters: any = {};
 
-      if (filters.customer?.length) cleanFilters.customer = filters.customer.join(',');
-      if (filters.service?.length) cleanFilters.service = filters.service.join(',');
-      if (filters.status?.length) cleanFilters.status = filters.status.join(',');
-      if (filters.employee?.length) cleanFilters.employee = filters.employee.join(',');
-      if (filters.equipment?.length) cleanFilters.equipment = filters.equipment.join(',');
-      if (filters.item?.length) cleanFilters.item = filters.item.join(',');
+      // Ahora pasamos los arrays directamente al servidor
+      if (filters.customer?.length) cleanFilters.customer = filters.customer;
+      if (filters.service?.length) cleanFilters.service = filters.service;
+      if (filters.status?.length) cleanFilters.status = filters.status;
+      if (filters.employee?.length) cleanFilters.employee = filters.employee;
+      if (filters.equipment?.length) cleanFilters.equipment = filters.equipment;
+      if (filters.item?.length) cleanFilters.item = filters.item;
+      if (filters.customerEquipment?.length) cleanFilters.customerEquipment = filters.customerEquipment;
+      if (filters.areas?.length) cleanFilters.areas = filters.areas;
+      if (filters.sectors?.length) cleanFilters.sectors = filters.sectors;
 
-      // Dates -> YYYY-MM-DD
       if (filters.dateFrom instanceof Date) {
         const y = filters.dateFrom.getFullYear();
         const m = String(filters.dateFrom.getMonth() + 1).padStart(2, '0');
@@ -190,7 +227,7 @@ export default function DailyReportWrapper() {
       }
 
       const filteredData = await getFilteredDailyReportRows(cleanFilters);
-      setTableData(filteredData || []);
+      setRawTableData(filteredData || []);
     } catch (error) {
       console.error('Error searching reports:', error);
       toast({
@@ -198,14 +235,140 @@ export default function DailyReportWrapper() {
         title: 'Error',
         description: 'No se pudieron cargar los reportes',
       });
-      setTableData([]);
+      setRawTableData([]);
     } finally {
       setLoading(false);
     }
   }, [filters, loading]);
 
-  // Clear all filters
-  const handleClearFilters = useCallback(() => {
+  const refetchDailyReport = useCallback(async () => {
+    await handleSearch();
+  }, [handleSearch]);
+
+  const handleViewRow = useCallback((row: any) => {
+    alert(`Viendo detalles de: ${row.customer} - ${row.services}`);
+  }, []);
+
+  const handleViewHistory = useCallback((row: any) => {
+    alert(`Viendo historial de: ${row.customer} - ${row.services}`);
+  }, []);
+
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const options = await getFilterOptions();
+        setFilterOptions({
+          customers: options.customers,
+          services: options.services,
+          employees: options.employees,
+          equipment: options.equipment || [],
+          items: options.items || [],
+          customerEquipments: options.customerEquipments || [],
+          areas: options.areas || [],
+          sectors: options.sectors || [],
+        });
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudieron cargar las opciones de filtro',
+        });
+      }
+    };
+
+    loadFilterOptions();
+  }, []);
+
+  const handleMultiSelectChange = useCallback((key: keyof ReportFilters, values: string[]) => {
+    setFilters((prev) => ({ ...prev, [key]: values }));
+  }, []);
+
+  const handleCustomerChange = useCallback(async (values: string[]) => {
+    setFilters((prev) => ({
+      ...prev,
+      customer: values,
+      service: [],
+      item: [],
+      customerEquipment: [],
+      areas: [],
+      sectors: [],
+    }));
+
+    if (values.length > 0) {
+      try {
+        const allCustomers = await getCustomers();
+        const selectedCustomers = allCustomers?.filter((c) => values.includes(c.id));
+
+        const services: Service[] = [];
+        const equipmentOptions: FilterOption[] = [];
+        const areasMap = new Map();
+        const sectorsMap = new Map();
+
+        for (const customer of selectedCustomers as any) {
+          const customerServices = await getServicesByCustomer(customer.id);
+          services.push(...customerServices);
+
+          (customer?.equipos_clientes || []).forEach((eq: any) => {
+            equipmentOptions.push({
+              id: eq.id,
+              name: eq.name,
+            });
+          });
+
+          (customer?.customer_services || []).forEach((service: any) => {
+            (service.service_areas || []).forEach((sa: any) => {
+              if (sa.areas_cliente) {
+                areasMap.set(sa.areas_cliente.id, {
+                  id: sa.areas_cliente.id,
+                  name: sa.areas_cliente.nombre || sa.areas_cliente.nombre || 'Sin nombre',
+                });
+              }
+            });
+            (service.service_sectors || []).forEach((ss: any) => {
+              if (ss.sectors) {
+                sectorsMap.set(ss.sectors.id, {
+                  id: ss.sectors.id,
+                  name: ss.sectors.name || 'Sin nombre',
+                });
+              }
+            });
+          });
+        }
+
+        const uniqueServices = Array.from(new Map(services.map((s) => [s.id, s])).values());
+        const uniqueEquipments = Array.from(new Map(equipmentOptions.map((eq) => [eq.id, eq])).values());
+        const areaOptions = Array.from(areasMap.values());
+        const sectorOptions = Array.from(sectorsMap.values());
+
+        setFilterOptions((prev) => ({
+          ...prev,
+          services: uniqueServices,
+          customerEquipments: uniqueEquipments,
+          areas: areaOptions,
+          sectors: sectorOptions,
+        }));
+
+        setCustomers(allCustomers);
+      } catch (error) {
+        console.error('Error loading customer data:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudieron cargar los datos del cliente',
+        });
+      }
+    } else {
+      const options = await getFilterOptions();
+      setFilterOptions(options);
+    }
+  }, []);
+
+  const handleServiceChange = useCallback((values: string[]) => {
+    setFilters((prev) => ({ ...prev, service: values, item: [] }));
+  }, []);
+
+  const handleClearFilters = useCallback(async () => {
     setFilters({
       customer: [],
       service: [],
@@ -213,19 +376,40 @@ export default function DailyReportWrapper() {
       employee: [],
       equipment: [],
       item: [],
+      customerEquipment: [],
+      areas: [],
+      sectors: [],
       dateFrom: null,
       dateTo: null,
     });
-    setTableData([]);
+    setRawTableData([]);
     setHasSearched(false);
+
+    // Recargar las opciones de filtro iniciales
+    try {
+      const options = await getFilterOptions();
+      setFilterOptions(options);
+    } catch (error) {
+      console.error('Error reloading filter options:', error);
+    }
   }, []);
 
-  // Check if there are any active filters
+  const handleCustomerEquipmentChange = useCallback((values: string[]) => {
+    setFilters((prev) => ({ ...prev, customerEquipment: values }));
+  }, []);
+
+  const handleAreaChange = useCallback((values: string[]) => {
+    setFilters((prev) => ({ ...prev, areas: values }));
+  }, []);
+
+  const handleSectorChange = useCallback((values: string[]) => {
+    setFilters((prev) => ({ ...prev, sectors: values }));
+  }, []);
+
   const hasActiveFilters = Object.values(filters).some((value) =>
     Array.isArray(value) ? value.length > 0 : Boolean(value)
   );
 
-  // Prepare options for the MultiSelectCombobox components
   const customerOptions = useMemo(
     () =>
       filterOptions.customers.map((customer) => ({
@@ -247,11 +431,12 @@ export default function DailyReportWrapper() {
 
   const statusOptions = useMemo(
     () => [
-      { label: 'Pendiente', value: 'pendiente' },
-      { label: 'Sin recursos asignados', value: 'sin_recursos_asignados' },
-      { label: 'Ejecutado', value: 'ejecutado' },
-      { label: 'Reprogramado', value: 'reprogramado' },
-      { label: 'Cancelado', value: 'cancelado' },
+      { value: 'pendiente', label: 'Pendiente' },
+      { value: 'en_certificacion', label: 'En Certificación' },
+      { value: 'ejecutado', label: 'Ejecutado' },
+      { value: 'reprogramado', label: 'Reprogramado' },
+      { value: 'cancelado', label: 'Cancelado' },
+      { value: 'sin_recursos_asignados', label: 'Sin Recursos Asignados' },
     ],
     []
   );
@@ -274,22 +459,169 @@ export default function DailyReportWrapper() {
     [filterOptions.equipment]
   );
 
+  const memoizedCustomerEquipmentOptions = useMemo(
+    () =>
+      filterOptions.customerEquipments.map((eq) => ({
+        label: eq.name,
+        value: eq.id,
+      })),
+    [filterOptions.customerEquipments]
+  );
+
+  const memoizedAreaOptions = useMemo(
+    () =>
+      filterOptions.areas.map((area) => ({
+        label: area.name,
+        value: area.id,
+      })),
+    [filterOptions.areas]
+  );
+
+  const memoizedSectorOptions = useMemo(
+    () =>
+      filterOptions.sectors.map((sector) => ({
+        label: sector.name,
+        value: sector.id,
+      })),
+    [filterOptions.sectors]
+  );
+
   const itemOptions = useMemo(() => {
     const allItems = filterOptions.items || [];
     const selectedServices = filters.service || [];
-
-    // Debug: verify selected services and available items
-    console.debug('[DailyReportWrapper] selectedServices:', selectedServices);
-    console.debug('[DailyReportWrapper] allItems count:', allItems.length);
-
-    // If no services selected, return empty options (combobox stays disabled too)
     if (!selectedServices.length) return [] as { label: string; value: string }[];
-
     const filtered = allItems.filter((it) => selectedServices.includes(it.customer_service_id));
-    console.debug('[DailyReportWrapper] filtered itemOptions count:', filtered.length);
-
     return filtered.map((it) => ({ label: it.name, value: it.id }));
   }, [filterOptions.items, filters.service]);
+
+  const formattedData = useMemo(() => {
+    return transformDailyReports(rawTableData);
+  }, [rawTableData]);
+
+  const filterableColumns = useMemo(() => {
+    // Si no hay datos, no se crean filtros
+    if (!formattedData.length) return [];
+
+    return [
+      {
+        columnId: 'date',
+        title: 'Rango de Fechas',
+        type: 'date-range' as const,
+        showFrom: true,
+        showTo: true,
+        fromPlaceholder: 'Desde',
+        toPlaceholder: 'Hasta',
+        defaultValues: { from: null, to: null },
+      },
+      {
+        columnId: 'customer',
+        title: 'Cliente',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.customer).filter(Boolean))).map((customer) => ({
+          value: customer,
+          label: customer,
+        })),
+      },
+      {
+        columnId: 'services',
+        title: 'Servicio',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.services).filter(Boolean))).map((service) => ({
+          value: service,
+          label: service,
+        })),
+      },
+      {
+        columnId: 'item',
+        title: 'Ítem',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.item).filter(Boolean))).map((item) => ({
+          value: item,
+          label: item,
+        })),
+      },
+      {
+        columnId: 'type_service',
+        title: 'Tipo de Servicio',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.type_service).filter(Boolean))).map((type) => ({
+          value: type,
+          label: type,
+        })),
+      },
+      {
+        columnId: 'status',
+        title: 'Estado',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.status).filter(Boolean))).map((status) => ({
+          value: status,
+          label: status.replace(/_/g, ' '),
+        })),
+      },
+      {
+        columnId: 'employees',
+        title: 'Empleados',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.flatMap((d) => d.employees).filter(Boolean))).map((employee) => ({
+          value: employee,
+          label: employee,
+        })),
+      },
+      {
+        columnId: 'equipment',
+        title: 'Equipo Empresa',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.flatMap((d) => d.equipment).filter(Boolean))).map((eq) => ({
+          value: eq,
+          label: eq,
+        })),
+      },
+      {
+        columnId: 'customer_equipment',
+        title: 'Equipo Cliente',
+        type: 'select' as const,
+        options: Array.from(
+          new Set(formattedData.flatMap((d) => d.customer_equipment.map((eq: any) => eq.name)).filter(Boolean))
+        ).map((eq) => ({
+          value: eq,
+          label: eq,
+        })),
+      },
+      {
+        columnId: 'area',
+        title: 'Área',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.area).filter(Boolean))).map((area) => ({
+          value: area,
+          label: area,
+        })),
+      },
+      {
+        columnId: 'sector',
+        title: 'Sector',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.sector).filter(Boolean))).map((sector) => ({
+          value: sector,
+          label: sector,
+        })),
+      },
+      {
+        columnId: 'remit_number',
+        title: 'N° de Remito',
+        type: 'text' as const,
+        placeholder: 'Buscar por remito',
+      },
+      {
+        columnId: 'working_day',
+        title: 'Jornada',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.working_day).filter(Boolean))).map((day) => ({
+          value: day,
+          label: day,
+        })),
+      },
+    ];
+  }, [formattedData]);
 
   return (
     <div className="space-y-6">
@@ -304,9 +636,7 @@ export default function DailyReportWrapper() {
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                {/* Header clear button removed to avoid duplication. Use bottom 'Limpiar' next to 'Buscar'. */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Customer Filter */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Cliente</label>
                     <MultiSelectCombobox
@@ -319,7 +649,6 @@ export default function DailyReportWrapper() {
                     />
                   </div>
 
-                  {/* Service Filter */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Servicio</label>
                     <MultiSelectCombobox
@@ -335,46 +664,6 @@ export default function DailyReportWrapper() {
                     />
                   </div>
 
-                  {/* Status Filter */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Estado</label>
-                    <MultiSelectCombobox
-                      options={statusOptions}
-                      placeholder="Seleccionar estados"
-                      emptyMessage="No se encontraron estados"
-                      selectedValues={filters.status || []}
-                      onChange={(values) => handleMultiSelectChange('status', values)}
-                      maxSelections={null}
-                    />
-                  </div>
-
-                  {/* Employee Filter */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Empleado</label>
-                    <MultiSelectCombobox
-                      options={employeeOptions}
-                      placeholder="Seleccionar empleados"
-                      emptyMessage="No se encontraron empleados"
-                      selectedValues={filters.employee || []}
-                      onChange={(values) => handleMultiSelectChange('employee', values)}
-                      maxSelections={null}
-                    />
-                  </div>
-
-                  {/* Equipment Filter */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Equipo</label>
-                    <MultiSelectCombobox
-                      options={equipmentOptions}
-                      placeholder="Seleccionar equipos"
-                      emptyMessage="No se encontraron equipos"
-                      selectedValues={filters.equipment || []}
-                      onChange={(values) => handleMultiSelectChange('equipment', values)}
-                      maxSelections={null}
-                    />
-                  </div>
-
-                  {/* Item Filter */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Ítem</label>
                     <MultiSelectCombobox
@@ -388,7 +677,81 @@ export default function DailyReportWrapper() {
                     />
                   </div>
 
-                  {/* Date From Filter */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Equipos del Cliente</label>
+                    <MultiSelectCombobox
+                      options={memoizedCustomerEquipmentOptions}
+                      placeholder={filters.customer?.length ? 'Seleccionar equipos' : 'Seleccione un cliente primero'}
+                      emptyMessage="No se encontraron equipos"
+                      selectedValues={filters.customerEquipment || []}
+                      onChange={handleCustomerEquipmentChange}
+                      maxSelections={null}
+                      disabled={!filters.customer?.length}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Áreas</label>
+                    <MultiSelectCombobox
+                      options={memoizedAreaOptions}
+                      placeholder={filters.customer?.length ? 'Seleccionar áreas' : 'Seleccione un cliente primero'}
+                      emptyMessage="No se encontraron áreas"
+                      selectedValues={filters.areas || []}
+                      onChange={handleAreaChange}
+                      maxSelections={null}
+                      disabled={!filters.customer?.length}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Sectores</label>
+                    <MultiSelectCombobox
+                      options={memoizedSectorOptions}
+                      placeholder={filters.customer?.length ? 'Seleccionar sectores' : 'Seleccione un cliente primero'}
+                      emptyMessage="No se encontraron sectores"
+                      selectedValues={filters.sectors || []}
+                      onChange={handleSectorChange}
+                      maxSelections={null}
+                      disabled={!filters.customer?.length}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Empleado</label>
+                    <MultiSelectCombobox
+                      options={employeeOptions}
+                      placeholder="Seleccionar empleados"
+                      emptyMessage="No se encontraron empleados"
+                      selectedValues={filters.employee || []}
+                      onChange={(values) => handleMultiSelectChange('employee', values)}
+                      maxSelections={null}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Equipo</label>
+                    <MultiSelectCombobox
+                      options={equipmentOptions}
+                      placeholder="Seleccionar equipos"
+                      emptyMessage="No se encontraron equipos"
+                      selectedValues={filters.equipment || []}
+                      onChange={(values) => handleMultiSelectChange('equipment', values)}
+                      maxSelections={null}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Estado</label>
+                    <MultiSelectCombobox
+                      options={statusOptions}
+                      placeholder="Seleccionar estados"
+                      emptyMessage="No se encontraron estados"
+                      selectedValues={filters.status || []}
+                      onChange={(values) => handleMultiSelectChange('status', values)}
+                      maxSelections={null}
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium mb-2">Fecha Desde</label>
                     <DataTableDatePicker
@@ -399,7 +762,6 @@ export default function DailyReportWrapper() {
                     />
                   </div>
 
-                  {/* Date To Filter */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Fecha Hasta</label>
                     <DataTableDatePicker
@@ -455,7 +817,6 @@ export default function DailyReportWrapper() {
         </CardContent>
       </Card>
 
-      {/* Results Table */}
       <Card>
         <CardContent className="pt-6">
           {loading ? (
@@ -466,8 +827,15 @@ export default function DailyReportWrapper() {
               <Skeleton className="h-16 w-full" />
             </div>
           ) : hasSearched ? (
-            tableData.length > 0 ? (
-              <ComercialReportTable dailyReports={tableData} />
+            rawTableData.length > 0 ? (
+              <EnhancedComercialReportTable
+                dailyReports={transformDailyReports(rawTableData) as any}
+                onEdit={handleEditRow}
+                onView={handleViewRow}
+                onViewHistory={handleViewHistory}
+                showActions={true}
+                filterableColumns={filterableColumns as any}
+              />
             ) : (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">No se encontraron resultados para los filtros seleccionados.</p>
@@ -479,6 +847,18 @@ export default function DailyReportWrapper() {
             </div>
           )}
         </CardContent>
+        <DailyReportForm
+          open={openForm}
+          onOpenChange={setOpenForm}
+          selectedRow={selectedRow}
+          refetchDailyReport={refetchDailyReport}
+          customers={customers}
+          employeesPromise={employeesPromise as any}
+          equipmentsPromise={equipmentsPromise as any}
+          dailyReport={dailyReport as any}
+          setSelectedRow={setSelectedRow}
+          formattedData={transformDailyReports(rawTableData) as any}
+        />
       </Card>
     </div>
   );

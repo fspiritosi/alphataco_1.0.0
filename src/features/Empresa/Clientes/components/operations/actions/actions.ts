@@ -110,38 +110,32 @@ export async function getAllDailyReportRows(): Promise<ProcessedDailyReportRow[]
   return processedData;
 }
 
-export interface ReportFilters {
-  customer?: string | string[];
-  service?: string | string[];
-  status?: string | string[];
-  employee?: string | string[];
-  equipment?: string | string[];
-  item?: string | string[];
-  dateFrom?: string;
-  dateTo?: string;
+interface ReportFilters {
+  customer?: string[];
+  service?: string[];
+  status?: string[];
+  employee?: string[];
+  equipment?: string[];
+  item?: string[];
+  customerEquipment?: string[];
+  areas?: string[];
+  sectors?: string[];
+  dateFrom?: string | null;
+  dateTo?: string | null;
 }
-
-// Helper function to convert string or string[] to string[]
-const toArray = (value: string | string[] | undefined): string[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  return value
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean);
-};
 
 export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
   try {
+    // Primero obtener todos los datos sin filtrar las relaciones
     let query = supabase
       .from('dailyreportrows')
       .select(
         `
         *,
         document_path,
-        dailyreport_customer_equipment_relations(*, equipos_clientes(*) ),
-        service_sectors(*, sectors(*) ),
-        service_areas(*, areas_cliente(*) ),
+        dailyreport_customer_equipment_relations(*, equipos_clientes(*)),
+        service_sectors(*, sectors(*)),
+        service_areas(*, areas_cliente(*)),
         customer_services(id, service_name, customer_id),
         service_items(id, item_name),
         remit_number,
@@ -153,94 +147,139 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
       )
       .order('date', { foreignTable: 'dailyreport', ascending: false });
 
-    // Handle customer filter (array or comma-separated string)
-    const customerIds = toArray(filters.customer);
-    if (customerIds.length > 0) {
-      query = query.in('customer_id', customerIds);
+    // Filtros básicos. Ahora esperamos arrays.
+    if (filters.customer && filters.customer.length > 0) {
+      query = query.in('customer_id', filters.customer);
     }
 
-    // Handle service filter (array or comma-separated string)
-    const serviceIds = toArray(filters.service);
-    if (serviceIds.length > 0) {
-      query = query.in('service_id', serviceIds);
+    if (filters.service && filters.service.length > 0) {
+      query = query.in('service_id', filters.service);
     }
 
-    // Handle item filter (array or comma-separated string)
-    const itemIds = toArray(filters.item);
-    if (itemIds.length > 0) {
-      query = query.in('item_id', itemIds);
+    if (filters.item && filters.item.length > 0) {
+      query = query.in('item_id', filters.item);
     }
 
-    // Handle status filter (array or comma-separated string)
-    const statuses = toArray(filters.status);
-    if (statuses.length > 0) {
-      const statusValues = statuses.map((s) => s.toLowerCase());
-      query = query.in('status', statusValues);
+    if (filters.status && filters.status.length > 0) {
+      query = query.in(
+        'status',
+        filters.status.map((s) => s.toLowerCase())
+      );
     }
 
-    // Handle employee filter (array or comma-separated string)
-    const employeeIds = toArray(filters.employee);
-    if (employeeIds.length > 0) {
-      query = query.in('dailyreportemployeerelations.employees.id', employeeIds);
-    }
-
-    // Handle equipment filter (array or comma-separated string)
-    const equipmentIds = toArray(filters.equipment);
-    if (equipmentIds.length > 0) {
-      query = query.in('dailyreportequipmentrelations.vehicles.id', equipmentIds);
-    }
-
-    // Date range filters
+    // Filtros de fecha. Corregido para usar 'lte'.
     if (filters.dateFrom) {
-      const startDate = new Date(filters.dateFrom);
-      query = query.gte('dailyreport.date', startDate.toISOString().split('T')[0]);
+      query = query.gte('dailyreport.date', filters.dateFrom);
     }
 
     if (filters.dateTo) {
-      const endDate = new Date(filters.dateTo);
-      endDate.setDate(endDate.getDate() + 1);
-      query = query.lt('dailyreport.date', endDate.toISOString().split('T')[0]);
+      query = query.lte('dailyreport.date', filters.dateTo);
     }
 
     const { data: rows, error } = await query;
-
     if (error) throw error;
 
-    // Process the data to ensure proper employee array format and date handling
-    const processedRows = (rows || []).map((row: any) => {
-      // Map employees to string[]
+    if (!rows) return [];
+
+    // Filtrar en el código JavaScript para aplicar AND en las relaciones
+    const filteredRows = rows.filter((row: any) => {
+      // Verificar filtro de empleados
+      if (filters.employee?.length) {
+        const employeeIds = filters.employee;
+        const rowEmployeeIds = (row.dailyreportemployeerelations || [])
+          .map((rel: any) => rel.employees?.id)
+          .filter(Boolean);
+
+        const hasAllEmployees = employeeIds.every((id) => rowEmployeeIds.includes(id));
+        if (!hasAllEmployees) return false;
+      }
+
+      // Verificar filtro de equipos
+      if (filters.equipment?.length) {
+        const equipmentIds = filters.equipment;
+        const rowEquipmentIds = (row.dailyreportequipmentrelations || [])
+          .map((rel: any) => rel.vehicles?.id)
+          .filter(Boolean);
+
+        const hasAllEquipment = equipmentIds.every((id) => rowEquipmentIds.includes(id));
+        if (!hasAllEquipment) return false;
+      }
+
+      // Verificar filtro de equipos de cliente
+      if (filters.customerEquipment?.length) {
+        const customerEquipmentIds = filters.customerEquipment;
+        const rowCustomerEquipmentIds = (row.dailyreport_customer_equipment_relations || [])
+          .map((rel: any) => rel.equipos_clientes?.id)
+          .filter(Boolean);
+
+        const hasAllCustomerEquipment = customerEquipmentIds.every((id) => rowCustomerEquipmentIds.includes(id));
+        if (!hasAllCustomerEquipment) return false;
+      }
+
+      // Verificar filtro de áreas
+      if (filters.areas?.length) {
+        const areaIds = filters.areas;
+        const rowAreaId = row.service_areas?.areas_cliente?.id;
+
+        const hasArea = areaIds.includes(rowAreaId);
+        if (!hasArea) return false;
+      }
+
+      // Verificar filtro de sectores
+      if (filters.sectors?.length) {
+        const sectorIds = filters.sectors;
+        const rowSectorId = row.service_sectors?.sectors?.id;
+
+        const hasSector = sectorIds.includes(rowSectorId);
+        if (!hasSector) return false;
+      }
+
+      return true;
+    });
+
+    // Procesar las filas filtradas
+    const processedRows = filteredRows.map((row: any) => {
+      // Mapeo de empleados
       const employees: string[] = (row.dailyreportemployeerelations || [])
         .map((rel: any) => (rel?.employees ? `${rel.employees.firstname} ${rel.employees.lastname}`.trim() : ''))
         .filter(Boolean);
 
-      // Map company equipment (vehicles) to string[]: intern_number - domain
+      // Mapeo de equipos de la empresa
       const company_equipment: string[] = (row.dailyreportequipmentrelations || [])
         .map((rel: any) => rel?.vehicles)
         .filter(Boolean)
         .map((v: any) => [v.intern_number, v.domain].filter(Boolean).join(' - '))
         .filter(Boolean);
 
-      // Map customer equipment from dailyreport_customer_equipment_relations -> equipos_clientes
+      // Mapeo de equipos del cliente
       const customer_equipment: string[] = (row.dailyreport_customer_equipment_relations || [])
         .map((rel: any) => rel?.equipos_clientes)
         .filter(Boolean)
-        // Best-effort label depending on available fields
         .map((eq: any) => eq.name || eq.label || eq.description || eq.id)
         .filter(Boolean);
 
+      // Mapeo de área
+      const area = row.service_areas?.areas_cliente?.nombre || '';
+
+      // Mapeo de sector
+      const sector = row.service_sectors?.sectors?.name || '';
+
       return {
         ...row,
-        // Keep date as YYYY-MM-DD string expected by the table
         date: row.dailyreport?.date,
-        // Flatten fields expected by the table
         customer: row.customers?.name ?? '',
         item: row.service_items?.item_name ?? '',
         services: row.customer_services?.service_name ?? '',
-        // Keep potential existing type_service from base row (selected by *)
         type_service: row.type_service ?? row.customer_services?.service_name ?? '',
         employees,
         company_equipment,
         customer_equipment,
+        area,
+        sector,
+        employees_references: row.dailyreportemployeerelations?.map((rel: any) => rel.employees) || [],
+        equipment_references: row.dailyreportequipmentrelations?.map((rel: any) => rel.vehicles) || [],
+        customer_equipment_references:
+          row.dailyreport_customer_equipment_relations?.map((rel: any) => rel.equipos_clientes) || [],
       };
     });
 
@@ -251,17 +290,26 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
   }
 }
 
+// Función auxiliar para convertir a array
+function toArray<T>(value: T | T[] | undefined | null): T[] {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
 export interface FilterOptions {
   customers: Array<{ id: string; name: string }>;
   services: Service[];
   employees: Array<{ id: string; name: string }>;
   equipment: Array<{ id: string; name: string }>;
   items: Array<{ id: string; name: string; customer_service_id: string }>;
+  customerEquipments: Array<{ id: string; name: string; customer_id: string }>;
+  areas: Array<{ id: string; name: string; customer_id: string }>;
+  sectors: Array<{ id: string; name: string; customer_id: string }>;
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
   try {
-    const [customers, services, employees, vehicles, items] = await Promise.all([
+    const [customers, services, employees, vehicles, items, customerEquipments, areas, sectors] = await Promise.all([
       supabase.from('customers').select('id, name').order('name'),
 
       supabase.from('customer_services').select('id, service_name, customer_id').order('service_name'),
@@ -271,6 +319,12 @@ export async function getFilterOptions(): Promise<FilterOptions> {
       supabase.from('vehicles').select('id, intern_number, domain').order('intern_number'),
 
       supabase.from('service_items').select('id, item_name, customer_service_id').order('item_name'),
+
+      supabase.from('equipos_clientes').select('id, name, customer_id').order('name'),
+
+      supabase.from('areas_cliente').select('id, name, customer_id').order('name'),
+
+      supabase.from('sectors').select('id, name, customer_id').order('name'),
     ]);
 
     return {
@@ -293,6 +347,21 @@ export async function getFilterOptions(): Promise<FilterOptions> {
         name: i.item_name,
         customer_service_id: i.customer_service_id,
       })),
+      customerEquipments: (customerEquipments.data || []).map((ce) => ({
+        id: ce.id,
+        name: ce.name,
+        customer_id: ce.customer_id,
+      })),
+      areas: (areas.data || []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        customer_id: a.customer_id,
+      })),
+      sectors: (sectors.data || []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        customer_id: s.customer_id,
+      })),
     };
   } catch (error) {
     console.error('Error in getFilterOptions:', error);
@@ -302,6 +371,9 @@ export async function getFilterOptions(): Promise<FilterOptions> {
       employees: [],
       equipment: [],
       items: [],
+      customerEquipments: [],
+      areas: [],
+      sectors: [],
     };
   }
 }

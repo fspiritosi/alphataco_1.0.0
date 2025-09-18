@@ -3681,7 +3681,8 @@ export type Database = {
         | 'reprogramado'
         | 'cancelado'
         | '.'
-        | '..';
+        | '..'
+        | 'en_certificacion';
       daily_report_type_enum: 'mensual' | 'adicional' | 'adicional_permanente';
       document_applies: 'Persona' | 'Equipos' | 'Empresa';
       document_type_enum: 'DNI' | 'LE' | 'LC' | 'PASAPORTE';
@@ -3858,7 +3859,16 @@ export const Constants = {
       contract_type_enum: ['Leasing', 'Alquiler'],
       contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
-      daily_report_status: ['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..'],
+      daily_report_status: [
+        'pendiente',
+        'sin_recursos_asignados',
+        'ejecutado',
+        'reprogramado',
+        'cancelado',
+        '.',
+        '..',
+        'en_certificacion',
+      ],
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
       document_applies: ['Persona', 'Equipos', 'Empresa'],
       document_type_enum: ['DNI', 'LE', 'LC', 'PASAPORTE'],
