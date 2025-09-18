@@ -15,6 +15,7 @@ export async function fetchAllContractTypes() {
     .from('types_of_contract')
     .select('*')
     .order('name', { ascending: true })
+    .eq('is_active', true)
     .returns<ContractType[]>();
 
   if (error) {
@@ -50,11 +51,17 @@ export async function updateContractType(contractType: {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
+  const { id, ...rest } = contractType;
+  console.log(rest, 'contractType');
+
   const { data, error } = await supabase
     .from('types_of_contract')
-    .update(contractType)
+    .update(rest)
     .eq('id', contractType.id)
     .returns<ContractType[]>();
+
+  console.log('data', data);
+  console.log('error', error);
 
   if (error) {
     console.error('Error updating contract type:', error);

@@ -1,6 +1,6 @@
 import { fetchInactiveEmployeesData } from '@/app/server/GET/probando';
 import { cookies } from 'next/headers';
-import TablaEmployeesInactiveServer from '../components/tables/EmployeesInactiveTableServer';
+import TablaEmployeesInactiveServer from './components/EmployeesInactiveTableServer';
 
 async function EmpleadosInactivosTable() {
   const cookiesStore = cookies();

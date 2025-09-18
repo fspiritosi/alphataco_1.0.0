@@ -43,10 +43,8 @@ export const LoginButton = () => {
     toast.promise(
       async () => {
         const data: any = await login(formData);
-        console.log(data);
         if (data.error) {
-          console.log('entro en el bloque de error');
-          console.log(data.error);
+          console.error(data.error);
           throw new Error(data.error);
         }
         return 'success';
@@ -58,8 +56,7 @@ export const LoginButton = () => {
           return '¡Bienvenido!';
         },
         error: (error) => {
-          console.log(error, 'este es el error');
-          // Remove console.log in production code
+          console.error(error, 'este es el error');
           return error?.message || 'Error desconocido';
         },
       }

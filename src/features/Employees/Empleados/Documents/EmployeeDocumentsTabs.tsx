@@ -1,7 +1,7 @@
 import DocumentNav from '@/components/DocumentNav';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
-import MonthlyDocuments from '@/features/Employees/Empleados/DocumentosEmpleados/MonthlyDocuments';
-import PermanentDocuments from '@/features/Employees/Empleados/DocumentosEmpleados/PermanentDocuments';
+import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
+import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
 
 async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: string; subtab?: string; path: string }) {
   const viewData = {

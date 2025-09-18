@@ -237,6 +237,8 @@ export async function updateEmployee(employeeId: string, employeeData: Partial<E
   // Remove allocated_to and aptitudes from the main update
   const { allocated_to, aptitudes, ...updateData } = employeeData;
 
+  console.log(updateData);
+
   const { data, error } = await supabase
     .from('employees')
     .update(updateData as any)

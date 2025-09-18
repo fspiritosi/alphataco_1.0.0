@@ -292,7 +292,7 @@ export async function fetchEmployeesData(options: {
 }) {
   const data = await queryWithPagination(
     'employees',
-    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
+    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,types_of_contract(id,name),hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       ...options,
       // company_id_column: 'company_id',
@@ -319,7 +319,7 @@ export async function fetchInactiveEmployeesData(options: {
 }) {
   const data = await queryWithPagination(
     'employees',
-    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
+    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,types_of_contract(id,name),hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       ...options,
       sorting: [...options.sorting, { id: 'lastname', desc: true }],
@@ -405,7 +405,7 @@ export async function fetchAllEmployeesData(options: {
 }) {
   const result = await queryWithPagination(
     'employees',
-    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
+    'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,types_of_contract(id,name),hierarchy(id,name),company_positions(id,name),work_diagram(id,name),cities(id,name),provinces(id,name),cost_center(id,name),contractor_employee(customers(id,name))',
     {
       pageIndex: 0,
       pageSize: 10000, // Límite alto para obtener todos los datos

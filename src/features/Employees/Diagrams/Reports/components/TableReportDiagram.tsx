@@ -70,6 +70,23 @@ function TableReportDiagram({
       },
     },
     {
+      accessorKey: 'employees.file',
+      id: 'employees.file',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Legajo" />,
+      cell: ({ row }) => {
+        return (
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{row.original?.employees?.file}</span>
+          </div>
+        );
+      },
+      enableHiding: false,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'employees.lastname',
       id: 'employees.lastname',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado" />,
@@ -109,8 +126,6 @@ function TableReportDiagram({
       id: 'date',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
       cell: ({ row }) => {
-        console.log(row.original);
-
         return (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -194,6 +209,29 @@ function TableReportDiagram({
               p_filters: { is_active: 'true' },
               mapper: (
                 data: Awaited<ReturnType<typeof querySelectDistinct<'employees_diagram', 'employees.cuil'>>>
+              ) => {
+                const mappedData = data.map((value, index) => {
+                  return {
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  };
+                });
+
+                return mappedData;
+              },
+            },
+          },
+          {
+            columnId: 'employees.file',
+            title: 'Legajo',
+            config: {
+              tableName: 'employees_diagram',
+              select: 'employees.file' as '*',
+              relation: '{"employees": "employee_id"}',
+              p_filters: { is_active: 'true' },
+              mapper: (
+                data: Awaited<ReturnType<typeof querySelectDistinct<'employees_diagram', 'employees.file'>>>
               ) => {
                 const mappedData = data.map((value, index) => {
                   return {

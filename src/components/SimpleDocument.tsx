@@ -313,13 +313,16 @@ export default function SimpleDocument({
   };
 
   const fetchEmployees = async () => {
-    const { data: employees, error } = await supabase.from('employees').select('*').eq('is_active', true);
+    const { data: employees, error } = await supabase
+      .from('employees')
+      .select('id,document_number,lastname,firstname')
+      .eq('is_active', true);
     if (error) {
       setEmployees([]);
       return;
     }
     // Transformar al formato esperado
-    const formatted = (employees || []).map((act: any) => ({
+    const formatted = (employees || []).map((act) => ({
       name: act.firstname + ' ' + act.lastname,
       document: act.document_number,
       id: act.id,
@@ -329,7 +332,7 @@ export default function SimpleDocument({
   };
 
   const fetchVehicles = async () => {
-    const { data: vehicles, error } = await supabase.from('vehicles').select('*').eq('is_active', true);
+    const { data: vehicles, error } = await supabase.from('vehicles').select('domain,serie,id').eq('is_active', true);
     if (error) {
       setVehicles([]);
       return;
@@ -366,7 +369,6 @@ export default function SimpleDocument({
   const [inputValue, setInputValue] = useState<string>('');
   const [hasExpired, setHasExpired] = useState(false);
   const [isMontlhy, setIsMontlhy] = useState(false);
-  const [duplicatedDocument, setDuplicatedDocument] = useState(false);
   const [openResourceSelector, setOpenResourceSelector] = useState(false);
   const [years, setYear] = useState(today.getFullYear().toString());
 

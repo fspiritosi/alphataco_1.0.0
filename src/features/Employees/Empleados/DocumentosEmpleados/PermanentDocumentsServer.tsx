@@ -6,7 +6,7 @@ import { VisibilityState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
 import { createFilterOptions } from '../components/utils/utils';
 
-async function PermanentDocuments() {
+async function PermanentDocumentsServer() {
   const permanentDocuments = (await fetchEmployeePermanentDocuments()).map(formatEmployeeDocumentsSimple);
   const cookiesStore = cookies();
   const savedVisibilityPermanent = cookiesStore.get(`permanent-documents-employees`)?.value;
@@ -90,4 +90,4 @@ async function PermanentDocuments() {
   );
 }
 
-export default PermanentDocuments;
+export default PermanentDocumentsServer;

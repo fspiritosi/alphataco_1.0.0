@@ -1,8 +1,9 @@
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
 import { buttonVariants } from '@/components/ui/button';
-import EmpleadosInactivosTable from '@/features/Employees/Empleados/EmpleadosInactivos/EmpleadosInactivosTable';
-import EmployeeTable from '@/features/Employees/Empleados/components/employee_table';
+
+import EmployeeTable from '@/features/Employees/Empleados/EmpleadosTables/Activos/employee_table';
 import Link from 'next/link';
+import EmpleadosInactivosTable from './Inactivos/EmpleadosInactivosTable';
 
 async function EmployeeListTabs({
   inactives,

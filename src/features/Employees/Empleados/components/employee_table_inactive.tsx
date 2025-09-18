@@ -1,6 +1,6 @@
 import { fetchInactiveEmployeesData } from '@/app/server/GET/probando';
 import { cookies } from 'next/headers';
-import TablaEmployeesSupabase from './tables/EmployeesTableServer';
+import TablaEmployeesSupabase from '../EmpleadosTables/Activos/components/EmployeesTableServer';
 
 async function EmployeeTableInactive() {
   // const employees = fetchAllEmployees();

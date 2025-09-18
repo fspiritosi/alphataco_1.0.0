@@ -26,9 +26,9 @@ export const HandshakeIcon = () => {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      stroke-width="2"
+      strokeWidth="2"
       stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeLinejoin="round"
       className="lucide lucide-handshake-icon lucide-handshake"
     >
       <path d="m11 17 2 2a1 1 0 1 0 3-3" />

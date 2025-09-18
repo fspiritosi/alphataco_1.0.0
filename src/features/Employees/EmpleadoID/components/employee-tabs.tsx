@@ -116,7 +116,7 @@ export function EmployeeTabs({
       company_position: employee?.company_position || undefined,
       workflow_diagram: employee?.workflow_diagram || undefined,
       normal_hours: employee?.normal_hours || undefined,
-      type_of_contract: employee?.type_of_contract || undefined,
+      type_of_contract: employee?.types_of_contract?.id || undefined,
       allocated_to: employee?.allocated_to || [],
       aptitudes: employee?.aptitudes || [],
       date_of_admission: employee?.date_of_admission || undefined,

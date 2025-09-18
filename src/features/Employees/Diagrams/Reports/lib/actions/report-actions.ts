@@ -1,6 +1,5 @@
 import { Filter, queryWithPagination } from '@/app/server/GET/probando';
 import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
-import moment from 'moment';
 
 // Función específica para empleados (ejemplo)
 export async function fetchEmployeesDiagramData(options: {
@@ -21,6 +20,7 @@ export async function fetchEmployeesDiagramData(options: {
         id,
         cuil,
         firstname,
+        file,
         lastname,
         is_active,  
         company_positions(
@@ -59,8 +59,8 @@ export async function fetchEmployeesDiagramData(options: {
     if (lastNameCompare !== 0) return lastNameCompare;
 
     // Then sort by date (most recent first)
-    const dateA = moment(`${a.year}-${a.month}-${a.day}`).toDate();
-    const dateB = moment(`${b.year}-${b.month}-${b.day}`).toDate();
+    const dateA = new Date(a.year, a.month - 1, a.day);
+    const dateB = new Date(b.year, b.month - 1, b.day);
     return dateB.getTime() - dateA.getTime(); // Descending order for date
   });
 
@@ -87,6 +87,7 @@ export async function fetchAllReportData(options: {
         id,
         cuil,
         firstname,
+        file,
         lastname,
         is_active,  
         company_positions(
@@ -115,11 +116,10 @@ export async function fetchAllReportData(options: {
     if (lastNameCompare !== 0) return lastNameCompare;
 
     // Then sort by date (most recent first)
-    const dateA = moment(`${a.year}-${a.month}-${a.day}`).toDate();
-    const dateB = moment(`${b.year}-${b.month}-${b.day}`).toDate();
+    const dateA = new Date(a.year, a.month - 1, a.day);
+    const dateB = new Date(b.year, b.month - 1, b.day);
     return dateB.getTime() - dateA.getTime(); // Descending order for date
   });
-
   return {
     ...data,
     data: sortedData,
