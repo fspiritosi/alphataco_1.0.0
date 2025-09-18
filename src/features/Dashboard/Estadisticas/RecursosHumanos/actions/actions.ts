@@ -93,7 +93,7 @@ export async function getEmployeesByContractType() {
     .from('employees')
     .select(
       `
-      type_of_contract
+      types_of_contract(id,name)
     `
     )
     .eq('company_id', companyId)

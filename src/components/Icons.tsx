@@ -27,7 +27,7 @@ export const HandshakeIcon = () => {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
-      stroke-linecap="round"
+      strokeLinecap="round"
       strokeLinejoin="round"
       className="lucide lucide-handshake-icon lucide-handshake"
     >
