@@ -110,18 +110,18 @@ export async function getAllDailyReportRows(): Promise<ProcessedDailyReportRow[]
   return processedData;
 }
 
-export interface ReportFilters {
-  customer?: string | string[];
-  service?: string | string[];
-  status?: string | string[];
-  employee?: string | string[];
-  equipment?: string | string[];
-  item?: string | string[];
-  customerEquipment?: string | string[];
-  areas?: string | string[];
-  sectors?: string | string[];
-  dateFrom?: string;
-  dateTo?: string;
+interface ReportFilters {
+  customer?: string[];
+  service?: string[];
+  status?: string[];
+  employee?: string[];
+  equipment?: string[];
+  item?: string[];
+  customerEquipment?: string[];
+  areas?: string[];
+  sectors?: string[];
+  dateFrom?: string | null;
+  dateTo?: string | null;
 }
 
 export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
@@ -147,38 +147,33 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
       )
       .order('date', { foreignTable: 'dailyreport', ascending: false });
 
-    // Filtros básicos
-    const customerIds = toArray(filters.customer);
-    if (customerIds.length > 0) {
-      query = query.in('customer_id', customerIds);
+    // Filtros básicos. Ahora esperamos arrays.
+    if (filters.customer && filters.customer.length > 0) {
+      query = query.in('customer_id', filters.customer);
     }
 
-    const serviceIds = toArray(filters.service);
-    if (serviceIds.length > 0) {
-      query = query.in('service_id', serviceIds);
+    if (filters.service && filters.service.length > 0) {
+      query = query.in('service_id', filters.service);
     }
 
-    const itemIds = toArray(filters.item);
-    if (itemIds.length > 0) {
-      query = query.in('item_id', itemIds);
+    if (filters.item && filters.item.length > 0) {
+      query = query.in('item_id', filters.item);
     }
 
-    const statuses = toArray(filters.status);
-    if (statuses.length > 0) {
-      const statusValues = statuses.map((s) => s.toLowerCase());
-      query = query.in('status', statusValues);
+    if (filters.status && filters.status.length > 0) {
+      query = query.in(
+        'status',
+        filters.status.map((s) => s.toLowerCase())
+      );
     }
 
-    // Filtros de fecha
+    // Filtros de fecha. Corregido para usar 'lte'.
     if (filters.dateFrom) {
-      const startDate = new Date(filters.dateFrom);
-      query = query.gte('dailyreport.date', startDate.toISOString().split('T')[0]);
+      query = query.gte('dailyreport.date', filters.dateFrom);
     }
 
     if (filters.dateTo) {
-      const endDate = new Date(filters.dateTo);
-      endDate.setDate(endDate.getDate() + 1);
-      query = query.lt('dailyreport.date', endDate.toISOString().split('T')[0]);
+      query = query.lte('dailyreport.date', filters.dateTo);
     }
 
     const { data: rows, error } = await query;
@@ -190,7 +185,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
     const filteredRows = rows.filter((row: any) => {
       // Verificar filtro de empleados
       if (filters.employee?.length) {
-        const employeeIds = toArray(filters.employee);
+        const employeeIds = filters.employee;
         const rowEmployeeIds = (row.dailyreportemployeerelations || [])
           .map((rel: any) => rel.employees?.id)
           .filter(Boolean);
@@ -201,7 +196,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
 
       // Verificar filtro de equipos
       if (filters.equipment?.length) {
-        const equipmentIds = toArray(filters.equipment);
+        const equipmentIds = filters.equipment;
         const rowEquipmentIds = (row.dailyreportequipmentrelations || [])
           .map((rel: any) => rel.vehicles?.id)
           .filter(Boolean);
@@ -212,7 +207,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
 
       // Verificar filtro de equipos de cliente
       if (filters.customerEquipment?.length) {
-        const customerEquipmentIds = toArray(filters.customerEquipment);
+        const customerEquipmentIds = filters.customerEquipment;
         const rowCustomerEquipmentIds = (row.dailyreport_customer_equipment_relations || [])
           .map((rel: any) => rel.equipos_clientes?.id)
           .filter(Boolean);
@@ -223,7 +218,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
 
       // Verificar filtro de áreas
       if (filters.areas?.length) {
-        const areaIds = toArray(filters.areas);
+        const areaIds = filters.areas;
         const rowAreaId = row.service_areas?.areas_cliente?.id;
 
         const hasArea = areaIds.includes(rowAreaId);
@@ -232,7 +227,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
 
       // Verificar filtro de sectores
       if (filters.sectors?.length) {
-        const sectorIds = toArray(filters.sectors);
+        const sectorIds = filters.sectors;
         const rowSectorId = row.service_sectors?.sectors?.id;
 
         const hasSector = sectorIds.includes(rowSectorId);

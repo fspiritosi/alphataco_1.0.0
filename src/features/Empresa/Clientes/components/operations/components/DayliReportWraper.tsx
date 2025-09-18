@@ -202,15 +202,16 @@ export default function DailyReportWrapper() {
     try {
       const cleanFilters: any = {};
 
-      if (filters.customer?.length) cleanFilters.customer = filters.customer.join(',');
-      if (filters.service?.length) cleanFilters.service = filters.service.join(',');
-      if (filters.status?.length) cleanFilters.status = filters.status.join(',');
-      if (filters.employee?.length) cleanFilters.employee = filters.employee.join(',');
-      if (filters.equipment?.length) cleanFilters.equipment = filters.equipment.join(',');
-      if (filters.item?.length) cleanFilters.item = filters.item.join(',');
-      if (filters.customerEquipment?.length) cleanFilters.customerEquipment = filters.customerEquipment.join(',');
-      if (filters.areas?.length) cleanFilters.areas = filters.areas.join(',');
-      if (filters.sectors?.length) cleanFilters.sectors = filters.sectors.join(',');
+      // Ahora pasamos los arrays directamente al servidor
+      if (filters.customer?.length) cleanFilters.customer = filters.customer;
+      if (filters.service?.length) cleanFilters.service = filters.service;
+      if (filters.status?.length) cleanFilters.status = filters.status;
+      if (filters.employee?.length) cleanFilters.employee = filters.employee;
+      if (filters.equipment?.length) cleanFilters.equipment = filters.equipment;
+      if (filters.item?.length) cleanFilters.item = filters.item;
+      if (filters.customerEquipment?.length) cleanFilters.customerEquipment = filters.customerEquipment;
+      if (filters.areas?.length) cleanFilters.areas = filters.areas;
+      if (filters.sectors?.length) cleanFilters.sectors = filters.sectors;
 
       if (filters.dateFrom instanceof Date) {
         const y = filters.dateFrom.getFullYear();
@@ -497,6 +498,131 @@ export default function DailyReportWrapper() {
     return transformDailyReports(rawTableData);
   }, [rawTableData]);
 
+  const filterableColumns = useMemo(() => {
+    // Si no hay datos, no se crean filtros
+    if (!formattedData.length) return [];
+
+    return [
+      {
+        columnId: 'date',
+        title: 'Rango de Fechas',
+        type: 'date-range' as const,
+        showFrom: true,
+        showTo: true,
+        fromPlaceholder: 'Desde',
+        toPlaceholder: 'Hasta',
+        defaultValues: { from: null, to: null },
+      },
+      {
+        columnId: 'customer',
+        title: 'Cliente',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.customer).filter(Boolean))).map((customer) => ({
+          value: customer,
+          label: customer,
+        })),
+      },
+      {
+        columnId: 'services',
+        title: 'Servicio',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.services).filter(Boolean))).map((service) => ({
+          value: service,
+          label: service,
+        })),
+      },
+      {
+        columnId: 'item',
+        title: 'Ítem',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.item).filter(Boolean))).map((item) => ({
+          value: item,
+          label: item,
+        })),
+      },
+      {
+        columnId: 'type_service',
+        title: 'Tipo de Servicio',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.type_service).filter(Boolean))).map((type) => ({
+          value: type,
+          label: type,
+        })),
+      },
+      {
+        columnId: 'status',
+        title: 'Estado',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.status).filter(Boolean))).map((status) => ({
+          value: status,
+          label: status.replace(/_/g, ' '),
+        })),
+      },
+      {
+        columnId: 'employees',
+        title: 'Empleados',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.flatMap((d) => d.employees).filter(Boolean))).map((employee) => ({
+          value: employee,
+          label: employee,
+        })),
+      },
+      {
+        columnId: 'equipment',
+        title: 'Equipo Empresa',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.flatMap((d) => d.equipment).filter(Boolean))).map((eq) => ({
+          value: eq,
+          label: eq,
+        })),
+      },
+      {
+        columnId: 'customer_equipment',
+        title: 'Equipo Cliente',
+        type: 'select' as const,
+        options: Array.from(
+          new Set(formattedData.flatMap((d) => d.customer_equipment.map((eq: any) => eq.name)).filter(Boolean))
+        ).map((eq) => ({
+          value: eq,
+          label: eq,
+        })),
+      },
+      {
+        columnId: 'area',
+        title: 'Área',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.area).filter(Boolean))).map((area) => ({
+          value: area,
+          label: area,
+        })),
+      },
+      {
+        columnId: 'sector',
+        title: 'Sector',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.sector).filter(Boolean))).map((sector) => ({
+          value: sector,
+          label: sector,
+        })),
+      },
+      {
+        columnId: 'remit_number',
+        title: 'N° de Remito',
+        type: 'text' as const,
+        placeholder: 'Buscar por remito',
+      },
+      {
+        columnId: 'working_day',
+        title: 'Jornada',
+        type: 'select' as const,
+        options: Array.from(new Set(formattedData.map((d) => d.working_day).filter(Boolean))).map((day) => ({
+          value: day,
+          label: day,
+        })),
+      },
+    ];
+  }, [formattedData]);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -708,6 +834,7 @@ export default function DailyReportWrapper() {
                 onView={handleViewRow}
                 onViewHistory={handleViewHistory}
                 showActions={true}
+                filterableColumns={filterableColumns as any}
               />
             ) : (
               <div className="text-center py-12">
