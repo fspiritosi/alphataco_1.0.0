@@ -4,11 +4,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import DocumentUploadModal from '@/features/Operaciones/PartesDiarios/components/DocumentUploadModal';
+import DocumentViewerModal from '@/features/Operaciones/PartesDiarios/components/DocumentViewerFixed';
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
 import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/components/ServiceDetailModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Edit, Eye } from 'lucide-react';
+import { ArrowUpDown, Edit } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 // Se ha modificado la interfaz para que customer_equipment acepte un array de objetos
 interface TableRow {
@@ -34,7 +35,7 @@ interface TableRow {
   area?: string;
   sector?: string;
   remit_number?: string;
-  document_url?: string;
+  document_path?: string;
 }
 
 interface EnhancedComercialReportTableProps {
@@ -292,31 +293,31 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           return value.includes(workingDay);
         },
       },
-      {
-        id: 'document_url',
-        accessorKey: 'document_url',
-        header: 'Documento',
-        cell: ({ row }) => {
-          const url = row.original.document_url;
-          return url ? (
-            <div className="flex justify-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  window.open(url, '_blank');
-                }}
-                className="h-8 w-8 p-0"
-              >
-                <Eye className="h-4 w-4" />
-                <span className="sr-only">Ver documento</span>
-              </Button>
-            </div>
-          ) : (
-            <span>-</span>
-          );
-        },
-      },
+      // {
+      //   id: 'document_path',
+      //   accessorKey: 'document_path',
+      //   header: 'Documento',
+      //   cell: ({ row }) => {
+      //     const url = row.original.document_path;
+      //     return url ? (
+      //       <div className="flex justify-center">
+      //         <Button
+      //           variant="ghost"
+      //           size="icon"
+      //           onClick={() => {
+      //             window.open(url, '_blank');
+      //           }}
+      //           className="h-8 w-8 p-0"
+      //         >
+      //           <Eye className="h-4 w-4" />
+      //           <span className="sr-only">Ver documento</span>
+      //         </Button>
+      //       </div>
+      //     ) : (
+      //       <span>-</span>
+      //     );
+      //   },
+      // },
     ];
 
     if (showActions) {
@@ -365,7 +366,12 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {isEnCertificacion && <DocumentUploadModal documentData={row.original as any} />}
+              {isEnCertificacion &&
+                (row.original.document_path ? (
+                  <DocumentViewerModal documentUrl={row.original.document_path} documentData={row.original as any} />
+                ) : (
+                  <DocumentUploadModal documentData={row.original as any} />
+                ))}
             </div>
           );
         },
@@ -376,8 +382,8 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
   }, [onEdit, onView, onViewHistory, showActions, filterableColumns]);
 
   const handleRowClick = useCallback((row: TableRow) => {
-    if (row.document_url) {
-      window.open(row.document_url, '_blank');
+    if (row.document_path) {
+      window.open(row.document_path, '_blank');
     }
   }, []);
 
@@ -389,7 +395,6 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           data={dailyReports}
           savedVisibility={{}}
           tableId="enhanced-comercial-report-table"
-          onRowClick={handleRowClick}
           className="w-full"
           row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
           toolbarOptions={{
