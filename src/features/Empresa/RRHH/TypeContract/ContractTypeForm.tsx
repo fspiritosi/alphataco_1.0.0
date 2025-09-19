@@ -1,16 +1,21 @@
 'use client';
+
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
+import { fetchDependenciesForValue } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { createContractType, deleteContractType, updateContractType } from '../actions/actions';
+
 const ContractTypeSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: 'Debe ingresar el nombre del tipo de contrato' }),
@@ -31,6 +36,23 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
   const { reset } = form;
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(!!editingContractType);
+  const [showDependencyModal, setShowDependencyModal] = useState(false);
+
+  // Configuración reutilizable para validar dependencias de types_of_contract
+  const dependencyConfigs = useMemo<DependencyConfig[]>(
+    () => [
+      {
+        sourceTable: 'types_of_contract',
+        sourceColumn: 'name',
+        targetTable: 'employees',
+        targetColumn: 'type_of_contract',
+        displayColumns: ['lastname', 'firstname', 'cuil', 'file'],
+        displayLabels: ['Apellido', 'Nombre', 'Documento', 'Legajo'],
+        relationName: 'Empleados',
+      },
+    ],
+    []
+  );
 
   useEffect(() => {
     if (editingContractType) {
@@ -64,7 +86,7 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
           resetForm();
           return 'Tipo de contrato creado correctamente';
         },
-        error: (error) => {
+        error: () => {
           return 'Error al crear el tipo de contrato';
         },
       }
@@ -83,7 +105,7 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
           resetForm();
           return 'Tipo de contrato eliminado correctamente';
         },
-        error: (error) => {
+        error: () => {
           return 'Error al eliminar el tipo de contrato';
         },
       }
@@ -107,7 +129,7 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
           resetForm();
           return 'Tipo de contrato actualizado correctamente';
         },
-        error: (error) => {
+        error: () => {
           return 'Error al actualizar el tipo de contrato';
         },
       }
@@ -115,7 +137,15 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
   };
 
   const handleSubmit = (values: z.infer<typeof ContractTypeSchema>) => {
-    if (isEditing) {
+    if (isEditing && editingContractType) {
+      const prevActive = !!editingContractType.is_active;
+      const nextActive = values.is_active === 'true';
+
+      // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
+      if (prevActive && !nextActive) {
+        setShowDependencyModal(true);
+        return; // No ejecutar update aún, el modal decidirá
+      }
       onUpdate(values);
     } else {
       onSubmit(values);
@@ -134,6 +164,79 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
 
   const handleCancel = () => {
     resetForm();
+  };
+
+  // Función de fetch que usará el Modal (tipado genérico reutilizable basado en la utilidad)
+  const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
+    // Solicitamos solo las columnas que se van a mostrar
+    const select = config.displayColumns.join(',') as '*';
+
+    const data = await fetchDependenciesForValue<'employees', 'type_of_contract'>({
+      targetTable: 'employees',
+      targetColumn: 'type_of_contract',
+      value: recordKeyValue,
+      select,
+      limit: 10,
+    });
+
+    return data;
+  };
+
+  // Opciones de reemplazo: traer valores activos de la tabla origen (types_of_contract)
+  // Nota: Para este caso, usamos la columna por defecto 'is_active'. Si en otras tablas cambia, podemos generalizar luego.
+  const fetchReplacementOptions = async (
+    config: DependencyConfig,
+    excludeId?: string
+  ): Promise<{ id: string; name: string }[]> => {
+    const supabase = supabaseBrowser();
+    const table = config.sourceTable;
+
+    const { data, error } = await supabase
+      .from(table)
+      .select(`${config.sourceColumn}, id`)
+      .eq('is_active', true)
+      .neq('id', excludeId || '')
+      .order(config.sourceColumn, { ascending: true });
+
+    if (error) throw error;
+
+    const rows = (data as any[]) || [];
+    // Devolvemos id = valor a escribir en la columna dependiente (name), y name como etiqueta
+    return rows.map((row) => ({ id: String(row.id), name: String(row[config.sourceColumn]) }));
+  };
+
+  const handleDependencyConfirm = async (action: 'force' | 'replace', replacementValue?: string) => {
+    setShowDependencyModal(false);
+
+    if (!editingContractType) return;
+
+    // Confirmación sin reemplazo: solo desactivar el registro
+    if (action === 'force') {
+      const values = form.getValues();
+      await onUpdate(values);
+      return;
+    }
+
+    // Reemplazo masivo y luego desactivar
+    if (action === 'replace') {
+      try {
+        const supabase = supabaseBrowser();
+
+        const { error } = await supabase
+          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
+          .update({
+            [dependencyConfigs[0].targetColumn]: replacementValue === '__NULL__' ? replacementValue : null,
+          } as any)
+          .eq(dependencyConfigs[0].targetColumn, editingContractType.id);
+
+        // Ahora sí, desactivar el registro actual
+        const values = form.getValues();
+        await onUpdate(values);
+      } catch (err) {
+        console.error('Error al reemplazar referencias:', err);
+        toast.error('No se pudieron reemplazar las referencias');
+      }
+    }
   };
 
   return (
@@ -212,6 +315,22 @@ export default function ContractTypeForm({ editingContractType }: { editingContr
           )}
         </div>
       </form>
+
+      {/* Modal de validación de dependencias reutilizable */}
+      {isEditing && editingContractType && (
+        <DependencyValidationModal
+          isOpen={showDependencyModal}
+          onClose={() => setShowDependencyModal(false)}
+          onConfirm={handleDependencyConfirm}
+          recordId={editingContractType.id || ''}
+          recordName={editingContractType.name || ''}
+          dependencies={dependencyConfigs}
+          title="Confirmar desactivación"
+          description="Este tipo de contrato está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
+          fetchDependencies={fetchDependencies}
+          fetchReplacementOptions={fetchReplacementOptions}
+        />
+      )}
     </Form>
   );
 }

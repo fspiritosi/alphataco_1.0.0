@@ -3,7 +3,8 @@
 import { getEmployeeById } from '@/app/server/GET/actions';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { fetchAllAptitudesTecnicas, fetchAllContractTypes } from '@/features/Empresa/RRHH/actions/actions';
+import { fetchAllContractTypes } from '@/features/Empresa/RRHH/TypeContract/actions/actions';
+import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
 import { cn } from '@/lib/utils';
 import { fetchCountrys } from '@/shared/actions/employees.actions';
 import { useEmployeeFormReset } from '@/store/employeeFormReset';

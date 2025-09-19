@@ -24,7 +24,8 @@ import {
   fetchProvinces,
   fetchWorkflowDiagrams,
 } from '@/features/Employees/EmpleadoID/lib/actions/catalog-actions';
-import { fetchAllAptitudesTecnicas, fetchAllContractTypes } from '@/features/Empresa/RRHH/actions/actions';
+import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
+import { fetchAllContractTypes } from '@/features/Empresa/RRHH/TypeContract/actions/actions';
 import { fetchCountrys } from '@/shared/actions/employees.actions';
 import moment from 'moment';
 import { cookies } from 'next/headers';
