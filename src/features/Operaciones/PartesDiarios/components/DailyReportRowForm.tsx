@@ -391,6 +391,7 @@ export function DailyReportForm({
         // Actualizar la lista
 
         // Cerrar el modal y limpiar
+        refetchDailyReport();
         document.getElementById('close-button-daily-report')?.click();
         await refetchDailyReport();
         // Si estamos en modo edición, limpiar el selectedRow
@@ -427,7 +428,6 @@ export function DailyReportForm({
         error: selectedRow ? 'Error al actualizar parte diario' : 'Error al crear parte diario',
       }
     );
-    // refetchDailyReport();
   };
 
   useEffect(() => {

@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
 import ContractTypesTab from './ContractTypeTab';
-import { fetchAllContractTypes } from './actions/actions';
+import { fetchAllContractTypesIncludesInactive } from './actions/actions';
 
 export default async function ContractTypeTabWrapper() {
   const cookiesStore = cookies();
 
   // Fetch data
-  const allContractTypes = await fetchAllContractTypes();
+  const allContractTypes = await fetchAllContractTypesIncludesInactive();
 
   // Get cookies
   const savedVisibilityContractTypes = cookiesStore.get('contract-type-table')?.value;

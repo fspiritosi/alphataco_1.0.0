@@ -1,7 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cookies } from 'next/headers';
 import ContractTypesTab from './TypeContract/ContractTypeTab';
-import { fetchAllContractTypes } from './actions/actions';
+import { fetchAllContractTypesIncludesInactive } from './TypeContract/actions/actions';
 
 type ContractType = {
   id: string;
@@ -16,7 +16,7 @@ interface RecursoHumanosProps {
 }
 
 export default async function RecursoHumanos({ company_id, contractTypes = [] }: RecursoHumanosProps) {
-  const allContractTypes = await fetchAllContractTypes();
+  const allContractTypes = await fetchAllContractTypesIncludesInactive();
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get('contract-type-table')?.value;
   const savedFilter = cookiesStore.get('contract-type-table-filters')?.value;
