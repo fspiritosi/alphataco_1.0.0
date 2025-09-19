@@ -11,6 +11,10 @@ import { fetchAllReportData, fetchEmployeesDiagramData } from '../lib/actions/re
 
 type DiagramReportData = Awaited<ReturnType<typeof fetchEmployeesDiagramData>>['rows'][0];
 
+type ExtendedColumnDef<TData> = ColumnDef<TData> & {
+  exportFormatter?: (value: any, row: TData) => string;
+  excludeFromExport?: boolean;
+};
 function TableReportDiagram({
   initialData,
   savedFilters,
@@ -23,7 +27,7 @@ function TableReportDiagram({
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
     const result = await fetchAllReportData({
       pageIndex: 0,
-      pageSize: 1000000,
+      pageSize: 100000,
       sorting: options.sorting,
       columnFilters: options.columnFilters,
       server: false,
@@ -32,7 +36,7 @@ function TableReportDiagram({
   };
 
   // Definición de columnas
-  const columns: ColumnDef<DiagramReportData>[] = [
+  const columns: ExtendedColumnDef<DiagramReportData>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -51,6 +55,7 @@ function TableReportDiagram({
       ),
       enableSorting: false,
       enableHiding: false,
+      excludeFromExport: true,
     },
     {
       accessorKey: 'employees.cuil',
@@ -104,6 +109,9 @@ function TableReportDiagram({
           `${row.original?.employees?.lastname || ''} ${row.original?.employees?.firstname || ''}`.toLowerCase();
         return typeof value === 'string' ? fullName.includes(value.toLowerCase()) : false;
       },
+      exportFormatter: (value, row) => {
+        return `${row.employees.lastname} ${row.employees.firstname}`;
+      },
     },
     {
       accessorKey: 'employees.company_positions.name',
@@ -137,6 +145,9 @@ function TableReportDiagram({
       },
       enableSorting: false,
       enableHiding: false,
+      exportFormatter: (value, row) => {
+        return moment(`${row.year}-${row.month}-${row.day}`).format('DD/MM/YYYY');
+      },
     },
     {
       accessorKey: 'diagram_type.short_description',
