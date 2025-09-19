@@ -33,7 +33,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
       customer: row.customers?.name,
       cancel_reason: row.cancel_reason,
       employees: row.dailyreportemployeerelations.map(
-        (rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname
+        (rel) => rel.employees?.lastname + ' ' + rel.employees?.firstname
       ),
       equipment:
         row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
@@ -63,7 +63,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
       remit_number: row.remit_number,
       employees_references: row.dailyreportemployeerelations.map((rel) => ({
         ...rel.employees,
-        name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
+        name: rel.employees?.lastname + ' ' + rel.employees?.firstname,
         id: rel.employees?.id,
       })),
       equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
