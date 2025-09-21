@@ -90,7 +90,7 @@ export const dailyReportSchema = z
     status: z.string().default('pendiente'),
     description: z.string().optional(),
     document_path: z.string().optional(),
-    sector_service_id: z.string().optional(),
+    sector_service_id: z.string().min(1, 'Debe seleccionar un sector'),
     areas_service_id: z.string().optional(),
     remit_number: z.string().optional(),
     cancel_reason: z.string().optional(),
