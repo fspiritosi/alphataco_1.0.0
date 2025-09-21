@@ -191,7 +191,19 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
   const handleSubmit = async (formData: PreparteItem) => {
     try {
       if (isEditing && currentItem?.id) {
-        // Update existing preparte
+        // Manejar la imagen si está presente
+        let imageUrl: string | null = currentItem.preparteImage || null;
+        if (formData.image_url && formData.image_url !== currentItem.preparteImage) {
+          const cliente = Customers.find((c) => c.id === currentItem?.cliente_id);
+          const contrato = contratos.find((c) => c.id === currentItem?.contrato_id);
+          imageUrl = await movePreparteFile(
+            formData.image_url,
+            cliente?.name || 'empresa',
+            contrato?.service_name || 'servicio',
+            formData.numero_pedido || ''
+          );
+        }
+
         const updatedPreparte = {
           ...formData,
           id: currentItem.id,
@@ -209,8 +221,8 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           sector_service_id: formData.sector_service_id ?? '',
           areas_service_id: formData.areas_service_id ?? '',
           equipos_cliente: formData.equipos_cliente ?? [],
-          // persistir en columna DB
-          preparteImage: formData.image_url || currentItem.preparteImage || null,
+          // persistir en columna DB (procesada)
+          preparteImage: imageUrl,
         };
 
         await updatePreparte(currentItem.id, updatedPreparte as any);

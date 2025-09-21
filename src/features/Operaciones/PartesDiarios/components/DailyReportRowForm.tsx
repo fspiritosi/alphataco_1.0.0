@@ -393,7 +393,7 @@ export function DailyReportForm({
         // Cerrar el modal y limpiar
         refetchDailyReport();
         document.getElementById('close-button-daily-report')?.click();
-
+        await refetchDailyReport();
         // Si estamos en modo edición, limpiar el selectedRow
         if (selectedRow) {
           setSelectedRow(null);
