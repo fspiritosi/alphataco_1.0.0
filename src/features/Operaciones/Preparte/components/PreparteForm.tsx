@@ -373,6 +373,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       label: cliente.name,
                       value: cliente.id,
                     }))}
+                    disabled={isEditing}
                     selectedValues={field.value ? [field.value] : []} // Asegurar que sea un array
                     onChange={(selectedIds) => {
                       const value = selectedIds[0] || '';
@@ -416,7 +417,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     }}
                     placeholder={contratos.find((c) => c.id === field.value)?.service_name || 'Seleccionar contrato'}
                     emptyMessage="No hay contratos disponibles"
-                    disabled={!form.watch('cliente_id') || isLoading}
+                    disabled={!form.watch('cliente_id') || isLoading || isEditing}
                     maxSelections={1} // Para selección única
                   />
                   <FormMessage />
@@ -436,6 +437,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       <FormControl>
                         <Button
                           variant="outline"
+                          disabled={isEditing}
                           className={cn(
                             'w-full justify-start text-left font-normal',
                             !field.value && 'text-muted-foreground'
@@ -478,6 +480,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       <FormControl>
                         <Button
                           variant="outline"
+                          disabled={isEditing}
                           className={cn(
                             'w-full justify-start text-left font-normal',
                             !field.value && 'text-muted-foreground'
@@ -547,7 +550,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormLabel>Jornada</FormLabel>
                   <FormControl>
                     <Select onValueChange={(value) => form.setValue('jornada', value)} value={field.value}>
-                      <SelectTrigger className="bg-background">
+                      <SelectTrigger className="bg-background" disabled={isEditing}>
                         <SelectValue placeholder="Seleccionar jornada">
                           {field.value ? field.value : 'Seleccionar jornada'}
                         </SelectValue>
@@ -601,6 +604,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
+                      disabled={isEditing}
                       defaultValue={field.value}
                       className="flex flex-col space-y-1"
                     >
@@ -652,7 +656,12 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 <FormItem>
                   <FormLabel>Solicitante</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ingrese el solicitante" className="bg-background" {...field} />
+                    <Input
+                      placeholder="Ingrese el solicitante"
+                      className="bg-background"
+                      {...field}
+                      disabled={isEditing}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -889,7 +898,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                           ? sectorOptions.find((o) => o.value === field.value)?.label || 'Seleccionar sector'
                           : 'Seleccionar sector'
                       }
-                      disabled={!selectedCustomer || !selectedServiceId}
+                      disabled={!selectedCustomer || !selectedServiceId || isEditing}
                       emptyMessage={
                         !selectedCustomer || !selectedServiceId
                           ? 'Seleccione un cliente y contrato'
@@ -949,7 +958,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                           ? areaOptions.find((o) => o.value === field.value)?.label || 'Seleccionar área'
                           : 'Seleccionar área'
                       }
-                      disabled={!selectedCustomer || !selectedServiceId}
+                      disabled={!selectedCustomer || !selectedServiceId || isEditing}
                       emptyMessage={
                         !selectedCustomer || !selectedServiceId
                           ? 'Seleccione un cliente y contrato'
@@ -982,7 +991,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       placeholder={
                         selectedValues.length > 0 ? `${selectedValues.length} seleccionado(s)` : 'Seleccionar equipos'
                       }
-                      disabled={!selectedCustomer || !selectedServiceId}
+                      disabled={!selectedCustomer || !selectedServiceId || isEditing}
                       emptyMessage={
                         !selectedCustomer || !selectedServiceId
                           ? 'Seleccione un cliente y contrato'
@@ -1038,7 +1047,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                               }}
                               placeholder="Seleccionar item"
                               emptyMessage="No hay items disponibles"
-                              disabled={!form.getValues('contrato_id') || isLoading}
+                              disabled={!form.getValues('contrato_id') || isLoading || isEditing}
                               maxSelections={1}
                             />
                           </div>
@@ -1049,7 +1058,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                               type="number"
                               min="1"
                               value={row.quantity}
-                              disabled={!row.id}
+                              disabled={!row.id || isEditing}
                               onChange={(e) => {
                                 const newQuantity = parseInt(e.target.value) || 1;
                                 updateItemRow(row.id, { quantity: newQuantity });
@@ -1072,6 +1081,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                               type="button"
                               variant="ghost"
                               size="icon"
+                              disabled={isEditing}
                               onClick={() => {
                                 handleRemoveItem(row.id);
                                 // Update form value after removal
@@ -1093,7 +1103,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     })}
                     {!isEditing && selectedItems.some((item) => item.id) && (
                       <div className="flex justify-center mt-4">
-                        <Button type="button" variant="outline" size="sm" onClick={handleAddItem}>
+                        <Button type="button" variant="outline" size="sm" onClick={handleAddItem} disabled={isEditing}>
                           <Plus className="mr-2 h-4 w-4" />
                           Agregar ítem
                         </Button>
