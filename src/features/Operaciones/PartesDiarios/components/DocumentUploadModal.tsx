@@ -204,6 +204,7 @@ export default function DocumentUploadModal({ documentData }: DocumentUploadModa
       setUploadStatus('error');
       toast.error(error instanceof Error ? error.message : 'Error al subir el documento');
     }
+    router.refresh();
   };
 
   const getFileIcon = () => {

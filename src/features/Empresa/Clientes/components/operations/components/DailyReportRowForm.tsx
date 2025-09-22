@@ -124,6 +124,18 @@ export const dailyReportSchema = z
       message: 'La fecha de reprogramación es obligatoria cuando el estado es "Reprogramado"',
       path: ['reprogram_date'],
     }
+  )
+  .refine(
+    (data) => {
+      if (data.status === 'en_certificacion') {
+        return data.remit_number && data.remit_number.trim() !== '';
+      }
+      return true;
+    },
+    {
+      message: 'El número de remito es obligatorio cuando el estado es "En certificación"',
+      path: ['remit_number'],
+    }
   );
 export type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 type CustomersArray = Awaited<ReturnType<typeof getCustomers>>;
@@ -178,29 +190,36 @@ export function DailyReportForm({
   const currentEquipmentWatch = form.watch('equipment');
   const currentStatus = form.watch('status');
 
-  const checkEmployeeDuplicates = (employeeIds: string[]) => {
-    if (!formattedData || !employeeIds?.length) return [];
-    const duplicates: string[] = [];
-    employeeIds.forEach((employeeId) => {
-      const duplicateRows = formattedData.filter((row) => {
-        if (selectedRow && row.id === selectedRow.id) return false;
-        return row.employees_references?.some((emp) => emp.id === employeeId);
-      });
-    });
-    return duplicates;
-  };
+  // Re-validar el formulario cuando cambie el status
+  // useEffect(() => {
+  //   if (currentStatus === 'en_certificacion') {
+  //     form.trigger('remit_number');
+  //   }
+  // }, [currentStatus, form]);
 
-  const checkEquipmentDuplicates = (equipmentIds: string[]) => {
-    if (!formattedData || !equipmentIds?.length) return [];
-    const duplicates: string[] = [];
-    equipmentIds.forEach((equipmentId) => {
-      const duplicateRows = formattedData.filter((row) => {
-        if (selectedRow && row.id === selectedRow.id) return false;
-        return row.equipment_references?.some((eq) => eq.id === equipmentId);
-      });
-    });
-    return duplicates;
-  };
+  // const checkEmployeeDuplicates = (employeeIds: string[]) => {
+  //   if (!formattedData || !employeeIds?.length) return [];
+  //   const duplicates: string[] = [];
+  //   employeeIds.forEach((employeeId) => {
+  //     const duplicateRows = formattedData.filter((row) => {
+  //       if (selectedRow && row.id === selectedRow.id) return false;
+  //       return row.employees_references?.some((emp) => emp.id === employeeId);
+  //     });
+  //   });
+  //   return duplicates;
+  // };
+
+  // const checkEquipmentDuplicates = (equipmentIds: string[]) => {
+  //   if (!formattedData || !equipmentIds?.length) return [];
+  //   const duplicates: string[] = [];
+  //   equipmentIds.forEach((equipmentId) => {
+  //     const duplicateRows = formattedData.filter((row) => {
+  //       if (selectedRow && row.id === selectedRow.id) return false;
+  //       return row.equipment_references?.some((eq) => eq.id === equipmentId);
+  //     });
+  //   });
+  //   return duplicates;
+  // };
 
   const equipmentHasChanged = selectedRow?.equipment_references
     ? selectedRow.equipment_references.length > (currentEquipmentWatch?.length || 0) ||
@@ -218,6 +237,7 @@ export function DailyReportForm({
       const isChangingToCertificacion = data.status === 'en_certificacion';
       if (isChangingToCertificacion) {
         if (!data.remit_number) {
+          form.trigger('remit_number');
           toast.error('El número de remito es obligatorio para el estado "En certificación".');
           return;
         }
@@ -245,6 +265,7 @@ export function DailyReportForm({
       console.error('Error al actualizar el parte diario:', error);
       toast.error('Error al actualizar el parte diario.');
     }
+    refetchDailyReport();
     router.refresh();
   };
   // En tu archivo DailyReportRowForm.tsx
@@ -924,11 +945,7 @@ export function DailyReportForm({
                 </div>
                 {/* Empleados */}
                 <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
-                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Badge className="h-4 w-4" />
-                    Empleados Asignados
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                  <div className="pt-2 gap-4 w-full">
                     <FormField
                       control={form.control}
                       name="employees"
@@ -947,9 +964,9 @@ export function DailyReportForm({
                       name="equipment"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Equipos Propios</FormLabel>
+                          <FormLabel>Equipos Empresa</FormLabel>
                           <FormControl>
-                            <Input disabled={true} value={selectedRow?.company_equipment?.join(', ') || ''} />
+                            <Input disabled={true} value={selectedRow?.equipment?.join(', ') || ''} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -958,47 +975,38 @@ export function DailyReportForm({
                     <FormField
                       control={form.control}
                       name="equipos_cliente"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Equipos de Cliente</FormLabel>
-                          <FormControl>
-                            <Input disabled={true} value={selectedRow?.customer_equipment?.join(', ') || ''} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="remit_number"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número de remito</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Número de remito"
-                              disabled={currentStatus !== 'en_certificacion' || disabled}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        // Extraer solo los nombres de los equipos si es un array de objetos
+                        const equipmentNames = Array.isArray(selectedRow?.customer_equipment)
+                          ? selectedRow.customer_equipment
+                              .map((eq: any) =>
+                                typeof eq === 'object' ? eq.name || eq.equipment_name || 'Equipo sin nombre' : eq
+                              )
+                              .filter(Boolean)
+                              .join(', ')
+                          : '';
+
+                        return (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Equipos de Cliente</FormLabel>
+                            <FormControl>
+                              <Input disabled={true} value={equipmentNames} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                   </div>
                 </div>
                 {/* Estado */}
                 <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
-                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Badge className="h-4 w-4" />
-                    Estado
-                  </h4>
                   <div className="grid grid-cols-1 gap-4 w-full">
                     <FormField
                       control={form.control}
                       name="status"
                       render={({ field }) => {
-                        const isEditable = field.value === 'ejecutado' && !disabled;
+                        const isEditable = !disabled;
                         const statusOptions = [
                           { value: 'pendiente', label: 'Pendiente' },
                           { value: 'sin_recursos_asignados', label: 'Sin recursos asignados' },
@@ -1008,13 +1016,10 @@ export function DailyReportForm({
                           { value: 'en_certificacion', label: 'En certificación' },
                         ];
 
-                        // Filter options based on current status
-                        const filteredOptions =
-                          field.value === 'ejecutado'
-                            ? statusOptions.filter(
-                                (opt) => opt.value === 'ejecutado' || opt.value === 'en_certificacion'
-                              )
-                            : statusOptions;
+                        // Filter options based on current status - only show ejecutado and en_certificacion
+                        const filteredOptions = statusOptions.filter(
+                          (opt) => opt.value === 'ejecutado' || opt.value === 'en_certificacion'
+                        );
 
                         return (
                           <FormItem>
@@ -1033,11 +1038,37 @@ export function DailyReportForm({
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
+                            <FormMessage>
+                              {form.formState.errors.status && (
+                                <span className="text-error">{form.formState.errors.status.message}</span>
+                              )}
+                            </FormMessage>
                           </FormItem>
                         );
                       }}
                     />
+                  </div>
+                  <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
+                    {/* Número de remito */}
+                    {currentStatus === 'en_certificacion' && (
+                      <FormField
+                        control={form.control}
+                        name="remit_number"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Número de remito</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Número de remito"
+                                disabled={currentStatus !== 'en_certificacion' || disabled}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage>{form.formState.errors.remit_number?.message}</FormMessage>
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
                 </div>
                 {/* Descripción */}
