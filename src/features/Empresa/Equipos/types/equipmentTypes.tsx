@@ -4,9 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 // import { EquipmentType } from '../actions/actions';
 import React from 'react';
+import { FetchTypeOfVehicles } from '../actions/actions';
 import EquipmentTypesForm from './equipmentTypesForm';
 import EquipmentTypesTable from './equipmentTypesTable';
-function EquipmentTypes({ vehicleTypes }: { vehicleTypes: any[] }) {
+function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typeof FetchTypeOfVehicles>> }) {
   // Estado para el tipo de equipo que se está editando
   const [editingType, setEditingType] = useState<any | null>(null);
   const queryClient = React.useMemo(() => new QueryClient(), []);

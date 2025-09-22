@@ -1,5 +1,6 @@
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import type { Database } from '../../../../database.types';
+import { DependencyConfig } from './DependencyValidationModal';
 
 // Helpers de tipos basados en los generados de Supabase
 export type TableName = keyof Database['public']['Tables'];
@@ -45,7 +46,7 @@ export async function fetchDependenciesForValue<
 
   const { data, error, count } = await dataQuery;
   if (error) {
-    console.log('error', error);
+    console.error('error', error);
   }
   if (error) throw error;
 
@@ -55,3 +56,24 @@ export async function fetchDependenciesForValue<
     count: count ?? 0,
   };
 }
+
+export const fetchReplacementOptions = async (
+  config: DependencyConfig,
+  excludeId?: string
+): Promise<{ id: string; name: string }[]> => {
+  const supabase = supabaseBrowser();
+  const table = config.sourceTable;
+
+  const { data, error } = await supabase
+    .from(table)
+    .select(`${config.sourceColumn}, id`)
+    .eq('is_active', true)
+    .neq('id', excludeId || '')
+    .order(config.sourceColumn, { ascending: true });
+
+  if (error) throw error;
+
+  const rows = (data as any[]) || [];
+  // Devolvemos id = valor a escribir en la columna dependiente (name), y name como etiqueta
+  return rows.map((row) => ({ id: String(row.id), name: String(row[config.sourceColumn]) }));
+};
