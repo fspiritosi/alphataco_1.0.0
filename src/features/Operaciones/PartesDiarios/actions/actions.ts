@@ -526,8 +526,6 @@ export async function updateDailyReportStatusAndRemitNumber(
   id: string,
   data: { status: string; remit_number: string }
 ) {
-  console.log(data);
-  console.log(id);
   const supabase = supabaseServer();
 
   const { data: dato, error } = await supabase
@@ -763,8 +761,6 @@ export interface DailyReportRowData {
 }
 export async function updateDailyReportStatus(id: string, newStatus: string) {
   const supabase = supabaseServer();
-  console.log(id);
-  console.log(newStatus);
   const { data: updatedRow, error: updateError } = await supabase
     .from('dailyreportrows')
     .update({

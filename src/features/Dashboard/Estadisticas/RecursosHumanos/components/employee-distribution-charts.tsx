@@ -11,8 +11,6 @@ export default async function EmployeeDistributionCharts() {
       getEmployeesByContractType(),
     ]);
 
-    console.log(contractTypeData);
-
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Gráfico de Género y Posición */}

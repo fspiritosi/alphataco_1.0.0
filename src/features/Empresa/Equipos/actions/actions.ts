@@ -19,12 +19,17 @@ export async function FetchTypeOfVehicles() {
       return [];
     }
 
-    return vehicle_type;
+    if (vehicle_type) {
+      return vehicle_type;
+    }
+    return [];
   } catch (error) {
     console.error(error);
     return [];
   }
 }
+export type FetchTypeOfVehiclesType = Awaited<ReturnType<typeof FetchTypeOfVehicles>>[number];
+
 export async function createTypeOfVehicle({ name, is_active = false }: { name: string; is_active?: boolean }) {
   const supabase = supabaseServer();
   const cookieStore = cookies();

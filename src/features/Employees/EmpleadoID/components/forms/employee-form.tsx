@@ -129,7 +129,6 @@ export function EmployeeForm({ employee, mode, onSave, form, options, activeTab 
   const onSubmit = async (data: EmployeeFormData) => {
     setIsSubmitting(true);
 
-    console.log(data);
     let createdEmployeeId;
     try {
       if (mode === 'new') {

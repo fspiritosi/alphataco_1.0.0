@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FetchTypeOfVehiclesPagination } from '@/features/Empresa/Equipos/actions/actions';
+import { FetchTypeOfVehicles, FetchTypeOfVehiclesPagination } from '@/features/Empresa/Equipos/actions/actions';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -57,7 +57,7 @@ export function getEquipmentTypeColumns(onEdit: (equipmentType: EquipmentType) =
   ];
 }
 interface EquipmentTypesTableProps {
-  vehicleTypes: EquipmentType[];
+  vehicleTypes: Awaited<ReturnType<typeof FetchTypeOfVehicles>>;
   onEdit?: (equipmentType: EquipmentType) => void;
   savedVisibility?: VisibilityState;
   savedFilter?: string[];

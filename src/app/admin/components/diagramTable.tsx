@@ -15,7 +15,7 @@ import { supabase } from '../../../../supabase/supabase';
 import { CreateDialog } from './createDialog';
 
 export default async function DiagramTable() {
-  let { data: diagrams, error } = await supabase.from('work-diagram').select('*');
+  let { data: diagrams, error } = await supabase.from('work_diagram').select('*');
 
   return (
     <Card x-chunk="dashboard-06-chunk-0">

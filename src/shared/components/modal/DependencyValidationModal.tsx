@@ -60,7 +60,6 @@ export default function DependencyValidationModal({
 }: DependencyValidationModalProps) {
   const [dependencyResults, setDependencyResults] = useState<DependencyResult[]>([]);
   const [allReplacementOptions, setAllReplacementOptions] = useState<{ id: string; name: string }[]>([]);
-  console.log(allReplacementOptions);
   const [globalReplacement, setGlobalReplacement] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
@@ -171,8 +170,11 @@ export default function DependencyValidationModal({
                     Selecciona con qué valor reemplazar todas las referencias a {recordName}:
                   </p>
                   <Select value={globalReplacement} onValueChange={setGlobalReplacement}>
-                    <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Seleccionar opción de reemplazo..." />
+                    <SelectTrigger className="bg-white dark:bg-gray-800 dark:text-white">
+                      <SelectValue
+                        className="dark:text-white placeholder:text-white"
+                        placeholder="Seleccionar opción de reemplazo..."
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__NULL__">
@@ -208,7 +210,7 @@ export default function DependencyValidationModal({
                         <div className="mb-4 max-h-32 overflow-y-auto">
                           <div className="grid gap-2">
                             {result.records.map((record, recordIndex) => (
-                              <div key={recordIndex} className="text-sm bg-gray-50 p-2 rounded">
+                              <div key={recordIndex} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
                                 {result.config.displayColumns.map((column, colIndex) => (
                                   <span key={colIndex} className="mr-4">
                                     <strong>{result.config.displayLabels[colIndex]}:</strong> {record[column] || 'N/A'}

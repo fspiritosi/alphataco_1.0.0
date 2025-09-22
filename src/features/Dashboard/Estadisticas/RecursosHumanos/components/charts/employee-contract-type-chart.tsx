@@ -17,7 +17,6 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function EmployeeContractTypeChartComponent({ data }: EmployeeContractTypeChartProps) {
-  console.log(data);
   const [chartData, setChartData] = useState(() => {
     // Contar empleados por tipo de contrato
     const contractCounts = new Map<string, number>();

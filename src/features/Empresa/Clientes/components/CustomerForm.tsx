@@ -103,7 +103,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
           .eq('cuit', values.cuit)
           .single();
 
-        if (customerVerifyError || customerVerify) {
+        if (customerVerifyError || (customerVerify && !isEditing)) {
           throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
         }
 
