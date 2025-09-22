@@ -174,8 +174,7 @@ export default function HistoryModal({
           variant={onlyIcon ? 'ghost' : 'outline'}
           className={cn('flex items-center gap-2 h-8 w-8 p-0', onlyIcon && 'gap-0')}
         >
-          <History className="h-4 w-4" />
-          {onlyIcon ? null : 'Ver Historial'}
+          {onlyIcon ? null : <History className="h-4 w-4" />}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[850px] max-h-[90vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
