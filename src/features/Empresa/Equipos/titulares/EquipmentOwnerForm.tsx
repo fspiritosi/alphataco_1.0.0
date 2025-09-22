@@ -4,9 +4,12 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
+import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FetchEquipmentOwnersType, createEquipmentOwner, updateEquipmentOwner } from './actions/actions';
@@ -29,6 +32,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: EquipmentOwnerFormProps) {
+  const [showDependencyModal, setShowDependencyModal] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -45,6 +49,21 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
     reset,
     formState: { isSubmitting },
   } = form;
+
+  const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
+    // Solicitamos solo las columnas que se van a mostrar
+    const select = config.displayColumns.join(',') as '*';
+
+    const data = await fetchDependenciesForValue<'vehicles', 'owner_id'>({
+      targetTable: 'vehicles',
+      targetColumn: 'owner_id',
+      value: recordKeyValue,
+      select,
+      limit: 10,
+    });
+
+    return data;
+  };
 
   // Resetear el formulario cuando cambia initialData
   useEffect(() => {
@@ -70,6 +89,19 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
   const onSubmit = async (data: FormData) => {
     try {
       if (isEditing && data.id) {
+        const prevActive = !!initialData?.is_active;
+        const nextActive = data.is_active;
+
+        // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
+        if (prevActive && !nextActive) {
+          //Awaite del fetch de dependencias
+          const data = await fetchDependencies(dependencyConfigs[0], initialData?.id!);
+
+          if (data.data.length) {
+            setShowDependencyModal(true);
+            return; // No ejecutar update aún, el modal decidirá
+          }
+        }
         await updateEquipmentOwner({
           id: data.id,
           name: data.name,
@@ -77,6 +109,8 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           cuit: data.cuit,
           contract_type: data.contract_type,
         });
+
+        router.refresh();
       } else {
         await createEquipmentOwner({
           name: data.name,
@@ -102,6 +136,77 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
         description: 'No se pudo guardar el titular. Por favor, inténtalo de nuevo.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const dependencyConfigs = useMemo<DependencyConfig[]>(
+    () => [
+      {
+        sourceTable: 'equipment_owners',
+        sourceColumn: 'name',
+        targetTable: 'vehicles',
+        targetColumn: 'owner_id',
+        displayColumns: ['domain', 'chassis'],
+        displayLabels: ['Dominio', 'Chassis'],
+        relationName: 'Equipos',
+      },
+    ],
+    []
+  );
+
+  const handleDependencyConfirm = async (action: 'force' | 'replace', replacementValue?: string) => {
+    setShowDependencyModal(false);
+
+    if (!initialData?.id) return;
+
+    // Confirmación sin reemplazo: solo desactivar el registro
+    if (action === 'force') {
+      const values = form.getValues();
+      await onSubmit(values);
+      return;
+    }
+
+    // Reemplazo masivo y luego desactivar
+    if (action === 'replace') {
+      try {
+        const supabase = supabaseBrowser();
+        const { error } = await supabase
+          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
+          .update({
+            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
+          } as any)
+          .eq(dependencyConfigs[0].targetColumn, initialData.id);
+
+        if (error) {
+          console.error(error);
+        }
+
+        // Ahora sí, desactivar el registro actual
+        const values = form.getValues();
+        toast;
+        await updateEquipmentOwner({
+          id: values.id!,
+          name: values.name,
+          is_active: values.is_active,
+          cuit: values.cuit,
+          contract_type: values.contract_type,
+        });
+
+        toast({
+          title: 'Titular actualizado correctamente',
+          description: 'El titular ha sido actualizado exitosamente.',
+          variant: 'default',
+        });
+      } catch (err) {
+        console.error('Error al reemplazar referencias:', err);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron reemplazar las referencias',
+          variant: 'destructive',
+        });
+      }
+
+      router.refresh();
     }
   };
   return (
@@ -201,6 +306,22 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
             </Button>
           </div>
         </form>
+
+        {/* Modal de validación de dependencias reutilizable */}
+        {isEditing && initialData && (
+          <DependencyValidationModal
+            isOpen={showDependencyModal}
+            onClose={() => setShowDependencyModal(false)}
+            onConfirm={handleDependencyConfirm}
+            recordId={initialData.id || ''}
+            recordName={initialData.name || ''}
+            dependencies={dependencyConfigs}
+            title="Confirmar desactivación"
+            description="Este subtipo de equipo está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
+            fetchDependencies={fetchDependencies}
+            fetchReplacementOptions={fetchReplacementOptions}
+          />
+        )}
       </Form>
     </div>
   );

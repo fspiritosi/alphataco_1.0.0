@@ -13,9 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createWorkDiagram, updateWorkDiagram } from '@/features/Empresa/RRHH/actions/actions';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
+import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -45,6 +48,26 @@ interface WorkDiagramFormProps {
 }
 
 export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode }: WorkDiagramFormProps) {
+  const [showDependencyModal, setShowDependencyModal] = useState(false);
+
+  // Configuración reutilizable para validar dependencias de types_of_contract
+  const dependencyConfigs = useMemo<DependencyConfig[]>(
+    () => [
+      {
+        sourceTable: 'work_diagram',
+        sourceColumn: 'name',
+
+        targetTable: 'employees',
+        targetColumn: 'workflow_diagram',
+
+        displayColumns: ['lastname', 'firstname', 'cuil', 'file'],
+        displayLabels: ['Apellido', 'Nombre', 'Documento', 'Legajo'],
+        relationName: 'Empleados',
+      },
+    ],
+    []
+  );
+
   const form = useForm<WorkDiagramFormValues>({
     resolver: zodResolver(WorkDiagramSchema),
     defaultValues: {
@@ -67,6 +90,56 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
       })) || [];
 
   const isViewMode = false;
+
+  // Función de fetch que usará el Modal (tipado genérico reutilizable basado en la utilidad)
+  const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
+    // Solicitamos solo las columnas que se van a mostrar
+    const select = config.displayColumns.join(',') as '*';
+
+    const data = await fetchDependenciesForValue<'employees', 'workflow_diagram'>({
+      targetTable: 'employees',
+      targetColumn: 'workflow_diagram',
+      value: recordKeyValue,
+      select,
+      limit: 10,
+    });
+
+    return data;
+  };
+
+  const handleDependencyConfirm = async (action: 'force' | 'replace', replacementValue?: string) => {
+    setShowDependencyModal(false);
+
+    if (!diagram) return;
+
+    // Confirmación sin reemplazo: solo desactivar el registro
+    if (action === 'force') {
+      const values = form.getValues();
+      await onUpdate(values);
+      return;
+    }
+
+    // Reemplazo masivo y luego desactivar
+    if (action === 'replace') {
+      try {
+        const supabase = supabaseBrowser();
+
+        const { error } = await supabase
+          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
+          .update({
+            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
+          } as any)
+          .eq(dependencyConfigs[0].targetColumn, diagram.id);
+
+        // Ahora sí, desactivar el registro actual
+        const values = form.getValues();
+        await onUpdate(values);
+      } catch (err) {
+        console.error('Error al reemplazar referencias:', err);
+        toast.error('No se pudieron reemplazar las referencias');
+      }
+    }
+  };
 
   useEffect(() => {
     if (diagram) {
@@ -110,34 +183,78 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
     );
   };
   const onUpdate = async (values: z.infer<typeof WorkDiagramSchema>) => {
-    toast.promise(
-      async () => {
-        if (!diagram?.id) {
-          toast.error('No diagram ID found');
-          return;
+    if (mode === 'edit' && diagram) {
+      const prevActive = !!diagram.is_active;
+      const nextActive = values.is_active;
+
+      // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
+      if (prevActive && !nextActive) {
+        //Awaite del fetch de dependencias
+        const data = await fetchDependencies(dependencyConfigs[0], diagram.id);
+
+        if (data.data.length) {
+          setShowDependencyModal(true);
+          return; // No ejecutar update aún, el modal decidirá
         }
-        await updateWorkDiagram({
-          id: diagram?.id,
-          name: values.name,
-          is_active: values.is_active,
-          active_working_days: values.active_working_days,
-          inactive_working_days: values.inactive_working_days,
-          active_novelty: values.active_novelty || [],
-          inactive_novelty: values.inactive_novelty || '',
-        });
-      },
-      {
-        loading: 'Actualizando diagrama...',
-        success: () => {
-          router.refresh();
-          reset();
-          return 'Diagrama actualizado correctamente';
-        },
-        error: (error) => {
-          return 'Error al actualizar el diagrama';
-        },
       }
-    );
+      toast.promise(
+        async () => {
+          if (!diagram?.id) {
+            toast.error('No diagram ID found');
+            return;
+          }
+          await updateWorkDiagram({
+            id: diagram?.id,
+            name: values.name,
+            is_active: values.is_active,
+            active_working_days: values.active_working_days,
+            inactive_working_days: values.inactive_working_days,
+            active_novelty: values.active_novelty || [],
+            inactive_novelty: values.inactive_novelty || '',
+          });
+        },
+        {
+          loading: 'Actualizando diagrama...',
+          success: () => {
+            router.refresh();
+            reset();
+            return 'Diagrama actualizado correctamente';
+          },
+          error: (error) => {
+            return 'Error al actualizar el diagrama';
+          },
+        }
+      );
+    } else {
+      toast.promise(
+        async () => {
+          if (!diagram?.id) {
+            toast.error('No diagram ID found');
+            return;
+          }
+          await updateWorkDiagram({
+            id: diagram?.id,
+            name: values.name,
+            is_active: values.is_active,
+            active_working_days: values.active_working_days,
+            inactive_working_days: values.inactive_working_days,
+            active_novelty: values.active_novelty || [],
+            inactive_novelty: values.inactive_novelty || '',
+          });
+        },
+        {
+          loading: 'Actualizando diagrama...',
+          success: () => {
+            router.refresh();
+            reset();
+            return 'Diagrama actualizado correctamente';
+          },
+          error: (error) => {
+            return 'Error al actualizar el diagrama';
+          },
+        }
+      );
+    }
   };
   const onCancel = () => {
     form.reset({
@@ -310,6 +427,22 @@ export default function WorkDiagramForm({ diagramsTypes, diagram, mode, setMode 
             )}
           </div>
         </form>
+
+        {/* Modal de validación de dependencias reutilizable */}
+        {mode === 'edit' && diagram && (
+          <DependencyValidationModal
+            isOpen={showDependencyModal}
+            onClose={() => setShowDependencyModal(false)}
+            onConfirm={handleDependencyConfirm}
+            recordId={diagram.id || ''}
+            recordName={diagram.name || ''}
+            dependencies={dependencyConfigs}
+            title="Confirmar desactivación"
+            description="Este tipo de contrato está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
+            fetchDependencies={fetchDependencies}
+            fetchReplacementOptions={fetchReplacementOptions}
+          />
+        )}
       </Form>
     </div>
   );

@@ -3,15 +3,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
+import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { createTypeOfVehicle, updateTypeOfVehicle } from '../actions/actions';
+import { FetchTypeOfVehicles, createTypeOfVehicle, updateTypeOfVehicle } from '../actions/actions';
 
 interface EquipmentTypesFormProps {
-  initialData?: any | null;
+  initialData?: Awaited<ReturnType<typeof FetchTypeOfVehicles>>[0] | null;
   onReset: () => void;
   isEditing?: boolean;
   onSuccess?: () => void;
@@ -27,6 +30,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, onSuccess }: EquipmentTypesFormProps) {
+  const [showDependencyModal, setShowDependencyModal] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -61,17 +65,32 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
 
   const onSubmit = async (data: FormData) => {
     try {
-      if (isEditing && data.id) {
+      if (isEditing && initialData) {
+        const prevActive = !!initialData.is_active;
+        const nextActive = data.is_active;
+
+        // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
+        if (prevActive && !nextActive) {
+          //Awaite del fetch de dependencias
+          const data = await fetchDependencies(dependencyConfigs[0], initialData.id);
+
+          if (data.data.length) {
+            setShowDependencyModal(true);
+            return; // No ejecutar update aún, el modal decidirá
+          }
+        }
         await updateTypeOfVehicle({
-          id: data.id,
+          id: data.id!,
           name: data.name,
           is_active: data.is_active,
         });
+        router.refresh();
       } else {
         await createTypeOfVehicle({
           name: data.name,
           is_active: data.is_active,
         });
+        router.refresh();
       }
 
       if (onSuccess) onSuccess();
@@ -114,6 +133,82 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
         description: errorMessage,
         variant: 'destructive',
       });
+    }
+  };
+
+  const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
+    // Solicitamos solo las columnas que se van a mostrar
+    const select = config.displayColumns.join(',') as '*';
+
+    const data = await fetchDependenciesForValue<'vehicles', 'type'>({
+      targetTable: 'vehicles',
+      targetColumn: 'type',
+      value: recordKeyValue,
+      select,
+      limit: 10,
+    });
+
+    return data;
+  };
+
+  const dependencyConfigs = useMemo<DependencyConfig[]>(
+    () => [
+      {
+        sourceTable: 'type',
+        sourceColumn: 'name',
+        targetTable: 'vehicles',
+        targetColumn: 'type',
+        displayColumns: ['domain', 'chassis'],
+        displayLabels: ['Dominio', 'Chassis'],
+        relationName: 'Equipos',
+      },
+    ],
+    []
+  );
+
+  const handleDependencyConfirm = async (action: 'force' | 'replace', replacementValue?: string) => {
+    setShowDependencyModal(false);
+
+    if (!initialData?.id) return;
+
+    // Confirmación sin reemplazo: solo desactivar el registro
+    if (action === 'force') {
+      const values = form.getValues();
+      await onSubmit(values);
+      return;
+    }
+
+    // Reemplazo masivo y luego desactivar
+    if (action === 'replace') {
+      try {
+        const supabase = supabaseBrowser();
+        const { error } = await supabase
+          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
+          .update({
+            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
+          } as any)
+          .eq(dependencyConfigs[0].targetColumn, initialData.id);
+
+        if (error) {
+          console.error(error);
+        }
+
+        // Ahora sí, desactivar el registro actual
+        const values = form.getValues();
+        await updateTypeOfVehicle({
+          id: values.id!,
+          name: values.name,
+          is_active: values.is_active,
+        });
+        if (onSuccess) onSuccess();
+      } catch (err) {
+        console.error('Error al reemplazar referencias:', err);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron reemplazar las referencias',
+          variant: 'destructive',
+        });
+      }
     }
   };
   return (
@@ -176,6 +271,21 @@ function EquipmentTypesForm({ initialData = null, onReset, isEditing = false, on
             </Button>
           </div>
         </form>
+        {/* Modal de validación de dependencias reutilizable */}
+        {isEditing && initialData && (
+          <DependencyValidationModal
+            isOpen={showDependencyModal}
+            onClose={() => setShowDependencyModal(false)}
+            onConfirm={handleDependencyConfirm}
+            recordId={initialData.id || ''}
+            recordName={initialData.name || ''}
+            dependencies={dependencyConfigs}
+            title="Confirmar desactivación"
+            description="Este tipo de equipo está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
+            fetchDependencies={fetchDependencies}
+            fetchReplacementOptions={fetchReplacementOptions}
+          />
+        )}
       </Form>
     </div>
   );

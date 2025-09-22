@@ -4,9 +4,12 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
+import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Database } from '../../../../../database.types';
@@ -37,6 +40,7 @@ function EquipmentSubTypesForm({
   onSuccess,
   types,
 }: EquipmentSubTypesFormProps) {
+  const [showDependencyModal, setShowDependencyModal] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -75,12 +79,26 @@ function EquipmentSubTypesForm({
   const onSubmit = async (data: FormData) => {
     try {
       if (isEditing && data.id) {
+        const prevActive = !!initialData.is_active;
+        const nextActive = data.is_active;
+
+        // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
+        if (prevActive && !nextActive) {
+          //Awaite del fetch de dependencias
+          const data = await fetchDependencies(dependencyConfigs[0], initialData.id);
+
+          if (data.data.length) {
+            setShowDependencyModal(true);
+            return; // No ejecutar update aún, el modal decidirá
+          }
+        }
         await updateSubTypeOfVehicle({
           id: data.id,
           name: data.name,
           is_active: data.is_active,
           type_id: data.type_id,
         });
+        router.refresh();
       } else {
         await createSubTypeOfVehicle({
           name: data.name,
@@ -128,6 +146,82 @@ function EquipmentSubTypesForm({
         description: errorMessage,
         variant: 'destructive',
       });
+    }
+  };
+  const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
+    // Solicitamos solo las columnas que se van a mostrar
+    const select = config.displayColumns.join(',') as '*';
+
+    const data = await fetchDependenciesForValue<'vehicles', 'subType'>({
+      targetTable: 'vehicles',
+      targetColumn: 'subType',
+      value: recordKeyValue,
+      select,
+      limit: 10,
+    });
+
+    return data;
+  };
+
+  const dependencyConfigs = useMemo<DependencyConfig[]>(
+    () => [
+      {
+        sourceTable: 'sub_type',
+        sourceColumn: 'name',
+        targetTable: 'vehicles',
+        targetColumn: 'subType',
+        displayColumns: ['domain', 'chassis'],
+        displayLabels: ['Dominio', 'Chassis'],
+        relationName: 'Equipos',
+      },
+    ],
+    []
+  );
+
+  const handleDependencyConfirm = async (action: 'force' | 'replace', replacementValue?: string) => {
+    setShowDependencyModal(false);
+
+    if (!initialData?.id) return;
+
+    // Confirmación sin reemplazo: solo desactivar el registro
+    if (action === 'force') {
+      const values = form.getValues();
+      await onSubmit(values);
+      return;
+    }
+
+    // Reemplazo masivo y luego desactivar
+    if (action === 'replace') {
+      try {
+        const supabase = supabaseBrowser();
+        const { error } = await supabase
+          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
+          .update({
+            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
+          } as any)
+          .eq(dependencyConfigs[0].targetColumn, initialData.id);
+
+        if (error) {
+          console.error(error);
+        }
+
+        // Ahora sí, desactivar el registro actual
+        const values = form.getValues();
+        await updateSubTypeOfVehicle({
+          id: values.id!,
+          name: values.name,
+          is_active: values.is_active,
+          type_id: values.type_id,
+        });
+        if (onSuccess) onSuccess();
+      } catch (err) {
+        console.error('Error al reemplazar referencias:', err);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron reemplazar las referencias',
+          variant: 'destructive',
+        });
+      }
     }
   };
   return (
@@ -214,6 +308,22 @@ function EquipmentSubTypesForm({
             </Button>
           </div>
         </form>
+
+        {/* Modal de validación de dependencias reutilizable */}
+        {isEditing && initialData && (
+          <DependencyValidationModal
+            isOpen={showDependencyModal}
+            onClose={() => setShowDependencyModal(false)}
+            onConfirm={handleDependencyConfirm}
+            recordId={initialData.id || ''}
+            recordName={initialData.name || ''}
+            dependencies={dependencyConfigs}
+            title="Confirmar desactivación"
+            description="Este subtipo de equipo está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
+            fetchDependencies={fetchDependencies}
+            fetchReplacementOptions={fetchReplacementOptions}
+          />
+        )}
       </Form>
     </div>
   );

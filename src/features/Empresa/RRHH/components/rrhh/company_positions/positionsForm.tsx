@@ -3,10 +3,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
+import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { Position } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -31,6 +34,9 @@ interface PositionsFormProps {
 }
 
 function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }: PositionsFormProps) {
+  const initialData = position;
+  const isEditing = mode === 'edit';
+  const [showDependencyModal, setShowDependencyModal] = useState(false);
   const form = useForm<PositionFormValues>({
     resolver: zodResolver(PositionSchema),
     defaultValues: {
@@ -81,6 +87,20 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
         reset();
         setMode('create');
       } else {
+        const prevActive = !!position.is_active;
+        const nextActive = values.is_active;
+
+        // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
+        if (prevActive && !nextActive) {
+          //Awaite del fetch de dependencias
+          const data = await fetchDependencies(dependencyConfigs[0], position.id!);
+
+          if (data.data.length) {
+            setShowDependencyModal(true);
+            return; // No ejecutar update aún, el modal decidirá
+          }
+        }
+
         await updatePosition({
           ...values,
           id: position?.id || '',
@@ -113,6 +133,74 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
     label: item.name,
     value: item.id,
   }));
+  const fetchDependencies = async (config: DependencyConfig, recordKeyValue: string) => {
+    // Solicitamos solo las columnas que se van a mostrar
+    const select = config.displayColumns.join(',') as '*';
+
+    const data = await fetchDependenciesForValue<'employees', 'company_position'>({
+      targetTable: 'employees',
+      targetColumn: 'company_position',
+      value: recordKeyValue,
+      select,
+      limit: 10,
+    });
+
+    return data;
+  };
+
+  const dependencyConfigs = useMemo<DependencyConfig[]>(
+    () => [
+      {
+        sourceTable: 'company_positions',
+        sourceColumn: 'name',
+
+        targetTable: 'employees',
+        targetColumn: 'company_position',
+
+        displayColumns: ['lastname', 'firstname', 'cuil', 'file'],
+        displayLabels: ['Apellido', 'Nombre', 'Documento', 'Legajo'],
+        relationName: 'Empleados',
+      },
+    ],
+    []
+  );
+
+  const handleDependencyConfirm = async (action: 'force' | 'replace', replacementValue?: string) => {
+    setShowDependencyModal(false);
+
+    if (!initialData?.id) return;
+
+    // Confirmación sin reemplazo: solo desactivar el registro
+    if (action === 'force') {
+      const values = form.getValues();
+      await handleSubmit(values);
+      return;
+    }
+
+    // Reemplazo masivo y luego desactivar
+    if (action === 'replace') {
+      try {
+        const supabase = supabaseBrowser();
+        const { error } = await supabase
+          .from(dependencyConfigs[0].targetTable as keyof Database['public']['Tables'])
+          .update({
+            [dependencyConfigs[0].targetColumn]: replacementValue !== '__NULL__' ? replacementValue : null,
+          } as any)
+          .eq(dependencyConfigs[0].targetColumn, initialData.id);
+
+        if (error) {
+          console.error(error);
+        }
+
+        // Ahora sí, desactivar el registro actual
+        const values = form.getValues();
+        await handleSubmit(values);
+        // if (onSuccess) onSuccess();
+      } catch (err) {
+        console.error('Error al reemplazar referencias:', err);
+      }
+    }
+  };
 
   return (
     <Form {...form}>
@@ -222,6 +310,21 @@ function PositionsForm({ position, hierarchicalData, aptitudes, mode, setMode }:
           )}
         </div>
       </form>
+      {/* Modal de validación de dependencias reutilizable */}
+      {isEditing && initialData && (
+        <DependencyValidationModal
+          isOpen={showDependencyModal}
+          onClose={() => setShowDependencyModal(false)}
+          onConfirm={handleDependencyConfirm}
+          recordId={initialData.id || ''}
+          recordName={initialData.name || ''}
+          dependencies={dependencyConfigs}
+          title="Confirmar desactivación"
+          description="Esta posición está siendo utilizado por otros registros. Debe resolver estas referencias antes de desactivarlo."
+          fetchDependencies={fetchDependencies}
+          fetchReplacementOptions={fetchReplacementOptions}
+        />
+      )}
     </Form>
     // </div>
   );
