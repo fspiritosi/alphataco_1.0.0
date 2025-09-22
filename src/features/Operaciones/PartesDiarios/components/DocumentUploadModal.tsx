@@ -190,6 +190,7 @@ export default function DocumentUploadModal({ documentData }: DocumentUploadModa
         {
           loading: 'Subiendo documento...',
           success: (documentUrl) => {
+            router.refresh();
             return 'Documento subido correctamente';
           },
           error: (error) => {
