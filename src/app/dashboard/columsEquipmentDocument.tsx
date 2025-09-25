@@ -681,22 +681,15 @@ export const ExpiredColumsEquipmentDocument: ColumnDef<ReturnType<typeof formatS
             <AlertDialogTrigger asChild>
               {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
             </AlertDialogTrigger>
-            <AlertDialogContent asChild>
-              <AlertDialogHeader>
-                <div className="max-h-[90vh] overflow-y-auto">
-                  <div className="space-y-3">
-                    <div>
-                      <SimpleDocument
-                        resource={applies}
-                        handleOpen={() => handleOpen()}
-                        defaultDocumentId={row.original.id_document_types}
-                        // document={document}
-                        numberDocument={(row.original as any).document_number || row.original.vehicle_id}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </AlertDialogHeader>
+            <AlertDialogContent>
+              <div className="max-h-[90vh] overflow-y-auto">
+                <SimpleDocument
+                  resource={applies}
+                  handleOpen={() => handleOpen()}
+                  defaultDocumentId={row.original.id_document_types}
+                  numberDocument={(row.original as any).document_number || row.original.vehicle_id}
+                />
+              </div>
             </AlertDialogContent>
           </AlertDialog>
         );
