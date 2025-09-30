@@ -49,6 +49,8 @@ interface SearchableColumn {
 
 import { cn } from '@/lib/utils';
 import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
+import { forwardRef } from 'react';
+
 export interface BulkActionProps<TData> {
   enabled?: boolean; // Activar/desactivar funcionalidad
   label?: string; // Etiqueta del botón
@@ -83,22 +85,27 @@ interface DataTableProps<TData, TValue> {
   bulkAction?: BulkActionProps<TData>;
   onColumnFiltersChange?: (filters: Updater<ColumnFiltersState>) => void;
   onRowSelectionChange?: (rows: TData[]) => void;
+  tableRef?: React.RefObject<TableType<TData>>;
 }
 
-export function BaseDataTable<TData, TValue>({
-  columns,
-  data,
-  onRowClick,
-  toolbarOptions,
-  paginationComponent,
-  className = '',
-  tableId,
-  savedVisibility,
-  row_classname,
-  onColumnFiltersChange,
-  enableRowSelection = true,
-  onRowSelectionChange,
-}: DataTableProps<TData, TValue>) {
+export const BaseDataTable = forwardRef<TableType<any>, DataTableProps<any, any>>(function BaseDataTable<TData, TValue>(
+  {
+    columns,
+    data,
+    onRowClick,
+    toolbarOptions,
+    paginationComponent,
+    className = '',
+    tableId,
+    savedVisibility,
+    row_classname,
+    onColumnFiltersChange,
+    enableRowSelection = true,
+    onRowSelectionChange,
+    tableRef,
+  }: DataTableProps<TData, TValue>,
+  ref: React.Ref<TableType<TData>>
+) {
   // Intentar cargar la visibilidad guardada antes del renderizado inicial si hay tableId
   // const savedVisibility = savedColumns
   const cookiesStore = Cookies.get('pageSize-table');
@@ -182,6 +189,9 @@ export function BaseDataTable<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
+  // Exponer el objeto table a través de la ref
+  React.useImperativeHandle(ref, () => table, [table]);
+
   return (
     <div className={`space-y-4 ${className} w-full grid grid-cols-1 relative`}>
       {toolbarOptions && (
@@ -256,4 +266,4 @@ export function BaseDataTable<TData, TValue>({
       )}
     </div>
   );
-}
+});

@@ -7,10 +7,10 @@ import { createFilterOptions } from '@/features/Employees/Empleados/components/u
 import { cn } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { ColumnDef, Table as TableType, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
@@ -553,6 +553,9 @@ export function DayliReportDetailTable({
   const areaOptions = createFilterOptions(formattedData, (area) => area.areas_customer_name);
   const typeServiceOptions = createFilterOptions(formattedData, (area) => area.type_service);
 
+  // Referencia al objeto table de TanStack
+  const tableRef = useRef<TableType<any>>(null);
+
   const handleEditRow = useCallback((row: (typeof formattedData)[0]) => {
     setSelectedRow(row);
     document.getElementById('open-button-daily-report')?.click();
@@ -582,11 +585,16 @@ export function DayliReportDetailTable({
         <ClonarRegistrosButton formattedData={formattedData} selectedRows={selectedRows} />
       </div>
       <BaseDataTable
+        ref={tableRef}
         className="mt-4"
         columns={getDailyReportColumns(handleEditRow, formattedData)}
         data={formattedData || []}
         savedVisibility={savedVisibility}
-        enableRowSelection={(row) => row.original.status !== 'ejecutado'}
+        enableRowSelection={(row) =>
+          row.original.status !== 'ejecutado' &&
+          row.original.status !== 'sin_recursos_asignados' &&
+          row.original.status !== 'reprogramado'
+        }
         tableId="dailyReportTableDetail"
         onRowSelectionChange={(rows) => {
           setSelectedRows(rows);
@@ -667,10 +675,22 @@ export function DayliReportDetailTable({
         isOpen={isBulkEditModalOpen}
         onClose={() => setIsBulkEditModalOpen(false)}
         selectedRows={selectedRows}
-        onSuccess={() => {
+        onSuccess={(updatedRowIds?: string[]) => {
           // Recargar datos o refrescar la tabla
           refetchDailyReport();
-          // O cualquier otra función que recargue los datos
+          // Deseleccionar las filas que fueron actualizadas usando el método nativo de TanStack
+          if (updatedRowIds && tableRef.current) {
+            updatedRowIds.forEach((rowId) => {
+              const row = tableRef.current?.getRowModel().rows.find((r) => r.original.id === rowId);
+              if (row) {
+                row.toggleSelected(false);
+              }
+            });
+          }
+          // También actualizar el estado local
+          if (updatedRowIds) {
+            setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
+          }
         }}
       />
     </>
