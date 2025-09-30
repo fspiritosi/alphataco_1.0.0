@@ -323,7 +323,7 @@ export default function DocumentViewerModal({
                   <Download className="h-4 w-4" />
                   Descargar documento
                 </Button>
-                <HistoryModal dailyReportRowId={documentData.id} />
+                <HistoryModal dailyReportRowId={documentData.id} onlyIcon={true} />
               </div>
             </DialogTitle>
           </DialogHeader>
