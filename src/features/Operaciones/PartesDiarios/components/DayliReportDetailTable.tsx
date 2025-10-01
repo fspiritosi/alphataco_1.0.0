@@ -553,8 +553,8 @@ export function DayliReportDetailTable({
   const areaOptions = createFilterOptions(formattedData, (area) => area.areas_customer_name);
   const typeServiceOptions = createFilterOptions(formattedData, (area) => area.type_service);
 
-  // Referencia al objeto table de TanStack
-  const tableRef = useRef<TableType<any>>(null);
+  // Referencia al objeto table de TanStack con el método clearRowSelection
+  const tableRef = useRef<TableType<DailyReportRow> & { clearRowSelection?: (rowIds?: string[]) => void }>(null);
 
   const handleEditRow = useCallback((row: (typeof formattedData)[0]) => {
     setSelectedRow(row);
@@ -676,21 +676,24 @@ export function DayliReportDetailTable({
         onClose={() => setIsBulkEditModalOpen(false)}
         selectedRows={selectedRows}
         onSuccess={(updatedRowIds?: string[]) => {
-          // Recargar datos o refrescar la tabla
+          // Recargar datos primero para asegurar que estén actualizados
           refetchDailyReport();
-          // Deseleccionar las filas que fueron actualizadas usando el método nativo de TanStack
-          if (updatedRowIds && tableRef.current) {
-            updatedRowIds.forEach((rowId) => {
-              const row = tableRef.current?.getRowModel().rows.find((r) => r.original.id === rowId);
-              if (row) {
-                row.toggleSelected(false);
-              }
-            });
-          }
-          // También actualizar el estado local
-          if (updatedRowIds) {
-            setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
-          }
+
+          // Después de recargar, limpiar la selección local
+          setTimeout(() => {
+            // Actualizar el estado local - esto actualizará la lista de filas seleccionadas
+            if (updatedRowIds && updatedRowIds.length > 0) {
+              setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
+            } else {
+              // Si no hay IDs específicos, limpiar toda la selección
+              setSelectedRows([]);
+            }
+
+            // Usar el método clearRowSelection del BaseDataTable para limpiar la selección interna
+            if (tableRef.current && updatedRowIds && tableRef.current.clearRowSelection) {
+              tableRef.current.clearRowSelection(updatedRowIds);
+            }
+          }, 300); // Esperar a que se actualicen los datos
         }}
       />
     </>
