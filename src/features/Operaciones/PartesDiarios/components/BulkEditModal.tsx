@@ -314,6 +314,7 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
       setTimeout(() => setSeccionCompletada(null), 3000);
 
       // Llamar onSuccess con los IDs de las filas actualizadas para deseleccionarlas
+      // Asegurar que se llamen todos los IDs acumulados de todas las secciones procesadas
       if (onSuccess) {
         onSuccess(selectedRowsIds);
       }
