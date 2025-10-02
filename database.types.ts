@@ -1831,7 +1831,7 @@ export type Database = {
             columns: ['type_of_contract'];
             isOneToOne: false;
             referencedRelation: 'types_of_contract';
-            referencedColumns: ['name'];
+            referencedColumns: ['id'];
           },
           {
             foreignKeyName: 'employees_workflow_diagram_fkey';
@@ -3357,19 +3357,15 @@ export type Database = {
             }
           | { p_date_from: string; p_date_to: string; p_employee_ids: string[] };
         Returns: {
-          can_update: boolean;
           conflict_type: string;
           current_diagram_color: string;
+          current_diagram_id: string;
           current_diagram_name: string;
-          current_diagram_type: string;
           date_formatted: string;
-          day: number;
+          date_value: string;
           employee_id: string;
           employee_name: string;
-          is_used_in_operations: boolean;
-          month: number;
           operation_details: string;
-          year: number;
         }[];
       };
       check_diagram_conflicts_with_operations_v2: {
@@ -3525,6 +3521,21 @@ export type Database = {
           employees_operativos: number;
           employees_used: number;
           indicator: number;
+        }[];
+      };
+      get_employees_not_in_daily_report: {
+        Args: { p_company_id?: string; position_uuids?: string[] };
+        Returns: {
+          company_position: string;
+          cuil: string;
+          diagram_color: string;
+          diagram_short_description: string;
+          diagram_type_id: string;
+          diagram_type_name: string;
+          employee_id: string;
+          firstname: string;
+          lastname: string;
+          position_name: string;
         }[];
       };
       get_services_summary_by_type: {

@@ -5,6 +5,19 @@ import moment from 'moment';
 import { cookies } from 'next/headers';
 // Employee-related actions
 
+export type EmployeeNotInDailyReport = {
+  employee_id: string;
+  firstname: string;
+  lastname: string;
+  cuil: string;
+  company_position: string;
+  position_name: string;
+  diagram_type_id: string;
+  diagram_type_name: string;
+  diagram_color: string;
+  diagram_short_description: string;
+};
+
 export const setNewCompanyUserMetadata = async (company_id: string) => {
   const supabase = adminSupabaseServer();
   const {
@@ -1887,6 +1900,30 @@ export async function getEmployeeIndicator(company_id?: string, p_row_id: string
         indicator: 0,
       },
     ];
+  }
+}
+
+export async function getEmployeesNotInDailyReport(
+  company_id?: string,
+  position_uuids?: string[]
+): Promise<EmployeeNotInDailyReport[]> {
+  const supabase = supabaseServer();
+
+  try {
+    const { data, error }: { data: any; error: any } = await supabase.rpc('get_employees_not_in_daily_report', {
+      p_company_id: company_id || null,
+      position_uuids: position_uuids && position_uuids.length > 0 ? position_uuids : null,
+    });
+
+    if (error) {
+      console.error('Error en getEmployeesNotInDailyReport:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Excepción en getEmployeesNotInDailyReport:', error);
+    return [];
   }
 }
 
