@@ -885,6 +885,34 @@ export async function updateDailyReportRow(
 
   return updatedRow;
 }
+export async function updateDailyReportRowBody(id: string, data: Partial<DailyReportRowData>) {
+  const supabase = supabaseServer();
+
+  console.log(data, 'data');
+
+  // return;
+
+  const { data: updatedRow, error: updateError } = await supabase
+    .from('dailyreportrows')
+    .update({
+      ...data,
+      status:
+        data.status === 'cancelado' || data.status === 'reprogramado' || data.status === 'ejecutado'
+          ? data.status
+          : 'sin_recursos_asignados',
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateError) {
+    console.error('Error al actualizar la fila:', updateError);
+    throw updateError;
+  }
+  // Actualizar relaciones de empleados
+
+  return updatedRow;
+}
 
 export async function updateDailyReportRowStatus(id: string[], status: DailyReportRowStatus) {
   const supabase = supabaseServer();

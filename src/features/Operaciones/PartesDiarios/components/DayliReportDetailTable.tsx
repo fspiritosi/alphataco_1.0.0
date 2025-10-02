@@ -7,10 +7,10 @@ import { createFilterOptions } from '@/features/Employees/Empleados/components/u
 import { cn } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { ColumnDef, Table as TableType, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
@@ -553,6 +553,9 @@ export function DayliReportDetailTable({
   const areaOptions = createFilterOptions(formattedData, (area) => area.areas_customer_name);
   const typeServiceOptions = createFilterOptions(formattedData, (area) => area.type_service);
 
+  // Referencia al objeto table de TanStack con el método clearRowSelection
+  const tableRef = useRef<TableType<DailyReportRow> & { clearRowSelection?: (rowIds?: string[]) => void }>(null);
+
   const handleEditRow = useCallback((row: (typeof formattedData)[0]) => {
     setSelectedRow(row);
     document.getElementById('open-button-daily-report')?.click();
@@ -582,11 +585,16 @@ export function DayliReportDetailTable({
         <ClonarRegistrosButton formattedData={formattedData} selectedRows={selectedRows} />
       </div>
       <BaseDataTable
+        ref={tableRef}
         className="mt-4"
         columns={getDailyReportColumns(handleEditRow, formattedData)}
         data={formattedData || []}
         savedVisibility={savedVisibility}
-        enableRowSelection={(row) => row.original.status !== 'ejecutado'}
+        enableRowSelection={(row) =>
+          row.original.status !== 'ejecutado' &&
+          row.original.status !== 'sin_recursos_asignados' &&
+          row.original.status !== 'reprogramado'
+        }
         tableId="dailyReportTableDetail"
         onRowSelectionChange={(rows) => {
           setSelectedRows(rows);
@@ -667,10 +675,25 @@ export function DayliReportDetailTable({
         isOpen={isBulkEditModalOpen}
         onClose={() => setIsBulkEditModalOpen(false)}
         selectedRows={selectedRows}
-        onSuccess={() => {
-          // Recargar datos o refrescar la tabla
+        onSuccess={(updatedRowIds?: string[]) => {
+          // Recargar datos primero para asegurar que estén actualizados
           refetchDailyReport();
-          // O cualquier otra función que recargue los datos
+
+          // Después de recargar, limpiar la selección local
+          setTimeout(() => {
+            // Actualizar el estado local - esto actualizará la lista de filas seleccionadas
+            if (updatedRowIds && updatedRowIds.length > 0) {
+              setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
+            } else {
+              // Si no hay IDs específicos, limpiar toda la selección
+              setSelectedRows([]);
+            }
+
+            // Usar el método clearRowSelection del BaseDataTable para limpiar la selección interna
+            if (tableRef.current && updatedRowIds && tableRef.current.clearRowSelection) {
+              tableRef.current.clearRowSelection(updatedRowIds);
+            }
+          }, 300); // Esperar a que se actualicen los datos
         }}
       />
     </>

@@ -49,6 +49,8 @@ interface SearchableColumn {
 
 import { cn } from '@/lib/utils';
 import type { Row, Table as TableType, Updater } from '@tanstack/react-table';
+import { forwardRef, useCallback } from 'react';
+
 export interface BulkActionProps<TData> {
   enabled?: boolean; // Activar/desactivar funcionalidad
   label?: string; // Etiqueta del botón
@@ -83,22 +85,53 @@ interface DataTableProps<TData, TValue> {
   bulkAction?: BulkActionProps<TData>;
   onColumnFiltersChange?: (filters: Updater<ColumnFiltersState>) => void;
   onRowSelectionChange?: (rows: TData[]) => void;
+  tableRef?: React.RefObject<TableType<TData>>;
 }
 
-export function BaseDataTable<TData, TValue>({
-  columns,
-  data,
-  onRowClick,
-  toolbarOptions,
-  paginationComponent,
-  className = '',
-  tableId,
-  savedVisibility,
-  row_classname,
-  onColumnFiltersChange,
-  enableRowSelection = true,
-  onRowSelectionChange,
-}: DataTableProps<TData, TValue>) {
+export const BaseDataTable = forwardRef<TableType<any>, DataTableProps<any, any>>(function BaseDataTable<TData, TValue>(
+  {
+    columns,
+    data,
+    onRowClick,
+    toolbarOptions,
+    paginationComponent,
+    className = '',
+    tableId,
+    savedVisibility,
+    row_classname,
+    onColumnFiltersChange,
+    enableRowSelection = true,
+    onRowSelectionChange,
+    tableRef,
+  }: DataTableProps<TData, TValue>,
+  ref: React.Ref<TableType<TData>>
+) {
+  // Agregar método para limpiar selección de filas específicas
+  const clearRowSelection = useCallback(
+    (rowIdsToClear?: string[]) => {
+      if (!rowIdsToClear || rowIdsToClear.length === 0) {
+        // Limpiar toda la selección
+        setRowSelection({});
+        return;
+      }
+
+      // Limpiar solo las filas específicas
+      setRowSelection((prev) => {
+        const newSelection = { ...prev } as Record<string, boolean>;
+
+        // Buscar filas por ID y deseleccionarlas
+        data.forEach((row, index) => {
+          const rowData = row as any;
+          if (rowData && rowData.id && rowIdsToClear.includes(rowData.id)) {
+            delete newSelection[index.toString()];
+          }
+        });
+
+        return newSelection;
+      });
+    },
+    [data]
+  );
   // Intentar cargar la visibilidad guardada antes del renderizado inicial si hay tableId
   // const savedVisibility = savedColumns
   const cookiesStore = Cookies.get('pageSize-table');
@@ -112,6 +145,28 @@ export function BaseDataTable<TData, TValue>({
 
   // Usar la visibilidad guardada, o la inicial si se proporciona, o un objeto vacío
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(savedVisibility || {});
+
+  // Efecto para limpiar la selección cuando los datos cambian significativamente
+  React.useEffect(() => {
+    // Si hay cambios significativos en los datos (como después de un refetch),
+    // limpiar las filas que ya no existen en la nueva data
+    setRowSelection((prev) => {
+      const newSelection = { ...prev } as Record<string, boolean>;
+      let hasChanges = false;
+
+      // Verificar cada fila seleccionada
+      Object.keys(newSelection).forEach((key) => {
+        const index = parseInt(key);
+        // Si el índice ya no existe en la nueva data, limpiar la selección
+        if (!data[index]) {
+          delete newSelection[key];
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? newSelection : prev;
+    });
+  }, [data]);
 
   const table = useReactTable({
     data,
@@ -181,6 +236,16 @@ export function BaseDataTable<TData, TValue>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
+
+  // Exponer el objeto table y el método clearRowSelection a través de la ref
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      ...table,
+      clearRowSelection,
+    }),
+    [table, clearRowSelection]
+  );
 
   return (
     <div className={`space-y-4 ${className} w-full grid grid-cols-1 relative`}>
@@ -256,4 +321,4 @@ export function BaseDataTable<TData, TValue>({
       )}
     </div>
   );
-}
+});

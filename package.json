@@ -11,7 +11,9 @@
     "start": "next start",
     "lint": "next lint",
     "format": "npx prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check-types": "tsc --noEmit",
+    "gentypes": "npx supabase gen types typescript --project-id vvrckjjyrwqzpbaatemz --schema public > database.types.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

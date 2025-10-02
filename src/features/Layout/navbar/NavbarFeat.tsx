@@ -11,9 +11,8 @@ async function NavbarFeat() {
   ]);
 
   // Una vez tenemos el usuario, obtenemos sus compañías
-  // (esta consulta depende del ID de usuario, por eso no la ponemos en el Promise.all inicial)
+  // (esta consulta depende del ID de usuario, por eso no la ponemos en el Promise.all inicial) comentario de prueba
   const { sharedCompanies, allCompanies } = await fetchUserCompanies(user?.id || '');
-
   return (
     <Navbar
       user={user}
