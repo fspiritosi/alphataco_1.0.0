@@ -120,6 +120,16 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
     .rpc('get_dailyreportrow_history', { p_row_id: dailyReportId })
     .returns<DailyReportRowHistoryRecord[]>();
 
+  //Verifciar si la row pertenece a algun preparte
+  const { data: preparteData, error: error2 } = await supabase
+    .from('dailyreportrows')
+    .select('preparte(id,numero_pedido)')
+    .eq('id', dailyReportId);
+  if (error2) {
+    console.error('Error fetching daily report row history:', error2);
+    return [];
+  }
+
   if (error) {
     console.error('Error fetching daily report row history:', error);
     return [];
@@ -128,6 +138,7 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
   const processedHistory = history?.map((record) => {
     const entry: ProcessedHistoryEntry = {
       id: record.id,
+      preparte: preparteData?.[0]?.preparte,
       actionType: record.action_type,
       timestamp: record.created_at,
       user: record.changed_by
@@ -470,56 +481,63 @@ export async function getDailyReportById(id: string) {
     .from('dailyreport')
     .select(
       `
-    *,
-     dailyreportrows(
-     dailyreport_customer_equipment_relations(*,equipos_clientes(*)),
-     *,
-  id,
-  service_sectors(*,sectors(*)),
-  service_areas(*,areas_cliente(*)),
-  customer_services(id,service_name),
-  service_items(id,item_name),
-  remit_number,
-  customers(id, name),
-  start_time,
-  end_time,
-  status,
-  working_day,
-  description,
-  document_path,
-  dailyreportemployeerelations(employees(
-    id,
-    firstname,
-    lastname,
-    document_number,
-    phone,
-    email,
-    company_positions(name),
-    contractor_employee(customers(name))
-  )),
-  dailyreportequipmentrelations(vehicles(
-    id,
-    intern_number,
-    domain,
-    brand_vehicles(*),
-    model_vehicles(*),
-    model,
-    year,
-    sub_type(name),
-    type(name),
-    contractor_equipment(customers(name)),
-    condition
-  ))
-)
-        `
+      *,
+      dailyreportrows(
+        preparte(id, numero_pedido),
+        *,
+        dailyreport_customer_equipment_relations(
+          *,
+          equipos_clientes(*)
+        ),
+        id,
+        service_sectors(*, sectors(*)),
+        service_areas(*, areas_cliente(*)),
+        customer_services(id, service_name),
+        service_items(id, item_name),
+        remit_number,
+        customers(id, name),
+        start_time,
+        end_time,
+        status,
+        working_day,
+        description,
+        document_path,
+        dailyreportemployeerelations(
+          employees(
+            id,
+            firstname,
+            lastname,
+            document_number,
+            phone,
+            email,
+            company_positions(name),
+            contractor_employee(customers(name))
+          )
+        ),
+        dailyreportequipmentrelations(
+          vehicles(
+            id,
+            intern_number,
+            domain,
+            brand_vehicles(*),
+            model_vehicles(*),
+            model,
+            year,
+            sub_type(name),
+            type(name),
+            contractor_equipment(customers(name)),
+            condition
+          )
+        )
+      )
+    `
     )
     .eq('id', id);
-
   if (error) {
     console.error('Error fetching daily reports:', error);
     return [];
   }
-
+  console.log(dailyReports);
   return dailyReports || [];
 }
 export async function updateDailyReportStatusAndRemitNumber(

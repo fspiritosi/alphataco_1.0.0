@@ -89,7 +89,7 @@ export function MultiSelect({
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
-                <CommandItem key={option.value} value={option.value} onSelect={() => handleSelect(option.value)}>
+                <CommandItem key={crypto.randomUUID()} value={option.value} onSelect={() => handleSelect(option.value)}>
                   <Check
                     className={cn('mr-2 h-4 w-4', selectedValues?.includes(option.value) ? 'opacity-100' : 'opacity-0')}
                   />

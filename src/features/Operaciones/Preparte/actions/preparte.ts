@@ -339,11 +339,7 @@ export async function updatePreparteImageByOrderNumber(numero_pedido: string, im
 // Get preparte by ID
 export async function getPreparteById(id: string) {
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from('preparte' as any)
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data, error } = await supabase.from('preparte').select('*').eq('id', id).single();
 
   if (error) {
     console.error('Error fetching preparte:', error);

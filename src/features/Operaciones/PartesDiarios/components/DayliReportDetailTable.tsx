@@ -31,6 +31,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
       date: report.date,
       type_service: row.type_service,
       customer: row.customers?.name,
+      preparte: row.preparte,
       cancel_reason: row.cancel_reason,
       employees: row.dailyreportemployeerelations.map(
         (rel) => rel.employees?.lastname + ' ' + rel.employees?.firstname
