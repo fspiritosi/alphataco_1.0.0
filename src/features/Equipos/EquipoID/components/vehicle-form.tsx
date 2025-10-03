@@ -36,6 +36,7 @@ interface VehicleFormProps {
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
   documentsComponent?: React.ReactNode;
   repairsComponent?: React.ReactNode;
+  qrComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: Promise<getVehicleOwnersType>;

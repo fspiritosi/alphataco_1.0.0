@@ -155,6 +155,14 @@ export default function DependencyValidationModal({
             </div>
           </div>
 
+          <div className="mt-3 p-3  border border-red-300 rounded-md flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-700 flex-shrink-0 mt-0.5" />
+            <div className="text-red-800 text-sm">
+              <strong className="font-semibold">Atención:</strong> Por favor revisa si este registro tiene documentos
+              especiales asociados luego de proceder.
+            </div>
+          </div>
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>

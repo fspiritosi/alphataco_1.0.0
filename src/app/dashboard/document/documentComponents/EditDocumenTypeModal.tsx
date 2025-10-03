@@ -190,6 +190,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
           'contractor_employee',
           'province',
           'hierarchical_position',
+          'company_position',
           'category',
           'guild',
           'covenant',
@@ -212,21 +213,26 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
             const relatedObj = (emp ? (emp[propConfig.accessor_key as keyof EmployeeDetailed] as any) : null) as any;
             const relatedId = relatedObj?.id ?? relatedObj ?? '';
 
-            return {
+            const result = {
               id: relatedId[0]?.customers?.id ? relatedId[0].customers.id : relatedId,
               value,
             };
+            return result;
           });
         }
 
         // Añadir metadatos de relación para uso en BD
         const meta = relationMeta[propConfig.accessor_key] || null;
 
-        return {
+        const result = {
           property_key: propConfig.accessor_key,
           values: condition.values,
           reference_values: reference_values,
-          ids: reference_values.length ? reference_values.map((r) => r.id) : condition.values, // Para direct, usar los valores mismos
+          ids: isRelation
+            ? reference_values.length
+              ? reference_values.map((r) => r.id).filter((id) => id && id !== '')
+              : []
+            : condition.values,
           is_relation: isRelation,
           is_array_relation: isArrayRelation,
           relation_type: meta ? meta.relation_type : 'direct',
@@ -236,6 +242,8 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
           filter_column: meta?.filter_column || propConfig.accessor_key,
           property_label: condition.property,
         };
+
+        return result;
       })
       .filter(Boolean); // Eliminar nulls
   }
@@ -289,7 +297,11 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
         return {
           property_key: propConfig.accessor_key,
           values: condition.values,
-          ids: reference_values.length ? reference_values.map((r) => r.id) : condition.values,
+          ids: !!meta
+            ? reference_values.length
+              ? reference_values.map((r) => r.id).filter((id) => id && id !== '')
+              : []
+            : condition.values,
           is_relation: !!meta,
           is_array_relation: isArrayRelation,
           relation_type: meta?.relation_type || 'direct',
@@ -303,9 +315,12 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   }
 
   async function checkAlertsStatus() {
+    setIsCheckingAlerts(true);
+
     if (!Equipo.special) {
       // Si no es un documento especial, simplemente actualizamos sin revisar alertas
       await performUpdate(false);
+      setIsCheckingAlerts(false);
       return;
     }
 
@@ -357,9 +372,11 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       setResourcesNeedingDeletion(resourcesToRemoveAlert);
       // Abrimos el modal de confirmación
       setShowAlertsUpdateModal(true);
+      setIsCheckingAlerts(false);
     } else {
       // Si no hay cambios en las alertas, simplemente actualizamos
       await performUpdate(false);
+      setIsCheckingAlerts(false);
     }
   }
 
@@ -579,6 +596,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   // }
   const [existingEntries, setExistingEntries] = useState<any[]>([]);
   const [selectedDeleteMode, setSelectedDeleteMode] = useState<'all' | 'nonMatching'>('all');
+  const [isCheckingAlerts, setIsCheckingAlerts] = useState(false);
 
   // async function fettchExistingEntries() {
   //   const tableNames = {
@@ -981,7 +999,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                   <TooltipProvider delayDuration={150}>
                     {items?.map((item) => (
                       <FormField
-                        key={item.id}
+                        key={crypto.randomUUID()}
                         control={form.control}
                         name={item.id as 'name' | 'applies' | 'multiresource' | 'mandatory' | 'explired' | 'special'}
                         render={({ field }) => (
@@ -1131,6 +1149,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                                     }
                                     emptyMessage="No hay valores disponibles"
                                     placeholder="Seleccionar valores"
+                                    key={crypto.randomUUID()}
                                   />
                                 )}
 
@@ -1293,10 +1312,10 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                         await performUpdate(false);
                       }
                     }}
-                    disabled={isLoading}
+                    disabled={isLoading || isCheckingAlerts}
                     type="button"
                   >
-                    {isLoading ? 'Procesando...' : 'Guardar cambios'}
+                    {isLoading ? 'Procesando...' : isCheckingAlerts ? 'Verificando alertas...' : 'Guardar cambios'}
                   </Button>
                   <SheetClose id="cerrar-editor-modal" />
                 </SheetFooter>
@@ -1331,7 +1350,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                               const resource = entry.applies;
                               if (Equipo.applies === 'Equipos') {
                                 return (
-                                  <div key={resource.id} className="py-1 flex items-center gap-2">
+                                  <div key={crypto.randomUUID()} className="py-1 flex items-center gap-2">
                                     <Truck className="size-5" /> {resource.domain} {resource.serie} -{' '}
                                     {resource.intern_number}
                                   </div>
@@ -1339,7 +1358,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                               }
                               if (Equipo.applies === 'Persona') {
                                 return (
-                                  <div key={resource.id} className="py-1 flex items-center gap-2">
+                                  <div key={crypto.randomUUID()} className="py-1 flex items-center gap-2">
                                     <User className="size-5" /> {resource.lastname} {resource.firstname} -{' '}
                                     {resource.cuil}
                                   </div>
@@ -1423,7 +1442,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                                       const resource = entry.applies;
                                       if (Equipo.applies === 'Equipos') {
                                         return (
-                                          <div key={resource.id} className="py-1 flex items-center gap-2">
+                                          <div key={crypto.randomUUID()} className="py-1 flex items-center gap-2">
                                             <Truck className="size-5" /> {resource.domain} {resource.serie} -{' '}
                                             {resource.intern_number}
                                           </div>
@@ -1431,7 +1450,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                                       }
                                       if (Equipo.applies === 'Persona') {
                                         return (
-                                          <div key={resource.id} className="py-1 flex items-center gap-2">
+                                          <div key={crypto.randomUUID()} className="py-1 flex items-center gap-2">
                                             <User className="size-5" />
                                             {resource.lastname} {resource.firstname} - {resource.cuil}
                                           </div>
@@ -1474,7 +1493,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                                           const resource = entry.applies;
                                           if (Equipo.applies === 'Equipos') {
                                             return (
-                                              <div key={resource.id} className="py-1 flex items-center gap-2">
+                                              <div key={crypto.randomUUID()} className="py-1 flex items-center gap-2">
                                                 <Truck className="size-5" /> {resource.domain} {resource.serie} -{' '}
                                                 {resource.intern_number}
                                               </div>
@@ -1482,7 +1501,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                                           }
                                           if (Equipo.applies === 'Persona') {
                                             return (
-                                              <div key={resource.id} className="py-1 flex items-center gap-2">
+                                              <div key={crypto.randomUUID()} className="py-1 flex items-center gap-2">
                                                 <User className="size-5" /> {resource.lastname} {resource.firstname} -{' '}
                                                 {resource.cuil}
                                               </div>
@@ -1541,14 +1560,14 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                       {resourcesToInsert.map((resource) => {
                         if (Equipo.applies === 'Equipos') {
                           return (
-                            <div key={resource.id} className="py-1 flex items-center gap-2">
+                            <div key={crypto.randomUUID()} className="py-1 flex items-center gap-2">
                               <Truck className="size-5" /> {resource.domain} {resource.serie} - {resource.intern_number}
                             </div>
                           );
                         }
                         if (Equipo.applies === 'Persona') {
                           return (
-                            <div key={resource.id}>
+                            <div key={crypto.randomUUID()}>
                               {resource.lastname} {resource.firstname} - {resource.cuil}
                             </div>
                           );
@@ -1594,7 +1613,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                           if (Equipo.applies === 'Equipos') {
                             return (
                               <div
-                                key={resource.id}
+                                key={crypto.randomUUID()}
                                 className="py-1 px-2 border-b last:border-b-0 flex items-center gap-2"
                               >
                                 <Truck className="size-5" /> {resource.domain} {resource.serie} -{' '}
@@ -1605,7 +1624,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                           if (Equipo.applies === 'Persona') {
                             return (
                               <div
-                                key={resource.id}
+                                key={crypto.randomUUID()}
                                 className="py-1 px-2 border-b last:border-b-0 flex items-center gap-2"
                               >
                                 <User className="size-5" /> {resource.lastname} {resource.firstname} - {resource.cuil}
@@ -1629,7 +1648,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                           if (Equipo.applies === 'Equipos') {
                             return (
                               <div
-                                key={resource.id}
+                                key={crypto.randomUUID()}
                                 className="py-1 px-2 border-b last:border-b-0 flex items-center gap-2"
                               >
                                 <Truck className="size-5" /> {resource.domain} {resource.serie} -{' '}
@@ -1640,7 +1659,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                           if (Equipo.applies === 'Persona') {
                             return (
                               <div
-                                key={resource.id}
+                                key={crypto.randomUUID()}
                                 className="py-1 px-2 border-b last:border-b-0 flex items-center gap-2"
                               >
                                 <User className="size-5" /> {resource.lastname} {resource.firstname} - {resource.cuil}

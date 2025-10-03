@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
 import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form';
 import { VehicleHeader } from '@/features/Equipos/EquipoID/components/vehicle-header';
+import VehicleQr from '@/features/Equipos/EquipoID/components/vehicle-qr';
 import {
   getModelsByBrand,
   getSubTypesByType,
@@ -83,6 +84,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
               hiddenTabs={['type_of_repair']}
             />
           }
+          qrComponent={<VehicleQr vehicle={vehicle} />}
         />
       </Card>
     </div>

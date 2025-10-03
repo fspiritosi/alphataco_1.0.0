@@ -170,13 +170,11 @@ export async function createPreparte(
 // Update an existing preparte
 export async function updatePreparte(id: string, preparteData: Partial<Preparte>) {
   const supabase = supabaseServer();
-  console.log(preparteData);
   // Construir payload: solo tocar sector/área/equipos si vienen en el payload
   const payload: any = {
     ...preparteData,
     updated_at: new Date().toISOString(),
   };
-  console.log(payload);
   // Nunca enviar columnas que no existen en la tabla
   if ('image_url' in payload) delete payload.image_url;
 
@@ -274,7 +272,6 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
   if ('preparteImage' in preparteData) {
     (payload as any).preparteImage = preparteData.preparteImage ?? null;
   }
-  console.log();
   const { data, error } = await supabase
     .from('preparte' as any)
     .update(payload)
@@ -318,8 +315,6 @@ export async function deletePreparte(id: string) {
 
 // Actualiza la imagen para todas las filas que comparten el mismo número de pedido
 export async function updatePreparteImageByOrderNumber(numero_pedido: string, imageUrl: string) {
-  console.log('🔄 [updatePreparteImageByOrderNumber] Actualizando imagen para numero_pedido:', numero_pedido);
-
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from('preparte' as any)
@@ -332,18 +327,13 @@ export async function updatePreparteImageByOrderNumber(numero_pedido: string, im
     throw new Error('Error al actualizar la imagen del pedido');
   }
 
-  console.log('✅ [updatePreparteImageByOrderNumber] Actualizadas', data?.length || 0, 'filas');
   return data;
 }
 
 // Get preparte by ID
 export async function getPreparteById(id: string) {
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from('preparte' as any)
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data, error } = await supabase.from('preparte').select('*').eq('id', id).single();
 
   if (error) {
     console.error('Error fetching preparte:', error);
@@ -537,18 +527,6 @@ export async function movePreparteFile(
   const detectedBucket = detectBucketFromUrl();
   const BUCKET = detectedBucket || DEFAULT_BUCKET;
 
-  console.log('🔍 [movePreparteFile] Debug info:', {
-    fromPublicUrl,
-    baseUrl,
-    detectedBucket,
-    BUCKET,
-    clienteName,
-    contratoName,
-    numeroPedido,
-    empresaDir,
-    contratoDir,
-  });
-
   const prefix = `${baseUrl}/${BUCKET}/`;
 
   // Obtener el path relativo del objeto subido de forma robusta
@@ -578,8 +556,6 @@ export async function movePreparteFile(
 
   let fromPath = extractFromPath();
   if (fromPath.startsWith('/')) fromPath = fromPath.slice(1);
-
-  console.log('🔍 [movePreparteFile] From path:', fromPath);
 
   // Si el cliente removió espacios de la URL (ej: via replace(/\s/g, '')), intentar resolver el nombre real
   const resolveActualObject = async (candidate: string): Promise<string> => {
@@ -613,8 +589,6 @@ export async function movePreparteFile(
   const currentExt = fromPath.split('.').pop()?.toLowerCase() || 'jpg';
   const targetPath = `${empresaDir}/${contratoDir}/${numeroPedido}/${numeroPedido}.${currentExt}`;
 
-  console.log('🔍 [movePreparteFile] Moving from:', fromPath, 'to:', targetPath);
-
   // Mover a la estructura deseada
   if (fromPath !== targetPath) {
     // Intento 1: mover
@@ -631,11 +605,9 @@ export async function movePreparteFile(
       console.error('❌ Error moviendo archivo:', error);
       throw new Error(`No se pudo mover el archivo en Storage: ${error.message}`);
     }
-    console.log('✅ Archivo movido exitosamente');
   }
 
   // URL pública final
   const finalUrl = `${baseUrl.replace(/\/$/, '')}/${BUCKET}/${targetPath}`;
-  console.log('🔍 [movePreparteFile] Final URL:', finalUrl);
   return finalUrl;
 }

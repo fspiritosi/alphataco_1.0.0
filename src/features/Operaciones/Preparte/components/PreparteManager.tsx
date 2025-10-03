@@ -479,6 +479,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
         areas_service_id: currentItem.areas_service_id,
         type_service: currentItem.tipo,
         status: 'sin_recursos_asignados',
+        preparte_id: item.id,
       };
 
       const createdRows = await createDailyReportRow([dailyReportData as any]);
