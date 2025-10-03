@@ -537,7 +537,6 @@ export async function getDailyReportById(id: string) {
     console.error('Error fetching daily reports:', error);
     return [];
   }
-  console.log(dailyReports);
   return dailyReports || [];
 }
 export async function updateDailyReportStatusAndRemitNumber(
@@ -905,10 +904,6 @@ export async function updateDailyReportRow(
 }
 export async function updateDailyReportRowBody(id: string, data: Partial<DailyReportRowData>) {
   const supabase = supabaseServer();
-
-  console.log(data, 'data');
-
-  // return;
 
   const { data: updatedRow, error: updateError } = await supabase
     .from('dailyreportrows')

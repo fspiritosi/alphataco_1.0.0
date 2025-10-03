@@ -217,10 +217,8 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
               id: relatedId[0]?.customers?.id ? relatedId[0].customers.id : relatedId,
               value,
             };
-            console.log(`[DEBUG] Valor '${value}' mapeado a ID:`, result.id);
             return result;
           });
-          console.log(`[DEBUG] reference_values completos:`, reference_values);
         }
 
         // Añadir metadatos de relación para uso en BD
@@ -245,7 +243,6 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
           property_label: condition.property,
         };
 
-        console.log(`[DEBUG] Resultado final para ${condition.property}:`, result);
         return result;
       })
       .filter(Boolean); // Eliminar nulls
@@ -401,9 +398,6 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
       description: formatDescription(form.getValues('description')),
       conditions: serializedConditions,
     };
-
-    // Debug: Verificar qué se está enviando
-    console.log('formattedValues:', JSON.stringify(formattedValues, null, 2));
 
     try {
       // 2. Actualizar el documento
