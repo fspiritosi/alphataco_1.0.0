@@ -3561,6 +3561,48 @@ export type Database = {
           used_units: number;
         }[];
       };
+      get_vehicles_non_operative: {
+        Args: { p_company_id?: string; vehicle_type_ids?: string[] };
+        Returns: {
+          brand_id: number;
+          brand_name: string;
+          condition: string;
+          domain: string;
+          intern_number: string;
+          model_id: number;
+          model_name: string;
+          serie: string;
+          sub_type_id: string;
+          sub_type_name: string;
+          type_id: string;
+          type_name: string;
+          type_operative_id: string;
+          type_operative_name: string;
+          vehicle_id: string;
+          year: string;
+        }[];
+      };
+      get_vehicles_not_in_daily_report: {
+        Args: { p_company_id?: string; vehicle_type_ids?: string[] };
+        Returns: {
+          brand_id: number;
+          brand_name: string;
+          condition: string;
+          domain: string;
+          intern_number: string;
+          model_id: number;
+          model_name: string;
+          serie: string;
+          sub_type_id: string;
+          sub_type_name: string;
+          type_id: string;
+          type_name: string;
+          type_operative_id: string;
+          type_operative_name: string;
+          vehicle_id: string;
+          year: string;
+        }[];
+      };
       hr_get_absenteeism_summary: {
         Args: {
           p_company_id: string;

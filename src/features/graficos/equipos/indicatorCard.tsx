@@ -1,6 +1,9 @@
+'use client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, Clock, Users } from 'lucide-react';
+import { Activity, Users } from 'lucide-react';
+import { useState } from 'react';
 import { IndicatorChart } from '../indicatorChart';
+import DialogComponent from './dialogComponent';
 
 export default function IndicatorCardEquipment({
   totalVehicles,
@@ -10,6 +13,7 @@ export default function IndicatorCardEquipment({
   indicatorCharData,
   indicatorChartConfig,
   condiciones_indicadores,
+  vehiclesNotInDailyReport,
   // usageEquipment,
 }: {
   totalVehicles: number;
@@ -19,8 +23,11 @@ export default function IndicatorCardEquipment({
   indicatorCharData: any;
   indicatorChartConfig: any;
   condiciones_indicadores: any;
+  vehiclesNotInDailyReport: any;
+
   // usageEquipment: any;
 }) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   return (
     <Card
       className="h-full w-full flex flex-col items-center  px-0"
@@ -88,31 +95,15 @@ export default function IndicatorCardEquipment({
               </div>
             </CardContent>
           </Card>
-
-          <Card
-            className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
-            variant={
-              Math.round(disponibleEquipmentPorcent) !== 0
-                ? Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
-                  ? 'success'
-                  : Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.warning
-                    ? 'warning'
-                    : 'destructive'
-                : 'destructive'
-            }
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Clock className="w-4 h-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-600">Disponibles</p>
-                  <p className="text-xl font-bold text-gray-900">{disponibleEquipmentNumber}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <DialogComponent
+            disponibleEmployeesNumber={disponibleEquipmentNumber}
+            employeesNotInDailyReport={vehiclesNotInDailyReport}
+            isDialogOpen={isDialogOpen}
+            setIsDialogOpen={setIsDialogOpen}
+            disponibleEmployeesPorcent={disponibleEquipmentPorcent}
+            condiciones_indicadores={condiciones_indicadores}
+            vehiclesNotInDailyReport={vehiclesNotInDailyReport}
+          />
         </div>
         <IndicatorChart
           chartConfig={indicatorChartConfig}

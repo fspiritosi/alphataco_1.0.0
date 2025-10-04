@@ -5,7 +5,7 @@ import moment from 'moment';
 import { cookies } from 'next/headers';
 // Employee-related actions
 
-export type EmployeeNotInDailyReport = {
+export type EmployeeNotInDailyReportType = {
   employee_id: string;
   firstname: string;
   lastname: string;
@@ -16,6 +16,25 @@ export type EmployeeNotInDailyReport = {
   diagram_type_name: string;
   diagram_color: string;
   diagram_short_description: string;
+};
+
+export type VehicleNotInDailyReportType = {
+  vehicle_id: string;
+  domain: string;
+  serie: string;
+  intern_number: string;
+  year: string;
+  condition: string;
+  type_id: string;
+  type_name: string;
+  brand_id: number;
+  brand_name: string;
+  model_id: number;
+  model_name: string;
+  type_operative_id: string;
+  type_operative_name: string;
+  sub_type_id: string;
+  sub_type_name: string;
 };
 
 export const setNewCompanyUserMetadata = async (company_id: string) => {
@@ -1906,7 +1925,7 @@ export async function getEmployeeIndicator(company_id?: string, p_row_id: string
 export async function getEmployeesNotInDailyReport(
   company_id?: string,
   position_uuids?: string[]
-): Promise<EmployeeNotInDailyReport[]> {
+): Promise<EmployeeNotInDailyReportType[]> {
   const supabase = supabaseServer();
 
   try {
@@ -2037,4 +2056,52 @@ export async function getEmployeeNameById(employeeId: string) {
   }
 
   return data;
+}
+
+export async function getVehiclesNonOperative(
+  company_id?: string,
+  vehicle_type_ids?: string[]
+): Promise<VehicleNotInDailyReportType[]> {
+  const supabase = supabaseServer();
+
+  try {
+    const { data, error } = await supabase.rpc('get_vehicles_non_operative', {
+      p_company_id: company_id || null,
+      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : null,
+    });
+
+    if (error) {
+      console.error('Error en getVehiclesNonOperative:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Excepción en getVehiclesNonOperative:', error);
+    return [];
+  }
+}
+
+export async function getVehiclesNotInDailyReport(
+  company_id?: string,
+  vehicle_type_ids?: string[]
+): Promise<VehicleNotInDailyReportType[]> {
+  const supabase = supabaseServer();
+
+  try {
+    const { data, error } = await supabase.rpc('get_vehicles_not_in_daily_report', {
+      p_company_id: company_id || null,
+      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : null,
+    });
+
+    if (error) {
+      console.error('Error en getVehiclesNotInDailyReport:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Excepción en getVehiclesNotInDailyReport:', error);
+    return [];
+  }
 }

@@ -1,6 +1,9 @@
+'use client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, Users, Wrench } from 'lucide-react';
+import { useState } from 'react';
 import { IndicatorChart } from '../indicatorChart';
+import DialogComponent from './dialogComponent';
 
 export default function IndicatorCardChasisTractor({
   totalVehicles,
@@ -11,6 +14,7 @@ export default function IndicatorCardChasisTractor({
   indicatorChartConfig,
   condiciones_indicadores,
   notAvailableEquipmentNumber,
+  vehiclesOnRepair,
   // usageEquipment,
 }: {
   totalVehicles: number;
@@ -21,8 +25,10 @@ export default function IndicatorCardChasisTractor({
   indicatorCharData: any;
   indicatorChartConfig: any;
   condiciones_indicadores: any;
+  vehiclesOnRepair: any;
   // usageEquipment: any;
 }) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   return (
     <Card
       className="h-full w-full flex flex-col items-center  px-0"
@@ -89,6 +95,12 @@ export default function IndicatorCardChasisTractor({
               </div>
             </CardContent>
           </Card>
+          <DialogComponent
+            isDialogOpen={isDialogOpen}
+            setIsDialogOpen={setIsDialogOpen}
+            condiciones_indicadores={condiciones_indicadores}
+            vehiclesOnRepair={vehiclesOnRepair}
+          />
           <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={

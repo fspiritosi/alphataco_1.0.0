@@ -1,4 +1,8 @@
-import { fetchTypeVehicles, getVehiclesDisponibleFilterType } from '@/app/server/GET/actions';
+import {
+  fetchTypeVehicles,
+  getVehiclesDisponibleFilterType,
+  getVehiclesNotInDailyReport,
+} from '@/app/server/GET/actions';
 import { InteractiveChart } from '@/components/Graficos/InteractiveChart';
 import moment from 'moment';
 import { cookies } from 'next/headers';
@@ -17,6 +21,10 @@ export default async function EquipmentChart() {
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)
   const totalVehicles = active_vehicles?.reduce((sum: any, vehicle: any) => sum + vehicle.available_units || 0, 0) || 0;
+  const vehiclesNotInDailyReport: any = await getVehiclesNotInDailyReport(
+    cookiesStore.get('actualComp')?.value,
+    cookieValue?.split(',')
+  );
 
   // Unidades disponibles
   const totalAvailable =
@@ -119,6 +127,7 @@ export default async function EquipmentChart() {
             disponibleEquipmentPorcent={usagePercentage}
             disponibleEquipmentNumber={totalAvailable || 0}
             activeEquipment={totalInUse || 0}
+            vehiclesNotInDailyReport={vehiclesNotInDailyReport}
             // usageEquipment={totalInUse || 0}
             indicatorCharData={indicatorCharData}
             indicatorChartConfig={indicatorChartConfig}

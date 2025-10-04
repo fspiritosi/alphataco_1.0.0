@@ -1,4 +1,9 @@
-import { getDiagramIndicator, getEmployeeIndicator, getEmployeesNotInDailyReport } from '@/app/server/GET/actions';
+import {
+  EmployeeNotInDailyReportType,
+  getDiagramIndicator,
+  getEmployeeIndicator,
+  getEmployeesNotInDailyReport,
+} from '@/app/server/GET/actions';
 import { ChartConfig } from '@/components/ui/chart';
 import { fetchAllPositions } from '@/features/Empresa/RRHH/actions/actions';
 import moment from 'moment';
@@ -26,8 +31,10 @@ export default async function EmpleadoDiagramasChart() {
     },
   ];
 
-  const employeesNotInDailyReport: any = await getEmployeesNotInDailyReport(company_id, cookieValue?.split(','));
-  console.log('employeesNotInDailyReport', employeesNotInDailyReport);
+  const employeesNotInDailyReport: EmployeeNotInDailyReportType[] = await getEmployeesNotInDailyReport(
+    company_id,
+    cookieValue?.split(',')
+  ); // Solo devuelve un [] con los empleados con diagrama activo q no estan en el parte diario
   const diagramIndicator: any = await getDiagramIndicator(cookieValue?.split(',') || undefined);
   const positions = await fetchAllPositions();
   const positionsOptions = positions.map((position) => ({ label: position.name!, value: position.id }));
@@ -89,6 +96,7 @@ export default async function EmpleadoDiagramasChart() {
 
         <div className="flex  h-full ">
           <IndicatorCard
+            employeesNotInDailyReport={employeesNotInDailyReport}
             disponibleEmployeesPorcent={employeeIndicator![0].indicator}
             disponibleEmployeesNumber={
               employeeIndicator![0].employees_operativos - employeeIndicator![0].employees_used
