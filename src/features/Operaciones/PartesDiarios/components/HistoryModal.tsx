@@ -309,6 +309,31 @@ export default function HistoryModal({
                                 <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
                                   Detalles del registro creado:
                                 </h4>
+
+                                {/* Información de preparte si existe */}
+                                {item.preparte && (
+                                  <div className="mb-4 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Computer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                                        Origen del registro
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                                      >
+                                        Preparte
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                                      <strong>Número de pedido:</strong> {(item.preparte as any).numero_pedido}
+                                    </p>
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                      Creado por el sistema desde preparte
+                                    </p>
+                                  </div>
+                                )}
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   {Object.entries(item.changes[0].data || {}).map(([key, value]) => (
                                     <div

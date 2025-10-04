@@ -88,6 +88,27 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
             </div>
           </div>
 
+          {/* Preparte Info - Solo se muestra si existe */}
+          {serviceData.preparte && (
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="h-5 w-5 text-amber-600" />
+                  <h3 className="font-semibold text-amber-900">Registro desde Preparte</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 text-sm text-amber-700">
+                    <span className="font-medium">Número de Pedido:</span>
+                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                      {(serviceData.preparte as any).numero_pedido || 'Sin número'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
+
           <Separator />
 
           {/* Employees Section */}

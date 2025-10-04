@@ -20,6 +20,10 @@ export interface DailyReportRowHistoryRecord {
 // También definimos un tipo para el historial procesado que retornamos
 export interface ProcessedHistoryEntry {
   id: string;
+  preparte: {
+    id: string;
+    numero_pedido: string | null;
+  }[];
   actionType: string;
   timestamp: string;
   user: {

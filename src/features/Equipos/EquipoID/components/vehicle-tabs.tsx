@@ -53,6 +53,7 @@ interface VehicleTabsProps {
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
   documentsComponent?: React.ReactNode;
   repairsComponent?: React.ReactNode;
+  qrComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: Promise<getVehicleOwnersType>;
@@ -69,6 +70,7 @@ export function VehicleTabs({
   contractorsPromise,
   costCentersPromise,
   documentsComponent,
+  qrComponent,
   repairsComponent,
   typesPromise,
   subTypesPromise,
@@ -128,7 +130,7 @@ export function VehicleTabs({
   return (
     <div className="p-2">
       <Tabs defaultValue="basicData" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="basicData" className="relative">
             Datos Básicos
             {errors?.basicData && <Badge variant="destructive" className="ml-2 h-2 w-2 p-0" />}
@@ -143,6 +145,7 @@ export function VehicleTabs({
           <TabsTrigger value="repairs" disabled={!showRepairs}>
             Reparaciones
           </TabsTrigger>
+          <TabsTrigger value="qr">QR</TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
@@ -185,6 +188,9 @@ export function VehicleTabs({
               {repairsComponent}
             </TabsContent>
           )}
+          <TabsContent value="qr" className="space-y-4">
+            {qrComponent}
+          </TabsContent>
         </div>
       </Tabs>
     </div>
