@@ -102,41 +102,34 @@ export const fetchAllEmployeesWithRelations = async () => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
-  const user = await fetchCurrentUser();
   if (!company_id) return [];
-
-  supabase.auth.admin.updateUserById(user?.id || '', {
-    app_metadata: {
-      company: company_id,
-    },
-  });
 
   let { data, error } = await supabase
     .from('employees')
     .select(
       `*,guild(*),covenant(*),category(*), city (
-    *
-  ),
-  province(
-    *
-  ),
-  workflow_diagram(
-    *
-  ),
-  hierarchical_position(
-    *
-  ),
-  company_position(
-    *
-  ),
-  birthplace(
-    *
-  ),
-  contractor_employee(
-    customers(
       *
-    )
-  )`
+    ),
+    province(
+      *
+    ),
+    workflow_diagram(
+      *
+    ),
+    hierarchical_position(
+      *
+    ),
+    company_position(
+      *
+    ),
+    birthplace(
+      *
+    ),
+    contractor_employee(
+      customers(
+        *
+      )
+    )`
     )
     .eq('company_id', company_id || '')
     .order('lastname')
@@ -715,11 +708,12 @@ export const fetchCompanyPositions = async () => {
   return data;
 };
 export const fetchProvinces = async () => {
-  const cookiesStore = cookies();
   const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
+  console.log('Por hacer el fetch');
+  const { data, error } = await supabase.from('provinces').select('id,name');
 
-  const { data, error } = await supabase.from('provinces').select('*');
+  console.log('luego del fetch', data);
+  console.log('luego del fetch2', error);
 
   if (error) {
     console.error('Error fetching provinces:', error);
@@ -848,7 +842,7 @@ export const fetchCustomers = async () => {
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('customers').select('*');
+  const { data, error } = await supabase.from('customers').select('id, name');
 
   if (error) {
     console.error('Error fetching customers:', error);
@@ -863,7 +857,7 @@ export const fetchTypesOfVehicles = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('types_of_vehicles').select('*');
+  const { data, error } = await supabase.from('types_of_vehicles').select('id, name');
 
   if (error) {
     console.error('Error fetching types of vehicles:', error);
@@ -877,7 +871,7 @@ export const fetchVehicleModels = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('model_vehicles').select('*');
+  const { data, error } = await supabase.from('model_vehicles').select('id, name');
 
   if (error) {
     console.error('Error fetching vehicle models:', error);
@@ -892,7 +886,7 @@ export const fetchVehicleBrands = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('brand_vehicles').select('*');
+  const { data, error } = await supabase.from('brand_vehicles').select('id, name');
 
   if (error) {
     console.error('Error fetching vehicle brands:', error);
