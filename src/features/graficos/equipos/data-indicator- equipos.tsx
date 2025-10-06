@@ -6,7 +6,7 @@ import {
 import { InteractiveChart } from '@/components/Graficos/InteractiveChart';
 import moment from 'moment';
 import { cookies } from 'next/headers';
-import IndicatorCard from './indicatorCard';
+import IndicatorCardEquipment from './indicatorCard';
 import { TypeFilter } from './typeFilter';
 
 export default async function EquipmentChart() {
@@ -17,6 +17,7 @@ export default async function EquipmentChart() {
     cookieValue?.split(',') || [],
     cookiesStore.get('actualComp')?.value
   );
+
   const tipo_vehiculos = await fetchTypeVehicles();
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)
@@ -25,6 +26,8 @@ export default async function EquipmentChart() {
     cookiesStore.get('actualComp')?.value,
     cookieValue?.split(',')
   );
+  const total = active_vehicles?.reduce((sum: any, vehicle: any) => sum + vehicle.available_units || 0, 0) || 0;
+  console.log('total', total);
 
   // Unidades disponibles
   const totalAvailable =
@@ -122,7 +125,7 @@ export default async function EquipmentChart() {
         {/* </div>
       <div className="w-full pb-2">  */}
         <div className="flex">
-          <IndicatorCard
+          <IndicatorCardEquipment
             totalVehicles={totalVehicles}
             disponibleEquipmentPorcent={usagePercentage}
             disponibleEquipmentNumber={totalAvailable || 0}

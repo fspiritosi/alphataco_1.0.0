@@ -152,39 +152,6 @@ export default function DialogComponent({
             <div className="text-center py-8 text-gray-500">No hay empleados disponibles</div>
           )}
         </div>
-        {/* <div className="mt-4">
-            {employeesNotInDailyReport && employeesNotInDailyReport.length > 0 ? (
-              <div className="space-y-2">
-                <div className="grid grid-cols-4 gap-4 font-semibold text-sm border-b pb-2">
-                  <div>Nombre</div>
-                  <div>CUIL</div>
-                  <div>Posición</div>
-                  <div>Diagrama</div>
-                </div>
-                {employeesNotInDailyReport.map((employee: any, index: number) => (
-                  <div
-                    key={employee.employee_id || index}
-                    className="grid grid-cols-4 gap-4 text-sm py-2 border-b hover:bg-gray-50"
-                  >
-                    <div className="font-medium">
-                      {employee.lastname}, {employee.firstname}
-                    </div>
-                    <div className="text-gray-600">{employee.cuil}</div>
-                    <div className="text-gray-600">{employee.position_name || 'Sin posición'}</div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: employee.diagram_color }}
-                      ></span>
-                      <span className="text-gray-600">{employee.diagram_short_description}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">No hay empleados disponibles</div>
-            )}
-          </div> */}
       </DialogContent>
     </Dialog>
   );

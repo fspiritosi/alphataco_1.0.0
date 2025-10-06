@@ -1,6 +1,6 @@
 'use client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, Users, Wrench } from 'lucide-react';
+import { Clock, Users } from 'lucide-react';
 import { useState } from 'react';
 import { IndicatorChart } from '../indicatorChart';
 import DialogComponent from './dialogComponent';
@@ -29,19 +29,19 @@ export default function IndicatorCardChasisTractor({
   // usageEquipment: any;
 }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const getVariant = () => {
+    if (Math.round(disponibleEquipmentPorcent) !== 0) {
+      return Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
+        ? 'success'
+        : Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.warning
+          ? 'warning'
+          : 'destructive';
+    }
+    return 'destructive';
+  };
   return (
-    <Card
-      className="h-full w-full flex flex-col items-center  px-0"
-      variant={
-        Math.round(disponibleEquipmentPorcent) !== 0
-          ? Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
-            ? 'success'
-            : Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.warning
-              ? 'warning'
-              : 'destructive'
-          : 'destructive'
-      }
-    >
+    <Card className="h-full w-full flex flex-col items-center  px-0" variant={getVariant()}>
       <CardHeader>
         <CardTitle className="text-center text-xl font-bold">Indicador de flota</CardTitle>
       </CardHeader>
@@ -49,15 +49,7 @@ export default function IndicatorCardChasisTractor({
         <div className="flex flex-col gap-2 mb-2 w-1/2 justify-center">
           <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
-            variant={
-              activeEquipment !== undefined
-                ? activeEquipment >= condiciones_indicadores.success
-                  ? 'success'
-                  : activeEquipment >= condiciones_indicadores.warning
-                    ? 'warning'
-                    : 'destructive'
-                : 'destructive'
-            }
+            variant={getVariant()}
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -71,47 +63,16 @@ export default function IndicatorCardChasisTractor({
               </div>
             </CardContent>
           </Card>
-          <Card
-            className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
-            variant={
-              activeEquipment !== undefined
-                ? activeEquipment >= condiciones_indicadores.success
-                  ? 'success'
-                  : activeEquipment >= condiciones_indicadores.warning
-                    ? 'warning'
-                    : 'destructive'
-                : 'destructive'
-            }
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Wrench className="w-4 h-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-600">En reparación</p>
-                  <p className="text-xl font-bold text-gray-900">{notAvailableEquipmentNumber}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
           <DialogComponent
             isDialogOpen={isDialogOpen}
             setIsDialogOpen={setIsDialogOpen}
             condiciones_indicadores={condiciones_indicadores}
             vehiclesOnRepair={vehiclesOnRepair}
+            variant={getVariant()}
           />
           <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
-            variant={
-              activeEquipment !== undefined
-                ? activeEquipment >= condiciones_indicadores.success
-                  ? 'success'
-                  : activeEquipment >= condiciones_indicadores.warning
-                    ? 'warning'
-                    : 'destructive'
-                : 'destructive'
-            }
+            variant={getVariant()}
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">

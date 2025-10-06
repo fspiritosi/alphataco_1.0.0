@@ -21,12 +21,14 @@ export default function DialogComponent({
   condiciones_indicadores,
   vehiclesNotInDailyReport,
   vehiclesOnRepair,
+  variant,
 }: {
   isDialogOpen: boolean;
   setIsDialogOpen: (open: boolean) => void;
   condiciones_indicadores: any;
   vehiclesNotInDailyReport?: VehicleNotInDailyReportType[];
   vehiclesOnRepair?: VehicleNotInDailyReportType[];
+  variant: 'success' | 'warning' | 'destructive';
 }) {
   const columns = useMemo<ColumnDef<VehicleNotInDailyReportType>[]>(
     () => [
@@ -73,23 +75,7 @@ export default function DialogComponent({
       <DialogTrigger asChild>
         <Card
           className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200 hover:cursor-pointer"
-          variant={
-            Math.round(
-              vehiclesNotInDailyReport?.length ? vehiclesNotInDailyReport?.length : vehiclesOnRepair?.length || 0
-            ) !== 0
-              ? Math.round(
-                  vehiclesNotInDailyReport?.length ? vehiclesNotInDailyReport?.length : vehiclesOnRepair?.length || 0
-                ) >= condiciones_indicadores.success
-                ? 'success'
-                : Math.round(
-                      vehiclesNotInDailyReport?.length
-                        ? vehiclesNotInDailyReport?.length
-                        : vehiclesOnRepair?.length || 0
-                    ) >= condiciones_indicadores.warning
-                  ? 'warning'
-                  : 'destructive'
-              : 'destructive'
-          }
+          variant={variant}
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -114,7 +100,12 @@ export default function DialogComponent({
             {vehiclesNotInDailyReport?.length ? 'Disponibles' : 'Unidades en Reparación'} (
             {vehiclesNotInDailyReport?.length ? vehiclesNotInDailyReport?.length : vehiclesOnRepair?.length || 0})
           </DialogTitle>
-          <DialogDescription>Lista de unidades que se encuentran en reparación.</DialogDescription>
+          <DialogDescription>
+            {' '}
+            {vehiclesNotInDailyReport?.length
+              ? 'Lista de unidades que se encuentran disponibles'
+              : 'Lista de unidades que se encuentran en reparación'}
+          </DialogDescription>
         </DialogHeader>
         <div className="mt-4 flex-1 overflow-hidden">
           {(vehiclesOnRepair && vehiclesOnRepair?.length) ||
@@ -139,8 +130,8 @@ export default function DialogComponent({
                 ],
                 showViewOptions: true,
               }}
-              tableId="empleados-disponibles-table"
-              savedVisibility={{ lastname: true, cuil: true }}
+              tableId="vehicles-disponibles-table"
+              savedVisibility={{ type_name: true, sub_type_name: true }}
             />
           ) : (
             <div className="text-center py-8 text-gray-500">No hay empleados disponibles</div>
