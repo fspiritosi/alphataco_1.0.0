@@ -31,7 +31,7 @@ export default async function EmpleadoDiagramasChart() {
     },
   ];
 
-  const employeesNotInDailyReport: EmployeeNotInDailyReportType[] = await getEmployeesNotInDailyReport(
+  const employeesNotInDailyReport: EmployeeNotInDailyReportType = await getEmployeesNotInDailyReport(
     company_id,
     cookieValue?.split(',')
   ); // Solo devuelve un [] con los empleados con diagrama activo q no estan en el parte diario

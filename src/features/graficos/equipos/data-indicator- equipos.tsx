@@ -24,7 +24,7 @@ export default async function EquipmentChart() {
   const totalVehicles = active_vehicles?.reduce((sum: any, vehicle: any) => sum + vehicle.available_units || 0, 0) || 0;
   const vehiclesNotInDailyReport: any = await getVehiclesNotInDailyReport(
     cookiesStore.get('actualComp')?.value,
-    cookieValue?.split(',')
+    cookieValue?.split(',') || []
   );
   const total = active_vehicles?.reduce((sum: any, vehicle: any) => sum + vehicle.available_units || 0, 0) || 0;
   console.log('total', total);
