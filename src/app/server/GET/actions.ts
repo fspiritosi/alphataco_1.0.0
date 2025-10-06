@@ -2090,8 +2090,8 @@ export async function getVehiclesNotInDailyReport(
 
   try {
     const { data, error } = await supabase.rpc('get_vehicles_not_in_daily_report', {
-      p_company_id: company_id || null,
-      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : null,
+      p_company_id: company_id || undefined,
+      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : undefined,
     });
 
     if (error) {
