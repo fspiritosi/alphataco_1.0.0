@@ -2066,8 +2066,8 @@ export async function getVehiclesNonOperative(
 
   try {
     const { data, error } = await supabase.rpc('get_vehicles_non_operative', {
-      p_company_id: company_id || null,
-      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : null,
+      p_company_id: company_id || undefined,
+      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : undefined,
     });
 
     if (error) {
