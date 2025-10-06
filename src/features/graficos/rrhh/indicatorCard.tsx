@@ -1,6 +1,9 @@
+'use client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, Clock, Users } from 'lucide-react';
+import { Activity, Users } from 'lucide-react';
+import { useState } from 'react';
 import { IndicatorChart } from '../indicatorChart';
+import DialogComponent from './dialogComponent';
 
 export default function IndicatorCard({
   disponibleEmployeesPorcent,
@@ -10,6 +13,7 @@ export default function IndicatorCard({
   indicatorChartConfig,
   condiciones_indicadores,
   usageEmployees,
+  employeesNotInDailyReport,
 }: {
   disponibleEmployeesPorcent: number;
   disponibleEmployeesNumber: number;
@@ -18,7 +22,10 @@ export default function IndicatorCard({
   indicatorChartConfig: any;
   condiciones_indicadores: any;
   usageEmployees: any;
+  employeesNotInDailyReport: any[];
 }) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   return (
     <Card
       className="h-full w-full flex flex-col items-center  px-0"
@@ -86,8 +93,15 @@ export default function IndicatorCard({
               </div>
             </CardContent>
           </Card>
-
-          <Card
+          <DialogComponent
+            disponibleEmployeesNumber={disponibleEmployeesNumber}
+            employeesNotInDailyReport={employeesNotInDailyReport}
+            isDialogOpen={isDialogOpen}
+            setIsDialogOpen={setIsDialogOpen}
+            disponibleEmployeesPorcent={disponibleEmployeesPorcent}
+            condiciones_indicadores={condiciones_indicadores}
+          />
+          {/* <Card
             className="bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-colors duration-200"
             variant={
               Math.round(disponibleEmployeesPorcent) !== 0
@@ -110,7 +124,7 @@ export default function IndicatorCard({
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
         <IndicatorChart
           chartConfig={indicatorChartConfig}
