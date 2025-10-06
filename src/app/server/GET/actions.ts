@@ -1930,8 +1930,8 @@ export async function getEmployeesNotInDailyReport(
 
   try {
     const { data, error }: { data: any; error: any } = await supabase.rpc('get_employees_not_in_daily_report', {
-      p_company_id: company_id || null,
-      position_uuids: position_uuids && position_uuids.length > 0 ? position_uuids : null,
+      p_company_id: company_id || undefined,
+      position_uuids: position_uuids && position_uuids.length > 0 ? position_uuids : undefined,
     });
 
     if (error) {
