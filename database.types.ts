@@ -3630,12 +3630,13 @@ export type Database = {
       get_vehicles_not_in_daily_report: {
         Args: { p_company_id?: string; vehicle_type_ids?: string[] };
         Returns: {
-          brand_id: number;
+          brand: number;
           brand_name: string;
           condition: string;
+          customers: Json;
           domain: string;
           intern_number: string;
-          model_id: number;
+          model: number;
           model_name: string;
           serie: string;
           sub_type_id: string;
@@ -3645,7 +3646,7 @@ export type Database = {
           type_operative_id: string;
           type_operative_name: string;
           vehicle_id: string;
-          year: string;
+          year: number;
         }[];
       };
       hr_get_absenteeism_summary: {
