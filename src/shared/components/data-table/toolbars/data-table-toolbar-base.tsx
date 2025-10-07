@@ -104,7 +104,7 @@ export function DataTableToolbarBase<TData>({
   const selectedRows = table.getFilteredSelectedRowModel().rows;
   const hasSelectedRows = selectedRows.length > 0;
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between z-50">
       <div className="flex flex-1 items-center gap-2 flex-wrap">
         {bulkAction?.enabled && hasSelectedRows && (
           <Button
@@ -206,12 +206,6 @@ export function DataTableToolbarBase<TData>({
           <Button
             variant="ghost"
             onClick={() => {
-              // Limpiar todos los filtros de columna
-              table.resetColumnFilters();
-
-              // Limpiar filtros de fecha
-              setDateFilters({}); // Limpiar los estados locales de los DatePickers
-
               // Limpiar específicamente los filtros de búsqueda
               searchableColumns.forEach((column) => {
                 const tableColumn = table.getColumn(column.columnId);
@@ -219,6 +213,8 @@ export function DataTableToolbarBase<TData>({
                   tableColumn.setFilterValue('');
                 }
               });
+              table.resetColumnFilters();
+              setDateFilters({});
             }}
             className="h-8 px-2 lg:px-3"
           >
