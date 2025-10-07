@@ -1,12 +1,27 @@
 'use client';
-import { fetchallResources, fettchExistingEntries, updateDocumentType } from '@/app/server/GET/actions';
 import {
-  Condition,
+  fetchAllCategories,
+  fetchallResources,
+  fetchCompanyPositions,
+  fetchCovenants,
+  fetchCustomers,
+  fetchHierrarchicalPositions,
+  fetchProvinces,
+  fetchTypeOfContracts,
+  fetchTypesOfVehicles,
+  fetchTypeVehicles,
+  fetchVehicleBrands,
+  fetchVehicleModels,
+  fetchWorkDiagrams,
+  fettchExistingEntries,
+  updateDocumentType,
+} from '@/app/server/GET/actions';
+import {
   baseEmployeePropertiesConfig,
   baseVehiclePropertiesConfig,
+  Condition,
   getEmployeePropertyValue,
   getVehiclePropertyValue,
-  normalizeString,
   relationMeta,
 } from '@/components/NewDocumentType';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -44,33 +59,64 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { fetchGuilds } from '@/features/Employees/EmpleadoID/lib/actions/catalog-actions';
+import { fetchEmployeesWithFilters, fetchVehiclesWithFilters, RpcFilter } from '@/lib/documentFilters';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useCountriesStore } from '@/store/countries';
 import { Equipo } from '@/zodSchemas/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
-import cookies from 'js-cookie';
+import Cookies from 'js-cookie';
 import { PlusCircle, Truck, User, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+type OptionItem = { value: string; label: string };
+
+type EmployeeDetailed = {
+  id: string;
+  firstname: string;
+  lastname: string;
+  picture?: string;
+  // otras propiedades que vienen del RPC
+  [key: string]: any;
+};
+
+type VehicleWithBrand = {
+  id: string;
+  brand_name?: string;
+  model_name?: string;
+  brand?: { name: string };
+  model?: { name: string };
+  picture?: string;
+  // otras propiedades que vienen del RPC
+  [key: string]: any;
+};
 
 type Props = {
   Equipo: Equipo[0];
-  employeeMockValues: Record<string, string[] | []>;
-  vehicleMockValues: Record<string, string[] | []>;
-  employees: EmployeeDetailed[];
-  vehicles: VehicleWithBrand[];
 };
-export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, employees, vehicles }: Props) {
+export function EditModal({ Equipo }: Props) {
+  const [isCalculatingCount, setIsCalculatingCount] = useState(false);
+  const [optionsCache, setOptionsCache] = useState<Record<string, OptionItem[]>>({});
+  const [loadingOptions, setLoadingOptions] = useState<Record<string, boolean>>({});
+  // AbortController para cancelar requests en curso
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ========== Contadores con RPC (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const [employeeCount, setEmployeeCount] = useState<number | null>(null);
+  const [vehicleCount, setVehicleCount] = useState<number | null>(null);
+  const [previewEmployees, setPreviewEmployees] = useState<any[]>([]);
+  const [previewVehicles, setPreviewVehicles] = useState<any[]>([]);
+
   const supabase = supabaseBrowser();
-  const [special, setSpecial] = useState(false);
+  const [special, setSpecial] = useState(false || Equipo.special);
   const [allResources, setAllResources] = useState<any[]>([]);
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
-  const actualCompany = cookies.get('actualComp');
+  const actualCompany = Cookies.get('actualComp');
   const [showEmployeePreview, setShowEmployeePreview] = useState(false);
   const [showVehiclePreview, setShowVehiclePreview] = useState(false);
   const [showAlertsUpdateModal, setShowAlertsUpdateModal] = useState(false);
@@ -83,7 +129,11 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
         id: crypto.randomUUID(),
         property:
           c.property_label || baseVehiclePropertiesConfig.find((p) => p.accessor_key === c.property_key)?.label || '',
-        values: c.reference_values?.length ? c.reference_values?.map((v) => v.value) : c.values || c.ids || [],
+        values: c.reference_values?.length
+          ? c.is_relation
+            ? c.reference_values?.map((v) => v.id)
+            : c.reference_values?.map((v) => v.value)
+          : c.values || c.ids || [],
       })) || []
     );
   });
@@ -91,12 +141,11 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
   const [matchingEmployees, setMatchingEmployees] = useState<EmployeeDetailed[]>([]);
   const [matchingVehicles, setMatchingVehicles] = useState<VehicleWithBrand[]>([]);
   // Estado para mantener las propiedades con sus valores dinámicos
-  const [employeePropertiesConfig, setEmployeePropertiesConfig] = useState(
-    baseEmployeePropertiesConfig?.map((prop) => ({ ...prop, values: [] as string[] }))
-  );
-  const [vehiclePropertiesConfig, setVehiclePropertiesConfig] = useState(
-    baseVehiclePropertiesConfig?.map((prop) => ({ ...prop, values: [] as string[] }))
-  );
+
+  const employeePropertiesConfig = baseEmployeePropertiesConfig;
+
+  // Líneas 315-325:
+  const vehiclePropertiesConfig = baseVehiclePropertiesConfig;
   const FormSchema = z.object({
     name: z
       .string({ required_error: 'Este campo es requerido' })
@@ -190,11 +239,11 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
           'contractor_employee',
           'province',
           'hierarchical_position',
-          'company_position',
           'category',
           'guild',
           'covenant',
           'city',
+          'company_position',
         ].includes(propConfig.accessor_key);
 
         // Tipo especial para contractor_employee (array de relaciones)
@@ -202,37 +251,32 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
         const isArrayRelation = relationsColumns.includes(propConfig.accessor_key);
 
         let reference_values: { id: string; value: string }[] = [];
-        if (isRelation) {
-          // Buscar FIRST employee que contenga el valor para obtener su ID (si está presente)
-          reference_values = condition.values.map((value) => {
-            const emp = employees.find((e) => {
-              const empVal = getEmployeePropertyValue(e, propConfig.accessor_key);
-              return empVal?.toLowerCase() === value.toLowerCase();
-            });
-            // Para relaciones 1:N el objeto suele estar directamente en la propiedad
-            const relatedObj = (emp ? (emp[propConfig.accessor_key as keyof EmployeeDetailed] as any) : null) as any;
-            const relatedId = relatedObj?.id ?? relatedObj ?? '';
+        // if (isRelation) {
+        //   // Buscar FIRST employee que contenga el valor para obtener su ID (si está presente)
+        //   reference_values = condition.values.map((value) => {
+        //     const emp = employees.find((e) => {
+        //       const empVal = getEmployeePropertyValue(e, propConfig.accessor_key);
+        //       return empVal?.toLowerCase() === value.toLowerCase();
+        //     });
+        //     // Para relaciones 1:N el objeto suele estar directamente en la propiedad
+        //     const relatedObj = (emp ? (emp[propConfig.accessor_key as keyof EmployeeDetailed] as any) : null) as any;
+        //     const relatedId = relatedObj?.id ?? relatedObj ?? '';
 
-            const result = {
-              id: relatedId[0]?.customers?.id ? relatedId[0].customers.id : relatedId,
-              value,
-            };
-            return result;
-          });
-        }
+        //     return {
+        //       id: relatedId[0]?.customers?.id ? relatedId[0].customers.id : relatedId,
+        //       value,
+        //     };
+        //   });
+        // }
 
         // Añadir metadatos de relación para uso en BD
         const meta = relationMeta[propConfig.accessor_key] || null;
 
-        const result = {
+        return {
           property_key: propConfig.accessor_key,
           values: condition.values,
           reference_values: reference_values,
-          ids: isRelation
-            ? reference_values.length
-              ? reference_values.map((r) => r.id).filter((id) => id && id !== '')
-              : []
-            : condition.values,
+          ids: reference_values.length ? reference_values.map((r) => r.id) : condition.values, // Para direct, usar los valores mismos
           is_relation: isRelation,
           is_array_relation: isArrayRelation,
           relation_type: meta ? meta.relation_type : 'direct',
@@ -242,8 +286,6 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
           filter_column: meta?.filter_column || propConfig.accessor_key,
           property_label: condition.property,
         };
-
-        return result;
       })
       .filter(Boolean); // Eliminar nulls
   }
@@ -269,27 +311,27 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
 
         let reference_values: { id: string; value: string }[] = [];
         if (isRelation) {
-          reference_values = condition.values.map((value) => {
-            const veh = vehicles.find((v) => {
-              const vehVal = getVehiclePropertyValue(v, propConfig.accessor_key);
-              return vehVal?.toLowerCase() === value.toLowerCase();
-            }) as any;
-            // Para contractor_equipment es array, para otros puede ser objeto
-            if (isArrayRelation && veh && Array.isArray(veh.contractor_equipment)) {
-              // Busca el contractor_id correspondiente al valor
-              const contractor = veh.contractor_equipment.find(
-                (r: any) => r.contractor_id?.name?.toLowerCase() === value.toLowerCase()
-              );
-              return { id: contractor?.contractor_id?.id || '', value };
-            } else if (veh && propConfig.accessor_key.includes('.')) {
-              // Para relaciones 1:N anidadas (ej: brand.name)
-              const [main, sub] = propConfig.accessor_key.split('.');
-              return { id: veh[main as any]?.id || '', value };
-            } else if (veh && veh[propConfig.accessor_key]) {
-              return { id: veh[propConfig.accessor_key]?.id || '', value };
-            }
-            return { id: '', value };
-          });
+          // reference_values = condition.values.map((value) => {
+          //   const veh = vehicles.find((v) => {
+          //     const vehVal = getVehiclePropertyValue(v, propConfig.accessor_key);
+          //     return vehVal?.toLowerCase() === value.toLowerCase();
+          //   }) as any;
+          //   // Para contractor_equipment es array, para otros puede ser objeto
+          //   if (isArrayRelation && veh && Array.isArray(veh.contractor_equipment)) {
+          //     // Busca el contractor_id correspondiente al valor
+          //     const contractor = veh.contractor_equipment.find(
+          //       (r: any) => r.contractor_id?.name?.toLowerCase() === value.toLowerCase()
+          //     );
+          //     return { id: contractor?.contractor_id?.id || '', value };
+          //   } else if (veh && propConfig.accessor_key.includes('.')) {
+          //     // Para relaciones 1:N anidadas (ej: brand.name)
+          //     const [main, sub] = propConfig.accessor_key.split('.');
+          //     return { id: veh[main as any]?.id || '', value };
+          //   } else if (veh && veh[propConfig.accessor_key]) {
+          //     return { id: veh[propConfig.accessor_key]?.id || '', value };
+          //   }
+          //   return { id: '', value };
+          // });
         }
 
         const meta = relationMeta[propConfig.accessor_key] || null;
@@ -297,11 +339,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
         return {
           property_key: propConfig.accessor_key,
           values: condition.values,
-          ids: !!meta
-            ? reference_values.length
-              ? reference_values.map((r) => r.id).filter((id) => id && id !== '')
-              : []
-            : condition.values,
+          ids: reference_values.length ? reference_values.map((r) => r.id) : condition.values,
           is_relation: !!meta,
           is_array_relation: isArrayRelation,
           relation_type: meta?.relation_type || 'direct',
@@ -763,153 +801,461 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
     }
   }
 
-  // 2. Función que filtra empleados según las condiciones
-  function filterEmployeesByConditions(empleados: any[], condiciones: any[], propConfig: any[]) {
-    // Si no hay condiciones, mostrar todos los empleados
-    if (!condiciones.length) return empleados;
-
-    return empleados.filter((employee) => {
-      // El empleado debe cumplir TODAS las condiciones (AND entre condiciones)
-      const cumple = condiciones.every((condition) => {
-        // Si la condición no tiene propiedad o valores, se omite
-        if (!condition.property || !condition.values?.length) return true;
-
-        // Buscar la configuración de la propiedad
-        const propertyConfig = propConfig.find((config) => config.label === condition.property);
-        if (!propertyConfig) return true;
-
-        // Caso especial para clientes (contractor_employee)
-        if (propertyConfig.accessor_key === 'contractor_employee') {
-          const contractorEmployees = employee.contractor_employee || [];
-
-          // Verificar si el empleado tiene al menos uno de los clientes seleccionados
-          const tieneAlgunClienteSeleccionado = condition.values.some((clienteSeleccionado: string) => {
-            return contractorEmployees.some(
-              (contrato: any) =>
-                contrato &&
-                contrato.customers &&
-                normalizeString(contrato.customers.name) === normalizeString(clienteSeleccionado)
-            );
-          });
-          return tieneAlgunClienteSeleccionado;
-        }
-
-        // Para el resto de propiedades, comportamiento normal
-        const employeeValue = getEmployeePropertyValue(employee, propertyConfig.accessor_key);
-
-        // El empleado cumple si coincide con AL MENOS UNO de los valores (OR entre valores)
-        const resultado = condition.values.some((v: string) => {
-          // Usar normalizeString para una comparación más robusta
-          const match = normalizeString(employeeValue) === normalizeString(v);
-          return match;
-        });
-
-        return resultado;
-      });
-
-      return cumple;
-    });
-  }
-
-  // 2.5. Función que filtra vehículos según las condiciones
-  function filterVehiclesByConditions(vehs: any[], condiciones: Condition[], propConfig: any[]) {
-    if (!condiciones.length) return vehs;
-    return vehs.filter((v) =>
-      condiciones.every((c) => {
-        if (!c.property || !c.values?.length) return true;
-        const cfg = propConfig.find((p) => p.label === c.property);
-        if (!cfg) return true;
-        const val = getVehiclePropertyValue(v, cfg.accessor_key);
-        return c.values.some((x) => normalizeString(val) === normalizeString(x));
-      })
-    );
-  }
-
-  // 3. Aplicar filtros cuando cambien las condiciones
-  useEffect(() => {
-    // Solo aplicar filtros si ya se han cargado empleados
-    if (employees?.length > 0) {
-      const filtered = filterEmployeesByConditions(employees, conditions, employeePropertiesConfig);
-      setMatchingEmployees(filtered);
-    }
-    if (vehicles?.length > 0) {
-      setMatchingVehicles(filterVehiclesByConditions(vehicles, conditions, vehiclePropertiesConfig));
-    }
-  }, [conditions, employees, employeePropertiesConfig, vehicles, vehiclePropertiesConfig]);
-
-  useEffect(() => {
-    const fetchAndSetupEmployees = async () => {
-      try {
-        // Extraer valores únicos para cada propiedad
-        const updatedConfig = baseEmployeePropertiesConfig.map((prop) => {
-          const defaultVals = employeeMockValues[prop.accessor_key] || [];
-          const values =
-            defaultVals.length > 0
-              ? defaultVals
-              : Array.from(
-                  new Set(
-                    employees
-                      .map((employee) => getEmployeePropertyValue(employee, prop.accessor_key))
-                      .filter((v) => v !== undefined && v !== null && v !== '')
-                  )
-                );
-          return { ...prop, values };
-        });
-        setEmployeePropertiesConfig(updatedConfig);
-        setMatchingEmployees(employees);
-      } catch (error) {
-        console.error('Error al cargar empleados:', error);
-      }
-    };
-
-    // 1.5. Cargar vehículos (solo una vez al montar el componente)
-    const fetchAndSetupVehicles = async () => {
-      const updated = baseVehiclePropertiesConfig.map((prop) => {
-        const defaultVals = vehicleMockValues[prop.accessor_key] || [];
-        const vals =
-          defaultVals.length > 0
-            ? defaultVals
-            : Array.from(new Set(vehicles.map((v) => getVehiclePropertyValue(v, prop.accessor_key)).filter((v) => v)));
-        return { ...prop, values: vals };
-      });
-      setVehiclePropertiesConfig(updated);
-      setMatchingVehicles(vehicles);
-    };
-
-    fetchAndSetupEmployees();
-    fetchAndSetupVehicles();
-  }, [vehicles, employees]);
-
   const addCondition = () => {
-    setConditions((prev) => [...prev, { property: '', values: [], id: Date.now().toString() }]);
+    const newCondition = { property: '', values: [], id: Date.now().toString() };
+    const updatedConditions = [...conditions, newCondition];
+    setConditions(updatedConditions);
+
+    // No recalcular al agregar condición vacía
+    // computeCountWithRPC(updatedConditions);
   };
 
   // Actualiza los valores de una condición existente
   const updateConditionValues = (id: string, values: string[]) => {
-    setConditions((prev) => prev.map((condition) => (condition.id === id ? { ...condition, values } : condition)));
+    const updatedConditions = conditions.map((condition) =>
+      condition.id === id ? { ...condition, values } : condition
+    );
+    setConditions(updatedConditions);
+
+    // Recalcular con RPC cuando cambian los valores
+    computeCountWithRPC(updatedConditions);
   };
 
-  const updateCondition = (id: string, field: 'property' | 'value', value: string) => {
-    setConditions(
-      conditions.map((condition) => {
-        if (condition.id === id) {
-          return { ...condition, [field]: value };
-        }
-        return condition;
-      })
-    );
-  };
   // Elimina una condición por su ID
   const removeCondition = (id: string) => {
-    setConditions(conditions.filter((condition) => condition.id !== id));
+    const updatedConditions = conditions.filter((condition) => condition.id !== id);
+    setConditions(updatedConditions);
+
+    // Recalcular con RPC cuando se elimina una condición
+    computeCountWithRPC(updatedConditions);
+  };
+
+  // ========== Calcular contador con RPC (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const computeCountWithRPC = async (updatedConditions?: Condition[]) => {
+    const conditionsToUse = updatedConditions || conditions;
+
+    console.log('[RPC COUNT] Calculando con', conditionsToUse.length, 'condiciones');
+
+    if (!special || conditionsToUse.length === 0) {
+      console.log('[RPC COUNT] Reseteando contadores');
+      // Cancelar request en curso si existe
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      setIsCalculatingCount(false); // ← Resetear estado cuando no hay condiciones
+      setEmployeeCount(null);
+      setVehicleCount(null);
+      setPreviewEmployees([]);
+      setPreviewVehicles([]);
+      setMatchingEmployees([]); // ← Resetear matchingEmployees
+      setMatchingVehicles([]); // ← Resetear matchingVehicles
+      return;
+    }
+
+    const companyId = Cookies.get('actualComp');
+
+    if (!companyId) {
+      console.log('[RPC COUNT] Sin company ID');
+      return;
+    }
+
+    const applies = form.getValues('applies');
+
+    // Cancelar la request anterior si existe
+    if (abortControllerRef.current) {
+      console.log('[RPC COUNT] ⛔ Abortando request anterior');
+      abortControllerRef.current.abort();
+    }
+
+    // Crear nuevo AbortController para esta request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    const signal = abortController.signal;
+
+    setIsCalculatingCount(true);
+
+    try {
+      if (applies === 'Persona') {
+        // Construir filtros RPC usando accessor_key de condiciones
+        console.log(conditionsToUse, 'conditionsToUse');
+        const rpcFilters: RpcFilter[] = conditionsToUse
+          .filter((c) => c.property && c.values.length > 0)
+          .map((c) => {
+            const config = employeePropertiesConfig?.find((p) => p.label === c.property);
+            return config ? { property: config.accessor_key, values: c.values } : null;
+          })
+          .filter(Boolean) as RpcFilter[];
+
+        console.log('[RPC COUNT] Filtros:', rpcFilters);
+
+        const filtered = await fetchEmployeesWithFilters(companyId, rpcFilters);
+
+        // Verificar si la request fue abortada
+        if (signal.aborted) {
+          console.log('[RPC COUNT] ⛔ Request abortada (empleados)');
+          setIsCalculatingCount(false); // ← Resetear estado cuando se aborta
+          return;
+        }
+
+        console.log('[RPC COUNT] ✅ Encontrados:', filtered.length, 'empleados');
+
+        setEmployeeCount(filtered.length);
+        setPreviewEmployees(filtered);
+        setMatchingEmployees(filtered); // ← Actualizar matchingEmployees con los empleados filtrados
+        setIsCalculatingCount(false); // ← Resetear estado de cálculo
+        abortControllerRef.current = null;
+      } else if (applies === 'Equipos') {
+        const rpcFilters: RpcFilter[] = conditionsToUse
+          .filter((c) => c.property && c.values.length > 0)
+          .map((c) => {
+            const config = vehiclePropertiesConfig?.find((p) => p.label === c.property);
+            return config ? { property: config.accessor_key, values: c.values } : null;
+          })
+          .filter(Boolean) as RpcFilter[];
+
+        console.log('[RPC COUNT] Filtros:', rpcFilters);
+
+        const filtered = await fetchVehiclesWithFilters(companyId, rpcFilters);
+
+        // Verificar si la request fue abortada
+        if (signal.aborted) {
+          console.log('[RPC COUNT] ⛔ Request abortada (vehículos)');
+          setIsCalculatingCount(false); // ← Resetear estado cuando se aborta
+          return;
+        }
+
+        console.log('[RPC COUNT] ✅ Encontrados:', filtered.length, 'vehículos');
+
+        setVehicleCount(filtered.length);
+        setPreviewVehicles(filtered);
+        setMatchingVehicles(filtered); // ← Actualizar matchingVehicles con los vehículos filtrados
+        setIsCalculatingCount(false); // ← Resetear estado de cálculo
+        abortControllerRef.current = null;
+      }
+    } catch (error: any) {
+      // Si el error es por abort, no hacer nada (ya se manejó arriba)
+      if (error?.name === 'AbortError' || signal.aborted) {
+        console.log('[RPC COUNT] 🔄 Request cancelada, continuando con la siguiente');
+        setIsCalculatingCount(false); // ← Resetear estado cuando se aborta en el catch
+        return;
+      }
+
+      console.error('[RPC COUNT] ❌ Error:', error);
+      setIsCalculatingCount(false);
+      setMatchingEmployees([]); // ← Resetear en caso de error
+      setMatchingVehicles([]); // ← Resetear en caso de error
+    }
+  };
+
+  // ========== Función para pre-cargar opciones de condiciones existentes ==========
+  const preloadExistingConditionsOptions = async () => {
+    if (!Equipo?.conditions?.length) return;
+
+    console.log('[PRELOAD] Pre-cargando opciones para condiciones existentes');
+
+    for (const condition of Equipo.conditions) {
+      if (!condition.property_key || !condition.values?.length) continue;
+
+      const applies = form.getValues('applies');
+      const accessorKey = condition.property_key;
+
+      console.log(`[PRELOAD] Cargando opciones para propiedad: ${accessorKey}`);
+
+      // Solo cargar opciones si aplica a Persona o Equipos (no Empresa)
+      if (applies === 'Persona' || applies === 'Equipos') {
+        // Usar la función existente ensureOptionsLoaded
+        await ensureOptionsLoaded(accessorKey, applies);
+      }
+    }
+
+    console.log('[PRELOAD] Pre-carga de opciones completada');
+  };
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // ========== Ejecutar conteos iniciales si documento tiene condiciones especiales ==========
+  useEffect(() => {
+    if (Equipo?.special && conditions.length > 0 && modalOpen) {
+      // Primero pre-cargar las opciones necesarias
+      preloadExistingConditionsOptions().then(() => {
+        // Luego ejecutar conteos iniciales cuando el documento tiene condiciones especiales
+        console.log(conditions, 'conditions');
+        console.log(Equipo?.conditions, 'Equipo?.conditions');
+        computeCountWithRPC(conditions);
+      });
+    }
+  }, [Equipo, modalOpen]);
+
+  // ========== Monitorear cambios en campo 'special' del formulario ==========
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'special' && value.special === true && conditions.length > 0) {
+        console.log('[WATCH] Campo special cambió a true con condiciones existentes, ejecutando conteos');
+        // Ejecutar conteos cuando se activa 'special' desde el formulario y hay condiciones existentes
+        computeCountWithRPC(conditions);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form, conditions, computeCountWithRPC]);
+  // ========== Función para cargar opciones bajo demanda (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const ensureOptionsLoaded = async (accessor_key: string, applies: 'Persona' | 'Equipos') => {
+    const cacheKey = `${applies}_${accessor_key}`;
+
+    console.log(`[LAZY LOAD] 🔍 Verificando opciones para: ${accessor_key} (${applies})`);
+
+    // Si ya están cargadas en cache, retornarlas
+    if (optionsCache[cacheKey]) {
+      console.log(`[LAZY LOAD] ✅ Opciones en cache:`, optionsCache[cacheKey].length, 'opciones');
+      return optionsCache[cacheKey];
+    }
+
+    // Si ya están cargando, esperar
+    if (loadingOptions[cacheKey]) {
+      console.log(`[LAZY LOAD] ⏳ Cargando...`);
+      return [];
+    }
+
+    try {
+      setLoadingOptions((prev) => ({ ...prev, [cacheKey]: true }));
+      console.log(`[LAZY LOAD] 🚀 Cargando ${accessor_key}...`);
+
+      let options: OptionItem[] = [];
+
+      if (applies === 'Persona') {
+        console.log(`[LAZY LOAD] 📞 Fetch individual: ${accessor_key}`);
+
+        switch (accessor_key) {
+          case 'workflow_diagram': {
+            const data = await fetchWorkDiagrams();
+            options = data.map((d) => ({ value: String(d.id), label: d.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'guild': {
+            const data = await fetchGuilds();
+            options = data.filter((g) => g.name).map((g) => ({ value: String(g.id), label: g.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'covenant': {
+            const data = await fetchCovenants();
+            options = data.map((c) => ({ value: String(c.id), label: c.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'category': {
+            const data = await fetchAllCategories();
+            options = data.map((c) => ({ value: String(c.id), label: c.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'hierarchical_position': {
+            const data = await fetchHierrarchicalPositions();
+            options = data.map((h) => ({ value: String(h.id), label: h.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'contractor_employee': {
+            const data = await fetchCustomers();
+            options = data.map((c) => ({ value: String(c.id), label: c.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'province': {
+            const data = await fetchProvinces();
+            options = data.map((p) => ({ value: String(p.id), label: p.name.trim() }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'company_position': {
+            const data = await fetchCompanyPositions();
+            options = data.filter((p) => p.name).map((p) => ({ value: String(p.id), label: p.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          // Propiedades con valores estáticos (value = label para estos casos)
+          case 'gender':
+            options = [
+              { value: 'Masculino', label: 'Masculino' },
+              { value: 'Femenino', label: 'Femenino' },
+              { value: 'No Declarado', label: 'No Declarado' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'marital_status':
+            options = [
+              { value: 'Soltero', label: 'Soltero' },
+              { value: 'Casado', label: 'Casado' },
+              { value: 'Viudo', label: 'Viudo' },
+              { value: 'Divorciado', label: 'Divorciado' },
+              { value: 'Separado', label: 'Separado' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'nationality':
+            options = [
+              { value: 'Argentina', label: 'Argentina' },
+              { value: 'Extranjero', label: 'Extranjero' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'document_type':
+            options = [
+              { value: 'DNI', label: 'DNI' },
+              { value: 'LE', label: 'LE' },
+              { value: 'LC', label: 'LC' },
+              { value: 'PASAPORTE', label: 'PASAPORTE' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'level_of_education':
+            options = [
+              { value: 'Primario', label: 'Primario' },
+              { value: 'Secundario', label: 'Secundario' },
+              { value: 'Terciario', label: 'Terciario' },
+              { value: 'Posgrado', label: 'Posgrado' },
+              { value: 'Universitario', label: 'Universitario' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'status':
+            options = [
+              { value: 'Avalado', label: 'Avalado' },
+              { value: 'Completo', label: 'Completo' },
+              { value: 'Incompleto', label: 'Incompleto' },
+              { value: 'No avalado', label: 'No avalado' },
+              { value: 'Completo con doc vencida', label: 'Completo con doc vencida' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          // case 'type_of_contract':
+          //   options = [
+          //     { value: 'Período de prueba', label: 'Período de prueba' },
+          //     { value: 'A tiempo indeterminado', label: 'A tiempo indeterminado' },
+          //     { value: 'Plazo fijo', label: 'Plazo fijo' }
+          //   ];
+          //   console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+          //   break;
+          case 'type_of_contract': {
+            const data = await fetchTypeOfContracts();
+            options = data.map((c) => ({ value: String(c.id), label: c.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          default:
+            console.warn(`[LAZY LOAD] ⚠️ Desconocido: ${accessor_key}`);
+        }
+      } else if (applies === 'Equipos') {
+        // Cargar SOLO la función específica para vehículos
+        console.log(`[LAZY LOAD] 📞 Fetch individual: ${accessor_key}`);
+
+        switch (accessor_key) {
+          case 'brand': {
+            const data = await fetchVehicleBrands();
+            options = data.map((b) => ({ value: String(b.id), label: b.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'model': {
+            const data = await fetchVehicleModels();
+            options = data.map((m) => ({ value: String(m.id), label: m.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'type': {
+            const data = await fetchTypeVehicles();
+            options = data.map((t) => ({ value: String(t.id), label: t.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'types_of_vehicles': {
+            const data = await fetchTypesOfVehicles();
+            options = data.map((t) => ({ value: String(t.id), label: t.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'contractor_equipment': {
+            const data = await fetchCustomers();
+            options = data.map((c) => ({ value: String(c.id), label: c.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          default:
+            console.warn(`[LAZY LOAD] ⚠️ Desconocido: ${accessor_key}`);
+        }
+      }
+
+      // Guardar en cache
+      setOptionsCache((prev) => ({ ...prev, [cacheKey]: options }));
+      console.log(`[LAZY LOAD] 💾 Cache actualizado: ${options.length} opciones`);
+
+      return options;
+    } catch (error) {
+      console.error(`[LAZY LOAD] ❌ Error:`, error);
+      return [];
+    } finally {
+      setLoadingOptions((prev) => ({ ...prev, [cacheKey]: false }));
+    }
+  };
+
+  // ========== Handler para selección de propiedad (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const handlePropertySelect = async (conditionId: string, propertyLabel: string) => {
+    console.log(`[LAZY LOAD] 🎯 Propiedad: ${propertyLabel}`);
+
+    // Limpiar valores anteriores de esta condición al cambiar de propiedad
+    const updatedConditions = conditions.map((condition) => {
+      if (condition.id === conditionId) {
+        return { ...condition, property: propertyLabel, values: [] };
+      }
+      return condition;
+    });
+    setConditions(updatedConditions);
+
+    // Cargar opciones si no están cargadas
+    const applies = form.getValues('applies');
+    if (applies === 'Persona' || applies === 'Equipos') {
+      const config =
+        applies === 'Persona'
+          ? employeePropertiesConfig.find((p) => p.label === propertyLabel)
+          : vehiclePropertiesConfig.find((p) => p.label === propertyLabel);
+
+      if (config) {
+        await ensureOptionsLoaded(config.accessor_key, applies);
+      }
+    }
+
+    // Recalcular contador (ahora sin valores, por lo que reseteará o ajustará)
+    computeCountWithRPC(updatedConditions);
   };
 
   // Cerca de la línea 587, donde están los otros estados
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState('');
 
+  // ========== Obtener opciones del cache (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const getPropertyOptions = (propertyLabel: string, applies: 'Persona' | 'Equipos'): OptionItem[] => {
+    const config =
+      applies === 'Persona'
+        ? employeePropertiesConfig.find((p) => p.label === propertyLabel)
+        : vehiclePropertiesConfig.find((p) => p.label === propertyLabel);
+
+    if (!config) {
+      return [];
+    }
+
+    const cacheKey = `${applies}_${config.accessor_key}`;
+    const cached = optionsCache[cacheKey];
+
+    if (cached) {
+      return cached;
+    }
+
+    return [];
+  };
+
   return (
-    <Sheet>
+    <Sheet open={modalOpen} onOpenChange={setModalOpen}>
       <SheetTrigger asChild>
         <Button
           onClick={async () => {
@@ -1057,7 +1403,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                     ))}
                   </TooltipProvider>
                 </div>
-                {form.getValues('special') === true && (
+                {special && (
                   <div className="mt-4 border rounded-lg p-4 ">
                     <div className="flex justify-between flex-col items-center mb-4">
                       <h3 className="font-semibold text-lg mb-2">Condiciones Especiales</h3>
@@ -1068,9 +1414,19 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                             size="sm"
                             type="button"
                             onClick={() => setShowEmployeePreview(!showEmployeePreview)}
+                            disabled={isCalculatingCount}
                           >
-                            <Users className="h-4 w-4 mr-1" />
-                            {showEmployeePreview ? 'Ocultar' : 'Ver'} Empleados ({matchingEmployees.length})
+                            {isCalculatingCount ? (
+                              <>
+                                <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                Calculando...
+                              </>
+                            ) : (
+                              <>
+                                <Users className="h-4 w-4 mr-1" />
+                                {showEmployeePreview ? 'Ocultar' : 'Ver'} Empleados ({employeeCount ?? 0})
+                              </>
+                            )}
                           </Button>
                         )}
                         {form.getValues('applies') === 'Equipos' && (
@@ -1079,9 +1435,19 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                             size="sm"
                             type="button"
                             onClick={() => setShowVehiclePreview(!showVehiclePreview)}
+                            disabled={isCalculatingCount}
                           >
-                            <Truck className="h-4 w-4 mr-1" />
-                            {showVehiclePreview ? 'Ocultar' : 'Ver'} Equipos ({matchingVehicles.length})
+                            {isCalculatingCount ? (
+                              <>
+                                <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                Calculando...
+                              </>
+                            ) : (
+                              <>
+                                <Truck className="h-4 w-4 mr-1" />
+                                {showVehiclePreview ? 'Ocultar' : 'Ver'} Equipos ({vehicleCount ?? 0})
+                              </>
+                            )}
                           </Button>
                         )}
                         <Button variant="outline" size="sm" type="button" onClick={addCondition}>
@@ -1107,7 +1473,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                               <div className="flex items-center gap-2">
                                 <Select
                                   value={condition.property}
-                                  onValueChange={(value) => updateCondition(condition.id, 'property', value)}
+                                  onValueChange={(value) => handlePropertySelect(condition.id, value)}
                                 >
                                   <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="Seleccionar propiedad" />
@@ -1126,35 +1492,44 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                                         ))}
                                   </SelectContent>
                                 </Select>
-                                {condition.property && (
-                                  <MultiSelect
-                                    options={
-                                      form.getValues('applies') === 'Equipos'
-                                        ? vehiclePropertiesConfig
-                                            .find((prop) => prop.label === condition.property)
-                                            ?.values.map((value: string) => ({
-                                              label: value,
-                                              value: value,
-                                            })) || []
-                                        : employeePropertiesConfig
-                                            .find((prop) => prop.label === condition.property)
-                                            ?.values.map((value: string) => ({
-                                              label: value,
-                                              value: value,
-                                            })) || []
-                                    }
-                                    selectedValues={condition.values}
-                                    setSelectedValues={(values: string[]) =>
-                                      updateConditionValues(condition.id, values)
-                                    }
-                                    emptyMessage="No hay valores disponibles"
-                                    placeholder="Seleccionar valores"
-                                    key={crypto.randomUUID()}
-                                  />
-                                )}
+                                {condition.property &&
+                                  (() => {
+                                    const applies = form.getValues('applies');
+                                    const config =
+                                      applies === 'Persona'
+                                        ? employeePropertiesConfig.find((p) => p.label === condition.property)
+                                        : vehiclePropertiesConfig.find((p) => p.label === condition.property);
+                                    const cacheKey = config ? `${applies}_${config.accessor_key}` : '';
+                                    const isLoading = loadingOptions[cacheKey] || false;
+                                    const cachedOptions = getPropertyOptions(
+                                      condition.property,
+                                      applies as 'Persona' | 'Equipos'
+                                    );
+
+                                    return (
+                                      <div className="flex items-center gap-2 flex-1">
+                                        {isLoading && (
+                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                            Cargando opciones...
+                                          </div>
+                                        )}
+                                        {!isLoading && (
+                                          <MultiSelect
+                                            options={cachedOptions}
+                                            selectedValues={condition.values}
+                                            setSelectedValues={(values: string[]) =>
+                                              updateConditionValues(condition.id, values)
+                                            }
+                                            emptyMessage="No hay valores disponibles"
+                                            placeholder="Seleccionar valores"
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
 
                                 <Button
-                                  variant="ghost"
                                   size="icon"
                                   type="button"
                                   onClick={() => removeCondition(condition.id)}
@@ -1172,10 +1547,53 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                             <span className="text-sm font-medium">Resumen:</span>
                             {conditions.map((condition) => {
                               const propertyLabel = condition.property;
+                              const applies = form.getValues('applies');
 
-                              return condition.property && condition?.values?.length ? (
+                              return condition.property && condition.values.length ? (
                                 <Badge key={crypto.randomUUID()} variant="outline" className="text-xs">
-                                  {propertyLabel}: {condition.values.join(', ')}
+                                  {propertyLabel}:{' '}
+                                  {(() => {
+                                    // Buscar configuración de la propiedad
+                                    const config =
+                                      applies === 'Persona'
+                                        ? employeePropertiesConfig.find((p) => p.label === condition.property)
+                                        : vehiclePropertiesConfig.find((p) => p.label === condition.property);
+
+                                    if (!config) return condition.values.join(', ');
+
+                                    // Si es una propiedad de relación, convertir IDs a nombres
+                                    if (
+                                      [
+                                        'contractor_employee',
+                                        'province',
+                                        'hierarchical_position',
+                                        'category',
+                                        'guild',
+                                        'covenant',
+                                        'city',
+                                        'company_position',
+                                        'brand',
+                                        'model',
+                                        'type',
+                                        'types_of_vehicles',
+                                        'contractor_equipment',
+                                      ].includes(config.accessor_key)
+                                    ) {
+                                      const cacheKey = `${applies}_${config.accessor_key}`;
+                                      const options = optionsCache[cacheKey] || [];
+
+                                      // Convertir cada ID a su nombre correspondiente
+                                      const displayNames = condition.values.map((value) => {
+                                        const option = options.find((opt) => opt.value == value);
+                                        return option ? option.label : value;
+                                      });
+
+                                      return displayNames.join(', ');
+                                    }
+
+                                    // Para propiedades directas, mostrar valores como están
+                                    return condition.values.join(', ');
+                                  })()}
                                 </Badge>
                               ) : null;
                             })}
@@ -1190,13 +1608,13 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                         <AccordionItem value="employees">
                           <AccordionTrigger>
                             {form.getValues('applies') === 'Persona'
-                              ? `Empleados que cumplen las condiciones (${matchingEmployees.length})`
-                              : `Equipos que cumplen las condiciones (${matchingVehicles.length})`}
+                              ? `Empleados que cumplen las condiciones (${employeeCount ?? 0})`
+                              : `Equipos que cumplen las condiciones (${vehicleCount ?? 0})`}
                           </AccordionTrigger>
                           <AccordionContent>
                             <ScrollArea className="h-[200px] rounded-md border p-2">
-                              {(form.getValues('applies') === 'Persona' && matchingEmployees.length === 0) ||
-                              (form.getValues('applies') === 'Equipos' && matchingVehicles.length === 0) ? (
+                              {(form.getValues('applies') === 'Persona' && (employeeCount ?? 0) === 0) ||
+                              (form.getValues('applies') === 'Equipos' && (vehicleCount ?? 0) === 0) ? (
                                 <div className="text-center py-8 text-muted-foreground">
                                   No hay {form.getValues('applies') === 'Persona' ? 'empleados' : 'equipos'} que cumplan
                                   todas las condiciones seleccionadas
@@ -1204,7 +1622,7 @@ export function EditModal({ Equipo, employeeMockValues, vehicleMockValues, emplo
                               ) : (
                                 <div className="space-y-2">
                                   {/* Renderizado de empleados que cumplen con las condiciones */}
-                                  {(form.getValues('applies') === 'Persona' ? matchingEmployees : matchingVehicles).map(
+                                  {(form.getValues('applies') === 'Persona' ? previewEmployees : previewVehicles).map(
                                     (employee: any) => {
                                       return (
                                         <div

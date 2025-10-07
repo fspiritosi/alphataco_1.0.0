@@ -988,6 +988,7 @@ export type Database = {
           end_time: string | null;
           id: string;
           item_id: string | null;
+          preparte_id: string | null;
           remit_number: string | null;
           sector_service_id: string | null;
           service_id: string | null;
@@ -1010,6 +1011,7 @@ export type Database = {
           end_time?: string | null;
           id?: string;
           item_id?: string | null;
+          preparte_id?: string | null;
           remit_number?: string | null;
           sector_service_id?: string | null;
           service_id?: string | null;
@@ -1032,6 +1034,7 @@ export type Database = {
           end_time?: string | null;
           id?: string;
           item_id?: string | null;
+          preparte_id?: string | null;
           remit_number?: string | null;
           sector_service_id?: string | null;
           service_id?: string | null;
@@ -1054,6 +1057,13 @@ export type Database = {
             columns: ['daily_report_id'];
             isOneToOne: false;
             referencedRelation: 'dailyreport';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'dailyreportrows_preparte_id_fkey';
+            columns: ['preparte_id'];
+            isOneToOne: true;
+            referencedRelation: 'preparte';
             referencedColumns: ['id'];
           },
           {
@@ -2370,10 +2380,24 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
+            foreignKeyName: 'preparte_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
             foreignKeyName: 'preparte_company_id_fkey';
             columns: ['company_id'];
             isOneToOne: false;
             referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'preparte_contrato_id_fkey';
+            columns: ['contrato_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_services';
             referencedColumns: ['id'];
           },
           {
@@ -3421,6 +3445,26 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
+      filter_employees_by_conditions: {
+        Args: { p_company_id: string; p_filters: Json };
+        Returns: {
+          firstname: string;
+          id: string;
+          lastname: string;
+          matching_conditions: Json;
+          picture: string;
+        }[];
+      };
+      filter_vehicles_by_conditions: {
+        Args: { p_company_id: string; p_filters: Json };
+        Returns: {
+          brand_name: string;
+          id: string;
+          matching_conditions: Json;
+          model_name: string;
+          picture: string;
+        }[];
+      };
       find_employee_by_full_name_v2: {
         Args: { p_company_id: string; p_full_name: string };
         Returns: {
@@ -3528,6 +3572,7 @@ export type Database = {
         Returns: {
           company_position: string;
           cuil: string;
+          customers: Json;
           diagram_color: string;
           diagram_short_description: string;
           diagram_type_id: string;
@@ -3765,7 +3810,7 @@ export type Database = {
         | 'formularios';
       nationality_enum: 'Argentina' | 'Extranjero';
       notification_categories: 'vencimiento' | 'noticia' | 'advertencia' | 'aprobado' | 'rechazado';
-      preparte_status: 'pendiente' | 'cancelado' | 'reprogramado' | 'rechazado' | 'vencido';
+      preparte_status: 'pendiente' | 'cancelado' | 'reprogramado' | 'rechazado' | 'vencido' | 'confirmado';
       reason_for_termination_enum:
         | 'Despido sin causa'
         | 'Renuncia'
@@ -3953,7 +3998,7 @@ export const Constants = {
       ],
       nationality_enum: ['Argentina', 'Extranjero'],
       notification_categories: ['vencimiento', 'noticia', 'advertencia', 'aprobado', 'rechazado'],
-      preparte_status: ['pendiente', 'cancelado', 'reprogramado', 'rechazado', 'vencido'],
+      preparte_status: ['pendiente', 'cancelado', 'reprogramado', 'rechazado', 'vencido', 'confirmado'],
       reason_for_termination_enum: [
         'Despido sin causa',
         'Renuncia',

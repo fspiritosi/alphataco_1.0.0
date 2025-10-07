@@ -1,10 +1,4 @@
-import {
-  fetchAllDocumentTypes,
-  fetchAllEmployeesWithRelations,
-  fetchAllEquipmentWithRelations,
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from '@/app/server/GET/actions';
+import { fetchAllDocumentTypes } from '@/app/server/GET/actions';
 import { cookies } from 'next/headers';
 
 import TypesDocumentAction from './TypesDocumentAction';
@@ -30,11 +24,6 @@ async function TypesDocumentsViewWrapper({
 
   const document_types = await fetchAllDocumentTypes();
 
-  const equiposCargados = fetchAllEquipmentWithRelations();
-  const empleadosCargados = fetchAllEmployeesWithRelations();
-  const EmployeesOptionsData = setEmployeeDataOptions();
-  const VehicleOptionsData = setVehicleDataOptions();
-
   return (
     <TypesDocumentsView
       optionChildrenProp={optionChildrenProp}
@@ -43,10 +32,6 @@ async function TypesDocumentsViewWrapper({
       equipos={equipos}
       empresa={empresa}
       personas={personas || (equipos || empresa ? false : true)}
-      employeeMockValuesPromise={EmployeesOptionsData}
-      vehicleMockValuesPromise={VehicleOptionsData}
-      employeesPromise={empleadosCargados}
-      vehiclesPromise={equiposCargados}
       document_types={document_types}
       role={role}
       actionComponent={<TypesDocumentAction optionChildrenProp="all" />}

@@ -34,6 +34,7 @@ import { es } from 'date-fns/locale';
 import { CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
+import { PreparteDetailModal } from './PreparteDetailModal';
 import { Contrato, PreparteItem } from './PreparteManager';
 import { Status, StatusCards } from './StatusCards';
 
@@ -460,7 +461,7 @@ const getColumns = (
           const updateData = esVencido
             ? {
                 observaciones: observacionesActualizadas,
-                status: 'vencido', // Mantener como vencido si es el caso
+                status: 'confirmado', // Mantener como vencido si es el caso
               }
             : {};
 
@@ -472,7 +473,7 @@ const getColumns = (
             executionDate: selectedDate as any,
             ...(esVencido && {
               observaciones: observacionesActualizadas,
-              status: 'vencido', // Mantener como vencido si es el caso
+              status: 'confirmado', // Mantener como confirmado si es el caso
             }),
           });
 
@@ -484,7 +485,26 @@ const getColumns = (
       };
 
       return (
-        <div>
+        <div className="flex items-center">
+          {/* Botón de detalle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <PreparteDetailModal
+                    preparteData={row.original}
+                    Customers={Customers}
+                    contratos={contratos}
+                    items={items}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Ver detalle</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {isPending && (
             <>
               <TooltipProvider>

@@ -741,11 +741,7 @@ export const fetchCompanyPositions = async () => {
 };
 export const fetchProvinces = async () => {
   const supabase = supabaseServer();
-  console.log('Por hacer el fetch');
   const { data, error } = await supabase.from('provinces').select('id,name');
-
-  console.log('luego del fetch', data);
-  console.log('luego del fetch2', error);
 
   if (error) {
     console.error('Error fetching provinces:', error);
@@ -1133,6 +1129,20 @@ export const fetchPermanentDocumentsByEquipmentId = async (equipmentId: string) 
     }
     return data;
   }
+};
+export const fetchTypeOfContracts = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  const { data, error } = await supabase.from('types_of_contract').select('id,name');
+
+  if (error) {
+    console.error('Error fetching type of contracts:', error);
+    return [];
+  }
+  return data;
 };
 export const fetchPermanentDocumentsEquipment = async () => {
   const cookiesStore = cookies();
@@ -1923,7 +1933,7 @@ export async function getEmployeesNotInDailyReport(
   const supabase = supabaseServer();
 
   try {
-    const { data, error }: { data: any; error: any } = await supabase.rpc('get_employees_not_in_daily_report', {
+    const { data, error } = await supabase.rpc('get_employees_not_in_daily_report', {
       p_company_id: company_id || undefined,
       position_uuids: position_uuids && position_uuids.length > 0 ? position_uuids : undefined,
     });
@@ -2087,6 +2097,8 @@ export async function getVehiclesNotInDailyReport(
       p_company_id: company_id || undefined,
       vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : undefined,
     });
+
+    console.log(data, 'get_vehicles_not_in_daily_report');
 
     if (error) {
       console.error('Error en getVehiclesNotInDailyReport:', error);

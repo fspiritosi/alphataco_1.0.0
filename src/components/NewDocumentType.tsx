@@ -6,24 +6,35 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import {
-  fetchAllEmployeesWithRelations,
-  fetchAllEquipmentWithRelations,
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
+  fetchAllCategories,
+  fetchCompanyPositions,
+  fetchCovenants,
+  fetchCustomers,
+  fetchGuilds,
+  fetchHierrarchicalPositions,
+  fetchProvinces,
+  fetchTypeOfContracts,
+  fetchTypeVehicles,
+  fetchTypesOfVehicles,
+  fetchVehicleBrands,
+  fetchVehicleModels,
+  fetchWorkDiagrams,
 } from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RpcFilter, fetchEmployeesWithFilters, fetchVehiclesWithFilters } from '@/lib/documentFilters';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { cn } from '@/lib/utils';
 import { useCountriesStore } from '@/store/countries';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
+import Cookies from 'js-cookie';
 import { PlusCircle, Truck, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../supabase/supabase';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
@@ -234,23 +245,18 @@ export type Condition = {
 export default function NewDocumentType({
   codeControlClient,
   optionChildrenProp,
-  employeeMockValuesPromise,
-  vehicleMockValuesPromise,
-  employeesPromise,
-  vehiclesPromise,
 }: {
   codeControlClient?: boolean;
   optionChildrenProp: string;
-  employeeMockValuesPromise: ReturnType<typeof setEmployeeDataOptions>;
-
-  vehicleMockValuesPromise: ReturnType<typeof setVehicleDataOptions>;
-  employeesPromise: ReturnType<typeof fetchAllEmployeesWithRelations>;
-  vehiclesPromise: ReturnType<typeof fetchAllEquipmentWithRelations>;
 }) {
-  const employeeMockValues = use(employeeMockValuesPromise);
-  const vehicleMockValues = use(vehicleMockValuesPromise);
-  const employees = use(employeesPromise);
-  const vehicles = use(vehiclesPromise);
+  // const employeeMockValues = use(employeeMockValuesPromise);
+  // const vehicleMockValues = use(vehicleMockValuesPromise);
+  // const employees = use(employeesPromise);
+  // const vehicles = use(vehiclesPromise);
+  // const employeeMockValues: any = [];
+  // const vehicleMockValues: any = [];
+  // const employees: any = [];
+  // const vehicles: any = [];
 
   const [special, setSpecial] = useState(false);
   const router = useRouter();
@@ -258,128 +264,16 @@ export default function NewDocumentType({
   const fetchDocuments = useLoggedUserStore((state) => state.documetsFetch);
   const [items, setItems] = useState(defaultValues);
 
-  // Estado para actualizar forzadamente las configuraciones cuando sea necesario
-  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0);
-
   // Devuelve el valor de la propiedad del vehículo
 
   // Las configuraciones y listas filtradas ahora se calculan con useMemo para mejor rendimiento
 
   const [conditions, setConditions] = useState<Condition[]>([]);
 
-  // ======== BLOQUE PRINCIPAL DE GESTIÓN DE EMPLEADOS Y FILTROS ========
-  // Disparar la actualización de configuraciones
-  useEffect(() => {
-    // Forzar actualización de configuraciones una vez al montar el componente
-    setConfigUpdateTrigger((prev) => prev + 1);
-  }, []);
+  const employeePropertiesConfig = baseEmployeePropertiesConfig;
 
-  // Memoizar la configuración de propiedades de empleados
-  const employeePropertiesConfig = useMemo(() => {
-    // Extraer valores únicos para cada propiedad
-    return baseEmployeePropertiesConfig.map((prop) => {
-      const defaultVals = (employeeMockValues as any)[prop.accessor_key] || [];
-      const values =
-        defaultVals.length > 0
-          ? defaultVals
-          : Array.from(
-              new Set(
-                employees
-                  .map((employee) => getEmployeePropertyValue(employee, prop.accessor_key))
-                  .filter((v) => v !== undefined && v !== null && v !== '')
-              )
-            );
-      return { ...prop, values };
-    });
-  }, [employees, employeeMockValues, configUpdateTrigger]);
-
-  // Memoizar la configuración de propiedades de vehículos
-  const vehiclePropertiesConfig = useMemo(() => {
-    return baseVehiclePropertiesConfig.map((prop) => {
-      const defaultVals = (vehicleMockValues as any)[prop.accessor_key] || [];
-      const vals =
-        defaultVals.length > 0
-          ? defaultVals
-          : Array.from(new Set(vehicles.map((v) => getVehiclePropertyValue(v, prop.accessor_key)).filter((v) => v)));
-      return { ...prop, values: vals };
-    });
-  }, [vehicles, vehicleMockValues, configUpdateTrigger]);
-
-  // 2. Función que filtra empleados según las condiciones - memoizada para evitar recálculos innecesarios
-  const filterEmployeesByConditions = useCallback((empleados: any[], condiciones: any[], propConfig: any[]) => {
-    // Si no hay condiciones, mostrar todos los empleados
-    if (!condiciones.length) return empleados;
-
-    return empleados.filter((employee) => {
-      // El empleado debe cumplir TODAS las condiciones (AND entre condiciones)
-      const cumple = condiciones.every((condition) => {
-        // Si la condición no tiene propiedad o valores, se omite
-        if (!condition.property || !condition.values.length) return true;
-
-        // Buscar la configuración de la propiedad
-        const propertyConfig = propConfig.find((config) => config.label === condition.property);
-        if (!propertyConfig) return true;
-
-        // Caso especial para clientes (contractor_employee)
-        if (propertyConfig.accessor_key === 'contractor_employee') {
-          const contractorEmployees = employee.contractor_employee || [];
-
-          // Verificar si el empleado tiene al menos uno de los clientes seleccionados
-          const tieneAlgunClienteSeleccionado = condition.values.some((clienteSeleccionado: string) => {
-            return contractorEmployees.some(
-              (contrato: any) =>
-                contrato &&
-                contrato.customers &&
-                normalizeString(contrato.customers.name) === normalizeString(clienteSeleccionado)
-            );
-          });
-          return tieneAlgunClienteSeleccionado;
-        }
-
-        // Para el resto de propiedades, comportamiento normal
-        const employeeValue = getEmployeePropertyValue(employee, propertyConfig.accessor_key);
-
-        // El empleado cumple si coincide con AL MENOS UNO de los valores (OR entre valores)
-        const resultado = condition.values.some((v: string) => {
-          // Usar normalizeString para una comparación más robusta
-          const match = normalizeString(employeeValue) === normalizeString(v);
-          // Log para depurar company_position
-
-          return match;
-        });
-
-        return resultado;
-      });
-
-      return cumple;
-    });
-  }, []);
-
-  // 2.5. Función que filtra vehículos según las condiciones - memoizada para evitar recálculos innecesarios
-  const filterVehiclesByConditions = useCallback((vehs: any[], condiciones: Condition[], propConfig: any[]) => {
-    if (!condiciones.length) return vehs;
-    return vehs.filter((v) =>
-      condiciones.every((c) => {
-        if (!c.property || !c.values.length) return true;
-        const cfg = propConfig.find((p) => p.label === c.property);
-        if (!cfg) return true;
-        const val = getVehiclePropertyValue(v, cfg.accessor_key);
-        return c.values.some((x) => normalizeString(val) === normalizeString(x));
-      })
-    );
-  }, []);
-
-  // Memoizar los empleados filtrados
-  const matchingEmployees = useMemo(() => {
-    if (!employees?.length) return [];
-    return filterEmployeesByConditions(employees, conditions, employeePropertiesConfig);
-  }, [employees, conditions, employeePropertiesConfig, filterEmployeesByConditions]);
-
-  // Memoizar los vehículos filtrados
-  const matchingVehicles = useMemo(() => {
-    if (!vehicles?.length) return [];
-    return filterVehiclesByConditions(vehicles, conditions, vehiclePropertiesConfig);
-  }, [vehicles, conditions, vehiclePropertiesConfig, filterVehiclesByConditions]);
+  // Líneas 315-325:
+  const vehiclePropertiesConfig = baseVehiclePropertiesConfig;
 
   const selectOptions = optionChildrenProp === 'all' ? 'Personas, Equipos o Empresa' : optionChildrenProp;
 
@@ -463,23 +357,23 @@ export default function NewDocumentType({
         const isArrayRelation = relationsColumns.includes(propConfig.accessor_key);
 
         let reference_values: { id: string; value: string }[] = [];
-        if (isRelation) {
-          // Buscar FIRST employee que contenga el valor para obtener su ID (si está presente)
-          reference_values = condition.values.map((value) => {
-            const emp = employees.find((e) => {
-              const empVal = getEmployeePropertyValue(e, propConfig.accessor_key);
-              return empVal?.toLowerCase() === value.toLowerCase();
-            });
-            // Para relaciones 1:N el objeto suele estar directamente en la propiedad
-            const relatedObj = (emp ? (emp[propConfig.accessor_key as keyof EmployeeDetailed] as any) : null) as any;
-            const relatedId = relatedObj?.id ?? relatedObj ?? '';
+        // if (isRelation) {
+        //   // Buscar FIRST employee que contenga el valor para obtener su ID (si está presente)
+        //   reference_values = condition.values.map((value) => {
+        //     const emp = employees.find((e) => {
+        //       const empVal = getEmployeePropertyValue(e, propConfig.accessor_key);
+        //       return empVal?.toLowerCase() === value.toLowerCase();
+        //     });
+        //     // Para relaciones 1:N el objeto suele estar directamente en la propiedad
+        //     const relatedObj = (emp ? (emp[propConfig.accessor_key as keyof EmployeeDetailed] as any) : null) as any;
+        //     const relatedId = relatedObj?.id ?? relatedObj ?? '';
 
-            return {
-              id: relatedId[0]?.customers?.id ? relatedId[0].customers.id : relatedId,
-              value,
-            };
-          });
-        }
+        //     return {
+        //       id: relatedId[0]?.customers?.id ? relatedId[0].customers.id : relatedId,
+        //       value,
+        //     };
+        //   });
+        // }
 
         // Añadir metadatos de relación para uso en BD
         const meta = relationMeta[propConfig.accessor_key] || null;
@@ -523,27 +417,27 @@ export default function NewDocumentType({
 
         let reference_values: { id: string; value: string }[] = [];
         if (isRelation) {
-          reference_values = condition.values.map((value) => {
-            const veh = vehicles.find((v) => {
-              const vehVal = getVehiclePropertyValue(v, propConfig.accessor_key);
-              return vehVal?.toLowerCase() === value.toLowerCase();
-            }) as any;
-            // Para contractor_equipment es array, para otros puede ser objeto
-            if (isArrayRelation && veh && Array.isArray(veh.contractor_equipment)) {
-              // Busca el contractor_id correspondiente al valor
-              const contractor = veh.contractor_equipment.find(
-                (r: any) => r.contractor_id?.name?.toLowerCase() === value.toLowerCase()
-              );
-              return { id: contractor?.contractor_id?.id || '', value };
-            } else if (veh && propConfig.accessor_key.includes('.')) {
-              // Para relaciones 1:N anidadas (ej: brand.name)
-              const [main, sub] = propConfig.accessor_key.split('.');
-              return { id: veh[main as any]?.id || '', value };
-            } else if (veh && veh[propConfig.accessor_key]) {
-              return { id: veh[propConfig.accessor_key]?.id || '', value };
-            }
-            return { id: '', value };
-          });
+          // reference_values = condition.values.map((value) => {
+          //   const veh = vehicles.find((v) => {
+          //     const vehVal = getVehiclePropertyValue(v, propConfig.accessor_key);
+          //     return vehVal?.toLowerCase() === value.toLowerCase();
+          //   }) as any;
+          //   // Para contractor_equipment es array, para otros puede ser objeto
+          //   if (isArrayRelation && veh && Array.isArray(veh.contractor_equipment)) {
+          //     // Busca el contractor_id correspondiente al valor
+          //     const contractor = veh.contractor_equipment.find(
+          //       (r: any) => r.contractor_id?.name?.toLowerCase() === value.toLowerCase()
+          //     );
+          //     return { id: contractor?.contractor_id?.id || '', value };
+          //   } else if (veh && propConfig.accessor_key.includes('.')) {
+          //     // Para relaciones 1:N anidadas (ej: brand.name)
+          //     const [main, sub] = propConfig.accessor_key.split('.');
+          //     return { id: veh[main as any]?.id || '', value };
+          //   } else if (veh && veh[propConfig.accessor_key]) {
+          //     return { id: veh[propConfig.accessor_key]?.id || '', value };
+          //   }
+          //   return { id: '', value };
+          // });
         }
 
         const meta = relationMeta[propConfig.accessor_key] || null;
@@ -569,11 +463,13 @@ export default function NewDocumentType({
     const serializedConditions =
       form.getValues('applies') === 'Equipos' ? prepareVehicleConditionsForStorage() : prepareConditionsForStorage();
 
+    const company_id = Cookies.get('actualComp');
+
     const formattedValues = {
       ...values,
       name: formatName(values.name),
       description: formatDescription(values.description),
-      company_id: codeControlClient ? useLoggedUserStore.getState().actualCompany?.id : null,
+      company_id: company_id,
       multiresource: isOptional ? false : values.multiresource,
       mandatory: isOptional ? true : values.mandatory,
       special: isOptional ? false : values.special,
@@ -582,6 +478,8 @@ export default function NewDocumentType({
       // Añadir las condiciones serializadas
       conditions: serializedConditions ? serializedConditions : null,
     };
+
+    console.log(formattedValues, 'formattedValues');
 
     toast.promise(
       async () => {
@@ -630,14 +528,370 @@ export default function NewDocumentType({
   const [showEmployeePreview, setShowEmployeePreview] = useState(false);
   const [showVehiclePreview, setShowVehiclePreview] = useState(false);
 
+  // ========== Contadores con RPC (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const [employeeCount, setEmployeeCount] = useState<number | null>(null);
+  const [vehicleCount, setVehicleCount] = useState<number | null>(null);
+  const [previewEmployees, setPreviewEmployees] = useState<any[]>([]);
+  const [previewVehicles, setPreviewVehicles] = useState<any[]>([]);
+
+  // ========== Lazy Loading de Opciones (IMPLEMENTACIÓN PRINCIPAL) ==========
+  type OptionItem = { value: string; label: string };
+  const [optionsCache, setOptionsCache] = useState<Record<string, OptionItem[]>>({});
+  const [loadingOptions, setLoadingOptions] = useState<Record<string, boolean>>({});
+  const [isCalculatingCount, setIsCalculatingCount] = useState(false);
+
+  // AbortController para cancelar requests en curso
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ========== Función para cargar opciones bajo demanda (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const ensureOptionsLoaded = async (accessor_key: string, applies: 'Persona' | 'Equipos') => {
+    const cacheKey = `${applies}_${accessor_key}`;
+
+    console.log(`[LAZY LOAD] 🔍 Verificando opciones para: ${accessor_key} (${applies})`);
+
+    // Si ya están cargadas en cache, retornarlas
+    if (optionsCache[cacheKey]) {
+      console.log(`[LAZY LOAD] ✅ Opciones en cache:`, optionsCache[cacheKey].length, 'opciones');
+      return optionsCache[cacheKey];
+    }
+
+    // Si ya están cargando, esperar
+    if (loadingOptions[cacheKey]) {
+      console.log(`[LAZY LOAD] ⏳ Cargando...`);
+      return [];
+    }
+
+    try {
+      setLoadingOptions((prev) => ({ ...prev, [cacheKey]: true }));
+      console.log(`[LAZY LOAD] 🚀 Cargando ${accessor_key}...`);
+
+      let options: OptionItem[] = [];
+
+      if (applies === 'Persona') {
+        console.log(`[LAZY LOAD] 📞 Fetch individual: ${accessor_key}`);
+
+        switch (accessor_key) {
+          case 'workflow_diagram': {
+            const data = await fetchWorkDiagrams();
+            options = data.map((d) => ({ value: String(d.id), label: d.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'guild': {
+            const data = await fetchGuilds();
+            options = data.filter((g) => g.name).map((g) => ({ value: String(g.id), label: g.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'covenant': {
+            const data = await fetchCovenants();
+            options = data.map((c) => ({ value: String(c.id), label: c.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'category': {
+            const data = await fetchAllCategories();
+            options = data.map((c) => ({ value: String(c.id), label: c.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'hierarchical_position': {
+            const data = await fetchHierrarchicalPositions();
+            options = data.map((h) => ({ value: String(h.id), label: h.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'contractor_employee': {
+            const data = await fetchCustomers();
+            options = data.map((c) => ({ value: String(c.id), label: c.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'province': {
+            const data = await fetchProvinces();
+            options = data.map((p) => ({ value: String(p.id), label: p.name.trim() }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'company_position': {
+            const data = await fetchCompanyPositions();
+            options = data.filter((p) => p.name).map((p) => ({ value: String(p.id), label: p.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          // Propiedades con valores estáticos (value = label para estos casos)
+          case 'gender':
+            options = [
+              { value: 'Masculino', label: 'Masculino' },
+              { value: 'Femenino', label: 'Femenino' },
+              { value: 'No Declarado', label: 'No Declarado' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'marital_status':
+            options = [
+              { value: 'Soltero', label: 'Soltero' },
+              { value: 'Casado', label: 'Casado' },
+              { value: 'Viudo', label: 'Viudo' },
+              { value: 'Divorciado', label: 'Divorciado' },
+              { value: 'Separado', label: 'Separado' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'nationality':
+            options = [
+              { value: 'Argentina', label: 'Argentina' },
+              { value: 'Extranjero', label: 'Extranjero' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'document_type':
+            options = [
+              { value: 'DNI', label: 'DNI' },
+              { value: 'LE', label: 'LE' },
+              { value: 'LC', label: 'LC' },
+              { value: 'PASAPORTE', label: 'PASAPORTE' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'level_of_education':
+            options = [
+              { value: 'Primario', label: 'Primario' },
+              { value: 'Secundario', label: 'Secundario' },
+              { value: 'Terciario', label: 'Terciario' },
+              { value: 'Posgrado', label: 'Posgrado' },
+              { value: 'Universitario', label: 'Universitario' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          case 'status':
+            options = [
+              { value: 'Avalado', label: 'Avalado' },
+              { value: 'Completo', label: 'Completo' },
+              { value: 'Incompleto', label: 'Incompleto' },
+              { value: 'No avalado', label: 'No avalado' },
+              { value: 'Completo con doc vencida', label: 'Completo con doc vencida' },
+            ];
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+            break;
+          // case 'type_of_contract':
+          //   options = [
+          //     { value: 'Período de prueba', label: 'Período de prueba' },
+          //     { value: 'A tiempo indeterminado', label: 'A tiempo indeterminado' },
+          //     { value: 'Plazo fijo', label: 'Plazo fijo' }
+          //   ];
+          //   console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
+          //   break;
+          case 'type_of_contract': {
+            const data = await fetchTypeOfContracts();
+            options = data.map((c) => ({ value: String(c.id), label: c.name }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          default:
+            console.warn(`[LAZY LOAD] ⚠️ Desconocido: ${accessor_key}`);
+        }
+      } else if (applies === 'Equipos') {
+        // Cargar SOLO la función específica para vehículos
+        console.log(`[LAZY LOAD] 📞 Fetch individual: ${accessor_key}`);
+
+        switch (accessor_key) {
+          case 'brand': {
+            const data = await fetchVehicleBrands();
+            options = data.map((b) => ({ value: String(b.id), label: b.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'model': {
+            const data = await fetchVehicleModels();
+            options = data.map((m) => ({ value: String(m.id), label: m.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'type': {
+            const data = await fetchTypeVehicles();
+            options = data.map((t) => ({ value: String(t.id), label: t.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'types_of_vehicles': {
+            const data = await fetchTypesOfVehicles();
+            options = data.map((t) => ({ value: String(t.id), label: t.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          case 'contractor_equipment': {
+            const data = await fetchCustomers();
+            options = data.map((c) => ({ value: String(c.id), label: c.name! }));
+            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
+            break;
+          }
+          default:
+            console.warn(`[LAZY LOAD] ⚠️ Desconocido: ${accessor_key}`);
+        }
+      }
+
+      // Guardar en cache
+      setOptionsCache((prev) => ({ ...prev, [cacheKey]: options }));
+      console.log(`[LAZY LOAD] 💾 Cache actualizado: ${options.length} opciones`);
+
+      return options;
+    } catch (error) {
+      console.error(`[LAZY LOAD] ❌ Error:`, error);
+      return [];
+    } finally {
+      setLoadingOptions((prev) => ({ ...prev, [cacheKey]: false }));
+    }
+  };
+
+  // ========== Obtener opciones del cache (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const getPropertyOptions = (propertyLabel: string, applies: 'Persona' | 'Equipos'): OptionItem[] => {
+    const config =
+      applies === 'Persona'
+        ? employeePropertiesConfig.find((p) => p.label === propertyLabel)
+        : vehiclePropertiesConfig.find((p) => p.label === propertyLabel);
+
+    if (!config) {
+      return [];
+    }
+
+    const cacheKey = `${applies}_${config.accessor_key}`;
+    const cached = optionsCache[cacheKey];
+
+    if (cached) {
+      return cached;
+    }
+
+    return [];
+  };
+
+  // ========== Calcular contador con RPC (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const computeCountWithRPC = async (updatedConditions?: Condition[]) => {
+    const conditionsToUse = updatedConditions || conditions;
+
+    console.log('[RPC COUNT] Calculando con', conditionsToUse.length, 'condiciones');
+
+    if (!special || conditionsToUse.length === 0) {
+      console.log('[RPC COUNT] Reseteando contadores');
+      // Cancelar request en curso si existe
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      setEmployeeCount(null);
+      setVehicleCount(null);
+      setPreviewEmployees([]);
+      setPreviewVehicles([]);
+      setIsCalculatingCount(false);
+      return;
+    }
+
+    const companyId = Cookies.get('actualComp');
+
+    if (!companyId) {
+      console.log('[RPC COUNT] Sin company ID');
+      return;
+    }
+
+    const applies = form.getValues('applies');
+
+    // Cancelar la request anterior si existe
+    if (abortControllerRef.current) {
+      console.log('[RPC COUNT] ⛔ Abortando request anterior');
+      abortControllerRef.current.abort();
+    }
+
+    // Crear nuevo AbortController para esta request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    const signal = abortController.signal;
+
+    setIsCalculatingCount(true);
+
+    try {
+      if (applies === 'Persona') {
+        // Construir filtros RPC usando accessor_key de condiciones
+        const rpcFilters: RpcFilter[] = conditionsToUse
+          .filter((c) => c.property && c.values.length > 0)
+          .map((c) => {
+            const config = employeePropertiesConfig?.find((p) => p.label === c.property);
+            return config ? { property: config.accessor_key, values: c.values } : null;
+          })
+          .filter(Boolean) as RpcFilter[];
+
+        console.log('[RPC COUNT] Filtros:', rpcFilters);
+
+        const filtered = await fetchEmployeesWithFilters(companyId, rpcFilters);
+
+        // Verificar si la request fue abortada
+        if (signal.aborted) {
+          console.log('[RPC COUNT] ⛔ Request abortada (empleados)');
+          return;
+        }
+
+        console.log('[RPC COUNT] ✅ Encontrados:', filtered.length, 'empleados');
+
+        setEmployeeCount(filtered.length);
+        setPreviewEmployees(filtered);
+        setIsCalculatingCount(false);
+        abortControllerRef.current = null;
+      } else if (applies === 'Equipos') {
+        const rpcFilters: RpcFilter[] = conditionsToUse
+          .filter((c) => c.property && c.values.length > 0)
+          .map((c) => {
+            const config = vehiclePropertiesConfig?.find((p) => p.label === c.property);
+            return config ? { property: config.accessor_key, values: c.values } : null;
+          })
+          .filter(Boolean) as RpcFilter[];
+
+        console.log('[RPC COUNT] Filtros:', rpcFilters);
+
+        const filtered = await fetchVehiclesWithFilters(companyId, rpcFilters);
+
+        // Verificar si la request fue abortada
+        if (signal.aborted) {
+          console.log('[RPC COUNT] ⛔ Request abortada (vehículos)');
+          return;
+        }
+
+        console.log('[RPC COUNT] ✅ Encontrados:', filtered.length, 'vehículos');
+
+        setVehicleCount(filtered.length);
+        setPreviewVehicles(filtered);
+        setIsCalculatingCount(false);
+        abortControllerRef.current = null;
+      }
+    } catch (error: any) {
+      // Si el error es por abort, no hacer nada (es esperado)
+      if (error?.name === 'AbortError' || signal.aborted) {
+        console.log('[RPC COUNT] 🔄 Request cancelada, continuando con la siguiente');
+        return;
+      }
+
+      console.error('[RPC COUNT] ❌ Error:', error);
+      setIsCalculatingCount(false);
+      abortControllerRef.current = null;
+    }
+  };
+
   // Actualiza los valores de una condición existente
   const updateConditionValues = (id: string, values: string[]) => {
-    setConditions((prev) => prev.map((condition) => (condition.id === id ? { ...condition, values } : condition)));
+    const updatedConditions = conditions.map((condition) =>
+      condition.id === id ? { ...condition, values } : condition
+    );
+    setConditions(updatedConditions);
+
+    // Recalcular con RPC cuando cambian los valores
+    computeCountWithRPC(updatedConditions);
   };
 
   // Elimina una condición por su ID
   const removeCondition = (id: string) => {
-    setConditions(conditions.filter((condition) => condition.id !== id));
+    const updatedConditions = conditions.filter((condition) => condition.id !== id);
+    setConditions(updatedConditions);
+
+    // Recalcular con RPC cuando se elimina una condición
+    computeCountWithRPC(updatedConditions);
   };
 
   const updateCondition = (id: string, field: 'property' | 'value', value: string) => {
@@ -651,8 +905,43 @@ export default function NewDocumentType({
     );
   };
 
+  // ========== Handler para selección de propiedad (IMPLEMENTACIÓN PRINCIPAL) ==========
+  const handlePropertySelect = async (conditionId: string, propertyLabel: string) => {
+    console.log(`[LAZY LOAD] 🎯 Propiedad: ${propertyLabel}`);
+
+    // Limpiar valores anteriores de esta condición al cambiar de propiedad
+    const updatedConditions = conditions.map((condition) => {
+      if (condition.id === conditionId) {
+        return { ...condition, property: propertyLabel, values: [] };
+      }
+      return condition;
+    });
+    setConditions(updatedConditions);
+
+    // Cargar opciones si no están cargadas
+    const applies = form.getValues('applies');
+    if (applies === 'Persona' || applies === 'Equipos') {
+      const config =
+        applies === 'Persona'
+          ? employeePropertiesConfig.find((p) => p.label === propertyLabel)
+          : vehiclePropertiesConfig.find((p) => p.label === propertyLabel);
+
+      if (config) {
+        await ensureOptionsLoaded(config.accessor_key, applies);
+      }
+    }
+
+    // Recalcular contador (ahora sin valores, por lo que reseteará o ajustará)
+    computeCountWithRPC(updatedConditions);
+  };
+
   const addCondition = () => {
-    setConditions((prev) => [...prev, { property: '', values: [], id: Date.now().toString() }]);
+    const newCondition = { property: '', values: [], id: Date.now().toString() };
+    const updatedConditions = [...conditions, newCondition];
+    setConditions(updatedConditions);
+
+    // No recalcular al agregar condición vacía
+    // computeCountWithRPC(updatedConditions);
   };
 
   return (
@@ -856,9 +1145,19 @@ export default function NewDocumentType({
                     size="sm"
                     type="button"
                     onClick={() => setShowEmployeePreview(!showEmployeePreview)}
+                    disabled={isCalculatingCount}
                   >
-                    <Users className="h-4 w-4 mr-1" />
-                    {showEmployeePreview ? 'Ocultar' : 'Ver'} Empleados ({matchingEmployees.length})
+                    {isCalculatingCount ? (
+                      <>
+                        <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Calculando...
+                      </>
+                    ) : (
+                      <>
+                        <Users className="h-4 w-4 mr-1" />
+                        {showEmployeePreview ? 'Ocultar' : 'Ver'} Empleados ({employeeCount ?? 0})
+                      </>
+                    )}
                   </Button>
                 )}
                 {form.getValues('applies') === 'Equipos' && (
@@ -867,9 +1166,19 @@ export default function NewDocumentType({
                     size="sm"
                     type="button"
                     onClick={() => setShowVehiclePreview(!showVehiclePreview)}
+                    disabled={isCalculatingCount}
                   >
-                    <Truck className="h-4 w-4 mr-1" />
-                    {showVehiclePreview ? 'Ocultar' : 'Ver'} Equipos ({matchingVehicles.length})
+                    {isCalculatingCount ? (
+                      <>
+                        <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Calculando...
+                      </>
+                    ) : (
+                      <>
+                        <Truck className="h-4 w-4 mr-1" />
+                        {showVehiclePreview ? 'Ocultar' : 'Ver'} Equipos ({vehicleCount ?? 0})
+                      </>
+                    )}
                   </Button>
                 )}
                 <Button variant="outline" size="sm" type="button" onClick={addCondition}>
@@ -895,7 +1204,7 @@ export default function NewDocumentType({
                       <div className="flex items-center gap-2">
                         <Select
                           value={condition.property}
-                          onValueChange={(value) => updateCondition(condition.id, 'property', value)}
+                          onValueChange={(value) => handlePropertySelect(condition.id, value)}
                         >
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Seleccionar propiedad" />
@@ -914,32 +1223,44 @@ export default function NewDocumentType({
                                 ))}
                           </SelectContent>
                         </Select>
-                        {condition.property && (
-                          <MultiSelect
-                            options={
-                              form.getValues('applies') === 'Equipos'
-                                ? vehiclePropertiesConfig
-                                    .find((prop) => prop.label === condition.property)
-                                    ?.values.map((value: string) => ({
-                                      label: value,
-                                      value: value,
-                                    })) || []
-                                : employeePropertiesConfig
-                                    .find((prop) => prop.label === condition.property)
-                                    ?.values.map((value: string) => ({
-                                      label: value,
-                                      value: value,
-                                    })) || []
-                            }
-                            selectedValues={condition.values}
-                            setSelectedValues={(values: string[]) => updateConditionValues(condition.id, values)}
-                            emptyMessage="No hay valores disponibles"
-                            placeholder="Seleccionar valores"
-                          />
-                        )}
+                        {condition.property &&
+                          (() => {
+                            const applies = form.getValues('applies');
+                            const config =
+                              applies === 'Persona'
+                                ? employeePropertiesConfig.find((p) => p.label === condition.property)
+                                : vehiclePropertiesConfig.find((p) => p.label === condition.property);
+                            const cacheKey = config ? `${applies}_${config.accessor_key}` : '';
+                            const isLoading = loadingOptions[cacheKey] || false;
+                            const cachedOptions = getPropertyOptions(
+                              condition.property,
+                              applies as 'Persona' | 'Equipos'
+                            );
+
+                            return (
+                              <div className="flex items-center gap-2 flex-1">
+                                {isLoading && (
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                    Cargando opciones...
+                                  </div>
+                                )}
+                                {!isLoading && (
+                                  <MultiSelect
+                                    options={cachedOptions}
+                                    selectedValues={condition.values}
+                                    setSelectedValues={(values: string[]) =>
+                                      updateConditionValues(condition.id, values)
+                                    }
+                                    emptyMessage="No hay valores disponibles"
+                                    placeholder="Seleccionar valores"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })()}
 
                         <Button
-                          variant="ghost"
                           size="icon"
                           type="button"
                           onClick={() => removeCondition(condition.id)}
@@ -957,10 +1278,53 @@ export default function NewDocumentType({
                     <span className="text-sm font-medium">Resumen:</span>
                     {conditions.map((condition) => {
                       const propertyLabel = condition.property;
+                      const applies = form.getValues('applies');
 
                       return condition.property && condition.values.length ? (
                         <Badge key={crypto.randomUUID()} variant="outline" className="text-xs">
-                          {propertyLabel}: {condition.values.join(', ')}
+                          {propertyLabel}:{' '}
+                          {(() => {
+                            // Buscar configuración de la propiedad
+                            const config =
+                              applies === 'Persona'
+                                ? employeePropertiesConfig.find((p) => p.label === condition.property)
+                                : vehiclePropertiesConfig.find((p) => p.label === condition.property);
+
+                            if (!config) return condition.values.join(', ');
+
+                            // Si es una propiedad de relación, convertir IDs a nombres
+                            if (
+                              [
+                                'contractor_employee',
+                                'province',
+                                'hierarchical_position',
+                                'category',
+                                'guild',
+                                'covenant',
+                                'city',
+                                'company_position',
+                                'brand',
+                                'model',
+                                'type',
+                                'types_of_vehicles',
+                                'contractor_equipment',
+                              ].includes(config.accessor_key)
+                            ) {
+                              const cacheKey = `${applies}_${config.accessor_key}`;
+                              const options = optionsCache[cacheKey] || [];
+
+                              // Convertir cada ID a su nombre correspondiente
+                              const displayNames = condition.values.map((value) => {
+                                const option = options.find((opt) => opt.value === value);
+                                return option ? option.label : value;
+                              });
+
+                              return displayNames.join(', ');
+                            }
+
+                            // Para propiedades directas, mostrar valores como están
+                            return condition.values.join(', ');
+                          })()}
                         </Badge>
                       ) : null;
                     })}
@@ -975,13 +1339,13 @@ export default function NewDocumentType({
                 <AccordionItem value="employees">
                   <AccordionTrigger>
                     {form.getValues('applies') === 'Persona'
-                      ? `Empleados que cumplen las condiciones (${matchingEmployees.length})`
-                      : `Equipos que cumplen las condiciones (${matchingVehicles.length})`}
+                      ? `Empleados que cumplen las condiciones (${employeeCount ?? 0})`
+                      : `Equipos que cumplen las condiciones (${vehicleCount ?? 0})`}
                   </AccordionTrigger>
                   <AccordionContent>
                     <ScrollArea className="h-[200px] rounded-md border p-2">
-                      {(form.getValues('applies') === 'Persona' && matchingEmployees.length === 0) ||
-                      (form.getValues('applies') === 'Equipos' && matchingVehicles.length === 0) ? (
+                      {(form.getValues('applies') === 'Persona' && (employeeCount ?? 0) === 0) ||
+                      (form.getValues('applies') === 'Equipos' && (vehicleCount ?? 0) === 0) ? (
                         <div className="text-center py-8 text-muted-foreground">
                           No hay {form.getValues('applies') === 'Persona' ? 'empleados' : 'equipos'} que cumplan todas
                           las condiciones seleccionadas
@@ -989,7 +1353,7 @@ export default function NewDocumentType({
                       ) : (
                         <div className="space-y-2">
                           {/* Renderizado de empleados que cumplen con las condiciones */}
-                          {(form.getValues('applies') === 'Persona' ? matchingEmployees : matchingVehicles).map(
+                          {(form.getValues('applies') === 'Persona' ? previewEmployees : previewVehicles).map(
                             (employee: any) => {
                               return (
                                 <div key={crypto.randomUUID()} className="flex items-center gap-2 p-2 rounded-md">

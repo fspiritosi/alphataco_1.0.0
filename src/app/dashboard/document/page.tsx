@@ -84,18 +84,6 @@ export default function page({
           ),
         },
       },
-      // {
-      //   value: 'forms',
-      //   name: 'Formularios',
-      //   restricted: [],
-      //   content: {
-      //     title: 'Formularios',
-      //     description: 'Formularios de documentos',
-      //     buttonActioRestricted: [''],
-      //     // buttonAction: <TypesDocumentAction optionChildrenProp="Personas" />,
-      //     component: <CreatedForm />,
-      //   },
-      // },
     ],
   };
 
