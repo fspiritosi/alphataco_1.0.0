@@ -2060,8 +2060,6 @@ export async function getVehiclesNotInDailyReport(company_id?: string, vehicle_t
       vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : undefined,
     });
 
-    console.log(data, 'get_vehicles_not_in_daily_report');
-
     if (error) {
       console.error('Error en getVehiclesNotInDailyReport:', error);
       return [];

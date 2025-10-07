@@ -33,8 +33,6 @@ export default function DialogComponent({
   vehiclesOnRepair?: VehicleNotInDailyReportType;
   variant: 'success' | 'warning' | 'destructive';
 }) {
-  console.log('vehiclesNotInDailyReport', vehiclesNotInDailyReport);
-  console.log('vehiclesOnRepair', vehiclesOnRepair);
   const columns = useMemo<ColumnDef<VehicleNotInDailyReportType[number]>[]>(
     () => [
       {
@@ -97,7 +95,6 @@ export default function DialogComponent({
         },
         cell: ({ row }) => {
           const contractors: any = row.original.customers || [];
-          console.log('contractors', contractors);
           // Si no hay contratistas, mostramos "Sin afectar"
           if (contractors.length === 0) {
             return <Badge>Sin afectar</Badge>;

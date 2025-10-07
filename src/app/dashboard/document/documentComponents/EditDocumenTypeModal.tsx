@@ -853,7 +853,6 @@ export function EditModal({ Equipo }: Props) {
     const companyId = Cookies.get('actualComp');
 
     if (!companyId) {
-      console.log('[RPC COUNT] Sin company ID');
       return;
     }
 
@@ -874,7 +873,6 @@ export function EditModal({ Equipo }: Props) {
     try {
       if (applies === 'Persona') {
         // Construir filtros RPC usando accessor_key de condiciones
-        console.log(conditionsToUse, 'conditionsToUse');
         const rpcFilters: RpcFilter[] = conditionsToUse
           .filter((c) => c.property && c.values.length > 0)
           .map((c) => {
@@ -957,8 +955,6 @@ export function EditModal({ Equipo }: Props) {
       // Primero pre-cargar las opciones necesarias
       preloadExistingConditionsOptions().then(() => {
         // Luego ejecutar conteos iniciales cuando el documento tiene condiciones especiales
-        console.log(conditions, 'conditions');
-        console.log(Equipo?.conditions, 'Equipo?.conditions');
         computeCountWithRPC(conditions);
       });
     }

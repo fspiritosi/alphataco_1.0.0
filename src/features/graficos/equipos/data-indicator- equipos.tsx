@@ -27,7 +27,6 @@ export default async function EquipmentChart() {
     cookieValue?.split(',') || []
   );
   const total = active_vehicles?.reduce((sum: any, vehicle: any) => sum + vehicle.available_units || 0, 0) || 0;
-  console.log('total', total);
 
   // Unidades disponibles
   const totalAvailable =
