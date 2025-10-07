@@ -1308,16 +1308,20 @@ export default function NewDocumentType({
                                 'type',
                                 'types_of_vehicles',
                                 'contractor_equipment',
+                                'type_of_contract',
                               ].includes(config.accessor_key)
                             ) {
                               const cacheKey = `${applies}_${config.accessor_key}`;
                               const options = optionsCache[cacheKey] || [];
 
+                              console.log(options);
+                              console.log(condition);
                               // Convertir cada ID a su nombre correspondiente
                               const displayNames = condition.values.map((value) => {
                                 const option = options.find((opt) => opt.value === value);
                                 return option ? option.label : value;
                               });
+                              console.log(displayNames);
 
                               return displayNames.join(', ');
                             }

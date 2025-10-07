@@ -685,7 +685,11 @@ export const fetchTypeVehicles = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('type').select('*').order('name', { ascending: true });
+  const { data, error } = await supabase
+    .from('type')
+    .select('id,name')
+    .order('name', { ascending: true })
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching vehicle types:', error);
@@ -699,7 +703,7 @@ export const fetchCompanyPositions = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('company_positions').select('*');
+  const { data, error } = await supabase.from('company_positions').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching company positions:', error);
@@ -722,7 +726,7 @@ export const fetchHierrarchicalPositions = async () => {
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('hierarchy').select('*');
+  const { data, error } = await supabase.from('hierarchy').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching hierarchical positions:', error);
@@ -734,9 +738,8 @@ export const fetchHierrarchicalPositions = async () => {
 export const fetchAllCategories = async () => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('category').select('*');
+  const { data, error } = await supabase.from('category').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching categories:', error);
@@ -750,7 +753,7 @@ export const fetchCovenants = async () => {
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('covenant').select('*');
+  const { data, error } = await supabase.from('covenant').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching covenants:', error);
@@ -824,7 +827,7 @@ export const fetchWorkDiagrams = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('work_diagram').select('*');
+  const { data, error } = await supabase.from('work_diagram').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching work diagrams:', error);
@@ -834,11 +837,9 @@ export const fetchWorkDiagrams = async () => {
 };
 
 export const fetchCustomers = async () => {
-  const cookiesStore = cookies();
   const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('customers').select('id, name');
+  const { data, error } = await supabase.from('customers').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching customers:', error);
@@ -853,7 +854,7 @@ export const fetchTypesOfVehicles = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('types_of_vehicles').select('id, name');
+  const { data, error } = await supabase.from('types_of_vehicles').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching types of vehicles:', error);
@@ -867,7 +868,7 @@ export const fetchVehicleModels = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('model_vehicles').select('id, name');
+  const { data, error } = await supabase.from('model_vehicles').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching vehicle models:', error);
@@ -882,7 +883,7 @@ export const fetchVehicleBrands = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('brand_vehicles').select('id, name');
+  const { data, error } = await supabase.from('brand_vehicles').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching vehicle brands:', error);
@@ -1104,7 +1105,7 @@ export const fetchTypeOfContracts = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('types_of_contract').select('id,name');
+  const { data, error } = await supabase.from('types_of_contract').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching type of contracts:', error);

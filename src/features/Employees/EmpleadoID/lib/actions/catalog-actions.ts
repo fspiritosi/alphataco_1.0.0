@@ -74,7 +74,11 @@ export async function fetchHierarchicalPositions() {
 export async function fetchGuilds() {
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from('guild').select('*').order('name', { ascending: true });
+  const { data, error } = await supabase
+    .from('guild')
+    .select('*')
+    .order('name', { ascending: true })
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching guilds:', error);
@@ -87,7 +91,11 @@ export async function fetchGuilds() {
 export async function fetchCovenants() {
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from('covenant').select('*').order('name', { ascending: true });
+  const { data, error } = await supabase
+    .from('covenant')
+    .select('*')
+    .order('name', { ascending: true })
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching covenants:', error);
@@ -100,7 +108,11 @@ export async function fetchCovenants() {
 export async function fetchCategories() {
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from('category').select('*').order('name', { ascending: true });
+  const { data, error } = await supabase
+    .from('category')
+    .select('*')
+    .order('name', { ascending: true })
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching categories:', error);

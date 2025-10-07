@@ -834,10 +834,7 @@ export function EditModal({ Equipo }: Props) {
   const computeCountWithRPC = async (updatedConditions?: Condition[]) => {
     const conditionsToUse = updatedConditions || conditions;
 
-    console.log('[RPC COUNT] Calculando con', conditionsToUse.length, 'condiciones');
-
     if (!special || conditionsToUse.length === 0) {
-      console.log('[RPC COUNT] Reseteando contadores');
       // Cancelar request en curso si existe
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -864,7 +861,6 @@ export function EditModal({ Equipo }: Props) {
 
     // Cancelar la request anterior si existe
     if (abortControllerRef.current) {
-      console.log('[RPC COUNT] ⛔ Abortando request anterior');
       abortControllerRef.current.abort();
     }
 
@@ -887,18 +883,13 @@ export function EditModal({ Equipo }: Props) {
           })
           .filter(Boolean) as RpcFilter[];
 
-        console.log('[RPC COUNT] Filtros:', rpcFilters);
-
         const filtered = await fetchEmployeesWithFilters(companyId, rpcFilters);
 
         // Verificar si la request fue abortada
         if (signal.aborted) {
-          console.log('[RPC COUNT] ⛔ Request abortada (empleados)');
           setIsCalculatingCount(false); // ← Resetear estado cuando se aborta
           return;
         }
-
-        console.log('[RPC COUNT] ✅ Encontrados:', filtered.length, 'empleados');
 
         setEmployeeCount(filtered.length);
         setPreviewEmployees(filtered);
@@ -914,18 +905,13 @@ export function EditModal({ Equipo }: Props) {
           })
           .filter(Boolean) as RpcFilter[];
 
-        console.log('[RPC COUNT] Filtros:', rpcFilters);
-
         const filtered = await fetchVehiclesWithFilters(companyId, rpcFilters);
 
         // Verificar si la request fue abortada
         if (signal.aborted) {
-          console.log('[RPC COUNT] ⛔ Request abortada (vehículos)');
           setIsCalculatingCount(false); // ← Resetear estado cuando se aborta
           return;
         }
-
-        console.log('[RPC COUNT] ✅ Encontrados:', filtered.length, 'vehículos');
 
         setVehicleCount(filtered.length);
         setPreviewVehicles(filtered);
@@ -936,12 +922,10 @@ export function EditModal({ Equipo }: Props) {
     } catch (error: any) {
       // Si el error es por abort, no hacer nada (ya se manejó arriba)
       if (error?.name === 'AbortError' || signal.aborted) {
-        console.log('[RPC COUNT] 🔄 Request cancelada, continuando con la siguiente');
         setIsCalculatingCount(false); // ← Resetear estado cuando se aborta en el catch
         return;
       }
 
-      console.error('[RPC COUNT] ❌ Error:', error);
       setIsCalculatingCount(false);
       setMatchingEmployees([]); // ← Resetear en caso de error
       setMatchingVehicles([]); // ← Resetear en caso de error
@@ -952,15 +936,11 @@ export function EditModal({ Equipo }: Props) {
   const preloadExistingConditionsOptions = async () => {
     if (!Equipo?.conditions?.length) return;
 
-    console.log('[PRELOAD] Pre-cargando opciones para condiciones existentes');
-
     for (const condition of Equipo.conditions) {
       if (!condition.property_key || !condition.values?.length) continue;
 
       const applies = form.getValues('applies');
       const accessorKey = condition.property_key;
-
-      console.log(`[PRELOAD] Cargando opciones para propiedad: ${accessorKey}`);
 
       // Solo cargar opciones si aplica a Persona o Equipos (no Empresa)
       if (applies === 'Persona' || applies === 'Equipos') {
@@ -968,8 +948,6 @@ export function EditModal({ Equipo }: Props) {
         await ensureOptionsLoaded(accessorKey, applies);
       }
     }
-
-    console.log('[PRELOAD] Pre-carga de opciones completada');
   };
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -990,7 +968,6 @@ export function EditModal({ Equipo }: Props) {
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === 'special' && value.special === true && conditions.length > 0) {
-        console.log('[WATCH] Campo special cambió a true con condiciones existentes, ejecutando conteos');
         // Ejecutar conteos cuando se activa 'special' desde el formulario y hay condiciones existentes
         computeCountWithRPC(conditions);
       }
@@ -1002,76 +979,61 @@ export function EditModal({ Equipo }: Props) {
   const ensureOptionsLoaded = async (accessor_key: string, applies: 'Persona' | 'Equipos') => {
     const cacheKey = `${applies}_${accessor_key}`;
 
-    console.log(`[LAZY LOAD] 🔍 Verificando opciones para: ${accessor_key} (${applies})`);
-
     // Si ya están cargadas en cache, retornarlas
     if (optionsCache[cacheKey]) {
-      console.log(`[LAZY LOAD] ✅ Opciones en cache:`, optionsCache[cacheKey].length, 'opciones');
       return optionsCache[cacheKey];
     }
 
     // Si ya están cargando, esperar
     if (loadingOptions[cacheKey]) {
-      console.log(`[LAZY LOAD] ⏳ Cargando...`);
       return [];
     }
 
     try {
       setLoadingOptions((prev) => ({ ...prev, [cacheKey]: true }));
-      console.log(`[LAZY LOAD] 🚀 Cargando ${accessor_key}...`);
 
       let options: OptionItem[] = [];
 
       if (applies === 'Persona') {
-        console.log(`[LAZY LOAD] 📞 Fetch individual: ${accessor_key}`);
-
         switch (accessor_key) {
           case 'workflow_diagram': {
             const data = await fetchWorkDiagrams();
             options = data.map((d) => ({ value: String(d.id), label: d.name }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'guild': {
             const data = await fetchGuilds();
             options = data.filter((g) => g.name).map((g) => ({ value: String(g.id), label: g.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'covenant': {
             const data = await fetchCovenants();
             options = data.map((c) => ({ value: String(c.id), label: c.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'category': {
             const data = await fetchAllCategories();
             options = data.map((c) => ({ value: String(c.id), label: c.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'hierarchical_position': {
             const data = await fetchHierrarchicalPositions();
             options = data.map((h) => ({ value: String(h.id), label: h.name }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'contractor_employee': {
             const data = await fetchCustomers();
             options = data.map((c) => ({ value: String(c.id), label: c.name }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'province': {
             const data = await fetchProvinces();
             options = data.map((p) => ({ value: String(p.id), label: p.name.trim() }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'company_position': {
             const data = await fetchCompanyPositions();
             options = data.filter((p) => p.name).map((p) => ({ value: String(p.id), label: p.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           // Propiedades con valores estáticos (value = label para estos casos)
@@ -1081,7 +1043,6 @@ export function EditModal({ Equipo }: Props) {
               { value: 'Femenino', label: 'Femenino' },
               { value: 'No Declarado', label: 'No Declarado' },
             ];
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
             break;
           case 'marital_status':
             options = [
@@ -1091,14 +1052,12 @@ export function EditModal({ Equipo }: Props) {
               { value: 'Divorciado', label: 'Divorciado' },
               { value: 'Separado', label: 'Separado' },
             ];
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
             break;
           case 'nationality':
             options = [
               { value: 'Argentina', label: 'Argentina' },
               { value: 'Extranjero', label: 'Extranjero' },
             ];
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
             break;
           case 'document_type':
             options = [
@@ -1107,7 +1066,6 @@ export function EditModal({ Equipo }: Props) {
               { value: 'LC', label: 'LC' },
               { value: 'PASAPORTE', label: 'PASAPORTE' },
             ];
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
             break;
           case 'level_of_education':
             options = [
@@ -1117,7 +1075,6 @@ export function EditModal({ Equipo }: Props) {
               { value: 'Posgrado', label: 'Posgrado' },
               { value: 'Universitario', label: 'Universitario' },
             ];
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
             break;
           case 'status':
             options = [
@@ -1127,20 +1084,10 @@ export function EditModal({ Equipo }: Props) {
               { value: 'No avalado', label: 'No avalado' },
               { value: 'Completo con doc vencida', label: 'Completo con doc vencida' },
             ];
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
             break;
-          // case 'type_of_contract':
-          //   options = [
-          //     { value: 'Período de prueba', label: 'Período de prueba' },
-          //     { value: 'A tiempo indeterminado', label: 'A tiempo indeterminado' },
-          //     { value: 'Plazo fijo', label: 'Plazo fijo' }
-          //   ];
-          //   console.log(`[LAZY LOAD] ✅ ${options.length} opciones estáticas`);
-          //   break;
           case 'type_of_contract': {
             const data = await fetchTypeOfContracts();
             options = data.map((c) => ({ value: String(c.id), label: c.name }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           default:
@@ -1148,47 +1095,39 @@ export function EditModal({ Equipo }: Props) {
         }
       } else if (applies === 'Equipos') {
         // Cargar SOLO la función específica para vehículos
-        console.log(`[LAZY LOAD] 📞 Fetch individual: ${accessor_key}`);
 
         switch (accessor_key) {
           case 'brand': {
             const data = await fetchVehicleBrands();
             options = data.map((b) => ({ value: String(b.id), label: b.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'model': {
             const data = await fetchVehicleModels();
             options = data.map((m) => ({ value: String(m.id), label: m.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'type': {
             const data = await fetchTypeVehicles();
             options = data.map((t) => ({ value: String(t.id), label: t.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'types_of_vehicles': {
             const data = await fetchTypesOfVehicles();
             options = data.map((t) => ({ value: String(t.id), label: t.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           case 'contractor_equipment': {
             const data = await fetchCustomers();
             options = data.map((c) => ({ value: String(c.id), label: c.name! }));
-            console.log(`[LAZY LOAD] ✅ ${options.length} opciones`);
             break;
           }
           default:
-            console.warn(`[LAZY LOAD] ⚠️ Desconocido: ${accessor_key}`);
         }
       }
 
       // Guardar en cache
       setOptionsCache((prev) => ({ ...prev, [cacheKey]: options }));
-      console.log(`[LAZY LOAD] 💾 Cache actualizado: ${options.length} opciones`);
 
       return options;
     } catch (error) {
@@ -1201,8 +1140,6 @@ export function EditModal({ Equipo }: Props) {
 
   // ========== Handler para selección de propiedad (IMPLEMENTACIÓN PRINCIPAL) ==========
   const handlePropertySelect = async (conditionId: string, propertyLabel: string) => {
-    console.log(`[LAZY LOAD] 🎯 Propiedad: ${propertyLabel}`);
-
     // Limpiar valores anteriores de esta condición al cambiar de propiedad
     const updatedConditions = conditions.map((condition) => {
       if (condition.id === conditionId) {
@@ -1577,6 +1514,7 @@ export function EditModal({ Equipo }: Props) {
                                         'type',
                                         'types_of_vehicles',
                                         'contractor_equipment',
+                                        'type_of_contract',
                                       ].includes(config.accessor_key)
                                     ) {
                                       const cacheKey = `${applies}_${config.accessor_key}`;
