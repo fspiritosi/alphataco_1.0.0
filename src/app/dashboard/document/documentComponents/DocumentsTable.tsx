@@ -17,20 +17,11 @@ interface DocumentsTableProps {
     private: string;
   };
   children: React.ReactNode;
-  employeeMockValues: Record<string, string[] | []>;
-  vehicleMockValues: Record<string, string[] | []>;
-  employees: EmployeeDetailed[];
-  vehicles: VehicleWithBrand[];
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }
 
-export function getDocumentColumns(
-  employeeMockValues: Record<string, string[] | []>,
-  vehicleMockValues: Record<string, string[] | []>,
-  employees: EmployeeDetailed[],
-  vehicles: VehicleWithBrand[]
-): ColumnDef<any>[] {
+export function getDocumentColumns(): ColumnDef<any>[] {
   return [
     {
       accessorKey: 'name',
@@ -118,29 +109,13 @@ export function getDocumentColumns(
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <EditModal
-          Equipo={row.original}
-          employeeMockValues={employeeMockValues}
-          vehicleMockValues={vehicleMockValues}
-          employees={employees}
-          vehicles={vehicles}
-        />
-      ),
+      cell: ({ row }) => <EditModal Equipo={row.original} />,
       enableSorting: false,
     },
   ];
 }
 
-const DocumentsTable = ({
-  data,
-  employeeMockValues,
-  vehicleMockValues,
-  employees,
-  vehicles,
-  savedVisibility,
-  savedFilters,
-}: DocumentsTableProps) => {
+const DocumentsTable = ({ data, savedVisibility, savedFilters }: DocumentsTableProps) => {
   const multiresourceOptions = createFilterOptions(data, (doc) => (doc.multiresource ? 'Si' : 'No'));
 
   const specialOptions = createFilterOptions(data, (doc) => (doc.special ? 'Si' : 'No'));
@@ -157,7 +132,7 @@ const DocumentsTable = ({
 
   return (
     <BaseDataTable
-      columns={getDocumentColumns(employeeMockValues, vehicleMockValues, employees, vehicles)}
+      columns={getDocumentColumns()}
       data={data}
       savedVisibility={savedVisibility}
       toolbarOptions={{

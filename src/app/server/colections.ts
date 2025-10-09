@@ -23,7 +23,7 @@ export interface ProcessedHistoryEntry {
   preparte: {
     id: string;
     numero_pedido: string | null;
-  }[];
+  } | null;
   actionType: string;
   timestamp: string;
   user: {

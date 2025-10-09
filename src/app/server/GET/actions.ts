@@ -102,41 +102,34 @@ export const fetchAllEmployeesWithRelations = async () => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
-  const user = await fetchCurrentUser();
   if (!company_id) return [];
-
-  supabase.auth.admin.updateUserById(user?.id || '', {
-    app_metadata: {
-      company: company_id,
-    },
-  });
 
   let { data, error } = await supabase
     .from('employees')
     .select(
       `*,guild(*),covenant(*),category(*), city (
-    *
-  ),
-  province(
-    *
-  ),
-  workflow_diagram(
-    *
-  ),
-  hierarchical_position(
-    *
-  ),
-  company_position(
-    *
-  ),
-  birthplace(
-    *
-  ),
-  contractor_employee(
-    customers(
       *
-    )
-  )`
+    ),
+    province(
+      *
+    ),
+    workflow_diagram(
+      *
+    ),
+    hierarchical_position(
+      *
+    ),
+    company_position(
+      *
+    ),
+    birthplace(
+      *
+    ),
+    contractor_employee(
+      customers(
+        *
+      )
+    )`
     )
     .eq('company_id', company_id || '')
     .order('lastname')
@@ -692,7 +685,11 @@ export const fetchTypeVehicles = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('type').select('*').order('name', { ascending: true });
+  const { data, error } = await supabase
+    .from('type')
+    .select('id,name')
+    .order('name', { ascending: true })
+    .eq('is_active', true);
 
   if (error) {
     console.error('Error fetching vehicle types:', error);
@@ -706,7 +703,7 @@ export const fetchCompanyPositions = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('company_positions').select('*');
+  const { data, error } = await supabase.from('company_positions').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching company positions:', error);
@@ -715,11 +712,8 @@ export const fetchCompanyPositions = async () => {
   return data;
 };
 export const fetchProvinces = async () => {
-  const cookiesStore = cookies();
   const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-
-  const { data, error } = await supabase.from('provinces').select('*');
+  const { data, error } = await supabase.from('provinces').select('id,name');
 
   if (error) {
     console.error('Error fetching provinces:', error);
@@ -732,7 +726,7 @@ export const fetchHierrarchicalPositions = async () => {
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('hierarchy').select('*');
+  const { data, error } = await supabase.from('hierarchy').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching hierarchical positions:', error);
@@ -744,9 +738,8 @@ export const fetchHierrarchicalPositions = async () => {
 export const fetchAllCategories = async () => {
   const cookiesStore = cookies();
   const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('category').select('*');
+  const { data, error } = await supabase.from('category').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching categories:', error);
@@ -760,7 +753,7 @@ export const fetchCovenants = async () => {
   const supabase = supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('covenant').select('*');
+  const { data, error } = await supabase.from('covenant').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching covenants:', error);
@@ -834,7 +827,7 @@ export const fetchWorkDiagrams = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('work_diagram').select('*');
+  const { data, error } = await supabase.from('work_diagram').select('*').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching work diagrams:', error);
@@ -844,11 +837,9 @@ export const fetchWorkDiagrams = async () => {
 };
 
 export const fetchCustomers = async () => {
-  const cookiesStore = cookies();
   const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
 
-  const { data, error } = await supabase.from('customers').select('*');
+  const { data, error } = await supabase.from('customers').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching customers:', error);
@@ -863,7 +854,7 @@ export const fetchTypesOfVehicles = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('types_of_vehicles').select('*');
+  const { data, error } = await supabase.from('types_of_vehicles').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching types of vehicles:', error);
@@ -877,7 +868,7 @@ export const fetchVehicleModels = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('model_vehicles').select('*');
+  const { data, error } = await supabase.from('model_vehicles').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching vehicle models:', error);
@@ -892,7 +883,7 @@ export const fetchVehicleBrands = async () => {
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('brand_vehicles').select('*');
+  const { data, error } = await supabase.from('brand_vehicles').select('id,name').eq('is_active', true);
 
   if (error) {
     console.error('Error fetching vehicle brands:', error);
@@ -1107,6 +1098,20 @@ export const fetchPermanentDocumentsByEquipmentId = async (equipmentId: string) 
     }
     return data;
   }
+};
+export const fetchTypeOfContracts = async () => {
+  const cookiesStore = cookies();
+  const supabase = supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  const { data, error } = await supabase.from('types_of_contract').select('*').eq('is_active', true);
+
+  if (error) {
+    console.error('Error fetching type of contracts:', error);
+    return [];
+  }
+  return data;
 };
 export const fetchPermanentDocumentsEquipment = async () => {
   const cookiesStore = cookies();
@@ -1890,6 +1895,29 @@ export async function getEmployeeIndicator(company_id?: string, p_row_id: string
   }
 }
 
+export async function getEmployeesNotInDailyReport(company_id?: string, position_uuids?: string[]) {
+  const supabase = supabaseServer();
+
+  try {
+    const { data, error } = await supabase.rpc('get_employees_not_in_daily_report', {
+      p_company_id: company_id || undefined,
+      position_uuids: position_uuids && position_uuids.length > 0 ? position_uuids : undefined,
+    });
+
+    if (error) {
+      console.error('Error en getEmployeesNotInDailyReport:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Excepción en getEmployeesNotInDailyReport:', error);
+    return [];
+  }
+}
+
+export type EmployeeNotInDailyReportType = Awaited<ReturnType<typeof getEmployeesNotInDailyReport>>;
+
 export async function getDiagramIndicator(p_company_position_ids?: string[]) {
   const supabase = supabaseServer();
   const { data, error } = await supabase.rpc('get_employee_diagram_count_by_day', {
@@ -2001,3 +2029,47 @@ export async function getEmployeeNameById(employeeId: string) {
 
   return data;
 }
+
+export async function getVehiclesNonOperative(company_id?: string, vehicle_type_ids?: string[]) {
+  const supabase = supabaseServer();
+
+  try {
+    const { data, error } = await supabase.rpc('get_vehicles_non_operative', {
+      p_company_id: company_id || undefined,
+      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : undefined,
+    });
+
+    if (error) {
+      console.error('Error en getVehiclesNonOperative:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Excepción en getVehiclesNonOperative:', error);
+    return [];
+  }
+}
+
+export async function getVehiclesNotInDailyReport(company_id?: string, vehicle_type_ids?: string[]) {
+  const supabase = supabaseServer();
+
+  try {
+    const { data, error } = await supabase.rpc('get_vehicles_not_in_daily_report', {
+      p_company_id: company_id || undefined,
+      vehicle_type_ids: vehicle_type_ids && vehicle_type_ids.length > 0 ? vehicle_type_ids : undefined,
+    });
+
+    if (error) {
+      console.error('Error en getVehiclesNotInDailyReport:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Excepción en getVehiclesNotInDailyReport:', error);
+    return [];
+  }
+}
+
+export type VehicleNotInDailyReportType = Awaited<ReturnType<typeof getVehiclesNotInDailyReport>>;

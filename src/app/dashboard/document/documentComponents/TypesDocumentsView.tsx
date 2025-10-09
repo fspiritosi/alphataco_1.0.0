@@ -1,15 +1,9 @@
 'use client';
-import {
-  fetchAllDocumentTypes,
-  fetchAllEmployeesWithRelations,
-  fetchAllEquipmentWithRelations,
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from '@/app/server/GET/actions';
+import { fetchAllDocumentTypes } from '@/app/server/GET/actions';
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisibilityState } from '@tanstack/react-table';
-import { ReactNode, use, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import DocumentsTable from './DocumentsTable';
 import FilterHeader from './FilterComponent';
 
@@ -19,10 +13,6 @@ function TypesDocumentsView({
   empresa,
   tabValue,
   subtab,
-  employeeMockValuesPromise,
-  vehicleMockValuesPromise,
-  employeesPromise,
-  vehiclesPromise,
   role,
   document_types,
   savedVisibility,
@@ -35,10 +25,6 @@ function TypesDocumentsView({
   empresa?: boolean;
   tabValue?: string;
   subtab?: string;
-  employeeMockValuesPromise: ReturnType<typeof setEmployeeDataOptions>;
-  vehicleMockValuesPromise: ReturnType<typeof setVehicleDataOptions>;
-  employeesPromise: ReturnType<typeof fetchAllEmployeesWithRelations>;
-  vehiclesPromise: ReturnType<typeof fetchAllEquipmentWithRelations>;
   role?: string;
   document_types: Awaited<ReturnType<typeof fetchAllDocumentTypes>>;
   savedVisibility: VisibilityState;
@@ -46,13 +32,6 @@ function TypesDocumentsView({
   optionChildrenProp?: string;
   actionComponent?: ReactNode;
 }) {
-  // const document_types = useCountriesStore((state) => state.companyDocumentTypes);
-  // const document_types = use(document_typesPromise);
-  const employeeMockValues = use(employeeMockValuesPromise);
-  const vehicleMockValues = use(vehicleMockValuesPromise);
-  const employees = use(employeesPromise);
-  const vehicles = use(vehiclesPromise);
-
   const doc_personas = document_types?.filter((doc) => doc.applies === 'Persona').filter((e) => e.is_active);
   const doc_equipos = document_types?.filter((doc) => doc.applies === 'Equipos').filter((e) => e.is_active);
   const doc_empresa = document_types?.filter((doc) => doc.applies === 'Empresa').filter((e) => e.is_active);
@@ -133,10 +112,6 @@ function TypesDocumentsView({
             <DocumentsTable
               data={filteredDocPersonas || []}
               filters={filters.personas}
-              employeeMockValues={employeeMockValues}
-              vehicleMockValues={vehicleMockValues}
-              employees={employees}
-              vehicles={vehicles}
               savedFilters={savedFilters}
               savedVisibility={savedVisibility}
             >
@@ -155,10 +130,6 @@ function TypesDocumentsView({
               savedFilters={savedFilters}
               data={filteredDocEquipos || []}
               filters={filters.equipos}
-              employeeMockValues={employeeMockValues}
-              vehicleMockValues={vehicleMockValues}
-              employees={employees}
-              vehicles={vehicles}
             >
               <FilterHeader
                 filters={filters.equipos}
@@ -175,10 +146,6 @@ function TypesDocumentsView({
               savedFilters={savedFilters}
               data={filteredDocEmpresa || []}
               filters={filters.empresa}
-              employeeMockValues={employeeMockValues}
-              vehicleMockValues={vehicleMockValues}
-              employees={employees}
-              vehicles={vehicles}
             >
               <FilterHeader
                 filters={filters.empresa}

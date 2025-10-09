@@ -1,4 +1,4 @@
-import { getVehiclesDisponibleFilterType } from '@/app/server/GET/actions';
+import { getVehiclesDisponibleFilterType, getVehiclesNonOperative } from '@/app/server/GET/actions';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 import { EquiposChart } from './equiposChart';
@@ -10,11 +10,8 @@ export default async function DataEquipmentChart() {
   const cookiesStore = cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const cookieValue = cookiesStore.get('type-filter')?.value;
-  const active_vehicles: any = await getVehiclesDisponibleFilterType(
-    ['ea07ff34-13fb-4483-b5bc-8389e41c7d89', '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf'],
-    company_id
-  );
-
+  const active_vehicles: any = await getVehiclesDisponibleFilterType(cookieValue?.split(',') || [], company_id);
+  const vehiclesOnRepair = await getVehiclesNonOperative(company_id);
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)
   const totalVehicles =
@@ -139,6 +136,7 @@ export default async function DataEquipmentChart() {
             indicatorCharData={indicatorCharData}
             indicatorChartConfig={indicatorChartConfig}
             condiciones_indicadores={condiciones_indicadores}
+            vehiclesOnRepair={vehiclesOnRepair}
           />
         </div>
       </div>

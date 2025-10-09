@@ -54,7 +54,7 @@ export function MultiSelect({
               <div className="flex flex-wrap gap-1 overflow-hidden">
                 {selectedValues?.map((value) => (
                   <Badge key={value} variant="secondary" className="mr-1 text-xs py-1">
-                    {options.find((option) => option.value === value)?.label || value}
+                    {options.find((option) => option.value == value)?.label || value}
                     <button
                       className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       onKeyDown={(e) => {

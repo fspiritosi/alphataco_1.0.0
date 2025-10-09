@@ -1,9 +1,4 @@
-import {
-  fetchAllEmployeesWithRelations,
-  fetchAllEquipmentWithRelations,
-  setEmployeeDataOptions,
-  setVehicleDataOptions,
-} from '@/app/server/GET/actions';
+// Prefetch eliminado: el componente carga bajo demanda
 import NewDocumentType from '@/components/NewDocumentType';
 import {
   AlertDialog,
@@ -22,11 +17,6 @@ import ButtonTypeRefetch from './ButtonTypeRefetch';
 export default async function TypesDocumentAction({ optionChildrenProp }: { optionChildrenProp: string }) {
   const cookiesStore = cookies();
   const role = cookiesStore.get('guestRole')?.value || '';
-
-  const equiposCargados = fetchAllEquipmentWithRelations();
-  const empleadosCargados = fetchAllEmployeesWithRelations();
-  const EmployeesOptionsData = setEmployeeDataOptions();
-  const VehicleOptionsData = setVehicleDataOptions();
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild className="mr-4">
@@ -36,14 +26,7 @@ export default async function TypesDocumentAction({ optionChildrenProp }: { opti
         <AlertDialogHeader>
           <AlertDialogTitle>Nuevo tipo de documento</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <NewDocumentType
-              codeControlClient
-              optionChildrenProp={optionChildrenProp}
-              employeeMockValuesPromise={EmployeesOptionsData}
-              vehicleMockValuesPromise={VehicleOptionsData}
-              employeesPromise={empleadosCargados}
-              vehiclesPromise={equiposCargados}
-            />
+            <NewDocumentType codeControlClient optionChildrenProp={optionChildrenProp} />
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

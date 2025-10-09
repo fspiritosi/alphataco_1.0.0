@@ -248,77 +248,83 @@ export const BaseDataTable = forwardRef<TableType<any>, DataTableProps<any, any>
   );
 
   return (
-    <div className={`space-y-4 ${className} w-full grid grid-cols-1 relative`}>
-      {toolbarOptions && (
-        <DataTableToolbarBase
-          table={table}
-          showExport={toolbarOptions.showExport}
-          showDocumentDownload={toolbarOptions.showDocumentDownload}
-          filterableColumns={toolbarOptions.filterableColumns}
-          searchableColumns={toolbarOptions.searchableColumns}
-          initialVisibleFilters={toolbarOptions.initialVisibleFilters}
-          showViewOptions={toolbarOptions.showViewOptions}
-          bulkAction={toolbarOptions.bulkAction}
-          extraActions={
-            typeof toolbarOptions.extraActions === 'function'
-              ? toolbarOptions.extraActions(table)
-              : toolbarOptions.extraActions
-          }
-          tableId={tableId}
-        />
-      )}
-      <div className="rounded-md border max-h-[60vh] relative overflow-x-auto overflow-y-auto">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} colSpan={header.colSpan} className="sticky top-0 z-10 bg-background">
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table?.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  className={
-                    typeof row_classname === 'string'
-                      ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
-                      : row_classname
-                        ? row_classname(row.original)
-                        : onRowClick
-                          ? 'hover:cursor-pointer'
-                          : ''
-                  }
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  onClick={() => onRowClick && onRowClick(row.original)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Sin resultados
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+    <div>
+      <div className="relative">
+        <div className={`space-y-4 ${className} w-full grid grid-cols-1`}>
+          {toolbarOptions && (
+            <DataTableToolbarBase
+              table={table}
+              showExport={toolbarOptions.showExport}
+              showDocumentDownload={toolbarOptions.showDocumentDownload}
+              filterableColumns={toolbarOptions.filterableColumns}
+              searchableColumns={toolbarOptions.searchableColumns}
+              initialVisibleFilters={toolbarOptions.initialVisibleFilters}
+              showViewOptions={toolbarOptions.showViewOptions}
+              bulkAction={toolbarOptions.bulkAction}
+              extraActions={
+                typeof toolbarOptions.extraActions === 'function'
+                  ? toolbarOptions.extraActions(table)
+                  : toolbarOptions.extraActions
+              }
+              tableId={tableId}
+            />
+          )}
+          <div className="rounded-md border max-h-[60vh] relative overflow-x-auto overflow-y-auto">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} colSpan={header.colSpan} className="sticky top-0 z-10 bg-background">
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table?.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      className={
+                        typeof row_classname === 'string'
+                          ? cn(row_classname, onRowClick && 'hover:cursor-pointer')
+                          : row_classname
+                            ? row_classname(row.original)
+                            : onRowClick
+                              ? 'hover:cursor-pointer'
+                              : ''
+                      }
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      onClick={() => onRowClick && onRowClick(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      Sin resultados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          {paginationComponent ? (
+            React.cloneElement(paginationComponent as React.ReactElement, { table })
+          ) : (
+            <DataTablePagination table={table} />
+          )}
+        </div>
       </div>
-      {paginationComponent ? (
-        React.cloneElement(paginationComponent as React.ReactElement, { table })
-      ) : (
-        <DataTablePagination table={table} />
-      )}
     </div>
   );
 });
