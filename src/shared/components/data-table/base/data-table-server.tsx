@@ -105,7 +105,6 @@ interface DataTableProps<
     pageSize: number;
     sorting: SortingState;
     columnFilters: ColumnFiltersState;
-    server?: boolean | null;
   }) => Promise<{
     rows: TData[];
     pageCount: number;
