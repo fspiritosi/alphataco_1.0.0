@@ -4,7 +4,12 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 // import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchAllEquipmentsData, fetchEquipmentData, querySelectDistinct } from '@/app/server/GET/probando';
+import {
+  fetchEquipmentData,
+  onlyFetchEquipmentData,
+  otrosFetchAllEquipmentsData,
+  querySelectDistinct,
+} from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -38,7 +43,7 @@ export const conditionConfig = {
   'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
 };
 
-export default function TablaEquipmentServer({
+export default function OtrosTablaEquipmentServer({
   initialData,
   savedFilters,
   savedVisibility,
@@ -52,7 +57,7 @@ export default function TablaEquipmentServer({
   const company_id = Cookies.get('actualComp');
   // Función wrapper para la exportación que devuelve solo los datos
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
-    const result = await fetchAllEquipmentsData({
+    const result = await otrosFetchAllEquipmentsData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
       server: true,
@@ -82,13 +87,13 @@ export default function TablaEquipmentServer({
       excludeFromExport: true, // No exportar la columna de selección
     },
     {
-      accessorKey: 'domain',
-      id: 'domain',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
+      accessorKey: 'serie',
+      id: 'serie',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Serie" />,
       cell: ({ row }) => {
         return (
           <Link href={`/dashboard/equipment/action?action=view&id=${row.original.id}`} className="hover:underline">
-            {row.original.domain}
+            {row.original.serie}
           </Link>
         );
       },
@@ -96,6 +101,7 @@ export default function TablaEquipmentServer({
         return value.includes(row.getValue(id));
       },
     },
+
     {
       accessorKey: 'chassis',
       id: 'chassis',
@@ -185,14 +191,6 @@ export default function TablaEquipmentServer({
       accessorKey: 'engine',
       id: 'engine',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Motor" />,
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
-      },
-    },
-    {
-      accessorKey: 'serie',
-      id: 'serie',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Serie" />,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
@@ -343,12 +341,12 @@ export default function TablaEquipmentServer({
       columns={columns}
       savedVisibility={savedVisibility}
       initialData={initialData}
-      tableId={`equipmentServerTable-Vehículos`}
+      tableId={`equipmentServerTable-Otros`}
       enableRowSelection={true}
       serverSide={true}
-      fetchData={fetchEquipmentData}
+      fetchData={onlyFetchEquipmentData}
       fetchAllData={handleFetchAllData}
-      queryKey={`equipment-supabase-Vehículos`}
+      queryKey={`equipment-supabase-Otros`}
       toolbarOptions={{
         initialVisibleFilters: savedFilters,
         filterableColumns: [
