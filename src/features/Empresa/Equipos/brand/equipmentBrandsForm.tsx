@@ -64,8 +64,9 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
   }, [initialData, reset]);
 
   const onSubmit = async (data: FormData) => {
+    console.log(data, 'Form Brand Data');
     try {
-      if (isEditing && data.id) {
+      if (isEditing && data.id !== undefined) {
         await updateBrandOfVehicle({
           id: Number(data.id),
           name: data.name,
@@ -119,6 +120,7 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
       });
     }
   };
+
   return (
     <div className="flex space-y-8 max-w-[300px]">
       <Form {...form}>
