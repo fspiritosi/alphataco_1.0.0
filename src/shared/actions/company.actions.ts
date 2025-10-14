@@ -15,7 +15,7 @@ export const fetchCurrentCompany = async () => {
     const user = await getCurrentUserProfile();
     const { allCompanies, sharedCompanies } = await fetchUserCompanies(user?.id || '');
     const firstCompany = allCompanies[0] || sharedCompanies[0];
-    if (firstCompany) {
+    if (firstCompany.id) {
       // Establecer cookie desde el servidor
       cookiesjs.set('actualComp', firstCompany.id);
       company_id = firstCompany.id;
@@ -49,7 +49,7 @@ export const fetchUserCompanies = async (userId: string) => {
   // Obtener compañías compartidas
   const { data: sharedCompanies, error: sharedError } = await supabase
     .from('share_company_users')
-    .select('company_id (*)')
+    .select('company_id(*)')
     .eq('profile_id', userId)
     .returns<SharedCompanyWithCompany[]>();
 

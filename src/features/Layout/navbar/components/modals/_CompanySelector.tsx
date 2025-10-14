@@ -34,7 +34,7 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
     const actualCompany = Cookies.get('actualComp');
     setNewCompanyUserMetadata(actualCompany || '');
 
-    if (!actualCompany) {
+    if ((!actualCompany || actualCompany === 'undefined') && (allCompanies[0]?.id || sharedCompanies[0]?.id)) {
       Cookies.set('actualComp', allCompanies[0]?.id || sharedCompanies[0]?.id);
       Cookies.set('actualCompName', allCompanies[0]?.company_name || sharedCompanies[0]?.company_name);
     }
@@ -50,12 +50,14 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
   const totalCompanies = [...sharedCompanies, ...allCompanies];
 
   const handleNewCompany = async (company: Company) => {
-    Cookies.set('actualComp', company.id);
-    Cookies.set('actualCompName', company.company_name);
-    await setNewCompanyUserMetadata(company.id);
-    setSelectedCompany(company);
-    setOpen(false);
-    location.reload();
+    if (company.id) {
+      Cookies.set('actualComp', company.id);
+      Cookies.set('actualCompName', company.company_name);
+      await setNewCompanyUserMetadata(company.id);
+      setSelectedCompany(company);
+      setOpen(false);
+      location.reload();
+    }
   };
 
   const groups = [

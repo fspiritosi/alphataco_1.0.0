@@ -80,13 +80,15 @@ export default function NavBar() {
   const setActualCompany = useLoggedUserStore((state) => state.setActualCompany);
 
   const handleNewCompany = async (company: Company[0]) => {
-    Cookies.set('actualComp', company.id);
-    Cookies.set('actualCompName', company.company_name);
-    await setNewCompanyUserMetadata(company.id);
-    setNewDefectCompany(company);
-    setActualCompany(company);
-    setIsOpen(false);
-    location.replace('/dashboard');
+    if (company.id) {
+      Cookies.set('actualComp', company.id);
+      Cookies.set('actualCompName', company.company_name);
+      await setNewCompanyUserMetadata(company.id);
+      setNewDefectCompany(company);
+      setActualCompany(company);
+      setIsOpen(false);
+      location.replace('/dashboard');
+    }
   };
   const { control, formState, setValue } = useForm();
 
