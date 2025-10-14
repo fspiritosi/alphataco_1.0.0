@@ -808,17 +808,20 @@ export function DataCustomers<TData extends Customer, TValue>({
           <div className="mb-4">
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="gh_orange">Registrar Cliente</Button>
+                <Button id="" variant="gh_orange">
+                  Registrar Cliente
+                </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl">
                 <CustomerForm
                   company_id={company_id}
                   onSuccess={() => {
                     // Cerrar el diálogo después de guardar
-                    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
-                    if (dialog) dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+                    const dialog = document.getElementById('close-dialog-customer') as HTMLElement;
+                    if (dialog) dialog.click();
                   }}
                 />
+                <DialogClose id="close-dialog-customer" className="hidden" />
               </DialogContent>
             </Dialog>
           </div>
