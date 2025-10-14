@@ -52,7 +52,7 @@ type CustomerFormValues = z.infer<typeof customerFormSchema>;
 interface CustomerFormProps {
   customer?: any;
   company_id: string;
-  onSuccess?: () => void;
+  onSuccess: () => void;
   readOnly?: boolean;
 }
 
@@ -96,15 +96,21 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
           values.reason_for_termination = '';
         }
 
-        //Verificar si existe el cuit
-        const { data: customerVerify, error: customerVerifyError } = await supabase
-          .from('customers')
-          .select('name')
-          .eq('cuit', values.cuit)
-          .single();
+        if (isEditing) {
+          //Verificar si existe el cuit
+          const { data: customerVerify, error: customerVerifyError } = await supabase
+            .from('customers')
+            .select('name')
+            .eq('cuit', values.cuit)
+            .single();
 
-        if (customerVerifyError || (customerVerify && !isEditing)) {
-          throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
+          if (customerVerify?.name) {
+            throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
+          }
+          if (customerVerifyError) {
+            console.log(customerVerifyError);
+            throw new Error('Error al verificar el cuit');
+          }
         }
 
         // Preparar los datos para la base de datos
@@ -125,20 +131,17 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
           const { error } = await supabase.from('customers').update(customerData).eq('id', customer.id);
 
           if (error) throw error;
-          toast.success('Cliente actualizado correctamente');
+          // toast.success('Cliente actualizado correctamente');
         } else {
           // Crear nuevo cliente
           const { error } = await supabase.from('customers').insert([customerData]);
 
           if (error) throw error;
-          toast.success('Cliente creado correctamente');
+          // toast.success('Cliente creado correctamente');
         }
 
-        // Refrescar la página para ver los cambios
-        router.refresh();
-
         // Limpiar el formulario y cerrar el diálogo
-        if (onSuccess) onSuccess();
+        onSuccess();
         router.refresh();
       },
       {

@@ -185,9 +185,7 @@ export const columnsEmployeeDocumentServer: ColumnDef<EmployeeData>[] = [
       if (isNoPresented) {
         return 'No disponible';
       } else {
-        const [day, month, year] = row.original.created_at.split('/');
-        const date = new Date(Number(year), Number(month) - 1, Number(day));
-        return date.toLocaleDateString();
+        return moment(row.original.created_at, 'DD/MM/YYYY').format('DD/MM/YYYY');
       }
     },
   },

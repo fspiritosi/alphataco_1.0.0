@@ -1,153 +1,199 @@
-import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
-import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+'use client';
+import { querySelectDistinct } from '@/app/server/GET/probando';
+import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { VisibilityState } from '@tanstack/react-table';
-import { fetchAllRepairSolicitudes } from '../actions/actions';
+import Cookies from 'js-cookie';
+import { fetchAllRepairSolicitudesData, fetchRepairSolicitudes } from '../actions/actions';
 import { repairSolicitudesColums } from './components/columns';
 import { mechanicColums } from './components/mechanicColumns';
 
-export default async function RepairSolicitudes({
+export type RepairSolicitudeData = Awaited<ReturnType<typeof fetchRepairSolicitudes>>['rows'][0];
+export default function RepairSolicitudes({
   mechanic,
-  default_equipment_id,
+  initialData,
   savedFilters,
   savedVisibility,
 }: {
   mechanic?: boolean;
+  initialData?: Awaited<ReturnType<typeof fetchRepairSolicitudes>>;
   default_equipment_id?: string;
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
-  const repair_solicitudes = await fetchAllRepairSolicitudes();
+  const company_id = Cookies.get('actualComp');
 
-  const Allrepairs = default_equipment_id
-    ? repair_solicitudes.filter((repair) => repair.equipment_id === default_equipment_id)
-    : repair_solicitudes;
-  const repairsFormatted = Allrepairs?.map((repair) => {
-    return {
-      id: repair.id,
-      title: repair.types_of_repairs?.name,
-      state: repair.state,
-      label: '',
-      priority: repair.types_of_repairs?.criticity,
-      created_at: repair.created_at,
-      equipment: `${repair.vehicles?.domain} - ${repair.vehicles?.intern_number}`,
-      description: repair.user_description,
-      user_description: repair.user_description,
-      year: repair.vehicles?.year,
-      brand: repair.vehicles?.brand_vehicles?.name,
-      model: repair.vehicles?.model_vehicles?.name,
-      domain: repair.vehicles?.domain ?? repair.vehicles?.serie,
-      engine: repair.vehicles?.engine,
-      serie: repair.vehicles?.serie,
-      status: repair.vehicles?.status,
-      chassis: repair.vehicles?.chassis,
-      picture: repair.vehicles?.picture,
-      type_of_equipment: repair.vehicles?.type.name || 'No especificado',
-      sub_type_of_equipment: (repair.vehicles?.subType as any)?.name || 'No especificado',
-      solicitud_status: repair.state,
-      type_of_maintenance: repair.types_of_repairs?.type_of_maintenance,
-      user_images: repair.user_images,
-      mechanic_images: repair.mechanic_images,
-      repairlogs: repair.repairlogs,
-      mechanic_description: repair.mechanic_description,
-      vehicle_id: repair.equipment_id,
-      vehicle_condition: repair.vehicles?.condition,
-      intern_number: repair.vehicles?.intern_number,
-      kilometer: repair.kilometer,
-    };
-  });
-  const names = createFilterOptions(
-    repairsFormatted,
-    (repair) => repair.title
-    // FileText // Icono para documentos
-  );
-
-  const statis = createFilterOptions(
-    repairsFormatted,
-    (repair) => repair.state
-    // FileText // Icono para documentos
-  );
-
-  const Criticidad = createFilterOptions(
-    repairsFormatted,
-    (repair) => repair.priority
-    // FileText // Icono para documentos
-  );
-
-  const internNumber = createFilterOptions(
-    repairsFormatted,
-    (repair) => repair.intern_number
-    // FileText // Icono para documentos
-  );
-
-  const domain = createFilterOptions(
-    repairsFormatted,
-    (repair) => repair.domain
-    // FileText // Icono para documentos
-  );
-  const code = createFilterOptions(
-    repairsFormatted,
-    (repair: any) => repair.code_item
-    // FileText // Icono para documentos
-  );
-  const type_of_equipment = createFilterOptions(
-    repairsFormatted,
-    (repair: any) => repair.type_of_equipment
-    // FileText // Icono para documentos
-  );
-  const sub_type_of_equipment = createFilterOptions(repairsFormatted, (repair: any) => repair.sub_type_of_equipment);
+  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
+    const result = await fetchAllRepairSolicitudesData({
+      sorting: options.sorting,
+      columnFilters: options.columnFilters,
+      server: true,
+    });
+    return result.rows; // Solo devolver los datos, no la estructura de paginación
+  };
 
   return (
     <>
-      {/* <DataTable data={repairsFormatted || []} columns={mechanic ? mechanicColums : repairSolicitudesColums} /> */}
       <BaseDataTable
-        data={(repairsFormatted as any) || []}
         columns={mechanic ? mechanicColums : repairSolicitudesColums}
         savedVisibility={savedVisibility}
+        initialData={initialData}
         tableId="repair-solicitudes-table"
+        enableRowSelection={true}
+        serverSide={true}
+        fetchData={fetchRepairSolicitudes}
+        fetchAllData={handleFetchAllData}
+        queryKey="repair-solicitudes-supabase"
         toolbarOptions={{
-          initialVisibleFilters: savedFilters || [],
+          initialVisibleFilters: savedFilters,
+          showExport: true,
           filterableColumns: [
             {
-              columnId: 'Titulo',
-              title: 'Titulo',
-              options: names,
+              columnId: 'created_at',
+              title: 'Fecha',
+              type: 'date-range',
+              fromPlaceholder: 'Desde (Fecha)',
+              toPlaceholder: 'Hasta (Fecha)',
+              showFrom: true,
+              showTo: true,
             },
             {
-              columnId: 'Estado',
-              title: 'Estado',
-              options: statis,
-            },
-            {
-              columnId: 'Criticidad',
-              title: 'Criticidad',
-              options: Criticidad,
-            },
-            {
-              columnId: 'Numero interno',
-              title: 'Numero interno',
-              options: internNumber,
-            },
-            {
-              columnId: 'Dominio',
+              columnId: 'vehicles.domain',
               title: 'Dominio',
-              options: domain,
+              config: {
+                tableName: 'repair_solicitudes',
+                relation: '{"vehicles": "equipment_id"}',
+                select: 'vehicles.domain' as '*',
+                // p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (
+                  data: Awaited<ReturnType<typeof querySelectDistinct<'repair_solicitudes', 'vehicles.domain'>>>
+                ) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value || 'Sin dominio'),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
             },
             {
-              columnId: 'Tipo de equipo',
+              columnId: 'vehicles.type.name',
               title: 'Tipo de equipo',
-              options: type_of_equipment,
+              config: {
+                tableName: 'repair_solicitudes',
+                select: 'type.name' as '*',
+                multiJoinPaths: {
+                  joins: [
+                    {
+                      from_table: 'repair_solicitudes',
+                      to_table: 'vehicles',
+                      from_column: 'equipment_id',
+                      to_column: 'id',
+                    },
+                    {
+                      from_table: 'vehicles',
+                      to_table: 'type',
+                      from_column: 'type',
+                      to_column: 'id',
+                    },
+                  ],
+                  final_column: 'type.name',
+                },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'repair_solicitudes', 'type.name'>>>) => {
+                  return data
+                    .filter((value) => value.col_value !== null)
+                    .map((value) => ({
+                      label: String(value.display_value),
+                      value: String(value.col_value),
+                      count: value.col_count,
+                    }));
+                },
+              },
             },
             {
-              columnId: 'Sub tipo de equipo',
-              title: 'Sub tipo de equipo',
-              options: sub_type_of_equipment,
+              columnId: 'vehicles.sub_type.name',
+              title: 'Sub tipo',
+              config: {
+                tableName: 'repair_solicitudes' as const,
+                select: 'sub_type.name' as '*',
+                multiJoinPaths: {
+                  joins: [
+                    {
+                      from_table: 'repair_solicitudes',
+                      to_table: 'vehicles',
+                      from_column: 'equipment_id',
+                      to_column: 'id',
+                    },
+                    {
+                      from_table: 'vehicles',
+                      to_table: 'sub_type',
+                      from_column: 'subType', // columna en vehicles que referencia sub_type
+                      to_column: 'id',
+                    },
+                  ],
+                  final_column: 'sub_type.name',
+                },
+                mapper: (
+                  data: Awaited<ReturnType<typeof querySelectDistinct<'repair_solicitudes', 'sub_type.name'>>>
+                ) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value || 'Sin subtipo'),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
             },
             {
-              columnId: 'Codigo',
-              title: 'Codigo',
-              options: code,
+              columnId: 'types_of_repairs.name',
+              title: 'Tipo de reparación',
+              config: {
+                tableName: 'repair_solicitudes',
+                select: 'types_of_repairs.name' as '*',
+                relation: '{"types_of_repairs": "reparation_type"}',
+                // p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'types_of_repairs', 'name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value || 'Sin tipo de reparación'),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+            {
+              columnId: 'state',
+              title: 'Estado',
+              config: {
+                tableName: 'repair_solicitudes' as const,
+                select: 'state' as '*',
+                // p_filters: { company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'repair_solicitudes', 'state'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value || 'Sin estado'),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+            {
+              columnId: 'types_of_repairs.criticity',
+              title: 'Prioridad',
+              config: {
+                tableName: 'types_of_repairs' as const,
+                select: 'criticity' as '*',
+                // p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'types_of_repairs', 'criticity'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value || 'Sin prioridad'),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
             },
           ],
+          showFilterOptions: true,
         }}
       />
     </>

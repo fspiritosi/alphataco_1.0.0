@@ -18,7 +18,6 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { formatDocumentTypeName } from '@/lib/utils/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { FormattedSolicitudesRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PersonIcon } from '@radix-ui/react-icons';
 import { ColumnDef } from '@tanstack/react-table';
@@ -32,13 +31,52 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { RepairSolicitudeData } from '../RepairSolicitudes';
 import { criticidad, labels, statuses } from '../data';
 import RepairModal from './RepairModal';
 
-export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
+// const Allrepairs = default_equipment_id
+//   ? repair_solicitudes.filter((repair) => repair.equipment_id === default_equipment_id)
+//   : repair_solicitudes;
+// const repairsFormatted = Allrepairs?.map((repair) => {
+//   return {
+//     id: repair.id,
+//     title: repair.types_of_repairs?.name,
+//     state: repair.state,
+//     label: '',
+//     priority: repair.types_of_repairs?.criticity,
+//     created_at: repair.created_at,
+//     equipment: `${repair.vehicles?.domain} - ${repair.vehicles?.intern_number}`,
+//     description: repair.user_description,
+//     user_description: repair.user_description,
+//     year: repair.vehicles?.year,
+//     brand: repair.vehicles?.brand_vehicles?.name,
+//     model: repair.vehicles?.model_vehicles?.name,
+//     domain: repair.vehicles?.domain ?? repair.vehicles?.serie,
+//     engine: repair.vehicles?.engine,
+//     serie: repair.vehicles?.serie,
+//     status: repair.vehicles?.status,
+//     chassis: repair.vehicles?.chassis,
+//     picture: repair.vehicles?.picture,
+//     type_of_equipment: repair.vehicles?.type.name || 'No especificado',
+//     sub_type_of_equipment: (repair.vehicles?.subType as any)?.name || 'No especificado',
+//     solicitud_status: repair.state,
+//     type_of_maintenance: repair.types_of_repairs?.type_of_maintenance,
+//     user_images: repair.user_images,
+//     mechanic_images: repair.mechanic_images,
+//     repairlogs: repair.repairlogs,
+//     mechanic_description: repair.mechanic_description,
+//     vehicle_id: repair.equipment_id,
+//     vehicle_condition: repair.vehicles?.condition,
+//     intern_number: repair.vehicles?.intern_number,
+//     kilometer: repair.kilometer,
+//   };
+// });
+
+export const mechanicColums: ColumnDef<RepairSolicitudeData>[] = [
   {
-    accessorKey: 'domain',
-    id: 'Dominio',
+    accessorKey: 'vehicles.domain',
+    id: 'vehicles.domain',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
     cell: ({ row }) => {
       return (
@@ -47,9 +85,9 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
             <TooltipTrigger asChild>
               <Link
                 className="hover:underline"
-                href={`/dashboard/equipment/action?action=view&id=${row.original.vehicle_id}`}
+                href={`/dashboard/equipment/action?action=view&id=${row.original.vehicles?.id}`}
               >
-                {row.original.domain}
+                {row.original.vehicles?.domain || row.original.vehicles?.serie}
               </Link>
             </TooltipTrigger>
             <TooltipContent>
@@ -64,30 +102,30 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
     },
   },
   {
-    accessorKey: 'type_of_equipment',
-    id: 'Tipo de equipo',
+    accessorKey: 'vehicles.type.name',
+    id: 'vehicles.type.name',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de equipo" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.type_of_equipment}</div>;
+      return <div className="flex items-center">{row.original.vehicles?.type?.name}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
   },
   {
-    accessorKey: 'sub_type_of_equipment',
-    id: 'Sub tipo de equipo',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Sub tipo de equipo" />,
+    accessorKey: 'vehicles.sub_type.name',
+    id: 'vehicles.sub_type.name',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sub tipo" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.sub_type_of_equipment}</div>;
+      return <div className="flex items-center">{row.original.vehicles?.sub_type?.name || 'No especificado'}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
   },
   {
-    accessorKey: 'title',
-    id: 'Titulo',
+    accessorKey: 'types_of_repairs.name',
+    id: 'types_of_repairs.name',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Titulo" className="ml-2" />,
     cell: ({ row }) => {
       return (
@@ -96,7 +134,9 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
           onlyView
           action={
             <div className="flex space-x-2">
-              <CardTitle className="max-w-[300px] truncate font-medium hover:underline">{row.original.title}</CardTitle>
+              <CardTitle className="max-w-[300px] truncate font-medium hover:underline">
+                {row.original.types_of_repairs?.name}
+              </CardTitle>
             </div>
           }
         />
@@ -107,7 +147,10 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
     },
   },
   {
-    accessorKey: 'id',
+    accessorKey: 'user_description',
+    id: 'user_description',
+    enableColumnFilter: false,
+    enableSorting: false,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Descripcion" />,
     cell: ({ row }) => {
       return (
@@ -117,10 +160,9 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
       );
     },
   },
-
   {
     accessorKey: 'state',
-    id: 'Estado',
+    id: 'state',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const state = statuses.find((status) => status.value === row.original.state);
@@ -141,12 +183,12 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
     },
   },
   {
-    accessorKey: 'priority',
-    id: 'Criticidad',
+    accessorKey: 'types_of_repairs.criticity',
+    id: 'types_of_repairs.criticity',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Criticidad" />,
     cell: ({ row }) => {
-      const priority = criticidad.find((priority) => priority.value === row.original.priority);
-      const label = labels.find((label) => label.value === row.original.priority);
+      const priority = criticidad.find((priority) => priority.value === row.original.types_of_repairs?.criticity);
+      const label = labels.find((label) => label.value === row.original.types_of_repairs?.criticity);
       if (!priority) {
         return null;
       }
@@ -166,11 +208,11 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
     },
   },
   {
-    accessorKey: 'intern_number',
-    id: 'Numero interno',
+    accessorKey: 'vehicles.intern_number',
+    id: 'vehicles.intern_number',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Numero interno" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.intern_number}</div>;
+      return <div className="flex items-center">{row.original.vehicles?.intern_number}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -178,7 +220,8 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
   },
 
   {
-    accessorKey: 'fecha',
+    accessorKey: 'created_at',
+    id: 'created_at',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
       return <div className="flex items-center">{moment(row.original.created_at).format('DD/MM/YYYY')}</div>;
@@ -191,7 +234,11 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
     accessorKey: 'updated_at',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de modificacion" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{moment(row.original.updated_at).format('DD/MM/YYYY HH:mm')}</div>;
+      return (
+        <div className="flex items-center">
+          {row.original.updated_at ? moment(row.original.updated_at).format('DD/MM/YYYY HH:mm') : '-'}
+        </div>
+      );
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -201,11 +248,11 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
     id: 'actions',
     cell: ({ row }) => {
       const supabase = supabaseBrowser();
-      const [imageUrl, setImageUrl] = useState<string[]>([]);
-      const [imagesMechanic, setImagesMechanic] = useState<(string | null)[]>([null, null, null]);
+      const [imageUrl, setImageUrl] = useState<string[] | undefined>([]);
+      const [imagesMechanic, setImagesMechanic] = useState<(string | null)[] | undefined>([null, null, null]);
       const [images, setImages] = useState<(string | null)[]>([null, null, null]);
       const [files, setFiles] = useState<(File | undefined)[]>([undefined, undefined, undefined]);
-      const [status, setStatus] = useState<string>(row.original.solicitud_status);
+      const [status, setStatus] = useState<string>(row.original.state);
       // const [mechanic_description, setMechanic_description] = useState('');
       const router = useRouter();
       const endingStates = ['Finalizado', 'Cancelado', 'Rechazado'];
@@ -248,10 +295,10 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
         const { data, error } = await supabase
           .from('repair_solicitudes')
           .select('*,reparation_type(*),user_id(*),employee_id(*)')
-          .eq('equipment_id', row.original.vehicle_id);
+          .eq('equipment_id', row.original.vehicles?.id || '');
 
         if (error) {
-          throw new Error(handleSupabaseError(error.message));
+          console.error(error);
         }
 
         setRepairSolicitudes(data);
@@ -304,8 +351,8 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
       };
       const formatImages = (image: File | undefined, domain: string, index: number) => {
         if (!image) return;
-        const maintenanceName = formatDocumentTypeName(row.original.title); //Aqui va el nombre del mantenimiento
-        const user_pictures = row.original.user_images.filter((e) => e);
+        const maintenanceName = formatDocumentTypeName(row.original.types_of_repairs?.name || ''); //Aqui va el nombre del mantenimiento
+        const user_pictures = row.original.user_images?.filter((e) => e) || [];
         const str = user_pictures[index];
         const regex = /\(([^)]+)\)/;
         const user_pictures_date = str?.match(regex);
@@ -326,11 +373,11 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
 
         if (shouldUpdateStatus || shouldUpdateFiles) {
           let mechanic_imagesData = files.map((file, index) =>
-            formatImages(file, row.original.domain ?? row.original.serie, index)
+            formatImages(file, row.original.vehicles?.domain ?? (row.original.vehicles?.serie || ''), index)
           );
 
           const mechanic_images = mechanic_imagesData.map((e) => e?.url);
-          const vehicle_id = row.original.vehicle_id;
+          const vehicle_id = row.original.vehicles?.id;
           const mechanic_description = form.getValues('mechanic_description');
 
           const { data, error } = await supabase
@@ -387,7 +434,7 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
             // Si la reparación actualizada no es un estado de cierre, calcular el estado basado en todas las reparaciones pendientes incluyendo la actualizada
             const allPendingRepairs = [
               ...pendingRepairs,
-              { state: status, reparation_type: { criticity: row.original.priority } },
+              { state: status, reparation_type: { criticity: row.original.types_of_repairs?.criticity || '' } },
             ];
             if (allPendingRepairs.some((e: any) => e.state === 'En reparación')) {
               newStatus = 'en reparación';
@@ -400,10 +447,10 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
             }
           }
 
-          const { data: vehicles, error: vehicleerror } = await supabase
+          await supabase
             .from('vehicles')
             .update({ condition: newStatus } as any)
-            .eq('id', vehicle_id);
+            .eq('id', vehicle_id || '');
         } else if (shouldUpdateStatus) {
           await saveNewStatus();
         } else if (shouldUpdateFiles) {
@@ -413,7 +460,7 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
       };
 
       const saveNewStatus = async () => {
-        const vehicle_id = row.original.vehicle_id;
+        const vehicle_id = row.original.vehicles?.id || '';
         const mechanic_description = form.getValues('mechanic_description');
 
         const { data, error } = await supabase
@@ -452,7 +499,7 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
           // Si la reparación actualizada no es un estado de cierre, calcular el estado basado en todas las reparaciones pendientes incluyendo la actualizada
           const allPendingRepairs = [
             ...pendingRepairs,
-            { state: status, reparation_type: { criticity: row.original.priority } },
+            { state: status, reparation_type: { criticity: row.original.types_of_repairs?.criticity } },
           ];
           if (allPendingRepairs.some((e: any) => e.state === 'En reparación')) {
             newStatus = 'en reparación';
@@ -465,7 +512,7 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
           }
         }
 
-        const { data: vehicles, error: vehicleerror } = await supabase
+        await supabase
           .from('vehicles')
           .update({ condition: newStatus } as any)
           .eq('id', vehicle_id);
@@ -473,7 +520,7 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
 
       const updateRepair = async () => {
         let mechanic_imagesData = files.map((file, index) =>
-          formatImages(file, row.original.domain ?? row.original.serie, index)
+          formatImages(file, row.original.vehicles?.domain ?? (row.original.vehicles?.serie || ''), index)
         );
 
         const mechanic_images = mechanic_imagesData.map((e) => e?.url);
@@ -534,21 +581,21 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
               <div className="grid grid-cols-2 gap-6">
                 <div className="grid gap-2">
                   <Label>Tipo de reparación</Label>
-                  <div className="font-medium">{row.original.title}</div>
+                  <div className="font-medium">{row.original.types_of_repairs?.name}</div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Criticidad</Label>
                   <Badge
                     variant={
-                      row.original.priority === 'Alta'
+                      row.original.types_of_repairs?.criticity === 'Alta'
                         ? 'destructive'
-                        : row.original.priority === 'Media'
+                        : row.original.types_of_repairs?.criticity === 'Media'
                           ? 'yellow'
                           : 'outline'
                     }
                     className="w-fit"
                   >
-                    {row.original.priority}
+                    {row.original.types_of_repairs?.criticity}
                   </Badge>
                 </div>
                 <div className="grid gap-2">
@@ -559,7 +606,7 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
                 <div className="grid gap-2">
                   <Label>Tipo de mantenimiento</Label>
                   <Badge className="font-medium w-fit" variant={'outline'}>
-                    {row.original.type_of_maintenance}
+                    {row.original.types_of_repairs?.type_of_maintenance}
                   </Badge>
                 </div>
               </div>
@@ -690,45 +737,45 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
               <div className="grid grid-cols-2 gap-6">
                 <div className="grid gap-2">
                   <Label>Tipo de equipo</Label>
-                  <div className="font-medium">{row.original.type_of_equipment}</div>
+                  <div className="font-medium">{row.original.vehicles?.type.name}</div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Año</Label>
-                  <div className="font-medium">{row.original.year}</div>
+                  <div className="font-medium">{row.original.vehicles?.year}</div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Marca</Label>
-                  <div className="font-medium">{row.original.brand}</div>
+                  <div className="font-medium">{row.original.vehicles?.brand}</div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Modelo</Label>
-                  <div className="font-medium">{row.original.model}</div>
+                  <div className="font-medium">{row.original.vehicles?.model}</div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>{row.original.domain ? 'Dominio' : 'Serie'}</Label>
-                  <div className="font-medium">{row.original.domain ?? row.original.serie}</div>
+                  <Label>{row.original.vehicles?.domain ? 'Dominio' : 'Serie'}</Label>
+                  <div className="font-medium">{row.original.vehicles?.domain ?? row.original.vehicles?.serie}</div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Motor</Label>
-                  <div className="font-medium">{row.original.engine}</div>
+                  <div className="font-medium">{row.original.vehicles?.engine}</div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Estado</Label>
                   <Badge className="w-fit" variant={'outline'}>
-                    {row.original.status}
+                    {row.original.vehicles?.status}
                   </Badge>
                 </div>
                 <div className="grid gap-2">
                   <Label>Chasis</Label>
-                  <div className="font-medium">{row.original.chassis}</div>
+                  <div className="font-medium">{row.original.vehicles?.chassis}</div>
                 </div>
               </div>
               <div className="mx-auto w-[90%]">
-                {imageUrl?.length > 0 && <Badge className="text-sm mb-2"> Imagenes del equipo a reparar</Badge>}
-                {imageUrl?.length > 0 && (
+                {(imageUrl?.length || 0) > 0 && <Badge className="text-sm mb-2"> Imagenes del equipo a reparar</Badge>}
+                {(imageUrl?.length || 0) > 0 && (
                   <Carousel className="w-full">
                     <CarouselContent className="p-2">
-                      {imageUrl.map((image, index) => (
+                      {imageUrl?.map((image, index) => (
                         <CarouselItem key={crypto.randomUUID()} className="md:basis-1/2 lg:basis-1/3  overflow-hidden">
                           <Card className="">
                             <Link target="_blank" href={image || ''}>
@@ -814,7 +861,9 @@ export const mechanicColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
               <div className="grid gap-2">
                 <CardTitle>
                   Kilometros totales de la reparacion:{' '}
-                  {repairLogs[repairLogs?.length - 1].kilometer - repairLogs[0].kilometer} kms
+                  {Number(repairLogs?.[repairLogs?.length - 1]?.kilometer || 0) -
+                    Number(repairLogs?.[0]?.kilometer || 0)}{' '}
+                  kms
                 </CardTitle>
               </div>
               <div className="relative flex flex-col gap-4 justify-start  w-full">
