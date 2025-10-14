@@ -1,6 +1,8 @@
 'use server';
 
+import { Filter, queryWithPagination } from '@/app/server/GET/probando';
 import { supabaseServer } from '@/lib/supabase/server';
+import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
 
 export async function fetchAllTypesOfRepairs() {
@@ -92,6 +94,50 @@ export async function deleteTypeOfRepair(id: string) {
   } catch (error) {
     return [];
   }
+}
+
+export async function fetchAllRepairSolicitudesData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'repair_solicitudes'>[];
+  server?: boolean;
+}) {
+  const result = await queryWithPagination(
+    'repair_solicitudes',
+    '*,user_id(*),employees(*),vehicles(*,type(*),sub_type(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))',
+    {
+      pageIndex: 0,
+      pageSize: 10000, // Límite alto para obtener todos los datos
+      sorting: [...options.sorting, { id: 'created_at', desc: true }],
+      columnFilters: options.columnFilters,
+      filters: options.filters,
+      server: false,
+    }
+  );
+
+  return result;
+}
+
+// Función específica para empleados (ejemplo)
+export async function fetchRepairSolicitudes(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'repair_solicitudes'>[];
+}) {
+  const data = await queryWithPagination(
+    'repair_solicitudes',
+    '*,user_id(*),employees(*),vehicles(*,type(*),sub_type(*),brand_vehicles(*),model_vehicles(*)),types_of_repairs(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))',
+    {
+      ...options,
+      sorting: [...options.sorting, { id: 'created_at', desc: true }],
+      columnFilters: [...options.columnFilters],
+      filters: options.filters,
+      server: true,
+    }
+  );
+  return data;
 }
 
 export async function fetchAllRepairSolicitudes() {

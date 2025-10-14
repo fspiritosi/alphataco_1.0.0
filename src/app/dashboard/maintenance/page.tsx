@@ -1,9 +1,7 @@
-import RepairsSkeleton from '@/components/Skeletons/RepairsSkeleton';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import Viewcomponent from '@/components/ViewComponent';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
-import { Suspense } from 'react';
 
 export async function generateMetadata() {
   const cookiesStore = cookies();
@@ -55,11 +53,11 @@ function MantenimientoPage({ searchParams }: { searchParams: { tab: string; subt
   };
 
   return (
-    <Suspense fallback={<RepairsSkeleton />}>
-      <div className="h-full">
-        <Viewcomponent viewData={viewData} />
-      </div>
-    </Suspense>
+    // <Suspense fallback={<RepairsSkeleton />}>
+    // <div className="h-full">
+    <Viewcomponent viewData={viewData} />
+    // </div>
+    // </Suspense>
   );
 }
 

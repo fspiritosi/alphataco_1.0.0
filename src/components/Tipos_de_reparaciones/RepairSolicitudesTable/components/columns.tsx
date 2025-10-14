@@ -1,29 +1,27 @@
-'use client';
-
 import { Badge } from '@/components/ui/badge';
 import { CardTitle } from '@/components/ui/card';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { FormattedSolicitudesRepair } from '@/types/types';
 import { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
+import { RepairSolicitudeData } from '../RepairSolicitudes';
 import { criticidad, labels, statuses } from '../data';
 import RepairModal from './RepairModal';
 
-export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[] = [
+export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
   {
-    accessorKey: 'domain',
-    id: 'Dominio',
+    accessorKey: 'vehicles.domain',
+    id: 'vehicles.domain',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.domain}</div>;
+      return <div className="flex items-center">{row.original.vehicles?.domain}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
   },
   {
-    accessorKey: 'title',
-    id: 'Titulo',
+    accessorKey: 'types_of_repairs.name',
+    id: 'types_of_repairs.name',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Titulo" className="ml-2" />,
     cell: ({ row }) => {
       return (
@@ -32,7 +30,9 @@ export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[]
           onlyView
           action={
             <div className="flex space-x-2">
-              <CardTitle className="max-w-[300px] truncate font-medium hover:underline">{row.original.title}</CardTitle>
+              <CardTitle className="max-w-[300px] truncate font-medium hover:underline">
+                {row.original.types_of_repairs?.name}
+              </CardTitle>
             </div>
           }
         />
@@ -53,13 +53,6 @@ export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[]
       );
     },
   },
-  // {
-  //   accessorKey: 'id',
-  //   header: ({ column }) => <DataTableColumnHeader column={column} title="Task" />,
-  //   cell: ({ row }) => <div className="w-[80px]">{row.getValue('id')}</div>,
-  //   enableSorting: false,
-  //   enableHiding: false,
-  // },
   {
     accessorKey: 'state',
     id: 'Estado',
@@ -87,8 +80,8 @@ export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[]
     id: 'Criticidad',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Criticidad" />,
     cell: ({ row }) => {
-      const priority = criticidad.find((priority) => priority.value === row.original.priority);
-      const label = labels.find((label) => label.value === row.original.priority);
+      const priority = criticidad.find((priority) => priority.value === row.original.types_of_repairs?.criticity);
+      const label = labels.find((label) => label.value === row.original.types_of_repairs?.criticity);
       if (!priority) {
         return null;
       }
@@ -112,13 +105,12 @@ export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[]
     id: 'Serie',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Serie" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{row.original.serie}</div>;
+      return <div className="flex items-center">{row.original.vehicles?.serie}</div>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
   },
-
   {
     accessorKey: 'fecha',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
@@ -133,7 +125,11 @@ export const repairSolicitudesColums: ColumnDef<FormattedSolicitudesRepair[0]>[]
     accessorKey: 'updated_at',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de modificacion" />,
     cell: ({ row }) => {
-      return <div className="flex items-center">{moment(row.original.updated_at).format('DD/MM/YYYY')}</div>;
+      return (
+        <div className="flex items-center">
+          {row.original.updated_at ? moment(row.original.updated_at).format('DD/MM/YYYY HH:mm') : '-'}
+        </div>
+      );
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));

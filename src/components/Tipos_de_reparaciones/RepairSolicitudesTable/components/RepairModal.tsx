@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/c
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { PersonIcon } from '@radix-ui/react-icons';
@@ -31,7 +30,7 @@ function RepairModal({ row, onlyView, action }: { row: any; onlyView?: boolean; 
       .eq('equipment_id', row.original.vehicle_id);
 
     if (error) {
-      throw new Error(handleSupabaseError(error.message));
+      console.error(error);
     }
 
     setRepairSolicitudes(data);
