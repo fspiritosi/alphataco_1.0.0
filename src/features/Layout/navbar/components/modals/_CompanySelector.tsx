@@ -34,17 +34,9 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
     const actualCompany = Cookies.get('actualComp');
     setNewCompanyUserMetadata(actualCompany || '');
 
-    console.log(actualCompany === 'undefined', 'actualCompany === undefined');
-    console.log(sharedCompanies, 'sharedCompanies');
-    console.log(allCompanies, 'allCompanies');
-
     if ((!actualCompany || actualCompany === 'undefined') && (allCompanies[0]?.id || sharedCompanies[0]?.id)) {
-      console.log('Entre al if', allCompanies[0]?.id || sharedCompanies[0]?.id);
       Cookies.set('actualComp', allCompanies[0]?.id || sharedCompanies[0]?.id);
       Cookies.set('actualCompName', allCompanies[0]?.company_name || sharedCompanies[0]?.company_name);
-      if (actualCompany === 'undefined') {
-        console.log('deberia recargar');
-      }
     }
 
     // if (!selectedCompany && (allCompanies?.length > 0 || sharedCompanies?.length > 0)) {
