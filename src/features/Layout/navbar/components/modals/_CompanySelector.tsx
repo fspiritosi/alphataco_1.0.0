@@ -35,6 +35,8 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
     setNewCompanyUserMetadata(actualCompany || '');
 
     console.log(actualCompany === 'undefined', 'actualCompany === undefined');
+    console.log(sharedCompanies, 'sharedCompanies');
+    console.log(allCompanies, 'allCompanies');
 
     if ((!actualCompany || actualCompany === 'undefined') && (allCompanies[0]?.id || sharedCompanies[0]?.id)) {
       console.log('Entre al if', allCompanies[0]?.id || sharedCompanies[0]?.id);

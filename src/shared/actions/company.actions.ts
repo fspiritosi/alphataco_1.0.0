@@ -53,6 +53,8 @@ export const fetchUserCompanies = async (userId: string) => {
     .eq('profile_id', userId)
     .returns<SharedCompanyWithCompany[]>();
 
+  console.log(sharedCompanies, 'sharedCompanies');
+
   if (sharedError) {
     console.error('Error fetching shared companies:', sharedError);
     return { sharedCompanies: [], allCompanies: [] };
@@ -66,6 +68,7 @@ export const fetchUserCompanies = async (userId: string) => {
     return { sharedCompanies: [], allCompanies: [] };
   }
 
+  console.log(allCompanies, 'allCompanies');
   return {
     sharedCompanies: sharedCompanies?.map((sc) => sc.company_id) as Company[],
     allCompanies: allCompanies || [],
