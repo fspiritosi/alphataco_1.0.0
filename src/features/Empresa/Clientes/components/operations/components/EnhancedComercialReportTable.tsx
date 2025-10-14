@@ -11,6 +11,20 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
+import {
+  formatCustomerEquipmentForExport,
+  formatDateForExport,
+  formatEmployeesForExport,
+  formatEquipmentForExport,
+} from './export-formatters';
+
+// Tipo extendido para columnas con propiedades adicionales de exportación
+type ExtendedColumnDef<TData> = ColumnDef<TData> & {
+  exportFormatter?: (value: any, row: TData) => string;
+  excludeFromExport?: boolean;
+  exportHeader?: string; // Nombre personalizado para la columna en el Excel
+};
+
 // Se ha modificado la interfaz para que customer_equipment acepte un array de objetos
 interface TableRow {
   id: string;
@@ -68,10 +82,12 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
   showActions,
   filterableColumns,
 }) => {
-  const columns = useMemo<ColumnDef<TableRow>[]>(() => {
-    const baseColumns: ColumnDef<TableRow>[] = [
+  const columns = useMemo<ExtendedColumnDef<TableRow>[]>(() => {
+    const baseColumns: ExtendedColumnDef<TableRow>[] = [
       {
+        id: 'date',
         accessorKey: 'date',
+        exportHeader: 'Fecha',
         header: ({ column }) => {
           return (
             <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
@@ -103,6 +119,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
             return true;
           }
         },
+        exportFormatter: (value, row) => formatDateForExport(row.date),
       },
       {
         id: 'customer',
@@ -138,6 +155,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         id: 'customer_equipment',
         accessorKey: 'customer_equipment',
         header: 'Equipo Cliente',
+        exportHeader: 'Equipo Cliente',
         // Se ha modificado el cell para mostrar la propiedad 'name' del objeto
         cell: ({ row }) => {
           const equipment = row.original.customer_equipment || [];
@@ -156,6 +174,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           const equipment = row.original.customer_equipment.map((eq) => eq.name);
           return equipment.some((eqName) => value.includes(eqName));
         },
+        exportFormatter: (value, row) => formatCustomerEquipmentForExport(row.customer_equipment),
       },
       {
         id: 'area',
@@ -243,6 +262,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         id: 'employees',
         accessorKey: 'employees',
         header: 'Empleados',
+        exportHeader: 'Empleados',
         cell: ({ row }) => {
           const employees = row.original.employees || [];
           return (
@@ -260,11 +280,13 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           const employees = row.original.employees || [];
           return employees.some((employee) => value.includes(employee));
         },
+        exportFormatter: (value, row) => formatEmployeesForExport(row.employees),
       },
       {
         id: 'equipment',
         accessorKey: 'equipment',
         header: 'Equipo Empresa',
+        exportHeader: 'Equipo Empresa',
         cell: ({ row }) => {
           const equipment = row.original.equipment || [];
           return (
@@ -282,6 +304,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           const equipment = row.original.equipment || [];
           return equipment.some((eq) => value.includes(eq));
         },
+        exportFormatter: (value, row) => formatEquipmentForExport(row.equipment),
       },
       {
         id: 'working_day',
