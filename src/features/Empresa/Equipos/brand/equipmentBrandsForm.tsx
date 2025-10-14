@@ -64,7 +64,6 @@ function EquipmentBrandsForm({ initialData = null, onReset, isEditing = false, o
   }, [initialData, reset]);
 
   const onSubmit = async (data: FormData) => {
-    console.log(data, 'Form Brand Data');
     try {
       if (isEditing && data.id !== undefined) {
         await updateBrandOfVehicle({

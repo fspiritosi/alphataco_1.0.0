@@ -8,27 +8,18 @@ type EquipmentTableWrapperProps = {
 
 async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: EquipmentTableWrapperProps) {
   const cookiesStore = cookies();
-  const savedVisibility = cookiesStore.get(`equipmentServerTable-${types_of_vehicles}`)?.value;
-  const savedFilters = cookiesStore.get(`equipmentServerTable-${types_of_vehicles}-filters`)?.value;
+  const savedVisibility = cookiesStore.get(`equipmentServerTable-Vehículos`)?.value;
+  const savedFilters = cookiesStore.get(`equipmentServerTable-Vehículos-filters`)?.value;
 
   const initialData = await fetchEquipmentData({
     pageIndex: 0,
     pageSize: 10,
     sorting: [],
     columnFilters: [],
-    filters: [
-      ...(types_of_vehicles !== 'all'
-        ? [
-            {
-              column: 'type_of_vehicle' as any,
-              operator: 'eq' as any,
-              value: types_of_vehicles === 'Vehículos' ? 1 : 2,
-            },
-          ]
-        : []),
-    ],
-    server: true,
+    filters: [],
+    // server: true,
   });
+
   return (
     <>
       <TablaEquipmentServer

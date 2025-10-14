@@ -3,6 +3,7 @@ import { buttonVariants } from '@/components/ui/button';
 import Link from 'next/link';
 import EquipmentTableWrapperServer from './EquipmentTableWrapperServer';
 import EquipmentTableWrapperServerInactive from './EquipmentTableWrapperServerInactive';
+import OtrosEquipmentTableWrapperServer from './OnlyEquipmentTableWrapperServer';
 
 export default function EquipmentListTabs({
   inactives,
@@ -16,38 +17,38 @@ export default function EquipmentListTabs({
   subtab: string | undefined;
 }) {
   const viewData: ViewDataObj = {
-    defaultValue: subtab || 'all',
+    defaultValue: subtab || 'vehicles',
     path: '/dashboard/equipment',
     tabsValues: [
-      {
-        value: 'all',
-        name: 'Todos los equipos',
-        restricted: [''],
-        tab: tabValue,
-        content: {
-          buttonAction: (
-            <div className="flex flex-wrap">
-              <Link
-                href="/dashboard/equipment/action?action=new"
-                className={[' py-2 rounded', buttonVariants({ variant: 'default' })].join(' ')}
-              >
-                Agregar nuevo equipo
-              </Link>
-            </div>
-          ),
-          title: 'Todos los equipos',
-          //description: 'Información de la empresa',
-          buttonActioRestricted: [''],
-          component: <EquipmentTableWrapperServer types_of_vehicles="all" />,
-        },
-      },
+      // {
+      //   value: 'all',
+      //   name: 'Todos los equipos',
+      //   restricted: [''],
+      //   tab: tabValue,
+      //   content: {
+      //     buttonAction: (
+      //       <div className="flex flex-wrap">
+      //         <Link
+      //           href="/dashboard/equipment/action?action=new"
+      //           className={[' py-2 rounded', buttonVariants({ variant: 'default' })].join(' ')}
+      //         >
+      //           Agregar nuevo equipo
+      //         </Link>
+      //       </div>
+      //     ),
+      //     title: 'Todos los equipos',
+      //     //description: 'Información de la empresa',
+      //     buttonActioRestricted: [''],
+      //     component: <EquipmentTableWrapperServer types_of_vehicles="all" />,
+      //   },
+      // },
       {
         value: 'vehicles',
-        name: 'Solo vehículos',
+        name: 'Vehículos',
         restricted: [''],
         tab: tabValue,
         content: {
-          title: 'Solo vehículos',
+          title: 'Vehículos',
           buttonAction: (
             <div className="flex flex-wrap">
               <Link
@@ -82,7 +83,7 @@ export default function EquipmentListTabs({
           ),
           buttonActioRestricted: [''],
           // component: <EquipmentTableWrapper filterType="others" />,
-          component: <EquipmentTableWrapperServer types_of_vehicles="Otros" />,
+          component: <OtrosEquipmentTableWrapperServer types_of_vehicles="Otros" />,
         },
       },
       {

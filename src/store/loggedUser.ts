@@ -393,16 +393,18 @@ export const useLoggedUserStore = create<State>((set, get) => {
   const setActualCompany = (company: Company[0]) => {
     set({ actualCompany: company });
 
-    cookies.set('actualComp', company.id);
-    cookies.set('actualCompName', company.company_name);
-    setNewCompanyUserMetadata(company.id);
-    useCountriesStore.getState().documentTypes(company?.id);
-    setActivesEmployees();
-    fetchVehicles();
-    documetsFetch();
-    allNotifications();
-    FetchSharedUsers();
-    handleActualCompanyRole();
+    if (company.id) {
+      cookies.set('actualComp', company.id);
+      cookies.set('actualCompName', company.company_name);
+      setNewCompanyUserMetadata(company.id);
+      useCountriesStore.getState().documentTypes(company?.id);
+      setActivesEmployees();
+      fetchVehicles();
+      documetsFetch();
+      allNotifications();
+      FetchSharedUsers();
+      handleActualCompanyRole();
+    }
   };
 
   const handleActualCompanyRole = async () => {

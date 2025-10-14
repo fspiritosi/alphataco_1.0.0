@@ -58,7 +58,7 @@ export default async function EmpleadoDiagramasChart() {
   const chartConfig = {
     empleados: { label: 'Novedades' },
     ...newChartData
-      .filter((item: any) => item.empleados > 0)
+      ?.filter((item: any) => item.empleados > 0)
       .reduce(
         (acc: any, item: any) => {
           acc[item.novedad!] = { label: item.novedad!, color: item.fill };

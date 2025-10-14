@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronsUpDown, X } from 'lucide-react';
+import { Check, CheckSquare, ChevronsUpDown, Square, X } from 'lucide-react';
 import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ interface MultiSelectProps {
   setSelectedValues: (values: string[]) => void;
   placeholder?: string;
   emptyMessage?: string;
+  showSelectAll?: boolean;
 }
 
 export function MultiSelect({
@@ -28,6 +29,7 @@ export function MultiSelect({
   setSelectedValues,
   placeholder = 'Select options...',
   emptyMessage = 'No options found.',
+  showSelectAll = true,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -41,6 +43,19 @@ export function MultiSelect({
 
   const handleRemove = (value: string) => {
     setSelectedValues(selectedValues.filter((item) => item !== value));
+  };
+
+  const handleSelectAll = () => {
+    const allValues = options.map((option) => option.value);
+    const allSelected = allValues.every((value) => selectedValues.includes(value));
+
+    if (allSelected) {
+      // Deseleccionar todos
+      setSelectedValues([]);
+    } else {
+      // Seleccionar todos
+      setSelectedValues(allValues);
+    }
   };
 
   return (
@@ -87,6 +102,21 @@ export function MultiSelect({
           <CommandInput placeholder="Buscar opciones..." />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
+            {showSelectAll && options.length > 0 && (
+              <div className="px-2 py-1.5 border-b flex items-center">
+                <div
+                  className="flex items-center gap-2 text-sm cursor-pointer hover:text-foreground transition-colors w-full"
+                  onClick={handleSelectAll}
+                >
+                  {options.every((option) => selectedValues.includes(option.value)) ? (
+                    <CheckSquare className="h-4 w-4" />
+                  ) : (
+                    <Square className="h-4 w-4" />
+                  )}
+                  <span className="text-xs">Seleccionar todos</span>
+                </div>
+              </div>
+            )}
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem key={crypto.randomUUID()} value={option.value} onSelect={() => handleSelect(option.value)}>

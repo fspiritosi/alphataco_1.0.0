@@ -310,15 +310,23 @@ export interface FilterOptions {
 export async function getFilterOptions(): Promise<FilterOptions> {
   try {
     const [customers, services, employees, vehicles, items, customerEquipments, areas, sectors] = await Promise.all([
-      supabase.from('customers').select('id, name').order('name'),
+      supabase.from('customers').select('id, name').order('name').eq('is_active', true),
 
-      supabase.from('customer_services').select('id, service_name, customer_id').order('service_name'),
+      supabase
+        .from('customer_services')
+        .select('id, service_name, customer_id')
+        .order('service_name')
+        .eq('is_active', true),
 
-      supabase.from('employees').select('id, firstname, lastname').order('firstname'),
+      supabase.from('employees').select('id, firstname, lastname').order('firstname').eq('is_active', true),
 
-      supabase.from('vehicles').select('id, intern_number, domain').order('intern_number'),
+      supabase.from('vehicles').select('id, intern_number, domain').order('intern_number').eq('is_active', true),
 
-      supabase.from('service_items').select('id, item_name, customer_service_id').order('item_name'),
+      supabase
+        .from('service_items')
+        .select('id, item_name, customer_service_id')
+        .order('item_name')
+        .eq('is_active', true),
 
       supabase.from('equipos_clientes').select('id, name, customer_id').order('name'),
 

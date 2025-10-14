@@ -2,6 +2,9 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { Database } from '../../../../database.types';
+
+// Tipo helper para el query builder de Supabase
+type SupabaseQueryBuilder = ReturnType<ReturnType<ReturnType<typeof supabaseBrowser>['from']>['select']>;
 // Tipo para los operadores de filtro
 type FilterOperator =
   | 'eq'
@@ -41,6 +44,7 @@ export async function queryWithPagination<
     server?: boolean;
     company_id_column?: keyof Database['public']['Tables'][TableName]['Row'];
     is_active?: boolean | null;
+    permanent_filter?: (query: SupabaseQueryBuilder) => SupabaseQueryBuilder;
   }
 ) {
   let supabase;
@@ -263,7 +267,10 @@ export async function queryWithPagination<
   if (typeof options.is_active === 'boolean') {
     query = query.eq('is_active' as any, options.is_active as any);
   }
-
+  // Aplicar filtro permanente si existe
+  if (options.permanent_filter) {
+    query = options.permanent_filter(query) as typeof query;
+  }
   // Ejecutar query
   const { data, error, count } = await query;
 
@@ -359,8 +366,54 @@ export async function fetchEquipmentData(options: {
           operator: 'eq',
           value: true,
         },
+        {
+          column: 'type_of_vehicle' as any,
+          operator: 'eq' as any,
+          value: 1,
+        },
       ]),
+
       server: options.server,
+      permanent_filter: (prueba) => {
+        let filtered = prueba.eq('type_of_vehicle', 1);
+
+        return filtered;
+      },
+    }
+  );
+
+  return data;
+}
+export async function onlyFetchEquipmentData(options: {
+  pageIndex: number;
+  pageSize: number;
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const data = await queryWithPagination(
+    'vehicles',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
+    {
+      ...options,
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      company_id_column: 'company_id',
+      is_active: true,
+      columnFilters: [
+        ...options.columnFilters,
+        {
+          id: 'type_of_vehicle',
+          value: 2,
+        },
+      ],
+      filters: options.filters,
+      server: options.server,
+      permanent_filter: (prueba) => {
+        let filtered = prueba.eq('type_of_vehicle', 2);
+
+        return filtered;
+      },
     }
   );
 
@@ -382,13 +435,7 @@ export async function fetchInactiveEquipmentData(options: {
       sorting: [...options.sorting, { id: 'domain', desc: true }],
       company_id_column: 'company_id',
       is_active: false,
-      filters: options.filters?.concat([
-        {
-          column: 'is_active',
-          operator: 'eq',
-          value: false,
-        },
-      ]),
+      filters: options.filters,
       server: options.server,
     }
   );
@@ -443,6 +490,48 @@ export async function fetchAllEquipmentsData(options: {
           column: 'is_active',
           operator: 'eq',
           value: true,
+        },
+        {
+          column: 'type_of_vehicle' as any,
+          operator: 'eq' as any,
+          value: 2,
+        },
+      ]),
+      server: false,
+    }
+  );
+
+  return result;
+}
+export async function otrosFetchAllEquipmentsData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'vehicles'>[];
+  server?: boolean;
+}) {
+  const result = await queryWithPagination(
+    'vehicles',
+    '*,equipment_owners(id,name),brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    {
+      pageIndex: 0,
+      pageSize: 10000, // Límite alto para obtener todos los datos
+      sorting: [...options.sorting, { id: 'domain', desc: true }],
+      columnFilters: options.columnFilters.concat([
+        {
+          id: 'type_of_vehicle',
+          value: 2,
+        },
+      ]),
+      filters: options.filters?.concat([
+        {
+          column: 'is_active',
+          operator: 'eq',
+          value: true,
+        },
+        {
+          column: 'type_of_vehicle' as any,
+          operator: 'eq' as any,
+          value: 2,
         },
       ]),
       server: false,

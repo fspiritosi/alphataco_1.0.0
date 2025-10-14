@@ -108,7 +108,7 @@ export function CustomerForm({ customer, company_id, onSuccess, readOnly = false
             throw new Error(`El cliente ${customerVerify?.name} ya tiene este cuit`);
           }
           if (customerVerifyError) {
-            console.log(customerVerifyError);
+            console.error(customerVerifyError);
             throw new Error('Error al verificar el cuit');
           }
         }
