@@ -1,4 +1,5 @@
 import ViewcomponentInternal, { ViewDataObj } from '../ViewComponentInternal';
+import MaintenanceGroupsWrapper from './MaintenanceGroupsWrapper';
 import RepairEntryWrapper from './RepairEntryWrapper';
 import RepairSolicitudesWrapper from './RepairSolicitudesWrapper';
 import RepairTypeFormWrapper from './RepairTypeFormWrapper';
@@ -44,6 +45,7 @@ function RepairTypes({
           component: <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />,
         },
       },
+
       {
         value: 'type_of_repair',
         name: 'Tipos de reparaciones creados',
@@ -66,6 +68,18 @@ function RepairTypes({
           title: 'Solicitud de mantenimiento',
           //description: 'Información de la empresa',
           component: <RepairEntryWrapper equipment_id={equipment_id} />,
+        },
+      },
+      {
+        value: 'maintenance_groups',
+        name: 'Grupos de mantenimiento',
+        restricted: [''],
+        tab: tabValue,
+        content: {
+          buttonActioRestricted: [''],
+          title: 'Grupos de mantenimiento',
+          //description: 'Información de la empresa',
+          component: <MaintenanceGroupsWrapper />,
         },
       },
     ].filter((tab) => !hiddenTabs?.includes(tab.value)),

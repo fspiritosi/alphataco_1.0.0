@@ -2133,6 +2133,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      maintenance_group_type_of_repairs: {
+        Row: {
+          created_at: string;
+          group_id: string | null;
+          id: string;
+          type_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          type_id: string;
+        };
+        Update: {
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          type_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'maintenance_group_type_of_repairs_group_id_fkey';
+            columns: ['group_id'];
+            isOneToOne: false;
+            referencedRelation: 'maintenance_request_groups';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_group_type_of_repairs_type_id_fkey';
+            columns: ['type_id'];
+            isOneToOne: false;
+            referencedRelation: 'types_of_repairs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      maintenance_request_groups: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+        };
+        Relationships: [];
+      };
       measure_units: {
         Row: {
           id: number;
@@ -3367,10 +3427,6 @@ export type Database = {
         Args: { _conditions: Json; table_alias?: string };
         Returns: string;
       };
-      build_vehicle_where_alias_in_review: {
-        Args: { _conditions: Json; table_alias?: string; user_id?: string };
-        Returns: string;
-      };
       check_diagram_conflicts_with_operations: {
         Args:
           | {
@@ -3609,12 +3665,13 @@ export type Database = {
       get_vehicles_non_operative: {
         Args: { p_company_id?: string; vehicle_type_ids?: string[] };
         Returns: {
-          brand_id: number;
+          brand: number;
           brand_name: string;
           condition: string;
+          customers: Json;
           domain: string;
           intern_number: string;
-          model_id: number;
+          model: number;
           model_name: string;
           serie: string;
           sub_type_id: string;
@@ -3624,7 +3681,7 @@ export type Database = {
           type_operative_id: string;
           type_operative_name: string;
           vehicle_id: string;
-          year: string;
+          year: number;
         }[];
       };
       get_vehicles_not_in_daily_report: {
