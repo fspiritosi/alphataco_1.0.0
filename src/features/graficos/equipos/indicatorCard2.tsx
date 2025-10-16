@@ -29,7 +29,6 @@ export default function IndicatorCardChasisTractor({
   // usageEquipment: any;
 }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
   const getVariant = () => {
     if (Math.round(disponibleEquipmentPorcent) !== 0) {
       return Math.round(disponibleEquipmentPorcent) >= condiciones_indicadores.success
@@ -81,7 +80,7 @@ export default function IndicatorCardChasisTractor({
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-600">Total</p>
-                  <p className="text-xl font-bold text-gray-900">{totalVehicles}</p>
+                  <p className="text-xl font-bold text-gray-900">{activeEquipment + vehiclesOnRepair?.length}</p>
                 </div>
               </div>
             </CardContent>

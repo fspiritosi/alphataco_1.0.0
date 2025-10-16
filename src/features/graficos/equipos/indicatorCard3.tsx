@@ -66,7 +66,7 @@ export default function IndicatorCardChasisTractor3({
                   <Users className="w-4 h-4 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-600">Activos</p>
+                  <p className="text-xs font-medium text-gray-600">Total Activos</p>
                   <p className="text-xl font-bold text-gray-900">{activeEquipment}</p>
                 </div>
               </div>
@@ -140,8 +140,8 @@ export default function IndicatorCardChasisTractor3({
                   <Clock className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-600">Total</p>
-                  <p className="text-xl font-bold text-gray-900">{usageEquipment + activeEquipment}</p>
+                  <p className="text-xs font-medium text-gray-600">Disponibles</p>
+                  <p className="text-xl font-bold text-gray-900">{activeEquipment! - usageEquipment}</p>
                 </div>
               </div>
             </CardContent>
@@ -150,7 +150,8 @@ export default function IndicatorCardChasisTractor3({
         <IndicatorChart2
           chartConfig={indicatorChartConfig}
           chartData={indicatorCharData}
-          totalIndicator={Math.round((usageEquipment / (activeEquipment || 0)) * 100 || 0)}
+          //totalIndicator={Math.round(((activeEquipment! ) - (usageEquipment )) / (activeEquipment! ) * 100 )}
+          totalIndicator={Math.round((usageEquipment / activeEquipment!) * 100)}
         />
       </div>
       <CardFooter>
