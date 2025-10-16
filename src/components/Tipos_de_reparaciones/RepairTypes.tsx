@@ -45,7 +45,6 @@ function RepairTypes({
           component: <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />,
         },
       },
-
       {
         value: 'type_of_repair',
         name: 'Tipos de reparaciones creados',
@@ -85,62 +84,7 @@ function RepairTypes({
     ].filter((tab) => !hiddenTabs?.includes(tab.value)),
   };
 
-  return (
-    <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
-    // <Tabs defaultValue={defaultValue || 'created_solicitudes'}>
-    //   <TabsList>
-    //     {created_solicitudes && (
-    //       <TabsTrigger value="created_solicitudes">
-    //         {mechanic ? 'Solicitudes activas' : 'Solicitudes de mantenimiento'}
-    //       </TabsTrigger>
-    //     )}
-    //     {type_of_repair_new_entry && (
-    //       </TabsList>
-    //       <TabsContent value="carga_simple">
-    //         {' '}
-    //         <RepairNewEntry
-    //           user_id={user?.id}
-    //           equipment={vehiclesFormatted}
-    //           tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
-    //           default_equipment_id={equipment_id}
-    //         />
-    //       </TabsContent>
-    //       <TabsContent value="carga_multiple">
-    //         {' '}
-    //         <InfoComponent size='lg' message={message} />
-    //         <RepairNewEntryMultiple
-    //           user_id={user?.id}
-    //           equipment={vehiclesFormatted}
-    //           tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
-    //           default_equipment_id={equipment_id}
-    //         />
-    //       </TabsContent>
-    //     </Tabs>
-    //   </TabsContent>
-    //   <TabsContent value="type_of_repair_new_entry2">
-    //     <RepairNewEntry
-    //       tipo_de_mantenimiento={(types_of_repairs as TypeOfRepair).filter(
-    //         (e) => e.type_of_maintenance === 'Preventivo'
-    //       )}
-    //       equipment={vehiclesFormatted}
-    //       limittedEquipment
-    //       user_id={user?.id}
-    //     />
-    //   </TabsContent>
-    //   <TabsContent value="type_of_repair_new_entry3">
-    //     <RepairNewEntry
-    //       user_id={user?.id}
-    //       tipo_de_mantenimiento={(types_of_repairs as TypeOfRepair).filter(
-    //         (e) => e.type_of_maintenance === 'Correctivo'
-    //       )}
-    //       equipment={vehiclesFormatted}
-    //     />
-    //   </TabsContent>
-    //   <TabsContent value="created_solicitudes">
-    //     <RepairSolicitudes mechanic={mechanic} default_equipment_id={equipment_id} />
-    //   </TabsContent>
-    // </Tabs>
-  );
+  return <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />;
 }
 
 export default RepairTypes;

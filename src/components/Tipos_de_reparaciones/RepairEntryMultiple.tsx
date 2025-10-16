@@ -7,13 +7,13 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 
-import { setVehiclesToShow } from '@/lib/utils/utils';
 import { TypeOfRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
+import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -109,7 +109,7 @@ export default function RepairNewEntryMultiple({
   savedFilters,
 }: {
   tipo_de_mantenimiento: TypeOfRepair;
-  equipment: ReturnType<typeof setVehiclesToShow>;
+  equipment: Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>;
   limittedEquipment?: boolean;
   user_id?: string | undefined;
   default_equipment_id?: string;

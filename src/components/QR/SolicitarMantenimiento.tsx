@@ -1,4 +1,4 @@
-import { setVehiclesToShow } from '@/lib/utils/utils';
+import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import { TypeOfRepair } from '@/types/types';
 import { User } from '@supabase/supabase-js';
 import { VisibilityState } from '@tanstack/react-table';
@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { FiArrowLeft } from 'react-icons/fi';
 import RepairNewEntry from '../Tipos_de_reparaciones/RepairEntry';
+import { fetchMaintenanceGroupsActionType } from '../Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { Button } from '../ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
@@ -18,10 +19,12 @@ function SolicitarMantenimiento({
   user,
   savedVisibility,
   savedFilters,
+  maintenance_groups,
 }: {
   onReturn: () => void;
   tipo_de_mantenimiento: TypeOfRepair;
-  equipment: ReturnType<typeof setVehiclesToShow>;
+  equipment: Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>;
+  maintenance_groups: NonNullable<fetchMaintenanceGroupsActionType['groups']>;
   default_equipment_id?: string;
   employee_id: string | undefined;
   savedVisibility: VisibilityState;
@@ -51,6 +54,7 @@ function SolicitarMantenimiento({
       </div>
       <RepairNewEntry
         savedFilters={savedFilters}
+        maintenance_groups={maintenance_groups}
         onReturn={onReturn}
         user_id={user?.id}
         employee_id={employee_id}
