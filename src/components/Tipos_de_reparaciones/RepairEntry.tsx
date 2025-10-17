@@ -97,8 +97,9 @@ function RepairDetailsModal({ isOpen, onClose, repair, repairType, onSave }: Rep
   };
 
   const handleSave = () => {
-    if (!description || description.trim().length < 3) {
-      setError('La descripción debe tener al menos 3 caracteres');
+    // Descripción opcional - solo validar si hay texto ingresado
+    if (description && description.trim().length > 0 && description.trim().length < 3) {
+      setError('La descripción debe tener al menos 3 caracteres si se proporciona');
       return;
     }
 
@@ -119,7 +120,7 @@ function RepairDetailsModal({ isOpen, onClose, repair, repairType, onSave }: Rep
         <div className="space-y-4">
           {/* Campo de descripción */}
           <div className="space-y-2">
-            <Label htmlFor="description">Descripción *</Label>
+            <Label htmlFor="description">Descripción (opcional)</Label>
             <Textarea
               id="description"
               value={description}
@@ -226,6 +227,17 @@ export function getRepairEntryColumns(
       },
     },
     {
+      accessorKey: 'kilometer',
+      id: 'Kilometros',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Kilómetros" className="w-[150px]" />,
+      cell: ({ row }) => {
+        return <Badge variant={'outline'}>{row.original.kilometer} km</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'description',
       id: 'Detalles',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Detalles" className="w-[300px]" />,
@@ -296,8 +308,8 @@ export default function RepairNewEntry({
 }) {
   const router = useRouter();
   const [allRepairs, setAllRepairs] = useState<FormValues>([]);
-  const [typeOfEquipment, setTypeOfEquipment] = useState<string | undefined>(
-    equipment?.find((equip) => equip.id === default_equipment_id)?.types_of_vehicles?.name || ''
+  const [typeOfEquipment, setTypeOfEquipment] = useState<{ name: string } | undefined>(
+    equipment?.find((equip) => equip.id === default_equipment_id)?.types_of_vehicles?.name as any
   );
   const [selectedEquipment, setSelectedEquipment] = useState<
     Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>[0] | undefined
@@ -489,31 +501,8 @@ export default function RepairNewEntry({
     return url;
   };
 
-  const validateRepairsBeforeSubmit = (): boolean => {
-    const repairsWithoutDescription = allRepairs.filter(
-      (repair) => !repair.description || repair.description.trim().length < 3
-    );
-
-    if (repairsWithoutDescription.length > 0) {
-      const repairNames = repairsWithoutDescription
-        .map((repair) => {
-          const repairType = tipo_de_mantenimiento.find((t) => t.id === repair.repair);
-          return repairType?.name;
-        })
-        .join(', ');
-
-      toast.error(`Las siguientes reparaciones necesitan descripción: ${repairNames}`);
-      return false;
-    }
-
-    return true;
-  };
-
   const createRepair = () => {
-    // Validar antes de proceder
-    if (!validateRepairsBeforeSubmit()) {
-      return;
-    }
+    // La descripción es opcional, no necesitamos validación
 
     toast.promise(
       async () => {
@@ -809,7 +798,7 @@ export default function RepairNewEntry({
                   name="kilometer"
                   // disabled={limittedEquipment ? false : allRepairs?.length > 0}
                   render={({ field }) => (
-                    <FormItem className={cn(typeOfEquipment === 'Vehículos' ? '' : 'hidden')}>
+                    <FormItem className={cn(typeOfEquipment?.name === 'Vehículos' ? '' : 'hidden')}>
                       <FormLabel>Kilometraje</FormLabel>
                       <FormControl>
                         <Input
