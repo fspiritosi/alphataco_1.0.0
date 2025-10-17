@@ -62,7 +62,7 @@ export default async function DataEquipmentChart() {
   } as const;
   const indicatorChartConfig2 = {
     operative: {
-      label: 'Activos',
+      label: 'Total',
       color: '#e74c3c', // Mismo verde que en empleados '#e74c3c'
     },
     // available: {
@@ -130,7 +130,8 @@ export default async function DataEquipmentChart() {
             totalVehicles={totalVehicles}
             disponibleEquipmentPorcent={usagePercentage}
             disponibleEquipmentNumber={totalAvailable || 0}
-            notAvailableEquipmentNumber={totalNotAvailable || 0}
+            // notAvailableEquipmentNumber={totalNotAvailable || 0}
+            notAvailableEquipmentNumber={10}
             activeEquipment={totalActive || 0}
             // usageEquipment={totalInUse || 0}
             indicatorCharData={indicatorCharData}
