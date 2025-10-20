@@ -136,8 +136,11 @@ export const formatDocumentTypeName = (documentType: string) => {
     .replace(/[íïìî]/g, 'i')
     .replace(/[óöòô]/g, 'o')
     .replace(/[úüùû]/g, 'u')
+    .replace(/ñ/g, 'n') // Reemplaza ñ por n
     .replace(/['"]/g, '') // Elimina apóstrofes y comillas
-    .replace(/\s+/g, '-'); // Reemplaza espacios por guiones
+    .replace(/[^a-z0-9-]/g, '-') // Reemplaza cualquier carácter que no sea letra, número o guión por guión
+    .replace(/-+/g, '-') // Reemplaza múltiples guiones consecutivos por uno solo
+    .replace(/^-|-$/g, ''); // Elimina guiones al inicio y al final
   return formatedDocumentTypeName;
 };
 export const EMPLOYEES_TABLE: EmployeesTableOptions = {

@@ -7,15 +7,14 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 
-import { formatDocumentTypeName, setVehiclesToShow } from '@/lib/utils/utils';
+import { formatDocumentTypeName } from '@/lib/utils/utils';
 import { TypeOfRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
-import { ReaderIcon } from '@radix-ui/react-icons';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiTool } from 'react-icons/fi';
 import { toast } from 'sonner';
@@ -24,8 +23,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { CardTitle } from '../ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Form } from '../ui/form';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
 import { Separator } from '../ui/separator';
@@ -41,15 +42,152 @@ type FormValues = {
   kilometer: string | undefined;
 }[];
 
+import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { createRepairSolicitud } from './actions/actions';
+import { fetchMaintenanceGroupsActionType } from './actions/maintenanceGroupActions';
+
+interface RepairDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  repair: FormValues[0] | null;
+  repairType: TypeOfRepair[0] | undefined;
+  onSave: (description: string, images: (string | null)[], files: (File | undefined)[]) => void;
+}
+
+function RepairDetailsModal({ isOpen, onClose, repair, repairType, onSave }: RepairDetailsModalProps) {
+  const [description, setDescription] = useState(repair?.description || '');
+  const [images, setImages] = useState<(string | null)[]>(repair?.user_images || [null, null, null]);
+  const [files, setFiles] = useState<(File | undefined)[]>(repair?.files || [undefined, undefined, undefined]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (repair) {
+      setDescription(repair.description || '');
+      setImages(repair.user_images || [null, null, null]);
+      setFiles(repair.files || [undefined, undefined, undefined]);
+      setError('');
+    }
+  }, [repair]);
+
+  const handleCardClick = (index: number) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const newFiles = [...files];
+        newFiles[index] = file;
+        setFiles(newFiles);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const newImages = [...images];
+          newImages[index] = reader.result as string;
+          setImages(newImages);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleSave = () => {
+    // Descripción opcional - solo validar si hay texto ingresado
+    if (description && description.trim().length > 0 && description.trim().length < 3) {
+      setError('La descripción debe tener al menos 3 caracteres si se proporciona');
+      return;
+    }
+
+    onSave(description, images, files);
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Detalles de la reparación</DialogTitle>
+          <DialogDescription>
+            {repairType?.name} - {repairType?.type_of_maintenance}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Campo de descripción */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Descripción (opcional)</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setError('');
+              }}
+              placeholder="Explica brevemente la reparación"
+              className="resize-none min-h-[100px]"
+            />
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+
+          {/* Carrusel de imágenes */}
+          <div className="space-y-2">
+            <Label>Imágenes de la reparación</Label>
+            <Carousel
+              opts={{
+                align: 'start',
+              }}
+              className="w-full"
+            >
+              <CarouselContent>
+                {[0, 1, 2].map((index) => (
+                  <CarouselItem key={index} className="basis-1/3">
+                    <div className="p-1">
+                      <Card
+                        className="hover:cursor-pointer hover:border-primary"
+                        onClick={() => handleCardClick(index)}
+                      >
+                        <CardContent className="flex aspect-square items-center justify-center p-1">
+                          {images[index] ? (
+                            <img
+                              src={images[index]!}
+                              alt={`Imagen ${index + 1}`}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <span className="text-3xl font-semibold">{index + 1}</span>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave}>Guardar detalles</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function getRepairEntryColumns(
   tipo_de_mantenimiento: TypeOfRepair,
-  handleDeleteRepair: (provicionalId: string) => void
+  handleDeleteRepair: (provicionalId: string) => void,
+  handleOpenDetailsModal: (provicionalId: string) => void
 ): ColumnDef<FormValues[0]>[] {
   return [
     {
@@ -78,15 +216,7 @@ export function getRepairEntryColumns(
         return value.includes(row.getValue(id));
       },
     },
-    {
-      accessorKey: 'description',
-      id: 'Descripcion',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Descripcion" className="w-[300px]" />,
-      cell: ({ row }) => {
-        const repair = tipo_de_mantenimiento.find((e) => e.id === row.original.repair);
-        return <span>{repair?.description}</span>;
-      },
-    },
+
     {
       accessorKey: 'domain',
       id: 'Dominio',
@@ -94,6 +224,44 @@ export function getRepairEntryColumns(
       cell: ({ row }) => <span>{row.original.domain}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'kilometer',
+      id: 'Kilometros',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Kilómetros" className="w-[150px]" />,
+      cell: ({ row }) => {
+        return <Badge variant={'outline'}>{row.original.kilometer} km</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'description',
+      id: 'Detalles',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Detalles" className="w-[300px]" />,
+      cell: ({ row }) => {
+        const hasDescription = row.original.description && row.original.description.length >= 3;
+        const hasImages = row.original.user_images.some((img) => img !== null);
+
+        return (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleOpenDetailsModal(row.original.provicionalId)}>
+              {hasDescription ? 'Editar detalles' : 'Agregar detalles'}
+            </Button>
+            {hasDescription && (
+              <Badge variant="success" className="text-xs">
+                ✓ Descripción
+              </Badge>
+            )}
+            {hasImages && (
+              <Badge variant="secondary" className="text-xs">
+                {row.original.user_images.filter((img) => img !== null).length} img
+              </Badge>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -118,6 +286,7 @@ export function getRepairEntryColumns(
 export default function RepairNewEntry({
   tipo_de_mantenimiento,
   equipment,
+  maintenance_groups,
   limittedEquipment,
   user_id,
   default_equipment_id,
@@ -127,7 +296,8 @@ export default function RepairNewEntry({
   savedFilters,
 }: {
   tipo_de_mantenimiento: TypeOfRepair;
-  equipment: ReturnType<typeof setVehiclesToShow>;
+  equipment: Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>;
+  maintenance_groups: NonNullable<fetchMaintenanceGroupsActionType['groups']>;
   limittedEquipment?: boolean;
   user_id?: string | undefined;
   default_equipment_id?: string;
@@ -138,44 +308,52 @@ export default function RepairNewEntry({
 }) {
   const router = useRouter();
   const [allRepairs, setAllRepairs] = useState<FormValues>([]);
-  const [typeOfEquipment, setTypeOfEquipment] = useState<string | undefined>(
-    equipment?.find((equip) => equip.id === default_equipment_id)?.types_of_vehicles || ''
+  const [typeOfEquipment, setTypeOfEquipment] = useState<{ name: string } | undefined>(
+    equipment?.find((equip) => equip.id === default_equipment_id)?.types_of_vehicles?.name as any
   );
-  const [selectedEquipment, setSelectedEquipment] = useState<ReturnType<typeof setVehiclesToShow>[0] | undefined>(
-    equipment?.find((equip) => equip.id === default_equipment_id)
-  );
-  const FormSchema = z.object({
-    provicionalId: z.string().default(crypto.randomUUID()),
-    vehicle_id: z.string({
-      required_error: 'Por favor selecciona un vehiculo',
-    }),
-    kilometer: z
-      .string()
-      .optional()
-      .refine(
-        (value) => {
-          if (value) {
-            return Number(value) >= Number(selectedEquipment?.kilometer);
+  const [selectedEquipment, setSelectedEquipment] = useState<
+    Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>[0] | undefined
+  >(equipment?.find((equip) => equip.id === default_equipment_id));
+
+  // Estados del modal
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
+
+  // Variables derivadas para el modal
+  const selectedRepair = allRepairs.find((r) => r.provicionalId === selectedRepairId);
+  const selectedRepairType = tipo_de_mantenimiento.find((t) => t.id === selectedRepair?.repair);
+  const FormSchema = z
+    .object({
+      provicionalId: z.string().default(crypto.randomUUID()),
+      vehicle_id: z.string({
+        required_error: 'Por favor selecciona un vehiculo',
+      }),
+      kilometer: z
+        .string()
+        .optional()
+        .refine(
+          (value) => {
+            if (value) {
+              return Number(value) >= Number(selectedEquipment?.kilometer);
+            }
+          },
+          {
+            message: `El kilometraje no puede ser menor al actual (${selectedEquipment?.kilometer})`,
           }
-        },
-        {
-          message: `El kilometraje no puede ser menor al actual (${selectedEquipment?.kilometer})`,
-        }
-      ),
-    description: z
-      .string({
-        required_error: 'Por favor escribe una descripcion',
-      })
-      .min(3, { message: 'Intenta explicar con un poco mas de detalle' }),
-    repair: z
-      .string({
-        required_error: 'Por favor selecciona una reparacion',
-      })
-      .min(1, { message: 'Debe seleccionar un tipo de reparacion' }),
-    domain: z.string(),
-    user_images: z.array(z.string().default('')).default([]),
-    files: z.array(z.any()).optional(),
-  });
+        ),
+      repair: z.string().optional(),
+      domain: z.string(),
+    })
+    .refine(
+      (data) => {
+        // Validar que al menos uno esté seleccionado: repair O selectedGroupId
+        return data.repair || selectedGroupId;
+      },
+      {
+        message: 'Debes seleccionar un tipo de reparación o un grupo de reparaciones',
+        path: ['repair'], // El error se mostrará en el campo repair
+      }
+    );
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -216,9 +394,6 @@ export default function RepairNewEntry({
     [form]
   );
 
-  const [images, setImages] = useState<(string | null)[]>([null, null, null]);
-  const [files, setFiles] = useState<(File | undefined)[]>([undefined, undefined, undefined]);
-
   const verifyIfExistOpenRepairSolicitud = async (repairTypeId: string) => {
     const vehicle_id = equipment?.find(
       (equip) => equip.domain === form.getValues('domain') || equip.serie === form.getValues('domain')
@@ -258,48 +433,48 @@ export default function RepairNewEntry({
   };
 
   async function onSubmit(data: z.infer<typeof FormSchema>) {
-    //Agregar la reparacion al otro formulario
-    const hasOpenRepair = await verifyIfExistOpenRepairSolicitud(data.repair);
-
-    // Si se encontró una reparación abierta, detener la ejecución
-    if (hasOpenRepair) {
+    // Si hay un grupo seleccionado, agregar todas sus reparaciones
+    if (selectedGroupId) {
+      await handleAddGroup();
       return;
     }
 
-    const dataWithImages = {
-      ...data,
-      user_images: images,
-      files,
-      kilometer: data.kilometer,
-    };
+    // Si no hay grupo, agregar reparación individual
+    // Validar que repair exista
+    if (!data.repair) {
+      toast.error('Debes seleccionar un tipo de reparación o un grupo de reparaciones');
+      return;
+    }
 
-    setAllRepairs((prev) => [...prev, dataWithImages]);
+    toast.promise(
+      async () => {
+        const hasOpenRepair = await verifyIfExistOpenRepairSolicitud(data.repair!);
 
-    clearForm();
+        // Si se encontró una reparación abierta, lanzar error
+        if (hasOpenRepair) {
+          throw new Error('Ya existe una solicitud abierta para esta reparación');
+        }
+
+        const dataWithImages = {
+          ...data,
+          repair: data.repair!, // Asegurar que repair es string
+          description: '', // Inicialmente vacío
+          user_images: [null, null, null], // Sin imágenes inicialmente
+          files: [undefined, undefined, undefined], // Sin archivos inicialmente
+          kilometer: data.kilometer,
+        };
+
+        setAllRepairs((prev) => [...prev, dataWithImages]);
+        clearForm();
+      },
+      {
+        loading: 'Agregando reparación...',
+        success: 'Reparación agregada exitosamente',
+        error: (err) => err.message || 'Error al agregar la reparación',
+      }
+    );
   }
 
-  const handleCardClick = (index: number) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
-      // const files
-      if (file) {
-        const newFiles = [...files];
-        newFiles[index] = file;
-        setFiles(newFiles);
-        const reader = new FileReader();
-        reader.onload = () => {
-          const newImages = [...images];
-          newImages[index] = reader.result as string;
-          setImages(newImages);
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    input.click();
-  };
   const [formattedToday] = useState(formatDocumentTypeName(new Date().toISOString()));
 
   const supabase = supabaseBrowser();
@@ -327,6 +502,8 @@ export default function RepairNewEntry({
   };
 
   const createRepair = () => {
+    // La descripción es opcional, no necesitamos validación
+
     toast.promise(
       async () => {
         try {
@@ -399,15 +576,25 @@ export default function RepairNewEntry({
           // });
           await createRepairSolicitud(data);
 
-          allRepairs.forEach(async (e) => {
-            e.files
-              ? await Promise.all(
+          // Subir imágenes de forma independiente, si una falla las demás continúan
+          await Promise.all(
+            allRepairs.map(async (e) => {
+              if (e.files) {
+                await Promise.allSettled(
                   e.files
-                    ?.filter((image) => image)
-                    ?.map((image, index) => formatImagesUrl(image, e.domain, e.repair, index))
-                )
-              : null;
-          });
+                    .filter((image) => image)
+                    .map(async (image, index) => {
+                      try {
+                        await formatImagesUrl(image, e.domain, e.repair, index);
+                      } catch (error) {
+                        console.error(`Error al subir imagen ${index} para reparación ${e.repair}:`, error);
+                        // No lanzamos el error para que las demás imágenes se sigan subiendo
+                      }
+                    })
+                );
+              }
+            })
+          );
           router.refresh();
           clearForm();
           setAllRepairs([]);
@@ -427,19 +614,113 @@ export default function RepairNewEntry({
   };
 
   const clearForm = () => {
-    form.setValue('description', '');
     form.setValue('repair', '');
-    setImages([null, null, null]);
-    setFiles([undefined, undefined, undefined]);
+    setSelectedGroupId(null);
   };
 
   const handleDeleteRepair = (provicionalId: string) => {
     setAllRepairs((prev) => prev.filter((e) => e.provicionalId !== provicionalId));
   };
+
+  // Funciones del modal
+  const handleOpenDetailsModal = (provicionalId: string) => {
+    setSelectedRepairId(provicionalId);
+    setDetailsModalOpen(true);
+  };
+
+  const handleCloseDetailsModal = () => {
+    setDetailsModalOpen(false);
+    setSelectedRepairId(null);
+  };
+
+  const handleSaveDetails = (description: string, images: (string | null)[], files: (File | undefined)[]) => {
+    setAllRepairs((prev) =>
+      prev.map((repair) =>
+        repair.provicionalId === selectedRepairId ? { ...repair, description, user_images: images, files } : repair
+      )
+    );
+  };
+
   const vehicle = equipment.find(
     (equip) => equip.domain === form.getValues('domain') || equip.serie === form.getValues('domain')
   );
   const [open, setOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState(false);
+
+  // Función para verificar si un grupo está completamente agregado
+  const isGroupFullyAdded = useCallback(
+    (groupId: string) => {
+      const group = maintenance_groups.find((g) => g.id === groupId);
+      if (!group) return false;
+
+      const groupRepairIds = group.maintenance_group_type_of_repairs.map((r) => r.type_id);
+      const addedRepairIds = allRepairs.map((r) => r.repair);
+
+      // Verificar si todos los tipos de reparación del grupo están en la lista
+      return groupRepairIds.every((id) => addedRepairIds.includes(id));
+    },
+    [maintenance_groups, allRepairs]
+  );
+
+  // Estado para el grupo seleccionado
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
+  // Función para agregar un grupo de reparaciones
+  const handleAddGroup = async () => {
+    if (!selectedGroupId) return;
+
+    const group = maintenance_groups.find((g) => g.id === selectedGroupId);
+    if (!group) return;
+
+    toast.promise(
+      async () => {
+        const groupRepairIds = group.maintenance_group_type_of_repairs.map((r) => r.type_id);
+        const addedRepairIds = allRepairs.map((r) => r.repair);
+
+        // Filtrar solo las reparaciones que no están ya agregadas
+        const repairsToAdd = groupRepairIds.filter((repairId) => !addedRepairIds.includes(repairId));
+
+        if (repairsToAdd.length === 0) {
+          throw new Error('Todas las reparaciones de este grupo ya están agregadas');
+        }
+
+        // Verificar duplicados en la base de datos para cada reparación
+        const validRepairs: string[] = [];
+        for (const repairId of repairsToAdd) {
+          const hasOpenRepair = await verifyIfExistOpenRepairSolicitud(repairId);
+          if (!hasOpenRepair) {
+            validRepairs.push(repairId);
+          }
+        }
+
+        if (validRepairs.length === 0) {
+          throw new Error('Todas las reparaciones del grupo ya tienen solicitudes abiertas');
+        }
+
+        // Agregar las reparaciones válidas
+        const newRepairs = validRepairs.map((repairId) => ({
+          provicionalId: crypto.randomUUID(),
+          vehicle_id: form.getValues('vehicle_id'),
+          repair: repairId,
+          domain: form.getValues('domain'),
+          description: '',
+          user_images: [null, null, null] as (string | null)[],
+          files: [undefined, undefined, undefined] as (File | undefined)[],
+          kilometer: form.getValues('kilometer'),
+        }));
+
+        setAllRepairs((prev) => [...prev, ...newRepairs]);
+        clearForm();
+
+        return { count: validRepairs.length, groupName: group.name };
+      },
+      {
+        loading: 'Agregando grupo de reparaciones...',
+        success: (result) => `Se agregaron ${result.count} reparaciones del grupo "${result.groupName}"`,
+        error: (err) => err.message || 'Error al agregar el grupo de reparaciones',
+      }
+    );
+  };
 
   const domainOptions = createFilterOptions(
     allRepairs,
@@ -517,7 +798,7 @@ export default function RepairNewEntry({
                   name="kilometer"
                   // disabled={limittedEquipment ? false : allRepairs?.length > 0}
                   render={({ field }) => (
-                    <FormItem className={cn(typeOfEquipment === 'Vehículos' ? '' : 'hidden')}>
+                    <FormItem className={cn(typeOfEquipment?.name === 'Vehículos' ? '' : 'hidden')}>
                       <FormLabel>Kilometraje</FormLabel>
                       <FormControl>
                         <Input
@@ -595,56 +876,73 @@ export default function RepairNewEntry({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descripcion</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          // key={field.value}
-                          placeholder="Explica brevemente la reparacion"
-                          className="resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Select de Grupos de Reparación */}
+                <div className="flex flex-col space-y-2">
+                  <Label>O selecciona un grupo de reparaciones</Label>
+                  <Popover open={openGroup} onOpenChange={setOpenGroup}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn('w-full justify-between', !selectedGroupId && 'text-muted-foreground')}
+                      >
+                        {selectedGroupId
+                          ? maintenance_groups.find((g) => g.id === selectedGroupId)?.name
+                          : 'Selecciona un grupo'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-[400px]">
+                      <Command>
+                        <CommandInput placeholder="Buscar grupo..." />
+                        <CommandList className="max-h-[300px]">
+                          <CommandEmpty>No se encontró ningún grupo.</CommandEmpty>
+                          <CommandGroup>
+                            {maintenance_groups?.map((group) => {
+                              const groupRepairNames = group.maintenance_group_type_of_repairs
+                                .map((r) => tipo_de_mantenimiento.find((t) => t.id === r.type_id)?.name)
+                                .filter(Boolean);
 
-                <Carousel
-                  opts={{
-                    align: 'start',
-                  }}
-                  className="w-full"
-                >
-                  Imagenes de la reparacion
-                  <CarouselContent>
-                    {Array.from({ length: 3 })?.map((_, index) => (
-                      <CarouselItem key={crypto.randomUUID()} className="basis-1/3 ">
-                        <div className="p-1">
-                          <Card className="hover:cursor-pointer" onClick={() => handleCardClick(index)}>
-                            <CardContent className="flex aspect-square items-center justify-center p-1">
-                              {images[index] ? (
-                                <img
-                                  src={images[index] || ''}
-                                  alt={`Imagen ${index + 1}`}
-                                  className="w-full h-full object-cover rounded-lg"
-                                />
-                              ) : (
-                                <span className="text-3xl font-semibold">{index + 1}</span>
-                              )}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious />
-                  <CarouselNext />
-                </Carousel>
+                              return (
+                                <CommandItem
+                                  value={group.name}
+                                  key={group.id}
+                                  disabled={isGroupFullyAdded(group.id)}
+                                  onSelect={() => {
+                                    setSelectedGroupId(group.id);
+                                    setOpenGroup(false);
+                                  }}
+                                  className="flex-col items-start py-3"
+                                >
+                                  <div className="flex items-center w-full">
+                                    <Check
+                                      className={cn(
+                                        'mr-2 h-4 w-4 shrink-0',
+                                        selectedGroupId === group.id ? 'opacity-100' : 'opacity-0'
+                                      )}
+                                    />
+                                    <div className="flex flex-col flex-1">
+                                      <span className="font-medium">{group.name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {group.maintenance_group_type_of_repairs.length} reparaciones
+                                        {isGroupFullyAdded(group.id) && ' (Ya agregadas)'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {groupRepairNames.length > 0 && (
+                                    <div className="ml-6 mt-1 text-xs text-muted-foreground">
+                                      • {groupRepairNames.join(' • ')}
+                                    </div>
+                                  )}
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
               <div className="flex gap-4 mt-2 justify-end pr-4">
                 <Button type="submit" variant={'outline'}>
@@ -662,7 +960,7 @@ export default function RepairNewEntry({
           <CardTitle>Se registraran las siguientes reparaciones</CardTitle>
 
           <BaseDataTable
-            columns={getRepairEntryColumns(tipo_de_mantenimiento, handleDeleteRepair)}
+            columns={getRepairEntryColumns(tipo_de_mantenimiento, handleDeleteRepair, handleOpenDetailsModal)}
             data={allRepairs}
             tableId="repair-entry-table"
             savedVisibility={savedVisibility}
@@ -762,21 +1060,34 @@ export default function RepairNewEntry({
                                     <FiTool className="mr-2 h-4 w-4" />
                                     <span className="text-sm">Nombre: {maintenance?.name}</span>
                                   </div>
-                                  <div className="flex -space-x-2 mt-2">
-                                    {field.user_images
-                                      ?.filter((url) => url)
-                                      ?.map((url) => (
-                                        <Avatar key={url} className="border-black border size-8 ">
-                                          <AvatarImage src={url || ''} alt="Preview de la reparacion" />
-                                          <AvatarFallback>CN</AvatarFallback>
-                                        </Avatar>
-                                      ))}
+                                </div>
+
+                                {/* Botón para abrir modal de detalles */}
+                                <div className="flex flex-col gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOpenDetailsModal(field.provicionalId)}
+                                    className="w-full"
+                                  >
+                                    {field.description ? 'Editar detalles' : 'Agregar detalles'}
+                                  </Button>
+
+                                  {/* Indicadores de estado */}
+                                  <div className="flex gap-2">
+                                    {field.description && (
+                                      <Badge variant="success" className="text-xs">
+                                        ✓ Descripción
+                                      </Badge>
+                                    )}
+                                    {field.user_images.some((img) => img !== null) && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        {field.user_images.filter((img) => img !== null).length} imágenes
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex items-center">
-                                  <ReaderIcon className="mr-2 h-4 w-4" />
-                                  <span className="text-sm text-muted-foreground">{maintenance?.description}</span>
-                                </div>
+
                                 <Button
                                   variant={'destructive'}
                                   size={'sm'}
@@ -808,6 +1119,15 @@ export default function RepairNewEntry({
           )}
         </div>
       </ResizablePanel>
+
+      {/* Modal de detalles */}
+      <RepairDetailsModal
+        isOpen={detailsModalOpen}
+        onClose={handleCloseDetailsModal}
+        repair={selectedRepair || null}
+        repairType={selectedRepairType}
+        onSave={handleSaveDetails}
+      />
     </ResizablePanelGroup>
   );
 }

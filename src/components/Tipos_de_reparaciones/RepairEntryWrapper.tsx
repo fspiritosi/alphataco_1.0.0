@@ -1,6 +1,5 @@
-import { fetchAllEquipmentWithBrand } from '@/app/server/GET/actions';
+import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import { supabaseServer } from '@/lib/supabase/server';
-import { setVehiclesToShow } from '@/lib/utils/utils';
 import { TypeOfRepair } from '@/types/types';
 import { cookies } from 'next/headers';
 import InfoComponent from '../InfoComponent';
@@ -8,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import RepairNewEntry from './RepairEntry';
 import RepairNewEntryMultiple from './RepairEntryMultiple';
 import { fetchAllTypesOfRepairs } from './actions/actions';
+import { fetchMaintenanceGroupsAction } from './actions/maintenanceGroupActions';
 
 async function RepairEntryWrapper({ equipment_id }: { equipment_id?: string }) {
   const supabase = supabaseServer();
@@ -18,10 +18,9 @@ async function RepairEntryWrapper({ equipment_id }: { equipment_id?: string }) {
 
   // Fetch data
   const types_of_repairs = await fetchAllTypesOfRepairs();
-  const equipments = await fetchAllEquipmentWithBrand();
-  const vehiclesFormatted = equipment_id
-    ? setVehiclesToShow(equipments?.filter((e: any) => e.id === equipment_id)) || []
-    : setVehiclesToShow(equipments) || [];
+  const equipments = await fetchAllEquipmentBasicData();
+  const { groups: maintenanceGroups } = await fetchMaintenanceGroupsAction();
+  const vehiclesFormatted = equipment_id ? equipments?.filter((e) => e.id === equipment_id) || [] : equipments || [];
 
   // Get saved preferences
   const savedVisibility2 = coockiesStore.get('repair-entry-table')?.value;
@@ -42,6 +41,7 @@ async function RepairEntryWrapper({ equipment_id }: { equipment_id?: string }) {
           user_id={user?.id}
           equipment={vehiclesFormatted}
           tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
+          maintenance_groups={maintenanceGroups || []}
           default_equipment_id={equipment_id}
           savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
           savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}

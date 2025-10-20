@@ -1,7 +1,7 @@
-import { fetchAllEquipment, fetchAllEquipmentWithBrand, fetchCustomForms } from '@/app/server/GET/actions';
+import { fetchAllEquipment, fetchAllEquipmentBasicData, fetchCustomForms } from '@/app/server/GET/actions';
 import QrActionSelector from '@/components/QR/AcctionSelector';
+import { fetchMaintenanceGroupsAction } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { supabaseServer } from '@/lib/supabase/server';
-import { setVehiclesToShow } from '@/lib/utils/utils';
 import { TypeOfRepair } from '@/types/types';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -29,7 +29,7 @@ export default async function Home({
 
   let role: any;
   // const { equipments } = await fetch(`${URL}/api/equipment/${params.id}`).then((e) => e.json());
-  const equipments = await fetchAllEquipmentWithBrand();
+  const equipments = await fetchAllEquipmentBasicData();
 
   if (user?.id) {
     const { shared_user } = await fetch(
@@ -50,7 +50,7 @@ export default async function Home({
     .eq('equipment_id', params.id)
     .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion']);
 
-  const vehiclesFormatted = setVehiclesToShow(equipments || []) || [];
+  // const vehiclesFormatted = setVehiclesToShow(equipments || []) || [];
 
   const checklists = await fetchCustomForms(equipments[0]?.company_id || '');
 
@@ -71,11 +71,14 @@ export default async function Home({
   const savedVisibility = cookiesStore.get('repair-entry-table')?.value;
   const savedFilters = cookiesStore.get('repair-entry-table-filters')?.value;
 
+  const { groups: maintenanceGroups } = await fetchMaintenanceGroupsAction();
+
   return (
     <QrActionSelector
       user={user}
+      maintenance_groups={maintenanceGroups}
       employee_id={employee}
-      equipment={vehiclesFormatted}
+      equipment={equipments}
       tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
       default_equipment_id={params.id}
       savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}

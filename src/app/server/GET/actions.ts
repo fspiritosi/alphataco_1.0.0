@@ -923,7 +923,7 @@ export const fetchAllEquipmentBasicData = async () => {
 
   let { data: equipments, error } = await supabase
     .from('vehicles')
-    .select(`id, domain, serie, intern_number`)
+    .select(`id,condition,picture,year,company_id, domain, serie, intern_number,kilometer, types_of_vehicles(name)`)
     .eq('company_id', company_id);
 
   if (error) {

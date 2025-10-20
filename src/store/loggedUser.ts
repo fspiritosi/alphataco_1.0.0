@@ -993,33 +993,33 @@ export const useLoggedUserStore = create<State>((set, get) => {
       return employeesToShow;
     }
   };
-  const realTimeSharedUsers = supabase
-    .channel('custom-all-channel')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'share_company_users' }, (payload) => {
-      howManyCompanies(get()?.profile?.[0]?.id || '');
-    })
-    .subscribe();
+  // const realTimeSharedUsers = supabase
+  //   .channel('custom-all-channel')
+  //   .on('postgres_changes', { event: '*', schema: 'public', table: 'share_company_users' }, (payload) => {
+  //     howManyCompanies(get()?.profile?.[0]?.id || '');
+  //   })
+  //   .subscribe();
 
-  const realTimeNotification = supabase
-    .channel('custom-all-channel')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
-      allNotifications();
-    })
-    .subscribe();
+  // const realTimeNotification = supabase
+  //   .channel('custom-all-channel')
+  //   .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
+  //     allNotifications();
+  //   })
+  //   .subscribe();
 
-  const realTimeEmployees = supabase
-    .channel('custom-update-channel')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'employees' }, (payload) => {
-      setActivesEmployees();
-    })
-    .subscribe();
+  // const realTimeEmployees = supabase
+  //   .channel('custom-update-channel')
+  //   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'employees' }, (payload) => {
+  //     setActivesEmployees();
+  //   })
+  //   .subscribe();
 
-  const realTimeCompany = supabase
-    .channel('custom-all-channel')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'company' }, () => {
-      howManyCompanies(get()?.profile?.[0]?.id || '');
-    })
-    .subscribe();
+  // const realTimeCompany = supabase
+  //   .channel('custom-all-channel')
+  //   .on('postgres_changes', { event: '*', schema: 'public', table: 'company' }, () => {
+  //     howManyCompanies(get()?.profile?.[0]?.id || '');
+  //   })
+  //   .subscribe();
 
   const setActivesEmployees = async () => {
     const employeesToShow = await getEmployees(true);

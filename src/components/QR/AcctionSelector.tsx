@@ -1,7 +1,7 @@
 'use client';
+import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import { Button } from '@/components/ui/button';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { setVehiclesToShow } from '@/lib/utils/utils';
 import { RepairsSolicituds, TypeOfRepair } from '@/types/types';
 import { LapTimerIcon } from '@radix-ui/react-icons';
 import { User } from '@supabase/supabase-js';
@@ -12,6 +12,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FiTool } from 'react-icons/fi';
+import { fetchMaintenanceGroupsActionType } from '../Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { Badge } from '../ui/badge';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import CompletarChecklist from './CompletarChecklist';
@@ -31,12 +32,14 @@ export default function QrActionSelector({
   equipmentsForComboBox,
   savedVisibility,
   savedFilters,
+  maintenance_groups,
 }: {
   empleado_name: string | undefined;
   user: User | null;
   employee_id: string | undefined;
   tipo_de_mantenimiento: TypeOfRepair;
-  equipment: ReturnType<typeof setVehiclesToShow>;
+  equipment: Awaited<ReturnType<typeof fetchAllEquipmentBasicData>>;
+  maintenance_groups: NonNullable<fetchMaintenanceGroupsActionType['groups']>;
   default_equipment_id?: string;
   role: string | undefined;
   pendingRequests: RepairsSolicituds;
@@ -80,6 +83,7 @@ export default function QrActionSelector({
   if (selectedOption === 'mantenimiento') {
     return (
       <SolicitarMantenimiento
+        maintenance_groups={maintenance_groups}
         equipment={equipment}
         tipo_de_mantenimiento={tipo_de_mantenimiento}
         default_equipment_id={default_equipment_id}

@@ -27,44 +27,74 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
 
   // Obtiene las filas filtradas, sin paginación
   const rows = table.getFilteredRowModel().rows;
-  // Obtiene solo las columnas visibles
-  const columns = table.getVisibleLeafColumns();
+  // Obtiene solo las columnas visibles y excluye las que tienen excludeFromExport: true
+  const columns = table.getVisibleLeafColumns().filter((col) => {
+    const columnDef = col.columnDef as any;
+    return !columnDef.excludeFromExport;
+  });
 
   // Construye los datos para exportar
   // Extraer headers como texto plano (sin iconos)
   const headers: string[] = columns.map((col) => {
-    // Usar el id de la columna directamente, sin procesar el header
-    return col.id || ((col.columnDef as any).accessorKey as string);
+    const columnDef = col.columnDef as any;
+
+    // 1. Prioridad: exportHeader personalizado
+    if (columnDef.exportHeader) {
+      return columnDef.exportHeader;
+    }
+
+    // 2. Si el header es un string, usarlo
+    if (typeof columnDef.header === 'string') {
+      return columnDef.header;
+    }
+
+    // 3. Fallback al id o accessorKey
+    return col.id || columnDef.accessorKey || 'Columna';
   });
 
   const exportData = rows.map((row) => {
     const rowObj: Record<string, any> = {};
     columns.forEach((col, idx) => {
       let value = row.getValue(col.id);
-      // Procesar columna 'Afectaciones' de forma especial
-      if (headers[idx].toLowerCase().includes('afectac')) {
-        let parsed: any[] = [];
-        try {
-          parsed = typeof value === 'string' ? JSON.parse(value) : Array.isArray(value) ? value : [];
-        } catch {
-          parsed = [];
+      const columnDef = col.columnDef as any;
+
+      // Usar exportFormatter personalizado si está disponible
+      if (columnDef.exportFormatter && typeof columnDef.exportFormatter === 'function') {
+        value = columnDef.exportFormatter(value, row.original);
+      } else {
+        // Lógica de formateo por defecto
+        // Procesar columna 'Afectaciones' de forma especial
+        if (headers[idx].toLowerCase().includes('afectac')) {
+          let parsed: any[] = [];
+          try {
+            parsed = typeof value === 'string' ? JSON.parse(value) : Array.isArray(value) ? value : [];
+          } catch {
+            parsed = [];
+          }
+          if (parsed.length === 0) {
+            value = '-';
+          } else {
+            // Si hay objetos, extraer el nombre del contratista (contractor_id.name)
+            const nombres = parsed.map((af: any) => af.contractor_id?.name).filter(Boolean);
+            value = nombres.length > 0 ? nombres.join(', ') : '-';
+          }
+        } else if (Array.isArray(value)) {
+          // Si es un array, unir con comas
+          value = value.length > 0 ? value.join(', ') : '-';
+        } else if (typeof value === 'object' && value !== null) {
+          // Si es un objeto, intentar extraer 'name' o convertir a JSON
+          value = (value as any).name || JSON.stringify(value);
         }
-        if (parsed.length === 0) {
-          value = '-';
-        } else {
-          // Si hay objetos, extraer el nombre del contratista (contractor_id.name)
-          const nombres = parsed.map((af: any) => af.contractor_id?.name).filter(Boolean);
-          value = nombres.length > 0 ? nombres.join(', ') : '-';
-        }
-      } else if (typeof value === 'object' && value !== null) {
-        value = JSON.stringify(value);
       }
-      rowObj[headers[idx]] = value;
+
+      rowObj[headers[idx]] = value || '-';
     });
     return rowObj;
   });
 
   const handleExport = () => {
+    console.log(exportData, 'exportData');
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
 
