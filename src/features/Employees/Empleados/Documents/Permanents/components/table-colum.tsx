@@ -185,7 +185,7 @@ export const columnsEmployeeDocumentServer: ColumnDef<EmployeeData>[] = [
       if (isNoPresented) {
         return 'No disponible';
       } else {
-        return moment(row.original.created_at, 'DD/MM/YYYY').format('DD/MM/YYYY');
+        return moment(row.original.created_at).format('DD/MM/YYYY');
       }
     },
   },
@@ -230,7 +230,9 @@ export const columnsEmployeeDocumentServer: ColumnDef<EmployeeData>[] = [
       }
 
       return (
-        <Link href={`/dashboard/document/${row.original.id}?resource=${row.original.applies}`}>
+        <Link
+          href={`/dashboard/document/${row.original.id}?resource=${row.original.employees ? 'Persona' : 'Equipos'}`}
+        >
           <Button>Ver documento</Button>
         </Link>
       );
