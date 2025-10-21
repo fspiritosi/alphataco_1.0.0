@@ -84,7 +84,11 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
                   )}
                 </div>
 
-                <VehicleQuickActions equipmentId={vehicle?.id} isActive={vehicle?.is_active!} />
+                <VehicleQuickActions
+                  condition={vehicle?.condition!}
+                  equipmentId={vehicle?.id}
+                  isActive={vehicle?.is_active!}
+                />
                 <Separator orientation="vertical" className="w-[1px] h-10 my-0" />
 
                 <div className="flex items-center justify-end gap-4 ">

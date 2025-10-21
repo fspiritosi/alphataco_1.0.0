@@ -39,6 +39,7 @@ export async function getVehicleById(id: string) {
 export async function toggleVehicleStatus(
   id: string,
   activate: boolean,
+  condition: Database['public']['Enums']['condition_enum'],
   reason_for_termination?: any,
   termination_date?: Date
 ) {
@@ -47,6 +48,7 @@ export async function toggleVehicleStatus(
     .from('vehicles')
     .update({
       is_active: activate,
+      condition,
       reason_for_termination: activate ? null : reason_for_termination,
       termination_date: termination_date ? moment(termination_date).format('YYYY-MM-DD') : null,
     })
