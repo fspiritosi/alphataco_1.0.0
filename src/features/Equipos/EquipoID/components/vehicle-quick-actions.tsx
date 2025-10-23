@@ -36,6 +36,7 @@ import { toggleVehicleStatus } from '../lib/actions/vehicle-actions';
 interface VehicleQuickActionsProps {
   equipmentId: string | undefined;
   isActive: boolean | undefined;
+  condition: Database['public']['Enums']['condition_enum'];
 }
 
 const terminationSchema = z.object({
@@ -45,7 +46,7 @@ const terminationSchema = z.object({
 
 const termination_reason_enum_equipment = ['venta', 'destrucción total', 'devolución', 'otro'];
 
-export function VehicleQuickActions({ equipmentId, isActive }: VehicleQuickActionsProps) {
+export function VehicleQuickActions({ equipmentId, isActive, condition }: VehicleQuickActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
@@ -55,7 +56,7 @@ export function VehicleQuickActions({ equipmentId, isActive }: VehicleQuickActio
     startTransition(async () => {
       try {
         // Here you would call your server action to toggle employee status
-        await toggleVehicleStatus(equipmentId!, activate);
+        await toggleVehicleStatus(equipmentId!, activate, condition);
         toast.success(`Equipo ${activate ? 'activado' : 'dado de baja'} correctamente`);
         setShowDeactivateDialog(false);
         setShowActivateDialog(false);
@@ -79,7 +80,13 @@ export function VehicleQuickActions({ equipmentId, isActive }: VehicleQuickActio
   async function onSubmit(values: z.infer<typeof terminationSchema>) {
     startTransition(async () => {
       try {
-        await toggleVehicleStatus(equipmentId!, false, values.reason_for_termination, values.termination_date);
+        await toggleVehicleStatus(
+          equipmentId!,
+          false,
+          'no operativo',
+          values.reason_for_termination,
+          values.termination_date
+        );
         toast.success(`Equipo dado de baja correctamente`);
         setShowDeactivateDialog(false);
         form.reset();

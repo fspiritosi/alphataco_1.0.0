@@ -1,28 +1,25 @@
 'use client';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { CaretSortIcon } from '@radix-ui/react-icons';
-import { addMonths, format } from 'date-fns';
-import { CalendarIcon, CheckIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Button } from './ui/button';
 import { CardDescription } from './ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Separator } from './ui/separator';
 
-import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { formatDocumentTypeName } from '@/lib/utils/utils';
 import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { useLoggedUserStore } from '@/store/loggedUser';
-import { es } from 'date-fns/locale';
 import moment from 'moment';
 import { toast } from 'sonner';
 import { supabase } from '../../supabase/supabase';
@@ -71,15 +68,7 @@ export default function SimpleDocument({
       (employee: any) => employee.document === documentResource || employee.document === numberDocument
     ) as string) || (vehicles?.find((vehicle: any) => vehicle.id === numberDocument) as string);
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-    setError,
-    clearErrors,
-    getValues,
-    setValue,
-  } = useForm({
+  const form = useForm({
     defaultValues: {
       applies: idAppliesUser?.id?.toString() || idAppliesUser?.document?.toString() || '',
       id_document_types: defaultDocumentId ?? '',
@@ -89,6 +78,15 @@ export default function SimpleDocument({
       file: null as File | null,
     },
   });
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+    setError,
+    clearErrors,
+    setValue,
+  } = form;
 
   useEffect(() => {
     // Solo cuando hay datos y numberDocument/documentResource
@@ -356,13 +354,6 @@ export default function SimpleDocument({
   }, [resource]);
 
   const today = new Date();
-  const nextMonth = addMonths(new Date(), 1);
-  const [month, setMonth] = useState<Date>(nextMonth);
-
-  const yearsAhead = Array.from({ length: 20 }, (_, index) => {
-    const year = today.getFullYear() + index;
-    return year;
-  });
 
   const data = resource === 'empleado' ? employees : vehicles;
   const [filteredResources, setFilteredResources] = useState(data);
@@ -370,7 +361,6 @@ export default function SimpleDocument({
   const [hasExpired, setHasExpired] = useState(false);
   const [isMontlhy, setIsMontlhy] = useState(false);
   const [openResourceSelector, setOpenResourceSelector] = useState(false);
-  const [years, setYear] = useState(today.getFullYear().toString());
 
   useEffect(() => {
     const documentInfo = documenTypes?.find((documentType) => documentType.id === defaultDocumentId);
@@ -393,319 +383,273 @@ export default function SimpleDocument({
   };
 
   return (
-    <form onSubmit={handleNestedFormSubmit}>
-      <div className="space-y-4">
-        {!documentResource && (
-          <div className="space-y-2 py-3">
-            <Label className="block">{resource === 'equipo' ? 'Equipos' : 'Empleados'}</Label>
-            <Controller
-              render={({ field }) => {
-                const selectedResourceName = data?.find((resource: any) => resource.id === field.value)?.name;
+    <Form {...form}>
+      <form onSubmit={handleNestedFormSubmit}>
+        <div className="space-y-4">
+          {!documentResource && (
+            <div className="space-y-2 py-3">
+              <Label className="block">{resource === 'equipo' ? 'Equipos' : 'Empleados'}</Label>
+              <Controller
+                render={({ field }) => {
+                  const selectedResourceName = data?.find((resource: any) => resource.id === field.value)?.name;
 
-                return (
-                  <Popover
-                    open={openResourceSelector}
-                    onOpenChange={() => {
-                      setOpenResourceSelector(!openResourceSelector);
-                    }}
-                  >
-                    <PopoverTrigger disabled={numberDocument || id ? true : false} asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(' justify-between w-full', !field.value && 'text-muted-foreground')}
-                      >
-                        {field.value && selectedResourceName
-                          ? data?.find((employee: any) => employee.id === field.value || employee.name === field.value)
-                              ?.name
-                          : `Seleccionar ${resource === 'equipo' ? 'equipo' : 'empleado'}`}
-                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className=" p-0">
-                      <Command>
-                        <CommandInput
-                          placeholder={`Buscar ${resource === 'equipo' ? 'equipo' : 'empleado'}`}
-                          className="h-9"
-                          onFocus={() => {
-                            setFilteredResources(data);
-                          }}
-                          onInput={(e) => {
-                            const inputValue = (e.target as HTMLInputElement).value.toLowerCase();
-                            setInputValue(inputValue);
-                            const isNumberInput = /^\d+$/.test(inputValue);
-                            const filteredresources = data?.filter((person: any) => {
-                              if (isNumberInput) {
-                                return person.document?.includes(inputValue);
-                              } else {
+                  return (
+                    <Popover
+                      open={openResourceSelector}
+                      onOpenChange={() => {
+                        setOpenResourceSelector(!openResourceSelector);
+                      }}
+                    >
+                      <PopoverTrigger disabled={numberDocument || id ? true : false} asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(' justify-between w-full', !field.value && 'text-muted-foreground')}
+                        >
+                          {field.value && selectedResourceName
+                            ? data?.find(
+                                (employee: any) => employee.id === field.value || employee.name === field.value
+                              )?.name
+                            : `Seleccionar ${resource === 'equipo' ? 'equipo' : 'empleado'}`}
+                          <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className=" p-0">
+                        <Command>
+                          <CommandInput
+                            placeholder={`Buscar ${resource === 'equipo' ? 'equipo' : 'empleado'}`}
+                            className="h-9"
+                            onFocus={() => {
+                              setFilteredResources(data);
+                            }}
+                            onInput={(e) => {
+                              const inputValue = (e.target as HTMLInputElement).value.toLowerCase();
+                              setInputValue(inputValue);
+                              const isNumberInput = /^\d+$/.test(inputValue);
+                              const filteredresources = data?.filter((person: any) => {
+                                if (isNumberInput) {
+                                  return person.document?.includes(inputValue);
+                                } else {
+                                  return (
+                                    person.name?.toLowerCase().includes(inputValue) ||
+                                    person.document?.includes(inputValue)
+                                  );
+                                }
+                              });
+                              setFilteredResources(filteredresources || []);
+                            }}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              {filteredResources?.length === 0 &&
+                                inputValue?.length > 0 &&
+                                'No se encontraron resultados'}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {filteredResources?.map((employee: any) => {
+                                const key = /^\d+$/.test(inputValue) ? employee.document : employee.name;
+                                const value = /^\d+$/.test(inputValue) ? employee.document : employee.name;
+
                                 return (
-                                  person.name?.toLowerCase().includes(inputValue) ||
-                                  person.document?.includes(inputValue)
+                                  <CommandItem
+                                    value={value}
+                                    key={crypto.randomUUID()}
+                                    onSelect={() => {
+                                      const id = data?.find(
+                                        (resource: any) => resource.name === value || resource.document === value
+                                      ).id;
+
+                                      field.onChange(id);
+                                      setOpenResourceSelector(!openResourceSelector);
+                                    }}
+                                  >
+                                    {employee.name}
+                                    <CheckIcon
+                                      className={cn(
+                                        'ml-auto h-4 w-4',
+                                        employee.name === field.value || employee.document === field.value
+                                          ? 'opacity-100'
+                                          : 'opacity-0'
+                                      )}
+                                    />
+                                  </CommandItem>
                                 );
-                              }
-                            });
-                            setFilteredResources(filteredresources || []);
-                          }}
-                        />
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  );
+                }}
+                name="applies"
+                control={control}
+                rules={!id || !documentResource ? { required: 'Este campo es requerido' } : {}}
+              />
+              <CardDescription>Selecciona el empleado al que deseas vincular el documento</CardDescription>
+              {errors.applies?.message && (
+                <CardDescription className="text-red-700 mt-0 m-0">{(errors as any).applies.message}</CardDescription>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {!defaultDocumentId && (
+              <ToggleGroup
+                defaultValue={'ambos'}
+                type="single"
+                variant="outline"
+                className="w-full flex-col items-start mb-4 gap-y-3"
+                onValueChange={(value) => {
+                  handleTypeFilter(value);
+                }}
+              >
+                <Label>Filtrar tipos de documentos</Label>
+                <div className="flex gap-4">
+                  <ToggleGroupItem value="Ambos">Ambos</ToggleGroupItem>
+                  <ToggleGroupItem value="Permanentes">Permanentes</ToggleGroupItem>
+                  <ToggleGroupItem value="Mensuales">Mensuales</ToggleGroupItem>
+                </div>
+              </ToggleGroup>
+            )}
+            <Label>Seleccione el tipo de documento a vincular al recurso</Label>
+            <Controller
+              render={({ field }) => (
+                <Popover open={openDocumentTypePopover} onOpenChange={setOpenDocumentTypePopover}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn('justify-between w-full', !field.value && 'text-muted-foreground')}
+                    >
+                      {field.value
+                        ? documenTypes?.find((documenType) => documenType.id === field.value)?.name
+                        : 'Seleccionar documento'}
+                      <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0 overflow-y-auto max-h-[50vh]">
+                    <div>
+                      <Command className="p-2">
+                        <CommandInput placeholder="Buscar documento" className="h-9" />
                         <CommandList>
-                          <CommandEmpty>
-                            {filteredResources?.length === 0 &&
-                              inputValue?.length > 0 &&
-                              'No se encontraron resultados'}
-                          </CommandEmpty>
+                          <CommandEmpty>Documento no encontrado</CommandEmpty>
                           <CommandGroup>
-                            {filteredResources?.map((employee: any) => {
-                              const key = /^\d+$/.test(inputValue) ? employee.document : employee.name;
-                              const value = /^\d+$/.test(inputValue) ? employee.document : employee.name;
+                            {documenTypes?.map((documentType) => (
+                              <CommandItem
+                                value={documentType.name}
+                                key={documentType.id}
+                                onSelect={(e: string) => {
+                                  const selected = documenTypes?.find(
+                                    (doc) => doc.name.toLowerCase() === e.toLocaleLowerCase()
+                                  );
 
-                              return (
-                                <CommandItem
-                                  value={value}
-                                  key={crypto.randomUUID()}
-                                  onSelect={() => {
-                                    const id = data?.find(
-                                      (resource: any) => resource.name === value || resource.document === value
-                                    ).id;
+                                  setHasExpired(selected.explired);
+                                  setIsMontlhy(selected.is_it_montlhy);
 
-                                    field.onChange(id);
-                                    setOpenResourceSelector(!openResourceSelector);
-                                  }}
-                                >
-                                  {employee.name}
-                                  <CheckIcon
-                                    className={cn(
-                                      'ml-auto h-4 w-4',
-                                      employee.name === field.value || employee.document === field.value
-                                        ? 'opacity-100'
-                                        : 'opacity-0'
-                                    )}
-                                  />
-                                </CommandItem>
-                              );
-                            })}
+                                  clearErrors('id_document_types');
+                                  setValue('id_document_types', selected?.id);
+                                  setOpenDocumentTypePopover(false);
+                                }}
+                              >
+                                {documentType.name}
+                                <CheckIcon
+                                  className={cn(
+                                    'ml-auto h-4 w-4',
+                                    documentType.id === field.value ? 'opacity-100' : 'opacity-0'
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
                           </CommandGroup>
                         </CommandList>
                       </Command>
-                    </PopoverContent>
-                  </Popover>
-                );
-              }}
-              name="applies"
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+              name="id_document_types"
               control={control}
-              rules={!id || !documentResource ? { required: 'Este campo es requerido' } : {}}
-            />
-            <CardDescription>Selecciona el empleado al que deseas vincular el documento</CardDescription>
-            {errors.applies?.message && (
-              <CardDescription className="text-red-700 mt-0 m-0">{(errors as any).applies.message}</CardDescription>
-            )}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          {!defaultDocumentId && (
-            <ToggleGroup
-              defaultValue={'ambos'}
-              type="single"
-              variant="outline"
-              className="w-full flex-col items-start mb-4 gap-y-3"
-              onValueChange={(value) => {
-                handleTypeFilter(value);
+              rules={{
+                required: 'Este campo es requerido',
               }}
-            >
-              <Label>Filtrar tipos de documentos</Label>
-              <div className="flex gap-4">
-                <ToggleGroupItem value="Ambos">Ambos</ToggleGroupItem>
-                <ToggleGroupItem value="Permanentes">Permanentes</ToggleGroupItem>
-                <ToggleGroupItem value="Mensuales">Mensuales</ToggleGroupItem>
+            />
+            {errors.id_document_types && (
+              <CardDescription className="text-red-700 m-0">{errors.id_document_types.message}</CardDescription>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Documento *</Label>
+            <Input
+              id="file-input"
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileChange}
+              className="cursor-pointer"
+            />
+            {selectedFile && <p className="text-sm text-muted-foreground">Archivo seleccionado: {selectedFile.name}</p>}
+            <CardDescription>Sube el documento que deseas vincular a los recursos</CardDescription>
+            {errors.file && <CardDescription className="text-red-700 mt-0">{errors.file.message}</CardDescription>}
+          </div>
+
+          {hasExpired && (
+            <FormField
+              control={control}
+              name="validity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fecha de vencimiento *</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="date" placeholder="Seleccione la fecha de vencimiento" />
+                  </FormControl>
+                  <FormMessage />
+                  <CardDescription>La fecha de vencimiento del documento</CardDescription>
+                </FormItem>
+              )}
+            />
+          )}
+
+          {isMontlhy && (
+            <div className="space-y-2">
+              <div className="flex flex-col gap-3">
+                <Label>Periodo</Label>
+                <Controller
+                  render={({ field }) => (
+                    <Input
+                      placeholder="Seleccionar periodo"
+                      type="month"
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={field.onChange}
+                    />
+                  )}
+                  name="period"
+                  control={control}
+                  rules={isMontlhy ? { required: 'Falta seleccionar el periodo' } : undefined}
+                />
               </div>
-            </ToggleGroup>
+              {errors.period && (
+                <CardDescription className="text-red-700 mt-0">{errors.period.message}</CardDescription>
+              )}
+              <CardDescription>El documento es mensual, debe seleccioar el periodo al que aplica</CardDescription>
+            </div>
           )}
-          <Label>Seleccione el tipo de documento a vincular al recurso</Label>
-          <Controller
-            render={({ field }) => (
-              <Popover open={openDocumentTypePopover} onOpenChange={setOpenDocumentTypePopover}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className={cn('justify-between w-full', !field.value && 'text-muted-foreground')}
-                  >
-                    {field.value
-                      ? documenTypes?.find((documenType) => documenType.id === field.value)?.name
-                      : 'Seleccionar documento'}
-                    <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0 overflow-y-auto max-h-[50vh]">
-                  <div>
-                    <Command className="p-2">
-                      <CommandInput placeholder="Buscar documento" className="h-9" />
-                      <CommandList>
-                        <CommandEmpty>Documento no encontrado</CommandEmpty>
-                        <CommandGroup>
-                          {documenTypes?.map((documentType) => (
-                            <CommandItem
-                              value={documentType.name}
-                              key={documentType.id}
-                              onSelect={(e: string) => {
-                                const selected = documenTypes?.find(
-                                  (doc) => doc.name.toLowerCase() === e.toLocaleLowerCase()
-                                );
 
-                                setHasExpired(selected.explired);
-                                setIsMontlhy(selected.is_it_montlhy);
-
-                                clearErrors('id_document_types');
-                                setValue('id_document_types', selected?.id);
-                                setOpenDocumentTypePopover(false);
-                              }}
-                            >
-                              {documentType.name}
-                              <CheckIcon
-                                className={cn(
-                                  'ml-auto h-4 w-4',
-                                  documentType.id === field.value ? 'opacity-100' : 'opacity-0'
-                                )}
-                              />
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            )}
-            name="id_document_types"
-            control={control}
-            rules={{
-              required: 'Este campo es requerido',
-            }}
-          />
-          {errors.id_document_types && (
-            <CardDescription className="text-red-700 m-0">{errors.id_document_types.message}</CardDescription>
-          )}
+          <Separator />
         </div>
 
-        <div className="space-y-2">
-          <Label>Documento *</Label>
-          <Input
-            id="file-input"
-            ref={fileInputRef}
-            type="file"
-            onChange={handleFileChange}
-            className="cursor-pointer"
-          />
-          {selectedFile && <p className="text-sm text-muted-foreground">Archivo seleccionado: {selectedFile.name}</p>}
-          <CardDescription>Sube el documento que deseas vincular a los recursos</CardDescription>
-          {errors.file && <CardDescription className="text-red-700 mt-0">{errors.file.message}</CardDescription>}
-        </div>
+        <div className="flex justify-evenly mt-4">
+          <AlertDialogCancel className="text-black dark:bg-white hover:text-black/50" asChild>
+            <Button type="button" onClick={() => handleOpen()}>
+              Cancelar
+            </Button>
+          </AlertDialogCancel>
 
-        {hasExpired && (
-          <div className="space-y-2">
-            <div className="flex flex-col gap-3">
-              <Label>Fecha de vencimiento</Label>
-              <Controller
-                render={({ field }) => (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={'outline'}
-                        className={cn(' justify-start text-left font-normal', !field.value && 'text-muted-foreground')}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Fecha de vencimiento</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="flex w-full flex-col space-y-2 p-2">
-                      <Select
-                        onValueChange={(e) => {
-                          setMonth(new Date(e));
-                          setYear(e);
-                          const newYear = Number.parseInt(e, 10);
-                          const dateWithNewYear = new Date(field.value);
-                          dateWithNewYear.setFullYear(newYear);
-                          field.onChange(dateWithNewYear);
-                          setMonth(dateWithNewYear);
-                        }}
-                        value={years || today.getFullYear().toString()}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Elegir año" />
-                        </SelectTrigger>
-                        <SelectContent position="popper">
-                          {yearsAhead?.map((year) => (
-                            <SelectItem key={year} value={`${year}`}>
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="rounded-md border w-full">
-                        <Calendar
-                          month={month}
-                          onMonthChange={setMonth}
-                          fromDate={today}
-                          locale={es}
-                          mode="single"
-                          selected={new Date(field.value) || today}
-                          onSelect={(e) => {
-                            field.onChange(e);
-                          }}
-                        />
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
-                name="validity"
-                control={control}
-                rules={hasExpired ? { required: 'Falta la fecha de vencimiento' } : undefined}
-              />
-            </div>
-            {errors.validity && (
-              <CardDescription className="text-red-700 mt-0">{errors.validity.message}</CardDescription>
-            )}
-            <CardDescription>La fecha de vencimiento del documento</CardDescription>
-          </div>
-        )}
-
-        {isMontlhy && (
-          <div className="space-y-2">
-            <div className="flex flex-col gap-3">
-              <Label>Periodo</Label>
-              <Controller
-                render={({ field }) => (
-                  <Input
-                    placeholder="Seleccionar periodo"
-                    type="month"
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={field.onChange}
-                  />
-                )}
-                name="period"
-                control={control}
-                rules={isMontlhy ? { required: 'Falta seleccionar el periodo' } : undefined}
-              />
-            </div>
-            {errors.period && <CardDescription className="text-red-700 mt-0">{errors.period.message}</CardDescription>}
-            <CardDescription>El documento es mensual, debe seleccioar el periodo al que aplica</CardDescription>
-          </div>
-        )}
-
-        <Separator />
-      </div>
-
-      <div className="flex justify-evenly mt-4">
-        <AlertDialogCancel className="text-black dark:bg-white hover:text-black/50" asChild>
-          <Button type="button" onClick={() => handleOpen()}>
-            Cancelar
+          <Button disabled={loading} type="submit">
+            {loading ? 'Enviando' : 'Enviar documento'}
           </Button>
-        </AlertDialogCancel>
-
-        <Button disabled={loading} type="submit">
-          {loading ? 'Enviando' : 'Enviar documento'}
-        </Button>
-      </div>
-    </form>
+        </div>
+      </form>
+    </Form>
   );
 }
