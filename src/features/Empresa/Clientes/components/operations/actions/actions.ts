@@ -1,4 +1,5 @@
 import { supabase } from '@/../supabase/supabase';
+import moment from 'moment';
 
 export interface DailyReportRow {
   id: string;
@@ -266,7 +267,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
 
       return {
         ...row,
-        date: row.dailyreport?.date,
+        date: moment(row.dailyreport?.date).format('DD-MM-YYYY'),
         customer: row.customers?.name ?? '',
         item: row.service_items?.item_name ?? '',
         services: row.customer_services?.service_name ?? '',
