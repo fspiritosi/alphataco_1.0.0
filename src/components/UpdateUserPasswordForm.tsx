@@ -1,5 +1,6 @@
 'use client';
 
+import { updatePasswordAction } from '@/app/actions/auth-actions';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { changePassSchema } from '@/zodSchemas/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,12 +15,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Toggle } from './ui/toggle';
 
-interface UpdateUserPasswordFormProps {
-  email?: string;
-  token?: string;
-}
-
-export const UpdateUserPasswordForm = ({ email, token }: UpdateUserPasswordFormProps) => {
+export const UpdateUserPasswordForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
   const router = useRouter();
@@ -32,39 +28,16 @@ export const UpdateUserPasswordForm = ({ email, token }: UpdateUserPasswordFormP
     },
   });
 
-  const resetPasswordWithToken = async (token: string, email: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token, email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al actualizar la contraseña');
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
   const onSubmit = async (values: z.infer<typeof changePassSchema>) => {
-    if (!email || !token) {
-      toast.error('Faltan parámetros requeridos para cambiar la contraseña');
-      return;
-    }
-
     setShowLoader(true);
 
     toast.promise(
       async () => {
-        await resetPasswordWithToken(token, email, values.password);
+        const result = await updatePasswordAction(values.password);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        return result;
       },
       {
         loading: 'Actualizando contraseña...',

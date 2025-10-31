@@ -1,4 +1,5 @@
 'use client';
+import { resetPasswordAction } from '@/app/actions/auth-actions';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { recoveryPassSchema } from '@/zodSchemas/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,36 +22,18 @@ export const RecoveryPasswordForm = () => {
     },
   });
 
-  const sendResetEmail = async (email: string) => {
-    try {
-      const response = await fetch('/api/auth/resend-reset-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al enviar el email de recuperación');
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
   const onSubmit = async (values: z.infer<typeof recoveryPassSchema>) => {
     setShowLoader(true);
 
-    toast.promise(sendResetEmail(values.email), {
+    toast.promise(resetPasswordAction(values.email), {
       loading: 'Enviando enlace de recuperación...',
-      success: () => {
-        setEmailSent(true);
-        return 'Si existe una cuenta con ese email, recibirás un correo con instrucciones seguras para restablecer tu contraseña.';
+      success: (result) => {
+        if (result.success) {
+          setEmailSent(true);
+          return 'Si existe una cuenta con ese email, recibirás un correo con instrucciones seguras para restablecer tu contraseña.';
+        } else {
+          throw new Error(result.error);
+        }
       },
       error: (error) => {
         return error.message || 'Error al enviar el email de recuperación';
