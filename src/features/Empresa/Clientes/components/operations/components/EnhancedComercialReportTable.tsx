@@ -13,7 +13,6 @@ import { ArrowUpDown, Edit } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import {
   formatCustomerEquipmentForExport,
-  formatDateForExport,
   formatEmployeesForExport,
   formatEquipmentForExport,
 } from './export-formatters';
@@ -97,14 +96,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           );
         },
         cell: ({ row }) => {
-          const date = row.original.date
-            ? new Date(row.original.date).toLocaleDateString('es-ES', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-              })
-            : '';
-          return <span className="font-medium">{date}</span>;
+          return <span className="font-medium">{row.original.date}</span>;
         },
         filterFn: (row, id, value) => {
           if (!value?.from && !value?.to) return true;
@@ -119,7 +111,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
             return true;
           }
         },
-        exportFormatter: (value, row) => formatDateForExport(row.date),
+        // exportFormatter: (value, row) => row.date,
       },
       {
         id: 'customer',
