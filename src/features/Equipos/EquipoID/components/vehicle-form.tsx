@@ -124,13 +124,14 @@ const vehicleSchema = z
         const year = Number(data.year);
 
         const oldRegex = /^[A-Za-z]{3}[0-9]{3}$/; // AAA000
+        const oldRegex2 = /^[A-Za-z]{3}[0-9]{2}$/; // AAA00
         if (year <= 2015) {
-          return oldRegex.test(domain);
+          return oldRegex.test(domain) || oldRegex2.test(domain);
         }
       }
       return true;
     },
-    { message: 'El dominio debe tener el formato AAA000. (verificar año)', path: ['domain'] }
+    { message: 'El dominio debe tener el formato AAA000 o AAA00. (verificar año)', path: ['domain'] }
   )
   .refine(
     (data) => {
@@ -140,13 +141,14 @@ const vehicleSchema = z
         const year = Number(data.year);
 
         const newRegex = /^[A-Za-z]{2}[0-9]{3}[A-Za-z]{2}$/; // AA000AA
+        const oldRegex2 = /^[A-Za-z]{3}[0-9]{2}$/; // AAA00
         if (year >= 2017) {
-          return newRegex.test(domain);
+          return newRegex.test(domain) || oldRegex2.test(domain);
         }
       }
       return true;
     },
-    { message: 'El dominio debe tener el formato AA000AA. (verificar año)', path: ['domain'] }
+    { message: 'El dominio debe tener el formato AA000AA o AAA00. (verificar año)', path: ['domain'] }
   )
   .refine(
     (data) => {
@@ -157,13 +159,17 @@ const vehicleSchema = z
 
         const newRegex = /^[A-Za-z]{2}[0-9]{3}[A-Za-z]{2}$/; // AA000AA
         const oldRegex = /^[A-Za-z]{3}[0-9]{3}$/; // AAA000
+        const oldRegex2 = /^[A-Za-z]{3}[0-9]{2}$/; // AAA00
         if (year === 2016 || year === 2015) {
-          return newRegex.test(domain) || oldRegex.test(domain);
+          return newRegex.test(domain) || oldRegex.test(domain) || oldRegex2.test(domain);
         }
       }
       return true;
     },
-    { message: 'El dominio debe tener uno de los formatos: AA000AA o AAA000. (verificar año)', path: ['domain'] }
+    {
+      message: 'El dominio debe tener uno de los formatos: AA000AA o AAA000 o AAA00. (verificar año)',
+      path: ['domain'],
+    }
   )
   .refine(
     async (data) => {
