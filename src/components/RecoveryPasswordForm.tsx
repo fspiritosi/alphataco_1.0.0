@@ -105,7 +105,7 @@ export const RecoveryPasswordForm = () => {
         <div className="text-center text-sm text-gray-600">
           <p>
             ¿Recordaste tu contraseña?{' '}
-            <a href="/auth/login" className="text-blue-600 hover:text-blue-800 font-medium">
+            <a href="/login" className="text-blue-600 hover:text-blue-800 font-medium">
               Iniciar sesión
             </a>
           </p>

@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" suppressHydrationWarning>
       <body className={`${popinsFont.className} bg-gh_contrast dark:bg-slate-900`}>
         <PostHogProvider>
-          <ThemeProvider attribute="class" defaultTheme="ligth" enableSystem disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <Toaster />
             <Sonner richColors={true} />
             <main>{children}</main>

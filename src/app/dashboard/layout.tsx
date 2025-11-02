@@ -1,5 +1,6 @@
 // import { AlertComponent } from '@/components/AlertComponent'
 // import SideBarContainer from '@/components/SideBarContainer';
+import { PasswordChangeAlertWrapper } from '@/components/PasswordChangeAlertWrapper';
 import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
 import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
 import { Inter } from 'next/font/google';
@@ -17,7 +18,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {/* <NavBar /> */}
         <NavbarFeat />
       </div>
-      <TanstackQueryInicializador>{children}</TanstackQueryInicializador>
+      <TanstackQueryInicializador>
+        <PasswordChangeAlertWrapper />
+        {children}
+      </TanstackQueryInicializador>
     </div>
   );
 }
