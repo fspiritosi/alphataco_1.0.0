@@ -14,6 +14,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createNestedFilterOptions } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { cn } from '@/lib/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -27,8 +28,10 @@ import { getActiveEmployeesForDailyReport } from '../actions/actions';
 export function SearchEmployee({
   employees,
   field,
+  selectedCustomerId,
 }: {
   employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
+  selectedCustomerId?: string | null;
   field: ControllerRenderProps<
     {
       customer: string;
@@ -104,14 +107,26 @@ export function SearchEmployee({
       accessorKey: 'lastname',
       id: 'lastname',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre completo" />,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2 w-[200px]">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <div className="font-medium ">
-            {row.original.lastname} {row.original.firstname}
+      cell: ({ row }) => {
+        // Verificar si el empleado está asignado al cliente seleccionado
+        const isAssigned = selectedCustomerId
+          ? row.original.contractor_employee?.some((ce) => ce.customers?.id === selectedCustomerId)
+          : true;
+
+        return (
+          <div className={cn('flex items-center gap-2 w-[200px]', !isAssigned && 'text-orange-700')}>
+            <User className={cn('h-4 w-4', isAssigned ? 'text-muted-foreground' : 'text-orange-500')} />
+            <div className="font-medium flex items-center gap-2">
+              {row.original.lastname} {row.original.firstname}
+              {!isAssigned && (
+                <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
+                  No asignado
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
       filterFn: (row, id, value) => {
         const fullName = `${row.original.lastname} ${row.original.firstname}`.toLowerCase();
         // Handle array of values for filtering

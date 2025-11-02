@@ -53,8 +53,6 @@ export async function registerUserWithRole(values: any, company: string) {
       // 3. Si no existe el perfil, invitar nuevo usuario usando Supabase Auth
       const fullname = values.firstname && values.lastname ? `${values.firstname} ${values.lastname}`.trim() : '';
 
-      console.log('🔍 [INVITE] Iniciando invitación:', { email: values.email, company, role: values.role });
-
       // Invitar usuario usando el método nativo de Supabase
       const { data: authData, error: authError } = await adminSupabase.auth.admin.inviteUserByEmail(values.email, {
         redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
@@ -78,8 +76,6 @@ export async function registerUserWithRole(values: any, company: string) {
         throw new Error('No se pudo obtener el ID del usuario');
       }
 
-      console.log('✅ [INVITE] Usuario invitado exitosamente:', { userId });
-
       // Crear perfil
       const { error: profileCreateError } = await adminSupabase.from('profile').insert([
         {
@@ -95,11 +91,9 @@ export async function registerUserWithRole(values: any, company: string) {
         console.error('❌ [INVITE] Error creando perfil:', profileCreateError);
         // ROLLBACK: Eliminar usuario si falla la creación del perfil
         await adminSupabase.auth.admin.deleteUser(userId);
-        console.log('🔄 [INVITE] Rollback ejecutado: usuario eliminado');
+
         throw new Error(`Error al crear perfil: ${profileCreateError.message}`);
       }
-
-      console.log('✅ [INVITE] Perfil creado exitosamente');
 
       // Compartir empresa
       const { error: shareError } = await adminSupabase.from('share_company_users').insert([
@@ -116,11 +110,9 @@ export async function registerUserWithRole(values: any, company: string) {
         // ROLLBACK: Eliminar usuario y perfil si falla la asignación de empresa
         await adminSupabase.from('profile').delete().eq('id', userId);
         await adminSupabase.auth.admin.deleteUser(userId);
-        console.log('🔄 [INVITE] Rollback ejecutado: usuario y perfil eliminados');
+
         throw new Error(`Error al compartir empresa: ${shareError.message}`);
       }
-
-      console.log('✅ [INVITE] Empresa compartida exitosamente');
     }
 
     return {

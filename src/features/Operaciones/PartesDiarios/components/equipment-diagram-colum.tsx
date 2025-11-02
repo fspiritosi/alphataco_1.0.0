@@ -6,6 +6,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
@@ -50,7 +51,8 @@ export function getEquipmentDiagramColumns(
       reasigment_reason?: string | undefined;
     },
     'equipment'
-  >
+  >,
+  selectedCustomerId?: string | null
 ): ColumnDef<Colum>[] {
   return [
     {
@@ -86,7 +88,22 @@ export function getEquipmentDiagramColumns(
       id: 'domain',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
       cell: ({ row }) => {
-        return <div>{row.original.domain}</div>;
+        // Verificar si el equipo está asignado al cliente seleccionado
+        const isAssigned = selectedCustomerId
+          ? row.original.contractor_equipment?.some((ce) => ce.customers?.id === selectedCustomerId)
+          : true;
+
+        return (
+          <div className={cn('flex items-center gap-2', !isAssigned && 'text-orange-700')}>
+            <RiToolsFill className={cn('h-4 w-4', isAssigned ? 'text-muted-foreground' : 'text-orange-500')} />
+            <span>{row.original.domain}</span>
+            {!isAssigned && (
+              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
+                No asignado
+              </Badge>
+            )}
+          </div>
+        );
       },
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));

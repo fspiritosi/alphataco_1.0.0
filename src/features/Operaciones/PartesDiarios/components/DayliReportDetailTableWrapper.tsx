@@ -21,6 +21,7 @@ export async function DayliReportDetailTableWrapper({
   const employees = getActiveEmployeesForDailyReport();
   const equipments = getActiveEquipmentsForDailyReport();
   const dailyReport = await getDailyReportById(params.uuid);
+
   return (
     <DayliReportDetailTable
       dailyReport={dailyReport}

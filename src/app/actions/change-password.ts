@@ -30,8 +30,6 @@ export async function changePassword(newPassword: string) {
       console.error('❌ [CHANGE_PASSWORD] Error actualizando metadata:', metadataError);
     }
 
-    console.log('✅ [CHANGE_PASSWORD] Contraseña actualizada exitosamente');
-
     return {
       success: true,
       message: 'Contraseña actualizada exitosamente',
