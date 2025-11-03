@@ -1,9 +1,11 @@
 import { profileUser } from '@/types/types';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useEdgeFunctions } from './useEdgeFunctions';
 
 export const useProfileData = () => {
   const { errorTranslate } = useEdgeFunctions();
+  const supabase = supabaseBrowser();
   return {
     insertProfile: async (credentials: profileUser) => {
       const { firstname, lastname, ...rest } = credentials;
@@ -12,7 +14,7 @@ export const useProfileData = () => {
         .insert({
           ...rest,
           fullname: `${lastname} ${firstname}`,
-        })
+        } as any)
         .select();
 
       if (error) {
@@ -22,7 +24,7 @@ export const useProfileData = () => {
       return data;
     },
     filterByEmail: async (email: string | null) => {
-      const { data, error } = await supabase.from('profile').select('*').eq('email', email);
+      const { data, error } = await supabase.from('profile').select('*').eq('email', email!);
 
       if (error) {
         const message = await errorTranslate(error.message);

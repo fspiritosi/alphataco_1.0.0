@@ -1,11 +1,14 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { handleSupabaseError } from '@/lib/errorHandler';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { DownloadIcon } from '@radix-ui/react-icons';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
-import { supabase } from '../../../../../supabase/supabase';
+// import { supabase } from '../../../../../supabase/supabase';
 function DownloadButton({ path, fileName }: { path: string; fileName: string }) {
+  const supabase = supabaseBrowser();
+
   const handleDownload = async (path: string, fileName: string) => {
     toast.promise(
       async () => {

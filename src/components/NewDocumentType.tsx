@@ -36,7 +36,8 @@ import { PlusCircle, Truck, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
@@ -257,7 +258,7 @@ export default function NewDocumentType({
   // const vehicleMockValues: any = [];
   // const employees: any = [];
   // const vehicles: any = [];
-
+  const supabase = supabaseBrowser();
   const [special, setSpecial] = useState(false);
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
@@ -481,7 +482,10 @@ export default function NewDocumentType({
 
     toast.promise(
       async () => {
-        const { data, error } = await supabase.from('document_types').insert(formattedValues).select();
+        const { data, error } = await supabase
+          .from('document_types')
+          .insert(formattedValues as any)
+          .select();
 
         if (error) {
           console.error(error);

@@ -40,6 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
 import { handleSupabaseError } from '@/lib/errorHandler';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DotsVerticalIcon } from '@radix-ui/react-icons';
@@ -51,7 +52,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../supabase/supabase';
+// import { supabase } from '../../../../supabase/supabase';
 
 const formSchema = z.object({
   reason_for_termination: z.string({
@@ -93,6 +94,8 @@ export const columns: ColumnDef<Colum>[] = [
       const [showInactive, setShowInactive] = useState<boolean>(false);
       const [showDeletedEquipment, setShowDeletedEquipment] = useState(false);
       const equipment = row.original;
+      const supabase = supabaseBrowser();
+
       const document = row.original;
       const handleDownload = async (path: string, fileName: string, resourceName: string) => {
         toast.promise(
@@ -207,7 +210,7 @@ export const columns: ColumnDef<Colum>[] = [
             .eq('documents_equipment_id', document.id);
 
           if (data) {
-            setDocumentHistory(data);
+            setDocumentHistory(data as any);
           }
         } catch (error: any) {
           const message = await errorTranslate(error?.message);

@@ -23,8 +23,9 @@ import {
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ZodError, z } from 'zod';
-import { supabase } from '../../supabase/supabase';
-import { generic } from './VehiclesForm';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import React from 'react';
 
 const schema = z
   .string()
@@ -57,6 +58,7 @@ export default function AddModelModal({
       return;
     }
     const brand_id = brandOptions?.find((brandOption) => brandOption.name === brand)?.id;
+    const supabase = supabaseBrowser();
 
     const { data, error } = await supabase
       .from('model_vehicles')

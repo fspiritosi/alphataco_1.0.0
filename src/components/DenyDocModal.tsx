@@ -9,7 +9,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { Textarea } from './ui/textarea';
 
 type EmailInfo = {
@@ -48,6 +49,7 @@ export default function DenyDocModal({
   });
   const router = useRouter();
 
+  const supabase = supabaseBrowser();
   async function onSubmit(menssaje: z.infer<typeof FormSchema>) {
     if (resource === 'employee') {
       const { data, error } = await supabase

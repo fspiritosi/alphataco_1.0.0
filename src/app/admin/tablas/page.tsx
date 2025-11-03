@@ -1,8 +1,9 @@
-import { supabase } from '../../../../supabase/supabase';
+import { supabaseServer } from '@/lib/supabase/server';
 import CardTable from '../components/tableCard';
 
 export default async function TablasPage() {
-  let { data: diagrams, error } = await supabase.from('work-diagram').select('*');
+  const supabase = supabaseServer();
+  let { data: diagrams, error } = await supabase.from('work_diagram').select('*');
 
   let { data: industry_type } = await supabase.from('industry_type').select('*');
 

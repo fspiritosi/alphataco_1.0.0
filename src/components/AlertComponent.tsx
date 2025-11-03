@@ -8,11 +8,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { Company } from '@/zodSchemas/schemas';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
 
 export const AlertComponent = () => {
   const showAlert = useLoggedUserStore((state) => state.showNoCompanyAlert);
@@ -22,6 +23,7 @@ export const AlertComponent = () => {
   const allCompanies = useLoggedUserStore((state) => state.allCompanies);
   const router = useRouter();
   router.prefetch('/dashboard/company/new');
+  const supabase = supabaseBrowser();
 
   const handleAlertClose = async (company: Company[0]) => {
     await supabase.from('company').update({ by_defect: true }).eq('id', company.id);

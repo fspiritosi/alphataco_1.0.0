@@ -9,12 +9,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { supabaseServer } from '@/lib/supabase/server';
 import { format } from 'date-fns';
 import { MoreHorizontal } from 'lucide-react';
-import { supabase } from '../../../../supabase/supabase';
 import { CreateDialog } from './createDialog';
 
 export default async function DiagramTable() {
+  const supabase = supabaseServer();
   let { data: diagrams, error } = await supabase.from('work_diagram').select('*');
 
   return (
@@ -47,7 +48,7 @@ export default async function DiagramTable() {
                 <TableCell className="hidden sm:table-cell">{index + 1}</TableCell>
                 <TableCell className="font-medium">{diagramType.name}</TableCell>
                 <TableCell>
-                  {diagramType.isActive ? (
+                  {diagramType.is_active ? (
                     <Badge variant="outline">Activo</Badge>
                   ) : (
                     <Badge variant="default">Inactivo</Badge>

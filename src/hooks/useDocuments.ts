@@ -1,14 +1,15 @@
 'use client';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { Documents, DocumentsTable } from '@/types/types';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useEdgeFunctions } from './useEdgeFunctions';
 require('dotenv').config();
 export const useDocument = () => {
   const { errorTranslate } = useEdgeFunctions();
   const { actualCompany } = useLoggedUserStore();
   const url = process.env.NEXT_PUBLIC_PROJECT_URL;
-
+  const supabase = supabaseBrowser();
   return {
     insertDocumentEmployees: async (documents: any) => {
       const { data, error } = await supabase.from('documents_employees').insert(documents).select();
@@ -79,7 +80,11 @@ export const useDocument = () => {
     },
 
     updateDocumentEquipment: async (id: string, documents: Documents) => {
-      const { data, error } = await supabase.from('documents_equipment').update(documents).eq('id', id).select();
+      const { data, error } = await supabase
+        .from('documents_equipment')
+        .update(documents as any)
+        .eq('id', id)
+        .select();
 
       if (error) {
         const message = await errorTranslate(error.message);
@@ -89,7 +94,10 @@ export const useDocument = () => {
     },
 
     updateDocumentEmployees: async (id: string, documents: Documents) => {
-      const { data, error } = await supabase.from('documents_employees').update(documents).eq('id', id);
+      const { data, error } = await supabase
+        .from('documents_employees')
+        .update(documents as any)
+        .eq('id', id);
       if (error) {
         const message = await errorTranslate(error.message);
         throw new Error(String(message).replaceAll('"', ''));
@@ -152,7 +160,7 @@ export const useDocument = () => {
             .not('document_types', 'is', null)
             .eq('vehicles.company_id', actualCompany?.id);
 
-          const transformedData = documents?.map((item) => ({
+          const transformedData = documents?.map((item: any) => ({
             ...item,
             id_document_types: item.document_types.name,
             applies: item.vehicles.intern_number,

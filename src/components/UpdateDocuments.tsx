@@ -16,7 +16,8 @@ import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { Calendar } from './ui/calendar';
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
@@ -35,6 +36,7 @@ export default function UpdateDocuments({
   expires: boolean;
   montly: boolean;
 }) {
+  const supabase = supabaseBrowser();
   const [isOpen, setIsOpen] = useState(false);
   const FormSchema = z.object({
     new_document: z.string({ required_error: 'El documento es requerido' }),
@@ -123,7 +125,7 @@ export default function UpdateDocuments({
             .update({
               document_path: data?.path,
               period: filename.period,
-              created_at: new Date(),
+              created_at: new Date() as any,
               state: 'presentado',
             })
             .eq('document_path', documentName);
@@ -176,7 +178,7 @@ export default function UpdateDocuments({
           .update({
             document_path: finalDocument?.path,
             validity: filename.validity ? new Date(filename.validity).toISOString() : null,
-            created_at: new Date(),
+            created_at: new Date() as any,
             state: 'presentado',
           })
           .eq('id', id);

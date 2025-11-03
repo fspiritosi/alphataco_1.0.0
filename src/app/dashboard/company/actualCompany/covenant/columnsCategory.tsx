@@ -45,20 +45,18 @@ import { DotsVerticalIcon } from '@radix-ui/react-icons';
 import { ColumnDef } from '@tanstack/react-table';
 import { addMonths, format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowUpDown, CalendarIcon } from 'lucide-react';
-import Link from 'next/link';
-import { Fragment, useEffect, useState } from 'react';
+import { CalendarIcon } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../../../supabase/supabase';
+// import { supabase } from '../../../../../../supabase/supabase';
 
 const editCategorySchema = z.object({
   category: z.string().nonempty('El nombre de la categoría es requerido.'),
-}); 
+});
 
 const formSchema = z.object({
-  
   termination_date: z.date({
     required_error: 'La fecha de baja es requerida.',
   }),
@@ -66,8 +64,8 @@ const formSchema = z.object({
 
 type Colum = {
   name: string;
-  created_at:Date;
-  is_active:boolean;
+  created_at: Date;
+  is_active: boolean;
 };
 
 export const columnsCategory: ColumnDef<Colum>[] = [
@@ -100,7 +98,6 @@ export const columnsCategory: ColumnDef<Colum>[] = [
       };
       const actualCompany = useLoggedUserStore((state) => state.actualCompany);
 
-      
       const handleOpenIntegerModal = (id: string) => {
         setId(id);
         setIntegerModal(!integerModal);
@@ -111,13 +108,13 @@ export const columnsCategory: ColumnDef<Colum>[] = [
       const formEditCategory = useForm<z.infer<typeof editCategorySchema>>({
         resolver: zodResolver(editCategorySchema),
         defaultValues: {
-          category: '', 
+          category: '',
         },
       });
       const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-        //   reason_for_termination: undefined,
+          //   reason_for_termination: undefined,
         },
       });
 
@@ -130,14 +127,13 @@ export const columnsCategory: ColumnDef<Colum>[] = [
               .from('category')
               .update({
                 is_active: true,
-                
               })
               .eq('id', category.id)
               //.eq('company_id', actualCompany?.id)
               .select();
 
             setIntegerModal(!integerModal);
-            
+
             if (error) {
               throw new Error(handleSupabaseError(error.message));
             }
@@ -165,10 +161,8 @@ export const columnsCategory: ColumnDef<Colum>[] = [
               .from('category')
               .update({
                 is_active: false,
-                
               })
-              .eq('id', category.id)
-              
+              .eq('id', category.id);
 
             setShowModal(!showModal);
             if (error) {
@@ -193,10 +187,10 @@ export const columnsCategory: ColumnDef<Colum>[] = [
             const { data, error } = await supabase
               .from('category')
               .update({
-                name: values.category, 
+                name: values.category,
               })
               .eq('id', category.id)
-              
+
               .select();
 
             setShowCategoryModal(!showCategoryModal);
@@ -251,7 +245,6 @@ export const columnsCategory: ColumnDef<Colum>[] = [
                   <div className="w-full">
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                        
                         <FormField
                           control={form.control}
                           name="termination_date"
@@ -280,7 +273,6 @@ export const columnsCategory: ColumnDef<Colum>[] = [
                                   </FormControl>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
-                                  
                                   <Select
                                     onValueChange={(e) => {
                                       setMonth(new Date(e));
@@ -360,15 +352,15 @@ export const columnsCategory: ColumnDef<Colum>[] = [
                             <FormItem>
                               <FormLabel>Nombre</FormLabel>
                               <FormControl>
-                              <Input
-                              placeholder="Nombre de la categoría"
-                              {...field}
-                              value={categoryName}
-                              onChange={(e) => {
-                                setCategoryName(e.target.value);
-                                field.onChange(e);
-                              }}
-                            />
+                                <Input
+                                  placeholder="Nombre de la categoría"
+                                  {...field}
+                                  value={categoryName}
+                                  onChange={(e) => {
+                                    setCategoryName(e.target.value);
+                                    field.onChange(e);
+                                  }}
+                                />
                               </FormControl>
                               <FormDescription>Nombre de la categoría</FormDescription>
                               <FormMessage />
@@ -400,11 +392,13 @@ export const columnsCategory: ColumnDef<Colum>[] = [
             <DropdownMenuItem>
               {role !== 'Invitado' && (
                 <Fragment>
-
-                  <Button variant="destructive" onClick={() => handleOpenCategoryModal(category?.id)} className="text-sm">
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleOpenCategoryModal(category?.id)}
+                    className="text-sm"
+                  >
                     Editar Categoría
                   </Button>
-
                 </Fragment>
               )}
             </DropdownMenuItem>
@@ -428,7 +422,7 @@ export const columnsCategory: ColumnDef<Colum>[] = [
       );
     },
   },
-  
+
   {
     accessorKey: 'name',
     header: 'Categoría',
@@ -443,7 +437,7 @@ export const columnsCategory: ColumnDef<Colum>[] = [
     accessorKey: 'covenant_id',
     header: 'convenio',
   },
-  
+
   {
     accessorKey: 'showUnavaliableCovenant',
     header: 'Ver convenios dados de baja',

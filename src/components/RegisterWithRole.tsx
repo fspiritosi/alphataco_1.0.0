@@ -21,13 +21,15 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Toggle } from './ui/toggle';
 export const RegisterWithRole = () => {
   // const cookiesStore = cookies();
+  const supabase = supabaseBrowser();
   const company = cookies.get('actualComp');
   const [showPasswords, setShowPasswords] = useState(false);
   const [open, setOpen] = useState(false);
@@ -123,7 +125,7 @@ export const RegisterWithRole = () => {
         .from('customers')
         .select('*')
         .eq('is_active', true)
-        .eq('company_id', company);
+        .eq('company_id', company!);
       if (error) {
         console.error('Error fetching customers:', error);
       } else {

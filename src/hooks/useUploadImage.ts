@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useEdgeFunctions } from './useEdgeFunctions';
 require('dotenv').config();
 
@@ -8,7 +9,7 @@ export const useImageUpload = () => {
   const [loading, setLoading] = useState(false);
   const { errorTranslate } = useEdgeFunctions();
   const url = process.env.NEXT_PUBLIC_PROJECT_URL;
-
+  const supabase = supabaseBrowser();
   const uploadImage = async (file: File, imageBucket: string): Promise<string> => {
     try {
       setLoading(true);

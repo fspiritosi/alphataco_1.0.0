@@ -19,7 +19,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Toaster, toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
 // import { columns } from '../app/dashboard/company/customers/action/columnsCustomers';
 import { EmployeesListColumns } from '@/app/dashboard/employee/columns';
 import { EmployeesTable } from '@/app/dashboard/employee/data-table';
@@ -28,6 +28,7 @@ import { EquipmentColums as columns1 } from '../app/dashboard/equipment/columns'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { setEmployeesToShow } from '@/lib/utils/utils';
 import { VisibilityState } from '@tanstack/react-table';
 import cookie from 'js-cookie';
@@ -92,6 +93,7 @@ export default function ClientRegister({
   };
 
   const filteredItems = items?.filter((item: any) => item.customer_service_id?.id === selectedService?.id);
+  const supabase = supabaseBrowser();
 
   const fetchUser = async () => {
     const {
@@ -160,7 +162,7 @@ export default function ClientRegister({
 
     const id = searchParams.get('id');
     const fetchCustomerData = async () => {
-      const { data, error } = await supabase.from('customers').select('*').eq('id', id).single();
+      const { data, error } = await supabase.from('customers').select('*').eq('id', id!).single();
 
       if (error) {
         console.error('Error fetching customer data:', error);
@@ -168,9 +170,9 @@ export default function ClientRegister({
         setClientData(data);
         setValue('company_name', data?.name);
         setValue('client_cuit', data?.cuit.toString());
-        setValue('client_email', data?.client_email);
-        setValue('client_phone', data?.client_phone.toString());
-        setValue('address', data?.address);
+        setValue('client_email', data?.client_email!);
+        setValue('client_phone', data?.client_phone!?.toString());
+        setValue('address', data?.address!);
       }
     };
 

@@ -1,14 +1,16 @@
 import { cookies } from 'next/headers';
-import { supabase } from '../../supabase/supabase';
+import { supabaseServer } from './supabase/server';
+// import { supabase } from '../../supabase/supabase';
 
 export async function getCompany() {
+  const supabase = supabaseServer();
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const { data } = await supabase.from('profile').select('*').eq('email', session?.user.email);
+  const { data } = await supabase.from('profile').select('*').eq('email', session?.user.email!);
 
-  const { data: Companies, error } = await supabase.from('company').select(`*`).eq('owner_id', data?.[0]?.id);
+  const { data: Companies, error } = await supabase.from('company').select(`*`).eq('owner_id', data?.[0]?.id!);
 
   const companiesId = Companies?.filter((company) => company.by_defect === true)[0]?.id;
 
@@ -16,6 +18,7 @@ export async function getCompany() {
 }
 
 export async function getDocumentsEmployees() {
+  const supabase = supabaseServer();
   const actualCompany = cookies().get('actualCompanyId')?.value;
   let { data, error } = await supabase
     .from('documents_employees')
@@ -30,12 +33,13 @@ export async function getDocumentsEmployees() {
 `
     )
     .not('employees', 'is', null)
-    .eq('employees.company_id', actualCompany);
+    .eq('employees.company_id', actualCompany!);
 
   return data;
 }
 
 export async function getDocumentsEquipment() {
+  const supabase = supabaseServer();
   const actualCompany = cookies().get('actualCompanyId')?.value;
   let { data, error } = await supabase
     .from('documents_equipment')
@@ -45,7 +49,7 @@ export async function getDocumentsEquipment() {
     applies(*,type(*),type_of_vehicle(*),model(*),brand(*))
     `
     )
-    .eq('applies.company_id', actualCompany)
+    .eq('applies.company_id', actualCompany!)
     .not('applies', 'is', null);
 
   return data;
@@ -54,6 +58,7 @@ export async function getDocumentsEquipment() {
 export async function getEmployees() {
   const fisrtId = cookies().get('actualCompanyId')?.value;
   const secobndId = await getCompany();
+  const supabase = supabaseServer();
 
   const actualCompany = cookies().get('actualCompanyId')?.value;
   let { data, error } = await supabase
@@ -80,7 +85,7 @@ export async function getEmployees() {
         )
       )`
     )
-    .eq('company_id', actualCompany)
+    .eq('company_id', actualCompany!)
     .eq('is_active', true);
 
   return data;

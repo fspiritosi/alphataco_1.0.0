@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { handleSupabaseError } from '@/lib/errorHandler';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { SharedUser } from '@/zodSchemas/schemas';
@@ -25,7 +26,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../../../../../../supabase/supabase';
 
 export const columns: ColumnDef<SharedUser>[] = [
   {
@@ -81,6 +81,7 @@ export const columns: ColumnDef<SharedUser>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Rol" />,
     cell: ({ row }) => {
       const [roles, setRoles] = useState<any[] | null>([]);
+      const supabase = supabaseBrowser();
 
       const getRoles = async () => {
         let { data: roles, error } = await supabase
@@ -173,6 +174,8 @@ export const columns: ColumnDef<SharedUser>[] = [
     cell: ({ row }) => {
       const router = useRouter();
       const handleDelete = async () => {
+        const supabase = supabaseBrowser();
+
         toast.promise(
           async () => {
             const { data, error } = await supabase

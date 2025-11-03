@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { CaretSortIcon } from '@radix-ui/react-icons';
 import { CheckIcon } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type React from 'react';
+// import type React from 'react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Button } from './ui/button';
@@ -22,7 +22,9 @@ import { fetchCurrentCompany } from '@/shared/actions/company.actions';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import moment from 'moment';
 import { toast } from 'sonner';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import React from 'react';
 import { AlertDialogCancel } from './ui/alert-dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 
@@ -39,6 +41,7 @@ export default function SimpleDocument({
   document?: string;
   numberDocument?: string;
 }) {
+  const supabase = supabaseBrowser();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const router = useRouter();
@@ -234,7 +237,7 @@ export default function SimpleDocument({
 
           const { error, data: userupdated } = await supabase
             .from(tableName)
-            .update(data)
+            .update(data as any)
             .eq('applies', typeof idApplies === 'object' ? idApplies?.id : idApplies || updateEntry.applies)
             .eq('id_document_types', updateEntry.id_document_types);
 
@@ -255,7 +258,7 @@ export default function SimpleDocument({
             id_document_types: updateEntry.id_document_types,
             user_id: user,
             period: updateEntry.period || null,
-          });
+          } as any);
 
           if (error) {
             setLoading(false);

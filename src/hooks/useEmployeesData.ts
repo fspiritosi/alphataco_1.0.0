@@ -1,17 +1,18 @@
 import { Employee } from '@/types/types';
 import Cookies from 'js-cookie';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useEdgeFunctions } from './useEdgeFunctions';
 
 export const useEmployeesData = () => {
   const { errorTranslate } = useEdgeFunctions();
   const company_id = Cookies.get('actualComp');
-
+  const supabase = supabaseBrowser();
   return {
     createEmployee: async (employee: Employee) => {
       const { data, error } = await supabase
         .from('employees')
-        .insert({ ...employee, company_id: company_id, allocated_to: employee.allocated_to ?? [] })
+        .insert({ ...employee, company_id: company_id, allocated_to: employee.allocated_to ?? [] } as any)
         .select();
 
       if (error) {
@@ -26,7 +27,7 @@ export const useEmployeesData = () => {
           return { contractor_id: item, employee_id: id };
         });
 
-        await supabase.from('contractor_employee').delete().eq('employee_id', id);
+        await supabase.from('contractor_employee').delete().eq('employee_id', id!);
 
         const { data, error } = await supabase.from('contractor_employee').insert(allocated_to).select();
       }
@@ -38,7 +39,7 @@ export const useEmployeesData = () => {
           covenants_id: employee.covenants_id ? employee.covenants_id : null,
           category_id: employee.category_id ? employee.category_id : null,
           guild_id: employee.guild_id ? employee.guild_id : null,
-        })
+        } as any)
         .eq('document_number', employee.document_number)
         .select();
 

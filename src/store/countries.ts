@@ -1,7 +1,8 @@
 import { Equipo } from '@/zodSchemas/schemas';
 import cookies from 'js-cookie';
 import { create } from 'zustand';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { MandatoryDocuments } from './../zodSchemas/schemas';
 import { useLoggedUserStore } from './loggedUser';
 
@@ -33,6 +34,7 @@ interface State {
 }
 
 export const useCountriesStore = create<State>((set, get) => {
+  const supabase = supabaseBrowser();
   const fetchCountrys = async () => {
     const { data: fetchCountries, error } = await supabase
       .from('countries')
@@ -41,7 +43,7 @@ export const useCountriesStore = create<State>((set, get) => {
     if (error) {
       console.error('Error al obtener los países:', error);
     } else {
-      set({ countries: fetchCountries || [] });
+      set({ countries: (fetchCountries as any) || [] });
     }
   };
   const fetchProvinces = async () => {
@@ -75,7 +77,7 @@ export const useCountriesStore = create<State>((set, get) => {
     if (error) {
       console.error('Error al obtener la jerarquia:', error);
     } else {
-      set({ hierarchy: hierarchy || [] });
+      set({ hierarchy: (hierarchy as any) || [] });
     }
   };
   const fetchworkDiagram = async () => {
@@ -87,7 +89,7 @@ export const useCountriesStore = create<State>((set, get) => {
     if (error) {
       console.error('Error al obtener el diagrama de trabajo:', error);
     } else {
-      set({ workDiagram: workDiagram || [] });
+      set({ workDiagram: (workDiagram as any) || [] });
     }
   };
   const fetchContractors = async () => {
@@ -96,7 +98,7 @@ export const useCountriesStore = create<State>((set, get) => {
     if (error) {
       console.error('Error al obtener los contratistas:', error);
     } else {
-      set({ customers: customers || [] });
+      set({ customers: (customers as any) || [] });
     }
   };
 
@@ -110,7 +112,7 @@ export const useCountriesStore = create<State>((set, get) => {
     if (error) {
       console.error('Error fetching customers:', error);
     } else {
-      set({ contacts: contacts || [] });
+      set({ contacts: (contacts as any) || [] });
     }
   };
 
@@ -132,7 +134,7 @@ export const useCountriesStore = create<State>((set, get) => {
         return acc;
       }, {}) as MandatoryDocuments;
 
-    set({ companyDocumentTypes: document_types as Equipo });
+    set({ companyDocumentTypes: document_types as any });
     set({ mandatoryDocuments: groupedData });
   };
 

@@ -21,8 +21,9 @@ import { ColumnDef } from '@tanstack/react-table';
 import { formatRelative } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { supabase } from '../../../../../../supabase/supabase';
+// import { supabase } from '../../../../../../supabase/supabase';
 
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useRouter } from 'next/navigation';
 
@@ -161,6 +162,7 @@ export const columnsGuests: ColumnDef<SharedUser>[] = [
     id: 'actions',
     cell: ({ row }) => {
       const router = useRouter();
+      const supabase = supabaseBrowser();
 
       const handleDelete = async () => {
         toast.promise(
