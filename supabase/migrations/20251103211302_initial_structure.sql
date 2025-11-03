@@ -1,18 +1,27 @@
+create extension if not exists "moddatetime" with schema "extensions";
+
+
 create type "public"."affiliate_status_enum" as enum ('Dentro de convenio', 'Fuera de convenio');
 
-create type "public"."condition_enum" as enum ('operativo', 'no operativo', 'en reparación', 'operativo condicionado');
+create type "public"."condition_enum" as enum ('operativo', 'no operativo', 'en reparacion', 'operativo condicionado');
+
+create type "public"."contract_type_enum" as enum ('Leasing', 'Alquiler');
+
+create type "public"."contract_type_vehicles_enum" as enum ('Leasing', 'Alquiler', 'Propio');
 
 create type "public"."daily_report_header_status_new" as enum ('abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto');
 
-create type "public"."daily_report_status" as enum ('pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..');
+create type "public"."daily_report_status" as enum ('pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', '.', '..', 'en_certificacion');
 
-create type "public"."daily_report_type_enum" as enum ('mensual', 'adicional');
+create type "public"."daily_report_type_enum" as enum ('mensual', 'adicional', 'adicional_permanente');
 
 create type "public"."document_applies" as enum ('Persona', 'Equipos', 'Empresa');
 
 create type "public"."document_type_enum" as enum ('DNI', 'LE', 'LC', 'PASAPORTE');
 
 create type "public"."gender_enum" as enum ('Masculino', 'Femenino', 'No Declarado');
+
+create type "public"."indicator_function" as enum ('get_vehicle_usage_indicator', 'get_employee_usage_indicator', 'get_employee_diagram_count_by_day', 'get_company_counts_indicator', 'hr_get_absenteeism_summary', 'hr_get_absenteeism_trend', 'hr_get_current_absent_employees', 'hr_get_daily_absence_timeseries', 'hr_get_department_absence_reasons', 'hr_get_department_absence_summary');
 
 create type "public"."level_of_education_enum" as enum ('Primario', 'Secundario', 'Terciario', 'Universitario', 'PosGrado');
 
@@ -24,6 +33,8 @@ create type "public"."nationality_enum" as enum ('Argentina', 'Extranjero');
 
 create type "public"."notification_categories" as enum ('vencimiento', 'noticia', 'advertencia', 'aprobado', 'rechazado');
 
+create type "public"."preparte_status" as enum ('pendiente', 'cancelado', 'reprogramado', 'rechazado', 'vencido', 'confirmado');
+
 create type "public"."reason_for_termination_enum" as enum ('Despido sin causa', 'Renuncia', 'Despido con causa', 'Acuerdo de partes', 'Fin de contrato', 'Fallecimiento');
 
 create type "public"."repair_state" as enum ('Pendiente', 'Esperando repuestos', 'En reparación', 'Finalizado', 'Rechazado', 'Cancelado', 'Programado');
@@ -34,11 +45,13 @@ create type "public"."state" as enum ('presentado', 'rechazado', 'aprobado', 've
 
 create type "public"."status_type" as enum ('Avalado', 'No avalado', 'Incompleto', 'Completo', 'Completo con doc vencida');
 
+create type "public"."termination_reason_enum" as enum ('venta', 'destrucción total', 'devolución', 'otro');
+
 create type "public"."type_equipment" as enum ('Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing');
 
 create type "public"."type_of_contract_enum" as enum ('Período de prueba', 'A tiempo indeterminado', 'Plazo fijo');
 
-create type "public"."type_of_maintenance_ENUM" as enum ('Correctivo', 'Preventivo');
+create type "public"."type_of_maintenance_ENUM" as enum ('Correctivo', 'Preventivo', 'Otro');
 
 create sequence "public"."documents_employees_logs_id_seq";
 
@@ -262,6 +275,8 @@ create table "public"."custom_form" (
 );
 
 
+alter table "public"."custom_form" enable row level security;
+
 create table "public"."customer_services" (
     "id" uuid not null default gen_random_uuid(),
     "created_at" timestamp with time zone not null default now(),
@@ -293,6 +308,18 @@ create table "public"."customers" (
 
 
 alter table "public"."customers" enable row level security;
+
+create table "public"."daily_indicators" (
+    "id" uuid not null default gen_random_uuid(),
+    "company_id" uuid not null,
+    "snapshot_date" date not null,
+    "metrics" jsonb not null default '{}'::jsonb,
+    "source" indicator_function not null,
+    "created_at" timestamp with time zone not null default now()
+);
+
+
+alter table "public"."daily_indicators" enable row level security;
 
 create table "public"."dailyreport" (
     "id" uuid not null default gen_random_uuid(),
@@ -355,7 +382,10 @@ create table "public"."dailyreportrows" (
     "areas_service_id" uuid,
     "remit_number" text,
     "cancel_reason" text,
-    "type_service" daily_report_type_enum
+    "type_service" daily_report_type_enum,
+    "completed_day" boolean,
+    "completed_night" boolean,
+    "preparte_id" uuid
 );
 
 
@@ -371,7 +401,8 @@ create table "public"."dailyreportrows_history" (
     "changed_fields" jsonb,
     "changed_by" uuid,
     "created_at" timestamp with time zone not null default now(),
-    "metadata" jsonb
+    "metadata" jsonb,
+    "reassignment_reason" text
 );
 
 
@@ -526,11 +557,11 @@ alter table "public"."empleado_aptitudes" enable row level security;
 create table "public"."employees" (
     "created_at" timestamp with time zone not null default now(),
     "picture" text,
-    "nationality" nationality_enum not null,
+    "nationality" nationality_enum,
     "lastname" text not null,
     "firstname" text not null,
     "cuil" text not null,
-    "document_type" document_type_enum not null,
+    "document_type" document_type_enum,
     "document_number" text not null,
     "birthplace" uuid not null,
     "gender" gender_enum,
@@ -549,7 +580,6 @@ create table "public"."employees" (
     "city" bigint,
     "hierarchical_position" uuid,
     "workflow_diagram" uuid,
-    "type_of_contract" text,
     "id" uuid not null default gen_random_uuid(),
     "allocated_to" uuid[],
     "company_id" uuid,
@@ -561,8 +591,9 @@ create table "public"."employees" (
     "covenants_id" uuid,
     "guild_id" uuid,
     "cost_center_id" uuid,
-    "born_date" date,
-    "company_position" uuid
+    "born_date" text,
+    "company_position" uuid,
+    "type_of_contract" uuid
 );
 
 
@@ -575,11 +606,23 @@ create table "public"."employees_diagram" (
     "diagram_type" uuid not null default gen_random_uuid(),
     "day" numeric not null,
     "month" numeric not null,
-    "year" numeric not null
+    "year" numeric not null,
+    "is_active" boolean
 );
 
 
 alter table "public"."employees_diagram" enable row level security;
+
+create table "public"."equipment_owners" (
+    "id" uuid not null default uuid_generate_v4(),
+    "name" text not null,
+    "cuit" text not null,
+    "contract_type" contract_type_enum not null,
+    "created_at" timestamp with time zone default now(),
+    "company_id" uuid,
+    "is_active" boolean default true
+);
+
 
 create table "public"."equipos_clientes" (
     "id" uuid not null default gen_random_uuid(),
@@ -654,6 +697,25 @@ create table "public"."industry_type" (
 
 alter table "public"."industry_type" enable row level security;
 
+create table "public"."maintenance_group_type_of_repairs" (
+    "id" uuid not null default gen_random_uuid(),
+    "type_id" uuid not null,
+    "created_at" timestamp with time zone not null default now(),
+    "group_id" uuid
+);
+
+
+create table "public"."maintenance_request_groups" (
+    "id" uuid not null default gen_random_uuid(),
+    "name" text not null,
+    "description" text,
+    "is_active" boolean not null default true,
+    "created_at" timestamp with time zone not null default now()
+);
+
+
+alter table "public"."maintenance_request_groups" enable row level security;
+
 create table "public"."measure_units" (
     "id" integer not null default nextval('measure_units_id_seq'::regclass),
     "unit" character varying(50) not null,
@@ -700,6 +762,48 @@ create table "public"."notifications" (
 
 alter table "public"."notifications" enable row level security;
 
+create table "public"."password_reset_tokens" (
+    "id" uuid not null default gen_random_uuid(),
+    "profile_id" uuid,
+    "token" text not null,
+    "expires" timestamp with time zone not null,
+    "used" boolean default false,
+    "created_at" timestamp with time zone default now()
+);
+
+
+create table "public"."preparte" (
+    "id" uuid not null default gen_random_uuid(),
+    "cliente_id" uuid not null,
+    "contrato_id" uuid not null,
+    "tipo" text not null,
+    "jornada" text not null,
+    "start_time" text,
+    "end_time" text,
+    "solicitante" text not null,
+    "item" uuid,
+    "observaciones" text,
+    "executionDate" timestamp with time zone not null,
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone default now(),
+    "quantity" numeric,
+    "requestDate" timestamp with time zone,
+    "cancel_reason" text,
+    "numero_pedido" text,
+    "rejected_reason" text,
+    "reprogram" uuid,
+    "reprogram_reason" text,
+    "company_id" uuid,
+    "sector_service_id" uuid,
+    "areas_service_id" uuid,
+    "equipos_cliente" uuid,
+    "status" preparte_status,
+    "preparteImage" text
+);
+
+
+alter table "public"."preparte" enable row level security;
+
 create table "public"."profile" (
     "id" uuid not null,
     "created_at" timestamp with time zone default now(),
@@ -738,7 +842,8 @@ create table "public"."repair_solicitudes" (
     "user_images" text[],
     "employee_id" uuid,
     "kilometer" text,
-    "scheduled" timestamp with time zone
+    "scheduled" timestamp with time zone,
+    "updated_at" timestamp with time zone
 );
 
 
@@ -838,17 +943,17 @@ create table "public"."share_company_users" (
 
 alter table "public"."share_company_users" enable row level security;
 
-create table "public"."storage_migrations" (
+create table "public"."sub_type" (
     "id" uuid not null default gen_random_uuid(),
-    "document_id" uuid not null,
-    "old_path" text not null,
-    "new_path" text not null,
-    "status" text default 'pending'::text,
-    "created_at" timestamp with time zone default now(),
-    "executed_at" timestamp with time zone,
-    "error_message" text
+    "created_at" timestamp with time zone not null default now(),
+    "name" text not null,
+    "is_active" boolean default true,
+    "company_id" uuid,
+    "type" uuid
 );
 
+
+alter table "public"."sub_type" enable row level security;
 
 create table "public"."type" (
     "id" uuid not null default gen_random_uuid(),
@@ -860,6 +965,15 @@ create table "public"."type" (
 
 
 alter table "public"."type" enable row level security;
+
+create table "public"."type_operative" (
+    "created_at" timestamp with time zone not null default now(),
+    "name" text not null,
+    "id" uuid not null default gen_random_uuid()
+);
+
+
+alter table "public"."type_operative" enable row level security;
 
 create table "public"."types_of_contract" (
     "id" uuid not null default gen_random_uuid(),
@@ -912,7 +1026,7 @@ create table "public"."vehicles" (
     "model" bigint,
     "is_active" boolean default true,
     "termination_date" date,
-    "reason_for_termination" text,
+    "reason_for_termination" termination_reason_enum,
     "user_id" uuid default auth.uid(),
     "company_id" uuid,
     "id" uuid not null default gen_random_uuid(),
@@ -921,7 +1035,14 @@ create table "public"."vehicles" (
     "allocated_to" uuid[],
     "condition" condition_enum default 'operativo'::condition_enum,
     "kilometer" text default '0'::text,
-    "cost_center_id" uuid
+    "cost_center_id" uuid,
+    "type_operative_id" uuid,
+    "subType" uuid,
+    "owner_id" uuid,
+    "type_of_contract" contract_type_vehicles_enum,
+    "contract_expiration_date" date,
+    "contract_start_date" date,
+    "contract_number" text
 );
 
 
@@ -932,7 +1053,6 @@ create table "public"."work_diagram" (
     "created_at" timestamp with time zone not null default now(),
     "name" text not null,
     "is_active" boolean default true,
-    "active_novelty" uuid,
     "active_working_days" numeric,
     "inactive_novelty" uuid,
     "inactive_working_days" numeric
@@ -940,6 +1060,16 @@ create table "public"."work_diagram" (
 
 
 alter table "public"."work_diagram" enable row level security;
+
+create table "public"."work_diagram_active_novelties" (
+    "id" uuid not null default gen_random_uuid(),
+    "work_diagram_id" uuid not null,
+    "diagram_type_id" uuid not null,
+    "created_at" timestamp with time zone not null default now()
+);
+
+
+alter table "public"."work_diagram_active_novelties" enable row level security;
 
 alter sequence "public"."documents_employees_logs_id_seq" owned by "public"."documents_employees_logs"."id";
 
@@ -1011,7 +1141,11 @@ CREATE UNIQUE INDEX custom_form_pkey ON public.custom_form USING btree (id);
 
 CREATE UNIQUE INDEX customer_services_pkey ON public.customer_services USING btree (id);
 
+CREATE UNIQUE INDEX customers_cuit_key ON public.customers USING btree (cuit);
+
 CREATE UNIQUE INDEX customers_pkey ON public.customers USING btree (id);
+
+CREATE UNIQUE INDEX daily_indicators_company_id_snapshot_date_source_uidx ON public.daily_indicators USING btree (company_id, snapshot_date, source);
 
 CREATE UNIQUE INDEX dailyreport_customer_equipment_relations_pkey ON public.dailyreport_customer_equipment_relations USING btree (id);
 
@@ -1024,6 +1158,8 @@ CREATE UNIQUE INDEX dailyreportequipmentrelations_pkey ON public.dailyreportequi
 CREATE UNIQUE INDEX dailyreportrows_history_pkey ON public.dailyreportrows_history USING btree (id);
 
 CREATE UNIQUE INDEX dailyreportrows_pkey ON public.dailyreportrows USING btree (id);
+
+CREATE UNIQUE INDEX dailyreportrows_preparte_id_key ON public.dailyreportrows USING btree (preparte_id);
 
 CREATE UNIQUE INDEX dailyreportrows_remit_number_key ON public.dailyreportrows USING btree (remit_number);
 
@@ -1053,6 +1189,8 @@ CREATE UNIQUE INDEX empleado_aptitudes_pkey ON public.empleado_aptitudes USING b
 
 CREATE UNIQUE INDEX employees_diagram_pkey ON public.employees_diagram USING btree (id);
 
+CREATE UNIQUE INDEX equipment_owners_pkey ON public.equipment_owners USING btree (id);
+
 CREATE UNIQUE INDEX equipos_clientes_pkey ON public.equipos_clientes USING btree (id);
 
 CREATE UNIQUE INDEX form_answers_pkey ON public.form_answers USING btree (id);
@@ -1077,9 +1215,33 @@ CREATE INDEX idx_documents_name ON public.documents_contracts USING btree (name)
 
 CREATE INDEX idx_documents_type ON public.documents_contracts USING btree (type);
 
+CREATE INDEX idx_employees_type_of_contract ON public.employees USING btree (type_of_contract);
+
+CREATE INDEX idx_kpi_daily_indicators_company_date ON public.daily_indicators USING btree (company_id, snapshot_date);
+
+CREATE INDEX idx_kpi_daily_indicators_source ON public.daily_indicators USING btree (source);
+
+CREATE INDEX idx_password_reset_tokens_active ON public.password_reset_tokens USING btree (profile_id, used) WHERE (NOT used);
+
+CREATE INDEX idx_password_reset_tokens_expires ON public.password_reset_tokens USING btree (expires);
+
+CREATE INDEX idx_password_reset_tokens_token ON public.password_reset_tokens USING btree (token);
+
+CREATE INDEX idx_preparte_cliente ON public.preparte USING btree (cliente_id);
+
+CREATE INDEX idx_preparte_fecha_ejecucion ON public.preparte USING btree ("executionDate");
+
 CREATE UNIQUE INDEX industry_type_pkey ON public.industry_type USING btree (id);
 
 CREATE UNIQUE INDEX industry_type_type_key ON public.industry_type USING btree (name);
+
+CREATE UNIQUE INDEX kpi_daily_indicators_pkey ON public.daily_indicators USING btree (id);
+
+CREATE UNIQUE INDEX maintenance_group_type_of_repairs_pkey ON public.maintenance_group_type_of_repairs USING btree (id);
+
+CREATE UNIQUE INDEX maintenance_request_groups_name_key ON public.maintenance_request_groups USING btree (name);
+
+CREATE UNIQUE INDEX maintenance_request_groups_pkey ON public.maintenance_request_groups USING btree (id);
 
 CREATE UNIQUE INDEX measure_units_pkey ON public.measure_units USING btree (id);
 
@@ -1088,6 +1250,10 @@ CREATE UNIQUE INDEX model_vehicles_pkey ON public.model_vehicles USING btree (id
 CREATE UNIQUE INDEX modules_pkey ON public.modules USING btree (id);
 
 CREATE UNIQUE INDEX notifications_pkey ON public.notifications USING btree (id);
+
+CREATE UNIQUE INDEX password_reset_tokens_pkey ON public.password_reset_tokens USING btree (id);
+
+CREATE UNIQUE INDEX preparte_pkey ON public.preparte USING btree (id);
 
 CREATE UNIQUE INDEX "profile_credentialId_key" ON public.profile USING btree (credential_id);
 
@@ -1127,7 +1293,11 @@ CREATE UNIQUE INDEX share_company_users_id2_key ON public.share_company_users US
 
 CREATE UNIQUE INDEX share_company_users_pkey ON public.share_company_users USING btree (id);
 
-CREATE UNIQUE INDEX storage_migrations_pkey ON public.storage_migrations USING btree (id);
+CREATE UNIQUE INDEX sub_type_pkey ON public.sub_type USING btree (id);
+
+CREATE UNIQUE INDEX type_operative_name_key ON public.type_operative USING btree (name);
+
+CREATE UNIQUE INDEX type_operative_pkey ON public.type_operative USING btree (id);
 
 CREATE UNIQUE INDEX type_pkey ON public.type USING btree (id);
 
@@ -1143,6 +1313,8 @@ CREATE UNIQUE INDEX types_of_vehicles_pkey ON public.types_of_vehicles USING btr
 
 CREATE UNIQUE INDEX unique_contractor_employee ON public.contractor_employee USING btree (employee_id, contractor_id);
 
+CREATE UNIQUE INDEX unique_employee_year_month_day ON public.employees_diagram USING btree (employee_id, year, month, day);
+
 CREATE UNIQUE INDEX vehicles_domain_key ON public.vehicles USING btree (domain);
 
 CREATE UNIQUE INDEX vehicles_id2_key ON public.vehicles USING btree (id);
@@ -1150,6 +1322,10 @@ CREATE UNIQUE INDEX vehicles_id2_key ON public.vehicles USING btree (id);
 CREATE UNIQUE INDEX vehicles_pkey ON public.vehicles USING btree (id);
 
 CREATE UNIQUE INDEX "work-diagram_pkey" ON public.work_diagram USING btree (id);
+
+CREATE UNIQUE INDEX work_diagram_active_novelties_pkey ON public.work_diagram_active_novelties USING btree (id);
+
+CREATE UNIQUE INDEX work_diagram_active_novelties_unique ON public.work_diagram_active_novelties USING btree (work_diagram_id, diagram_type_id);
 
 alter table "public"."aptitudes_tecnicas" add constraint "aptitudes_tecnicas_pkey" PRIMARY KEY using index "aptitudes_tecnicas_pkey";
 
@@ -1195,6 +1371,8 @@ alter table "public"."customer_services" add constraint "customer_services_pkey"
 
 alter table "public"."customers" add constraint "customers_pkey" PRIMARY KEY using index "customers_pkey";
 
+alter table "public"."daily_indicators" add constraint "kpi_daily_indicators_pkey" PRIMARY KEY using index "kpi_daily_indicators_pkey";
+
 alter table "public"."dailyreport" add constraint "dailyreport_pkey" PRIMARY KEY using index "dailyreport_pkey";
 
 alter table "public"."dailyreport_customer_equipment_relations" add constraint "dailyreport_customer_equipment_relations_pkey" PRIMARY KEY using index "dailyreport_customer_equipment_relations_pkey";
@@ -1231,6 +1409,8 @@ alter table "public"."employees" add constraint "companies_employees_pkey" PRIMA
 
 alter table "public"."employees_diagram" add constraint "employees_diagram_pkey" PRIMARY KEY using index "employees_diagram_pkey";
 
+alter table "public"."equipment_owners" add constraint "equipment_owners_pkey" PRIMARY KEY using index "equipment_owners_pkey";
+
 alter table "public"."equipos_clientes" add constraint "equipos_clientes_pkey" PRIMARY KEY using index "equipos_clientes_pkey";
 
 alter table "public"."form_answers" add constraint "form_answers_pkey" PRIMARY KEY using index "form_answers_pkey";
@@ -1245,6 +1425,10 @@ alter table "public"."hired_modules" add constraint "hired_modules_pkey" PRIMARY
 
 alter table "public"."industry_type" add constraint "industry_type_pkey" PRIMARY KEY using index "industry_type_pkey";
 
+alter table "public"."maintenance_group_type_of_repairs" add constraint "maintenance_group_type_of_repairs_pkey" PRIMARY KEY using index "maintenance_group_type_of_repairs_pkey";
+
+alter table "public"."maintenance_request_groups" add constraint "maintenance_request_groups_pkey" PRIMARY KEY using index "maintenance_request_groups_pkey";
+
 alter table "public"."measure_units" add constraint "measure_units_pkey" PRIMARY KEY using index "measure_units_pkey";
 
 alter table "public"."model_vehicles" add constraint "model_vehicles_pkey" PRIMARY KEY using index "model_vehicles_pkey";
@@ -1252,6 +1436,10 @@ alter table "public"."model_vehicles" add constraint "model_vehicles_pkey" PRIMA
 alter table "public"."modules" add constraint "modules_pkey" PRIMARY KEY using index "modules_pkey";
 
 alter table "public"."notifications" add constraint "notifications_pkey" PRIMARY KEY using index "notifications_pkey";
+
+alter table "public"."password_reset_tokens" add constraint "password_reset_tokens_pkey" PRIMARY KEY using index "password_reset_tokens_pkey";
+
+alter table "public"."preparte" add constraint "preparte_pkey" PRIMARY KEY using index "preparte_pkey";
 
 alter table "public"."profile" add constraint "profile_pkey" PRIMARY KEY using index "profile_pkey";
 
@@ -1275,9 +1463,11 @@ alter table "public"."service_sectors" add constraint "service_sectors_pkey" PRI
 
 alter table "public"."share_company_users" add constraint "share_company_users_pkey" PRIMARY KEY using index "share_company_users_pkey";
 
-alter table "public"."storage_migrations" add constraint "storage_migrations_pkey" PRIMARY KEY using index "storage_migrations_pkey";
+alter table "public"."sub_type" add constraint "sub_type_pkey" PRIMARY KEY using index "sub_type_pkey";
 
 alter table "public"."type" add constraint "type_pkey" PRIMARY KEY using index "type_pkey";
+
+alter table "public"."type_operative" add constraint "type_operative_pkey" PRIMARY KEY using index "type_operative_pkey";
 
 alter table "public"."types_of_contract" add constraint "types_of_contract_pkey" PRIMARY KEY using index "types_of_contract_pkey";
 
@@ -1288,6 +1478,8 @@ alter table "public"."types_of_vehicles" add constraint "types_of_vehicles_pkey"
 alter table "public"."vehicles" add constraint "vehicles_pkey" PRIMARY KEY using index "vehicles_pkey";
 
 alter table "public"."work_diagram" add constraint "work-diagram_pkey" PRIMARY KEY using index "work-diagram_pkey";
+
+alter table "public"."work_diagram_active_novelties" add constraint "work_diagram_active_novelties_pkey" PRIMARY KEY using index "work_diagram_active_novelties_pkey";
 
 alter table "public"."aptitudes_tecnicas_puestos" add constraint "aptitudes_tecnicas_puestos_aptitud_id_fkey" FOREIGN KEY (aptitud_id) REFERENCES aptitudes_tecnicas(id) ON DELETE CASCADE not valid;
 
@@ -1423,6 +1615,12 @@ alter table "public"."customers" add constraint "customers_company_id_fkey" FORE
 
 alter table "public"."customers" validate constraint "customers_company_id_fkey";
 
+alter table "public"."customers" add constraint "customers_cuit_key" UNIQUE using index "customers_cuit_key";
+
+alter table "public"."daily_indicators" add constraint "kpi_daily_indicators_company_id_fkey" FOREIGN KEY (company_id) REFERENCES company(id) ON DELETE CASCADE not valid;
+
+alter table "public"."daily_indicators" validate constraint "kpi_daily_indicators_company_id_fkey";
+
 alter table "public"."dailyreport" add constraint "public_dailyreport_company_id_fkey" FOREIGN KEY (company_id) REFERENCES company(id) not valid;
 
 alter table "public"."dailyreport" validate constraint "public_dailyreport_company_id_fkey";
@@ -1458,6 +1656,12 @@ alter table "public"."dailyreportrows" validate constraint "dailyreportrows_area
 alter table "public"."dailyreportrows" add constraint "dailyreportrows_daily_report_id_fkey" FOREIGN KEY (daily_report_id) REFERENCES dailyreport(id) ON DELETE CASCADE not valid;
 
 alter table "public"."dailyreportrows" validate constraint "dailyreportrows_daily_report_id_fkey";
+
+alter table "public"."dailyreportrows" add constraint "dailyreportrows_preparte_id_fkey" FOREIGN KEY (preparte_id) REFERENCES preparte(id) ON UPDATE CASCADE ON DELETE SET NULL not valid;
+
+alter table "public"."dailyreportrows" validate constraint "dailyreportrows_preparte_id_fkey";
+
+alter table "public"."dailyreportrows" add constraint "dailyreportrows_preparte_id_key" UNIQUE using index "dailyreportrows_preparte_id_key";
 
 alter table "public"."dailyreportrows" add constraint "dailyreportrows_remit_number_key" UNIQUE using index "dailyreportrows_remit_number_key";
 
@@ -1605,7 +1809,7 @@ alter table "public"."employees" add constraint "employees_province_fkey" FOREIG
 
 alter table "public"."employees" validate constraint "employees_province_fkey";
 
-alter table "public"."employees" add constraint "employees_type_of_contract_fkey" FOREIGN KEY (type_of_contract) REFERENCES types_of_contract(name) ON UPDATE CASCADE ON DELETE SET NULL not valid;
+alter table "public"."employees" add constraint "employees_type_of_contract_fkey" FOREIGN KEY (type_of_contract) REFERENCES types_of_contract(id) not valid;
 
 alter table "public"."employees" validate constraint "employees_type_of_contract_fkey";
 
@@ -1620,6 +1824,12 @@ alter table "public"."employees_diagram" validate constraint "employees_diagram_
 alter table "public"."employees_diagram" add constraint "public_employees_diagram_diagram_type_fkey" FOREIGN KEY (diagram_type) REFERENCES diagram_type(id) not valid;
 
 alter table "public"."employees_diagram" validate constraint "public_employees_diagram_diagram_type_fkey";
+
+alter table "public"."employees_diagram" add constraint "unique_employee_year_month_day" UNIQUE using index "unique_employee_year_month_day";
+
+alter table "public"."equipment_owners" add constraint "equipment_owners_company_id_fkey" FOREIGN KEY (company_id) REFERENCES company(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."equipment_owners" validate constraint "equipment_owners_company_id_fkey";
 
 alter table "public"."equipos_clientes" add constraint "equipos_clientes_customer_id_fkey" FOREIGN KEY (customer_id) REFERENCES customers(id) not valid;
 
@@ -1643,6 +1853,16 @@ alter table "public"."hired_modules" validate constraint "hired_modules_module_i
 
 alter table "public"."industry_type" add constraint "industry_type_type_key" UNIQUE using index "industry_type_type_key";
 
+alter table "public"."maintenance_group_type_of_repairs" add constraint "maintenance_group_type_of_repairs_group_id_fkey" FOREIGN KEY (group_id) REFERENCES maintenance_request_groups(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."maintenance_group_type_of_repairs" validate constraint "maintenance_group_type_of_repairs_group_id_fkey";
+
+alter table "public"."maintenance_group_type_of_repairs" add constraint "maintenance_group_type_of_repairs_type_id_fkey" FOREIGN KEY (type_id) REFERENCES types_of_repairs(id) ON DELETE CASCADE not valid;
+
+alter table "public"."maintenance_group_type_of_repairs" validate constraint "maintenance_group_type_of_repairs_type_id_fkey";
+
+alter table "public"."maintenance_request_groups" add constraint "maintenance_request_groups_name_key" UNIQUE using index "maintenance_request_groups_name_key";
+
 alter table "public"."model_vehicles" add constraint "public_model_vehicles_brand_fkey" FOREIGN KEY (brand) REFERENCES brand_vehicles(id) not valid;
 
 alter table "public"."model_vehicles" validate constraint "public_model_vehicles_brand_fkey";
@@ -1650,6 +1870,42 @@ alter table "public"."model_vehicles" validate constraint "public_model_vehicles
 alter table "public"."notifications" add constraint "public_notifications_company_id_fkey" FOREIGN KEY (company_id) REFERENCES company(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
 alter table "public"."notifications" validate constraint "public_notifications_company_id_fkey";
+
+alter table "public"."password_reset_tokens" add constraint "password_reset_tokens_profile_id_fkey" FOREIGN KEY (profile_id) REFERENCES profile(id) ON DELETE CASCADE not valid;
+
+alter table "public"."password_reset_tokens" validate constraint "password_reset_tokens_profile_id_fkey";
+
+alter table "public"."preparte" add constraint "preparte_areas_service_id_fkey" FOREIGN KEY (areas_service_id) REFERENCES service_areas(id) not valid;
+
+alter table "public"."preparte" validate constraint "preparte_areas_service_id_fkey";
+
+alter table "public"."preparte" add constraint "preparte_cliente_id_fkey" FOREIGN KEY (cliente_id) REFERENCES customers(id) ON UPDATE CASCADE ON DELETE SET DEFAULT not valid;
+
+alter table "public"."preparte" validate constraint "preparte_cliente_id_fkey";
+
+alter table "public"."preparte" add constraint "preparte_company_id_fkey" FOREIGN KEY (company_id) REFERENCES company(id) not valid;
+
+alter table "public"."preparte" validate constraint "preparte_company_id_fkey";
+
+alter table "public"."preparte" add constraint "preparte_contrato_id_fkey" FOREIGN KEY (contrato_id) REFERENCES customer_services(id) ON UPDATE CASCADE not valid;
+
+alter table "public"."preparte" validate constraint "preparte_contrato_id_fkey";
+
+alter table "public"."preparte" add constraint "preparte_equipos_cliente_fkey" FOREIGN KEY (equipos_cliente) REFERENCES equipos_clientes(id) not valid;
+
+alter table "public"."preparte" validate constraint "preparte_equipos_cliente_fkey";
+
+alter table "public"."preparte" add constraint "preparte_item_fkey" FOREIGN KEY (item) REFERENCES service_items(id) not valid;
+
+alter table "public"."preparte" validate constraint "preparte_item_fkey";
+
+alter table "public"."preparte" add constraint "preparte_reprogram_fkey" FOREIGN KEY (reprogram) REFERENCES preparte(id) not valid;
+
+alter table "public"."preparte" validate constraint "preparte_reprogram_fkey";
+
+alter table "public"."preparte" add constraint "preparte_sector_service_id_fkey" FOREIGN KEY (sector_service_id) REFERENCES service_sectors(id) not valid;
+
+alter table "public"."preparte" validate constraint "preparte_sector_service_id_fkey";
 
 alter table "public"."profile" add constraint "profile_credentialId_key" UNIQUE using index "profile_credentialId_key";
 
@@ -1763,9 +2019,19 @@ alter table "public"."share_company_users" add constraint "share_company_users_r
 
 alter table "public"."share_company_users" validate constraint "share_company_users_role_fkey";
 
+alter table "public"."sub_type" add constraint "sub_type_company_id_fkey" FOREIGN KEY (company_id) REFERENCES company(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+
+alter table "public"."sub_type" validate constraint "sub_type_company_id_fkey";
+
+alter table "public"."sub_type" add constraint "sub_type_type_fkey" FOREIGN KEY (type) REFERENCES type(id) not valid;
+
+alter table "public"."sub_type" validate constraint "sub_type_type_fkey";
+
 alter table "public"."type" add constraint "type_company_id_fkey" FOREIGN KEY (company_id) REFERENCES company(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
 alter table "public"."type" validate constraint "type_company_id_fkey";
+
+alter table "public"."type_operative" add constraint "type_operative_name_key" UNIQUE using index "type_operative_name_key";
 
 alter table "public"."types_of_contract" add constraint "types_of_contract_name_key" UNIQUE using index "types_of_contract_name_key";
 
@@ -1803,106 +2069,120 @@ alter table "public"."vehicles" add constraint "vehicles_domain_key" UNIQUE usin
 
 alter table "public"."vehicles" add constraint "vehicles_id2_key" UNIQUE using index "vehicles_id2_key";
 
+alter table "public"."vehicles" add constraint "vehicles_owner_id_fkey" FOREIGN KEY (owner_id) REFERENCES equipment_owners(id) ON UPDATE CASCADE ON DELETE SET DEFAULT not valid;
+
+alter table "public"."vehicles" validate constraint "vehicles_owner_id_fkey";
+
+alter table "public"."vehicles" add constraint "vehicles_subType_fkey" FOREIGN KEY ("subType") REFERENCES sub_type(id) not valid;
+
+alter table "public"."vehicles" validate constraint "vehicles_subType_fkey";
+
 alter table "public"."vehicles" add constraint "vehicles_type_of_vehicle_fkey" FOREIGN KEY (type_of_vehicle) REFERENCES types_of_vehicles(id) not valid;
 
 alter table "public"."vehicles" validate constraint "vehicles_type_of_vehicle_fkey";
+
+alter table "public"."vehicles" add constraint "vehicles_type_operative_id_fkey" FOREIGN KEY (type_operative_id) REFERENCES type_operative(id) ON UPDATE CASCADE ON DELETE SET NULL not valid;
+
+alter table "public"."vehicles" validate constraint "vehicles_type_operative_id_fkey";
 
 alter table "public"."vehicles" add constraint "vehicles_user_id_fkey" FOREIGN KEY (user_id) REFERENCES profile(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
 alter table "public"."vehicles" validate constraint "vehicles_user_id_fkey";
 
-alter table "public"."work_diagram" add constraint "work-diagram_active_novelty_fkey" FOREIGN KEY (active_novelty) REFERENCES diagram_type(id) not valid;
-
-alter table "public"."work_diagram" validate constraint "work-diagram_active_novelty_fkey";
-
 alter table "public"."work_diagram" add constraint "work-diagram_inactive_novelty_fkey" FOREIGN KEY (inactive_novelty) REFERENCES diagram_type(id) not valid;
 
 alter table "public"."work_diagram" validate constraint "work-diagram_inactive_novelty_fkey";
+
+alter table "public"."work_diagram_active_novelties" add constraint "work_diagram_active_novelties_diagram_type_id_fkey" FOREIGN KEY (diagram_type_id) REFERENCES diagram_type(id) not valid;
+
+alter table "public"."work_diagram_active_novelties" validate constraint "work_diagram_active_novelties_diagram_type_id_fkey";
+
+alter table "public"."work_diagram_active_novelties" add constraint "work_diagram_active_novelties_unique" UNIQUE using index "work_diagram_active_novelties_unique";
+
+alter table "public"."work_diagram_active_novelties" add constraint "work_diagram_active_novelties_work_diagram_id_fkey" FOREIGN KEY (work_diagram_id) REFERENCES work_diagram(id) ON DELETE CASCADE not valid;
+
+alter table "public"."work_diagram_active_novelties" validate constraint "work_diagram_active_novelties_work_diagram_id_fkey";
 
 set check_function_bodies = off;
 
 CREATE OR REPLACE FUNCTION public.actualizar_estado_daily_reports()
  RETURNS void
  LANGUAGE plpgsql
-AS $function$
-DECLARE
-    report_record RECORD;
-    row_record RECORD;
-    tiene_filas BOOLEAN;
-    todas_completas BOOLEAN;
-    tiene_recursos BOOLEAN;
-BEGIN
-    -- Primero, para todos los reportes, verificar filas con 'sin_recursos_asignados' que ahora tienen recursos
-    FOR row_record IN
-        SELECT dr.id
-        FROM dailyreportrows dr
-        WHERE dr.status = 'sin_recursos_asignados'
-    LOOP
-        -- Verificar si hay recursos asignados (empleados o equipos)
-        SELECT EXISTS (
+AS $function$DECLARE 
+    report_record RECORD; 
+    row_record RECORD; 
+    tiene_filas BOOLEAN; 
+    todas_completas BOOLEAN; 
+    tiene_recursos BOOLEAN; 
+BEGIN 
+    -- Primero, para todos los reportes, verificar filas con 'sin_recursos_asignados' que ahora tienen recursos 
+    FOR row_record IN 
+        SELECT dr.id 
+        FROM dailyreportrows dr 
+        WHERE dr.status = 'sin_recursos_asignados' 
+    LOOP 
+        -- Verificar si hay recursos asignados (empleados o equipos) 
+        SELECT EXISTS ( 
             SELECT 1 FROM dailyreportemployeerelations 
-            WHERE daily_report_row_id = row_record.id
-            UNION
+            WHERE daily_report_row_id = row_record.id 
+            UNION 
             SELECT 1 FROM dailyreportequipmentrelations 
-            WHERE daily_report_row_id = row_record.id
-        ) INTO tiene_recursos;
+            WHERE daily_report_row_id = row_record.id 
+        ) INTO tiene_recursos; 
         
-        -- Si tiene recursos, actualizar el estado a 'pendiente'
-        IF tiene_recursos THEN
-            UPDATE dailyreportrows
-            SET status = 'pendiente',
-                updated_at = NOW()
-            WHERE id = row_record.id;
-        END IF;
-    END LOOP;
+        -- Si tiene recursos, actualizar el estado a 'pendiente' 
+        IF tiene_recursos THEN 
+            UPDATE dailyreportrows 
+            SET status = 'pendiente', 
+                updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires') 
+            WHERE id = row_record.id; 
+        END IF; 
+    END LOOP; 
 
-    -- Luego, continuar con la lógica de cierre para reportes pasados con estado 'abierto'
-FOR report_record IN 
-    SELECT id 
-    FROM dailyreport 
-    WHERE date < CURRENT_DATE 
-    AND status IN ('abierto', 'cerrado_incompleto')  -- Ahora también verifica 'cerrado_incompleto'
-    LOOP
-        -- Verificar si el reporte tiene filas asociadas
-        SELECT EXISTS (SELECT 1 FROM dailyreportrows WHERE daily_report_id = report_record.id) INTO tiene_filas;
+    -- Luego, continuar con la lógica de cierre para reportes pasados con estado 'abierto' o 'cerrado_incompleto' 
+    FOR report_record IN 
+        SELECT id 
+        FROM dailyreport 
+        WHERE date < ( (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date ) 
+        AND status IN ('abierto', 'cerrado_incompleto')  
+    LOOP 
+        -- Verificar si el reporte tiene filas asociadas 
+        SELECT EXISTS (SELECT 1 FROM dailyreportrows WHERE daily_report_id = report_record.id) INTO tiene_filas; 
         
-        IF NOT tiene_filas THEN
-            -- Si no tiene filas, marcarlo como cerrado_completo
+        IF NOT tiene_filas THEN 
+            -- Si no tiene filas, marcarlo como cerrado_completo 
             UPDATE dailyreport 
             SET status = 'cerrado_completo', 
-                updated_at = NOW() 
-            WHERE id = report_record.id;
-        ELSE
-            -- Verificar si todas las filas tienen estado 'ejecutado', 'reprogramado' o 'cancelado'
-            -- Y si son 'ejecutado', deben tener document_path
-            SELECT NOT EXISTS (
+                updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires') 
+            WHERE id = report_record.id; 
+        ELSE 
+            -- Verificar si todas las filas tienen estado 'ejecutado', 'reprogramado' o 'cancelado' 
+            -- Y si son 'ejecutado', deben tener document_path 
+            SELECT NOT EXISTS ( 
                 SELECT 1 
                 FROM dailyreportrows 
                 WHERE daily_report_id = report_record.id 
-                AND (
-                    -- Filas con estado no válido
-                    status NOT IN ('ejecutado', 'reprogramado', 'cancelado')
-                    -- O filas ejecutadas sin documento
-                    OR (status = 'ejecutado' AND (document_path IS NULL OR document_path = ''))
-                )
-            ) INTO todas_completas;
+                AND ( 
+                    status NOT IN ('ejecutado', 'reprogramado', 'cancelado') 
+                    OR (status = 'ejecutado' AND (document_path IS NULL OR document_path = '')) 
+                ) 
+            ) INTO todas_completas; 
             
-            -- Actualizar el estado según corresponda
-            IF todas_completas THEN
+            -- Actualizar el estado según corresponda 
+            IF todas_completas THEN 
                 UPDATE dailyreport 
                 SET status = 'cerrado_completo', 
-                    updated_at = NOW() 
-                WHERE id = report_record.id;
-            ELSE
+                    updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires') 
+                WHERE id = report_record.id; 
+            ELSE 
                 UPDATE dailyreport 
                 SET status = 'cerrado_incompleto', 
-                    updated_at = NOW() 
-                WHERE id = report_record.id;
-            END IF;
-        END IF;
-    END LOOP;
-END;
-$function$
+                    updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires') 
+                WHERE id = report_record.id; 
+            END IF; 
+        END IF; 
+    END LOOP; 
+END;$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.actualizar_estado_documentos()
@@ -2011,6 +2291,94 @@ AS $function$
 BEGIN
     -- Llamar a la función de actualización para el reporte afectado
     PERFORM actualizar_estado_daily_reports();
+    RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.after_dailyreportrows_update_specific()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_report_id uuid := NEW.daily_report_id;
+    row_record RECORD;
+    tiene_filas BOOLEAN;
+    todas_completas BOOLEAN;
+    tiene_recursos BOOLEAN;
+BEGIN
+    -- Primero, para el reporte afectado, verificar filas con 'sin_recursos_asignados' que ahora tienen recursos
+    FOR row_record IN
+        SELECT dr.id
+        FROM dailyreportrows dr
+        WHERE dr.status = 'sin_recursos_asignados'
+          AND dr.daily_report_id = v_report_id
+    LOOP
+        -- Verificar si hay recursos asignados (empleados o equipos)
+        SELECT EXISTS (
+            SELECT 1 FROM dailyreportemployeerelations 
+            WHERE daily_report_row_id = row_record.id
+            UNION
+            SELECT 1 FROM dailyreportequipmentrelations 
+            WHERE daily_report_row_id = row_record.id
+        ) INTO tiene_recursos;
+        
+        -- Si tiene recursos, actualizar el estado a 'pendiente'
+        IF tiene_recursos THEN
+            UPDATE dailyreportrows
+            SET status = 'pendiente',
+                updated_at = NOW()
+            WHERE id = row_record.id;
+        END IF;
+    END LOOP;
+
+    -- Luego, continuar con la lógica de cierre SOLO para el reporte afectado si es pasado y está abierto
+    IF EXISTS (
+        SELECT 1 
+        FROM dailyreport 
+        WHERE id = v_report_id
+          AND date < CURRENT_DATE 
+          AND status IN ('abierto', 'cerrado_incompleto')
+    ) THEN
+        -- Verificar si el reporte tiene filas asociadas
+        SELECT EXISTS (SELECT 1 FROM dailyreportrows WHERE daily_report_id = v_report_id) INTO tiene_filas;
+        
+        IF NOT tiene_filas THEN
+            -- Si no tiene filas, marcarlo como cerrado_completo
+            UPDATE dailyreport 
+            SET status = 'cerrado_completo', 
+                updated_at = NOW() 
+            WHERE id = v_report_id;
+        ELSE
+            -- Verificar si todas las filas tienen estado 'ejecutado', 'reprogramado' o 'cancelado'
+            -- Y si son 'ejecutado', deben tener document_path
+            SELECT NOT EXISTS (
+                SELECT 1 
+                FROM dailyreportrows 
+                WHERE daily_report_id = v_report_id 
+                AND (
+                    -- Filas con estado no válido
+                    status NOT IN ('ejecutado', 'reprogramado', 'cancelado')
+                    -- O filas ejecutadas sin documento
+                    OR (status = 'ejecutado' AND (document_path IS NULL OR document_path = ''))
+                )
+            ) INTO todas_completas;
+            
+            -- Actualizar el estado según corresponda
+            IF todas_completas THEN
+                UPDATE dailyreport 
+                SET status = 'cerrado_completo', 
+                    updated_at = NOW() 
+                WHERE id = v_report_id;
+            ELSE
+                UPDATE dailyreport 
+                SET status = 'cerrado_incompleto', 
+                    updated_at = NOW() 
+                WHERE id = v_report_id;
+            END IF;
+        END IF;
+    END IF;
+    
     RETURN NEW;
 END;
 $function$
@@ -2281,58 +2649,455 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.build_vehicle_where_alias(_conditions jsonb, table_alias text DEFAULT 'v'::text, user_id uuid DEFAULT NULL::uuid)
- RETURNS text
+CREATE OR REPLACE FUNCTION public.check_diagram_conflicts_with_operations(p_employee_ids uuid[], p_date_from date, p_date_to date)
+ RETURNS TABLE(employee_id uuid, employee_name text, day numeric, month numeric, year numeric, date_formatted text, current_diagram_type uuid, current_diagram_name text, current_diagram_color text, is_used_in_operations boolean, operation_details text, can_update boolean, conflict_type text)
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    ed.employee_id,
+    (e.firstname || ' ' || e.lastname) as employee_name,
+    ed.day,
+    ed.month,
+    ed.year,
+    to_char(make_date(ed.year::int, ed.month::int, ed.day::int), 'DD/MM/YYYY') as date_formatted,
+    ed.diagram_type as current_diagram_type,
+    dt.name as current_diagram_name,
+    dt.color as current_diagram_color,
+    -- Verificar si está siendo usado en operaciones
+    CASE 
+      WHEN dr.date IS NOT NULL THEN true 
+      ELSE false 
+    END as is_used_in_operations,
+    -- Detalles de la operación si existe
+    CASE 
+      WHEN dr.date IS NOT NULL THEN 
+        'Usado en reporte diario del ' || to_char(dr.date, 'DD/MM/YYYY') || 
+        ' (ID: ' || dr.id::text || ')'
+      ELSE 'No usado en operaciones'
+    END as operation_details,
+    -- Puede actualizarse si NO está en operaciones
+    CASE 
+      WHEN dr.date IS NULL THEN true 
+      ELSE false 
+    END as can_update,
+    -- Tipo de conflicto
+    CASE 
+      WHEN dr.date IS NOT NULL THEN 'USED_IN_OPERATIONS'
+      ELSE 'SIMPLE_CONFLICT'
+    END as conflict_type
+  FROM employees_diagram ed
+  JOIN employees e ON e.id = ed.employee_id
+  JOIN diagram_type dt ON dt.id = ed.diagram_type
+  -- LEFT JOIN para verificar uso en operaciones
+  LEFT JOIN dailyreportemployeerelations drer ON drer.employee_id = ed.employee_id
+  LEFT JOIN dailyreportrows drr ON drr.id = drer.daily_report_row_id
+  LEFT JOIN dailyreport dr ON dr.id = drr.daily_report_id 
+    AND dr.date = make_date(ed.year::int, ed.month::int, ed.day::int)
+  WHERE ed.employee_id = ANY(p_employee_ids)
+    AND make_date(ed.year::int, ed.month::int, ed.day::int) 
+        BETWEEN p_date_from AND p_date_to
+  ORDER BY e.firstname, e.lastname, ed.year, ed.month, ed.day;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.check_diagram_conflicts_with_operations(p_employee_ids uuid[], p_diagram_type_id uuid, p_date_from date, p_date_to date)
+ RETURNS TABLE(employee_id uuid, employee_name text, date_value date, date_formatted text, conflict_type text, current_diagram_id uuid, current_diagram_name text, current_diagram_color text, operation_details text)
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    ed.employee_id,
+    CONCAT(e.firstname, ' ', e.lastname) as employee_name,
+    make_date(ed.year::integer, ed.month::integer, ed.day::integer) as date_value,
+    TO_CHAR(make_date(ed.year::integer, ed.month::integer, ed.day::integer), 'DD/MM/YYYY') as date_formatted,
+    CASE 
+      WHEN dr.date IS NOT NULL THEN 'USED_IN_OPERATIONS'
+      ELSE 'SIMPLE_CONFLICT'
+    END as conflict_type,
+    ed.diagram_type as current_diagram_id,
+    dt.name as current_diagram_name,
+    dt.color as current_diagram_color,
+    CASE 
+      WHEN dr.date IS NOT NULL THEN 
+        CONCAT('Usado en reporte del ', TO_CHAR(dr.date, 'DD/MM/YYYY'))
+      ELSE 'Registro existente'
+    END as operation_details
+  FROM employees_diagram ed
+  JOIN employees e ON ed.employee_id = e.id
+  JOIN diagram_type dt ON ed.diagram_type = dt.id
+  LEFT JOIN (
+    SELECT DISTINCT der.employee_id, dr.date
+    FROM dailyreportemployeerelations der
+    JOIN dailyreportrows drr ON der.daily_report_row_id = drr.id
+    JOIN dailyreport dr ON drr.daily_report_id = dr.id
+  ) dr ON ed.employee_id = dr.employee_id AND make_date(ed.year::integer, ed.month::integer, ed.day::integer) = dr.date
+  WHERE ed.employee_id = ANY(p_employee_ids)
+    AND make_date(ed.year::integer, ed.month::integer, ed.day::integer) BETWEEN p_date_from AND p_date_to
+  ORDER BY ed.employee_id, make_date(ed.year::integer, ed.month::integer, ed.day::integer);
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.check_diagram_conflicts_with_operations_v2(p_employee_ids text[], p_work_diagram_id text, p_date_from date, p_date_to date, p_active_novelty_id text)
+ RETURNS json
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-  c       jsonb;
-  parts   text[] := '{}';
-  ids_txt text;
+  v_work_diagram RECORD;
+  v_inactive_novelty_id text;
+  v_final_active_novelty_id text;
+  v_conflicts json[];
+  v_conflict_record json;
+  v_current_date date;
+  employee_record RECORD;
+  day_in_cycle integer;
+  is_active_day boolean;
+  -- Variables para información del diagrama actual
+  v_existing_diagram_id uuid;
+  v_existing_diagram_name text;
+  v_existing_diagram_color text;
+  -- Variables para información del nuevo diagrama
+  v_new_diagram_name text;
+  v_new_diagram_color text;
 BEGIN
-  IF _conditions IS NULL OR jsonb_typeof(_conditions) <> 'array' THEN
-     RETURN 'TRUE';
+  -- Obtener datos del work_diagram
+  SELECT wd.*, wd.inactive_novelty
+  INTO v_work_diagram
+  FROM work_diagram wd
+  WHERE wd.id = p_work_diagram_id::uuid;
+  
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Work diagram not found: %', p_work_diagram_id;
   END IF;
-
-  FOR c IN SELECT * FROM jsonb_array_elements(_conditions) LOOP
-    SELECT '(' || string_agg(quote_literal(id), ',') || ')'
-      INTO ids_txt
-      FROM jsonb_array_elements_text(c -> 'ids') id;
-
-    CASE c ->> 'relation_type'
-      WHEN 'many_to_many' THEN
-        parts := parts || format(
-          'EXISTS (SELECT 1 FROM %I rel
-                    WHERE rel.%I = %I.%I
-                      AND rel.%I IN %s
-                      AND rel.user_id = %L)',
-          c ->> 'relation_table',
-          c ->> 'column_on_relation',
-          table_alias,
-          COALESCE(c ->> 'column_on_vehicles', 'id'),
-          c ->> 'filter_column',
-          ids_txt,
-          user_id
-        );
-      WHEN 'one_to_many' THEN
-        parts := parts || format(
-          '%I.%I IN %s',
-          table_alias,
-          c ->> 'filter_column',
-          ids_txt
-        );
+  
+  v_inactive_novelty_id := v_work_diagram.inactive_novelty;
+  
+  -- Determinar active_novelty a usar
+  IF p_active_novelty_id IS NOT NULL THEN
+    v_final_active_novelty_id := p_active_novelty_id;
+  ELSE
+    -- Si no se especifica, tomar la única disponible
+    SELECT diagram_type_id INTO v_final_active_novelty_id
+    FROM work_diagram_active_novelties 
+    WHERE work_diagram_id = p_work_diagram_id::uuid
+    LIMIT 1;
+  END IF;
+  
+  -- Verificar conflictos para cada empleado y fecha
+  FOR employee_record IN 
+    SELECT e.id, e.firstname, e.lastname
+    FROM employees e
+    WHERE e.id::text = ANY(p_employee_ids)
+  LOOP
+    v_current_date := p_date_from;
+    WHILE v_current_date <= p_date_to LOOP
+      -- Calcular si es día activo según work_diagram
+      -- Simplificado: asumimos ciclo desde fecha de inicio
+      day_in_cycle := (EXTRACT(DOY FROM v_current_date) - 1) % (v_work_diagram.active_working_days + v_work_diagram.inactive_working_days) + 1;
+      is_active_day := day_in_cycle <= v_work_diagram.active_working_days;
+      
+      -- Obtener información del nuevo diagrama que se asignará
+      IF is_active_day THEN
+        SELECT dt.name, dt.color INTO v_new_diagram_name, v_new_diagram_color
+        FROM diagram_type dt WHERE dt.id = v_final_active_novelty_id::uuid;
       ELSE
-        parts := parts || format(
-          '%I.%I IN %s',
-          table_alias,
-          c ->> 'filter_column',
-          ids_txt
-        );
-    END CASE;
+        SELECT dt.name, dt.color INTO v_new_diagram_name, v_new_diagram_color
+        FROM diagram_type dt WHERE dt.id = v_inactive_novelty_id::uuid;
+      END IF;
+      
+      -- Verificar si existe registro para esta fecha Y obtener información del diagrama actual
+      SELECT ed.diagram_type, dt.name, dt.color
+      INTO v_existing_diagram_id, v_existing_diagram_name, v_existing_diagram_color
+      FROM employees_diagram ed
+      LEFT JOIN diagram_type dt ON ed.diagram_type = dt.id
+      WHERE ed.employee_id = employee_record.id
+      AND ed.day = EXTRACT(DAY FROM v_current_date)
+      AND ed.month = EXTRACT(MONTH FROM v_current_date)
+      AND ed.year = EXTRACT(YEAR FROM v_current_date);
+      
+      IF FOUND THEN
+        -- Verificar si está siendo usado en operaciones
+        IF EXISTS (
+          SELECT 1 FROM dailyreportemployeerelations drer
+          JOIN dailyreportrows drr ON drer.daily_report_row_id = drr.id
+          JOIN dailyreport dr ON drr.daily_report_id = dr.id
+          WHERE drer.employee_id = employee_record.id
+          AND dr.date = v_current_date
+        ) THEN
+          -- Hay conflicto y está en uso
+          v_conflict_record := json_build_object(
+            'employee_id', employee_record.id,
+            'employee_name', employee_record.firstname || ' ' || employee_record.lastname,
+            'day', EXTRACT(DAY FROM v_current_date),
+            'month', EXTRACT(MONTH FROM v_current_date),
+            'year', EXTRACT(YEAR FROM v_current_date),
+            'date_formatted', v_current_date::text,
+            'current_diagram_type', v_existing_diagram_id,
+            'current_diagram_name', COALESCE(v_existing_diagram_name, 'Sin nombre'),
+            'current_diagram_color', COALESCE(v_existing_diagram_color, '#6b7280'),
+            'new_diagram_name', COALESCE(v_new_diagram_name, 'Sin nombre'),
+            'new_diagram_color', COALESCE(v_new_diagram_color, '#6b7280'),
+            'is_used_in_operations', true,
+            'can_update', false,
+            'conflict_type', 'IN_USE'
+          );
+          v_conflicts := array_append(v_conflicts, v_conflict_record);
+        ELSE
+          -- Hay conflicto pero no está en uso
+          v_conflict_record := json_build_object(
+            'employee_id', employee_record.id,
+            'employee_name', employee_record.firstname || ' ' || employee_record.lastname,
+            'day', EXTRACT(DAY FROM v_current_date),
+            'month', EXTRACT(MONTH FROM v_current_date),
+            'year', EXTRACT(YEAR FROM v_current_date),
+            'date_formatted', v_current_date::text,
+            'current_diagram_type', v_existing_diagram_id,
+            'current_diagram_name', COALESCE(v_existing_diagram_name, 'Sin nombre'),
+            'current_diagram_color', COALESCE(v_existing_diagram_color, '#6b7280'),
+            'new_diagram_name', COALESCE(v_new_diagram_name, 'Sin nombre'),
+            'new_diagram_color', COALESCE(v_new_diagram_color, '#6b7280'),
+            'is_used_in_operations', false,
+            'can_update', true,
+            'conflict_type', 'CAN_UPDATE'
+          );
+          v_conflicts := array_append(v_conflicts, v_conflict_record);
+        END IF;
+      END IF;
+      
+      v_current_date := v_current_date + INTERVAL '1 day';
+    END LOOP;
   END LOOP;
-
-  RETURN array_to_string(parts, ' AND ');
+  
+  RETURN json_build_object(
+    'conflicts', COALESCE(v_conflicts, '{}'),
+    'work_diagram_id', p_work_diagram_id,
+    'active_novelty_id', v_final_active_novelty_id,
+    'inactive_novelty_id', v_inactive_novelty_id
+  );
 END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.check_diagram_conflicts_with_operations_v2(p_employee_ids text[], p_work_diagram_id uuid, p_date_from date, p_date_to date)
+ RETURNS json
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    conflict_record RECORD;
+    operation_conflicts json[] := '{}';
+    simple_conflicts json[] := '{}';
+    result json;
+BEGIN
+    -- Verificar conflictos con operaciones (registros en uso)
+    FOR conflict_record IN
+        SELECT DISTINCT
+            ed.employee_id,
+            CONCAT(e.firstname, ' ', e.lastname) as employee_name,
+            TO_CHAR(make_date(ed.year, ed.month, ed.day), 'DD/MM/YYYY') as date,
+            dt.name as diagram_type
+        FROM employees_diagram ed
+        JOIN employees e ON e.id = ed.employee_id::uuid
+        JOIN diagram_type dt ON dt.id = ed.diagram_type::uuid
+        WHERE ed.employee_id = ANY(p_employee_ids)
+          AND make_date(ed.year, ed.month, ed.day) BETWEEN p_date_from AND p_date_to
+          AND EXISTS (
+              SELECT 1 
+              FROM dailyreportemployeerelations drer
+              JOIN dailyreportrows drr ON drr.id = drer.daily_report_row_id
+              JOIN dailyreport dr ON dr.id = drr.daily_report_id
+              WHERE drer.employee_id = ed.employee_id::uuid
+                AND dr.date = make_date(ed.year, ed.month, ed.day)
+          )
+    LOOP
+        operation_conflicts := operation_conflicts || json_build_object(
+            'employee_id', conflict_record.employee_id,
+            'employee_name', conflict_record.employee_name,
+            'date', conflict_record.date,
+            'diagram_type', conflict_record.diagram_type,
+            'conflict_type', 'OPERATION_IN_USE'
+        );
+    END LOOP;
+
+    -- Verificar conflictos simples (registros existentes pero no en uso)
+    FOR conflict_record IN
+        SELECT DISTINCT
+            ed.employee_id,
+            CONCAT(e.firstname, ' ', e.lastname) as employee_name,
+            TO_CHAR(make_date(ed.year, ed.month, ed.day), 'DD/MM/YYYY') as date,
+            dt.name as diagram_type
+        FROM employees_diagram ed
+        JOIN employees e ON e.id = ed.employee_id::uuid
+        JOIN diagram_type dt ON dt.id = ed.diagram_type::uuid
+        WHERE ed.employee_id = ANY(p_employee_ids)
+          AND make_date(ed.year, ed.month, ed.day) BETWEEN p_date_from AND p_date_to
+          AND NOT EXISTS (
+              SELECT 1 
+              FROM dailyreportemployeerelations drer
+              JOIN dailyreportrows drr ON drr.id = drer.daily_report_row_id
+              JOIN dailyreport dr ON dr.id = drr.daily_report_id
+              WHERE drer.employee_id = ed.employee_id::uuid
+                AND dr.date = make_date(ed.year, ed.month, ed.day)
+          )
+    LOOP
+        simple_conflicts := simple_conflicts || json_build_object(
+            'employee_id', conflict_record.employee_id,
+            'employee_name', conflict_record.employee_name,
+            'date', conflict_record.date,
+            'diagram_type', conflict_record.diagram_type,
+            'conflict_type', 'SIMPLE_CONFLICT'
+        );
+    END LOOP;
+
+    -- Construir resultado
+    result := json_build_object(
+        'operation_conflicts', array_to_json(operation_conflicts),
+        'simple_conflicts', array_to_json(simple_conflicts),
+        'total_operation_conflicts', array_length(operation_conflicts, 1),
+        'total_simple_conflicts', array_length(simple_conflicts, 1)
+    );
+
+    RETURN result;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.collect_daily_indicators(p_company_id uuid, p_date date DEFAULT CURRENT_DATE, p_position_uuids uuid[] DEFAULT NULL::uuid[], p_vehicle_types text[] DEFAULT NULL::text[], p_vehicle_type_ids uuid[] DEFAULT NULL::uuid[], p_company_position_ids uuid[] DEFAULT NULL::uuid[])
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+begin
+  -- 1) Servicios por tipo
+  insert into public.kpi_daily_indicators (
+    company_id, indicator_key, snapshot_date, dimensions, metrics, source
+  )
+  select
+    p_company_id,
+    'services_summary_by_type',
+    p_date,
+    jsonb_build_object('type_service', r.type_service),
+    jsonb_build_object(
+      'service_count', r.service_count,
+      'percentage', r.percentage
+    ),
+    'get_services_summary_by_type'
+  from public.get_services_summary_by_type(
+         p_company_id := p_company_id,
+         save_to_history := false
+       ) as r
+  on conflict (company_id, indicator_key, snapshot_date, dimensions_hash)
+  do update set
+    metrics = excluded.metrics,
+    updated_at = now();
+
+  -- 2) Uso de empleados (posiciones opcionales)
+  insert into public.kpi_daily_indicators (
+    company_id, indicator_key, snapshot_date, dimensions, metrics, source
+  )
+  select
+    p_company_id,
+    'employee_usage_indicator',
+    p_date,
+    coalesce(
+      case when p_position_uuids is not null then jsonb_build_object('position_uuids', to_jsonb(p_position_uuids)) end,
+      '{}'::jsonb
+    ),
+    jsonb_build_object(
+      'employees_operativos', r.employees_operativos,
+      'employees_used', r.employees_used,
+      'indicator', r.indicator
+    ),
+    'get_employee_usage_indicator'
+  from public.get_employee_usage_indicator(
+         position_uuids := p_position_uuids,
+         save_to_table := false
+       ) as r
+  on conflict (company_id, indicator_key, snapshot_date, dimensions_hash)
+  do update set
+    metrics = excluded.metrics,
+    updated_at = now();
+
+  -- 3) Uso de vehículos (elige ids o types según lo provisto)
+  if p_vehicle_type_ids is not null then
+    insert into public.kpi_daily_indicators (
+      company_id, indicator_key, snapshot_date, dimensions, metrics, source
+    )
+    select
+      p_company_id,
+      'vehicle_usage_indicator',
+      p_date,
+      jsonb_build_object('type', r.type),
+      jsonb_build_object(
+        'available_units', r.available_units,
+        'used_units', r.used_units,
+        'usage_indicator', r.usage_indicator
+      ),
+      'get_vehicle_usage_indicator'
+    from public.get_vehicle_usage_indicator(
+           p_vehicle_type_ids := p_vehicle_type_ids
+         ) as r
+    on conflict (company_id, indicator_key, snapshot_date, dimensions_hash)
+    do update set
+      metrics = excluded.metrics,
+      updated_at = now();
+  elsif p_vehicle_types is not null then
+    insert into public.kpi_daily_indicators (
+      company_id, indicator_key, snapshot_date, dimensions, metrics, source
+    )
+    select
+      p_company_id,
+      'vehicle_usage_indicator',
+      p_date,
+      jsonb_build_object('type', r.type),
+      jsonb_build_object(
+        'available_units', r.available_units,
+        'used_units', r.used_units,
+        'usage_indicator', r.usage_indicator
+      ),
+      'get_vehicle_usage_indicator'
+    from public.get_vehicle_usage_indicator(
+           p_vehicle_types := p_vehicle_types
+         ) as r
+    on conflict (company_id, indicator_key, snapshot_date, dimensions_hash)
+    do update set
+      metrics = excluded.metrics,
+      updated_at = now();
+  end if;
+
+  -- 4) Conteo de diagramas por día (retorna un JSON)
+  insert into public.kpi_daily_indicators (
+    company_id, indicator_key, snapshot_date, dimensions, metrics, source
+  )
+  select
+    p_company_id,
+    'employee_diagram_count_by_day',
+    p_date,
+    jsonb_build_object(
+      'day', extract(day from p_date)::int,
+      'month', extract(month from p_date)::int,
+      'year', extract(year from p_date)::int
+    ) || coalesce(
+      case when p_company_position_ids is not null then jsonb_build_object('company_position_ids', to_jsonb(p_company_position_ids)) end,
+      '{}'::jsonb
+    ),
+    (
+      public.get_employee_diagram_count_by_day(
+        p_company_position_ids := p_company_position_ids,
+        p_day := extract(day from p_date)::int,
+        p_month := extract(month from p_date)::int,
+        p_year := extract(year from p_date)::int
+      )::jsonb
+    ),
+    'get_employee_diagram_count_by_day'
+  on conflict (company_id, indicator_key, snapshot_date, dimensions_hash)
+  do update set
+    metrics = excluded.metrics,
+    updated_at = now();
+
+end;
 $function$
 ;
 
@@ -2553,6 +3318,196 @@ BEGIN
   END LOOP;
   
   RAISE LOG '%s Fin de ejecución para company_id=%', log_prefix, company_id_var;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.create_massive_diagrams_with_validations(p_employee_ids uuid[], p_diagram_type_id uuid, p_date_from date, p_date_to date)
+ RETURNS json
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_employee_id UUID;
+  v_current_date DATE;
+  v_work_diagram_id UUID;
+  v_active_days INTEGER;
+  v_inactive_days INTEGER;
+  v_active_novelty_id UUID;
+  v_inactive_novelty_id UUID;
+  v_cycle_position INTEGER;
+  v_should_be_active BOOLEAN;
+  v_target_diagram_type_id UUID;
+  v_existing_record RECORD;
+  v_is_used_in_operations BOOLEAN;
+  v_employee_name TEXT;
+  v_created_count INTEGER := 0;
+  v_updated_count INTEGER := 0;
+  v_error_count INTEGER := 0;
+  v_total_processed INTEGER := 0;
+  v_created_records JSON[] := '{}';
+  v_updated_records JSON[] := '{}';
+  v_error_records JSON[] := '{}';
+  v_start_time TIMESTAMP := clock_timestamp();
+  v_day INTEGER;
+  v_month INTEGER;
+  v_year INTEGER;
+BEGIN
+  -- Procesar cada empleado
+  FOREACH v_employee_id IN ARRAY p_employee_ids
+  LOOP
+    -- Obtener información del empleado
+    SELECT 
+      CONCAT(firstname, ' ', lastname),
+      workflow_diagram
+    INTO v_employee_name, v_work_diagram_id
+    FROM employees 
+    WHERE id = v_employee_id;
+    
+    -- Si el empleado no tiene diagrama de trabajo asignado, usar valores por defecto
+    IF v_work_diagram_id IS NULL THEN
+      v_active_days := 1;
+      v_inactive_days := 0;
+      v_active_novelty_id := p_diagram_type_id;
+      v_inactive_novelty_id := NULL;
+    ELSE
+      -- Obtener configuración del diagrama de trabajo
+      SELECT 
+        active_working_days,
+        inactive_working_days,
+        COALESCE(active_novelty_id, (SELECT id FROM diagram_type WHERE name = 'Día de trabajo' AND company_id = (SELECT company_id FROM employees WHERE id = v_employee_id) LIMIT 1)),
+        inactive_novelty_id
+      INTO v_active_days, v_inactive_days, v_active_novelty_id, v_inactive_novelty_id
+      FROM work_diagram
+      WHERE id = v_work_diagram_id;
+    END IF;
+
+    -- Inicializar ciclo
+    v_current_date := p_date_from;
+    v_cycle_position := 0; -- Asumimos que el ciclo empieza con el rango de fechas
+
+    -- Iterar sobre el rango de fechas
+    WHILE v_current_date <= p_date_to LOOP
+      v_total_processed := v_total_processed + 1;
+
+      -- Determinar si el día es activo o inactivo
+      v_should_be_active := v_cycle_position < v_active_days;
+
+      -- Determinar el tipo de diagrama a asignar
+      IF v_should_be_active THEN
+        v_target_diagram_type_id := v_active_novelty_id;
+      ELSE
+        v_target_diagram_type_id := v_inactive_novelty_id;
+      END IF;
+
+      -- Si no hay tipo de diagrama para el estado, continuar
+      IF v_target_diagram_type_id IS NOT NULL THEN
+        -- Verificar si ya existe un registro para este empleado y fecha
+        SELECT day, month, year, diagram_type INTO v_existing_record
+        FROM employees_diagram
+        WHERE employee_id = v_employee_id
+          AND day = EXTRACT(DAY FROM v_current_date)
+          AND month = EXTRACT(MONTH FROM v_current_date)
+          AND year = EXTRACT(YEAR FROM v_current_date);
+
+        IF FOUND THEN
+          -- Si existe, verificar si se puede actualizar
+          -- Verificar si el registro existente está siendo usado en operaciones
+          SELECT EXISTS (
+            SELECT 1
+            FROM dailyreportemployeerelations drer
+            JOIN dailyreportrows drw ON drer.daily_report_row_id = drw.id
+            JOIN dailyreport dr ON drw.daily_report_id = dr.id
+            WHERE drer.employee_id = v_employee_id
+              AND dr.date = make_date(v_existing_record.year, v_existing_record.month, v_existing_record.day)
+          )
+          INTO v_is_used_in_operations;
+
+          IF v_is_used_in_operations THEN
+            -- No se puede actualizar, registrar error
+            v_error_count := v_error_count + 1;
+            v_error_records := v_error_records || json_build_object(
+              'employee_id', v_employee_id,
+              'employee_name', v_employee_name,
+              'date', TO_CHAR(v_current_date, 'DD/MM/YYYY'),
+              'error', 'El registro está siendo usado en operaciones y no puede ser modificado.'
+            );
+          ELSE
+            -- Se puede actualizar
+            UPDATE employees_diagram
+            SET diagram_type = v_target_diagram_type_id
+            WHERE employee_id = v_employee_id
+              AND day = EXTRACT(DAY FROM v_current_date)
+              AND month = EXTRACT(MONTH FROM v_current_date)
+              AND year = EXTRACT(YEAR FROM v_current_date);
+            v_updated_count := v_updated_count + 1;
+            v_updated_records := v_updated_records || json_build_object(
+              'employee_id', v_employee_id,
+              'employee_name', v_employee_name,
+              'date', TO_CHAR(v_current_date, 'DD/MM/YYYY'),
+              'old_diagram_type', v_existing_record.diagram_type,
+              'new_diagram_type', v_target_diagram_type_id
+            );
+          END IF;
+        ELSE
+          -- Si no existe, crear nuevo registro
+          BEGIN
+            INSERT INTO employees_diagram (employee_id, day, month, year, diagram_type)
+            VALUES (v_employee_id, EXTRACT(DAY FROM v_current_date), EXTRACT(MONTH FROM v_current_date), EXTRACT(YEAR FROM v_current_date), v_target_diagram_type_id);
+            v_created_count := v_created_count + 1;
+            v_created_records := v_created_records || json_build_object(
+              'employee_id', v_employee_id,
+              'employee_name', v_employee_name,
+              'date', TO_CHAR(v_current_date, 'DD/MM/YYYY'),
+              'diagram_type', v_target_diagram_type_id
+            );
+          EXCEPTION WHEN OTHERS THEN
+            -- Error al insertar
+            v_error_count := v_error_count + 1;
+            v_error_records := v_error_records || json_build_object(
+              'employee_id', v_employee_id,
+              'employee_name', v_employee_name,
+              'date', TO_CHAR(v_current_date, 'DD/MM/YYYY'),
+              'diagram_type', v_target_diagram_type_id,
+              'error', SQLERRM
+            );
+          END;
+        END IF;
+      END IF;
+      
+      -- Avanzar al siguiente día y posición del ciclo
+      v_current_date := v_current_date + INTERVAL '1 day';
+      v_cycle_position := (v_cycle_position + 1) % (v_active_days + v_inactive_days);
+    END LOOP;
+  END LOOP;
+  
+  -- Retornar resultado en formato JSON
+  RETURN json_build_object(
+    'success', true,
+    'summary', json_build_object(
+      'total_created', v_created_count,
+      'total_updated', v_updated_count,
+      'total_errors', v_error_count,
+      'total_processed', v_total_processed
+    ),
+    'details', json_build_object(
+      'created_records', array_to_json(v_created_records),
+      'updated_records', array_to_json(v_updated_records),
+      'error_records', array_to_json(v_error_records)
+    ),
+    'processing_time', EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time))
+  );
+  
+EXCEPTION WHEN OTHERS THEN
+  RETURN json_build_object(
+    'success', false,
+    'error', SQLERRM,
+    'summary', json_build_object(
+      'total_created', v_created_count,
+      'total_updated', v_updated_count,
+      'total_errors', v_error_count,
+      'total_processed', v_total_processed
+    )
+  );
 END;
 $function$
 ;
@@ -2944,6 +3899,18 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.filter_employees_by_conditions(p_company_id uuid, p_filters jsonb)
+ RETURNS TABLE(id uuid, firstname text, lastname text, picture text, matching_conditions jsonb)
+ LANGUAGE plpgsql
+AS $function$ DECLARE filter_record JSONB; base_query TEXT := 'SELECT e.id, e.firstname, e.lastname, e.picture, ''[]''::jsonb as matching_conditions FROM employees e'; where_conditions TEXT[] := ARRAY[]::TEXT[]; join_clauses TEXT[] := ARRAY[]::TEXT[]; filter_idx INTEGER := 0; needs_contractor_join BOOLEAN := false; needs_category_join BOOLEAN := false; needs_guild_join BOOLEAN := false; needs_covenant_join BOOLEAN := false; needs_province_join BOOLEAN := false; needs_hierarchical_position_join BOOLEAN := false; needs_workflow_diagram_join BOOLEAN := false; needs_company_position_join BOOLEAN := false; BEGIN where_conditions := array_append(where_conditions, 'e.company_id = $1'); where_conditions := array_append(where_conditions, 'e.is_active = true'); FOR filter_record IN SELECT * FROM jsonb_array_elements(p_filters) LOOP filter_idx := filter_idx + 1; DECLARE property_name TEXT := filter_record->>'property'; filter_values JSONB := filter_record->'values'; value_conditions TEXT[] := ARRAY[]::TEXT[]; value_text TEXT; BEGIN FOR value_text IN SELECT * FROM jsonb_array_elements_text(filter_values) LOOP CASE property_name WHEN 'gender' THEN value_conditions := array_append(value_conditions, format('e.gender = ''%s''', value_text)); WHEN 'marital_status' THEN value_conditions := array_append(value_conditions, format('e.marital_status = ''%s''', value_text)); WHEN 'nationality' THEN value_conditions := array_append(value_conditions, format('e.nationality = ''%s''', value_text)); WHEN 'document_type' THEN value_conditions := array_append(value_conditions, format('e.document_type = ''%s''', value_text)); WHEN 'level_of_education' THEN value_conditions := array_append(value_conditions, format('e.level_of_education = ''%s''', value_text)); WHEN 'status' THEN value_conditions := array_append(value_conditions, format('e.status = ''%s''', value_text)); WHEN 'type_of_contract' THEN value_conditions := array_append(value_conditions, format('e.type_of_contract::text = ''%s''', value_text)); WHEN 'province' THEN needs_province_join := true; value_conditions := array_append(value_conditions, format('p.id = ''%s''', value_text)); WHEN 'hierarchical_position' THEN needs_hierarchical_position_join := true; value_conditions := array_append(value_conditions, format('hp.id = ''%s''', value_text)); WHEN 'workflow_diagram' THEN needs_workflow_diagram_join := true; value_conditions := array_append(value_conditions, format('wd.id = ''%s''', value_text)); WHEN 'company_position' THEN needs_company_position_join := true; value_conditions := array_append(value_conditions, format('cp.id = ''%s''', value_text)); WHEN 'contractor_employee' THEN needs_contractor_join := true; value_conditions := array_append(value_conditions, format('c.id = ''%s''', value_text)); WHEN 'guild' THEN needs_guild_join := true; value_conditions := array_append(value_conditions, format('g.id = ''%s''', value_text)); WHEN 'covenant' THEN needs_covenant_join := true; value_conditions := array_append(value_conditions, format('cov.id = ''%s''', value_text)); WHEN 'category' THEN needs_category_join := true; value_conditions := array_append(value_conditions, format('cat.id = ''%s''', value_text)); END CASE; END LOOP; IF array_length(value_conditions, 1) > 0 THEN where_conditions := array_append(where_conditions, '(' || array_to_string(value_conditions, ' OR ') || ')'); END IF; END; END LOOP; IF needs_contractor_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN contractor_employee ce ON ce.employee_id = e.id'); join_clauses := array_append(join_clauses, 'LEFT JOIN customers c ON c.id = ce.contractor_id'); END IF; IF needs_category_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN category cat ON cat.id = e.category_id'); END IF; IF needs_guild_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN guild g ON g.guild_id = e.guild_id'); END IF; IF needs_covenant_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN covenant cov ON cov.id = e.covenants_id'); END IF; IF needs_province_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN provinces p ON p.id = e.province'); END IF; IF needs_hierarchical_position_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN hierarchical_positions hp ON hp.id = e.hierarchical_position'); END IF; IF needs_workflow_diagram_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN work_diagrams wd ON wd.id = e.workflow_diagram'); END IF; IF needs_company_position_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN company_positions cp ON cp.id = e.company_position'); END IF; IF array_length(join_clauses, 1) > 0 THEN base_query := base_query || ' ' || array_to_string(join_clauses, ' '); END IF; IF array_length(where_conditions, 1) > 0 THEN base_query := base_query || ' WHERE ' || array_to_string(where_conditions, ' AND '); END IF; RETURN QUERY EXECUTE base_query USING p_company_id; END; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.filter_vehicles_by_conditions(p_company_id uuid, p_filters jsonb)
+ RETURNS TABLE(id uuid, brand_name text, model_name text, picture text, matching_conditions jsonb)
+ LANGUAGE plpgsql
+AS $function$ DECLARE filter_record JSONB; base_query TEXT := 'SELECT v.id, COALESCE(bv.name, '''') as brand_name, COALESCE(mv.name, '''') as model_name, v.picture, ''[]''::jsonb as matching_conditions FROM vehicles v'; where_conditions TEXT[] := ARRAY[]::TEXT[]; join_clauses TEXT[] := ARRAY[]::TEXT[]; filter_idx INTEGER := 0; needs_contractor_join BOOLEAN := false; needs_brand_join BOOLEAN := false; needs_model_join BOOLEAN := false; needs_type_join BOOLEAN := false; needs_type_of_vehicle_join BOOLEAN := false; BEGIN where_conditions := array_append(where_conditions, 'v.company_id = $1'); where_conditions := array_append(where_conditions, 'v.is_active = true'); join_clauses := array_append(join_clauses, 'LEFT JOIN brand_vehicles bv ON bv.id = v.brand'); join_clauses := array_append(join_clauses, 'LEFT JOIN model_vehicles mv ON mv.id = v.model'); FOR filter_record IN SELECT * FROM jsonb_array_elements(p_filters) LOOP filter_idx := filter_idx + 1; DECLARE property_name TEXT := filter_record->>'property'; filter_values JSONB := filter_record->'values'; value_conditions TEXT[] := ARRAY[]::TEXT[]; value_text TEXT; BEGIN FOR value_text IN SELECT * FROM jsonb_array_elements_text(filter_values) LOOP CASE property_name WHEN 'domain' THEN value_conditions := array_append(value_conditions, format('v.domain = ''%s''', value_text)); WHEN 'chassis' THEN value_conditions := array_append(value_conditions, format('v.chassis = ''%s''', value_text)); WHEN 'engine' THEN value_conditions := array_append(value_conditions, format('v.engine = ''%s''', value_text)); WHEN 'year' THEN value_conditions := array_append(value_conditions, format('v.year = ''%s''', value_text)); WHEN 'status' THEN value_conditions := array_append(value_conditions, format('v.status = ''%s''', value_text)); WHEN 'brand' THEN value_conditions := array_append(value_conditions, format('bv.id = ''%s''', value_text)); WHEN 'model' THEN value_conditions := array_append(value_conditions, format('mv.id = ''%s''', value_text)); WHEN 'type' THEN needs_type_join := true; value_conditions := array_append(value_conditions, format('tov_types.id = ''%s''', value_text)); WHEN 'type_of_vehicle' THEN needs_type_of_vehicle_join := true; value_conditions := array_append(value_conditions, format('tov.id = ''%s''', value_text)); WHEN 'contractor_equipment' THEN needs_contractor_join := true; value_conditions := array_append(value_conditions, format('c.id = ''%s''', value_text)); END CASE; END LOOP; IF array_length(value_conditions, 1) > 0 THEN where_conditions := array_append(where_conditions, '(' || array_to_string(value_conditions, ' OR ') || ')'); END IF; END; END LOOP; IF needs_contractor_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN contractor_equipment ce ON ce.equipment_id = v.id'); join_clauses := array_append(join_clauses, 'LEFT JOIN customers c ON c.id = ce.contractor_id'); END IF; IF needs_type_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN types_of_vehicles tov_types ON tov_types.id = v.type'); END IF; IF needs_type_of_vehicle_join THEN join_clauses := array_append(join_clauses, 'LEFT JOIN types_of_vehicles tov ON tov.id = v.type_of_vehicle'); END IF; IF array_length(join_clauses, 1) > 0 THEN base_query := base_query || ' ' || array_to_string(join_clauses, ' '); END IF; IF array_length(where_conditions, 1) > 0 THEN base_query := base_query || ' WHERE ' || array_to_string(where_conditions, ' AND '); END IF; RETURN QUERY EXECUTE base_query USING p_company_id; END; $function$
+;
+
 CREATE OR REPLACE FUNCTION public.find_employee_by_full_name_v2(p_full_name text, p_company_id uuid)
  RETURNS SETOF employees
  LANGUAGE plpgsql
@@ -2962,10 +3929,109 @@ end;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.get_dailyreportrow_history(p_row_id uuid)
- RETURNS TABLE(id uuid, action_type text, changed_fields jsonb, changed_data jsonb, changed_by jsonb, created_at timestamp with time zone, related_table text, related_id uuid, metadata jsonb)
+CREATE OR REPLACE FUNCTION public.format_employee_names()
+ RETURNS trigger
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+AS $function$
+BEGIN
+  -- Formatear firstname si no es nulo
+  IF NEW.firstname IS NOT NULL THEN
+    NEW.firstname := (
+      SELECT string_agg(
+        INITCAP(word), ' '
+      ) 
+      FROM unnest(string_to_array(NEW.firstname, ' ')) AS word
+    );
+  END IF;
+  
+  -- Formatear lastname si no es nulo
+  IF NEW.lastname IS NOT NULL THEN
+    NEW.lastname := (
+      SELECT string_agg(
+        INITCAP(word), ' '
+      ) 
+      FROM unnest(string_to_array(NEW.lastname, ' ')) AS word
+    );
+  END IF;
+  
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_company_counts_indicator(p_company_id uuid DEFAULT NULL::uuid, save_to_table boolean DEFAULT false)
+ RETURNS TABLE(employee_count bigint, vehicle_count bigint, total_count bigint)
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_employee_count bigint;
+    v_vehicle_count bigint;
+    v_total_count bigint;
+    v_current_date date;
+BEGIN
+    -- Obtener la fecha actual en Argentina
+    v_current_date := (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date;
+    
+    -- Consultar conteo de empleados activos
+    SELECT COUNT(*) INTO v_employee_count
+    FROM employees 
+    WHERE company_id = p_company_id 
+    AND is_active = true;
+    
+    -- Consultar conteo de vehículos activos
+    SELECT COUNT(*) INTO v_vehicle_count
+    FROM vehicles 
+    WHERE company_id = p_company_id 
+    AND is_active = true;
+    
+    -- Calcular total
+    v_total_count := v_employee_count + v_vehicle_count;
+    
+    -- Si save_to_table es true, insertar en daily_indicators
+    IF save_to_table THEN
+        INSERT INTO public.daily_indicators (
+            company_id,
+            snapshot_date,
+            metrics,
+            source
+        )
+        SELECT
+            p_company_id,
+            v_current_date,
+            jsonb_build_object(
+                'employee_count', v_employee_count,
+                'vehicle_count', v_vehicle_count,
+                'total_count', v_total_count
+            ),
+            'get_company_counts_indicator'::public.indicator_function
+        WHERE save_to_table = true AND p_company_id IS NOT NULL;
+    END IF;
+    
+    -- Retornar los resultados
+    RETURN QUERY 
+    SELECT 
+        v_employee_count as employee_count,
+        v_vehicle_count as vehicle_count,
+        v_total_count as total_count;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_company_for_user(user_id uuid)
+ RETURNS uuid
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+  SELECT (raw_app_meta_data->>'company')::uuid 
+  FROM auth.users 
+  WHERE id = user_id;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_dailyreportrow_history(p_row_id uuid)
+ RETURNS TABLE(id uuid, action_type text, changed_fields jsonb, changed_data jsonb, changed_by jsonb, created_at timestamp with time zone, related_table text, related_id uuid, metadata jsonb, reassignment_reason text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
 AS $function$
 BEGIN
     RETURN QUERY
@@ -2982,7 +4048,8 @@ BEGIN
         h.created_at,
         h.related_table,
         h.related_id,
-        h.metadata
+        h.metadata,
+        h.reassignment_reason
     FROM 
         dailyreportrows_history h
     LEFT JOIN 
@@ -2991,6 +4058,692 @@ BEGIN
         h.daily_report_row_id = p_row_id
     ORDER BY 
         h.created_at DESC;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_employee_diagram_count_by_day(p_day integer, p_month integer, p_year integer, p_company_position_ids uuid[] DEFAULT NULL::uuid[], save_to_table boolean DEFAULT false, p_company_id uuid DEFAULT NULL::uuid)
+ RETURNS json
+ LANGUAGE plpgsql
+AS $function$
+DECLARE 
+  total_active_employees INTEGER; 
+  employees_with_diagram INTEGER; 
+  employees_without_diagram INTEGER; 
+  result_array JSON; 
+BEGIN 
+  -- Contar empleados activos (con filtro opcional por company_position) 
+  SELECT COUNT(*) 
+  INTO total_active_employees 
+  FROM employees e 
+  WHERE e.is_active = true 
+    AND ( 
+      p_company_position_ids IS NULL 
+      OR array_length(p_company_position_ids, 1) = 0 
+      OR e.company_position = ANY(p_company_position_ids) 
+    )
+    AND (p_company_id IS NULL OR e.company_id = p_company_id); 
+
+  -- Contar empleados que tienen diagrama para el día especificado 
+  SELECT COUNT(DISTINCT e.id) 
+  INTO employees_with_diagram 
+  FROM employees e 
+  JOIN employees_diagram ed ON e.id = ed.employee_id 
+  WHERE e.is_active = true 
+    AND ed.day = p_day 
+    AND ed.month = p_month 
+    AND ed.year = p_year 
+    AND ( 
+      p_company_position_ids IS NULL 
+      OR array_length(p_company_position_ids, 1) = 0 
+      OR e.company_position = ANY(p_company_position_ids) 
+    )
+    AND (p_company_id IS NULL OR e.company_id = p_company_id); 
+  
+  -- Calcular empleados sin diagrama de forma más directa 
+  employees_without_diagram := total_active_employees - employees_with_diagram; 
+  
+  -- Construir el array de resultados 
+  WITH diagram_counts AS ( 
+    SELECT 
+      dt.id as diagram_type_id, 
+      dt.name as diagram_type_name, 
+      dt.color as diagram_type_color, 
+      COUNT(DISTINCT ed.employee_id) as cantidad_empleados 
+    FROM diagram_type dt 
+    JOIN employees_diagram ed ON dt.id = ed.diagram_type 
+    JOIN employees e ON ed.employee_id = e.id 
+    WHERE ed.day = p_day 
+      AND ed.month = p_month 
+      AND ed.year = p_year 
+      AND e.is_active = true 
+      AND ( 
+        p_company_position_ids IS NULL 
+        OR array_length(p_company_position_ids, 1) = 0 
+        OR e.company_position = ANY(p_company_position_ids) 
+      )
+      AND (p_company_id IS NULL OR e.company_id = p_company_id) 
+    GROUP BY dt.id, dt.name, dt.color 
+  ), 
+  diagram_results AS ( 
+    SELECT 
+      diagram_type_id::TEXT as diagram_type_id_text, 
+      diagram_type_name, 
+      diagram_type_color, 
+      cantidad_empleados 
+    FROM diagram_counts 
+  ), 
+  combined_results AS ( 
+    -- Resultados de diagram_types con empleados 
+    SELECT * FROM diagram_results 
+    
+    UNION ALL 
+    
+    -- Agregar el objeto "Sin diagrama" de forma explícita 
+    SELECT 
+      '0' as diagram_type_id_text, 
+      'Sin diagrama' as diagram_type_name, 
+      '#CCCCCC' as diagram_type_color, 
+      employees_without_diagram as cantidad_empleados 
+    WHERE employees_without_diagram > 0 
+  ),
+  
+  -- Insertar en daily_indicators si save_to_table es true
+  insert_data AS (
+    INSERT INTO public.daily_indicators (
+      company_id,
+      snapshot_date,
+      metrics,
+      source
+    )
+    SELECT 
+      p_company_id,
+      make_date(p_year, p_month, p_day),
+      json_agg(
+        json_build_object(
+          'diagram_type_id', diagram_type_id_text,
+          'diagram_type_name', diagram_type_name,
+          'diagram_type_color', diagram_type_color,
+          'cantidad_empleados', cantidad_empleados
+        )
+      ),
+      'get_employee_diagram_count_by_day'::public.indicator_function
+    FROM combined_results
+    WHERE save_to_table = true AND p_company_id IS NOT NULL
+    GROUP BY p_company_id
+    RETURNING id
+  )
+  
+  SELECT json_agg( 
+    json_build_object( 
+      'diagram_type_id', diagram_type_id_text, 
+      'diagram_type_name', diagram_type_name, 
+      'diagram_type_color', diagram_type_color, 
+      'cantidad_empleados', cantidad_empleados 
+    ) 
+  ) 
+  INTO result_array 
+  FROM combined_results; 
+
+  -- Si no hay resultados, devolver un array vacío 
+  RETURN COALESCE(result_array, '[]'::json); 
+END; 
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_employee_usage_by_positions(position_uuids uuid[])
+ RETURNS TABLE(employees_operativos integer, employees_used integer, indicator numeric)
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    RETURN QUERY
+    WITH 
+    -- CTE 1: Empleados operativos con diagrama laboral activo para HOY
+    employees_with_active_diagram AS (
+        SELECT DISTINCT ed.employee_id
+        FROM employees_diagram ed
+        INNER JOIN diagram_type dt ON ed.diagram_type = dt.id
+        INNER JOIN employees e ON ed.employee_id = e.id
+        WHERE ed.day = EXTRACT(DAY FROM CURRENT_DATE)
+          AND ed.month = EXTRACT(MONTH FROM CURRENT_DATE)
+          AND ed.year = EXTRACT(YEAR FROM CURRENT_DATE)
+          AND dt.work_active = true
+          AND dt.is_active = true
+          AND e.company_position = ANY(position_uuids)
+          AND e.is_active = true
+    ),
+
+    -- CTE 2: Empleados asignados a líneas de dayReportRow para hoy
+    employees_in_daily_reports AS (
+        SELECT DISTINCT drer.employee_id
+        FROM dailyreportemployeerelations drer
+        INNER JOIN dailyreportrows drr ON drer.daily_report_row_id = drr.id
+        INNER JOIN dailyreport dr ON drr.daily_report_id = dr.id
+        INNER JOIN employees e ON drer.employee_id = e.id
+        WHERE dr.date = CURRENT_DATE
+          AND e.company_position = ANY(position_uuids)
+          AND e.is_active = true
+          AND dr.is_active = true
+    ),
+
+    -- CTE 3: Calcular resultados finales
+    results AS (
+        SELECT 
+            (SELECT COUNT(*)::INTEGER FROM employees_with_active_diagram) as total_operativos,
+            (SELECT COUNT(*)::INTEGER FROM employees_in_daily_reports) as total_used
+    ),
+
+    -- CTE 4: Agregar indicador de porcentaje
+    final_results AS (
+        SELECT 
+            total_operativos,
+            total_used,
+            CASE 
+                WHEN total_operativos > 0 THEN 
+                    ROUND((total_used::decimal / total_operativos::decimal) * 100, 2)
+                ELSE 0.00 
+            END::DECIMAL(5,2) as calc_indicator
+        FROM results
+    )
+
+    SELECT 
+        total_operativos as employees_operativos,
+        total_used as employees_used,
+        calc_indicator as indicator
+    FROM final_results;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_employee_usage_indicator(position_uuids uuid[] DEFAULT NULL::uuid[], save_to_table boolean DEFAULT false, p_company_id uuid DEFAULT NULL::uuid)
+ RETURNS TABLE(employees_operativos integer, employees_used integer, indicator numeric)
+ LANGUAGE plpgsql
+AS $function$BEGIN 
+    RETURN QUERY 
+    WITH 
+    -- CTE 1: Empleados operativos con diagrama laboral activo para HOY (fecha argentina) 
+    employees_with_active_diagram AS ( 
+        SELECT DISTINCT ed.employee_id 
+        FROM employees_diagram ed 
+        INNER JOIN diagram_type dt ON ed.diagram_type = dt.id 
+        INNER JOIN employees e ON ed.employee_id = e.id 
+        WHERE ed.day = EXTRACT(DAY FROM (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')) 
+          AND ed.month = EXTRACT(MONTH FROM (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')) 
+          AND ed.year = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')) 
+          AND dt.work_active = true 
+          AND dt.is_active = true 
+          AND (p_company_id IS NULL OR e.company_id = p_company_id) 
+          AND (position_uuids IS NULL OR array_length(position_uuids, 1) IS NULL OR e.company_position = ANY(position_uuids)) 
+          AND e.is_active = true 
+    ), 
+    
+    -- CTE 2: Empleados asignados a líneas de dayReportRow para hoy (fecha argentina) 
+    employees_in_daily_reports AS ( 
+        SELECT DISTINCT drer.employee_id 
+        FROM dailyreportemployeerelations drer 
+        INNER JOIN dailyreportrows drr ON drer.daily_report_row_id = drr.id 
+        INNER JOIN dailyreport dr ON drr.daily_report_id = dr.id 
+        INNER JOIN employees e ON drer.employee_id = e.id 
+        WHERE dr.date = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date 
+          AND (p_company_id IS NULL OR e.company_id = p_company_id) 
+          AND (position_uuids IS NULL OR array_length(position_uuids, 1) IS NULL OR e.company_position = ANY(position_uuids)) 
+          AND e.is_active = true 
+          AND dr.is_active = true 
+    ), 
+    
+    -- CTE 3: Calcular resultados finales 
+    count_results AS ( 
+        SELECT 
+            COALESCE((SELECT COUNT(*) FROM employees_with_active_diagram), 0)::integer as total_operativos, 
+            COALESCE((SELECT COUNT(*) FROM employees_in_daily_reports), 0)::integer as total_used 
+    ), 
+    
+    -- CTE 4: Agregar indicador de porcentaje 
+    final_calculations AS ( 
+        SELECT 
+            cr.total_operativos as employees_operativos, 
+            cr.total_used as employees_used, 
+            CASE 
+                WHEN cr.total_operativos > 0 THEN 
+                    ROUND((cr.total_used::decimal / cr.total_operativos::decimal) * 100, 2) 
+                ELSE 0.00 
+            END::NUMERIC(5,2) as indicator 
+        FROM count_results cr 
+    ),
+    
+    -- CTE 5: Insertar en daily_indicators si save_to_table es true
+    insert_data AS (
+        INSERT INTO public.daily_indicators (
+            company_id,
+            snapshot_date,
+            metrics,
+            source
+        )
+        SELECT 
+            p_company_id,
+            (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date,
+            jsonb_build_object(
+                'employees_operativos', fc.employees_operativos,
+                'employees_used', fc.employees_used,
+                'indicator', fc.indicator
+            ),
+            'get_employee_usage_indicator'::public.indicator_function
+        FROM final_calculations fc
+        WHERE save_to_table = true AND p_company_id IS NOT NULL
+        RETURNING id
+    )
+    
+    SELECT 
+        fc.employees_operativos, 
+        fc.employees_used, 
+        fc.indicator 
+    FROM final_calculations fc; 
+END;$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_employees_not_in_daily_report(p_company_id uuid DEFAULT NULL::uuid, position_uuids uuid[] DEFAULT NULL::uuid[])
+ RETURNS TABLE(employee_id uuid, firstname text, lastname text, cuil text, company_position uuid, position_name text, diagram_type_id uuid, diagram_type_name text, diagram_color text, diagram_short_description text, customers jsonb)
+ LANGUAGE plpgsql
+AS $function$
+BEGIN 
+    RETURN QUERY 
+    WITH 
+    -- CTE 1: Empleados operativos con diagrama laboral activo para HOY (fecha argentina)
+    employees_with_active_diagram AS (
+        SELECT DISTINCT 
+            ed.employee_id,
+            ed.diagram_type
+        FROM employees_diagram ed
+        INNER JOIN diagram_type dt ON ed.diagram_type = dt.id
+        INNER JOIN employees e ON ed.employee_id = e.id
+        WHERE ed.day = EXTRACT(DAY FROM (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires'))
+          AND ed.month = EXTRACT(MONTH FROM (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires'))
+          AND ed.year = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires'))
+          AND dt.work_active = true
+          AND dt.is_active = true
+          AND (p_company_id IS NULL OR e.company_id = p_company_id)
+          AND (position_uuids IS NULL OR array_length(position_uuids, 1) IS NULL OR e.company_position = ANY(position_uuids))
+          AND e.is_active = true
+    ),
+    
+    -- CTE 2: Empleados asignados a líneas de dayReportRow para hoy (fecha argentina)
+    employees_in_daily_reports AS (
+        SELECT DISTINCT drer.employee_id
+        FROM dailyreportemployeerelations drer
+        INNER JOIN dailyreportrows drr ON drer.daily_report_row_id = drr.id
+        INNER JOIN dailyreport dr ON drr.daily_report_id = dr.id
+        INNER JOIN employees e ON drer.employee_id = e.id
+        WHERE dr.date = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+          AND (p_company_id IS NULL OR e.company_id = p_company_id)
+          AND (position_uuids IS NULL OR array_length(position_uuids, 1) IS NULL OR e.company_position = ANY(position_uuids))
+          AND e.is_active = true
+          AND dr.is_active = true
+    ),
+    
+    -- CTE 3: Empleados que están en diagrama pero NO en el parte diario
+    employees_not_in_report AS (
+        SELECT 
+            ewad.employee_id,
+            ewad.diagram_type
+        FROM employees_with_active_diagram ewad
+        WHERE NOT EXISTS (
+            SELECT 1 
+            FROM employees_in_daily_reports eidr 
+            WHERE eidr.employee_id = ewad.employee_id
+        )
+    )
+    
+    -- Consulta final agrupada con array de clientes
+    SELECT 
+        e.id as employee_id,
+        e.firstname,
+        e.lastname,
+        e.cuil,
+        e.company_position,
+        cp.name as position_name,
+        dt.id as diagram_type_id,
+        dt.name as diagram_type_name,
+        dt.color as diagram_color,
+        dt.short_description as diagram_short_description,
+        COALESCE(
+            JSONB_AGG(
+                JSONB_BUILD_OBJECT(
+                    'customer_id', c.id,
+                    'customer_name', c.name
+                )
+            ) FILTER (WHERE c.id IS NOT NULL),
+            '[]'::JSONB
+        ) as customers  -- Array de objetos con clientes asociados
+    FROM employees_not_in_report enr
+    INNER JOIN employees e ON enr.employee_id = e.id
+    LEFT JOIN company_positions cp ON e.company_position = cp.id
+    INNER JOIN diagram_type dt ON enr.diagram_type = dt.id
+    LEFT JOIN contractor_employee ce ON e.id = ce.employee_id
+    LEFT JOIN customers c ON ce.contractor_id = c.id
+    GROUP BY e.id, e.firstname, e.lastname, e.cuil, e.company_position, cp.name, dt.id, dt.name, dt.color, dt.short_description
+    ORDER BY e.lastname, e.firstname;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_services_summary_by_type(p_company_id uuid, save_to_history boolean DEFAULT false)
+ RETURNS TABLE(type_service text, service_count bigint, percentage numeric)
+ LANGUAGE plpgsql
+AS $function$BEGIN
+  RETURN QUERY
+  WITH service_summary AS (
+    SELECT 
+      COALESCE(dr.type_service::TEXT, 'sin_tipo') AS type_service,
+      COUNT(*) AS count_services
+    FROM dailyreportrows dr
+    INNER JOIN dailyreport d 
+      ON dr.daily_report_id = d.id
+    WHERE d.company_id = p_company_id
+      AND DATE(d.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')
+          = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+    GROUP BY dr.type_service
+  ),
+  total_services AS (
+    SELECT SUM(count_services) AS total 
+    FROM service_summary
+  )
+  SELECT 
+    ss.type_service,
+    ss.count_services AS service_count,
+    CASE 
+      WHEN ts.total > 0 
+        THEN ROUND((ss.count_services::NUMERIC / ts.total::NUMERIC) * 100, 2)
+      ELSE 0
+    END AS percentage
+  FROM service_summary ss
+  CROSS JOIN total_services ts
+  ORDER BY ss.count_services DESC;
+END;$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_vehicle_usage_indicator(p_vehicle_type_ids uuid[] DEFAULT NULL::uuid[], p_company_id uuid DEFAULT NULL::uuid, save_to_table boolean DEFAULT false)
+ RETURNS TABLE(type_id uuid, type_name text, available_units bigint, not_available_units bigint, used_units bigint, usage_indicator numeric)
+ LANGUAGE plpgsql
+AS $function$BEGIN
+    -- 1️⃣ Tabla temporal para los tipos de vehículos a procesar
+    CREATE TEMP TABLE vehicle_types_to_process AS
+    SELECT DISTINCT t.id, t.name
+    FROM vehicles v
+    JOIN type t ON v.type = t.id
+    WHERE v.is_active = TRUE
+      AND (array_length(p_vehicle_type_ids, 1) IS NULL
+           OR array_length(p_vehicle_type_ids, 1) = 0
+           OR v.type = ANY(p_vehicle_type_ids))
+      AND (p_company_id IS NULL OR v.company_id = p_company_id);
+
+    -- 2️⃣ Contar unidades disponibles
+    CREATE TEMP TABLE available_counts AS
+    SELECT
+        v.type,
+        COUNT(v.id) AS total
+    FROM vehicles v
+    WHERE v.is_active = TRUE
+      AND v.condition NOT IN ('no operativo', 'en reparacion')
+      AND v.type IN (SELECT id FROM vehicle_types_to_process)
+      AND (p_company_id IS NULL OR v.company_id = p_company_id)
+    GROUP BY v.type;
+
+    -- 3️⃣ Contar unidades NO disponibles
+    CREATE TEMP TABLE not_available_counts AS
+    SELECT
+        v.type,
+        COUNT(v.id) AS total
+    FROM vehicles v
+    WHERE v.is_active = TRUE
+      AND v.condition IN ('no operativo', 'en reparacion')
+      AND v.type IN (SELECT id FROM vehicle_types_to_process)
+      AND (p_company_id IS NULL OR v.company_id = p_company_id)
+    GROUP BY v.type;
+
+    -- 4️⃣ Contar unidades utilizadas hoy
+    CREATE TEMP TABLE used_counts AS
+    SELECT
+        v.type,
+        COUNT(DISTINCT v.id) AS total
+    FROM dailyreport dr
+    JOIN dailyreportrows drr 
+      ON dr.id = drr.daily_report_id
+    JOIN dailyreportequipmentrelations drer 
+      ON drr.id = drer.daily_report_row_id
+    JOIN vehicles v 
+      ON drer.equipment_id = v.id
+    WHERE v.is_active = TRUE
+      AND dr.date >= (current_timestamp AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+      AND dr.date < ((current_timestamp AT TIME ZONE 'America/Argentina/Buenos_Aires')::date + interval '1 day')
+      AND v.type IN (SELECT id FROM vehicle_types_to_process)
+      AND (p_company_id IS NULL OR v.company_id = p_company_id)
+    GROUP BY v.type;
+
+    -- 5️⃣ Unir resultados
+    RETURN QUERY
+    SELECT
+        vt.id AS type_id,
+        vt.name AS type_name,
+        COALESCE(ac.total, 0) AS available_units,
+        COALESCE(nac.total, 0) AS not_available_units,
+        COALESCE(uc.total, 0) AS used_units,
+        CASE
+            WHEN COALESCE(ac.total, 0) > 0 THEN
+                (COALESCE(uc.total, 0)::numeric / ac.total::numeric)
+            ELSE
+                0
+        END AS usage_indicator
+    FROM vehicle_types_to_process vt
+    LEFT JOIN available_counts ac ON vt.id = ac.type
+    LEFT JOIN not_available_counts nac ON vt.id = nac.type
+    LEFT JOIN used_counts uc ON vt.id = uc.type;
+
+    -- 6️⃣ Guardar snapshot si aplica
+    IF save_to_table AND p_company_id IS NOT NULL THEN
+        INSERT INTO public.daily_indicators (
+            company_id,
+            snapshot_date,
+            metrics,
+            source
+        )
+        SELECT
+            p_company_id,
+            (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date,
+            JSON_AGG(
+                JSON_BUILD_OBJECT(
+                    'type_id', vt.id,
+                    'type_name', vt.name,
+                    'available_units', COALESCE(ac.total, 0),
+                    'not_available_units', COALESCE(nac.total, 0),
+                    'used_units', COALESCE(uc.total, 0),
+                    'usage_indicator', CASE
+                        WHEN COALESCE(ac.total, 0) > 0 THEN
+                            (COALESCE(uc.total, 0)::numeric / ac.total::numeric)
+                        ELSE
+                            0
+                    END
+                )
+            ),
+            'get_vehicle_usage_indicator'::public.indicator_function
+        FROM vehicle_types_to_process vt
+        LEFT JOIN available_counts ac ON vt.id = ac.type
+        LEFT JOIN not_available_counts nac ON vt.id = nac.type
+        LEFT JOIN used_counts uc ON vt.id = uc.type
+        GROUP BY p_company_id;
+    END IF;
+
+    -- 🔚 Limpiar temporales
+    DROP TABLE IF EXISTS vehicle_types_to_process;
+    DROP TABLE IF EXISTS available_counts;
+    DROP TABLE IF EXISTS not_available_counts;
+    DROP TABLE IF EXISTS used_counts;
+END;$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_vehicles_non_operative(p_company_id uuid DEFAULT NULL::uuid, vehicle_type_ids uuid[] DEFAULT NULL::uuid[])
+ RETURNS TABLE(vehicle_id uuid, domain text, serie text, intern_number text, year integer, condition text, type_id uuid, type_name text, brand bigint, brand_name text, model bigint, model_name text, type_operative_id uuid, type_operative_name text, sub_type_id uuid, sub_type_name text, customers jsonb)
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        v.id                    AS vehicle_id,
+        v.domain,
+        v.serie,
+        v.intern_number,
+        v.year::INTEGER         AS year,
+        v.condition::TEXT       AS condition,
+        v.type                  AS type_id,
+        t.name                  AS type_name,
+        v.brand,
+        bv.name                 AS brand_name,
+        v.model,
+        mv.name                 AS model_name,
+        v.type_operative_id,
+        to_op.name              AS type_operative_name,
+        v."subType"             AS sub_type_id,
+        st.name                 AS sub_type_name,
+        COALESCE(
+          JSONB_AGG(
+            JSONB_BUILD_OBJECT(
+              'customer_id',   c.id,
+              'customer_name', c.name
+            )
+          ) FILTER (WHERE c.id IS NOT NULL),
+          '[]'::JSONB
+        )                      AS customers
+    FROM vehicles v
+    LEFT JOIN type t 
+      ON v.type = t.id
+    LEFT JOIN brand_vehicles bv 
+      ON v.brand = bv.id
+    LEFT JOIN model_vehicles mv 
+      ON v.model = mv.id
+    LEFT JOIN type_operative to_op 
+      ON v.type_operative_id = to_op.id
+    LEFT JOIN sub_type st 
+      ON v."subType" = st.id
+    LEFT JOIN contractor_equipment ce 
+      ON v.id = ce.equipment_id
+    LEFT JOIN customers c 
+      ON ce.contractor_id = c.id
+    WHERE v.is_active = TRUE
+      AND v.condition = 'no operativo'
+      AND (p_company_id     IS NULL OR v.company_id = p_company_id)
+      AND (
+        vehicle_type_ids IS NULL
+        OR v.type = ANY(vehicle_type_ids)
+      )
+    GROUP BY 
+      v.id, v.domain, v.serie, v.intern_number, v.year, v.condition,
+      v.type, t.name, v.brand, bv.name, v.model, mv.name,
+      v.type_operative_id, to_op.name, v."subType", st.name
+    ORDER BY v.domain, v.serie;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_vehicles_not_in_daily_report(p_company_id uuid DEFAULT NULL::uuid, vehicle_type_ids uuid[] DEFAULT NULL::uuid[])
+ RETURNS TABLE(vehicle_id uuid, domain text, serie text, intern_number text, year integer, condition text, type_id uuid, type_name text, brand bigint, brand_name text, model bigint, model_name text, type_operative_id uuid, type_operative_name text, sub_type_id uuid, sub_type_name text, customers jsonb)
+ LANGUAGE plpgsql
+AS $function$
+BEGIN 
+    RETURN QUERY 
+    WITH 
+    -- CTE 1: Equipos operativos (operativo o operativo condicionado) activos para HOY
+    vehicles_operative AS (
+        SELECT DISTINCT 
+            v.id as vehicle_id,
+            v.domain,
+            v.serie,
+            v.intern_number,
+            v.year::INTEGER as year,
+            v.condition::text,
+            v.type as type_id,
+            v.brand,
+            v.model,  -- Sin CAST
+            v.type_operative_id,
+            v."subType" as sub_type_id
+        FROM vehicles v
+        WHERE v.is_active = true
+          AND v.condition IN ('operativo', 'operativo condicionado')
+          AND (p_company_id IS NULL OR v.company_id = p_company_id)
+          AND (vehicle_type_ids IS NULL OR array_length(vehicle_type_ids, 1) IS NULL OR v.type = ANY(vehicle_type_ids))
+    ),
+    
+    -- CTE 2: Equipos asignados a líneas del parte diario para hoy (fecha argentina)
+    vehicles_in_daily_reports AS (
+        SELECT DISTINCT drer.equipment_id
+        FROM dailyreportequipmentrelations drer
+        INNER JOIN dailyreportrows drr ON drer.daily_report_row_id = drr.id
+        INNER JOIN dailyreport dr ON drr.daily_report_id = dr.id
+        INNER JOIN vehicles v ON drer.equipment_id = v.id
+        WHERE dr.date = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+          AND (p_company_id IS NULL OR v.company_id = p_company_id)
+          AND (vehicle_type_ids IS NULL OR array_length(vehicle_type_ids, 1) IS NULL OR v.type = ANY(vehicle_type_ids))
+          AND v.is_active = true
+          AND dr.is_active = true
+    ),
+    
+    -- CTE 3: Equipos que están operativos pero NO en el parte diario
+    vehicles_not_in_report AS (
+        SELECT 
+            vo.vehicle_id,
+            vo.domain,
+            vo.serie,
+            vo.intern_number,
+            vo.year,
+            vo.condition,
+            vo.type_id,
+            vo.brand,
+            vo.model,
+            vo.type_operative_id,
+            vo.sub_type_id
+        FROM vehicles_operative vo
+        WHERE NOT EXISTS (
+            SELECT 1 
+            FROM vehicles_in_daily_reports vidr 
+            WHERE vidr.equipment_id = vo.vehicle_id
+        )
+    )
+    
+    -- Consulta final agrupada con array de clientes en JSONB
+    SELECT 
+        vnr.vehicle_id,
+        vnr.domain,
+        vnr.serie,
+        vnr.intern_number,
+        vnr.year,
+        vnr.condition,
+        vnr.type_id,
+        t.name as type_name,
+        vnr.brand,
+        bv.name as brand_name,
+        vnr.model,  -- Ahora es BIGINT
+        mv.name as model_name,
+        vnr.type_operative_id,
+        to_op.name as type_operative_name,
+        vnr.sub_type_id,
+        st.name as sub_type_name,
+        COALESCE(
+            JSONB_AGG(
+                JSONB_BUILD_OBJECT(
+                    'customer_id', c.id,
+                    'customer_name', c.name
+                )
+            ) FILTER (WHERE c.id IS NOT NULL),
+            '[]'::JSONB
+        ) as customers
+    FROM vehicles_not_in_report vnr
+    LEFT JOIN type t ON vnr.type_id = t.id
+    LEFT JOIN brand_vehicles bv ON vnr.brand = bv.id
+    LEFT JOIN model_vehicles mv ON vnr.model = mv.id
+    LEFT JOIN type_operative to_op ON vnr.type_operative_id = to_op.id
+    LEFT JOIN sub_type st ON vnr.sub_type_id = st.id
+    LEFT JOIN contractor_equipment ce ON vnr.vehicle_id = ce.equipment_id
+    LEFT JOIN customers c ON ce.contractor_id = c.id
+    GROUP BY vnr.vehicle_id, vnr.domain, vnr.serie, vnr.intern_number, vnr.year, vnr.condition, vnr.type_id, t.name, vnr.brand, bv.name, vnr.model, mv.name, vnr.type_operative_id, to_op.name, vnr.sub_type_id, st.name
+    ORDER BY vnr.domain, vnr.serie;
 END;
 $function$
 ;
@@ -3031,6 +4784,804 @@ BEGIN
 
     RETURN NEW;
 END;$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hr_get_absenteeism_summary(p_company_id uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date, save_to_table boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  tz text := 'America/Argentina/Buenos_Aires';
+  today date := (now() at time zone tz)::date;
+  dfrom date := COALESCE(p_from, date_trunc('month', today)::date);
+  dto date := COALESCE(p_to, today);
+  dotacion_anterior int;
+  altas int;
+  bajas int;
+  dotacion_actual int;
+  total_ausentes int;
+  porcentaje numeric;
+  result jsonb;
+BEGIN
+  SELECT count(*) INTO dotacion_anterior
+  FROM public.employees e
+  WHERE e.company_id = p_company_id
+    AND e.date_of_admission <= (dfrom - 1)
+    AND (e.termination_date IS NULL OR e.termination_date > (dfrom - 1));
+
+  SELECT count(*) INTO altas
+  FROM public.employees e
+  WHERE e.company_id = p_company_id
+    AND e.date_of_admission BETWEEN dfrom AND dto;
+
+  SELECT count(*) INTO bajas
+  FROM public.employees e
+  WHERE e.company_id = p_company_id
+    AND e.termination_date BETWEEN dfrom AND dto;
+
+  SELECT count(*) INTO dotacion_actual
+  FROM public.employees e
+  WHERE e.company_id = p_company_id
+    AND e.date_of_admission <= dto
+    AND (e.termination_date IS NULL OR e.termination_date > dto);
+
+  WITH d AS (
+    SELECT ed.employee_id, ed.diagram_type
+    FROM public.employees_diagram ed
+    WHERE make_date(ed.year::int, ed.month::int, ed.day::int) = dto
+  ),
+  absent AS (
+    SELECT DISTINCT d.employee_id
+    FROM d
+    JOIN public.diagram_type dt ON dt.id = d.diagram_type
+    WHERE dt.work_active = false
+      AND NOT (
+        lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+        OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+      )
+  )
+  SELECT count(*) INTO total_ausentes
+  FROM absent a
+  JOIN public.employees e ON e.id = a.employee_id
+  WHERE e.company_id = p_company_id
+    AND e.date_of_admission <= dto
+    AND (e.termination_date IS NULL OR e.termination_date > dto);
+
+  porcentaje := CASE WHEN dotacion_actual > 0
+                     THEN round((total_ausentes::numeric * 100.0 / dotacion_actual)::numeric, 2)
+                     ELSE 0 END;
+
+  result := jsonb_build_object(
+    'dotacionAnterior', dotacion_anterior,
+    'altas', altas,
+    'bajas', bajas,
+    'dotacionActual', dotacion_actual,
+    'totalAusentes', total_ausentes,
+    'porcentajeAusentismo', porcentaje
+  );
+
+  IF save_to_table AND p_company_id IS NOT NULL THEN
+    INSERT INTO public.daily_indicators (id, company_id, snapshot_date, metrics, source, created_at)
+    VALUES (gen_random_uuid(), p_company_id, dto, result, 'hr_get_absenteeism_summary', now())
+    ON CONFLICT (company_id, snapshot_date, source)
+    DO UPDATE SET metrics = EXCLUDED.metrics, created_at = now();
+  END IF;
+
+  RETURN result;
+END
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hr_get_absenteeism_trend(p_company_id uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date, save_to_table boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  tz text := 'America/Argentina/Buenos_Aires';
+  today date := (now() at time zone tz)::date;
+  dfrom date := COALESCE(p_from, date_trunc('month', today)::date);
+  dto date := COALESCE(p_to, today);
+  result jsonb;
+BEGIN
+  result := (
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'date', to_char(gs.d, 'FMDD/FMMM/YYYY'),
+          'percentage', CASE WHEN hc.headcount > 0
+                             THEN round((coalesce(ab.absents,0)::numeric * 100.0 / hc.headcount)::numeric, 2)
+                             ELSE 0 END
+        )
+        ORDER BY gs.d
+      ),
+      '[]'::jsonb
+    )
+    FROM generate_series(dfrom, dto, interval '1 day') AS gs(d)
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS headcount
+      FROM public.employees e
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= gs.d
+        AND (e.termination_date IS NULL OR e.termination_date > gs.d)
+    ) hc
+    LEFT JOIN LATERAL (
+      WITH d AS (
+        SELECT ed.employee_id, ed.diagram_type
+        FROM public.employees_diagram ed
+        WHERE make_date(ed.year::int, ed.month::int, ed.day::int) = gs.d
+      ),
+      absent AS (
+        SELECT DISTINCT d.employee_id
+        FROM d
+        JOIN public.diagram_type dt ON dt.id = d.diagram_type
+        WHERE dt.work_active = false
+          AND NOT (
+            lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+            OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+          )
+      )
+      SELECT count(*)::int AS absents
+      FROM absent a
+      JOIN public.employees e ON e.id = a.employee_id
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= gs.d
+        AND (e.termination_date IS NULL OR e.termination_date > gs.d)
+    ) ab ON true
+  );
+
+  IF save_to_table AND p_company_id IS NOT NULL THEN
+    INSERT INTO public.daily_indicators (id, company_id, snapshot_date, metrics, source, created_at)
+    SELECT
+      gen_random_uuid(),
+      p_company_id,
+      gs.d::date,
+      jsonb_build_object(
+        'percentage',
+        CASE WHEN hc.headcount > 0
+             THEN round((coalesce(ab.absents,0)::numeric * 100.0 / hc.headcount)::numeric, 2)
+             ELSE 0 END
+      ),
+      'hr_get_absenteeism_trend',
+      now()
+    FROM generate_series(dfrom, dto, interval '1 day') AS gs(d)
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS headcount
+      FROM public.employees e
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= gs.d
+        AND (e.termination_date IS NULL OR e.termination_date > gs.d)
+    ) hc
+    LEFT JOIN LATERAL (
+      WITH d AS (
+        SELECT ed.employee_id, ed.diagram_type
+        FROM public.employees_diagram ed
+        WHERE make_date(ed.year::int, ed.month::int, ed.day::int) = gs.d
+      ),
+      absent AS (
+        SELECT DISTINCT d.employee_id
+        FROM d
+        JOIN public.diagram_type dt ON dt.id = d.diagram_type
+        WHERE dt.work_active = false
+          AND NOT (
+            lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+            OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+          )
+      )
+      SELECT count(*)::int AS absents
+      FROM absent a
+      JOIN public.employees e ON e.id = a.employee_id
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= gs.d
+        AND (e.termination_date IS NULL OR e.termination_date > gs.d)
+    ) ab ON true
+    ON CONFLICT (company_id, snapshot_date, source)
+    DO UPDATE SET metrics = EXCLUDED.metrics, created_at = now();
+  END IF;
+
+  RETURN result;
+END
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hr_get_current_absent_employees(p_company_id uuid, p_date date DEFAULT NULL::date, save_to_table boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $function$DECLARE
+tz text := 'America/Argentina/Buenos_Aires';
+target_date date := COALESCE(p_date, (now() at time zone tz)::date);
+ausentes jsonb;
+altas_info jsonb;
+bajas_info jsonb;
+result jsonb;
+BEGIN
+ausentes := (
+WITH base AS (
+SELECT
+e.id AS employee_id,
+e.file AS legajo,
+trim(e.lastname || ' ' || e.firstname) AS nombre,
+cp.name AS company_position,
+h.name AS hierarchical_position
+FROM public.employees e
+LEFT JOIN public.company_positions cp ON cp.id = e.company_position
+LEFT JOIN public.hierarchy h ON h.id = e.hierarchical_position
+WHERE e.company_id = p_company_id
+AND e.date_of_admission <= target_date
+AND (e.termination_date IS NULL OR e.termination_date >= target_date) -- incluir baja en el mismo día
+),
+today_type AS (
+SELECT DISTINCT ON (ed.employee_id)
+ed.employee_id,
+dt.id AS dt_id,
+dt.name AS turno
+FROM public.employees_diagram ed
+JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+WHERE make_date(ed.year::int, ed.month::int, ed.day::int) = target_date
+AND dt.work_active = false
+AND NOT (
+lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+)
+ORDER BY ed.employee_id, dt.id
+),
+period AS (
+SELECT
+b.employee_id,
+b.legajo,
+b.nombre,
+coalesce(b.company_position,'') AS tarea,
+coalesce(b.hierarchical_position,'') AS linea,
+t.turno,
+''::text AS motivo,
+COALESCE(
+(
+SELECT (max(make_date(ed2.year::int, ed2.month::int, ed2.day::int)) + INTERVAL '1 day')::date
+FROM public.employees_diagram ed2
+JOIN public.diagram_type dt2 ON dt2.id = ed2.diagram_type
+WHERE ed2.employee_id = b.employee_id
+AND make_date(ed2.year::int, ed2.month::int, ed2.day::int) < target_date
+AND dt2.id <> t.dt_id
+),
+(
+SELECT min(make_date(ed3.year::int, ed3.month::int, ed3.day::int))::date
+FROM public.employees_diagram ed3
+WHERE ed3.employee_id = b.employee_id
+AND ed3.diagram_type = t.dt_id
+AND make_date(ed3.year::int, ed3.month::int, ed3.day::int) <= target_date
+),
+target_date
+) AS desde,
+COALESCE(
+(
+SELECT (min(make_date(ed4.year::int, ed4.month::int, ed4.day::int)) - INTERVAL '1 day')::date
+FROM public.employees_diagram ed4
+JOIN public.diagram_type dt4 ON dt4.id = ed4.diagram_type
+WHERE ed4.employee_id = b.employee_id
+AND make_date(ed4.year::int, ed4.month::int, ed4.day::int) > target_date
+AND dt4.id <> t.dt_id
+),
+target_date
+) AS hasta
+FROM base b
+JOIN today_type t ON t.employee_id = b.employee_id
+)
+SELECT coalesce(
+jsonb_agg(
+jsonb_build_object(
+'id', p.employee_id,
+'legajo', p.legajo,
+'nombre', p.nombre,
+'tarea', p.tarea,
+'linea', p.linea,
+'turno', p.turno,
+'motivo', '',
+'desde', to_char(p.desde, 'DD/MM/YYYY'),
+'hasta', to_char(p.hasta, 'DD/MM/YYYY'),
+'diasCaidos', GREATEST(1, (p.hasta - p.desde + 1))::int,
+'observaciones', ''
+)
+ORDER BY p.nombre
+),
+'[]'::jsonb
+)
+FROM period p
+);
+
+-- Detalle de ALTAS del día (date_of_admission = target_date)
+altas_info := (
+WITH base AS (
+SELECT
+e.id,
+e.file AS legajo,
+trim(e.lastname || ' ' || e.firstname) AS nombre,
+cp.name AS company_position,
+h.name AS hierarchical_position
+FROM public.employees e
+LEFT JOIN public.company_positions cp ON cp.id = e.company_position
+LEFT JOIN public.hierarchy h ON h.id = e.hierarchical_position
+WHERE e.company_id = p_company_id
+AND e.date_of_admission = target_date
+),
+turno_today AS (
+SELECT DISTINCT ON (ed.employee_id)
+ed.employee_id,
+dt.name AS turno
+FROM public.employees_diagram ed
+JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+WHERE make_date(ed.year::int, ed.month::int, ed.day::int) = target_date
+ORDER BY ed.employee_id, dt.id
+)
+SELECT coalesce(
+jsonb_agg(
+jsonb_build_object(
+'id', b.id,
+'legajo', b.legajo,
+'nombre', b.nombre,
+'tarea', coalesce(b.company_position,''),
+'linea', coalesce(b.hierarchical_position,''),
+'turno', coalesce(t.turno,''),
+'motivo', 'Alta',
+'desde', to_char(target_date, 'DD/MM/YYYY'),
+'hasta', to_char(target_date, 'DD/MM/YYYY'),
+'diasCaidos', 0,
+'observaciones', ''
+)
+ORDER BY b.nombre
+),
+'[]'::jsonb
+)
+FROM base b
+LEFT JOIN turno_today t ON t.employee_id = b.id
+);
+
+-- Detalle de BAJAS del día (termination_date = target_date)
+bajas_info := (
+WITH base AS (
+SELECT
+e.id,
+e.file AS legajo,
+trim(e.lastname || ' ' || e.firstname) AS nombre,
+cp.name AS company_position,
+h.name AS hierarchical_position,
+(e.reason_for_termination)::text AS motivo
+FROM public.employees e
+LEFT JOIN public.company_positions cp ON cp.id = e.company_position
+LEFT JOIN public.hierarchy h ON h.id = e.hierarchical_position
+WHERE e.company_id = p_company_id
+AND e.termination_date = target_date
+)
+SELECT coalesce(
+jsonb_agg(
+jsonb_build_object(
+'id', b.id,
+'legajo', b.legajo,
+'nombre', b.nombre,
+'tarea', coalesce(b.company_position,''),
+'linea', coalesce(b.hierarchical_position,''),
+'turno', '',
+'motivo', coalesce(b.motivo,'Baja'),
+'desde', to_char(target_date, 'DD/MM/YYYY'),
+'hasta', to_char(target_date, 'DD/MM/YYYY'),
+'diasCaidos', 0,
+'observaciones', ''
+)
+ORDER BY b.nombre
+),
+'[]'::jsonb
+)
+FROM base b
+);
+
+-- Construir el resultado final con el nuevo formato
+result := jsonb_build_object(
+'data', ausentes,
+'detalles', jsonb_build_object(
+'ausentes_info', ausentes,
+'bajas_info', bajas_info,
+'altas_info', altas_info
+)
+);
+
+IF save_to_table AND p_company_id IS NOT NULL THEN
+INSERT INTO public.daily_indicators (id, company_id, snapshot_date, metrics, source, created_at)
+VALUES (gen_random_uuid(), p_company_id, target_date, result, 'hr_get_current_absent_employees', now())
+ON CONFLICT (company_id, snapshot_date, source)
+DO UPDATE SET metrics = EXCLUDED.metrics, created_at = now();
+END IF;
+
+RETURN result;
+END$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hr_get_daily_absence_timeseries(p_company_id uuid, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date, save_to_table boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  tz text := 'America/Argentina/Buenos_Aires';
+  today date := (now() at time zone tz)::date;
+  dfrom date := COALESCE(p_from, date_trunc('month', today)::date);
+  dto date := COALESCE(p_to, today);
+  result jsonb;
+BEGIN
+  result := (
+    WITH days AS (
+      SELECT gs.d::date AS d
+      FROM generate_series(dfrom, dto, interval '1 day') AS gs(d)
+    ),
+    headcounts AS (
+      SELECT
+        d.d,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.date_of_admission <= d.d
+            AND (e.termination_date IS NULL OR e.termination_date > d.d))::int AS total_dotacion,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.date_of_admission <= (d.d - 1)
+            AND (e.termination_date IS NULL OR e.termination_date > (d.d - 1)))::int AS dotacion_prev,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.date_of_admission = d.d)::int AS altas,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.termination_date = d.d)::int AS bajas
+      FROM days d
+    ),
+    absent AS (
+      SELECT
+        d.d,
+        count(*)::int AS total_ausentes
+      FROM days d
+      JOIN public.employees_diagram ed
+        ON make_date(ed.year::int, ed.month::int, ed.day::int) = d.d
+      JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+      JOIN public.employees e ON e.id = ed.employee_id
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= d.d
+        AND (e.termination_date IS NULL OR e.termination_date > d.d)
+        AND dt.work_active = false
+        AND NOT (
+          lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+          OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+        )
+      GROUP BY d.d
+    ),
+    vacaciones AS (
+      SELECT
+        d.d,
+        count(DISTINCT ed.employee_id)::int AS vacaciones
+      FROM days d
+      JOIN public.employees_diagram ed
+        ON make_date(ed.year::int, ed.month::int, ed.day::int) = d.d
+      JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+      JOIN public.employees e ON e.id = ed.employee_id
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= d.d
+        AND (e.termination_date IS NULL OR e.termination_date > d.d)
+        AND (lower(dt.name) LIKE 'ausencia dia de vacaciones%' OR dt.short_description = 'AVA')
+      GROUP BY d.d
+    )
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'fecha', to_char(h.d, 'FMDD/FMMM/YYYY'),
+          'dotacion', h.dotacion_prev,
+          'altas', h.altas,
+          'bajas', h.bajas,
+          'vacaciones', coalesce(v.vacaciones, 0),
+          'totalDotacion', h.total_dotacion,
+          'totalAusentes', coalesce(a.total_ausentes, 0),
+          'porcentajeAusentismo',
+            CASE WHEN h.total_dotacion > 0
+                 THEN round((coalesce(a.total_ausentes,0)::numeric * 100.0 / h.total_dotacion)::numeric, 2)
+                 ELSE 0 END
+        )
+        ORDER BY h.d
+      ),
+      '[]'::jsonb
+    )
+    FROM headcounts h
+    LEFT JOIN absent a ON a.d = h.d
+    LEFT JOIN vacaciones v ON v.d = h.d
+  );
+
+  IF save_to_table AND p_company_id IS NOT NULL THEN
+    WITH days AS (
+      SELECT gs.d::date AS d
+      FROM generate_series(dfrom, dto, interval '1 day') AS gs(d)
+    ),
+    headcounts AS (
+      SELECT
+        d.d,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.date_of_admission <= d.d
+            AND (e.termination_date IS NULL OR e.termination_date > d.d))::int AS total_dotacion,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.date_of_admission <= (d.d - 1)
+            AND (e.termination_date IS NULL OR e.termination_date > (d.d - 1)))::int AS dotacion_prev,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.date_of_admission = d.d)::int AS altas,
+        (SELECT count(*) FROM public.employees e
+          WHERE e.company_id = p_company_id
+            AND e.termination_date = d.d)::int AS bajas
+      FROM days d
+    ),
+    absent AS (
+      SELECT
+        d.d,
+        count(*)::int AS total_ausentes
+      FROM days d
+      JOIN public.employees_diagram ed
+        ON make_date(ed.year::int, ed.month::int, ed.day::int) = d.d
+      JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+      JOIN public.employees e ON e.id = ed.employee_id
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= d.d
+        AND (e.termination_date IS NULL OR e.termination_date > d.d)
+        AND dt.work_active = false
+        AND NOT (
+          lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+          OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+        )
+      GROUP BY d.d
+    ),
+    vacaciones AS (
+      SELECT
+        d.d,
+        count(DISTINCT ed.employee_id)::int AS vacaciones
+      FROM days d
+      JOIN public.employees_diagram ed
+        ON make_date(ed.year::int, ed.month::int, ed.day::int) = d.d
+      JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+      JOIN public.employees e ON e.id = ed.employee_id
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= d.d
+        AND (e.termination_date IS NULL OR e.termination_date > d.d)
+        AND (lower(dt.name) LIKE 'ausencia dia de vacaciones%' OR dt.short_description = 'AVA')
+      GROUP BY d.d
+    )
+    INSERT INTO public.daily_indicators (id, company_id, snapshot_date, metrics, source, created_at)
+    SELECT
+      gen_random_uuid(),
+      p_company_id,
+      h.d,
+      jsonb_build_object(
+        'dotacion', h.dotacion_prev,
+        'altas', h.altas,
+        'bajas', h.bajas,
+        'vacaciones', coalesce(v.vacaciones, 0),
+        'totalDotacion', h.total_dotacion,
+        'totalAusentes', coalesce(a.total_ausentes, 0),
+        'porcentajeAusentismo',
+          CASE WHEN h.total_dotacion > 0
+               THEN round((coalesce(a.total_ausentes,0)::numeric * 100.0 / h.total_dotacion)::numeric, 2)
+               ELSE 0 END
+      ),
+      'hr_get_daily_absence_timeseries',
+      now()
+    FROM headcounts h
+    LEFT JOIN absent a ON a.d = h.d
+    LEFT JOIN vacaciones v ON v.d = h.d
+    ON CONFLICT (company_id, snapshot_date, source)
+    DO UPDATE SET metrics = EXCLUDED.metrics, created_at = now();
+  END IF;
+
+  RETURN result;
+END
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hr_get_department_absence_reasons(p_company_id uuid, p_date date DEFAULT NULL::date, save_to_table boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  tz text := 'America/Argentina/Buenos_Aires';
+  target_date date := COALESCE(p_date, (now() at time zone tz)::date);
+  result jsonb;
+BEGIN
+  result := (
+    WITH base AS (
+      SELECT e.id AS employee_id, COALESCE(cc.name, 'SIN SECTOR') AS sector
+      FROM public.employees e
+      LEFT JOIN public.cost_center cc ON cc.id = e.cost_center_id
+      WHERE e.company_id = p_company_id
+        AND e.date_of_admission <= target_date
+        AND (e.termination_date IS NULL OR e.termination_date > target_date)
+    ),
+    raw AS (
+      SELECT
+        b.sector AS department,
+        dt.name AS reason,
+        COALESCE(dt.color, '#999999') AS color,
+        count(DISTINCT ed.employee_id)::int AS value
+      FROM base b
+      JOIN public.employees_diagram ed ON ed.employee_id = b.employee_id
+      JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+      WHERE make_date(ed.year::int, ed.month::int, ed.day::int) = target_date
+        AND dt.work_active = false
+        AND NOT (
+          lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+          OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+        )
+      GROUP BY 1,2,3
+    ),
+    grouped AS (
+      SELECT
+        department,
+        jsonb_agg(
+          jsonb_build_object('name', reason, 'value', value, 'color', color)
+          ORDER BY value DESC
+        ) AS data
+      FROM raw
+      GROUP BY department
+    )
+    SELECT coalesce(
+      jsonb_agg(jsonb_build_object('department', department, 'data', data) ORDER BY department),
+      '[]'::jsonb
+    )
+    FROM grouped
+  );
+
+  IF save_to_table AND p_company_id IS NOT NULL THEN
+    INSERT INTO public.daily_indicators (id, company_id, snapshot_date, metrics, source, created_at)
+    VALUES (gen_random_uuid(), p_company_id, target_date, result, 'hr_get_department_absence_reasons', now())
+    ON CONFLICT (company_id, snapshot_date, source)
+    DO UPDATE SET metrics = EXCLUDED.metrics, created_at = now();
+  END IF;
+
+  RETURN result;
+END
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hr_get_department_absence_summary(p_company_id uuid, p_date date DEFAULT NULL::date, save_to_table boolean DEFAULT false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $function$DECLARE
+tz text := 'America/Argentina/Buenos_Aires';
+target_date date := COALESCE(p_date, (now() at time zone tz)::date);
+result jsonb;
+BEGIN
+result := (
+WITH base AS (
+SELECT
+e.id AS employee_id,
+COALESCE(cc.name, 'SIN SECTOR') AS sector,
+e.file AS legajo,
+trim(e.lastname || ' ' || e.firstname) AS nombre,
+cp.name AS company_position,
+h.name AS hierarchical_position
+FROM public.employees e
+LEFT JOIN public.cost_center cc ON cc.id = e.cost_center_id
+LEFT JOIN public.company_positions cp ON cp.id = e.company_position
+LEFT JOIN public.hierarchy h ON h.id = e.hierarchical_position
+WHERE e.company_id = p_company_id
+AND e.date_of_admission <= target_date
+AND (e.termination_date IS NULL OR e.termination_date > target_date)
+),
+today_type AS (
+SELECT DISTINCT ON (ed.employee_id)
+ed.employee_id,
+dt.id AS dt_id,
+dt.name AS turno
+FROM public.employees_diagram ed
+JOIN public.diagram_type dt ON dt.id = ed.diagram_type
+WHERE make_date(ed.year::int, ed.month::int, ed.day::int) = target_date
+AND dt.work_active = false
+AND NOT (
+lower(dt.name) LIKE 'franco%' OR dt.short_description IN ('F','FN')
+OR lower(dt.name) LIKE 'ausencia dia de vacaciones%'
+)
+ORDER BY ed.employee_id, dt.id
+),
+period AS (
+SELECT
+b.sector,
+b.employee_id,
+b.legajo,
+b.nombre,
+coalesce(b.company_position,'') AS tarea,
+coalesce(b.hierarchical_position,'') AS linea,
+t.turno,
+''::text AS motivo,
+COALESCE(
+(
+SELECT (max(make_date(ed2.year::int, ed2.month::int, ed2.day::int)) + INTERVAL '1 day')::date
+FROM public.employees_diagram ed2
+JOIN public.diagram_type dt2 ON dt2.id = ed2.diagram_type
+WHERE ed2.employee_id = b.employee_id
+AND make_date(ed2.year::int, ed2.month::int, ed2.day::int) < target_date
+AND dt2.id <> t.dt_id
+),
+(
+SELECT min(make_date(ed3.year::int, ed3.month::int, ed3.day::int))::date
+FROM public.employees_diagram ed3
+WHERE ed3.employee_id = b.employee_id
+AND ed3.diagram_type = t.dt_id
+AND make_date(ed3.year::int, ed3.month::int, ed3.day::int) <= target_date
+),
+target_date
+) AS desde,
+COALESCE(
+(
+SELECT (min(make_date(ed4.year::int, ed4.month::int, ed4.day::int)) - INTERVAL '1 day')::date
+FROM public.employees_diagram ed4
+JOIN public.diagram_type dt4 ON dt4.id = ed4.diagram_type
+WHERE ed4.employee_id = b.employee_id
+AND make_date(ed4.year::int, ed4.month::int, ed4.day::int) > target_date
+AND dt4.id <> t.dt_id
+),
+target_date
+) AS hasta
+FROM base b
+JOIN today_type t ON t.employee_id = b.employee_id
+),
+absent_details_grouped AS (
+SELECT
+p.sector,
+jsonb_agg(
+jsonb_build_object(
+'employee_id', p.employee_id,
+'legajo', p.legajo,
+'nombre', p.nombre,
+'tarea', p.tarea,
+'linea', p.linea,
+'turno', p.turno,
+'motivo', p.motivo,
+'desde', to_char(p.desde, 'DD/MM/YYYY'),
+'hasta', to_char(p.hasta, 'DD/MM/YYYY'),
+'observaciones', '',
+'diasCaidos', GREATEST(1, (p.hasta - p.desde + 1))::int
+)
+ORDER BY p.nombre
+) AS data
+FROM period p
+GROUP BY p.sector
+),
+per_sector AS (
+SELECT
+b.sector,
+count(*)::int AS dotacion,
+count(tt.employee_id)::int AS ausentes
+FROM base b
+LEFT JOIN today_type tt ON tt.employee_id = b.employee_id
+GROUP BY b.sector
+)
+SELECT COALESCE(
+jsonb_agg(
+jsonb_build_object(
+'sector', ps.sector,
+'dotacion', ps.dotacion,
+'ausentes', ps.ausentes,
+'porcentaje', CASE
+WHEN ps.dotacion > 0
+THEN round((ps.ausentes::numeric * 100.0 / ps.dotacion), 2)
+ELSE 0
+END,
+'data', COALESCE(adg.data, '[]'::jsonb)
+)
+ORDER BY ps.sector
+),
+'[]'::jsonb
+)
+FROM per_sector ps
+LEFT JOIN absent_details_grouped adg ON adg.sector = ps.sector
+);
+
+IF save_to_table AND p_company_id IS NOT NULL THEN
+INSERT INTO public.daily_indicators (id, company_id, snapshot_date, metrics, source, created_at)
+VALUES (gen_random_uuid(), p_company_id, target_date, result, 'hr_get_department_absence_summary', now())
+ON CONFLICT (company_id, snapshot_date, source)
+DO UPDATE SET metrics = EXCLUDED.metrics, created_at = now();
+END IF;
+
+RETURN result;
+END$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.log_customer_equipment_relations_changes()
@@ -3136,16 +5687,31 @@ $function$
 CREATE OR REPLACE FUNCTION public.log_dailyreport_changes()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
+AS $function$DECLARE
     user_id UUID;
     changed_fields JSONB;
     readable_data JSONB;
     row_exists BOOLEAN;
+    v_reassignment_reason TEXT; -- Variable para capturar el motivo de reasignación
 BEGIN
+    -- Intentar obtener el motivo de reasignación (si existe)
+    BEGIN
+        v_reassignment_reason := current_setting('myapp.reassignment_reason', true);
+        -- Agregar log para depuración
+        RAISE NOTICE 'Valor de reassignment_reason obtenido: %', v_reassignment_reason;
+    EXCEPTION WHEN OTHERS THEN
+        v_reassignment_reason := NULL;
+        RAISE NOTICE 'Error al obtener reassignment_reason, establecido a NULL';
+    END;
+
     -- Get the current user ID from the request context
-    user_id := (current_setting('request.jwt.claims', true)::json->>'sub')::UUID;
+    BEGIN
+        user_id := (current_setting('request.jwt.claims', true)::json->>'sub')::UUID;
+        RAISE NOTICE 'ID de usuario obtenido: %', user_id;
+    EXCEPTION WHEN OTHERS THEN
+        user_id := NULL;
+        RAISE NOTICE 'Error al obtener ID de usuario, establecido a NULL';
+    END;
     
     IF TG_OP = 'UPDATE' THEN
         -- Verify the row exists before proceeding
@@ -3153,6 +5719,7 @@ BEGIN
         
         IF NOT row_exists THEN
             -- Skip logging if row doesn't exist
+            RAISE NOTICE 'Fila no existe, omitiendo';
             RETURN NEW;
         END IF;
     
@@ -3167,35 +5734,38 @@ BEGIN
             changed_fields := jsonb_set(changed_fields, '{service_id}', 
                 jsonb_build_object('old', OLD.service_id, 'new', NEW.service_id));
         END IF;
-        
-        IF NEW.item_id IS DISTINCT FROM OLD.item_id THEN
-            changed_fields := jsonb_set(changed_fields, '{item_id}', 
-                jsonb_build_object('old', OLD.item_id, 'new', NEW.item_id));
+
+        IF NEW.completed_night IS DISTINCT FROM OLD.completed_night THEN
+            changed_fields := jsonb_set(changed_fields, '{completed_night}', 
+                jsonb_build_object('old', OLD.completed_night, 'new', NEW.completed_night));
         END IF;
+
+        IF NEW.completed_day IS DISTINCT FROM OLD.completed_day THEN
+            changed_fields := jsonb_set(changed_fields, '{completed_day}', 
+                jsonb_build_object('old', OLD.completed_day, 'new', NEW.completed_day));
+        END IF;
+        
+IF NEW.item_id IS DISTINCT FROM OLD.item_id THEN
+    changed_fields := jsonb_set(changed_fields, '{item_id}', 
+        jsonb_build_object(
+            'old',(SELECT item_name FROM service_items WHERE id = OLD.item_id),
+            'new', (SELECT item_name FROM service_items WHERE id = NEW.item_id)
+        ));
+END IF;
         
         IF NEW.working_day IS DISTINCT FROM OLD.working_day THEN
             changed_fields := jsonb_set(changed_fields, '{working_day}', 
                 jsonb_build_object('old', OLD.working_day, 'new', NEW.working_day));
         END IF;
         
-        IF NEW.status IS DISTINCT FROM OLD.status THEN
-            changed_fields := jsonb_set(changed_fields, '{status}', 
-                jsonb_build_object('old', OLD.status, 'new', NEW.status));
+        IF NEW.start_time IS DISTINCT FROM OLD.start_time THEN
+            changed_fields := jsonb_set(changed_fields, '{start_time}', 
+                jsonb_build_object('old', OLD.start_time::TEXT, 'new', NEW.start_time::TEXT));
         END IF;
         
-        IF NEW.type_service IS DISTINCT FROM OLD.type_service THEN
-            changed_fields := jsonb_set(changed_fields, '{type_service}', 
-                jsonb_build_object('old', OLD.type_service, 'new', NEW.type_service));
-        END IF;
-        
-        IF NEW.areas_service_id IS DISTINCT FROM OLD.areas_service_id THEN
-            changed_fields := jsonb_set(changed_fields, '{areas_service_id}', 
-                jsonb_build_object('old', OLD.areas_service_id, 'new', NEW.areas_service_id));
-        END IF;
-        
-        IF NEW.sector_service_id IS DISTINCT FROM OLD.sector_service_id THEN
-            changed_fields := jsonb_set(changed_fields, '{sector_service_id}', 
-                jsonb_build_object('old', OLD.sector_service_id, 'new', NEW.sector_service_id));
+        IF NEW.end_time IS DISTINCT FROM OLD.end_time THEN
+            changed_fields := jsonb_set(changed_fields, '{end_time}', 
+                jsonb_build_object('old', OLD.end_time::TEXT, 'new', NEW.end_time::TEXT));
         END IF;
         
         IF NEW.description IS DISTINCT FROM OLD.description THEN
@@ -3203,14 +5773,21 @@ BEGIN
                 jsonb_build_object('old', OLD.description, 'new', NEW.description));
         END IF;
         
-        IF NEW.start_time IS DISTINCT FROM OLD.start_time THEN
-            changed_fields := jsonb_set(changed_fields, '{start_time}', 
-                jsonb_build_object('old', OLD.start_time, 'new', NEW.start_time));
+        IF NEW.status IS DISTINCT FROM OLD.status THEN
+            changed_fields := jsonb_set(changed_fields, '{status}', 
+                jsonb_build_object('old', OLD.status::TEXT, 'new', NEW.status::TEXT));
+        END IF;
+
+        -- Eliminados los bloques que comparan employee_id y equipment_id porque no existen en esta tabla
+        
+        IF NEW.sector_service_id IS DISTINCT FROM OLD.sector_service_id THEN
+            changed_fields := jsonb_set(changed_fields, '{sector_service_id}', 
+                jsonb_build_object('old', OLD.sector_service_id, 'new', NEW.sector_service_id));
         END IF;
         
-        IF NEW.end_time IS DISTINCT FROM OLD.end_time THEN
-            changed_fields := jsonb_set(changed_fields, '{end_time}', 
-                jsonb_build_object('old', OLD.end_time, 'new', NEW.end_time));
+        IF NEW.areas_service_id IS DISTINCT FROM OLD.areas_service_id THEN
+            changed_fields := jsonb_set(changed_fields, '{areas_service_id}', 
+                jsonb_build_object('old', OLD.areas_service_id, 'new', NEW.areas_service_id));
         END IF;
         
         IF NEW.remit_number IS DISTINCT FROM OLD.remit_number THEN
@@ -3223,17 +5800,24 @@ BEGIN
                 jsonb_build_object('old', OLD.cancel_reason, 'new', NEW.cancel_reason));
         END IF;
         
-        IF changed_fields <> '{}'::JSONB THEN
-            SELECT jsonb_build_object(
-                'customer_name', (SELECT name FROM customers WHERE id = NEW.customer_id),
-                'service_name', (SELECT service_name FROM customer_services WHERE id = NEW.service_id),
-                'item_name', (SELECT item_name FROM service_items WHERE id = NEW.item_id),
-                'working_day', NEW.working_day,
-                'status', NEW.status,
-                'type_service', NEW.type_service
-            ) INTO readable_data;
-            
+        IF NEW.type_service IS DISTINCT FROM OLD.type_service THEN
+            changed_fields := jsonb_set(changed_fields, '{type_service}', 
+                jsonb_build_object('old', OLD.type_service::TEXT, 'new', NEW.type_service::TEXT));
+        END IF;
+        
+        IF changed_fields != '{}'::JSONB THEN
             BEGIN
+                SELECT jsonb_build_object(
+                    'customer_name', (SELECT name FROM customers WHERE id = NEW.customer_id),
+                    'service_name', (SELECT service_name FROM customer_services WHERE id = NEW.service_id),
+                    'item_name', (SELECT item_name FROM service_items WHERE id = NEW.item_id),
+                    'working_day', NEW.working_day,
+                    'status', NEW.status,
+                    'type_service', NEW.type_service
+                ) INTO readable_data;
+                
+                RAISE NOTICE 'Insertando en dailyreportrows_history. Action: UPDATE, Reason: %', v_reassignment_reason;
+                
                 INSERT INTO dailyreportrows_history (
                     daily_report_row_id,
                     related_table,
@@ -3241,7 +5825,8 @@ BEGIN
                     action_type,
                     changed_fields,
                     changed_data,
-                    changed_by
+                    changed_by,
+                    reassignment_reason
                 ) VALUES (
                     NEW.id,
                     TG_TABLE_NAME,
@@ -3249,10 +5834,21 @@ BEGIN
                     'UPDATE',
                     changed_fields,
                     readable_data,
-                    user_id
+                    user_id,
+                    v_reassignment_reason
                 );
+                
+                -- Limpiar la variable de sesión después de usarla
+                IF v_reassignment_reason IS NOT NULL THEN
+                    PERFORM set_config('myapp.reassignment_reason', NULL, false);
+                    RAISE NOTICE 'Variable de sesión de motivo de reasignación limpiada';
+                END IF;
+                
             EXCEPTION WHEN foreign_key_violation THEN
+                RAISE NOTICE 'Excepción de clave foránea en INSERT';
                 NULL;
+            WHEN OTHERS THEN
+                RAISE NOTICE 'Error durante la inserción: %', SQLERRM;
             END;
         END IF;
         
@@ -3267,6 +5863,8 @@ BEGIN
                 'type_service', NEW.type_service
             ) INTO readable_data;
             
+            RAISE NOTICE 'Insertando en dailyreportrows_history. Action: CREATE';
+            
             INSERT INTO dailyreportrows_history (
                 daily_report_row_id,
                 related_table,
@@ -3274,7 +5872,8 @@ BEGIN
                 action_type,
                 changed_fields,
                 changed_data,
-                changed_by
+                changed_by,
+                reassignment_reason
             ) VALUES (
                 NEW.id,
                 TG_TABLE_NAME,
@@ -3282,9 +5881,11 @@ BEGIN
                 'CREATE',
                 '{}'::JSONB,
                 readable_data,
-                user_id
+                user_id,
+                NULL -- No hay motivo de reasignación para nuevas filas
             );
         EXCEPTION WHEN foreign_key_violation THEN
+            RAISE NOTICE 'Excepción de clave foránea en INSERT para CREATE';
             NULL;
         END;
         
@@ -3302,6 +5903,8 @@ BEGIN
                     'type_service', OLD.type_service
                 ) INTO readable_data;
                 
+                RAISE NOTICE 'Insertando en dailyreportrows_history. Action: DELETE';
+                
                 INSERT INTO dailyreportrows_history (
                     daily_report_row_id,
                     related_table,
@@ -3309,7 +5912,8 @@ BEGIN
                     action_type,
                     changed_fields,
                     changed_data,
-                    changed_by
+                    changed_by,
+                    reassignment_reason
                 ) VALUES (
                     OLD.id,
                     TG_TABLE_NAME,
@@ -3317,44 +5921,53 @@ BEGIN
                     'DELETE',
                     '{}'::JSONB,
                     readable_data,
-                    user_id
+                    user_id,
+                    NULL -- No hay motivo de reasignación para eliminaciones
                 );
             END IF;
         EXCEPTION WHEN foreign_key_violation THEN
+            RAISE NOTICE 'Excepción de clave foránea en INSERT para DELETE';
             NULL;
         END;
     END IF;
     
     RETURN COALESCE(NEW, OLD);
-END;
-$function$
+END;$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.log_document_employee_changes()
  RETURNS trigger
  LANGUAGE plpgsql
-AS $function$BEGIN
-    IF TG_OP = 'INSERT' THEN
-        INSERT INTO documents_employees_logs (documents_employees_id, modified_by, updated_at)
-        VALUES (NEW.id, NEW.user_id, now());
-    ELSIF TG_OP = 'UPDATE' THEN
-        INSERT INTO documents_employees_logs (documents_employees_id, modified_by, updated_at)
-        VALUES (NEW.id, NEW.user_id, now());
-    END IF;
-    RETURN NULL;
+AS $function$BEGIN 
+    IF TG_OP = 'INSERT' THEN 
+        IF NEW.user_id IS NOT NULL THEN
+            INSERT INTO documents_employees_logs (documents_employees_id, modified_by, updated_at) 
+            VALUES (NEW.id, NEW.user_id, now()); 
+        END IF;
+    ELSIF TG_OP = 'UPDATE' THEN 
+        IF NEW.user_id IS NOT NULL THEN
+            INSERT INTO documents_employees_logs (documents_employees_id, modified_by, updated_at) 
+            VALUES (NEW.id, NEW.user_id, now()); 
+        END IF;
+    END IF; 
+    RETURN NULL; 
 END;$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.log_document_equipment_changes()
  RETURNS trigger
  LANGUAGE plpgsql
-AS $function$BEGIN
-    IF TG_OP = 'INSERT' THEN
-        INSERT INTO documents_equipment_logs (documents_equipment_id, modified_by, updated_at)
-        VALUES (NEW.id, NEW.user_id, now());
-    ELSIF TG_OP = 'UPDATE' THEN
-        INSERT INTO documents_equipment_logs (documents_equipment_id, modified_by, updated_at)
-        VALUES (NEW.id, NEW.user_id, now());
+AS $function$BEGIN 
+    IF TG_OP = 'INSERT' THEN 
+        IF NEW.user_id IS NOT NULL THEN
+            INSERT INTO documents_equipment_logs (documents_equipment_id, modified_by, updated_at) 
+            VALUES (NEW.id, NEW.user_id, now());
+        END IF;
+    ELSIF TG_OP = 'UPDATE' THEN 
+        IF NEW.user_id IS NOT NULL THEN
+            INSERT INTO documents_equipment_logs (documents_equipment_id, modified_by, updated_at) 
+            VALUES (NEW.id, NEW.user_id, now());
+        END IF;
     END IF;
     RETURN NULL;
 END;$function$
@@ -3546,6 +6159,25 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.log_reassignment_reason_before_update()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    reason TEXT;
+BEGIN
+    BEGIN
+        reason := current_setting('myapp.reassignment_reason', true);
+        RAISE LOG 'BEFORE UPDATE: reassignment_reason = %', reason;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE LOG 'BEFORE UPDATE: Error obteniendo reassignment_reason';
+    END;
+    
+    RETURN NEW;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.log_repair_changes()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -3629,6 +6261,24 @@ BEGIN
     END IF;
 
     RETURN NEW;
+END;$function$
+;
+
+CREATE OR REPLACE FUNCTION public.marcar_prepartes_vencidos()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$BEGIN
+    UPDATE public.preparte
+    SET 
+        status = 'vencido',
+        updated_at = NOW()
+    WHERE status = 'pendiente'
+    AND "executionDate" < CURRENT_DATE
+    AND (
+        "executionDate"::date < CURRENT_DATE
+        OR 
+        ("executionDate"::date = CURRENT_DATE AND "executionDate" < NOW())
+    );
 END;$function$
 ;
 
@@ -4034,6 +6684,305 @@ AS $function$BEGIN
 END;$function$
 ;
 
+CREATE OR REPLACE FUNCTION public.process_massive_diagram_creation_v2(p_employee_ids uuid[], p_work_diagram_id uuid, p_active_novelty_id uuid, p_date_from date, p_date_to date, p_conflict_resolution text)
+ RETURNS json
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_work_diagram RECORD;
+    v_employee_id UUID;
+    v_current_date DATE;
+    v_day_in_cycle INTEGER;
+    v_is_active_day BOOLEAN;
+    v_existing_record RECORD;
+    v_result JSON;
+    v_total_employees INTEGER := 0;
+    v_processed_employees INTEGER := 0;
+    v_total_days INTEGER := 0;
+    v_processed_days INTEGER := 0;
+    v_created_records INTEGER := 0;
+    v_updated_records INTEGER := 0;
+    v_skipped_records INTEGER := 0;
+    v_errors TEXT[] := ARRAY[]::TEXT[];
+    v_start_time TIMESTAMP := NOW();
+    v_end_time TIMESTAMP;
+    v_created_data JSON[] := ARRAY[]::JSON[];
+    v_updated_data JSON[] := ARRAY[]::JSON[];
+    v_novelty_info RECORD;
+    v_inactive_novelty_info RECORD;
+    v_employee_name TEXT;
+    v_previous_novelty RECORD;
+BEGIN
+    -- Validar parámetros de entrada
+    IF p_date_from IS NULL OR p_date_to IS NULL THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Las fechas de inicio y fin son requeridas'
+        );
+    END IF;
+    
+    IF p_date_from > p_date_to THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'La fecha de inicio no puede ser mayor que la fecha de fin'
+        );
+    END IF;
+    
+    IF p_employee_ids IS NULL OR array_length(p_employee_ids, 1) = 0 THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Debe seleccionar al menos un empleado'
+        );
+    END IF;
+    
+    IF p_work_diagram_id IS NULL THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Debe seleccionar un diagrama de trabajo'
+        );
+    END IF;
+    
+    IF p_active_novelty_id IS NULL THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Debe seleccionar una novedad activa'
+        );
+    END IF;
+    
+    -- Obtener información del diagrama de trabajo
+    SELECT * INTO v_work_diagram
+    FROM work_diagram
+    WHERE id = p_work_diagram_id AND is_active = true;
+    
+    IF NOT FOUND THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Diagrama de trabajo no encontrado o inactivo'
+        );
+    END IF;
+    
+    -- Obtener información de la novedad activa
+    SELECT name, color INTO v_novelty_info
+    FROM diagram_type
+    WHERE id = p_active_novelty_id AND is_active = true;
+    
+    IF NOT FOUND THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Novedad no encontrada o inactiva'
+        );
+    END IF;
+    
+    -- Obtener información de la novedad inactiva
+    SELECT name, color INTO v_inactive_novelty_info
+    FROM diagram_type
+    WHERE id = v_work_diagram.inactive_novelty;
+    
+    -- Calcular totales para el reporte
+    v_total_employees := array_length(p_employee_ids, 1);
+    v_total_days := (p_date_to - p_date_from + 1);
+    
+    -- Procesar cada empleado
+    FOREACH v_employee_id IN ARRAY p_employee_ids
+    LOOP
+        BEGIN
+            v_processed_employees := v_processed_employees + 1;
+            
+            -- Verificar que el empleado existe y obtener su nombre
+            SELECT CONCAT(firstname, ' ', lastname) INTO v_employee_name
+            FROM employees 
+            WHERE id = v_employee_id;
+            
+            IF NOT FOUND THEN
+                v_errors := array_append(v_errors, 'Empleado con ID ' || v_employee_id || ' no encontrado');
+                CONTINUE;
+            END IF;
+            
+            -- Procesar cada día en el rango
+            v_current_date := p_date_from;
+            WHILE v_current_date <= p_date_to LOOP
+                v_processed_days := v_processed_days + 1;
+                
+                -- Calcular día en el ciclo (reiniciando desde p_date_from)
+                v_day_in_cycle := ((v_current_date - p_date_from) % (v_work_diagram.active_working_days + v_work_diagram.inactive_working_days)) + 1;
+                
+                -- Determinar si es día activo
+                v_is_active_day := v_day_in_cycle <= v_work_diagram.active_working_days;
+                
+                -- Verificar si ya existe un registro para esta fecha y empleado
+                SELECT * INTO v_existing_record
+                FROM employees_diagram
+                WHERE employee_id = v_employee_id
+                AND day = EXTRACT(DAY FROM v_current_date)
+                AND month = EXTRACT(MONTH FROM v_current_date)
+                AND year = EXTRACT(YEAR FROM v_current_date);
+                
+                IF FOUND THEN
+                    -- Obtener información de la novedad anterior
+                    SELECT dt.name, dt.color INTO v_previous_novelty
+                    FROM diagram_type dt
+                    WHERE dt.id = v_existing_record.diagram_type;
+                    
+                    -- Manejar conflicto según la estrategia seleccionada
+                    IF p_conflict_resolution = 'skip' THEN
+                        v_skipped_records := v_skipped_records + 1;
+                    ELSIF p_conflict_resolution = 'update' THEN
+                        UPDATE employees_diagram
+                        SET 
+                            diagram_type = CASE 
+                                WHEN v_is_active_day THEN p_active_novelty_id
+                                ELSE v_work_diagram.inactive_novelty
+                            END,
+                            created_at = NOW()
+                        WHERE employee_id = v_employee_id
+                        AND day = EXTRACT(DAY FROM v_current_date)
+                        AND month = EXTRACT(MONTH FROM v_current_date)
+                        AND year = EXTRACT(YEAR FROM v_current_date);
+                        
+                        v_updated_records := v_updated_records + 1;
+                        
+                        -- Agregar a los datos actualizados con información de novedad anterior
+                        v_updated_data := array_append(v_updated_data, json_build_object(
+                            'employee_id', v_employee_id,
+                            'employee_name', v_employee_name,
+                            'date', v_current_date,
+                            'day', EXTRACT(DAY FROM v_current_date),
+                            'month', EXTRACT(MONTH FROM v_current_date),
+                            'year', EXTRACT(YEAR FROM v_current_date),
+                            'is_active', v_is_active_day,
+                            'novelty_name', CASE 
+                                WHEN v_is_active_day THEN v_novelty_info.name 
+                                ELSE v_inactive_novelty_info.name 
+                            END,
+                            'novelty_color', CASE 
+                                WHEN v_is_active_day THEN v_novelty_info.color 
+                                ELSE v_inactive_novelty_info.color 
+                            END,
+                            'previous_novelty_name', v_previous_novelty.name,
+                            'previous_novelty_color', v_previous_novelty.color
+                        ));
+                    END IF;
+                ELSE
+                    -- Crear nuevo registro para días activos e inactivos
+                    INSERT INTO employees_diagram (
+                        employee_id,
+                        diagram_type,
+                        day,
+                        month,
+                        year,
+                        created_at
+                    ) VALUES (
+                        v_employee_id,
+                        CASE 
+                            WHEN v_is_active_day THEN p_active_novelty_id
+                            ELSE v_work_diagram.inactive_novelty
+                        END,
+                        EXTRACT(DAY FROM v_current_date),
+                        EXTRACT(MONTH FROM v_current_date),
+                        EXTRACT(YEAR FROM v_current_date),
+                        NOW()
+                    );
+                    
+                    v_created_records := v_created_records + 1;
+                    
+                    -- Agregar a los datos creados
+                    v_created_data := array_append(v_created_data, json_build_object(
+                        'employee_id', v_employee_id,
+                        'employee_name', v_employee_name,
+                        'date', v_current_date,
+                        'day', EXTRACT(DAY FROM v_current_date),
+                        'month', EXTRACT(MONTH FROM v_current_date),
+                        'year', EXTRACT(YEAR FROM v_current_date),
+                        'is_active', v_is_active_day,
+                        'novelty_name', CASE 
+                            WHEN v_is_active_day THEN v_novelty_info.name 
+                            ELSE v_inactive_novelty_info.name 
+                        END,
+                        'novelty_color', CASE 
+                            WHEN v_is_active_day THEN v_novelty_info.color 
+                            ELSE v_inactive_novelty_info.color 
+                        END
+                    ));
+                END IF;
+                
+                v_current_date := v_current_date + 1;
+            END LOOP;
+            
+        EXCEPTION
+            WHEN OTHERS THEN
+                v_errors := array_append(v_errors, 'Error procesando empleado ' || v_employee_id || ': ' || SQLERRM);
+        END;
+    END LOOP;
+    
+    v_end_time := NOW();
+    
+    -- Construir respuesta
+    v_result := json_build_object(
+        'success', true,
+        'summary', json_build_object(
+            'total_employees', v_total_employees,
+            'processed_employees', v_processed_employees,
+            'total_days', v_total_days,
+            'processed_days', v_processed_days,
+            'created_records', v_created_records,
+            'updated_records', v_updated_records,
+            'skipped_records', v_skipped_records,
+            'errors_count', array_length(v_errors, 1),
+            'processing_time_seconds', EXTRACT(EPOCH FROM (v_end_time - v_start_time)),
+            'start_time', v_start_time,
+            'end_time', v_end_time
+        ),
+        'data', json_build_object(
+            'created', v_created_data,
+            'updated', v_updated_data
+        ),
+        'details', json_build_object(
+            'date_range', json_build_object(
+                'from', p_date_from,
+                'to', p_date_to
+            ),
+            'work_diagram', json_build_object(
+                'id', v_work_diagram.id,
+                'name', v_work_diagram.name,
+                'active_days', v_work_diagram.active_working_days,
+                'inactive_days', v_work_diagram.inactive_working_days,
+                'cycle_length', v_work_diagram.active_working_days + v_work_diagram.inactive_working_days
+            ),
+            'active_novelty', json_build_object(
+                'id', p_active_novelty_id,
+                'name', v_novelty_info.name,
+                'color', v_novelty_info.color
+            ),
+            'inactive_novelty', json_build_object(
+                'id', v_work_diagram.inactive_novelty,
+                'name', v_inactive_novelty_info.name,
+                'color', v_inactive_novelty_info.color
+            ),
+            'conflict_resolution', p_conflict_resolution,
+            'employee_ids', p_employee_ids
+        ),
+        'errors', v_errors
+    );
+    
+    RETURN v_result;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Error interno del servidor: ' || SQLERRM,
+            'details', json_build_object(
+                'processed_employees', v_processed_employees,
+                'processed_days', v_processed_days,
+                'created_records', v_created_records,
+                'updated_records', v_updated_records,
+                'skipped_records', v_skipped_records
+            )
+        );
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.pruebaemail()
  RETURNS void
  LANGUAGE plpgsql
@@ -4364,6 +7313,366 @@ BEGIN
 END;$function$
 ;
 
+CREATE OR REPLACE FUNCTION public.run_daily_indicators_for_all_companies()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  company_record RECORD;
+  v_today date := (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date;
+BEGIN
+  FOR company_record IN SELECT id FROM company LOOP
+    BEGIN
+      PERFORM public.get_employee_usage_indicator(
+        position_uuids => NULL::uuid[],
+        save_to_table => true,
+        p_company_id => company_record.id
+      );
+
+      PERFORM public.get_employee_diagram_count_by_day(
+        p_day => EXTRACT(DAY FROM v_today)::integer,
+        p_month => EXTRACT(MONTH FROM v_today)::integer,
+        p_year => EXTRACT(YEAR FROM v_today)::integer,
+        p_company_position_ids => NULL,
+        save_to_table => true,
+        p_company_id => company_record.id
+      );
+
+      PERFORM public.get_vehicle_usage_indicator(
+        p_vehicle_type_ids => ARRAY[]::uuid[],
+        p_company_id => company_record.id,
+        save_to_table => true
+      );
+
+      PERFORM public.get_company_counts_indicator(
+        p_company_id => company_record.id,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_absenteeism_summary(
+        p_company_id => company_record.id,
+        p_from => v_today,
+        p_to => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_absenteeism_trend(
+        p_company_id => company_record.id,
+        p_from => v_today,
+        p_to => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_current_absent_employees(
+        p_company_id => company_record.id,
+        p_date => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_daily_absence_timeseries(
+        p_company_id => company_record.id,
+        p_from => v_today,
+        p_to => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_department_absence_reasons(
+        p_company_id => company_record.id,
+        p_date => v_today,
+        save_to_table => true
+      );
+
+      PERFORM public.hr_get_department_absence_summary(
+        p_company_id => company_record.id,
+        p_date => v_today,
+        save_to_table => true
+      );
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Error al ejecutar indicadores para company_id %: %', company_record.id, SQLERRM;
+    END;
+  END LOOP;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.select_distinct_values(p_table_name text, p_column_path text, p_join_mappings jsonb DEFAULT NULL::jsonb, p_multi_join_paths jsonb DEFAULT NULL::jsonb, p_filters jsonb DEFAULT NULL::jsonb)
+ RETURNS TABLE(col_value text, col_count bigint)
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    query TEXT;
+    parts TEXT[];
+    current_table TEXT;
+    current_column TEXT;
+    join_clause TEXT := '';
+    where_clause TEXT := '';
+    table_alias_counter INTEGER := 1;
+    i INTEGER;
+    target_table TEXT;
+    fk_column TEXT;
+    mapping_key TEXT;
+    mapping_value TEXT;
+    processed_mappings JSONB;
+    join_info JSONB;
+    joins_array_length INTEGER;
+    parsed_multi_join_paths JSONB;
+    parsed_filters JSONB;
+    filter_key TEXT;
+    filter_value TEXT;
+    filter_conditions TEXT[] := ARRAY[]::TEXT[];
+BEGIN
+    RAISE LOG '[SELECT_DISTINCT_VALUES] === INICIO DE EJECUCIÓN ===';
+    RAISE LOG '[SELECT_DISTINCT_VALUES] Parámetros de entrada:';
+    RAISE LOG '[SELECT_DISTINCT_VALUES] - p_table_name: %', p_table_name;
+    RAISE LOG '[SELECT_DISTINCT_VALUES] - p_column_path: %', p_column_path;
+    RAISE LOG '[SELECT_DISTINCT_VALUES] - p_join_mappings: %', p_join_mappings;
+    RAISE LOG '[SELECT_DISTINCT_VALUES] - p_multi_join_paths: %', p_multi_join_paths;
+    RAISE LOG '[SELECT_DISTINCT_VALUES] - p_filters: %', p_filters;
+    
+    -- Si se proporciona multi_join_paths, usar la nueva lógica
+    IF p_multi_join_paths IS NOT NULL AND p_multi_join_paths != 'null'::jsonb THEN
+        RAISE LOG '[SELECT_DISTINCT_VALUES] Usando multi_join_paths';
+        
+        -- Parsear el JSON si viene como string
+        BEGIN
+            IF jsonb_typeof(p_multi_join_paths) = 'string' THEN
+                parsed_multi_join_paths := (p_multi_join_paths #>> '{}')::JSONB;
+                RAISE LOG '[SELECT_DISTINCT_VALUES] JSON parseado desde string: %', parsed_multi_join_paths;
+            ELSE
+                parsed_multi_join_paths := p_multi_join_paths;
+            END IF;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Error al parsear p_multi_join_paths: %. Valor recibido: %', SQLERRM, p_multi_join_paths;
+        END;
+        
+        -- Validar que el parámetro tenga la estructura correcta
+        IF NOT (parsed_multi_join_paths ? 'joins' AND parsed_multi_join_paths ? 'final_column') THEN
+            RAISE EXCEPTION 'p_multi_join_paths debe contener "joins" y "final_column". Recibido: %', parsed_multi_join_paths;
+        END IF;
+        
+        -- Obtener la longitud del array de joins de forma segura
+        joins_array_length := jsonb_array_length(parsed_multi_join_paths->'joins');
+        
+        IF joins_array_length IS NULL OR joins_array_length = 0 THEN
+            RAISE EXCEPTION 'El array "joins" en p_multi_join_paths está vacío o es NULL';
+        END IF;
+        
+        current_table := p_table_name;
+        
+        -- Construir JOINs múltiples basados en el array de joins
+        FOR i IN 0..joins_array_length - 1 LOOP
+            join_info := parsed_multi_join_paths->'joins'->i;
+            
+            -- Validar que el join_info tenga todas las propiedades necesarias
+            IF NOT (join_info ? 'from_table' AND join_info ? 'to_table' AND join_info ? 'from_column' AND join_info ? 'to_column') THEN
+                RAISE EXCEPTION 'Cada elemento del array "joins" debe contener: from_table, to_table, from_column, to_column';
+            END IF;
+            
+            join_clause := join_clause || format(' LEFT JOIN %I t%s ON %I.%I::TEXT = t%s.%I::TEXT',
+                join_info->>'to_table', 
+                table_alias_counter,
+                current_table,
+                join_info->>'from_column',
+                table_alias_counter,
+                join_info->>'to_column'
+            );
+            
+            RAISE LOG '[SELECT_DISTINCT_VALUES] JOIN construido: %', join_clause;
+            
+            current_table := 't' || table_alias_counter;
+            table_alias_counter := table_alias_counter + 1;
+        END LOOP;
+        
+        -- Extraer tabla y columna final
+        parts := string_to_array(parsed_multi_join_paths->>'final_column', '.');
+        IF array_length(parts, 1) = 2 THEN
+            current_table := 't' || (table_alias_counter - 1); -- Usar el último alias
+            current_column := parts[2];
+        ELSE
+            current_column := parsed_multi_join_paths->>'final_column';
+        END IF;
+        
+    ELSE
+        -- Lógica existente sin cambios
+        -- Convertir string JSON a JSONB si es necesario
+        BEGIN
+            IF p_join_mappings IS NOT NULL AND jsonb_typeof(p_join_mappings) = 'string' THEN
+                processed_mappings := (p_join_mappings #>> '{}')::JSONB;
+                RAISE LOG '[SELECT_DISTINCT_VALUES] Convertido string JSON interno a JSONB: %', processed_mappings;
+            ELSE
+                processed_mappings := p_join_mappings;
+            END IF;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Error al procesar p_join_mappings: %. Valor recibido: %', SQLERRM, p_join_mappings;
+        END;
+        
+        -- Dividir el column_path en partes
+        parts := string_to_array(p_column_path, '.');
+        current_table := p_table_name;
+        
+        -- Si hay más de una parte, es una relación anidada
+        IF array_length(parts, 1) > 1 THEN
+            RAISE LOG '[SELECT_DISTINCT_VALUES] Partes anidadas detectadas: %', array_to_string(parts, ', ');
+            RAISE LOG '[SELECT_DISTINCT_VALUES] Procesando relación anidada...';
+            
+            -- Procesar cada nivel de la relación
+            FOR i IN 1..array_length(parts, 1)-1 LOOP
+                RAISE LOG '[SELECT_DISTINCT_VALUES] Procesando nivel %: buscando tabla destino para columna %', i, parts[i];
+                
+                -- Buscar en los mappings
+                target_table := NULL;
+                fk_column := NULL;
+                
+                -- Iterar sobre los mappings para encontrar la relación
+                IF processed_mappings IS NOT NULL THEN
+                    FOR mapping_key, mapping_value IN SELECT * FROM jsonb_each_text(processed_mappings) LOOP
+                        RAISE LOG '[SELECT_DISTINCT_VALUES] Evaluando mapping: % -> %', mapping_key, mapping_value;
+                        
+                        -- CORREGIDO: Formato correcto {"tabla_destino": "columna_fk"}
+                        IF mapping_key = parts[i] THEN
+                            target_table := mapping_key;
+                            fk_column := mapping_value;
+                            RAISE LOG '[SELECT_DISTINCT_VALUES] Formato correcto detectado: tabla_destino=%, columna_fk=%', target_table, fk_column;
+                            EXIT;
+                        END IF;
+                        
+                        -- Formato legacy: {"columna_fk": "tabla_destino"}
+                        IF mapping_value = parts[i] THEN
+                            target_table := mapping_value;
+                            fk_column := mapping_key;
+                            RAISE LOG '[SELECT_DISTINCT_VALUES] Formato legacy detectado: tabla_destino=%, columna_fk=%', target_table, fk_column;
+                            RAISE WARNING '[SELECT_DISTINCT_VALUES] Usando formato legacy de join_mappings. Se recomienda usar: {"%": "%"}', parts[i], target_table;
+                            EXIT;
+                        END IF;
+                    END LOOP;
+                END IF;
+                
+                -- Si no se encontró mapping, buscar por foreign key
+                IF target_table IS NULL THEN
+                    SELECT 
+                        ccu.table_name,
+                        kcu.column_name
+                    INTO target_table, fk_column
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+                    JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name
+                    WHERE tc.constraint_type = 'FOREIGN KEY'
+                      AND tc.table_name = current_table
+                      AND kcu.column_name = parts[i]
+                    LIMIT 1;
+                    
+                    IF target_table IS NOT NULL THEN
+                        RAISE LOG '[SELECT_DISTINCT_VALUES] Relación encontrada por FK: tabla_destino=%, columna_fk=%', target_table, fk_column;
+                    END IF;
+                END IF;
+                
+                -- Si aún no se encontró, error
+                IF target_table IS NULL THEN
+                    RAISE EXCEPTION 'No se encontró clave foránea para la columna % en la tabla % y no hay mapping disponible', parts[i], current_table;
+                END IF;
+                
+                -- Validar que la tabla destino existe
+                IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = target_table AND table_schema = 'public') THEN
+                    RAISE EXCEPTION 'La tabla destino % no existe', target_table;
+                END IF;
+                
+                -- Validar que la columna FK existe en la tabla actual
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = current_table AND column_name = fk_column AND table_schema = 'public') THEN
+                    RAISE EXCEPTION 'La columna % no existe en la tabla %', fk_column, current_table;
+                END IF;
+                
+                -- Construir el JOIN
+                join_clause := join_clause || format(' LEFT JOIN %I t%s ON %I.%I::TEXT = t%s.id::TEXT',
+                    target_table, table_alias_counter, current_table, fk_column, table_alias_counter);
+                
+                RAISE LOG '[SELECT_DISTINCT_VALUES] JOIN construido: %', join_clause;
+                
+                current_table := 't' || table_alias_counter;
+                table_alias_counter := table_alias_counter + 1;
+            END LOOP;
+            
+            current_column := parts[array_length(parts, 1)];
+        ELSE
+            current_column := p_column_path;
+        END IF;
+    END IF;
+    
+    -- Procesar filtros si se proporcionan - CORREGIDO para manejar null correctamente
+    IF p_filters IS NOT NULL AND p_filters != 'null'::jsonb AND jsonb_typeof(p_filters) != 'null' THEN
+        RAISE LOG '[SELECT_DISTINCT_VALUES] Procesando filtros: %', p_filters;
+        
+        -- Parsear el JSON si viene como string (similar a multi_join_paths)
+        BEGIN
+            IF jsonb_typeof(p_filters) = 'string' THEN
+                parsed_filters := (p_filters #>> '{}')::JSONB;
+                RAISE LOG '[SELECT_DISTINCT_VALUES] Filtros parseados desde string: %', parsed_filters;
+            ELSE
+                parsed_filters := p_filters;
+            END IF;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE EXCEPTION 'Error al parsear p_filters: %. Valor recibido: %', SQLERRM, p_filters;
+        END;
+        
+        -- Verificar que parsed_filters no sea null antes de iterar
+        IF parsed_filters IS NOT NULL AND jsonb_typeof(parsed_filters) = 'object' THEN
+            -- Iterar sobre cada filtro
+            FOR filter_key, filter_value IN SELECT * FROM jsonb_each_text(parsed_filters) LOOP
+                RAISE LOG '[SELECT_DISTINCT_VALUES] Aplicando filtro: % = %', filter_key, filter_value;
+                
+                -- Construir condición de filtro
+                IF filter_value = 'null' THEN
+                    filter_conditions := array_append(filter_conditions, format('%I.%I IS NULL', p_table_name, filter_key));
+                ELSIF filter_value = 'not_null' THEN
+                    filter_conditions := array_append(filter_conditions, format('%I.%I IS NOT NULL', p_table_name, filter_key));
+                ELSIF filter_value IN ('true', 'false') THEN
+                    -- Para valores booleanos
+                    filter_conditions := array_append(filter_conditions, format('%I.%I = %s', p_table_name, filter_key, filter_value));
+                ELSE
+                    -- Para valores de texto
+                    filter_conditions := array_append(filter_conditions, format('%I.%I::TEXT = %L', p_table_name, filter_key, filter_value));
+                END IF;
+            END LOOP;
+        END IF;
+        
+        -- Construir cláusula WHERE
+        IF array_length(filter_conditions, 1) > 0 THEN
+            where_clause := ' WHERE ' || array_to_string(filter_conditions, ' AND ');
+            RAISE LOG '[SELECT_DISTINCT_VALUES] Cláusula WHERE construida: %', where_clause;
+        END IF;
+    ELSE
+        RAISE LOG '[SELECT_DISTINCT_VALUES] No se aplicarán filtros (p_filters es null o vacío)';
+    END IF;
+    
+    -- Construir la consulta final - MODIFICADO para incluir valores NULL y filtros
+    query := format('SELECT COALESCE(%I.%I::TEXT, ''null'') as col_value, COUNT(*) as col_count FROM %I%s%s GROUP BY COALESCE(%I.%I::TEXT, ''null'') ORDER BY col_value ASC',
+        current_table, current_column, p_table_name, join_clause, where_clause, current_table, current_column);
+    
+    RAISE LOG '[SELECT_DISTINCT_VALUES] Consulta SQL generada: %', query;
+    
+    -- Ejecutar la consulta
+    RETURN QUERY EXECUTE query;
+    
+    RAISE LOG '[SELECT_DISTINCT_VALUES] === FIN DE EJECUCIÓN ===';
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.set_reassignment_reason(reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  -- Establece una variable de configuración local usando true para "is_local"
+  -- para que persista en transacciones futuras dentro de la misma conexión
+  PERFORM set_config('myapp.reassignment_reason', reason, true);
+  
+  -- Agregar log para verificar
+  RAISE LOG 'set_reassignment_reason called with reason: %', reason;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.trg_controlar_alertas_employees()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -4431,6 +7740,54 @@ BEGIN
         WHERE owner_id = NEW.owner_id AND id <> NEW.id;
     END IF;
     RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.update_employee_diagram_status(p_employee_id uuid, p_is_active boolean)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    affected_rows INTEGER;
+    result JSON;
+BEGIN
+    -- Verificar que el empleado existe
+    IF NOT EXISTS (SELECT 1 FROM employees WHERE id = p_employee_id) THEN
+        RETURN json_build_object(
+            'success', false,
+            'message', 'Employee not found',
+            'affected_rows', 0
+        );
+    END IF;
+
+    -- Actualizar todos los registros de employees_diagram para el empleado
+    UPDATE employees_diagram 
+    SET is_active = p_is_active
+    WHERE employee_id = p_employee_id;
+    
+    -- Obtener el número de filas afectadas
+    GET DIAGNOSTICS affected_rows = ROW_COUNT;
+    
+    -- Construir respuesta
+    result := json_build_object(
+        'success', true,
+        'message', 'Employee diagram status updated successfully',
+        'affected_rows', affected_rows,
+        'employee_id', p_employee_id,
+        'new_status', p_is_active
+    );
+    
+    RETURN result;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object(
+            'success', false,
+            'message', 'Error updating employee diagram status: ' || SQLERRM,
+            'affected_rows', 0
+        );
 END;
 $function$
 ;
@@ -5471,6 +8828,48 @@ grant truncate on table "public"."customers" to "service_role";
 
 grant update on table "public"."customers" to "service_role";
 
+grant delete on table "public"."daily_indicators" to "anon";
+
+grant insert on table "public"."daily_indicators" to "anon";
+
+grant references on table "public"."daily_indicators" to "anon";
+
+grant select on table "public"."daily_indicators" to "anon";
+
+grant trigger on table "public"."daily_indicators" to "anon";
+
+grant truncate on table "public"."daily_indicators" to "anon";
+
+grant update on table "public"."daily_indicators" to "anon";
+
+grant delete on table "public"."daily_indicators" to "authenticated";
+
+grant insert on table "public"."daily_indicators" to "authenticated";
+
+grant references on table "public"."daily_indicators" to "authenticated";
+
+grant select on table "public"."daily_indicators" to "authenticated";
+
+grant trigger on table "public"."daily_indicators" to "authenticated";
+
+grant truncate on table "public"."daily_indicators" to "authenticated";
+
+grant update on table "public"."daily_indicators" to "authenticated";
+
+grant delete on table "public"."daily_indicators" to "service_role";
+
+grant insert on table "public"."daily_indicators" to "service_role";
+
+grant references on table "public"."daily_indicators" to "service_role";
+
+grant select on table "public"."daily_indicators" to "service_role";
+
+grant trigger on table "public"."daily_indicators" to "service_role";
+
+grant truncate on table "public"."daily_indicators" to "service_role";
+
+grant update on table "public"."daily_indicators" to "service_role";
+
 grant delete on table "public"."dailyreport" to "anon";
 
 grant insert on table "public"."dailyreport" to "anon";
@@ -6227,6 +9626,48 @@ grant truncate on table "public"."employees_diagram" to "service_role";
 
 grant update on table "public"."employees_diagram" to "service_role";
 
+grant delete on table "public"."equipment_owners" to "anon";
+
+grant insert on table "public"."equipment_owners" to "anon";
+
+grant references on table "public"."equipment_owners" to "anon";
+
+grant select on table "public"."equipment_owners" to "anon";
+
+grant trigger on table "public"."equipment_owners" to "anon";
+
+grant truncate on table "public"."equipment_owners" to "anon";
+
+grant update on table "public"."equipment_owners" to "anon";
+
+grant delete on table "public"."equipment_owners" to "authenticated";
+
+grant insert on table "public"."equipment_owners" to "authenticated";
+
+grant references on table "public"."equipment_owners" to "authenticated";
+
+grant select on table "public"."equipment_owners" to "authenticated";
+
+grant trigger on table "public"."equipment_owners" to "authenticated";
+
+grant truncate on table "public"."equipment_owners" to "authenticated";
+
+grant update on table "public"."equipment_owners" to "authenticated";
+
+grant delete on table "public"."equipment_owners" to "service_role";
+
+grant insert on table "public"."equipment_owners" to "service_role";
+
+grant references on table "public"."equipment_owners" to "service_role";
+
+grant select on table "public"."equipment_owners" to "service_role";
+
+grant trigger on table "public"."equipment_owners" to "service_role";
+
+grant truncate on table "public"."equipment_owners" to "service_role";
+
+grant update on table "public"."equipment_owners" to "service_role";
+
 grant delete on table "public"."equipos_clientes" to "anon";
 
 grant insert on table "public"."equipos_clientes" to "anon";
@@ -6521,6 +9962,90 @@ grant truncate on table "public"."industry_type" to "service_role";
 
 grant update on table "public"."industry_type" to "service_role";
 
+grant delete on table "public"."maintenance_group_type_of_repairs" to "anon";
+
+grant insert on table "public"."maintenance_group_type_of_repairs" to "anon";
+
+grant references on table "public"."maintenance_group_type_of_repairs" to "anon";
+
+grant select on table "public"."maintenance_group_type_of_repairs" to "anon";
+
+grant trigger on table "public"."maintenance_group_type_of_repairs" to "anon";
+
+grant truncate on table "public"."maintenance_group_type_of_repairs" to "anon";
+
+grant update on table "public"."maintenance_group_type_of_repairs" to "anon";
+
+grant delete on table "public"."maintenance_group_type_of_repairs" to "authenticated";
+
+grant insert on table "public"."maintenance_group_type_of_repairs" to "authenticated";
+
+grant references on table "public"."maintenance_group_type_of_repairs" to "authenticated";
+
+grant select on table "public"."maintenance_group_type_of_repairs" to "authenticated";
+
+grant trigger on table "public"."maintenance_group_type_of_repairs" to "authenticated";
+
+grant truncate on table "public"."maintenance_group_type_of_repairs" to "authenticated";
+
+grant update on table "public"."maintenance_group_type_of_repairs" to "authenticated";
+
+grant delete on table "public"."maintenance_group_type_of_repairs" to "service_role";
+
+grant insert on table "public"."maintenance_group_type_of_repairs" to "service_role";
+
+grant references on table "public"."maintenance_group_type_of_repairs" to "service_role";
+
+grant select on table "public"."maintenance_group_type_of_repairs" to "service_role";
+
+grant trigger on table "public"."maintenance_group_type_of_repairs" to "service_role";
+
+grant truncate on table "public"."maintenance_group_type_of_repairs" to "service_role";
+
+grant update on table "public"."maintenance_group_type_of_repairs" to "service_role";
+
+grant delete on table "public"."maintenance_request_groups" to "anon";
+
+grant insert on table "public"."maintenance_request_groups" to "anon";
+
+grant references on table "public"."maintenance_request_groups" to "anon";
+
+grant select on table "public"."maintenance_request_groups" to "anon";
+
+grant trigger on table "public"."maintenance_request_groups" to "anon";
+
+grant truncate on table "public"."maintenance_request_groups" to "anon";
+
+grant update on table "public"."maintenance_request_groups" to "anon";
+
+grant delete on table "public"."maintenance_request_groups" to "authenticated";
+
+grant insert on table "public"."maintenance_request_groups" to "authenticated";
+
+grant references on table "public"."maintenance_request_groups" to "authenticated";
+
+grant select on table "public"."maintenance_request_groups" to "authenticated";
+
+grant trigger on table "public"."maintenance_request_groups" to "authenticated";
+
+grant truncate on table "public"."maintenance_request_groups" to "authenticated";
+
+grant update on table "public"."maintenance_request_groups" to "authenticated";
+
+grant delete on table "public"."maintenance_request_groups" to "service_role";
+
+grant insert on table "public"."maintenance_request_groups" to "service_role";
+
+grant references on table "public"."maintenance_request_groups" to "service_role";
+
+grant select on table "public"."maintenance_request_groups" to "service_role";
+
+grant trigger on table "public"."maintenance_request_groups" to "service_role";
+
+grant truncate on table "public"."maintenance_request_groups" to "service_role";
+
+grant update on table "public"."maintenance_request_groups" to "service_role";
+
 grant delete on table "public"."measure_units" to "anon";
 
 grant insert on table "public"."measure_units" to "anon";
@@ -6688,6 +10213,90 @@ grant trigger on table "public"."notifications" to "service_role";
 grant truncate on table "public"."notifications" to "service_role";
 
 grant update on table "public"."notifications" to "service_role";
+
+grant delete on table "public"."password_reset_tokens" to "anon";
+
+grant insert on table "public"."password_reset_tokens" to "anon";
+
+grant references on table "public"."password_reset_tokens" to "anon";
+
+grant select on table "public"."password_reset_tokens" to "anon";
+
+grant trigger on table "public"."password_reset_tokens" to "anon";
+
+grant truncate on table "public"."password_reset_tokens" to "anon";
+
+grant update on table "public"."password_reset_tokens" to "anon";
+
+grant delete on table "public"."password_reset_tokens" to "authenticated";
+
+grant insert on table "public"."password_reset_tokens" to "authenticated";
+
+grant references on table "public"."password_reset_tokens" to "authenticated";
+
+grant select on table "public"."password_reset_tokens" to "authenticated";
+
+grant trigger on table "public"."password_reset_tokens" to "authenticated";
+
+grant truncate on table "public"."password_reset_tokens" to "authenticated";
+
+grant update on table "public"."password_reset_tokens" to "authenticated";
+
+grant delete on table "public"."password_reset_tokens" to "service_role";
+
+grant insert on table "public"."password_reset_tokens" to "service_role";
+
+grant references on table "public"."password_reset_tokens" to "service_role";
+
+grant select on table "public"."password_reset_tokens" to "service_role";
+
+grant trigger on table "public"."password_reset_tokens" to "service_role";
+
+grant truncate on table "public"."password_reset_tokens" to "service_role";
+
+grant update on table "public"."password_reset_tokens" to "service_role";
+
+grant delete on table "public"."preparte" to "anon";
+
+grant insert on table "public"."preparte" to "anon";
+
+grant references on table "public"."preparte" to "anon";
+
+grant select on table "public"."preparte" to "anon";
+
+grant trigger on table "public"."preparte" to "anon";
+
+grant truncate on table "public"."preparte" to "anon";
+
+grant update on table "public"."preparte" to "anon";
+
+grant delete on table "public"."preparte" to "authenticated";
+
+grant insert on table "public"."preparte" to "authenticated";
+
+grant references on table "public"."preparte" to "authenticated";
+
+grant select on table "public"."preparte" to "authenticated";
+
+grant trigger on table "public"."preparte" to "authenticated";
+
+grant truncate on table "public"."preparte" to "authenticated";
+
+grant update on table "public"."preparte" to "authenticated";
+
+grant delete on table "public"."preparte" to "service_role";
+
+grant insert on table "public"."preparte" to "service_role";
+
+grant references on table "public"."preparte" to "service_role";
+
+grant select on table "public"."preparte" to "service_role";
+
+grant trigger on table "public"."preparte" to "service_role";
+
+grant truncate on table "public"."preparte" to "service_role";
+
+grant update on table "public"."preparte" to "service_role";
 
 grant delete on table "public"."profile" to "anon";
 
@@ -7151,47 +10760,47 @@ grant truncate on table "public"."share_company_users" to "service_role";
 
 grant update on table "public"."share_company_users" to "service_role";
 
-grant delete on table "public"."storage_migrations" to "anon";
+grant delete on table "public"."sub_type" to "anon";
 
-grant insert on table "public"."storage_migrations" to "anon";
+grant insert on table "public"."sub_type" to "anon";
 
-grant references on table "public"."storage_migrations" to "anon";
+grant references on table "public"."sub_type" to "anon";
 
-grant select on table "public"."storage_migrations" to "anon";
+grant select on table "public"."sub_type" to "anon";
 
-grant trigger on table "public"."storage_migrations" to "anon";
+grant trigger on table "public"."sub_type" to "anon";
 
-grant truncate on table "public"."storage_migrations" to "anon";
+grant truncate on table "public"."sub_type" to "anon";
 
-grant update on table "public"."storage_migrations" to "anon";
+grant update on table "public"."sub_type" to "anon";
 
-grant delete on table "public"."storage_migrations" to "authenticated";
+grant delete on table "public"."sub_type" to "authenticated";
 
-grant insert on table "public"."storage_migrations" to "authenticated";
+grant insert on table "public"."sub_type" to "authenticated";
 
-grant references on table "public"."storage_migrations" to "authenticated";
+grant references on table "public"."sub_type" to "authenticated";
 
-grant select on table "public"."storage_migrations" to "authenticated";
+grant select on table "public"."sub_type" to "authenticated";
 
-grant trigger on table "public"."storage_migrations" to "authenticated";
+grant trigger on table "public"."sub_type" to "authenticated";
 
-grant truncate on table "public"."storage_migrations" to "authenticated";
+grant truncate on table "public"."sub_type" to "authenticated";
 
-grant update on table "public"."storage_migrations" to "authenticated";
+grant update on table "public"."sub_type" to "authenticated";
 
-grant delete on table "public"."storage_migrations" to "service_role";
+grant delete on table "public"."sub_type" to "service_role";
 
-grant insert on table "public"."storage_migrations" to "service_role";
+grant insert on table "public"."sub_type" to "service_role";
 
-grant references on table "public"."storage_migrations" to "service_role";
+grant references on table "public"."sub_type" to "service_role";
 
-grant select on table "public"."storage_migrations" to "service_role";
+grant select on table "public"."sub_type" to "service_role";
 
-grant trigger on table "public"."storage_migrations" to "service_role";
+grant trigger on table "public"."sub_type" to "service_role";
 
-grant truncate on table "public"."storage_migrations" to "service_role";
+grant truncate on table "public"."sub_type" to "service_role";
 
-grant update on table "public"."storage_migrations" to "service_role";
+grant update on table "public"."sub_type" to "service_role";
 
 grant delete on table "public"."type" to "anon";
 
@@ -7234,6 +10843,48 @@ grant trigger on table "public"."type" to "service_role";
 grant truncate on table "public"."type" to "service_role";
 
 grant update on table "public"."type" to "service_role";
+
+grant delete on table "public"."type_operative" to "anon";
+
+grant insert on table "public"."type_operative" to "anon";
+
+grant references on table "public"."type_operative" to "anon";
+
+grant select on table "public"."type_operative" to "anon";
+
+grant trigger on table "public"."type_operative" to "anon";
+
+grant truncate on table "public"."type_operative" to "anon";
+
+grant update on table "public"."type_operative" to "anon";
+
+grant delete on table "public"."type_operative" to "authenticated";
+
+grant insert on table "public"."type_operative" to "authenticated";
+
+grant references on table "public"."type_operative" to "authenticated";
+
+grant select on table "public"."type_operative" to "authenticated";
+
+grant trigger on table "public"."type_operative" to "authenticated";
+
+grant truncate on table "public"."type_operative" to "authenticated";
+
+grant update on table "public"."type_operative" to "authenticated";
+
+grant delete on table "public"."type_operative" to "service_role";
+
+grant insert on table "public"."type_operative" to "service_role";
+
+grant references on table "public"."type_operative" to "service_role";
+
+grant select on table "public"."type_operative" to "service_role";
+
+grant trigger on table "public"."type_operative" to "service_role";
+
+grant truncate on table "public"."type_operative" to "service_role";
+
+grant update on table "public"."type_operative" to "service_role";
 
 grant delete on table "public"."types_of_contract" to "anon";
 
@@ -7445,6 +11096,48 @@ grant truncate on table "public"."work_diagram" to "service_role";
 
 grant update on table "public"."work_diagram" to "service_role";
 
+grant delete on table "public"."work_diagram_active_novelties" to "anon";
+
+grant insert on table "public"."work_diagram_active_novelties" to "anon";
+
+grant references on table "public"."work_diagram_active_novelties" to "anon";
+
+grant select on table "public"."work_diagram_active_novelties" to "anon";
+
+grant trigger on table "public"."work_diagram_active_novelties" to "anon";
+
+grant truncate on table "public"."work_diagram_active_novelties" to "anon";
+
+grant update on table "public"."work_diagram_active_novelties" to "anon";
+
+grant delete on table "public"."work_diagram_active_novelties" to "authenticated";
+
+grant insert on table "public"."work_diagram_active_novelties" to "authenticated";
+
+grant references on table "public"."work_diagram_active_novelties" to "authenticated";
+
+grant select on table "public"."work_diagram_active_novelties" to "authenticated";
+
+grant trigger on table "public"."work_diagram_active_novelties" to "authenticated";
+
+grant truncate on table "public"."work_diagram_active_novelties" to "authenticated";
+
+grant update on table "public"."work_diagram_active_novelties" to "authenticated";
+
+grant delete on table "public"."work_diagram_active_novelties" to "service_role";
+
+grant insert on table "public"."work_diagram_active_novelties" to "service_role";
+
+grant references on table "public"."work_diagram_active_novelties" to "service_role";
+
+grant select on table "public"."work_diagram_active_novelties" to "service_role";
+
+grant trigger on table "public"."work_diagram_active_novelties" to "service_role";
+
+grant truncate on table "public"."work_diagram_active_novelties" to "service_role";
+
+grant update on table "public"."work_diagram_active_novelties" to "service_role";
+
 create policy "Permitir todo"
 on "public"."aptitudes_tecnicas"
 as permissive
@@ -7481,6 +11174,15 @@ using (true)
 with check (true);
 
 
+create policy "Permitir todo"
+on "public"."assing_customer"
+as permissive
+for all
+to authenticated
+using (true)
+with check (true);
+
+
 create policy "Enable insert for authenticated users only"
 on "public"."brand_vehicles"
 as permissive
@@ -7495,6 +11197,15 @@ as permissive
 for select
 to authenticated
 using (true);
+
+
+create policy "Permitir todo"
+on "public"."brand_vehicles"
+as permissive
+for update
+to authenticated
+using (true)
+with check (true);
 
 
 create policy "Enable insert for authenticated users only"
@@ -7787,6 +11498,14 @@ to authenticated
 using (true);
 
 
+create policy "Permitir todo"
+on "public"."dailyreportrows_history"
+as permissive
+for all
+to authenticated
+using (true);
+
+
 create policy "Solo inserción por trigger"
 on "public"."dailyreportrows_history"
 as permissive
@@ -7968,38 +11687,12 @@ using (true)
 with check (true);
 
 
-create policy "Enable insert for authenticated users only"
-on "public"."employees"
-as permissive
-for insert
-to authenticated
-with check (true);
-
-
-create policy "Enable read access for all users"
-on "public"."employees"
-as permissive
-for select
-to public
-using (true);
-
-
-create policy "New Policy Name"
-on "public"."employees"
-as permissive
-for update
-to public
-using ((auth.uid() IN ( SELECT company.owner_id
-   FROM company
-  WHERE (employees.company_id = employees.company_id))));
-
-
-create policy "Todos los permisos para los dueños de le empresa"
+create policy "Employees access by company"
 on "public"."employees"
 as permissive
 for all
-to authenticated
-using (true);
+to public
+using ((company_id = ( SELECT get_company_for_user(auth.uid()) AS get_company_for_user)));
 
 
 create policy "Enable insert for authenticated users only"
@@ -8024,6 +11717,14 @@ as permissive
 for all
 to authenticated
 using (true);
+
+
+create policy "Permitir segun company_id"
+on "public"."equipment_owners"
+as permissive
+for all
+to authenticated
+using ((company_id = ( SELECT get_company_for_user(auth.uid()) AS get_company_for_user)));
 
 
 create policy "Permitir todo"
@@ -8093,6 +11794,15 @@ using (true);
 
 
 create policy "permitir todo"
+on "public"."maintenance_request_groups"
+as permissive
+for all
+to authenticated
+using (true)
+with check (true);
+
+
+create policy "permitir todo"
 on "public"."measure_units"
 as permissive
 for all
@@ -8113,6 +11823,15 @@ on "public"."model_vehicles"
 as permissive
 for all
 to authenticated;
+
+
+create policy "Permitir todo"
+on "public"."model_vehicles"
+as permissive
+for all
+to authenticated
+using (true)
+with check (true);
 
 
 create policy "Enable delete"
@@ -8137,6 +11856,15 @@ as permissive
 for select
 to public
 using (true);
+
+
+create policy "Permitir todo"
+on "public"."preparte"
+as permissive
+for all
+to authenticated
+using (true)
+with check (true);
 
 
 create policy "Enable acces for users serviceRole"
@@ -8265,6 +11993,15 @@ using (true)
 with check (true);
 
 
+create policy "Permitir todo"
+on "public"."sub_type"
+as permissive
+for all
+to authenticated
+using (true)
+with check (true);
+
+
 create policy "Permitir todo autenticado"
 on "public"."type"
 as permissive
@@ -8314,16 +12051,25 @@ using (true)
 with check (true);
 
 
-create policy "Permitir todo"
+create policy "Vehicles access by company"
 on "public"."vehicles"
 as permissive
 for all
-to authenticated, anon
-using (true);
+to public
+using ((company_id = ( SELECT get_company_for_user(auth.uid()) AS get_company_for_user)));
 
 
 create policy "Permitir a todos"
 on "public"."work_diagram"
+as permissive
+for all
+to authenticated
+using (true)
+with check (true);
+
+
+create policy "Permitir todo"
+on "public"."work_diagram_active_novelties"
 as permissive
 for all
 to authenticated
@@ -8341,7 +12087,9 @@ CREATE TRIGGER tr_dailyreport_employee_relations_history BEFORE INSERT OR DELETE
 
 CREATE TRIGGER tr_dailyreport_equipment_relations_history BEFORE INSERT OR DELETE ON public.dailyreportequipmentrelations FOR EACH ROW EXECUTE FUNCTION log_equipment_relations_changes();
 
-CREATE TRIGGER tr_after_dailyreportrows_update AFTER INSERT OR UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION after_dailyreportrows_update();
+CREATE TRIGGER before_update_log_reason BEFORE UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION log_reassignment_reason_before_update();
+
+CREATE TRIGGER tr_after_dailyreportrows_update AFTER INSERT OR UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION after_dailyreportrows_update_specific();
 
 CREATE TRIGGER tr_dailyreportrows_history_after_insert AFTER INSERT ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION log_dailyreport_changes();
 
@@ -8350,6 +12098,7 @@ CREATE TRIGGER tr_dailyreportrows_history_before_delete BEFORE DELETE ON public.
 CREATE TRIGGER tr_dailyreportrows_history_before_update BEFORE UPDATE ON public.dailyreportrows FOR EACH ROW EXECUTE FUNCTION log_dailyreport_changes();
 
 CREATE TRIGGER add_new_document_trigger AFTER INSERT ON public.document_types FOR EACH ROW EXECUTE FUNCTION add_new_document();
+ALTER TABLE "public"."document_types" DISABLE TRIGGER "add_new_document_trigger";
 
 CREATE TRIGGER document_types_after_insert AFTER INSERT ON public.document_types FOR EACH ROW EXECUTE FUNCTION trg_document_types_insert();
 
@@ -8373,7 +12122,11 @@ CREATE TRIGGER after_employee_insert AFTER INSERT ON public.employees FOR EACH R
 
 CREATE TRIGGER controlar_alertas_employees AFTER UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION trg_controlar_alertas_employees();
 
+CREATE TRIGGER format_employee_names_trigger BEFORE INSERT OR UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION format_employee_names();
+
 CREATE TRIGGER trg_employees_diagram_changes AFTER INSERT OR UPDATE ON public.employees_diagram FOR EACH ROW EXECUTE FUNCTION handle_employees_diagram_changes();
+
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.repair_solicitudes FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
 
 CREATE TRIGGER trigger_log_repair_changes AFTER INSERT OR UPDATE ON public.repair_solicitudes FOR EACH ROW EXECUTE FUNCTION log_repair_changes();
 

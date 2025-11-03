@@ -198,8 +198,8 @@ export function DailyReportForm({
       status: '',
       description: '',
       document_path: '',
-      sector_service_id: '',
-      areas_service_id: '',
+      sector_service_id: undefined,
+      areas_service_id: undefined,
       remit_number: '',
       equipos_cliente: [],
       cancel_reason: '',
@@ -334,8 +334,8 @@ export function DailyReportForm({
       // Set status to 'ejecutado' if both completed_day and completed_night are true
       status:
         data.completed_day && data.completed_night ? 'ejecutado' : (data.status as DailyReportRowStatus) || 'pendiente',
-      areas_service_id: data.areas_service_id,
-      sector_service_id: data.sector_service_id,
+      areas_service_id: data.areas_service_id || null,
+      sector_service_id: data.sector_service_id || null,
       remit_number: data.remit_number || null,
       type_service: data.type_service,
       cancel_reason: data.cancel_reason || null,
@@ -629,8 +629,8 @@ export function DailyReportForm({
       form.setValue('customer', customerId);
       form.setValue('services', '');
       form.setValue('item', '');
-      form.setValue('sector_service_id', '');
-      form.setValue('areas_service_id', '');
+      form.setValue('sector_service_id', undefined);
+      form.setValue('areas_service_id', undefined);
       form.setValue('equipos_cliente', []);
       setSelectedServiceId(null);
 

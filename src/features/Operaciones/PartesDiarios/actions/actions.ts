@@ -1088,6 +1088,7 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
   const supabase = supabaseServer();
 
   try {
+    console.log(data);
     // Insertar todas las filas a la vez
     const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
 
