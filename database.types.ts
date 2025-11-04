@@ -1,10 +1,30 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '12.2.3 (519615d)';
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+          extensions?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
   public: {
     Tables: {
@@ -2352,6 +2372,7 @@ export type Database = {
           cancel_reason: string | null;
           cliente_id: string;
           company_id: string | null;
+          confirmed_by: string | null;
           contrato_id: string;
           created_at: string | null;
           end_time: string | null;
@@ -2380,6 +2401,7 @@ export type Database = {
           cancel_reason?: string | null;
           cliente_id: string;
           company_id?: string | null;
+          confirmed_by?: string | null;
           contrato_id: string;
           created_at?: string | null;
           end_time?: string | null;
@@ -2408,6 +2430,7 @@ export type Database = {
           cancel_reason?: string | null;
           cliente_id?: string;
           company_id?: string | null;
+          confirmed_by?: string | null;
           contrato_id?: string;
           created_at?: string | null;
           end_time?: string | null;
@@ -3412,80 +3435,116 @@ export type Database = {
         Returns: undefined;
       };
       build_employee_where: {
-        Args: { _conditions: Json };
+        Args: {
+          _conditions: Json;
+        };
         Returns: string;
       };
       build_employee_where_alias: {
-        Args: { _conditions: Json; table_alias: string };
+        Args: {
+          _conditions: Json;
+          table_alias: string;
+        };
         Returns: string;
       };
       build_vehicle_where: {
-        Args: { _conditions: Json };
+        Args: {
+          _conditions: Json;
+        };
         Returns: string;
       };
       build_vehicle_where_alias: {
-        Args: { _conditions: Json; table_alias?: string };
+        Args: {
+          _conditions: Json;
+          table_alias?: string;
+        };
         Returns: string;
       };
-      check_diagram_conflicts_with_operations: {
-        Args:
-          | {
+      check_diagram_conflicts_with_operations:
+        | {
+            Args: {
+              p_employee_ids: string[];
               p_date_from: string;
               p_date_to: string;
-              p_diagram_type_id: string;
-              p_employee_ids: string[];
-            }
-          | { p_date_from: string; p_date_to: string; p_employee_ids: string[] };
-        Returns: {
-          conflict_type: string;
-          current_diagram_color: string;
-          current_diagram_id: string;
-          current_diagram_name: string;
-          date_formatted: string;
-          date_value: string;
-          employee_id: string;
-          employee_name: string;
-          operation_details: string;
-        }[];
-      };
-      check_diagram_conflicts_with_operations_v2: {
-        Args:
-          | {
-              p_active_novelty_id: string;
-              p_date_from: string;
-              p_date_to: string;
-              p_employee_ids: string[];
-              p_work_diagram_id: string;
-            }
-          | {
-              p_date_from: string;
-              p_date_to: string;
-              p_employee_ids: string[];
-              p_work_diagram_id: string;
             };
-        Returns: Json;
-      };
+            Returns: {
+              employee_id: string;
+              employee_name: string;
+              day: number;
+              month: number;
+              year: number;
+              date_formatted: string;
+              current_diagram_type: string;
+              current_diagram_name: string;
+              current_diagram_color: string;
+              is_used_in_operations: boolean;
+              operation_details: string;
+              can_update: boolean;
+              conflict_type: string;
+            }[];
+          }
+        | {
+            Args: {
+              p_employee_ids: string[];
+              p_diagram_type_id: string;
+              p_date_from: string;
+              p_date_to: string;
+            };
+            Returns: {
+              employee_id: string;
+              employee_name: string;
+              date_value: string;
+              date_formatted: string;
+              conflict_type: string;
+              current_diagram_id: string;
+              current_diagram_name: string;
+              current_diagram_color: string;
+              operation_details: string;
+            }[];
+          };
+      check_diagram_conflicts_with_operations_v2:
+        | {
+            Args: {
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
+              p_date_from: string;
+              p_date_to: string;
+            };
+            Returns: Json;
+          }
+        | {
+            Args: {
+              p_employee_ids: string[];
+              p_work_diagram_id: string;
+              p_date_from: string;
+              p_date_to: string;
+              p_active_novelty_id: string;
+            };
+            Returns: Json;
+          };
       collect_daily_indicators: {
         Args: {
           p_company_id: string;
-          p_company_position_ids?: string[];
           p_date?: string;
           p_position_uuids?: string[];
-          p_vehicle_type_ids?: string[];
           p_vehicle_types?: string[];
+          p_vehicle_type_ids?: string[];
+          p_company_position_ids?: string[];
         };
         Returns: undefined;
       };
       controlar_alertas_documentos: {
-        Args: { tipo_documento_id?: string };
+        Args: {
+          tipo_documento_id?: string;
+        };
         Returns: undefined;
       };
       create_massive_diagrams_with_validations: {
         Args: {
+          p_employee_ids: string[];
+          p_diagram_type_id: string;
           p_date_from: string;
           p_date_to: string;
-          p_diagram_type_id: string;
-          p_employee_ids: string[];
         };
         Returns: Json;
       };
@@ -3502,27 +3561,36 @@ export type Database = {
         Returns: undefined;
       };
       filter_employees_by_conditions: {
-        Args: { p_company_id: string; p_filters: Json };
+        Args: {
+          p_company_id: string;
+          p_filters: Json;
+        };
         Returns: {
-          firstname: string;
           id: string;
+          firstname: string;
           lastname: string;
-          matching_conditions: Json;
           picture: string;
+          matching_conditions: Json;
         }[];
       };
       filter_vehicles_by_conditions: {
-        Args: { p_company_id: string; p_filters: Json };
+        Args: {
+          p_company_id: string;
+          p_filters: Json;
+        };
         Returns: {
-          brand_name: string;
           id: string;
-          matching_conditions: Json;
+          brand_name: string;
           model_name: string;
           picture: string;
+          matching_conditions: Json;
         }[];
       };
       find_employee_by_full_name_v2: {
-        Args: { p_company_id: string; p_full_name: string };
+        Args: {
+          p_full_name: string;
+          p_company_id: string;
+        };
         Returns: {
           affiliate_status: Database['public']['Enums']['affiliate_status_enum'] | null;
           allocated_to: string[] | null;
@@ -3566,45 +3634,54 @@ export type Database = {
         }[];
       };
       get_company_counts_indicator: {
-        Args: { p_company_id?: string; save_to_table?: boolean };
+        Args: {
+          p_company_id?: string;
+          save_to_table?: boolean;
+        };
         Returns: {
           employee_count: number;
-          total_count: number;
           vehicle_count: number;
+          total_count: number;
         }[];
       };
       get_company_for_user: {
-        Args: { user_id: string };
+        Args: {
+          user_id: string;
+        };
         Returns: string;
       };
       get_dailyreportrow_history: {
-        Args: { p_row_id: string };
+        Args: {
+          p_row_id: string;
+        };
         Returns: {
-          action_type: string;
-          changed_by: Json;
-          changed_data: Json;
-          changed_fields: Json;
-          created_at: string;
           id: string;
+          action_type: string;
+          changed_fields: Json;
+          changed_data: Json;
+          changed_by: Json;
+          created_at: string;
+          related_table: string;
+          related_id: string;
           metadata: Json;
           reassignment_reason: string;
-          related_id: string;
-          related_table: string;
         }[];
       };
       get_employee_diagram_count_by_day: {
         Args: {
-          p_company_id?: string;
-          p_company_position_ids?: string[];
           p_day: number;
           p_month: number;
           p_year: number;
+          p_company_position_ids?: string[];
           save_to_table?: boolean;
+          p_company_id?: string;
         };
         Returns: Json;
       };
       get_employee_usage_by_positions: {
-        Args: { position_uuids: string[] };
+        Args: {
+          position_uuids: string[];
+        };
         Returns: {
           employees_operativos: number;
           employees_used: number;
@@ -3613,9 +3690,9 @@ export type Database = {
       };
       get_employee_usage_indicator: {
         Args: {
-          p_company_id?: string;
           position_uuids?: string[];
           save_to_table?: boolean;
+          p_company_id?: string;
         };
         Returns: {
           employees_operativos: number;
@@ -3624,86 +3701,98 @@ export type Database = {
         }[];
       };
       get_employees_not_in_daily_report: {
-        Args: { p_company_id?: string; position_uuids?: string[] };
+        Args: {
+          p_company_id?: string;
+          position_uuids?: string[];
+        };
         Returns: {
-          company_position: string;
-          cuil: string;
-          customers: Json;
-          diagram_color: string;
-          diagram_short_description: string;
-          diagram_type_id: string;
-          diagram_type_name: string;
           employee_id: string;
           firstname: string;
           lastname: string;
+          cuil: string;
+          company_position: string;
           position_name: string;
+          diagram_type_id: string;
+          diagram_type_name: string;
+          diagram_color: string;
+          diagram_short_description: string;
+          customers: Json;
         }[];
       };
       get_services_summary_by_type: {
-        Args: { p_company_id: string; save_to_history?: boolean };
+        Args: {
+          p_company_id: string;
+          save_to_history?: boolean;
+        };
         Returns: {
-          percentage: number;
-          service_count: number;
           type_service: string;
+          service_count: number;
+          percentage: number;
         }[];
       };
       get_vehicle_usage_indicator: {
         Args: {
-          p_company_id?: string;
           p_vehicle_type_ids?: string[];
+          p_company_id?: string;
           save_to_table?: boolean;
         };
         Returns: {
-          available_units: number;
-          not_available_units: number;
           type_id: string;
           type_name: string;
-          usage_indicator: number;
+          available_units: number;
+          not_available_units: number;
           used_units: number;
+          usage_indicator: number;
         }[];
       };
       get_vehicles_non_operative: {
-        Args: { p_company_id?: string; vehicle_type_ids?: string[] };
+        Args: {
+          p_company_id?: string;
+          vehicle_type_ids?: string[];
+        };
         Returns: {
-          brand: number;
-          brand_name: string;
-          condition: string;
-          customers: Json;
+          vehicle_id: string;
           domain: string;
-          intern_number: string;
-          model: number;
-          model_name: string;
           serie: string;
-          sub_type_id: string;
-          sub_type_name: string;
+          intern_number: string;
+          year: number;
+          condition: string;
           type_id: string;
           type_name: string;
+          brand: number;
+          brand_name: string;
+          model: number;
+          model_name: string;
           type_operative_id: string;
           type_operative_name: string;
-          vehicle_id: string;
-          year: number;
+          sub_type_id: string;
+          sub_type_name: string;
+          customers: Json;
         }[];
       };
       get_vehicles_not_in_daily_report: {
-        Args: { p_company_id?: string; vehicle_type_ids?: string[] };
+        Args: {
+          p_company_id?: string;
+          vehicle_type_ids?: string[];
+        };
         Returns: {
-          brand: number;
-          brand_name: string;
-          condition: string;
-          customers: Json;
+          vehicle_id: string;
           domain: string;
-          intern_number: string;
-          model: number;
-          model_name: string;
           serie: string;
-          sub_type_id: string;
-          sub_type_name: string;
+          intern_number: string;
+          year: number;
+          condition: string;
           type_id: string;
           type_name: string;
+          brand: number;
+          brand_name: string;
+          model: number;
+          model_name: string;
           type_operative_id: string;
           type_operative_name: string;
-          vehicle_id: string;
-          year: number;
+          sub_type_id: string;
+          sub_type_name: string;
+          customers: Json;
         }[];
       };
       hr_get_absenteeism_summary: {
@@ -3725,7 +3814,11 @@ export type Database = {
         Returns: Json;
       };
       hr_get_current_absent_employees: {
-        Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
+        Args: {
+          p_company_id: string;
+          p_date?: string;
+          save_to_table?: boolean;
+        };
         Returns: Json;
       };
       hr_get_daily_absence_timeseries: {
@@ -3738,11 +3831,19 @@ export type Database = {
         Returns: Json;
       };
       hr_get_department_absence_reasons: {
-        Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
+        Args: {
+          p_company_id: string;
+          p_date?: string;
+          save_to_table?: boolean;
+        };
         Returns: Json;
       };
       hr_get_department_absence_summary: {
-        Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
+        Args: {
+          p_company_id: string;
+          p_date?: string;
+          save_to_table?: boolean;
+        };
         Returns: Json;
       };
       marcar_prepartes_vencidos: {
@@ -3750,43 +3851,46 @@ export type Database = {
         Returns: undefined;
       };
       migrate_document: {
-        Args: { execute_migration?: boolean; target_id: string };
+        Args: {
+          target_id: string;
+          execute_migration?: boolean;
+        };
         Returns: {
-          action_taken: string;
-          error_message: string;
-          new_path: string;
           old_path: string;
-          storage_migration_id: string;
+          new_path: string;
           success: boolean;
+          error_message: string;
+          action_taken: string;
+          storage_migration_id: string;
         }[];
       };
       migrate_documents_preview: {
         Args: Record<PropertyKey, never>;
         Returns: {
-          error_message: string;
-          new_path: string;
           old_path: string;
+          new_path: string;
           success: boolean;
+          error_message: string;
         }[];
       };
       obtener_documentos_por_vencer: {
         Args: Record<PropertyKey, never>;
         Returns: {
+          tipo_documento: string;
           correo_electronico: string;
+          fecha_vencimiento: string;
           documento_empleado: string;
           dominio_vehiculo: string;
-          fecha_vencimiento: string;
-          tipo_documento: string;
         }[];
       };
       process_massive_diagram_creation_v2: {
         Args: {
-          p_active_novelty_id: string;
-          p_conflict_resolution: string;
-          p_date_from: string;
-          p_date_to: string;
           p_employee_ids: string[];
           p_work_diagram_id: string;
+          p_active_novelty_id: string;
+          p_date_from: string;
+          p_date_to: string;
+          p_conflict_resolution: string;
         };
         Returns: Json;
       };
@@ -3800,23 +3904,28 @@ export type Database = {
       };
       select_distinct_values: {
         Args: {
+          p_table_name: string;
           p_column_path: string;
-          p_filters?: Json;
           p_join_mappings?: Json;
           p_multi_join_paths?: Json;
-          p_table_name: string;
+          p_filters?: Json;
         };
         Returns: {
-          col_count: number;
           col_value: string;
+          col_count: number;
         }[];
       };
       set_reassignment_reason: {
-        Args: { reason: string };
+        Args: {
+          reason: string;
+        };
         Returns: undefined;
       };
       update_employee_diagram_status: {
-        Args: { p_employee_id: string; p_is_active: boolean };
+        Args: {
+          p_employee_id: string;
+          p_is_active: boolean;
+        };
         Returns: Json;
       };
       verificar_documentos_vencidos_prueba: {
@@ -3898,31 +4007,23 @@ export type Database = {
   };
 };
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
+type PublicSchema = Database[Extract<keyof Database, 'public'>];
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+  PublicTableNameOrOptions extends keyof (PublicSchema['Tables'] & PublicSchema['Views']) | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions['schema']]['Tables'] &
+        Database[PublicTableNameOrOptions['schema']]['Views'])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions['schema']]['Tables'] &
+      Database[PublicTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof (PublicSchema['Tables'] & PublicSchema['Views'])
+    ? (PublicSchema['Tables'] & PublicSchema['Views'])[PublicTableNameOrOptions] extends {
         Row: infer R;
       }
       ? R
@@ -3930,22 +4031,18 @@ export type Tables<
     : never;
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+  PublicTableNameOrOptions extends keyof PublicSchema['Tables'] | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions['schema']]['Tables']
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I;
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema['Tables']
+    ? PublicSchema['Tables'][PublicTableNameOrOptions] extends {
         Insert: infer I;
       }
       ? I
@@ -3953,22 +4050,18 @@ export type TablesInsert<
     : never;
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+  PublicTableNameOrOptions extends keyof PublicSchema['Tables'] | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions['schema']]['Tables']
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U;
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema['Tables']
+    ? PublicSchema['Tables'][PublicTableNameOrOptions] extends {
         Update: infer U;
       }
       ? U
@@ -3976,111 +4069,25 @@ export type TablesUpdate<
     : never;
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums'] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+  PublicEnumNameOrOptions extends keyof PublicSchema['Enums'] | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions['schema']]['Enums']
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema['Enums']
+    ? PublicSchema['Enums'][PublicEnumNameOrOptions]
     : never;
 
 export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema['CompositeTypes']
-    | { schema: keyof DatabaseWithoutInternals },
+  PublicCompositeTypeNameOrOptions extends keyof PublicSchema['CompositeTypes'] | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof Database;
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    ? keyof Database[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
-    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema['CompositeTypes']
+    ? PublicSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never;
-
-export const Constants = {
-  public: {
-    Enums: {
-      affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
-      condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
-      contract_type_enum: ['Leasing', 'Alquiler'],
-      contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio'],
-      daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
-      daily_report_status: [
-        'pendiente',
-        'sin_recursos_asignados',
-        'ejecutado',
-        'reprogramado',
-        'cancelado',
-        '.',
-        '..',
-        'en_certificacion',
-      ],
-      daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
-      document_applies: ['Persona', 'Equipos', 'Empresa'],
-      document_type_enum: ['DNI', 'LE', 'LC', 'PASAPORTE'],
-      gender_enum: ['Masculino', 'Femenino', 'No Declarado'],
-      indicator_function: [
-        'get_vehicle_usage_indicator',
-        'get_employee_usage_indicator',
-        'get_employee_diagram_count_by_day',
-        'get_company_counts_indicator',
-        'hr_get_absenteeism_summary',
-        'hr_get_absenteeism_trend',
-        'hr_get_current_absent_employees',
-        'hr_get_daily_absence_timeseries',
-        'hr_get_department_absence_reasons',
-        'hr_get_department_absence_summary',
-      ],
-      level_of_education_enum: ['Primario', 'Secundario', 'Terciario', 'Universitario', 'PosGrado'],
-      marital_status_enum: ['Casado', 'Soltero', 'Divorciado', 'Viudo', 'Separado', 'Union de hecho'],
-      modulos: [
-        'empresa',
-        'empleados',
-        'equipos',
-        'documentación',
-        'mantenimiento',
-        'dashboard',
-        'ayuda',
-        'operaciones',
-        'formularios',
-      ],
-      nationality_enum: ['Argentina', 'Extranjero'],
-      notification_categories: ['vencimiento', 'noticia', 'advertencia', 'aprobado', 'rechazado'],
-      preparte_status: ['pendiente', 'cancelado', 'reprogramado', 'rechazado', 'vencido', 'confirmado'],
-      reason_for_termination_enum: [
-        'Despido sin causa',
-        'Renuncia',
-        'Despido con causa',
-        'Acuerdo de partes',
-        'Fin de contrato',
-        'Fallecimiento',
-      ],
-      repair_state: [
-        'Pendiente',
-        'Esperando repuestos',
-        'En reparación',
-        'Finalizado',
-        'Rechazado',
-        'Cancelado',
-        'Programado',
-      ],
-      roles_enum: ['Externo', 'Auditor'],
-      state: ['presentado', 'rechazado', 'aprobado', 'vencido', 'pendiente'],
-      status_type: ['Avalado', 'No avalado', 'Incompleto', 'Completo', 'Completo con doc vencida'],
-      termination_reason_enum: ['venta', 'destrucción total', 'devolución', 'otro'],
-      type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
-      type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
-      type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
-    },
-  },
-} as const;

@@ -70,11 +70,21 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
                 <span>{formatDate(serviceData.date)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={getStatusColor(serviceData.status)}>
-                  {serviceData.status.charAt(0).toUpperCase() + serviceData.status.slice(1)}
+                <Badge variant="outline" className={getStatusColor(serviceData.status) + ' capitalize'}>
+                  {serviceData.status.replaceAll('_', ' ')}
                 </Badge>
-                <Badge variant="secondary">{serviceData.type_service}</Badge>
+                <Badge variant="secondary" className="capitalize">
+                  {serviceData.type_service?.replaceAll('_', ' ')}
+                </Badge>
               </div>
+              {serviceData.preparte?.confirmed_by && (
+                <div className="flex items-center gap-2 text-sm text-amber-700">
+                  <span className="font-medium">Confirmado por:</span>
+                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                    {serviceData.preparte?.confirmed_by}
+                  </Badge>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">

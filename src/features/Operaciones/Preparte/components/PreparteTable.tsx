@@ -1,19 +1,9 @@
 'use client';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Cliente } from '@/features/Operaciones/Preparte/components/PreparteManager';
@@ -31,9 +23,10 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table-se
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Check, Eye, Pencil } from 'lucide-react';
+import { CalendarIcon, Check, Edit, Eye, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
+import { PreparteBulkStatusModal } from './PreparteBulkStatusModal';
 import { PreparteDetailModal } from './PreparteDetailModal';
 import { Contrato, PreparteItem } from './PreparteManager';
 import { Status, StatusCards } from './StatusCards';
@@ -83,6 +76,33 @@ const getColumns = (
   contratos: Contrato[],
   items: Array<{ id: string; item_name: string }>
 ): ColumnDef<PreparteItem>[] => [
+  {
+    id: 'select',
+    header: ({ table }) => (
+      <div className="w-[20px]">
+        <Checkbox
+          disabled={table.getRowModel().rows.every((row) => !row.getCanSelect())}
+          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+          className="translate-y-[2px]"
+        />
+      </div>
+    ),
+    cell: ({ row }) => {
+      return (
+        <Checkbox
+          disabled={!row.getCanSelect()}
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+          className="translate-y-[2px]"
+        />
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     id: 'requestDate',
     accessorKey: 'requestDate',
@@ -447,6 +467,8 @@ const getColumns = (
       const isConfirmed = status === 'confirmado';
       const [showDatePicker, setShowDatePicker] = useState(false);
       const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+      const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+      const [confirmedBy, setConfirmedBy] = useState('');
 
       const handleConfirmWithDate = async () => {
         if (!row.original.id) return;
@@ -462,8 +484,11 @@ const getColumns = (
             ? {
                 observaciones: observacionesActualizadas,
                 status: 'confirmado', // Mantener como vencido si es el caso
+                confirmed_by: confirmedBy,
               }
-            : {};
+            : {
+                confirmed_by: confirmedBy,
+              };
 
           await updatePreparte(row.original.id, updateData);
 
@@ -478,8 +503,32 @@ const getColumns = (
           });
 
           setShowDatePicker(false);
+          setConfirmedBy('');
         } catch (error) {
           console.error('Error al actualizar el preparte:', error);
+          // Aquí podrías agregar un toast o alerta de error
+        }
+      };
+
+      const handleConfirm = async () => {
+        if (!confirmedBy.trim()) {
+          return; // No confirmar si no hay confirmante
+        }
+
+        try {
+          // Actualizar el preparte en la base de datos
+          await updatePreparte(row.original.id, {
+            status: 'confirmado',
+            confirmed_by: confirmedBy,
+          });
+
+          // Enviar al parte diario
+          onConfirm(row.original);
+
+          setShowConfirmDialog(false);
+          setConfirmedBy('');
+        } catch (error) {
+          console.error('Error al confirmar el preparte:', error);
           // Aquí podrías agregar un toast o alerta de error
         }
       };
@@ -522,65 +571,85 @@ const getColumns = (
             </>
           )}
 
-          <AlertDialog>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  {isPending || isVencido ? (
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          'text-green-600 hover:bg-green-50 hover:text-green-700',
-                          isVencido && row.original.observaciones?.includes('Parte confirmado vencido')
-                            ? 'opacity-50 cursor-not-allowed'
-                            : ''
-                        )}
-                        onClick={(e) => {
-                          if (isVencido && !row.original.observaciones?.includes('Parte confirmado vencido')) {
-                            e.preventDefault();
-                            setShowDatePicker(true);
-                          } else if (isVencido) {
-                            e.preventDefault();
-                          }
-                        }}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-green-600 opacity-50 cursor-not-allowed"
-                      disabled
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  )}
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{isConfirmed ? 'Ya confirmado' : 'Confirmar y enviar a parte diario'}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Confirmar preparte?</AlertDialogTitle>
-                <AlertDialogDescription>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {isPending || isVencido ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      'text-green-600 hover:bg-green-50 hover:text-green-700',
+                      isVencido && row.original.observaciones?.includes('Parte confirmado vencido')
+                        ? 'opacity-50 cursor-not-allowed'
+                        : ''
+                    )}
+                    onClick={() => {
+                      if (isVencido && !row.original.observaciones?.includes('Parte confirmado vencido')) {
+                        setShowDatePicker(true);
+                      } else if (!isVencido) {
+                        setShowConfirmDialog(true);
+                      }
+                    }}
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="icon" className="text-green-600 opacity-50 cursor-not-allowed" disabled>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                )}
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isConfirmed ? 'Ya confirmado' : 'Confirmar y enviar a parte diario'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* Dialog de confirmación con campo de confirmante */}
+          <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>¿Confirmar preparte?</DialogTitle>
+                <DialogDescription>
                   ¿Estás seguro de que deseas confirmar este pedido y enviarlo al parte diario? Si no existe un parte
-                  diario para la fecha seleccionada, se creara uno nuevo y si existe se agregara el pe a este.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onConfirm(row.original)} className="bg-green-600 hover:bg-green-700">
+                  diario para la fecha seleccionada, se creará uno nuevo y si existe se agregará el pedido a este.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="confirmedBy">
+                    Confirmado por <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="confirmedBy"
+                    value={confirmedBy}
+                    onChange={(e) => setConfirmedBy(e.target.value)}
+                    placeholder="Ingrese el nombre de quien confirma"
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowConfirmDialog(false);
+                    setConfirmedBy('');
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={!confirmedBy.trim()}
+                >
                   Confirmar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Date Picker Modal for Vencido status */}
           <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
@@ -589,41 +658,63 @@ const getColumns = (
                 <DialogTitle>Seleccionar Fecha</DialogTitle>
                 <DialogDescription>Por favor selecciona una nueva fecha para este preparte vencido.</DialogDescription>
               </DialogHeader>
-              <div className="py-4">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={'outline'}
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !selectedDate && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, 'PPP', { locale: es }) : <span>Selecciona una fecha</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => {
-                        if (date && (isToday(date) || isFuture(date))) {
-                          setSelectedDate(date);
-                        }
-                      }}
-                      initialFocus
-                      locale={es}
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="py-4 space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Fecha de ejecución</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={'outline'}
+                        className={cn(
+                          'w-full justify-start text-left font-normal mt-2',
+                          !selectedDate && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, 'PPP', { locale: es }) : <span>Selecciona una fecha</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          if (date && (isToday(date) || isFuture(date))) {
+                            setSelectedDate(date);
+                          }
+                        }}
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmedByVencido">
+                    Confirmado por <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="confirmedByVencido"
+                    value={confirmedBy}
+                    onChange={(e) => setConfirmedBy(e.target.value)}
+                    placeholder="Ingrese el nombre de quien confirma"
+                    required
+                  />
+                </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowDatePicker(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDatePicker(false);
+                    setConfirmedBy('');
+                  }}
+                >
                   Cancelar
                 </Button>
                 <Button
-                  disabled={!selectedDate || selectedDate < startOfDay(new Date())}
+                  disabled={!selectedDate || selectedDate < startOfDay(new Date()) || !confirmedBy.trim()}
                   onClick={handleConfirmWithDate}
                 >
                   Confirmar con fecha seleccionada
@@ -654,6 +745,10 @@ export function PreparteTable({
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   // Filtro de estado para inyectar al server-side
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+
+  // Estados para edición masiva
+  const [selectedRows, setSelectedRows] = useState<PreparteItem[]>([]);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
 
   // Estado local para tableData
   const [tableData, setTableData] = useState<PreparteItem[]>(tableDataProp);
@@ -734,9 +829,22 @@ export function PreparteTable({
         fetchData={handleFetchData}
         fetchAllData={fetchAllData}
         queryKey={`preparte-table-${refreshKey}-${statusFilter ?? 'all'}`} // Refetch al cambiar estado
+        enableRowSelection={(row) => row.original.status === 'pendiente' || row.original.status === 'reprogramado'}
+        onRowSelectionChange={(rows) => {
+          setSelectedRows(rows);
+        }}
         // isLoading={isLoading}
         toolbarOptions={{
           initialVisibleFilters: initialVisibleFilters,
+          bulkAction: {
+            enabled: true,
+            label: 'Cambiar Estado',
+            icon: <Edit className="h-4 w-4" />,
+            onClick: (rows) => {
+              setSelectedRows(rows);
+              setIsBulkStatusModalOpen(true);
+            },
+          },
           filterableColumns: [
             {
               columnId: 'cliente_id',
@@ -974,6 +1082,20 @@ export function PreparteTable({
               },
             },
           ],
+        }}
+      />
+
+      {/* Modal de edición masiva de estados */}
+      <PreparteBulkStatusModal
+        isOpen={isBulkStatusModalOpen}
+        onClose={() => setIsBulkStatusModalOpen(false)}
+        selectedRows={selectedRows}
+        onSuccess={() => {
+          // Limpiar selección y refrescar tabla
+          setSelectedRows([]);
+          setIsBulkStatusModalOpen(false);
+          // Trigger refresh
+          window.location.reload();
         }}
       />
     </>

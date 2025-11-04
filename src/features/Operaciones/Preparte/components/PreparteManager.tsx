@@ -62,6 +62,7 @@ export type PreparteItem = {
   id: string;
   cliente_id: string;
   contrato_id: string;
+  confirmed_by?: string;
   item: {
     id: string;
     quantity: number;

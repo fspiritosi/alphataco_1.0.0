@@ -96,6 +96,7 @@ export const dailyReportSchema = z
     cancel_reason: z.string().optional(),
     reprogram_date: z.date().optional(),
     reasigment_reason: z.string().optional(),
+    confirmed_by: z.string().optional(),
   })
   // .refine(
   //   (data) => {
@@ -157,6 +158,18 @@ export const dailyReportSchema = z
       message: 'Debe seleccionar al menos un empleado o equipo cuando el estado es "Ejecutado"',
       path: ['employees'], // Solo un path para que funcione correctamente
     }
+  )
+  .refine(
+    (data) => {
+      if (data.status === 'ejecutado') {
+        return data.confirmed_by && data.confirmed_by.trim() !== '';
+      }
+      return true;
+    },
+    {
+      message: 'El campo "Confirmado por" es obligatorio cuando el estado es "Ejecutado"',
+      path: ['confirmed_by'],
+    }
   );
 export type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 type CustomersArray = Awaited<ReturnType<typeof getCustomers>>;
@@ -203,6 +216,7 @@ export function DailyReportForm({
       remit_number: '',
       equipos_cliente: [],
       cancel_reason: '',
+      confirmed_by: '',
       type_service: defaultValues?.type_service || undefined,
       // ...defaultValues,
     },
