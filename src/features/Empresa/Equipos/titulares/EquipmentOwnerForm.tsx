@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
@@ -26,7 +26,9 @@ const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   is_active: z.boolean().default(true),
   cuit: z.string({ required_error: 'El CUIT es requerido' }).min(6, 'Debe tener minimo 6 caracteres'),
-  contract_type: z.enum(['Leasing', 'Alquiler']),
+  contract_types: z
+    .array(z.enum(['Leasing', 'Alquiler', 'Prendado']))
+    .min(1, 'Debe seleccionar al menos un tipo de contrato'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -38,7 +40,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
     defaultValues: {
       name: '',
       is_active: true,
-      contract_type: undefined,
+      contract_types: [],
       cuit: '',
     },
   });
@@ -68,19 +70,21 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
   // Resetear el formulario cuando cambia initialData
   useEffect(() => {
     if (initialData) {
-      // Aseguramos que el ID sea un número
+      // Extraer los tipos de contrato de la relación
+      const contractTypes = initialData.equipment_owner_contract_types?.map((ct) => ct.contract_type) || [];
+
       reset({
         id: initialData.id,
         name: initialData.name,
         is_active: initialData.is_active!,
-        contract_type: initialData.contract_type,
+        contract_types: contractTypes as ('Leasing' | 'Alquiler' | 'Prendado')[],
         cuit: initialData.cuit,
       });
     } else {
       reset({
         name: '',
         is_active: true,
-        contract_type: undefined,
+        contract_types: [],
         cuit: '',
       });
     }
@@ -107,7 +111,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           name: data.name,
           is_active: data.is_active,
           cuit: data.cuit,
-          contract_type: data.contract_type,
+          contract_types: data.contract_types,
         });
 
         router.refresh();
@@ -116,7 +120,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           name: data.name,
           is_active: data.is_active,
           cuit: data.cuit,
-          contract_type: data.contract_type,
+          contract_types: data.contract_types,
         });
       }
 
@@ -189,7 +193,7 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
           name: values.name,
           is_active: values.is_active,
           cuit: values.cuit,
-          contract_type: values.contract_type,
+          contract_types: values.contract_types,
         });
 
         toast({
@@ -231,21 +235,36 @@ function EquipmentOwnerForm({ initialData = null, onReset, isEditing = false }: 
             )}
           />
           <FormField
-            name="contract_type"
-            render={({ field }) => (
+            name="contract_types"
+            render={() => (
               <FormItem>
-                <FormLabel>Tipo de Contrato</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-[400px]">
-                      <SelectValue placeholder="Selecciona un tipo" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Leasing">Leasing</SelectItem>
-                    <SelectItem value="Alquiler">Alquiler</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormLabel>Tipos de Contrato</FormLabel>
+                <div className="space-y-2">
+                  {(['Leasing', 'Alquiler', 'Prendado'] as const).map((type) => (
+                    <FormField
+                      key={type}
+                      control={form.control}
+                      name="contract_types"
+                      render={({ field }) => {
+                        return (
+                          <FormItem key={type} className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(type)}
+                                onCheckedChange={(checked) => {
+                                  return checked
+                                    ? field.onChange([...field.value, type])
+                                    : field.onChange(field.value?.filter((value) => value !== type));
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">{type}</FormLabel>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
                 <FormMessage />
               </FormItem>
             )}

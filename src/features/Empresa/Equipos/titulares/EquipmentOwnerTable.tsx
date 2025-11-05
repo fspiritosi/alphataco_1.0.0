@@ -38,16 +38,24 @@ export function getEquipmentOwnerColumns(
       },
     },
     {
-      accessorKey: 'type',
-      id: 'Tipo',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
-      cell: ({ row }) => (
-        <span className="font-medium">
-          {equipmentOwners.find((t) => t.id === row.original.contract_type)?.name || row.original.contract_type}
-        </span>
-      ),
+      accessorKey: 'contract_types',
+      id: 'Tipos',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipos de Contrato" />,
+      cell: ({ row }) => {
+        const contractTypes = row.original.equipment_owner_contract_types?.map((ct) => ct.contract_type) || [];
+        return (
+          <div className="flex flex-wrap gap-1">
+            {contractTypes.map((type, index) => (
+              <Badge key={index} variant="outline">
+                {type}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
       filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
+        const contractTypes = row.original.equipment_owner_contract_types?.map((ct) => ct.contract_type) || [];
+        return value.some((v: string) => contractTypes.includes(v as any));
       },
     },
     {
@@ -117,12 +125,14 @@ function EquipmentOwnerTable({
       value: type.cuit,
     }));
   }, [equipmentOwners]);
-  const nameOptionsType = React.useMemo(() => {
-    return equipmentOwners.map((type) => ({
-      label: type.name,
-      value: type.id,
-    }));
-  }, [equipmentOwners]);
+  const contractTypeOptions = React.useMemo(() => {
+    return [
+      { label: 'Leasing', value: 'Leasing' },
+      { label: 'Alquiler', value: 'Alquiler' },
+      { label: 'Prendado', value: 'Prendado' },
+    ];
+  }, []);
+
   // Configuración de las columnas filtrables
   const filterableColumns = [
     {
@@ -144,9 +154,9 @@ function EquipmentOwnerTable({
       ],
     },
     {
-      columnId: 'Tipo',
-      title: 'Tipo',
-      options: nameOptionsType,
+      columnId: 'Tipos',
+      title: 'Tipos de Contrato',
+      options: contractTypeOptions,
     },
   ];
 

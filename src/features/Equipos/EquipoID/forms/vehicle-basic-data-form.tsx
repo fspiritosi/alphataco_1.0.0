@@ -121,11 +121,27 @@ export function VehicleBasicDataForm({
 
   const handleTypeOfContractChange = (type: string) => {
     form.setValue('owner_id', null);
-    if (type === 'Leasing') {
-      setOwners(ownersInitial.filter((owner) => owner.contract_type === 'Leasing'));
-    }
-    if (type === 'Alquiler') {
-      setOwners(ownersInitial.filter((owner) => owner.contract_type === 'Alquiler'));
+
+    console.log('🔍 Tipo de contrato seleccionado:', type);
+    console.log('🔍 Titulares iniciales:', ownersInitial);
+
+    if (type === 'Leasing' || type === 'Alquiler' || type === 'Prendado') {
+      // Filtrar titulares que tengan el tipo de contrato seleccionado en su relación
+      const filtered = ownersInitial.filter((owner) => {
+        const contractTypes = (owner as any).equipment_owner_contract_types;
+        console.log(`🔍 Titular: ${owner.name}, Contract Types:`, contractTypes);
+
+        return contractTypes?.some((ct: { contract_type: string }) => {
+          console.log(`  - Comparando: ${ct.contract_type} === ${type}`, ct.contract_type === type);
+          return ct.contract_type === type;
+        });
+      });
+
+      console.log('🔍 Titulares filtrados:', filtered);
+      setOwners(filtered);
+    } else {
+      // Si es "Propio", mostrar todos los titulares
+      setOwners(ownersInitial);
     }
   };
 
@@ -620,7 +636,7 @@ export function VehicleBasicDataForm({
                   <CommandList>
                     <CommandEmpty>No se encontró ningún tipo de contrato</CommandEmpty>
                     <CommandGroup>
-                      {['Leasing', 'Alquiler', 'Propio'].map((type) => (
+                      {['Leasing', 'Alquiler', 'Prendado', 'Propio'].map((type) => (
                         <CommandItem
                           key={type}
                           value={type}

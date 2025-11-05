@@ -54,10 +54,14 @@ export async function getVehicleOwners() {
 
   if (!company_id) return [];
 
-  const { data, error } = await supabase.from('equipment_owners').select('*').eq('is_active', true).order('name');
+  const { data, error } = await supabase
+    .from('equipment_owners')
+    .select('*, equipment_owner_contract_types(contract_type)')
+    .eq('is_active', true)
+    .order('name');
 
   if (error) {
-    console.error('Error fetching vehicle types:', error);
+    console.error('Error fetching vehicle owners:', error);
     return [];
   }
 
