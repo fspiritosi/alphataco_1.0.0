@@ -1,33 +1,45 @@
-import BackButton from '@/components/BackButton';
-import PageTableSkeleton from '@/components/Skeletons/PageTableSkeleton';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
-import { getDailyReportById, getDailyReportStatusById } from '@/features/Operaciones/PartesDiarios/actions/actions';
-import { DayliReportDetailTableWrapper } from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTableWrapper';
-import { dailyReportStatus } from '@/features/Operaciones/PartesDiarios/utils/utils';
+import { getDailyReportByIdOnlyDate } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import DayliReportDetailTableServerWrapper from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTableServerWrapper';
 import moment from 'moment';
-import { Suspense } from 'react';
 
 async function page({ params }: { params: { uuid: string } }) {
-  const dailyReport = await getDailyReportStatusById(params.uuid);
+  // Usar la función optimizada para obtener solo status y date
+  const dailyReportStatus = await getDailyReportByIdOnlyDate(params.uuid);
+
   return (
-    <Card className="p-4 mx-6 mt-4">
-      <div className="flex justify-between mb-4">
-        <div className="">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-xl">Parte diario</CardTitle>
-            <Badge variant={dailyReportStatus[dailyReport[0]?.status]} className="capitalize">
-              {dailyReport[0]?.status.replaceAll('_', ' ')}
-            </Badge>
+    <div className="mx-6 mt-4 space-y-6">
+      {/* Header compartido */}
+      {/* <Card className="p-4">
+        <div className="flex justify-between mb-4">
+          <div className="">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-xl">Parte diario</CardTitle>
+              {dailyReportStatus && (
+                <Badge variant={dailyReportStatus.status as any} className="capitalize">
+                  {dailyReportStatus.status.replaceAll('_', ' ')}
+                </Badge>
+              )}
+            </div>
+            <CardDescription>
+              Fecha: {dailyReportStatus ? moment(dailyReportStatus.date).format('DD/MM/YYYY') : ''}
+            </CardDescription>
           </div>
-          <CardDescription>Fecha: {moment(dailyReport[0]?.date).format('DD/MM/YYYY')}</CardDescription>
+          <BackButton />
         </div>
-        <BackButton />
-      </div>
-      <Suspense fallback={<PageTableSkeleton />}>
-        <DayliReportDetailTableWrapper params={params} />
-      </Suspense>
-    </Card>
+      </Card> */}
+
+      {/* Implementación del Cliente (Actual) */}
+      <Card className="p-4">
+        <div className="mb-4">
+          <CardTitle className="text-lg">Parte diario</CardTitle>
+          <CardDescription>
+            Fecha: {dailyReportStatus ? moment(dailyReportStatus.date).format('DD/MM/YYYY') : ''}
+          </CardDescription>
+        </div>
+        <DayliReportDetailTableServerWrapper params={params} />
+      </Card>
+    </div>
   );
 }
 
@@ -37,9 +49,9 @@ export default page;
 export async function generateMetadata({ params }: { params: { uuid: string } }) {
   const { uuid } = params;
 
-  const dailyReport = await getDailyReportById(uuid);
+  const dailyReport = await getDailyReportByIdOnlyDate(uuid);
   return {
-    title: `Parte diario - ${moment(dailyReport[0]?.date).format('DD/MM/YYYY')}`,
+    title: `Parte diario - ${moment(dailyReport?.date).format('DD/MM/YYYY')}`,
     description: 'Información detallada del parte diario',
   };
 }

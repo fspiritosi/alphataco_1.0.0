@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Building, CalendarIcon, Check, ChevronsUpDown, X } from 'lucide-react';
-import { use, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -54,11 +54,11 @@ type DailyReportFormProps = {
   // onCancel: () => void;
   refetchDailyReport: () => void;
   defaultValues?: ReturnType<typeof transformDailyReports>[number] | null;
-  customers: Awaited<ReturnType<typeof getCustomers>>;
+  customers?: Awaited<ReturnType<typeof getCustomers>>;
   // customers_services: Awaited<ReturnType<typeof getCustomersServices>>;
   // service_items: Awaited<ReturnType<typeof getServiceItems>>;
-  employeesPromise: ReturnType<typeof getActiveEmployeesForDailyReport>;
-  equipmentsPromise: ReturnType<typeof getActiveEquipmentsForDailyReport>;
+  employees?: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
+  equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   selectedRow?: ReturnType<typeof transformDailyReports>[number] | null;
   setSelectedRow: (row: ReturnType<typeof transformDailyReports>[number] | null) => void;
@@ -178,16 +178,14 @@ export function DailyReportForm({
   defaultValues,
   customers,
   setSelectedRow,
-  employeesPromise,
-  equipmentsPromise,
+  employees,
+  equipments,
   selectedRow,
   disabled,
   formattedData,
   dailyReport,
   refetchDailyReport,
 }: DailyReportFormProps) {
-  const employees = use(employeesPromise);
-  const equipments = use(equipmentsPromise);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
@@ -1678,7 +1676,7 @@ export function DailyReportForm({
                       </Popover>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {field.value?.map((employeeId) => {
-                          const employee = employees.find((emp) => emp.id === employeeId);
+                          const employee = employees?.find((emp) => emp.id === employeeId);
                           if (!employee) return null;
 
                           const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
@@ -1919,7 +1917,7 @@ export function DailyReportForm({
                       </Popover>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {field.value?.map((equipmentId) => {
-                          const equipment = equipments.find((eq) => eq.id === equipmentId);
+                          const equipment = equipments?.find((eq) => eq.id === equipmentId);
                           if (!equipment) return null;
 
                           const displayName = equipment.domain || equipment.serie;

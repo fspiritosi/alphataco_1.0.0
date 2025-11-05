@@ -475,6 +475,26 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
 
   return sortedHistory || [];
 }
+export async function getDailyReportByIdOnlyDate(id: string) {
+  const supabase = supabaseServer();
+
+  let { data: dailyReports, error } = await supabase
+    .from('dailyreport')
+    .select(
+      `
+      date
+    
+    `
+    )
+    .eq('id', id)
+    .limit(1)
+    .single();
+  if (error) {
+    console.error('Error fetching daily reports:', error);
+    return null;
+  }
+  return dailyReports;
+}
 export async function getDailyReportById(id: string) {
   const supabase = supabaseServer();
 
