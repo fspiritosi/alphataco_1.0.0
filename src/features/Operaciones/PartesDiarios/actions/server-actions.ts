@@ -26,8 +26,6 @@ export async function fetchDailyReportData({
     return { rows: [], totalCount: 0, pageCount: 0, rowCount: 0 };
   }
 
-  console.log('🔍 fetchDailyReportData called with:', { dailyReportId, pageIndex, pageSize });
-
   // Usar queryWithPagination siguiendo el patrón de empleados
   const result = await queryWithPagination(
     'dailyreportrows',
@@ -111,12 +109,6 @@ export async function fetchDailyReportData({
       ],
     }
   );
-
-  console.log('📊 queryWithPagination result:', {
-    rowCount: result.rows?.length || 0,
-    totalCount: result.rowCount,
-    pageCount: result.pageCount,
-  });
 
   return result;
 }
