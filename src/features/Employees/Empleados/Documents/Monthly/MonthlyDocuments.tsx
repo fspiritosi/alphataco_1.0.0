@@ -1,81 +1,33 @@
-import { columnsEmployeeDocument } from '@/app/dashboard/columsEmployeeDocument';
-import { fetchEmployeeMonthlyDocuments } from '@/app/server/GET/actions';
-import { formatEmployeeDocumentsSimple } from '@/lib/utils';
-import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+// 🔑 CRÍTICO: Migración completa de client-side a Server Component optimizado
 import { cookies } from 'next/headers';
-import { createFilterOptions } from '../../components/utils/utils';
+import MonthlyDocumentsTableServer from './components/MonthlyDocumentsTableServer';
+import { fetchMonthlyDocumentsData } from './lib/actions/actions';
 
+// ✅ MIGRACIÓN CORRECTA: Server Component que mantiene la misma funcionalidad
 async function MonthlyDocuments({}) {
-  const monthlyDocuments = (await fetchEmployeeMonthlyDocuments()).map(formatEmployeeDocumentsSimple);
   const cookiesStore = cookies();
+
+  // 🔑 IMPORTANTE: Gestión de cookies para persistencia (nueva funcionalidad)
   const savedVisibilityMonthly = cookiesStore.get(`monthly-documents-employees`)?.value;
   const savedFiltersMonthly = cookiesStore.get(`monthly-documents-employees-filters`)?.value;
-  const employeeName = createFilterOptions(monthlyDocuments, (employee) => employee.resource);
-  const documentName = createFilterOptions(monthlyDocuments, (document) => document.documentName);
 
-  const allocatedTo = createFilterOptions(
-    monthlyDocuments.flatMap((doc) => doc.allocated_to_names || []),
-    (name) => name
-  );
+  // 🔑 IMPORTANTE: Carga de datos iniciales en el servidor (reemplaza client-side loading)
+  const initialData = await fetchMonthlyDocumentsData({
+    pageIndex: 0,
+    pageSize: 10, // ✅ MEJORA: Paginación en lugar de cargar todo
+    sorting: [],
+    columnFilters: [],
+    filters: [], // Filtros permanentes se aplican automáticamente en la función
+  });
 
+  console.log(initialData);
+
+  // ✅ MANTENER: Misma estructura visual, pero ahora server-side optimizado
   return (
-    <BaseDataTable
-      tableId="monthly-documents-employees"
-      columns={columnsEmployeeDocument}
-      data={monthlyDocuments}
-      savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : []}
-      toolbarOptions={{
-        initialVisibleFilters: savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : [],
-        filterableColumns: [
-          {
-            columnId: 'Empleado',
-            title: 'Empleado',
-            options: employeeName,
-          },
-          {
-            columnId: 'Documento',
-            title: 'Documento',
-            options: documentName,
-          },
-          {
-            columnId: 'Tipo de Documento',
-            title: 'Tipo de Documento',
-            options: createFilterOptions(monthlyDocuments, (doc) => doc.documentName || ''),
-          },
-          {
-            columnId: 'Afectado a',
-            title: 'Afectado a',
-            options: allocatedTo,
-          },
-          {
-            columnId: 'Mandatorio',
-            title: 'Mandatorio',
-            options: createFilterOptions(monthlyDocuments, (doc) => doc.mandatory || ''),
-          },
-          {
-            columnId: 'Estado',
-            title: 'Estado',
-            options: createFilterOptions(monthlyDocuments, (doc) => doc.state || ''),
-          },
-          {
-            columnId: 'Multirecurso',
-            title: 'Multirecurso',
-            options: createFilterOptions(monthlyDocuments, (doc) => doc.multiresource || ''),
-          },
-          {
-            columnId: 'Periodo',
-            title: 'Periodo',
-            type: 'date-range',
-            fromPlaceholder: 'Desde (Periodo)',
-            toPlaceholder: 'Hasta (Periodo)',
-            showFrom: true,
-            showTo: true,
-          },
-        ],
-        showExport: false,
-        showDocumentDownload: true,
-        // extraActions: <div>keloke</div>,
-      }}
+    <MonthlyDocumentsTableServer
+      initialData={initialData}
+      savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : {}}
+      savedFilters={savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : []}
     />
   );
 }

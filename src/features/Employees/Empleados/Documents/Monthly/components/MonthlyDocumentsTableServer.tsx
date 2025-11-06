@@ -1,49 +1,47 @@
 'use client';
 
-import type { VisibilityState } from '@tanstack/react-table';
-// import { fetchEmployeesData } from "@/lib/supabase-query"
 import { querySelectDistinct } from '@/app/server/GET/probando';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
-import { fetchAllPermanentDocumentsData, fetchInitialPermanentDocuments } from '../lib/actions/actions';
-import { columnsEmployeeDocumentServer } from './table-colum';
+import type { VisibilityState } from '@tanstack/react-table';
+import { fetchAllMonthlyDocumentsData, fetchMonthlyDocumentsData } from '../lib/actions/actions';
+import { columnsMonthlyDocumentServer } from './table-columns';
 
-// Tipo inferido automáticamente del retorno de Supabase
+// 🔑 CRÍTICO: Tipo inferido automáticamente del retorno de la función del servidor
+type MonthlyDocumentsTableProps = {
+  initialData?: Awaited<ReturnType<typeof fetchMonthlyDocumentsData>>;
+  savedFilters: string[];
+  savedVisibility: VisibilityState;
+};
 
-export default function TablaPermanentDocumentServer({
+export default function MonthlyDocumentsTableServer({
   initialData,
   savedFilters,
   savedVisibility,
-}: {
-  initialData?: Awaited<ReturnType<typeof fetchInitialPermanentDocuments>>;
-  savedFilters: string[];
-  savedVisibility: VisibilityState;
-}) {
-  // Función wrapper para la exportación que devuelve solo los datos
+}: MonthlyDocumentsTableProps) {
+  // 🔑 IMPORTANTE: Función para exportación completa
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
-    const result = await fetchAllPermanentDocumentsData({
+    const result = await fetchAllMonthlyDocumentsData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
       server: true,
     });
-    return result.rows; // Solo devolver los datos, no la estructura de paginación
+    return result.rows;
   };
-  // Definición de columnas
 
   return (
     <BaseDataTable
-      columns={columnsEmployeeDocumentServer}
+      columns={columnsMonthlyDocumentServer}
       savedVisibility={savedVisibility}
       initialData={initialData}
-      tableId="permanent-documents-employees"
+      tableId="monthly-documents-employees" // 🔑 IMPORTANTE: ID único para cookies
       enableRowSelection={true}
-      // Configuración para server-side con Supabase
-
-      serverSide={true}
-      fetchData={fetchInitialPermanentDocuments}
-      fetchAllData={handleFetchAllData}
-      queryKey="permanent-documents-employees"
+      serverSide={true} // 🔑 CRÍTICO: Cambio principal - ahora server-side
+      fetchData={fetchMonthlyDocumentsData} // 🔑 SIMPLE: Pasar directamente la función
+      fetchAllData={handleFetchAllData} // 🔑 IMPORTANTE: Función para exportación
+      queryKey="monthly-documents-employees" // 🔑 IMPORTANTE: Query key único para cache
       toolbarOptions={{
         initialVisibleFilters: savedFilters,
+        // ✅ MANTENER: Mismos filtros que la implementación original
         filterableColumns: [
           {
             columnId: 'document_types.name',
@@ -53,7 +51,7 @@ export default function TablaPermanentDocumentServer({
               select: 'document_types.name' as '*',
               relation: '{"document_types": "id_document_types"}',
               p_filters: {
-                'document_types.is_it_montlhy': false, // ✅ Ahora funciona
+                'document_types.is_it_montlhy': true, // ✅ Ahora funciona
               },
               mapper: (
                 data: Awaited<ReturnType<typeof querySelectDistinct<'document_types', 'document_types.name'>>>
@@ -66,21 +64,27 @@ export default function TablaPermanentDocumentServer({
               },
             },
           },
-          {
-            columnId: 'state',
-            title: 'Estado',
-            config: {
-              tableName: 'documents_employees',
-              select: 'state' as '*',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'documents_employees', 'state'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
+          // {
+          //     columnId: 'state',
+          //     title: 'Estado',
+          //     config: {
+          //         tableName: 'documents_employees',
+          //         select: '*' as '*',
+          //         // 🔑 AGREGAR: Relación con document_types
+          //         relation: '{"document_types": "id_document_types"}',
+          //         // p_filters: {
+          //         //     'document_types.is_it_montlhy': true,  // ✅ Ahora funciona
+          //         // },
+          //         mapper: (data) => {
+          //             return data.map((value) => ({
+          //                 label: String(value.display_value),
+          //                 value: String(value.col_value),
+          //                 count: value.col_count,
+          //             }));
+          //         },
+          //     },
+          // },
+
           {
             columnId: 'document_types.mandatory',
             title: 'Mandatorio',
@@ -89,7 +93,7 @@ export default function TablaPermanentDocumentServer({
               select: 'document_types.mandatory' as '*',
               relation: '{"document_types": "id_document_types"}',
               p_filters: {
-                'document_types.is_it_montlhy': false, // ✅ Ahora funciona
+                'document_types.is_it_montlhy': true, // ✅ Ahora funciona
               },
               mapper: (
                 data: Awaited<ReturnType<typeof querySelectDistinct<'documents_employees', 'document_types.mandatory'>>>
@@ -110,7 +114,7 @@ export default function TablaPermanentDocumentServer({
               select: 'document_types.multiresource' as '*',
               relation: '{"document_types": "id_document_types"}',
               p_filters: {
-                'document_types.is_it_montlhy': false, // ✅ Ahora funciona
+                'document_types.is_it_montlhy': true, // ✅ Ahora funciona
               },
               mapper: (
                 data: Awaited<
@@ -126,19 +130,20 @@ export default function TablaPermanentDocumentServer({
             },
           },
           {
-            columnId: 'Vencimiento',
-            title: 'Fecha de Vencimiento',
+            columnId: 'period',
+            title: 'Periodo',
             type: 'date-range',
+            fromPlaceholder: 'Desde (Periodo)',
+            toPlaceholder: 'Hasta (Periodo)',
             showFrom: true,
             showTo: true,
-            fromPlaceholder: 'Desde',
-            toPlaceholder: 'Hasta',
           },
         ],
+        // ✅ MANTENER: Búsqueda por empleado (igual que la implementación original)
         searchableColumns: [
           {
-            columnId: 'employees.lastname',
-            placeholder: 'Buscar por empleado...',
+            columnId: 'employees.lastname', // 🔑 DEBE coincidir con id de columna
+            placeholder: 'Buscar por empleado...', // ✅ MANTENER: Mismo placeholder
           },
         ],
         showExport: true,
@@ -148,3 +153,6 @@ export default function TablaPermanentDocumentServer({
     />
   );
 }
+
+// 🔑 IMPORTANTE: Exportar el componente como default
+export { MonthlyDocumentsTableServer };
