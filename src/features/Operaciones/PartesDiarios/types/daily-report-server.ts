@@ -111,10 +111,7 @@ export interface DailyReportRowServer {
 }
 
 // Función para transformar datos del servidor al formato esperado por la tabla
-export function transformDailyReportsServer(
-  serverData: DailyReportServerData[],
-  reportDate: string
-): DailyReportRowServer[] {
+export function transformDailyReportsServer(serverData: DailyReportServerData[], reportDate: string) {
   return serverData
     .map((row) => ({
       id: row.id,

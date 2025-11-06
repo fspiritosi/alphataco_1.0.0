@@ -616,7 +616,7 @@ export function getDailyReportColumns(
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <ServiceDetailModal serviceData={row.original} />
+                  <ServiceDetailModal reportDate={row.original.date} serviceData={row.original as any} />
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p>Ver detalle</p>
@@ -707,8 +707,8 @@ export function DayliReportDetailTable({
       >
         <DailyReportForm
           customers={customers}
-          employeesPromise={employeesPromise}
-          equipmentsPromise={equipmentsPromise}
+          employees={employees}
+          equipments={equipments}
           dailyReport={dailyReport}
           selectedRow={selectedRow}
           setSelectedRow={setSelectedRow}
