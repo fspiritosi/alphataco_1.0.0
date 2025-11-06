@@ -1,0 +1,115 @@
+'use client';
+
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { useState } from 'react';
+import { ButtonGroup } from './button-group';
+
+const CURRENCIES = [
+  {
+    value: 'USD',
+    symbol: '$',
+    label: 'Dólar Estadounidense',
+  },
+  {
+    value: 'EUR',
+    symbol: '€',
+    label: 'Euro',
+  },
+  {
+    value: 'GBP',
+    symbol: '£',
+    label: 'Libra Esterlina',
+  },
+  {
+    value: 'ARS',
+    symbol: '$',
+    label: 'Peso Argentino',
+  },
+];
+
+interface PriceCurrencyInputProps {
+  price?: string;
+  currency?: string;
+  onPriceChange?: (price: string) => void;
+  onCurrencyChange?: (currency: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
+export function PriceCurrencyInput({
+  price = '',
+  currency = 'USD',
+  onPriceChange,
+  onCurrencyChange,
+  placeholder = '0.00',
+  disabled = false,
+}: PriceCurrencyInputProps) {
+  const [isFocused, setIsFocused] = useState(false);
+  const selectedCurrency = CURRENCIES.find((c) => c.value === currency) || CURRENCIES[0];
+
+  // Función para formatear número con separadores de miles y 2 decimales
+  const formatNumber = (value: string) => {
+    if (!value || value === '0' || value === '') return '';
+
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) return value;
+
+    // Formatear con separadores de miles y 2 decimales
+    return numericValue.toLocaleString('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  // Función para limpiar el formato y obtener solo números
+  const cleanNumber = (value: string) => {
+    return value.replace(/[^\d.,]/g, '').replace(',', '.');
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const cleanValue = cleanNumber(value);
+    onPriceChange?.(cleanValue);
+  };
+
+  // Determinar qué valor mostrar
+  const displayValue = isFocused ? price : formatNumber(price);
+
+  return (
+    <ButtonGroup className="w-full">
+      <Select value={currency} onValueChange={onCurrencyChange} disabled={disabled}>
+        <SelectTrigger className="font-mono w-24">
+          {selectedCurrency.symbol} {selectedCurrency.value}
+        </SelectTrigger>
+        <SelectContent className="min-w-32">
+          {CURRENCIES.map((curr) => (
+            <SelectItem key={curr.value} value={curr.value}>
+              {curr.symbol} <span className="text-muted-foreground">{curr.label}</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        placeholder={placeholder}
+        type={isFocused ? 'number' : 'text'}
+        step="0.01"
+        min="0"
+        value={displayValue}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        disabled={disabled}
+        className="flex-1"
+      />
+    </ButtonGroup>
+  );
+}

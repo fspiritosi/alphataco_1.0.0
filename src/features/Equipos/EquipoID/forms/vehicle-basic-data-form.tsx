@@ -6,6 +6,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { PriceCurrencyInput } from '@/components/ui/price-currency-input';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -822,6 +823,35 @@ export function VehicleBasicDataForm({
           )}
         />
       )}
+
+      {/* Campos de precio y moneda */}
+      <div className="grid grid-cols-1 gap-4">
+        <FormField
+          control={form.control}
+          name="price"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Valor del equipo</FormLabel>
+              <FormControl>
+                <PriceCurrencyInput
+                  price={field.value?.toString() || ''}
+                  currency={form.watch('currency') || 'USD'}
+                  onPriceChange={(price: string) => {
+                    field.onChange(price ? parseFloat(price) : undefined);
+                  }}
+                  onCurrencyChange={(currency: string) => {
+                    form.setValue('currency', currency as 'USD' | 'EUR' | 'GBP' | 'ARS');
+                  }}
+                  placeholder="0.00"
+                  disabled={readOnly}
+                />
+              </FormControl>
+              <FormDescription>Ingrese el valor del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
 
       <FormField
         control={form.control}
