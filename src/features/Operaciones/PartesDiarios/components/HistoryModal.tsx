@@ -174,7 +174,7 @@ export default function HistoryModal({
           variant={'ghost'}
           className={cn('flex items-center gap-2', onlyIcon && 'gap-0')}
         >
-          {<History className="h-4 w-4 text-black" />}
+          {<History className="h-4 w-4 text-black dark:text-white" />}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[850px] max-h-[90vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">

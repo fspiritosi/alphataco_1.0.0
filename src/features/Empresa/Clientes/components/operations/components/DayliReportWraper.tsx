@@ -307,7 +307,7 @@ export default function DailyReportWrapper() {
 
         for (const customer of selectedCustomers as any) {
           const customerServices = await getServicesByCustomer(customer.id);
-          services.push(...customerServices);
+          services.push(...(customerServices as any));
 
           (customer?.equipos_clientes || []).forEach((eq: any) => {
             equipmentOptions.push({

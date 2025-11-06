@@ -50,7 +50,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../../../supabase/supabase';
+// import { supabase } from '../../../../../../supabase/supabase';
 
 const editCovenantSchema = z.object({
   covenant: z.string().nonempty('El nombre del convenio es requerido.'),
@@ -97,6 +97,7 @@ export const columns: ColumnDef<Colum>[] = [
         setShowCovenantModal(!showCovenantModal);
       };
       const actualCompany = useLoggedUserStore((state) => state.actualCompany);
+      const supabase = supabaseBrowser();
 
       const fetchCovenant = async () => {
         try {
@@ -104,7 +105,7 @@ export const columns: ColumnDef<Colum>[] = [
             .from('covenant')
             .select('*')
             //.eq('is_active', false)
-            .eq('company_id', actualCompany?.id)
+            .eq('company_id', actualCompany?.id!)
             .select();
 
           if (error) {

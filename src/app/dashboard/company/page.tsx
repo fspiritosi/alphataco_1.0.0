@@ -1,12 +1,12 @@
 'use client';
 import ModalCompany from '@/components/ModalCompany';
 import { useCompanyData } from '@/hooks/useCompanyData';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { company } from '@/types/types';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Modal from 'react-modal';
-import { supabase } from '../../../../supabase/supabase';
 import { CardsGrid } from '../../../components/CardsGrid';
 
 function setupModalAppElement() {
@@ -18,6 +18,7 @@ function setupModalAppElement() {
 export default function allCompany() {
   const router = useRouter();
   const { fetchCompanies } = useCompanyData();
+  const supabase = supabaseBrowser();
 
   useEffect(() => {
     setupModalAppElement();

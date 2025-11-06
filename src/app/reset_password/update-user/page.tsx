@@ -4,13 +4,8 @@ import RenderBanner from '@/components/RenderBanner';
 import { CardDescription, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import Link from 'next/link';
-interface PageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
-}
-export default function UpdateUserPassword({ searchParams }: PageProps) {
-  const email = typeof searchParams.email === 'string' ? searchParams.email : '';
-  const token = typeof searchParams.token === 'string' ? searchParams.token : '';
 
+export default function UpdateUserPassword() {
   return (
     <section className="min-h-screen overflow-hidden bg-white dark:bg-transparent">
       <div className="container relative flex-col grid-cols-1 justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0  md:px-2 p-0">
@@ -35,7 +30,7 @@ export default function UpdateUserPassword({ searchParams }: PageProps) {
               recordar para ti. Asegúrate de que tu contraseña tenga al menos 6 caracteres, incluya una combinación de
               letras mayúsculas, minúsculas, números o símbolos.
             </CardDescription>
-            <UpdateUserPasswordForm email={email} token={token} />
+            <UpdateUserPasswordForm />
           </div>
         </div>
       </div>

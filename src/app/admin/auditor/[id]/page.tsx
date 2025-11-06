@@ -15,9 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import DownloadButton from '@/app/dashboard/document/documentComponents/DownloadButton';
 import BackButton from '@/components/BackButton';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { supabaseServer } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 import { Suspense } from 'react';
-import { supabase } from '../../../../../supabase/supabase';
 
 export default async function page({ params }: { params: { id: string } }) {
   let documents_employees: any[] | null = [];
@@ -29,6 +29,7 @@ export default async function page({ params }: { params: { id: string } }) {
   let document: any[] | null = [];
   let documentType: string | null = null;
   let resourceType: string | null = null;
+  const supabase = supabaseServer();
 
   let { data: documents_employee } = await supabase
     .from('documents_employees')

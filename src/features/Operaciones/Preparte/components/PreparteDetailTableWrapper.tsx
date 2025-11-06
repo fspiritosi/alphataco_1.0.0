@@ -34,6 +34,8 @@ export async function PreparteDetailTableWrapper() {
     listPrepartes(),
   ]);
 
+  // console.log(prepartes, 'prepartes')
+
   return (
     <div className="flex flex-col">
       <PreparteManager

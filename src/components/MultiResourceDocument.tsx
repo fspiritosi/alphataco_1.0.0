@@ -18,7 +18,8 @@ import { addMonths, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { Badge } from './ui/badge';
 import { Calendar } from './ui/calendar';
 import { Input } from './ui/input';
@@ -35,6 +36,7 @@ export default function MultiResourceDocument({
   const [expiredDate, setExpiredDate] = useState(false);
   const [isMontlhy, setIsMontlhy] = useState(false);
   const [disabled, setDisabled] = useState(false);
+  const supabase = supabaseBrowser();
   const currentCompany = useLoggedUserStore((state) => state.actualCompany);
   const vehicles = useLoggedUserStore((state) => state.vehicles)?.reduce(
     (acc: any, act: { year: string; intern_number: string; id: string }) => {
@@ -215,7 +217,7 @@ export default function MultiResourceDocument({
                   .update({
                     validity: tableEntries[index].validity,
                     document_path: response.data?.path,
-                    created_at: new Date(),
+                    created_at: new Date() as any,
                     state: 'presentado',
                     period: tableEntries[index].period || null,
                   })
@@ -235,7 +237,7 @@ export default function MultiResourceDocument({
                     document_path: response.data?.path,
                     validity: tableEntries[index].validity ?? null,
                     period: tableEntries[index].period || null,
-                  })
+                  } as any)
                   .select();
 
                 if (error) {

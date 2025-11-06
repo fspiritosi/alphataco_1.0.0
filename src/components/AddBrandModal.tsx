@@ -11,11 +11,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { FormControl, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { ZodError, z } from 'zod';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
 
 const schema = z
   .string()
@@ -35,6 +36,7 @@ export default function AddBrandModal({
 }) {
   const [name, setName] = useState('');
   const router = useRouter();
+  const supabase = supabaseBrowser();
 
   async function onSubmit() {
     try {

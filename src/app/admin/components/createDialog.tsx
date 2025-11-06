@@ -10,8 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { PlusCircle } from 'lucide-react';
-import { supabase } from '../../../../supabase/supabase';
 
 export function CreateDialog({ title, dbName }: any) {
   async function createDiagram(formData: FormData) {
@@ -20,6 +20,7 @@ export function CreateDialog({ title, dbName }: any) {
     const diagramFormData = {
       name: formData.get('name'),
     };
+    const supabase = supabaseBrowser();
 
     const { data, error } = await supabase
       .from(dbName)

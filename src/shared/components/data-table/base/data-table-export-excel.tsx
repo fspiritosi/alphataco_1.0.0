@@ -93,8 +93,6 @@ export function DataTableExportExcel<TData>({ table, fileName = 'tabla_exportada
   });
 
   const handleExport = () => {
-    console.log(exportData, 'exportData');
-
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
 

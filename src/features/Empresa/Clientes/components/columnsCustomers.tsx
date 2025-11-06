@@ -36,6 +36,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { useCountriesStore } from '@/store/countries';
 import { useLoggedUserStore } from '@/store/loggedUser';
@@ -50,7 +51,7 @@ import { Fragment, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../../supabase/supabase';
+// import { supabase } from '../../../../../supabase/supabase';
 
 const formSchema = z.object({
   reason_for_termination: z.string({
@@ -164,7 +165,7 @@ export const columns: ColumnDef<Colum>[] = [
           reason_for_termination: undefined,
         },
       });
-
+      const supabase = supabaseBrowser();
       async function reintegerEmployee() {
         try {
           await supabase
@@ -199,7 +200,7 @@ export const columns: ColumnDef<Colum>[] = [
             .update({
               is_active: false,
               termination_date: data.termination_date,
-              reason_for_termination: data.reason_for_termination,
+              reason_for_termination: data.reason_for_termination as any,
             })
             .eq('document_number', document)
             .select();

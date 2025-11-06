@@ -1,7 +1,7 @@
 import DocumentNav from '@/components/DocumentNav';
 import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentInternal';
-import MonthlyDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/MonthlyDocumentsWrapper';
-import PermanentDocumentsWrapper from '@/features/Equipos/DocumentosEquipos/PermanentDocumentsWrapper';
+import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
+import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
 
 export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: string; tabValue: string; path: string }) {
   const viewData: ViewDataObj = {
@@ -22,7 +22,7 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
               <DocumentNav onlyEquipment />
             </div>
           ),
-          component: <PermanentDocumentsWrapper />,
+          component: <PermanentEquipmentDocumentsWrapper />,
         },
       },
       {
@@ -39,7 +39,7 @@ export default function EquipmentTabs({ subtab, tabValue, path }: { subtab?: str
           //     <DocumentNav onlyEquipment />
           //   </div>
           // ),
-          component: <MonthlyDocumentsWrapper />,
+          component: <MonthlyEquipmentDocumentsWrapper />,
         },
       },
     ],

@@ -16,13 +16,17 @@ import {
   Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
-import { transformDailyReports } from './DayliReportDetailTable';
+import { fetchDailyReportData } from '../actions/server-actions';
+
+// Tipo inferido automáticamente del retorno de la función del servidor
+type DailyReportServerData = Awaited<ReturnType<typeof fetchDailyReportData>>['rows'][0];
 
 interface ServiceDetailModalProps {
-  serviceData: ReturnType<typeof transformDailyReports>[0];
+  serviceData: DailyReportServerData;
+  reportDate: string;
 }
 
-export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
+export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailModalProps) {
   if (!serviceData) return null;
 
   const getStatusColor = (status: string) => {
@@ -67,19 +71,29 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="h-4 w-4" />
-                <span>{formatDate(serviceData.date)}</span>
+                <span>{formatDate(reportDate)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={getStatusColor(serviceData.status)}>
-                  {serviceData.status.charAt(0).toUpperCase() + serviceData.status.slice(1)}
+                <Badge variant="outline" className={getStatusColor(serviceData.status) + ' capitalize'}>
+                  {serviceData.status.replaceAll('_', ' ')}
                 </Badge>
-                <Badge variant="secondary">{serviceData.type_service}</Badge>
+                <Badge variant="secondary" className="capitalize">
+                  {serviceData.type_service?.replaceAll('_', ' ')}
+                </Badge>
               </div>
+              {serviceData.preparte?.confirmed_by && (
+                <div className="flex items-center gap-2 text-sm text-amber-700">
+                  <span className="font-medium">Confirmado por:</span>
+                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                    {serviceData.preparte?.confirmed_by}
+                  </Badge>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Building2 className="h-4 w-4" />
-                <span className="font-medium">{serviceData.customer}</span>
+                <span className="font-medium">{serviceData.customers?.name}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Clock className="h-4 w-4" />
@@ -115,65 +129,69 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
           <div className="space-y-3">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <User className="h-5 w-5 text-blue-600" />
-              Empleados Asignados ({serviceData.employees_references?.length || 0})
+              Empleados Asignados ({serviceData.dailyreportemployeerelations?.length || 0})
             </h3>
             <div className="grid gap-4">
-              {serviceData.employees_references?.map((employee) => (
-                <div
-                  key={employee.id}
-                  className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:bg-blue-100 transition-colors"
-                >
-                  <div>
-                    <div className="font-semibold text-blue-900 text-lg mb-3">
-                      <Link href={`/empleados/${employee.id}`} className="w-fit flex items-center" target="_blank">
-                        {' '}
-                        {employee.firstname && employee.lastname
-                          ? `${employee.firstname} ${employee.lastname}`
-                          : employee.name || 'Nombre no disponible'}
-                        <ExternalLinkIcon className="h-4 w-4 ml-2 inline " />
-                      </Link>
-                    </div>
+              {serviceData.dailyreportemployeerelations?.map((relation) => {
+                const employee = relation.employees;
+                if (!employee) return null;
+                return (
+                  <div
+                    key={employee.id}
+                    className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:bg-blue-100 transition-colors"
+                  >
+                    <div>
+                      <div className="font-semibold text-blue-900 text-lg mb-3">
+                        <Link href={`/empleados/${employee.id}`} className="w-fit flex items-center" target="_blank">
+                          {' '}
+                          {employee.firstname && employee.lastname
+                            ? `${employee.lastname} ${employee.firstname}`
+                            : 'Nombre no disponible'}
+                          <ExternalLinkIcon className="h-4 w-4 ml-2 inline " />
+                        </Link>
+                      </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="space-y-1">
-                          {employee.document_number && (
-                            <div className="flex items-center gap-2 text-sm text-blue-700">
-                              <IdCardIcon className="h-4 w-4" />
-                              <span>DNI: {employee.document_number}</span>
-                            </div>
-                          )}
-                          {employee.email && (
-                            <div className="flex items-center gap-2 text-sm text-blue-700">
-                              <Mail className="h-4 w-4" />
-                              <span>{employee.email}</span>
-                            </div>
-                          )}
-                          {/* {employee.phone && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            {employee.document_number && (
+                              <div className="flex items-center gap-2 text-sm text-blue-700">
+                                <IdCardIcon className="h-4 w-4" />
+                                <span>DNI: {employee.document_number}</span>
+                              </div>
+                            )}
+                            {employee.email && (
+                              <div className="flex items-center gap-2 text-sm text-blue-700">
+                                <Mail className="h-4 w-4" />
+                                <span>{employee.email}</span>
+                              </div>
+                            )}
+                            {/* {employee.phone && (
                             <div className="flex items-center gap-2 text-sm text-blue-700">
                               <Phone className="h-4 w-4" />
                               <span>{employee.phone}</span>
                             </div>
                           )} */}
+                          </div>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        {employee.company_positions?.name && (
-                          <div className="flex items-center gap-2 text-sm text-blue-700">
-                            <span className="font-medium">Posición: {employee.company_positions.name}</span>
-                          </div>
-                        )}
-                        {employee.phone && (
-                          <div className="flex items-center gap-2 text-sm text-blue-700">
-                            <Phone className="h-4 w-4" />
-                            <span>{employee.phone}</span>
-                          </div>
-                        )}
+                        <div className="space-y-2">
+                          {employee.company_positions?.name && (
+                            <div className="flex items-center gap-2 text-sm text-blue-700">
+                              <span className="font-medium">Posición: {employee.company_positions.name}</span>
+                            </div>
+                          )}
+                          {employee.phone && (
+                            <div className="flex items-center gap-2 text-sm text-blue-700">
+                              <Phone className="h-4 w-4" />
+                              <span>{employee.phone}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )) || <div className="text-gray-500 text-sm">No hay empleados asignados</div>}
+                );
+              }) || <div className="text-gray-500 text-sm">No hay empleados asignados</div>}
             </div>
           </div>
 
@@ -183,20 +201,22 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
           <div className="space-y-3">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <Wrench className="h-5 w-5 text-green-600" />
-              Equipos Asignados ({serviceData.equipment_references?.length || 0})
+              Equipos Asignados ({serviceData.dailyreportequipmentrelations?.length || 0})
             </h3>
             <div className="grid gap-4">
-              {serviceData.equipment_references?.map((equipment) => {
+              {serviceData.dailyreportequipmentrelations?.map((relation) => {
+                const equipment = relation.vehicles;
+                if (!equipment) return null;
                 return (
                   <div
-                    key={equipment.id}
+                    key={relation.id}
                     className="bg-green-50 border border-green-200 rounded-lg p-4 hover:bg-green-100 transition-colors"
                   >
                     <div>
                       <div className="font-semibold text-green-900 text-lg mb-3 flex items-center">
                         <Link href={`/equipos/${equipment.id}`} className="w-fit flex items-center" target="_blank">
                           {' '}
-                          {equipment.name || `Equipo ${equipment.intern_number || equipment?.id?.slice(-6)}`}
+                          {equipment.domain || equipment.intern_number || `Equipo ${equipment?.id?.slice(-6)}`}
                           <ExternalLinkIcon className="h-4 w-4 ml-2 inline " />
                         </Link>
                       </div>
@@ -224,11 +244,11 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          {equipment.brand_vehicles && (
+                          {equipment.brand_vehicles?.name && (
                             <div className="flex items-center gap-2 text-sm text-green-700">
                               <span className="font-medium">Marca:</span>
                               <Badge variant={'outline'} className="text-xs bg-green-100 text-green-800">
-                                {equipment.brand_vehicles}
+                                {equipment.brand_vehicles.name}
                               </Badge>
                             </div>
                           )}
@@ -275,11 +295,11 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
             <div className="grid gap-3">
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="font-medium text-gray-900 mb-1">Servicio</div>
-                <div className="text-gray-700">{serviceData.services}</div>
+                <div className="text-gray-700">{serviceData.customer_services?.service_name}</div>
               </div>
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="font-medium text-gray-900 mb-1">Item</div>
-                <div className="text-gray-700">{serviceData.item}</div>
+                <div className="text-gray-700">{serviceData.service_items?.item_name}</div>
               </div>
               {serviceData.description && (
                 <div className="bg-gray-50 rounded-lg p-3">
@@ -297,11 +317,11 @@ export function ServiceDetailModal({ serviceData }: ServiceDetailModalProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                 <div className="font-medium text-purple-900 mb-1">Sector</div>
-                <div className="text-purple-700">{serviceData.sector_service_name}</div>
+                <div className="text-purple-700">{serviceData.service_sectors?.sectors?.name}</div>
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                 <div className="font-medium text-purple-900 mb-1">Área</div>
-                <div className="text-purple-700">{serviceData.areas_customer_name}</div>
+                <div className="text-purple-700">{serviceData.service_areas?.areas_cliente?.descripcion_corta}</div>
               </div>
             </div>
           </div>

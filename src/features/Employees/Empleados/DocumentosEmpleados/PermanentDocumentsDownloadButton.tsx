@@ -12,18 +12,62 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription } from '@/components/ui/card';
+import { handleSupabaseError } from '@/lib/errorHandler';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 import { DownloadIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
   // Aquí puedes personalizar la lógica de descarga si lo necesitas
-  const handleDownloadAll = () => {
-    // Implementa aquí la lógica de descarga para documentos permanentes
-    // Por ejemplo: exportar a Excel, PDF, o descargar archivos
-    alert('Descarga de documentos no implementada');
+  const supabase = supabaseBrowser();
+  const handleDownloadAll = async () => {
+    toast.promise(
+      async () => {
+        const zip = new JSZip();
+        const documentToDownload = table
+          .getFilteredRowModel()
+          .rows.map((row: any) => row.original)
+          .filter((row: any) => row.state !== 'pendiente') as any;
+
+        const files = await Promise.all(
+          documentToDownload?.map(async (doc: any) => {
+            const { data, error } = await supabase.storage.from('document-files').download(doc.document_path);
+
+            if (error) {
+              throw new Error(handleSupabaseError(error.message));
+            }
+
+            // Extrae la extensión del archivo del document_path
+            const extension = doc.document_url.split('.').pop();
+
+            return {
+              data,
+              name: `${doc.resource}-(${doc?.documentName}).${extension}`,
+            };
+          }) || []
+        );
+
+        files.forEach((file) => {
+          zip.file(file.name, file.data);
+        });
+
+        const content = await zip.generateAsync({ type: 'blob' });
+        saveAs(content, 'documents.zip');
+      },
+      {
+        loading: 'Descargando documentos...',
+        success: 'Documentos descargados',
+        error: (error) => {
+          return error;
+        },
+      }
+    );
   };
+
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -69,7 +113,10 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
                           .map((row: any) => (
                             <Card className="p-2 border-red-300" key={row.id}>
                               <CardDescription>
-                                {(row.original as any).resource} ({(row.original as any).documentName})
+                                {(row.original as any).employees.firstname +
+                                  ' ' +
+                                  (row.original as any).employees.lastname}{' '}
+                                ({(row.original as any).document_types.name})
                               </CardDescription>
                             </Card>
                           ))}
@@ -97,7 +144,10 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
                         return (
                           <Card className="p-2 border-green-600" key={row.id}>
                             <CardDescription>
-                              {(row.original as any).resource} ({(row.original as any).documentName})
+                              {(row.original as any).employees.firstname +
+                                ' ' +
+                                (row.original as any).employees.lastname}{' '}
+                              ({(row.original as any).document_types.name})
                             </CardDescription>
                           </Card>
                         );

@@ -4,21 +4,22 @@ import { supabaseServer } from '@/lib/supabase/server';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 
-// export async function updateDailyReportStatus(id: string, status: string) {
-//   const supabase = supabaseServer();
-//   const { data, error } = await supabase
-//     .from('dailyreport')
-//     .update({
-//       status: status,
-//     })
-//     .eq('id', id)
-//     .select();
+// Función para actualizar el estado de múltiples partes diarios (bulk update)
+export async function updateMultipleDailyReportStatus(ids: string[], status: string) {
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from('dailyreport')
+    .update({
+      status: status as 'abierto' | 'cerrado' | 'cerrado_incompleto',
+    })
+    .in('id', ids)
+    .select();
 
-//   if (error) {
-//     throw new Error(error.message);
-//   }
-//   return data;
-// }
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data;
+}
 
 // En actions.ts
 export async function fetchDailyReportsWithFilters({
@@ -474,6 +475,26 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
 
   return sortedHistory || [];
 }
+export async function getDailyReportByIdOnlyDate(id: string) {
+  const supabase = supabaseServer();
+
+  let { data: dailyReports, error } = await supabase
+    .from('dailyreport')
+    .select(
+      `
+      date
+    
+    `
+    )
+    .eq('id', id)
+    .limit(1)
+    .single();
+  if (error) {
+    console.error('Error fetching daily reports:', error);
+    return null;
+  }
+  return dailyReports;
+}
 export async function getDailyReportById(id: string) {
   const supabase = supabaseServer();
 
@@ -483,7 +504,7 @@ export async function getDailyReportById(id: string) {
       `
       *,
       dailyreportrows(
-        preparte(id, numero_pedido),
+        preparte(id, numero_pedido,confirmed_by),
         *,
         dailyreport_customer_equipment_relations(
           *,
@@ -927,10 +948,15 @@ export async function updateDailyReportRowBody(id: string, data: Partial<DailyRe
   return updatedRow;
 }
 
-export async function updateDailyReportRowStatus(id: string[], status: DailyReportRowStatus) {
+export async function updateDailyReportRowStatus(id: string[], status: DailyReportRowStatus, confirmedBy?: string) {
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase.from('dailyreportrows').update({ status }).in('id', id).select();
+  const updateData: any = { status };
+  if (status === 'ejecutado' && confirmedBy) {
+    updateData.confirmed_by = confirmedBy;
+  }
+
+  const { data, error } = await supabase.from('dailyreportrows').update(updateData).in('id', id).select();
 
   if (error) {
     console.error('Error updating daily report row status:', error);
@@ -1087,21 +1113,57 @@ export async function updateEquiposClienteRelations(dailyReportRowId: string, eq
 export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' | 'created_at' | 'updated_at'>[]) {
   const supabase = supabaseServer();
 
+  // Aumentar timeout para operaciones masivas
+  if (data.length > 50) {
+    supabase.realtime.setAuth(null); // Deshabilitar realtime temporalmente
+  }
+
   try {
-    // Insertar todas las filas a la vez
-    const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
+    console.log(`Creando ${data.length} filas de parte diario`);
 
-    if (error) {
-      console.error(error, 'error');
-      throw error;
+    // Para lotes grandes (>50), procesar en chunks para evitar timeouts
+    if (data.length > 50) {
+      const chunkSize = 25;
+      const chunks = [];
+      for (let i = 0; i < data.length; i += chunkSize) {
+        chunks.push(data.slice(i, i + chunkSize));
+      }
+
+      const allCreatedRows = [];
+      for (const chunk of chunks) {
+        console.log(`Procesando chunk de ${chunk.length} filas`);
+        const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(chunk).select('*');
+
+        if (error) {
+          console.error(error, 'error en chunk');
+          throw error;
+        }
+
+        if (createdRows) {
+          allCreatedRows.push(...createdRows);
+        }
+
+        // Pequeña pausa entre chunks para evitar sobrecarga
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      return allCreatedRows;
+    } else {
+      // Para lotes pequeños, insertar normalmente
+      const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
+
+      if (error) {
+        console.error(error, 'error');
+        throw error;
+      }
+
+      // Verificar que se hayan creado las filas
+      if (!createdRows || createdRows.length === 0) {
+        throw new Error('No se crearon filas');
+      }
+
+      return createdRows;
     }
-
-    // Verificar que se hayan creado las filas
-    if (!createdRows || createdRows.length === 0) {
-      throw new Error('No se crearon filas');
-    }
-
-    return createdRows;
   } catch (error) {
     console.error('Error creando filas de parte diario:', error);
     throw error;

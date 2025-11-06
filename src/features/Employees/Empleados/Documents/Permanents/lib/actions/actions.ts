@@ -16,6 +16,12 @@ export async function fetchInitialPermanentDocuments(options: {
       ...options,
       sorting: [],
       filters: options.filters || [],
+      permanent_filter: (query) => {
+        return query
+          .eq('document_types.is_it_montlhy', false)
+          .not('employees', 'is', null)
+          .not('document_types', 'is', null);
+      },
     }
   );
 
@@ -39,6 +45,12 @@ export async function fetchAllPermanentDocumentsData(options: {
       columnFilters: options.columnFilters,
       filters: options.filters,
       server: false,
+      permanent_filter: (query) => {
+        return query
+          .eq('document_types.is_it_montlhy', false)
+          .not('employees', 'is', null)
+          .not('document_types', 'is', null);
+      },
     }
   );
 

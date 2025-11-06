@@ -175,6 +175,16 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
                 </Badge>
                 {preparteData.tipo && <Badge variant="secondary">{preparteData.tipo}</Badge>}
               </div>
+              {preparteData.confirmed_by && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <span className="flex items-center gap-1">
+                      <span className="text-green-600">✓</span>
+                      Confirmado por: {preparteData.confirmed_by}
+                    </span>
+                  </Badge>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">

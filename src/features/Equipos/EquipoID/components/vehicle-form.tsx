@@ -60,7 +60,7 @@ const vehicleSchema = z
         },
         { message: 'El año debe ser mayor a 1900 y menor al año actual' }
       ),
-    type_of_contract: z.enum(['Leasing', 'Alquiler', 'Propio']).optional().nullable(),
+    type_of_contract: z.enum(['Leasing', 'Alquiler', 'Propio', 'Prendado']).optional().nullable(),
 
     // Technical Data
     engine: z.string().optional(),

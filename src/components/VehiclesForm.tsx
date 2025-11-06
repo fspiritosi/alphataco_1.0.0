@@ -16,13 +16,13 @@ import { CaretSortIcon, CheckIcon } from '@radix-ui/react-icons';
 import { toPng } from 'html-to-image';
 import { AlertTriangle, CheckCircle, Copy, Download, Info, Printer, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import React, { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { RiToolsFill } from 'react-icons/ri';
 
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
 import BackButton from './BackButton';
 import { ImageHander } from './ImageHandler';
 import { Modal } from './Modal';
@@ -34,7 +34,9 @@ import { Input } from './ui/input';
 require('dotenv').config();
 // import { useToast } from './ui/use-toast'
 import { fetchContractorCompanies } from '@/app/dashboard/employee/action/actions/actions';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import Cookies from 'js-cookie';
+import React from 'react';
 import QRCode from 'react-qr-code';
 import { Database } from '../../database.types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -93,7 +95,7 @@ export default function VehiclesForm2({
   const searchParams = useSearchParams();
   // const id = params
   const [accion, setAccion] = useState(searchParams.get('action'));
-
+  const supabase = supabaseBrowser();
   // const actualCompany = useLoggedUserStore((state) => state.actualCompany);
   const actualCompany = Cookies.get('actualComp');
 
@@ -280,7 +282,7 @@ export default function VehiclesForm2({
 
     setData({
       ...data,
-      tipe_of_vehicles: types_of_vehicles as generic[],
+      tipe_of_vehicles: types_of_vehicles as any,
     });
   };
 
@@ -339,7 +341,7 @@ export default function VehiclesForm2({
 
     setData({
       ...data,
-      models: model_vehicles as generic[],
+      models: model_vehicles as any,
     });
   };
   const url = process.env.NEXT_PUBLIC_PROJECT_URL;
@@ -369,7 +371,7 @@ export default function VehiclesForm2({
                 kilometer: values.kilometer || 0,
                 cost_center_id: values.cost_center_id || null,
               },
-            ])
+            ] as any)
             .select();
 
           const documentsMissing: {
@@ -381,7 +383,7 @@ export default function VehiclesForm2({
 
           mandatoryDocuments?.Equipos?.forEach((document) => {
             documentsMissing.push({
-              applies: vehicle?.[0]?.id,
+              applies: vehicle?.[0]?.id as any,
               id_document_types: document.id,
               validity: null,
               user_id: loggedUser,
@@ -390,7 +392,7 @@ export default function VehiclesForm2({
 
           const { data: documentData, error: documentError } = await supabase
             .from('documents_equipment')
-            .insert(documentsMissing)
+            .insert(documentsMissing as any)
             .select();
 
           if (documentError) {
@@ -419,7 +421,7 @@ export default function VehiclesForm2({
                   .from('vehicles')
                   .update({ picture: vehicleImage })
                   .eq('id', id)
-                  .eq('company_id', actualCompany);
+                  .eq('company_id', actualCompany!);
               } catch (error) {}
             } catch (error: any) {
               throw new Error(handleSupabaseError(error.message));
@@ -538,7 +540,7 @@ export default function VehiclesForm2({
             .from('vehicles')
             .update(updatedFields)
             .eq('id', vehicle?.id)
-            .eq('company_id', actualCompany);
+            .eq('company_id', actualCompany!);
 
           console.error(updatedERROR, 'updatedERROR');
 
@@ -559,7 +561,7 @@ export default function VehiclesForm2({
                   .from('vehicles')
                   .update({ picture: vehicleImage })
                   .eq('id', id)
-                  .eq('company_id', actualCompany);
+                  .eq('company_id', actualCompany!);
               } catch (error) {}
             } catch (error: any) {
               throw new Error('Error al subir la imagen');

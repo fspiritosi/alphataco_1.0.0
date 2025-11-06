@@ -20,8 +20,10 @@ import { getEquipmentDiagramColumns } from './equipment-diagram-colum';
 export function SearchEquipment({
   equipment,
   field,
+  selectedCustomerId,
 }: {
   equipment: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
+  selectedCustomerId?: string | null;
   field: ControllerRenderProps<
     {
       customer: string;
@@ -85,7 +87,7 @@ export function SearchEquipment({
           <EquipmentDiagramTable
             savedFilters={equipmentTableEquipmentFilters ? JSON.parse(equipmentTableEquipmentFilters) : []}
             savedVisibility={equipmentTableEquipment ? JSON.parse(equipmentTableEquipment) : {}}
-            columns={getEquipmentDiagramColumns(field)}
+            columns={getEquipmentDiagramColumns(field, selectedCustomerId)}
             data={equipment}
             setSelectedEquipment={setSelectedEquipment}
           />

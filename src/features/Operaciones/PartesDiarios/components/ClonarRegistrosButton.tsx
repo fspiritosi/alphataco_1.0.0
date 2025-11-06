@@ -21,9 +21,14 @@ import { transformDailyReports } from './DayliReportDetailTable';
 interface ClonarRegistrosButtonProps {
   formattedData: ReturnType<typeof transformDailyReports>;
   selectedRows: ReturnType<typeof transformDailyReports>;
+  fetchAllFormattedData?: () => Promise<any[]>; // 🔥 NUEVA PROP - usar any[] para evitar conflictos de tipos
 }
 
-export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarRegistrosButtonProps) {
+export function ClonarRegistrosButton({
+  formattedData,
+  selectedRows,
+  fetchAllFormattedData,
+}: ClonarRegistrosButtonProps) {
   const [open, setOpen] = useState(false);
   const [fechasSeleccionadas, setFechasSeleccionadas] = useState<Date[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,8 +113,14 @@ export function ClonarRegistrosButton({ formattedData, selectedRows }: ClonarReg
           if (selectedRows?.length > 0) {
             filteredRows = selectedRows;
           } else {
+            // Si existe fetchAllFormattedData, obtener TODOS los datos
+            let allFormattedData = formattedData;
+            if (fetchAllFormattedData) {
+              allFormattedData = await fetchAllFormattedData();
+            }
+
             // Si no hay filas seleccionadas, filtramos según los checkboxes de tipo
-            filteredRows = formattedData.filter(
+            filteredRows = allFormattedData.filter(
               (row) =>
                 (row.type_service === 'mensual' && incluirMensuales) ||
                 (row.type_service === 'adicional' && incluirAdicionales) ||

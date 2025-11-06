@@ -39,20 +39,24 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
   const [status24hs, setStatus24hs] = useState<string>('');
   const [cancelReason24hs, setCancelReason24hs] = useState<string>('');
   const [rescheduleDate24hs, setRescheduleDate24hs] = useState<Date | undefined>(undefined);
+  const [confirmedBy24hs, setConfirmedBy24hs] = useState<string>('');
 
   // Estados para sub-secciones de Jornadas 24hs
   const [statusCompletarDiurno, setStatusCompletarDiurno] = useState<string>('');
   const [cancelReasonCompletarDiurno, setCancelReasonCompletarDiurno] = useState<string>('');
   const [rescheduleDateCompletarDiurno, setRescheduleDateCompletarDiurno] = useState<Date | undefined>(undefined);
+  const [confirmedByCompletarDiurno, setConfirmedByCompletarDiurno] = useState<string>('');
 
   const [statusCompletarNocturno, setStatusCompletarNocturno] = useState<string>('');
   const [cancelReasonCompletarNocturno, setCancelReasonCompletarNocturno] = useState<string>('');
   const [rescheduleDateCompletarNocturno, setRescheduleDateCompletarNocturno] = useState<Date | undefined>(undefined);
+  const [confirmedByCompletarNocturno, setConfirmedByCompletarNocturno] = useState<string>('');
 
   // Estados para Otras Jornadas
   const [statusOtras, setStatusOtras] = useState<string>('');
   const [cancelReasonOtras, setCancelReasonOtras] = useState<string>('');
   const [rescheduleDateOtras, setRescheduleDateOtras] = useState<Date | undefined>(undefined);
+  const [confirmedByOtras, setConfirmedByOtras] = useState<string>('');
 
   const [seccionCompletada, setSeccionCompletada] = useState<string | null>(null);
   const [guardandoSeccion, setGuardandoSeccion] = useState<string | null>(null);
@@ -86,20 +90,24 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
       setStatus24hs('');
       setCancelReason24hs('');
       setRescheduleDate24hs(undefined);
+      setConfirmedBy24hs('');
 
       // Limpiar estados de sub-secciones de Jornadas 24hs
       setStatusCompletarDiurno('');
       setCancelReasonCompletarDiurno('');
       setRescheduleDateCompletarDiurno(undefined);
+      setConfirmedByCompletarDiurno('');
 
       setStatusCompletarNocturno('');
       setCancelReasonCompletarNocturno('');
       setRescheduleDateCompletarNocturno(undefined);
+      setConfirmedByCompletarNocturno('');
 
       // Limpiar estados de Otras Jornadas
       setStatusOtras('');
       setCancelReasonOtras('');
       setRescheduleDateOtras(undefined);
+      setConfirmedByOtras('');
 
       // Limpiar feedback
       setSeccionCompletada(null);
@@ -118,6 +126,8 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
 
     if (status24hs === 'reprogramado' && !rescheduleDate24hs) return false;
 
+    if (status24hs === 'ejecutado' && !confirmedBy24hs) return false;
+
     return true;
   };
 
@@ -128,6 +138,8 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
     if (statusCompletarDiurno === 'cancelado' && !cancelReasonCompletarDiurno) return false;
 
     if (statusCompletarDiurno === 'reprogramado' && !rescheduleDateCompletarDiurno) return false;
+
+    if (statusCompletarDiurno === 'ejecutado' && !confirmedByCompletarDiurno) return false;
 
     return true;
   };
@@ -140,6 +152,8 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
 
     if (statusCompletarNocturno === 'reprogramado' && !rescheduleDateCompletarNocturno) return false;
 
+    if (statusCompletarNocturno === 'ejecutado' && !confirmedByCompletarNocturno) return false;
+
     return true;
   };
 
@@ -148,6 +162,8 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
     if (!statusOtras) return false;
 
     if (statusOtras === 'cancelado' && !cancelReasonOtras) return false;
+
+    if (statusOtras === 'ejecutado' && !confirmedByOtras) return false;
 
     return true;
   };
@@ -198,27 +214,32 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
       let statusToUse: string = '';
       let cancelReasonToUse: string = '';
       let rescheduleDateToUse: Date | undefined;
+      let confirmedByToUse: string = '';
 
       if (tipoSeccion === '24hs') {
         registrosAActualizar = jornadas24hs;
         statusToUse = status24hs;
         cancelReasonToUse = cancelReason24hs;
         rescheduleDateToUse = rescheduleDate24hs;
+        confirmedByToUse = confirmedBy24hs;
       } else if (tipoSeccion === 'completar-diurno') {
         registrosAActualizar = jornadas24hsCompletarDiurno;
         statusToUse = statusCompletarDiurno;
         cancelReasonToUse = cancelReasonCompletarDiurno;
         rescheduleDateToUse = rescheduleDateCompletarDiurno;
+        confirmedByToUse = confirmedByCompletarDiurno;
       } else if (tipoSeccion === 'completar-nocturno') {
         registrosAActualizar = jornadas24hsCompletarNocturno;
         statusToUse = statusCompletarNocturno;
         cancelReasonToUse = cancelReasonCompletarNocturno;
         rescheduleDateToUse = rescheduleDateCompletarNocturno;
+        confirmedByToUse = confirmedByCompletarNocturno;
       } else if (tipoSeccion === 'otras') {
         registrosAActualizar = otrasJornadas;
         statusToUse = statusOtras;
         cancelReasonToUse = cancelReasonOtras;
         rescheduleDateToUse = undefined; // Otras jornadas no tienen reprogramación
+        confirmedByToUse = confirmedByOtras;
       }
 
       // Crear objeto con los datos a actualizar según el estado seleccionado
@@ -258,7 +279,7 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
         }
       } else {
         // Para otros estados: actualiza status masivamente
-        await updateDailyReportRowStatus(selectedRowsIds, updateData.status);
+        await updateDailyReportRowStatus(selectedRowsIds, updateData.status, confirmedByToUse);
       }
 
       // Si es reprogramación, también crear copias en la nueva fecha
@@ -461,6 +482,22 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
                       />
                     </PopoverContent>
                   </Popover>
+                </div>
+              )}
+
+              {/* Campo condicional para confirmante - 24hs */}
+              {status24hs === 'ejecutado' && (
+                <div className="space-y-2 mb-4">
+                  <Label htmlFor="confirmed-by-24hs">
+                    Confirmado por <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="confirmed-by-24hs"
+                    value={confirmedBy24hs}
+                    onChange={(e) => setConfirmedBy24hs(e.target.value)}
+                    placeholder="Ingrese el nombre de quien confirma"
+                    required
+                  />
                 </div>
               )}
 
@@ -752,6 +789,22 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
                     value={cancelReasonOtras}
                     onChange={(e) => setCancelReasonOtras(e.target.value)}
                     placeholder="Ingrese la razón de cancelación"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Campo condicional para confirmante - Otras */}
+              {statusOtras === 'ejecutado' && (
+                <div className="space-y-2 mb-4">
+                  <Label htmlFor="confirmed-by-otras">
+                    Confirmado por <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="confirmed-by-otras"
+                    value={confirmedByOtras}
+                    onChange={(e) => setConfirmedByOtras(e.target.value)}
+                    placeholder="Ingrese el nombre de quien confirma"
                     required
                   />
                 </div>

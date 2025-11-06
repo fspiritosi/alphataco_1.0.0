@@ -37,6 +37,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useCountriesStore } from '@/store/countries';
@@ -54,7 +55,7 @@ import { useForm } from 'react-hook-form';
 import { RiToolsFill } from 'react-icons/ri';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../supabase/supabase';
+// import { supabase } from '../../../../supabase/supabase';
 
 const formSchema = z.object({
   reason_for_termination: z.string({
@@ -148,6 +149,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
           reason_for_termination: undefined,
         },
       });
+      const supabase = supabaseBrowser();
 
       async function reintegerEquipment() {
         try {
@@ -159,7 +161,7 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
               reason_for_termination: null,
             })
             .eq('id', equipment.id)
-            .eq('company_id', actualCompany?.id)
+            .eq('company_id', actualCompany?.id!)
             .select();
 
           setIntegerModal(!integerModal);
@@ -186,10 +188,10 @@ export const EquipmentColums: ColumnDef<Colum>[] = [
             .update({
               is_active: false,
               termination_date: data.termination_date,
-              reason_for_termination: data.reason_for_termination,
+              reason_for_termination: data.reason_for_termination as 'otro',
             })
             .eq('id', equipment.id)
-            .eq('company_id', actualCompany?.id)
+            .eq('company_id', actualCompany?.id!)
             .select();
 
           setShowModal(!showModal);

@@ -361,7 +361,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <ServiceDetailModal serviceData={row.original as any} />
+                      <ServiceDetailModal reportDate={dailyReports[0].date} serviceData={row.original as any} />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Ver detalles</p>

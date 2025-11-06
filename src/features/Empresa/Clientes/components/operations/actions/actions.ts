@@ -1,4 +1,5 @@
-import { supabase } from '@/../supabase/supabase';
+// import { supabase } from '@/../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import moment from 'moment';
 
 export interface DailyReportRow {
@@ -72,7 +73,8 @@ export interface Service {
   customer_id: string;
 }
 
-export async function getAllDailyReportRows(): Promise<ProcessedDailyReportRow[]> {
+export async function getAllDailyReportRows() {
+  const supabase = supabaseBrowser();
   const { data: dailyReports, error } = await supabase
     .from('dailyreport')
     .select(
@@ -101,7 +103,7 @@ export async function getAllDailyReportRows(): Promise<ProcessedDailyReportRow[]
   }
 
   const processedData = dailyReports.flatMap((report) =>
-    (report.dailyreportrows || []).map((row: DailyReportRow) => ({
+    (report.dailyreportrows || []).map((row) => ({
       ...row,
       date: report.date,
       remit_number: row.remit_number,
@@ -127,6 +129,7 @@ interface ReportFilters {
 
 export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
   try {
+    const supabase = supabaseBrowser();
     // Primero obtener todos los datos sin filtrar las relaciones
     let query = supabase
       .from('dailyreportrows')
@@ -310,6 +313,7 @@ export interface FilterOptions {
 
 export async function getFilterOptions(): Promise<FilterOptions> {
   try {
+    const supabase = supabaseBrowser();
     const [customers, services, employees, vehicles, items, customerEquipments, areas, sectors] = await Promise.all([
       supabase.from('customers').select('id, name').order('name').eq('is_active', true),
 
@@ -342,7 +346,7 @@ export async function getFilterOptions(): Promise<FilterOptions> {
         id: s.id,
         name: s.service_name,
         customer_id: s.customer_id,
-      })),
+      })) as any,
       employees: (employees.data || []).map((e) => ({
         id: e.id,
         name: `${e.firstname || ''} ${e.lastname || ''}`.trim(),
@@ -361,12 +365,12 @@ export async function getFilterOptions(): Promise<FilterOptions> {
         name: ce.name,
         customer_id: ce.customer_id,
       })),
-      areas: (areas.data || []).map((a) => ({
+      areas: (areas.data || []).map((a: any) => ({
         id: a.id,
         name: a.name,
         customer_id: a.customer_id,
       })),
-      sectors: (sectors.data || []).map((s) => ({
+      sectors: (sectors.data || []).map((s: any) => ({
         id: s.id,
         name: s.name,
         customer_id: s.customer_id,
@@ -387,7 +391,8 @@ export async function getFilterOptions(): Promise<FilterOptions> {
   }
 }
 
-export async function getServicesByCustomer(customerId: string): Promise<Service[]> {
+export async function getServicesByCustomer(customerId: string) {
+  const supabase = supabaseBrowser();
   try {
     const { data, error } = await supabase
       .from('customer_services')

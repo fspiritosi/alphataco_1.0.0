@@ -16,7 +16,8 @@ import JSZip from 'jszip';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import SimpleDocument from './SimpleDocument';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTrigger } from './ui/alert-dialog';
 import { Button, buttonVariants } from './ui/button';
@@ -87,7 +88,7 @@ export const DocumentationDrawer = ({ resource, document, id }: Props) => {
   }
 
   const documentToDownload = props?.filter((e) => e.state !== 'pendiente');
-
+  const supabase = supabaseBrowser();
   const handleDownloadAll = async () => {
     toast.promise(
       async () => {

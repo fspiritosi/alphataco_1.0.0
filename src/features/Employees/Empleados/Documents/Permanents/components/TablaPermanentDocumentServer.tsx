@@ -52,6 +52,9 @@ export default function TablaPermanentDocumentServer({
               tableName: 'documents_employees',
               select: 'document_types.name' as '*',
               relation: '{"document_types": "id_document_types"}',
+              p_filters: {
+                'document_types.is_it_montlhy': false, // ✅ Ahora funciona
+              },
               mapper: (
                 data: Awaited<ReturnType<typeof querySelectDistinct<'document_types', 'document_types.name'>>>
               ) => {
@@ -85,6 +88,9 @@ export default function TablaPermanentDocumentServer({
               tableName: 'documents_employees',
               select: 'document_types.mandatory' as '*',
               relation: '{"document_types": "id_document_types"}',
+              p_filters: {
+                'document_types.is_it_montlhy': false, // ✅ Ahora funciona
+              },
               mapper: (
                 data: Awaited<ReturnType<typeof querySelectDistinct<'documents_employees', 'document_types.mandatory'>>>
               ) => {
@@ -103,6 +109,9 @@ export default function TablaPermanentDocumentServer({
               tableName: 'documents_employees',
               select: 'document_types.multiresource' as '*',
               relation: '{"document_types": "id_document_types"}',
+              p_filters: {
+                'document_types.is_it_montlhy': false, // ✅ Ahora funciona
+              },
               mapper: (
                 data: Awaited<
                   ReturnType<typeof querySelectDistinct<'documents_employees', 'document_types.multiresource'>>

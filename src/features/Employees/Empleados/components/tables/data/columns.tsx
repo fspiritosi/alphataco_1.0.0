@@ -50,7 +50,9 @@ import { Fragment, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../../../../supabase/supabase';
+// import { supabase } from '../../../../../../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import React from 'react';
 import { formatEmployeesForTable } from '../../utils/utils';
 const formSchema = z.object({
   reason_for_termination: z.string({
@@ -123,7 +125,7 @@ export const employeeColumns: ColumnDef<ReturnType<typeof formatEmployeesForTabl
         },
       });
       const router = useRouter();
-
+      const supabase = supabaseBrowser();
       async function reintegerEmployee() {
         const documentToUpdate = useLoggedUserStore
           ?.getState()
@@ -175,7 +177,7 @@ export const employeeColumns: ColumnDef<ReturnType<typeof formatEmployeesForTabl
             .update({
               is_active: false,
               termination_date: data.termination_date,
-              reason_for_termination: data.reason_for_termination,
+              reason_for_termination: data.reason_for_termination as any,
             })
             .eq('document_number', document)
             .select();

@@ -9,13 +9,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
 
 export default function ApproveDocModal({ id, resource }: { id: string; resource: string | null }) {
   const [isOpen, setIsOpen] = useState(false);
+  const supabase = supabaseBrowser();
   const router = useRouter();
   const handleApprove = async () => {
     if (resource === 'employee') {

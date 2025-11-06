@@ -58,9 +58,9 @@ export default async function Login() {
                 </div>
                 <div className="flex w-full justify-center flex-col items-center gap-2">
                   <LoginButton />
-                  <Link href="/register" className="text-md">
+                  {/* <Link href="/register" className="text-md">
                     ¿No tienes una cuenta? <span className="text-gh_orange ml-1 ">Créate una aquí</span>
-                  </Link>
+                  </Link> */}
                 </div>
                 <Separator orientation="horizontal" className="my-2 w-[70%] self-center" />
                 <Link href="/reset_password" className="text-md m-auto">

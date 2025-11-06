@@ -1,6 +1,7 @@
 'use client';
 import { useLoggedUserStore } from '@/store/loggedUser';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { company } from './../types/types';
 import { useEdgeFunctions } from './useEdgeFunctions';
 //import { industry } from './../types/types';
@@ -8,7 +9,7 @@ import { useEdgeFunctions } from './useEdgeFunctions';
 export const useCompanyData = () => {
   const { errorTranslate } = useEdgeFunctions();
   //const [industry, setIndustry] = useState<any[]>([])
-
+  const supabase = supabaseBrowser();
   return {
     fetchAllCompany: async () => {
       let { data: company, error } = await supabase.from('company').select('*');
@@ -30,7 +31,10 @@ export const useCompanyData = () => {
       return company;
     },
     insertCompany: async (company: company) => {
-      const { data, error } = await supabase.from('company').insert(company).select();
+      const { data, error } = await supabase
+        .from('company')
+        .insert(company as any)
+        .select();
 
       if (error) {
         const message = await errorTranslate(error?.message);
@@ -40,7 +44,11 @@ export const useCompanyData = () => {
     },
 
     updateCompany: async (companyId: string, company: company) => {
-      const { data, error } = await supabase.from('company').update(company).eq('id', companyId).select();
+      const { data, error } = await supabase
+        .from('company')
+        .update(company as any)
+        .eq('id', companyId)
+        .select();
 
       if (error) {
         const message = await errorTranslate(error.message);
@@ -51,7 +59,7 @@ export const useCompanyData = () => {
     LogicDeleteCompany: async (companyId: string) => {
       const { data, error } = await supabase
         .from('company')
-        .update({ is_Active: false }) // Establece is_Active en false para el borrado lógico
+        .update({ is_active: false }) // Establece is_Active en false para el borrado lógico
         .eq('id', companyId)
         .select();
       if (error) {
@@ -87,7 +95,7 @@ export const useCompanyData = () => {
         console.error('Error al obtener las compañías:', error);
       } else {
         // Actualizar el estado global con las nuevas compañías
-        useLoggedUserStore.setState({ allCompanies: data || [] });
+        useLoggedUserStore.setState({ allCompanies: (data as any) || [] });
       }
     },
   };

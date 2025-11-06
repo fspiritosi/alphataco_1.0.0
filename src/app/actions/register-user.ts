@@ -1,8 +1,6 @@
 'use server';
 
-import { sendEmail } from '@/app/actions/sendEmail';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
-import { generateExpirationDate, generateSecureToken } from '@/lib/utils/tokens';
 
 export async function registerUserWithRole(values: any, company: string) {
   const supabase = supabaseServer();
@@ -52,44 +50,53 @@ export async function registerUserWithRole(values: any, company: string) {
         throw new Error(shareError.message);
       }
     } else {
-      // 3. Si no existe el perfil, crear nuevo usuario
-      if (!values.password) {
-        throw new Error('Se requiere contraseña para crear nuevo usuario');
-      }
+      // 3. Si no existe el perfil, invitar nuevo usuario usando Supabase Auth
+      const fullname = values.firstname && values.lastname ? `${values.firstname} ${values.lastname}`.trim() : '';
 
-      // Crear usuario en Auth
-      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
-        email: values.email,
-        password: values.password,
-        email_confirm: true,
-        user_metadata: {
-          fullname: `${values.firstname} ${values.lastname}`.trim(),
+      // Invitar usuario usando el método nativo de Supabase
+      const { data: authData, error: authError } = await adminSupabase.auth.admin.inviteUserByEmail(values.email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
+        data: {
+          fullname: fullname,
+          company_id: company,
+          role: values.role,
+          customer_id: values.customer || null,
+          needs_password_change: true, // Flag para indicar que necesita cambiar contraseña
         },
       });
 
-      if (authError) throw new Error(authError.message);
+      if (authError) {
+        console.error('❌ [INVITE] Error invitando usuario:', authError);
+        throw new Error(`Error al invitar usuario: ${authError.message}`);
+      }
 
       userId = authData.user?.id;
-      if (!userId) throw new Error('No se pudo obtener el ID del usuario');
+      if (!userId) {
+        console.error('❌ [INVITE] No se pudo obtener el ID del usuario');
+        throw new Error('No se pudo obtener el ID del usuario');
+      }
 
       // Crear perfil
       const { error: profileCreateError } = await adminSupabase.from('profile').insert([
         {
           id: userId,
           email: values.email,
-          fullname: `${values.firstname} ${values.lastname}`.trim(),
+          fullname: fullname,
           role: 'CodeControlClient',
           credential_id: userId,
         },
       ]);
 
       if (profileCreateError) {
-        console.error('Error creando perfil:', profileCreateError);
-        throw new Error(profileCreateError.message);
+        console.error('❌ [INVITE] Error creando perfil:', profileCreateError);
+        // ROLLBACK: Eliminar usuario si falla la creación del perfil
+        await adminSupabase.auth.admin.deleteUser(userId);
+
+        throw new Error(`Error al crear perfil: ${profileCreateError.message}`);
       }
 
       // Compartir empresa
-      const { error: shareError } = await supabase.from('share_company_users').insert([
+      const { error: shareError } = await adminSupabase.from('share_company_users').insert([
         {
           company_id: company,
           profile_id: userId,
@@ -99,63 +106,13 @@ export async function registerUserWithRole(values: any, company: string) {
       ]);
 
       if (shareError) {
-        console.error('Error compartiendo empresa:', shareError);
-        throw new Error(shareError.message);
+        console.error('❌ [INVITE] Error compartiendo empresa:', shareError);
+        // ROLLBACK: Eliminar usuario y perfil si falla la asignación de empresa
+        await adminSupabase.from('profile').delete().eq('id', userId);
+        await adminSupabase.auth.admin.deleteUser(userId);
+
+        throw new Error(`Error al compartir empresa: ${shareError.message}`);
       }
-    }
-
-    // 4. Generar token seguro para reset de contraseña
-    const resetToken = generateSecureToken();
-    const tokenExpires = generateExpirationDate(24 * 60); // 24 horas de expiración
-
-    // Guardar token en la base de datos
-    const { error: tokenError } = await supabase.from('password_reset_tokens' as any).insert([
-      {
-        profile_id: userId,
-        token: resetToken,
-        expires: tokenExpires.toISOString(),
-      },
-    ]);
-
-    if (tokenError) {
-      console.error('Error guardando token:', tokenError);
-      throw new Error('Error al generar token de seguridad');
-    }
-
-    // 5. Enviar email con token seguro
-    try {
-      const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/reset_password/confirm?token=${resetToken}&email=${encodeURIComponent(values.email)}`;
-
-      const emailResult = await sendEmail({
-        to: values.email,
-        subject: 'Bienvenido a Nuestra Plataforma - Configura tu Contraseña',
-        userEmail: values.email,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <img src="${process.env.NEXT_PUBLIC_BASE_URL}/gh_logo.png" alt="Grupo H" style="width: 100px; margin-bottom: 16px;" />
-            <h2>Bienvenido ${values.firstname} ${values.lastname}</h2>
-            <p>Tu cuenta ha sido creada exitosamente.</p>
-            <p><strong>Usuario:</strong> ${values.email}</p>
-            <p>Por seguridad, debes configurar tu contraseña personalizada para acceder a la plataforma.</p>
-            <p>Este enlace es válido por 24 horas.</p>
-            <a href="${resetUrl}"
-               style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 16px 0;">
-              Configurar Mi Contraseña
-            </a>
-            <p style="color: #666; font-size: 14px;">
-              Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
-              ${resetUrl}
-            </p>
-          </div>
-        `,
-      });
-
-      if (!emailResult.success) {
-        console.warn('⚠️ Email no enviado, pero usuario creado:', emailResult.error);
-      }
-    } catch (emailError) {
-      console.error('❌ Error enviando email:', emailError);
-      // No fallar el proceso principal
     }
 
     return {

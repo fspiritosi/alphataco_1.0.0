@@ -10,7 +10,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef, Table as TableType, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import {
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
@@ -137,12 +137,74 @@ const getDuplicatedEquipments = (data: DailyReportRow[]): Set<string> => {
   );
 };
 
+// Función auxiliar para detectar empleados no asignados al cliente
+const getUnassignedEmployees = (
+  data: DailyReportRow[],
+  employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>
+): Map<string, string> => {
+  const unassignedMap = new Map<string, string>(); // employeeName -> customerId
+
+  data.forEach((row) => {
+    const customerId = row.data_to_clone?.customer_id;
+    if (!customerId) return;
+
+    row.employees_references?.forEach((empRef) => {
+      if (!empRef.id) return;
+
+      const employee = employees?.find((emp) => emp.id === empRef.id);
+      if (!employee) return;
+
+      const isAssigned = employee.contractor_employee?.some((ce) => ce.customers?.id === customerId);
+
+      if (!isAssigned) {
+        const employeeName = `${employee.lastname} ${employee.firstname}`;
+        unassignedMap.set(employeeName, customerId);
+      }
+    });
+  });
+
+  return unassignedMap;
+};
+
+// Función auxiliar para detectar equipos no asignados al cliente
+const getUnassignedEquipments = (
+  data: DailyReportRow[],
+  equipments: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>
+): Map<string, string> => {
+  const unassignedMap = new Map<string, string>(); // equipmentName -> customerId
+
+  data.forEach((row) => {
+    const customerId = row.data_to_clone?.customer_id;
+    if (!customerId) return;
+
+    row.equipment_references?.forEach((eqRef) => {
+      if (!eqRef.id) return;
+
+      const equipment = equipments?.find((eq) => eq.id === eqRef.id);
+      if (!equipment) return;
+
+      const isAssigned = equipment.contractor_equipment?.some((ce) => ce.customers?.id === customerId);
+
+      if (!isAssigned) {
+        const equipmentName = equipment.domain || equipment.intern_number || '';
+        unassignedMap.set(equipmentName, customerId);
+      }
+    });
+  });
+
+  return unassignedMap;
+};
+
 export function getDailyReportColumns(
   onEdit: (row: DailyReportRow) => void,
-  allData: DailyReportRow[] = []
+  allData: DailyReportRow[] = [],
+  employees?: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>,
+  equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>
 ): ColumnDef<DailyReportRow>[] {
   const duplicatedEmployees = getDuplicatedEmployees(allData);
   const duplicatedEquipments = getDuplicatedEquipments(allData);
+  const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+  const unassignedEquipments = equipments ? getUnassignedEquipments(allData, equipments) : new Map();
   return [
     {
       id: 'select',
@@ -287,17 +349,53 @@ export function getDailyReportColumns(
             {employees.filter(Boolean).map((employee) => {
               if (!employee) return null;
               const isDuplicated = duplicatedEmployees.has(employee);
+              const isUnassigned = unassignedEmployees.has(employee);
+
+              // Prioridad: duplicado > no asignado > normal
+              let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+              let badgeClassName = 'select-none text-nowrap';
+
+              if (isDuplicated) {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+                );
+              } else if (isUnassigned) {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+                );
+              } else {
+                badgeClassName = cn(badgeClassName, 'dark:text-black');
+              }
+
+              // Determinar el mensaje del tooltip
+              let tooltipMessage = '';
+              if (isDuplicated) {
+                tooltipMessage = 'Este empleado está asignado en múltiples filas del parte diario';
+              } else if (isUnassigned) {
+                tooltipMessage = 'Este empleado no está asignado al cliente de esta fila';
+              } else {
+                tooltipMessage = 'Empleado asignado correctamente';
+              }
+
               return (
-                <Badge
-                  variant={isDuplicated ? 'outline' : 'default'}
-                  className={cn(
-                    'select-none text-nowrap dark:text-black',
-                    isDuplicated && 'border border-orange-500 bg-orange-50'
-                  )}
-                  key={employee}
-                >
-                  {employee}
-                </Badge>
+                <TooltipProvider key={employee} delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Badge variant={badgeVariant} className={badgeClassName}>
+                          {employee}
+                        </Badge>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{tooltipMessage}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               );
             })}
           </div>
@@ -322,17 +420,51 @@ export function getDailyReportColumns(
             {equipment.filter(Boolean).map((equipmentItem) => {
               if (!equipmentItem) return null;
               const isDuplicated = duplicatedEquipments.has(equipmentItem);
+              const isUnassigned = unassignedEquipments.has(equipmentItem);
+
+              // Prioridad: duplicado > no asignado > normal
+              let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+              let badgeClassName = 'select-none text-nowrap';
+
+              if (isDuplicated) {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+                );
+              } else if (isUnassigned) {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+                );
+              } else {
+                badgeClassName = cn(badgeClassName, 'dark:text-black');
+              }
+
+              // Determinar el mensaje del tooltip
+              let tooltipMessage = '';
+              if (isDuplicated) {
+                tooltipMessage = 'Este equipo está asignado en múltiples filas del parte diario';
+              } else if (isUnassigned) {
+                tooltipMessage = 'Este equipo no está asignado al cliente de esta fila';
+              } else {
+                tooltipMessage = 'Equipo asignado correctamente';
+              }
+
               return (
-                <Badge
-                  variant={isDuplicated ? 'outline' : 'default'}
-                  className={cn(
-                    'select-none text-nowrap dark:text-black',
-                    isDuplicated && 'border border-orange-500 bg-orange-50'
-                  )}
-                  key={equipmentItem}
-                >
-                  {equipmentItem}
-                </Badge>
+                <TooltipProvider key={equipmentItem}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant={badgeVariant} className={badgeClassName}>
+                        {equipmentItem}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{tooltipMessage}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               );
             })}
           </div>
@@ -484,7 +616,7 @@ export function getDailyReportColumns(
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <ServiceDetailModal serviceData={row.original} />
+                  <ServiceDetailModal reportDate={row.original.date} serviceData={row.original as any} />
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p>Ver detalle</p>
@@ -527,6 +659,8 @@ export function DayliReportDetailTable({
 }) {
   // const dailyReport = await dailyReportPromise;
   const [formattedData, setFormattedData] = useState(transformDailyReports(dailyReport));
+  const employees = use(employeesPromise);
+  const equipments = use(equipmentsPromise);
 
   useEffect(() => {
     setFormattedData(transformDailyReports(dailyReport));
@@ -573,8 +707,8 @@ export function DayliReportDetailTable({
       >
         <DailyReportForm
           customers={customers}
-          employeesPromise={employeesPromise}
-          equipmentsPromise={equipmentsPromise}
+          employees={employees}
+          equipments={equipments}
           dailyReport={dailyReport}
           selectedRow={selectedRow}
           setSelectedRow={setSelectedRow}
@@ -588,7 +722,7 @@ export function DayliReportDetailTable({
       <BaseDataTable
         ref={tableRef}
         className="mt-4"
-        columns={getDailyReportColumns(handleEditRow, formattedData)}
+        columns={getDailyReportColumns(handleEditRow, formattedData, employees, equipments)}
         data={formattedData || []}
         savedVisibility={savedVisibility}
         enableRowSelection={(row) =>

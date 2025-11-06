@@ -5,7 +5,8 @@ import { User } from '@supabase/supabase-js';
 import cookies from 'js-cookie';
 import moment from 'moment';
 import { create } from 'zustand';
-import { supabase } from '../../supabase/supabase';
+// import { supabase } from '../../supabase/supabase';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useCountriesStore } from './countries';
 interface Document {
   date: string;
@@ -198,6 +199,7 @@ const setVehiclesToShow = (vehicles: Vehicle) => {
 export const useLoggedUserStore = create<State>((set, get) => {
   // set({ isLoading: true })
   set({ showDeletedEmployees: false });
+  const supabase = supabaseBrowser();
 
   const toggleSidebar = () => {
     set({ active_sidebar: !get().active_sidebar });
@@ -297,7 +299,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
       .eq('profile_id', id);
     FetchSharedUsers();
 
-    set({ sharedCompanies: share_company_users as SharedCompanies });
+    set({ sharedCompanies: share_company_users as any });
     // const router = useRouter()
     if (error) {
       console.error('Error al obtener el perfil:', error);
@@ -311,17 +313,17 @@ export const useLoggedUserStore = create<State>((set, get) => {
         set({ roleActualCompany: undefined });
       }
 
-      set({ allCompanies: data });
+      set({ allCompanies: data as any });
 
       const savedCompany = localStorage.getItem('company_id') || ''; //! una empresa te comparte
 
       if (savedCompany) {
         const company = share_company_users?.find(
-          (company) => company.company_id.id === JSON.parse(savedCompany)
+          (company: any) => company.company_id.id === JSON.parse(savedCompany)
         )?.company_id;
 
         if (company) {
-          setActualCompany(company);
+          setActualCompany(company as any);
           return;
         }
       }
@@ -339,11 +341,11 @@ export const useLoggedUserStore = create<State>((set, get) => {
 
       if (data?.length === 1) {
         set({ showMultiplesCompaniesAlert: false });
-        setActualCompany(data[0]);
+        setActualCompany(data[0] as any);
       }
 
       if (data?.length === 0 && share_company_users?.length! > 0) {
-        setActualCompany(share_company_users?.[0]?.company_id);
+        setActualCompany(share_company_users?.[0]?.company_id as any);
       }
 
       if (data?.length === 0 && share_company_users?.length === 0) {
@@ -367,8 +369,8 @@ export const useLoggedUserStore = create<State>((set, get) => {
     if (error) {
       console.error('Error al obtener el perfil:', error);
     } else {
-      set({ profile: data || [] });
-      set({ codeControlRole: data?.[0].role });
+      set({ profile: (data as any) || [] });
+      set({ codeControlRole: data?.[0].role as any });
 
       howManyCompanies(data[0]?.id);
     }
@@ -446,7 +448,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
             )
           )`
       )
-      .eq('company_id', get()?.actualCompany?.id)
+      .eq('company_id', get()?.actualCompany?.id!)
       .eq('status', 'Incompleto');
 
     if (error) {
@@ -460,7 +462,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     let { data: notifications, error } = await supabase
       .from('notifications')
       .select('*')
-      .eq('company_id', get()?.actualCompany?.id);
+      .eq('company_id', get()?.actualCompany?.id!);
 
     await documetsFetch();
 
@@ -487,7 +489,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
   };
 
   const markAllAsRead = async () => {
-    const { error } = await supabase.from('notifications').delete().eq('company_id', get()?.actualCompany?.id);
+    const { error } = await supabase.from('notifications').delete().eq('company_id', get()?.actualCompany?.id!);
 
     if (error) {
       console.error('Error al marcar todas las notificaciones como leídas:', error);
@@ -521,7 +523,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
             )
           )`
       )
-      .eq('company_id', get()?.actualCompany?.id)
+      .eq('company_id', get()?.actualCompany?.id!)
       .eq('status', 'Avalado');
 
     if (error) {
@@ -541,7 +543,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
       brand_vehicles(name),
       model_vehicles(name)`
       )
-      .eq('company_id', get()?.actualCompany?.id);
+      .eq('company_id', get()?.actualCompany?.id!);
     //.eq('is_active', true)
 
     // const validatedData = VehicleSchema.safeParse(data ?? [])
@@ -555,7 +557,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     if (error) {
       console.error('Error al obtener los vehículos:', error);
     } else {
-      set({ vehicles: data || [] });
+      set({ vehicles: (data as any) || [] });
       setActivesVehicles();
     }
   };
@@ -628,7 +630,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
   `
       )
       .not('employees', 'is', null)
-      .eq('employees.company_id', get()?.actualCompany?.id);
+      .eq('employees.company_id', get()?.actualCompany?.id!);
 
     data = dataEmployes;
 
@@ -651,7 +653,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
   `
         )
         .not('employees', 'is', null)
-        .eq('employees.company_id', get()?.actualCompany?.id)
+        .eq('employees.company_id', get()?.actualCompany?.id!)
         .range(1000, 2000);
 
       if (error2) {
@@ -663,7 +665,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     let { data: documents_company, error: documents_company_error } = await supabase
       .from('documents_company')
       .select('*,id_document_types(*),user_id(*)')
-      .eq('applies', get()?.actualCompany?.id);
+      .eq('applies', get()?.actualCompany?.id!);
 
     if (documents_company_error) {
       console.error('Error al obtener los documentos de la empresa:', documents_company_error);
@@ -677,7 +679,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
         applies(*,type(*),type_of_vehicle(*),model(*),brand(*))
         `
       )
-      .eq('applies.company_id', get()?.actualCompany?.id)
+      .eq('applies.company_id', get()?.actualCompany?.id!)
       .not('applies', 'is', null);
 
     if (equipmentError) {
@@ -686,8 +688,8 @@ export const useLoggedUserStore = create<State>((set, get) => {
 
     handleActualCompanyRole();
 
-    const typedData: VehiclesAPI[] | null = equipmentData as VehiclesAPI[];
-    const typedDataCompany: CompanyDocumentsType[] | null = documents_company as CompanyDocumentsType[];
+    const typedData: VehiclesAPI[] | null = equipmentData as any;
+    const typedDataCompany: CompanyDocumentsType[] | null = documents_company as any;
 
     const equipmentData1 =
       get()?.roleActualCompany === 'Invitado' ? typedData?.filter((e) => !e.document_types.private) : typedData;
@@ -698,7 +700,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
         : typedDataCompany;
 
     const employeesData =
-      get()?.roleActualCompany === 'Invitado' ? data?.filter((e) => !e.document_types.private) : data;
+      get()?.roleActualCompany === 'Invitado' ? data?.filter((e) => !e.document_types?.private) : data;
 
     set({ companyDocuments: companyData as CompanyDocumentsType[] });
 
@@ -775,8 +777,8 @@ export const useLoggedUserStore = create<State>((set, get) => {
           filteredData
             ?.filter(
               (e) =>
-                (!e.employees?.termination_date && !e.document_types.down_document) ||
-                (e.employees?.termination_date && e.document_types.down_document)
+                (!e.employees?.termination_date && !e.document_types?.down_document) ||
+                (e.employees?.termination_date && e.document_types?.down_document)
             )
             ?.filter((doc: any) => {
               if (!doc.validity) return false;
@@ -802,8 +804,8 @@ export const useLoggedUserStore = create<State>((set, get) => {
           employeesData
             ?.filter(
               (e) =>
-                (!e.employees?.termination_date && !e.document_types.down_document) ||
-                (e.employees.termination_date && e.document_types.down_document)
+                (!e.employees?.termination_date && !e.document_types?.down_document) ||
+                (e.employees?.termination_date && e.document_types?.down_document)
             )
             .filter((doc: any) => doc.state === 'presentado')
             ?.map(mapDocument) || [],
@@ -823,8 +825,8 @@ export const useLoggedUserStore = create<State>((set, get) => {
           employeesData
             ?.filter(
               (e) =>
-                (!e.employees?.termination_date && !e.document_types.down_document) ||
-                (e.employees?.termination_date && e.document_types.down_document)
+                (!e.employees?.termination_date && !e.document_types?.down_document) ||
+                (e.employees?.termination_date && e.document_types?.down_document)
             )
             ?.filter((doc: any) => {
               if (!doc.validity || doc.validity === 'No vence') return false;
@@ -850,8 +852,8 @@ export const useLoggedUserStore = create<State>((set, get) => {
           employeesData
             ?.filter(
               (e) =>
-                (!e.employees?.termination_date && !e.document_types.down_document) ||
-                (e.employees?.termination_date && e.document_types.down_document)
+                (!e.employees?.termination_date && !e.document_types?.down_document) ||
+                (e.employees?.termination_date && e.document_types?.down_document)
             )
             .map(mapDocument) || [],
         vehicles:
@@ -923,9 +925,9 @@ export const useLoggedUserStore = create<State>((set, get) => {
         )
       )`
       )
-      .eq('company_id', companyId);
+      .eq('company_id', companyId!);
 
-    set({ sharedUsers: data as SharedUser[] });
+    set({ sharedUsers: data as any });
     handleActualCompanyRole();
   };
   const getEmployees = async (active: boolean) => {
@@ -959,7 +961,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
             )
           )`
       )
-      .eq('company_id', get()?.actualCompany?.id);
+      .eq('company_id', get()?.actualCompany?.id!);
     // .eq('is_active', active);
     set({ active_and_inactive_employees: setEmployeesToShow(employees) });
 
@@ -1031,7 +1033,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     const { data, error } = await supabase
       .from('company')
       .update({ by_defect: false })
-      .eq('owner_id', get()?.profile?.[0]?.id);
+      .eq('owner_id', get()?.profile?.[0]?.id!);
 
     if (error) {
       console.error('Error al actualizar la empresa por defecto:', error);
@@ -1048,7 +1050,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     const { data, error } = await supabase
       .from('company')
       .update({ by_defect: false })
-      .eq('owner_id', get()?.profile?.[0]?.id);
+      .eq('owner_id', get()?.profile?.[0]?.id!);
 
     if (error) {
       console.error('Error al actualizar la empresa por defecto:', error);

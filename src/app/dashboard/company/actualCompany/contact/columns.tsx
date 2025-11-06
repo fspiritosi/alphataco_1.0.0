@@ -53,7 +53,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../../../supabase/supabase';
+// import { supabase } from '../../../../../../supabase/supabase';
 const formSchema = z.object({
   reason_for_termination: z.string({
     required_error: 'La razón de la baja es requerida.',
@@ -105,6 +105,7 @@ export const contactColumns: ColumnDef<Colum>[] = [
       };
       // const actualCompany = useLoggedUserStore((state) => state.actualCompany);
       const actualCompany = Cookies.get('actualComp');
+      const supabase = supabaseBrowser();
 
       const fetchInactiveContacts = async () => {
         try {
@@ -112,7 +113,7 @@ export const contactColumns: ColumnDef<Colum>[] = [
             .from('contacts')
             .select('*')
             //.eq('is_active', false)
-            .eq('company_id', actualCompany)
+            .eq('company_id', actualCompany!)
             .select();
 
           if (error) {

@@ -24,6 +24,7 @@ export type Preparte = {
   equipos_cliente?: string | null;
   // nueva columna para almacenar la URL o ruta de la imagen del preparte
   preparteImage?: string | null;
+  confirmed_by?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -352,10 +353,7 @@ type ListPrepartesOptions = {
 
 export async function listPrepartes(options?: ListPrepartesOptions) {
   const supabase = supabaseServer();
-  let query = supabase
-    .from('preparte' as any)
-    .select('*')
-    .order('created_at', { ascending: false });
+  let query = supabase.from('preparte').select('*').order('created_at', { ascending: false });
 
   if (options?.status) {
     query = query.eq('status', options.status);
@@ -610,4 +608,33 @@ export async function movePreparteFile(
   // URL pública final
   const finalUrl = `${baseUrl.replace(/\/$/, '')}/${BUCKET}/${targetPath}`;
   return finalUrl;
+}
+// Función para actualizar el estado de múltiples prepartes
+export async function updateMultiplePreparteStatus(
+  ids: string[],
+  updateData: {
+    status?: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'vencido' | 'confirmado';
+    cancel_reason?: string;
+    rejected_reason?: string;
+    reprogram_reason?: string;
+    confirmed_by?: string;
+  }
+) {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from('preparte')
+    .update({
+      ...updateData,
+      updated_at: new Date().toISOString(),
+    })
+    .in('id', ids)
+    .select();
+
+  if (error) {
+    console.error('Error updating multiple preparte status:', error);
+    throw error;
+  }
+
+  return data;
 }

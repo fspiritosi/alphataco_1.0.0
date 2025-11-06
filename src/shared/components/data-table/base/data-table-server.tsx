@@ -114,7 +114,6 @@ interface DataTableProps<
   queryKey?: string;
   initialSorting?: SortingState; // Nueva prop para ordenamiento inicial
 }
-const queryClient = new QueryClient();
 export function BaseDataTable<
   TData,
   TValue,

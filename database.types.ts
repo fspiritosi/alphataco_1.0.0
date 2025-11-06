@@ -1,10 +1,30 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '12.2.3 (519615d)';
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
   public: {
     Tables: {
@@ -1900,6 +1920,35 @@ export type Database = {
           },
         ];
       };
+      equipment_owner_contract_types: {
+        Row: {
+          contract_type: Database['public']['Enums']['contract_type_enum'];
+          created_at: string | null;
+          equipment_owner_id: string;
+          id: string;
+        };
+        Insert: {
+          contract_type: Database['public']['Enums']['contract_type_enum'];
+          created_at?: string | null;
+          equipment_owner_id: string;
+          id?: string;
+        };
+        Update: {
+          contract_type?: Database['public']['Enums']['contract_type_enum'];
+          created_at?: string | null;
+          equipment_owner_id?: string;
+          id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'equipment_owner_contract_types_equipment_owner_id_fkey';
+            columns: ['equipment_owner_id'];
+            isOneToOne: false;
+            referencedRelation: 'equipment_owners';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       equipment_owners: {
         Row: {
           company_id: string | null;
@@ -2352,6 +2401,7 @@ export type Database = {
           cancel_reason: string | null;
           cliente_id: string;
           company_id: string | null;
+          confirmed_by: string | null;
           contrato_id: string;
           created_at: string | null;
           end_time: string | null;
@@ -2380,6 +2430,7 @@ export type Database = {
           cancel_reason?: string | null;
           cliente_id: string;
           company_id?: string | null;
+          confirmed_by?: string | null;
           contrato_id: string;
           created_at?: string | null;
           end_time?: string | null;
@@ -2408,6 +2459,7 @@ export type Database = {
           cancel_reason?: string | null;
           cliente_id?: string;
           company_id?: string | null;
+          confirmed_by?: string | null;
           contrato_id?: string;
           created_at?: string | null;
           end_time?: string | null;
@@ -3403,68 +3455,80 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      actualizar_estado_daily_reports: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
-      actualizar_estado_documentos: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
-      build_employee_where: {
-        Args: { _conditions: Json };
-        Returns: string;
-      };
+      actualizar_estado_daily_reports: { Args: never; Returns: undefined };
+      actualizar_estado_documentos: { Args: never; Returns: undefined };
+      build_employee_where: { Args: { _conditions: Json }; Returns: string };
       build_employee_where_alias: {
         Args: { _conditions: Json; table_alias: string };
         Returns: string;
       };
-      build_vehicle_where: {
-        Args: { _conditions: Json };
-        Returns: string;
-      };
+      build_vehicle_where: { Args: { _conditions: Json }; Returns: string };
       build_vehicle_where_alias: {
         Args: { _conditions: Json; table_alias?: string };
         Returns: string;
       };
-      check_diagram_conflicts_with_operations: {
-        Args:
-          | {
+      check_diagram_conflicts_with_operations:
+        | {
+            Args: {
               p_date_from: string;
               p_date_to: string;
               p_diagram_type_id: string;
               p_employee_ids: string[];
-            }
-          | { p_date_from: string; p_date_to: string; p_employee_ids: string[] };
-        Returns: {
-          conflict_type: string;
-          current_diagram_color: string;
-          current_diagram_id: string;
-          current_diagram_name: string;
-          date_formatted: string;
-          date_value: string;
-          employee_id: string;
-          employee_name: string;
-          operation_details: string;
-        }[];
-      };
-      check_diagram_conflicts_with_operations_v2: {
-        Args:
-          | {
+            };
+            Returns: {
+              conflict_type: string;
+              current_diagram_color: string;
+              current_diagram_id: string;
+              current_diagram_name: string;
+              date_formatted: string;
+              date_value: string;
+              employee_id: string;
+              employee_name: string;
+              operation_details: string;
+            }[];
+          }
+        | {
+            Args: {
+              p_date_from: string;
+              p_date_to: string;
+              p_employee_ids: string[];
+            };
+            Returns: {
+              can_update: boolean;
+              conflict_type: string;
+              current_diagram_color: string;
+              current_diagram_name: string;
+              current_diagram_type: string;
+              date_formatted: string;
+              day: number;
+              employee_id: string;
+              employee_name: string;
+              is_used_in_operations: boolean;
+              month: number;
+              operation_details: string;
+              year: number;
+            }[];
+          };
+      check_diagram_conflicts_with_operations_v2:
+        | {
+            Args: {
               p_active_novelty_id: string;
               p_date_from: string;
               p_date_to: string;
               p_employee_ids: string[];
               p_work_diagram_id: string;
-            }
-          | {
+            };
+            Returns: Json;
+          }
+        | {
+            Args: {
               p_date_from: string;
               p_date_to: string;
               p_employee_ids: string[];
               p_work_diagram_id: string;
             };
-        Returns: Json;
-      };
+            Returns: Json;
+          };
       collect_daily_indicators: {
         Args: {
           p_company_id: string;
@@ -3489,18 +3553,9 @@ export type Database = {
         };
         Returns: Json;
       };
-      delete_expired_subscriptions: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
-      enviar_documentos_a_46_dias: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
-      enviar_documentos_vencidos: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
+      delete_expired_subscriptions: { Args: never; Returns: undefined };
+      enviar_documentos_a_46_dias: { Args: never; Returns: undefined };
+      enviar_documentos_vencidos: { Args: never; Returns: undefined };
       filter_employees_by_conditions: {
         Args: { p_company_id: string; p_filters: Json };
         Returns: {
@@ -3564,6 +3619,12 @@ export type Database = {
           type_of_contract: string | null;
           workflow_diagram: string | null;
         }[];
+        SetofOptions: {
+          from: '*';
+          to: 'employees';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
       };
       get_company_counts_indicator: {
         Args: { p_company_id?: string; save_to_table?: boolean };
@@ -3573,10 +3634,7 @@ export type Database = {
           vehicle_count: number;
         }[];
       };
-      get_company_for_user: {
-        Args: { user_id: string };
-        Returns: string;
-      };
+      get_company_for_user: { Args: { user_id: string }; Returns: string };
       get_dailyreportrow_history: {
         Args: { p_row_id: string };
         Returns: {
@@ -3745,10 +3803,7 @@ export type Database = {
         Args: { p_company_id: string; p_date?: string; save_to_table?: boolean };
         Returns: Json;
       };
-      marcar_prepartes_vencidos: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
+      marcar_prepartes_vencidos: { Args: never; Returns: undefined };
       migrate_document: {
         Args: { execute_migration?: boolean; target_id: string };
         Returns: {
@@ -3761,7 +3816,7 @@ export type Database = {
         }[];
       };
       migrate_documents_preview: {
-        Args: Record<PropertyKey, never>;
+        Args: never;
         Returns: {
           error_message: string;
           new_path: string;
@@ -3770,7 +3825,7 @@ export type Database = {
         }[];
       };
       obtener_documentos_por_vencer: {
-        Args: Record<PropertyKey, never>;
+        Args: never;
         Returns: {
           correo_electronico: string;
           documento_empleado: string;
@@ -3790,12 +3845,9 @@ export type Database = {
         };
         Returns: Json;
       };
-      pruebaemail: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
+      pruebaemail: { Args: never; Returns: undefined };
       run_daily_indicators_for_all_companies: {
-        Args: Record<PropertyKey, never>;
+        Args: never;
         Returns: undefined;
       };
       select_distinct_values: {
@@ -3811,23 +3863,17 @@ export type Database = {
           col_value: string;
         }[];
       };
-      set_reassignment_reason: {
-        Args: { reason: string };
-        Returns: undefined;
-      };
+      set_reassignment_reason: { Args: { reason: string }; Returns: undefined };
       update_employee_diagram_status: {
         Args: { p_employee_id: string; p_is_active: boolean };
         Returns: Json;
       };
-      verificar_documentos_vencidos_prueba: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
+      verificar_documentos_vencidos_prueba: { Args: never; Returns: undefined };
     };
     Enums: {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
       condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
-      contract_type_enum: 'Leasing' | 'Alquiler';
+      contract_type_enum: 'Leasing' | 'Alquiler' | 'Prendado';
       contract_type_vehicles_enum: 'Leasing' | 'Alquiler' | 'Propio';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
@@ -4008,11 +4054,14 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
       condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
-      contract_type_enum: ['Leasing', 'Alquiler'],
+      contract_type_enum: ['Leasing', 'Alquiler', 'Prendado'],
       contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: [

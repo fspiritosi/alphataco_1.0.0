@@ -50,7 +50,6 @@ import { Fragment, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '../../../../../../supabase/supabase';
 
 const editGuildSchema = z.object({
   guild: z.string().nonempty('El nombre del sindicato es requerido.'),
@@ -99,6 +98,7 @@ export const columnsGuild: ColumnDef<Colum>[] = [
         setShowGuildModal(!showGuildModal);
       };
       const actualCompany = useLoggedUserStore((state) => state.actualCompany);
+      const supabase = supabaseBrowser();
 
       const fetchCovenant = async () => {
         try {
@@ -106,7 +106,7 @@ export const columnsGuild: ColumnDef<Colum>[] = [
             .from('covenant')
             .select('*')
             //.eq('is_active', false)
-            .eq('company_id', actualCompany?.id)
+            .eq('company_id', actualCompany?.id!)
             .select();
 
           if (error) {

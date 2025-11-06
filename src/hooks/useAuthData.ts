@@ -1,5 +1,5 @@
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import { login, profileUser, singUp } from '@/types/types';
+import { login, singUp } from '@/types/types';
 import { useEdgeFunctions } from './useEdgeFunctions';
 import { useProfileData } from './useProfileData';
 
@@ -95,7 +95,7 @@ export const useAuthData = () => {
     },
 
     updateUser: async ({ password, email }: { password: string; email: string }) => {
-      const user = (await filterByEmail(email)) as profileUser[];
+      const user = (await filterByEmail(email)) as any;
 
       if (user?.length === 0) throw new Error('Usuario no encontrado');
       localStorage.removeItem('email');
