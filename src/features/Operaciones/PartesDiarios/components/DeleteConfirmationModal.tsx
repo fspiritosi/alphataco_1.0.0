@@ -22,9 +22,10 @@ import { deleteDailyReportRow } from '../actions/actions';
 interface DeleteConfirmationModalProps {
   dailyReportId: string;
   date: string;
+  refetchData?: () => void;
 }
 
-export function DeleteConfirmationModal({ dailyReportId, date }: DeleteConfirmationModalProps) {
+export function DeleteConfirmationModal({ dailyReportId, date, refetchData }: DeleteConfirmationModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
@@ -34,6 +35,7 @@ export function DeleteConfirmationModal({ dailyReportId, date }: DeleteConfirmat
         async () => {
           setIsDeleting(true);
           await deleteDailyReportRow(dailyReportId);
+          if (refetchData) refetchData();
           router.refresh();
         },
         {

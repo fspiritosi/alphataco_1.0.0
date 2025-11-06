@@ -3,7 +3,6 @@
 import { queryWithPagination } from '@/app/server/GET/probando';
 import { supabaseServer } from '@/lib/supabase/server';
 import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
-import { cookies } from 'next/headers';
 
 // Función para obtener datos de daily report con paginación del servidor
 export async function fetchDailyReportData({
@@ -19,12 +18,13 @@ export async function fetchDailyReportData({
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
 }) {
-  const cookieStore = cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
-
-  if (!company_id) {
-    return { rows: [], totalCount: 0, pageCount: 0, rowCount: 0 };
-  }
+  console.log('🔍 fetchDailyReportData - Parámetros recibidos:', {
+    dailyReportId,
+    pageIndex,
+    pageSize,
+    sorting,
+    columnFilters,
+  });
 
   // Usar queryWithPagination siguiendo el patrón de empleados
   const result = await queryWithPagination(
@@ -100,15 +100,24 @@ export async function fetchDailyReportData({
       sorting,
       columnFilters,
       server: true,
-      filters: [
-        {
-          column: 'daily_report_id',
-          operator: 'eq',
-          value: dailyReportId,
-        },
-      ],
+      permanent_filter: (query) => {
+        return query
+          .eq('daily_report_id', dailyReportId)
+          .order('customers(name)', { ascending: true })
+          .order('customer_services(service_name)', { ascending: true })
+          .order('service_items(item_name)', { ascending: true });
+      },
     }
   );
+
+  console.log('📊 fetchDailyReportData - Resultado:', {
+    rowCount: result.rowCount,
+    rowsLength: result.rows?.length,
+    pageIndex,
+    pageSize,
+    calculatedFrom: pageIndex * pageSize,
+    calculatedTo: pageIndex * pageSize + pageSize - 1,
+  });
 
   return result;
 }

@@ -57,6 +57,14 @@ export async function queryWithPagination<
   const from = options.pageIndex * options.pageSize;
   const to = from + options.pageSize - 1;
 
+  console.log('🔢 queryWithPagination - Cálculos de paginación:', {
+    pageIndex: options.pageIndex,
+    pageSize: options.pageSize,
+    from,
+    to,
+    tableName,
+  });
+
   // Construir query base
   let query = supabase.from(tableName).select(select, { count: 'exact' });
 
@@ -263,6 +271,8 @@ export async function queryWithPagination<
   }
 
   // Aplicar paginación
+  console.log(from);
+  console.log(to);
   query = query.range(from, to);
   if (typeof options.is_active === 'boolean') {
     query = query.eq('is_active' as any, options.is_active as any);
@@ -281,6 +291,19 @@ export async function queryWithPagination<
 
   const totalRows = count || 0;
   const pageCount = Math.ceil(totalRows / options.pageSize);
+
+  console.log('📈 queryWithPagination - Resultado de la query:', {
+    tableName,
+    totalRows,
+    pageCount,
+    dataLength: data?.length || 0,
+    pageIndex: options.pageIndex,
+    pageSize: options.pageSize,
+    from,
+    to,
+    isPageIndexValid: options.pageIndex < pageCount,
+    maxValidPageIndex: Math.max(0, pageCount - 1),
+  });
 
   return {
     rows: data || [],

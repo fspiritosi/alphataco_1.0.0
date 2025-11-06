@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Building, CalendarIcon, Check, ChevronsUpDown, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -191,7 +192,7 @@ export function DailyReportForm({
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
   const [isSectorDisabled, setIsSectorDisabled] = useState<boolean>(true);
   const [isAreaDisabled, setIsAreaDisabled] = useState<boolean>(true);
-  // const router = useRouter();
+  const router = useRouter();
   // Filtros de clientes
   const activeCustomers = customers?.filter((c) => c.is_active) || [];
 
@@ -425,6 +426,7 @@ export function DailyReportForm({
 
         // Cerrar el modal y limpiar
         refetchDailyReport();
+        router.refresh();
         document.getElementById('close-button-daily-report')?.click();
         await refetchDailyReport();
         // Si estamos en modo edición, limpiar el selectedRow
@@ -753,7 +755,7 @@ export function DailyReportForm({
             <SheetDescription>
               {selectedRow
                 ? 'Actualice los campos necesarios para modificar el parte diario.'
-                : 'Complete los campos para agregar un nuevo parte diario.'}
+                : 'Complete los campos para agregar un nuevo parte diarios.'}
             </SheetDescription>
           </SheetHeader>
           <div className="grid gap-4 py-4">

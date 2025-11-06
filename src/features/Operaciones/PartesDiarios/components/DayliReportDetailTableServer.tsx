@@ -8,10 +8,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
-import type { ColumnDef, Table as TableType, VisibilityState } from '@tanstack/react-table';
+import { useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
@@ -69,15 +70,16 @@ export default function DayliReportDetailTableServer({
   >();
   const [customers, setCustomers] = useState<Awaited<ReturnType<typeof getCustomers>> | undefined>();
   const [loadingValidations, setLoadingValidations] = useState(true);
-
-  // Referencia al objeto table de TanStack
-  const tableRef = useRef<TableType<DailyReportServerData> & { clearRowSelection?: (rowIds?: string[]) => void }>(null);
+  const queryClient = useQueryClient();
 
   // Función para refrescar los datos
   const refetchDailyReport = async () => {
-    // Esta función se puede implementar para refrescar los datos si es necesario
-    // Por ahora, el BaseDataTable maneja la actualización automáticamente
-    console.log('Refetching daily report data...');
+    // Invalidar la query específica para que se refresque automáticamente
+    const queryKey = `daily-report-server-${dailyReportId}`;
+    await queryClient.invalidateQueries({
+      queryKey: [queryKey],
+      exact: false, // Esto invalidará todas las queries que empiecen con este queryKey
+    });
   };
 
   // Función para manejar la edición de una fila
@@ -843,7 +845,11 @@ export default function DayliReportDetailTableServer({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <DeleteConfirmationModal date={reportDate} dailyReportId={row.original.id} />
+                  <DeleteConfirmationModal
+                    refetchData={refetchDailyReport}
+                    date={reportDate}
+                    dailyReportId={row.original.id}
+                  />
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p>Eliminar</p>
