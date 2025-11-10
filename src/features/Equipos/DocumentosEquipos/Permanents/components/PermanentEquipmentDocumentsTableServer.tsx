@@ -141,8 +141,8 @@ export default function PermanentEquipmentDocumentsTableServer({
         // ✅ MANTENER: Búsqueda por equipo (serie)
         searchableColumns: [
           {
-            columnId: 'vehicles.serie', // 🔑 DEBE coincidir con id de columna
-            placeholder: 'Buscar por equipo...', // ✅ MANTENER: Placeholder adaptado
+            columnId: 'vehicles.domain', // 🔑 DEBE coincidir con id de columna
+            placeholder: 'Buscar por dominio...', // ✅ MANTENER: Placeholder adaptado
           },
         ],
         // ✅ MANTENER: Mismas opciones de toolbar

@@ -1119,8 +1119,6 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
   }
 
   try {
-    console.log(`Creando ${data.length} filas de parte diario`);
-
     // Para lotes grandes (>50), procesar en chunks para evitar timeouts
     if (data.length > 50) {
       const chunkSize = 25;
@@ -1131,7 +1129,6 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
 
       const allCreatedRows = [];
       for (const chunk of chunks) {
-        console.log(`Procesando chunk de ${chunk.length} filas`);
         const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(chunk).select('*');
 
         if (error) {
