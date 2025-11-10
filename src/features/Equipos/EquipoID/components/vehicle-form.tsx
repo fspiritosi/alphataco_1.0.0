@@ -79,6 +79,10 @@ const vehicleSchema = z
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
     cost_center_id: z.string().optional().nullable(),
+
+    // Price Data
+    price: z.number().positive('El precio debe ser mayor a 0').optional(),
+    currency: z.enum(['USD', 'EUR', 'GBP', 'ARS']).optional(),
   })
   .refine(
     (data) => {
@@ -242,6 +246,8 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
         : null,
       contract_start_date: vehicle?.contract_start_date ? moment(vehicle.contract_start_date).toDate() : null,
       contract_number: vehicle?.contract_number || '',
+      price: vehicle?.price || undefined,
+      currency: vehicle?.currency || 'USD',
     },
   });
 

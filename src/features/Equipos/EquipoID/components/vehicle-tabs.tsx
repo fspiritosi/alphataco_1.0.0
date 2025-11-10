@@ -39,6 +39,8 @@ export type VehicleFormData = {
   contract_expiration_date?: Date | null;
   contract_start_date?: Date | null;
   contract_number?: string;
+  price?: number;
+  currency?: 'USD' | 'EUR' | 'GBP' | 'ARS';
 };
 
 interface VehicleTabsProps {

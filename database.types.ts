@@ -3218,6 +3218,7 @@ export type Database = {
           contract_start_date: string | null;
           cost_center_id: string | null;
           created_at: string;
+          currency: Database['public']['Enums']['currency_enum'] | null;
           domain: string | null;
           engine: string;
           id: string;
@@ -3227,6 +3228,7 @@ export type Database = {
           model: number | null;
           owner_id: string | null;
           picture: string | null;
+          price: number | null;
           reason_for_termination: Database['public']['Enums']['termination_reason_enum'] | null;
           serie: string | null;
           status: Database['public']['Enums']['status_type'] | null;
@@ -3250,6 +3252,7 @@ export type Database = {
           contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;
+          currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
           engine: string;
           id?: string;
@@ -3259,6 +3262,7 @@ export type Database = {
           model?: number | null;
           owner_id?: string | null;
           picture?: string | null;
+          price?: number | null;
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
@@ -3282,6 +3286,7 @@ export type Database = {
           contract_start_date?: string | null;
           cost_center_id?: string | null;
           created_at?: string;
+          currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
           engine?: string;
           id?: string;
@@ -3291,6 +3296,7 @@ export type Database = {
           model?: number | null;
           owner_id?: string | null;
           picture?: string | null;
+          price?: number | null;
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
@@ -3540,8 +3546,20 @@ export type Database = {
         };
         Returns: undefined;
       };
-      controlar_alertas_documentos: {
-        Args: { tipo_documento_id?: string };
+      controlar_alertas_documentos_single_employee: {
+        Args: { company_id_param: string; employee_id_param: string };
+        Returns: undefined;
+      };
+      controlar_alertas_documentos_single_vehicle: {
+        Args: { company_id_param: string; vehicle_id_param: string };
+        Returns: undefined;
+      };
+      controlar_alertas_single_document_all_employees: {
+        Args: { document_type_id_param: string };
+        Returns: undefined;
+      };
+      controlar_alertas_single_document_all_vehicles: {
+        Args: { document_type_id_param: string };
         Returns: undefined;
       };
       create_massive_diagrams_with_validations: {
@@ -3874,7 +3892,8 @@ export type Database = {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
       condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
       contract_type_enum: 'Leasing' | 'Alquiler' | 'Prendado';
-      contract_type_vehicles_enum: 'Leasing' | 'Alquiler' | 'Propio';
+      contract_type_vehicles_enum: 'Leasing' | 'Alquiler' | 'Propio' | 'Prendado';
+      currency_enum: 'USD' | 'EUR' | 'GBP' | 'ARS';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
         | 'pendiente'
@@ -4062,7 +4081,8 @@ export const Constants = {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
       condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
       contract_type_enum: ['Leasing', 'Alquiler', 'Prendado'],
-      contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio'],
+      contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio', 'Prendado'],
+      currency_enum: ['USD', 'EUR', 'GBP', 'ARS'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: [
         'pendiente',
