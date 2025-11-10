@@ -53,11 +53,11 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
             }
 
             // Extrae la extensión del archivo del document_path
-            const extension = doc.document_url.split('.').pop();
+            const extension = doc.document_path.split('.').pop();
 
             return {
               data,
-              name: `${doc.resource}-(${doc?.documentName}).${extension}`,
+              name: `${getResourceName(doc)}-(${doc?.document_types?.name}).${extension}`,
             };
           }) || []
         );
