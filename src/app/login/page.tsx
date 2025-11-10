@@ -35,6 +35,7 @@ export default async function Login() {
                     name="email"
                     type="email"
                     className="text-lg"
+                    data-testid="login-email-input"
                   />
                   <CardDescription className="text-lg" id="email_error">
                     Por favor ingresa tu correo.
@@ -51,6 +52,7 @@ export default async function Login() {
                     placeholder="mi contraseña segura"
                     className="text-lg"
                     autoComplete="current-password"
+                    data-testid="login-password-input"
                   />
                   <CardDescription className="text-lg" id="password_error">
                     Por favor ingresa tu contraseña.

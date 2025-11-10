@@ -54,7 +54,13 @@ export function TabsControllerInternal({
       <Tabs value={activeSubTab} onValueChange={handleSubTabChange}>
         <TabsList className="flex gap-1 justify-start w-fit bg-gh_contrast/50 dark:bg-slate-900">
           {tabsValues.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} id={tab.value} className="text-gh_orange font-semibold">
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              id={tab.value}
+              className="text-gh_orange font-semibold"
+              data-testid={`sub-tab-${tab.value.toLowerCase().replace(/\s+/g, '-')}`}
+            >
               <div>{tab.name}</div>
             </TabsTrigger>
           ))}

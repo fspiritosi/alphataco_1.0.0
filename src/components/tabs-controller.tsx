@@ -45,7 +45,13 @@ export function TabsController({ defaultValue, tabsValues, path }: TabsControlle
       <div></div>
       <TabsList className="flex gap-1 justify-start w-fit bg-gh dark:bg-slate-950">
         {tabsValues.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value} id={tab.value} className="text-gh_orange font-semibold">
+          <TabsTrigger
+            key={tab.value}
+            value={tab.value}
+            id={tab.value}
+            className="text-gh_orange font-semibold"
+            data-testid={`main-tab-${tab.value.toLowerCase().replace(/\s+/g, '-')}`}
+          >
             <div>{tab.name}</div>
           </TabsTrigger>
         ))}

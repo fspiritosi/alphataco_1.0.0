@@ -42,6 +42,10 @@ next-env.d.ts
 NOTAS.md
 bun.lockb
 
-cypress
-cypress.config.ts
+# Cypress
+cypress/videos
+cypress/screenshots
+cypress/downloads
+cypress.env.json
+
 .kiro
