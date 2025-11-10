@@ -24,6 +24,17 @@ import { toast } from 'sonner';
 export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
   // Aquí puedes personalizar la lógica de descarga si lo necesitas
   const supabase = supabaseBrowser();
+
+  // Helper para obtener el nombre del recurso (empleado o vehículo)
+  const getResourceName = (doc: any) => {
+    if (doc.employees) {
+      return `${doc.employees.firstname} ${doc.employees.lastname}`;
+    } else if (doc.vehicles) {
+      return doc.vehicles.domain || doc.vehicles.serie || 'Equipo';
+    }
+    return 'Recurso';
+  };
+
   const handleDownloadAll = async () => {
     toast.promise(
       async () => {
@@ -113,10 +124,7 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
                           .map((row: any) => (
                             <Card className="p-2 border-red-300" key={row.id}>
                               <CardDescription>
-                                {(row.original as any).employees.firstname +
-                                  ' ' +
-                                  (row.original as any).employees.lastname}{' '}
-                                ({(row.original as any).document_types.name})
+                                {getResourceName(row.original)} ({(row.original as any).document_types.name})
                               </CardDescription>
                             </Card>
                           ))}
@@ -144,10 +152,7 @@ export function PermanentDocumentsDownloadButton({ table }: { table: any }) {
                         return (
                           <Card className="p-2 border-green-600" key={row.id}>
                             <CardDescription>
-                              {(row.original as any).employees.firstname +
-                                ' ' +
-                                (row.original as any).employees.lastname}{' '}
-                              ({(row.original as any).document_types.name})
+                              {getResourceName(row.original)} ({(row.original as any).document_types.name})
                             </CardDescription>
                           </Card>
                         );

@@ -34,7 +34,7 @@ export const columnsMonthlyEquipmentDocumentServer: ExtendedColumnDef<MonthlyEqu
         target="_blank"
       >
         {/* ✅ MANTENER: Mostrar serie y dominio */}
-        {row.original.vehicles?.serie} - {row.original.vehicles?.domain}
+        {row.original.vehicles?.domain || row.original.vehicles?.serie}
       </Link>
     ),
     filterFn: (row, id, value) => {
