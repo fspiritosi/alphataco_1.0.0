@@ -141,7 +141,7 @@ export default function MonthlyEquipmentDocumentsTableServer({
         // ✅ MANTENER: Búsqueda por equipo (serie)
         searchableColumns: [
           {
-            columnId: 'vehicles.serie', // 🔑 DEBE coincidir con id de columna
+            columnId: 'vehicles.domain', // 🔑 DEBE coincidir con id de columna
             placeholder: 'Buscar por equipo...', // ✅ MANTENER: Placeholder adaptado
             // queryWithPagination maneja automáticamente la búsqueda en serie + domain
           },
