@@ -20,8 +20,6 @@ async function MonthlyDocuments({}) {
     filters: [], // Filtros permanentes se aplican automáticamente en la función
   });
 
-  console.log(initialData);
-
   // ✅ MANTENER: Misma estructura visual, pero ahora server-side optimizado
   return (
     <MonthlyDocumentsTableServer

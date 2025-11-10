@@ -24,8 +24,8 @@ type ExtendedColumnDef<TData> = ColumnDef<TData> & {
 export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<PermanentEquipmentDocumentData>[] = [
   // ✅ MANTENER: Columna "Equipo" (equivalente a empleado)
   {
-    accessorKey: 'vehicles.serie', // 🔑 AJUSTADO: Para server data
-    id: 'vehicles.serie', // 🔑 CRÍTICO: DEBE SER IGUAL AL accessorKey
+    accessorKey: 'vehicles.domain', // 🔑 AJUSTADO: Para server data
+    id: 'vehicles.domain', // 🔑 CRÍTICO: DEBE SER IGUAL AL accessorKey
     header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
     cell: ({ row }) => (
       <Link
@@ -72,7 +72,7 @@ export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<Permanen
   // ✅ MANTENER: Columna "Serie" (específico de equipos)
   {
     accessorKey: 'vehicles.serie',
-    id: 'Serie',
+    id: 'vehicles.serie',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Serie" />,
     cell: ({ row }) => <span>{row.original.vehicles?.serie || '-'}</span>,
     filterFn: (row, id, value) => {

@@ -123,22 +123,16 @@ export function VehicleBasicDataForm({
   const handleTypeOfContractChange = (type: string) => {
     form.setValue('owner_id', null);
 
-    console.log('🔍 Tipo de contrato seleccionado:', type);
-    console.log('🔍 Titulares iniciales:', ownersInitial);
-
     if (type === 'Leasing' || type === 'Alquiler' || type === 'Prendado') {
       // Filtrar titulares que tengan el tipo de contrato seleccionado en su relación
       const filtered = ownersInitial.filter((owner) => {
         const contractTypes = (owner as any).equipment_owner_contract_types;
-        console.log(`🔍 Titular: ${owner.name}, Contract Types:`, contractTypes);
 
         return contractTypes?.some((ct: { contract_type: string }) => {
-          console.log(`  - Comparando: ${ct.contract_type} === ${type}`, ct.contract_type === type);
           return ct.contract_type === type;
         });
       });
 
-      console.log('🔍 Titulares filtrados:', filtered);
       setOwners(filtered);
     } else {
       // Si es "Propio", mostrar todos los titulares

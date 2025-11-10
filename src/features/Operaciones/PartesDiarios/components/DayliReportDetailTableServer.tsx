@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import { useDailyReportFormStore } from '@/stores/dailyReportFormStore';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
@@ -20,6 +21,7 @@ import {
   getDailyReportById,
 } from '../actions/actions';
 import { fetchAllDailyReportData, fetchDailyReportData } from '../actions/server-actions';
+import { formatDailyReportData, formatDailyReportRow } from '../utils/formatDailyReportData';
 import { BulkEditModal } from './BulkEditModal';
 import { ClonarRegistrosButton } from './ClonarRegistrosButton';
 import { DailyReportForm } from './DailyReportRowForm';
@@ -55,8 +57,7 @@ export default function DayliReportDetailTableServer({
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DailyReportServerData[]>([]);
 
-  // Estado para el modal de editar/crear
-  const [selectedRow, setSelectedRow] = useState<DailyReportServerData | null>(null);
+  // selectedRow ahora se maneja en el store de Zustand
 
   // Estado para datos transformados (para DailyReportForm y ClonarRegistrosButton)
   const [formattedData, setFormattedData] = useState<any[]>([]);
@@ -85,14 +86,35 @@ export default function DayliReportDetailTableServer({
   // Función para manejar la edición de una fila
   const handleEditRow = useCallback(
     (row: DailyReportServerData) => {
-      // Buscar el dato transformado correspondiente
-      const transformedRow = formattedData.find((r) => r.id === row.id);
-      if (transformedRow) {
-        setSelectedRow(transformedRow as any);
-      }
+      console.log('🖱️ [Table] handleEditRow clicked', {
+        rowId: row.id,
+        hasCustomers: !!customers,
+        customersLength: customers?.length,
+      });
+
+      // Formatear la fila directamente usando la función utilitaria
+      const transformedRow = formatDailyReportRow(row, reportDate);
+
+      // Buscar el cliente completo para los filtros
+      const customer = customers?.find((c) => c.id === transformedRow.data_to_clone?.customer_id);
+
+      console.log('📦 [Table] Data prepared', {
+        transformedRowId: transformedRow.id,
+        customerId: transformedRow.data_to_clone?.customer_id,
+        customerFound: !!customer,
+        customerName: customer?.name,
+        serviceId: transformedRow.data_to_clone?.service_id,
+      });
+
+      // Abrir modal con el store (esto procesa todo de una vez)
+      useDailyReportFormStore.getState().openModalWithRow(transformedRow, customer || null);
+
+      console.log('✅ [Table] Store updated, opening modal...');
+
+      // Abrir el modal físicamente
       document.getElementById('open-button-daily-report')?.click();
     },
-    [formattedData]
+    [reportDate, customers]
   );
 
   // Cargar empleados, equipos y clientes de forma asíncrona en el cliente
@@ -120,66 +142,7 @@ export default function DayliReportDetailTableServer({
   // Transformar datos del servidor al formato esperado por DailyReportForm y ClonarRegistrosButton
   useEffect(() => {
     if (initialData?.rows) {
-      const transformed = initialData.rows.map((row) => ({
-        id: row.id,
-        date: reportDate,
-        type_service: row.type_service,
-        customer: row.customers?.name,
-        preparte: row.preparte,
-        cancel_reason: row.cancel_reason,
-        employees:
-          row.dailyreportemployeerelations?.map((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}`) ||
-          [],
-        equipment:
-          row.dailyreportequipmentrelations?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
-        customer_equipment:
-          row.dailyreport_customer_equipment_relations?.map((rel) => ({
-            name: rel.equipos_clientes?.name,
-            type: rel.equipos_clientes?.type,
-            id: rel.equipos_clientes?.id,
-            relacion_id: rel.id,
-          })) || [],
-        services: row.customer_services?.service_name,
-        item: row.service_items?.item_name,
-        start_time: row.start_time,
-        end_time: row.end_time,
-        status: row.status,
-        working_day: row.working_day,
-        sector_customer_id: row.service_sectors?.id,
-        sector_service_name: row.service_sectors?.sectors?.name,
-        completed_night: row.completed_night as boolean,
-        completed_day: row.completed_day as boolean,
-        areas_customer_id: row.service_areas?.id,
-        areas_customer_name: row.service_areas?.areas_cliente?.descripcion_corta,
-        description: row.description || '',
-        document_path: row.document_path,
-        remit_number: row.remit_number,
-        employees_references:
-          row.dailyreportemployeerelations?.map((rel) => ({
-            ...rel.employees,
-            name: `${rel.employees?.lastname} ${rel.employees?.firstname}`,
-            id: rel.employees?.id,
-          })) || [],
-        equipment_references:
-          row.dailyreportequipmentrelations?.map((rel) => ({
-            ...rel.vehicles,
-            name: rel.vehicles?.domain || rel.vehicles?.intern_number,
-            id: rel.vehicles?.id,
-            brand_vehicles: rel.vehicles?.brand_vehicles?.name,
-          })) || [],
-        data_to_clone: {
-          customer_id: row.customers?.id,
-          service_id: row.customer_services?.id,
-          item_id: row.service_items?.id,
-          working_day: row.working_day,
-          start_time: row.start_time,
-          end_time: row.end_time,
-          description: row.description,
-          type_service: row.type_service,
-          areas_service_id: row.areas_service_id,
-          sector_service_id: row.sector_service_id,
-        },
-      }));
+      const transformed = formatDailyReportData(initialData.rows, reportDate);
       setFormattedData(transformed);
     }
   }, [initialData, reportDate]);
@@ -876,10 +839,7 @@ export default function DayliReportDetailTableServer({
           employees={employees}
           equipments={equipments}
           dailyReport={dailyReport}
-          selectedRow={selectedRow as any}
-          setSelectedRow={setSelectedRow as any}
           formattedData={formattedData}
-          defaultValues={selectedRow as any}
           refetchDailyReport={refetchDailyReport}
           disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
         />

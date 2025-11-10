@@ -165,7 +165,7 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
                 href="/dashboard/company/new"
                 className={cn(buttonVariants({ variant: 'outline' }), 'flex justify-center p-4 w-full')}
               >
-                <PlusCircledIcon className="mr-2 scale-[3]" />
+                <PlusCircledIcon className="mr-2 " />
                 Agregar compañía
               </Link>
             </div>

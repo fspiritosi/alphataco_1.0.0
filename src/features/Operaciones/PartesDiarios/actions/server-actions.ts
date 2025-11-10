@@ -18,14 +18,6 @@ export async function fetchDailyReportData({
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
 }) {
-  console.log('🔍 fetchDailyReportData - Parámetros recibidos:', {
-    dailyReportId,
-    pageIndex,
-    pageSize,
-    sorting,
-    columnFilters,
-  });
-
   // Usar queryWithPagination siguiendo el patrón de empleados
   const result = await queryWithPagination(
     'dailyreportrows',
@@ -109,15 +101,6 @@ export async function fetchDailyReportData({
       },
     }
   );
-
-  console.log('📊 fetchDailyReportData - Resultado:', {
-    rowCount: result.rowCount,
-    rowsLength: result.rows?.length,
-    pageIndex,
-    pageSize,
-    calculatedFrom: pageIndex * pageSize,
-    calculatedTo: pageIndex * pageSize + pageSize - 1,
-  });
 
   return result;
 }
