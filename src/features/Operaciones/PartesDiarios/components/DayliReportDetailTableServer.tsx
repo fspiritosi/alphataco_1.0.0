@@ -20,6 +20,7 @@ import {
   getDailyReportById,
 } from '../actions/actions';
 import { fetchAllDailyReportData, fetchDailyReportData } from '../actions/server-actions';
+import { formatDailyReportData, formatDailyReportRow } from '../utils/formatDailyReportData';
 import { BulkEditModal } from './BulkEditModal';
 import { ClonarRegistrosButton } from './ClonarRegistrosButton';
 import { DailyReportForm } from './DailyReportRowForm';
@@ -56,7 +57,7 @@ export default function DayliReportDetailTableServer({
   const [selectedRows, setSelectedRows] = useState<DailyReportServerData[]>([]);
 
   // Estado para el modal de editar/crear
-  const [selectedRow, setSelectedRow] = useState<DailyReportServerData | null>(null);
+  const [selectedRow, setSelectedRow] = useState<ReturnType<typeof formatDailyReportRow> | null>(null);
 
   // Estado para datos transformados (para DailyReportForm y ClonarRegistrosButton)
   const [formattedData, setFormattedData] = useState<any[]>([]);
@@ -85,14 +86,12 @@ export default function DayliReportDetailTableServer({
   // Función para manejar la edición de una fila
   const handleEditRow = useCallback(
     (row: DailyReportServerData) => {
-      // Buscar el dato transformado correspondiente
-      const transformedRow = formattedData.find((r) => r.id === row.id);
-      if (transformedRow) {
-        setSelectedRow(transformedRow as any);
-      }
+      // Formatear la fila directamente usando la función utilitaria
+      const transformedRow = formatDailyReportRow(row, reportDate);
+      setSelectedRow(transformedRow);
       document.getElementById('open-button-daily-report')?.click();
     },
-    [formattedData]
+    [reportDate]
   );
 
   // Cargar empleados, equipos y clientes de forma asíncrona en el cliente
@@ -120,66 +119,7 @@ export default function DayliReportDetailTableServer({
   // Transformar datos del servidor al formato esperado por DailyReportForm y ClonarRegistrosButton
   useEffect(() => {
     if (initialData?.rows) {
-      const transformed = initialData.rows.map((row) => ({
-        id: row.id,
-        date: reportDate,
-        type_service: row.type_service,
-        customer: row.customers?.name,
-        preparte: row.preparte,
-        cancel_reason: row.cancel_reason,
-        employees:
-          row.dailyreportemployeerelations?.map((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}`) ||
-          [],
-        equipment:
-          row.dailyreportequipmentrelations?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
-        customer_equipment:
-          row.dailyreport_customer_equipment_relations?.map((rel) => ({
-            name: rel.equipos_clientes?.name,
-            type: rel.equipos_clientes?.type,
-            id: rel.equipos_clientes?.id,
-            relacion_id: rel.id,
-          })) || [],
-        services: row.customer_services?.service_name,
-        item: row.service_items?.item_name,
-        start_time: row.start_time,
-        end_time: row.end_time,
-        status: row.status,
-        working_day: row.working_day,
-        sector_customer_id: row.service_sectors?.id,
-        sector_service_name: row.service_sectors?.sectors?.name,
-        completed_night: row.completed_night as boolean,
-        completed_day: row.completed_day as boolean,
-        areas_customer_id: row.service_areas?.id,
-        areas_customer_name: row.service_areas?.areas_cliente?.descripcion_corta,
-        description: row.description || '',
-        document_path: row.document_path,
-        remit_number: row.remit_number,
-        employees_references:
-          row.dailyreportemployeerelations?.map((rel) => ({
-            ...rel.employees,
-            name: `${rel.employees?.lastname} ${rel.employees?.firstname}`,
-            id: rel.employees?.id,
-          })) || [],
-        equipment_references:
-          row.dailyreportequipmentrelations?.map((rel) => ({
-            ...rel.vehicles,
-            name: rel.vehicles?.domain || rel.vehicles?.intern_number,
-            id: rel.vehicles?.id,
-            brand_vehicles: rel.vehicles?.brand_vehicles?.name,
-          })) || [],
-        data_to_clone: {
-          customer_id: row.customers?.id,
-          service_id: row.customer_services?.id,
-          item_id: row.service_items?.id,
-          working_day: row.working_day,
-          start_time: row.start_time,
-          end_time: row.end_time,
-          description: row.description,
-          type_service: row.type_service,
-          areas_service_id: row.areas_service_id,
-          sector_service_id: row.sector_service_id,
-        },
-      }));
+      const transformed = formatDailyReportData(initialData.rows, reportDate);
       setFormattedData(transformed);
     }
   }, [initialData, reportDate]);
@@ -862,6 +802,8 @@ export default function DayliReportDetailTableServer({
       excludeFromExport: true,
     },
   ];
+
+  console.log(selectedRow);
 
   return (
     <>
