@@ -121,7 +121,7 @@ ${error.stack || 'No stack trace available'}
           <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-4 text-sm text-blue-900 dark:text-blue-200">
             <p className="font-semibold">¿Qué puedes hacer?</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-blue-800 dark:text-blue-300">
-              <li>Intenta recargar la página usando el botón "Intentar nuevamente"</li>
+              <li>Intenta recargar la página usando el botón Intentar nuevamente</li>
               <li>Copia el error y envíalo al equipo de soporte</li>
               <li>Vuelve al inicio del dashboard y prueba otra sección</li>
             </ul>
