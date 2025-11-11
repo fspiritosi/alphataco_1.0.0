@@ -66,10 +66,21 @@ export default function SimpleDocument({
     }
   }, [actualCompany]);
 
-  const idAppliesUser: any =
-    (employees?.find(
-      (employee: any) => employee.document === documentResource || employee.document === numberDocument
-    ) as string) || (vehicles?.find((vehicle: any) => vehicle.id === numberDocument) as string);
+  const [idAppliesUser, setIdAppliesUser] = useState<any>(null);
+
+  useEffect(() => {
+    const appliesUser =
+      (employees?.find(
+        (employee: any) => employee.document === documentResource || employee.document === numberDocument
+      ) as string) || (vehicles?.find((vehicle: any) => vehicle.id === numberDocument) as string);
+
+    setIdAppliesUser(appliesUser);
+    console.log(appliesUser);
+    console.log(numberDocument);
+    console.log(employees);
+    console.log(documentResource);
+    console.log(employees?.find((emp) => emp.document === document));
+  }, [numberDocument, employees, documentResource, vehicles]);
 
   const form = useForm({
     defaultValues: {
@@ -489,7 +500,9 @@ export default function SimpleDocument({
                 control={control}
                 rules={!id || !documentResource ? { required: 'Este campo es requerido' } : {}}
               />
-              <CardDescription>Selecciona el empleado al que deseas vincular el documento</CardDescription>
+              <CardDescription>
+                Selecciona el {resource === 'equipo' ? 'equipo' : 'empleado'} al que deseas vincular el documento
+              </CardDescription>
               {errors.applies?.message && (
                 <CardDescription className="text-red-700 mt-0 m-0">{(errors as any).applies.message}</CardDescription>
               )}

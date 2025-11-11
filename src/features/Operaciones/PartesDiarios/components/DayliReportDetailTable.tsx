@@ -710,10 +710,10 @@ export function DayliReportDetailTable({
           employees={employees}
           equipments={equipments}
           dailyReport={dailyReport}
-          selectedRow={selectedRow}
-          setSelectedRow={setSelectedRow}
+          // selectedRow={selectedRow}
+          // setSelectedRow={setSelectedRow}
           formattedData={formattedData}
-          defaultValues={selectedRow}
+          // defaultValues={selectedRow}
           refetchDailyReport={refetchDailyReport}
           disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
         />

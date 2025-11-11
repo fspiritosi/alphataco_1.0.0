@@ -19,6 +19,7 @@ export async function fetchInitialPermanentDocuments(options: {
       permanent_filter: (query) => {
         return query
           .eq('document_types.is_it_montlhy', false)
+          .eq('employees.is_active', true)
           .not('employees', 'is', null)
           .not('document_types', 'is', null);
       },

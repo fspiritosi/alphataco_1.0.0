@@ -58,6 +58,7 @@ export function DeleteConfirmationModal({ dailyReportId, date, refetchData }: De
         <Button
           size="icon"
           variant="ghost"
+          data-testid={`delete-button-${dailyReportId}`}
           className={cn(
             'h-8 w-8 p-0 hover:text-red-500',
             moment(date).isSame(moment(), 'day') || moment(date).isAfter(moment()) ? '' : 'hidden'

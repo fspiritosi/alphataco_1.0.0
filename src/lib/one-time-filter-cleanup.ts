@@ -7,7 +7,7 @@
  * To trigger a new cleanup, simply change the CLEANUP_VERSION string.
  */
 
-const CLEANUP_VERSION = '2025-01-v1'; // Change this to trigger a new cleanup
+const CLEANUP_VERSION = '2025-01-v2'; // Change this to trigger a new cleanup
 const CLEANUP_KEY = 'table-filters-cleanup-done';
 
 /**
@@ -25,8 +25,6 @@ export function cleanupObsoleteFilters() {
     if (lastCleanup === CLEANUP_VERSION) {
       return; // Already cleaned up
     }
-
-    console.log('[Filter Cleanup] Starting cleanup of obsolete filters...');
 
     // 1. Clean localStorage - remove all table filter entries
     const localStorageKeys = Object.keys(localStorage);
@@ -63,13 +61,6 @@ export function cleanupObsoleteFilters() {
 
     // Mark cleanup as done for this version
     localStorage.setItem(CLEANUP_KEY, CLEANUP_VERSION);
-
-    console.log(
-      `[Filter Cleanup] ✅ Cleanup completed successfully!
-      - Removed ${localStorageCount} localStorage entries
-      - Removed ${cookieCount} cookies
-      - Version: ${CLEANUP_VERSION}`
-    );
   } catch (error) {
     console.error('[Filter Cleanup] ❌ Error during cleanup:', error);
   }

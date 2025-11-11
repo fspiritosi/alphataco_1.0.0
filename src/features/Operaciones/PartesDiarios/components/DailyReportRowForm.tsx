@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Building, CalendarIcon, Check, ChevronsUpDown, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -42,30 +42,28 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { useDailyReportFormStore } from '@/stores/dailyReportFormStore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import moment from 'moment';
 import { toast } from 'sonner';
+import {
+  buildEmployeeIndex,
+  buildEquipmentIndex,
+  filterEmployeesByCustomer,
+  filterEquipmentsByCustomer,
+} from '../utils/employeeEquipmentIndex';
 import { transformDailyReports } from './DayliReportDetailTable';
 import { SearchEmployee } from './SearchEmployee';
 import { SearchEquipment } from './SearchEquipment';
 
 type DailyReportFormProps = {
-  // onSubmit: (data: DailyReportFormValues) => void;
-  // onCancel: () => void;
   refetchDailyReport: () => void;
-  defaultValues?: ReturnType<typeof transformDailyReports>[number] | null;
   customers?: Awaited<ReturnType<typeof getCustomers>>;
-  // customers_services: Awaited<ReturnType<typeof getCustomersServices>>;
-  // service_items: Awaited<ReturnType<typeof getServiceItems>>;
   employees?: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
   equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
-  selectedRow?: ReturnType<typeof transformDailyReports>[number] | null;
-  setSelectedRow: (row: ReturnType<typeof transformDailyReports>[number] | null) => void;
   disabled?: boolean;
-  // customersAreas: Awaited<ReturnType<typeof getCustomersAreas>>;
-  // customersSectors: Awaited<ReturnType<typeof getCustomersSectors>>;
   formattedData: ReturnType<typeof transformDailyReports>;
 };
 
@@ -97,7 +95,6 @@ export const dailyReportSchema = z
     cancel_reason: z.string().optional(),
     reprogram_date: z.date().optional(),
     reasigment_reason: z.string().optional(),
-    confirmed_by: z.string().optional(),
   })
   // .refine(
   //   (data) => {
@@ -159,39 +156,44 @@ export const dailyReportSchema = z
       message: 'Debe seleccionar al menos un empleado o equipo cuando el estado es "Ejecutado"',
       path: ['employees'], // Solo un path para que funcione correctamente
     }
-  )
-  .refine(
-    (data) => {
-      if (data.status === 'ejecutado') {
-        return data.confirmed_by && data.confirmed_by.trim() !== '';
-      }
-      return true;
-    },
-    {
-      message: 'El campo "Confirmado por" es obligatorio cuando el estado es "Ejecutado"',
-      path: ['confirmed_by'],
-    }
   );
+
 export type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 type CustomersArray = Awaited<ReturnType<typeof getCustomers>>;
 type CustomerType = NonNullable<NonNullable<CustomersArray>[number]>;
 export function DailyReportForm({
-  defaultValues,
   customers,
-  setSelectedRow,
   employees,
   equipments,
-  selectedRow,
   disabled,
   formattedData,
   dailyReport,
   refetchDailyReport,
 }: DailyReportFormProps) {
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
+  // Consumir el store de Zustand
+  const selectedRow = useDailyReportFormStore((state) => state.selectedRow);
+  const selectedCustomerId = useDailyReportFormStore((state) => state.selectedCustomerId);
+  const selectedServiceId = useDailyReportFormStore((state) => state.selectedServiceId);
+  const selectedCustomer = useDailyReportFormStore((state) => state.selectedCustomer);
+  const isLoadingEmployees = useDailyReportFormStore((state) => state.isLoadingEmployees);
+  const isLoadingEquipments = useDailyReportFormStore((state) => state.isLoadingEquipments);
+  const closeModal = useDailyReportFormStore((state) => state.closeModal);
+  const setSelectedCustomerId = useDailyReportFormStore((state) => state.setSelectedCustomerId);
+  const setSelectedServiceId = useDailyReportFormStore((state) => state.setSelectedServiceId);
+  const setSelectedCustomer = useDailyReportFormStore((state) => state.setSelectedCustomer);
+  const setIsLoadingEmployees = useDailyReportFormStore((state) => state.setIsLoadingEmployees);
+  const setIsLoadingEquipments = useDailyReportFormStore((state) => state.setIsLoadingEquipments);
+
+  // useTransition para operaciones pesadas
+  const [isPending, startTransition] = useTransition();
+
+  // Estados locales (no del store)
   const [isSectorDisabled, setIsSectorDisabled] = useState<boolean>(true);
   const [isAreaDisabled, setIsAreaDisabled] = useState<boolean>(true);
+
+  // Estados para índices de empleados y equipos
+  const [employeeIndex, setEmployeeIndex] = useState<Map<string, NonNullable<typeof employees>>>(new Map());
+  const [equipmentIndex, setEquipmentIndex] = useState<Map<string, NonNullable<typeof equipments>>>(new Map());
   const router = useRouter();
   // Filtros de clientes
   const activeCustomers = customers?.filter((c) => c.is_active) || [];
@@ -215,14 +217,41 @@ export function DailyReportForm({
       remit_number: '',
       equipos_cliente: [],
       cancel_reason: '',
-      confirmed_by: '',
-      type_service: defaultValues?.type_service || undefined,
-      // ...defaultValues,
+      type_service: undefined,
     },
   });
 
   const currentEmployeesWatch = form.watch('employees');
   const currentEquipmentWatch = form.watch('equipment');
+
+  // 🔥 CONSTRUCCIÓN DE ÍNDICES UNA SOLA VEZ (con useTransition para no bloquear UI)
+  useEffect(() => {
+    setIsLoadingEmployees(true);
+    setIsLoadingEquipments(true);
+
+    startTransition(() => {
+      // Construir índices de empleados y equipos
+      const empIndex = buildEmployeeIndex(employees);
+      const eqIndex = buildEquipmentIndex(equipments);
+
+      setEmployeeIndex(empIndex);
+      setEquipmentIndex(eqIndex);
+
+      setIsLoadingEmployees(false);
+      setIsLoadingEquipments(false);
+    });
+  }, [employees, equipments]); // Solo cuando cambian los datos base
+
+  // 🔥 FILTRADO INSTANTÁNEO CON useMemo (desde índices pre-construidos)
+  const { assignedEmployees, unassignedEmployees, allEmployees } = useMemo(
+    () => filterEmployeesByCustomer(selectedCustomerId, employeeIndex, employees),
+    [selectedCustomerId, employeeIndex, employees]
+  );
+
+  const { assignedEquipments, unassignedEquipments, allEquipments } = useMemo(
+    () => filterEquipmentsByCustomer(selectedCustomerId, equipmentIndex, equipments),
+    [selectedCustomerId, equipmentIndex, equipments]
+  );
 
   // Funciones para detectar duplicados
   const checkEmployeeDuplicates = (employeeIds: string[]) => {
@@ -429,10 +458,9 @@ export function DailyReportForm({
         router.refresh();
         document.getElementById('close-button-daily-report')?.click();
         await refetchDailyReport();
-        // Si estamos en modo edición, limpiar el selectedRow
-        if (selectedRow) {
-          setSelectedRow(null);
-        }
+
+        // Limpiar el store
+        closeModal();
 
         // Resetear el formulario
         form.reset({
@@ -465,110 +493,87 @@ export function DailyReportForm({
     );
   };
 
+  // 🔥 SETEAR VALORES DEL FORMULARIO CUANDO SE ABRE EL MODAL (una sola vez)
   useEffect(() => {
-    // Si hay valores por defecto pero no hay cliente seleccionado
-    if (defaultValues?.data_to_clone?.customer_id && !selectedCustomer) {
-      const customer = customers?.find((c) => c.id === defaultValues.data_to_clone.customer_id);
-      if (customer) {
-        setSelectedCustomer(customer);
-        setSelectedCustomerId(customer.id);
-        form.setValue('customer', customer.id);
-        // return; // Salir temprano, el resto se ejecutará en el siguiente render
-      }
-    }
-    // Si hay valores por defecto, establecer type_service inmediatamente
-    if (defaultValues?.type_service) {
-      form.setValue('type_service', defaultValues.type_service as 'mensual' | 'adicional' | 'adicional_permanente');
-    }
-    if (defaultValues?.status) {
-      form.setValue(
-        'status',
-        defaultValues.status as
-          | 'pendiente'
-          | 'sin_recursos_asignados'
-          | 'ejecutado'
-          | 'reprogramado'
-          | 'cancelado'
-          | '.'
-          | '..'
-      );
+    console.log('🔥 [FormValues] useEffect triggered', {
+      hasSelectedRow: !!selectedRow,
+      hasSelectedCustomer: !!selectedCustomer,
+      hasSelectedServiceId: !!selectedServiceId,
+      selectedRow: selectedRow?.id,
+      selectedCustomer: selectedCustomer?.name,
+      selectedServiceId,
+    });
+
+    if (!selectedRow || !selectedCustomer) {
+      console.log('⚠️ [FormValues] Early return - missing data');
+      return;
     }
 
-    if (defaultValues && selectedCustomer) {
-      const customer = selectedCustomer;
-      form.setValue('customer', customer.id);
-      setSelectedCustomerId(customer.id);
+    console.log('✅ [FormValues] Setting form values...');
 
-      // Verificar si el cliente tiene sectores y áreas disponibles
-      const hasSectors = customer.customer_services?.some((s) => s.service_sectors?.length > 0);
-      const hasAreas = customer.customer_services?.some((s) => s.service_areas?.length > 0);
-      setIsSectorDisabled(!hasSectors);
-      setIsAreaDisabled(!hasAreas);
+    // Setear valores del formulario directamente
+    form.setValue('customer', selectedCustomer.id);
+    form.setValue('type_service', selectedRow.type_service as 'mensual' | 'adicional' | 'adicional_permanente');
+    form.setValue('status', selectedRow.status as any);
+    form.setValue('working_day', selectedRow.working_day || '');
+    form.setValue('start_time', selectedRow.start_time?.substring(0, 5) || '');
+    form.setValue('end_time', selectedRow.end_time?.substring(0, 5) || '');
+    form.setValue('description', selectedRow.description || '');
+    form.setValue('document_path', selectedRow.document_path || '');
+    form.setValue('cancel_reason', selectedRow.cancel_reason || '');
+    form.setValue('completed_day', selectedRow.completed_day || false);
+    form.setValue('completed_night', selectedRow.completed_night || false);
 
-      // Buscar y establecer el servicio
-      if (defaultValues.services) {
-        const service = customer.customer_services?.find(
-          (s) => s.id === defaultValues.services || s.service_name === defaultValues.services
+    // Verificar sectores y áreas
+    const hasSectors = selectedCustomer.customer_services?.some((s) => s.service_sectors?.length > 0);
+    const hasAreas = selectedCustomer.customer_services?.some((s) => s.service_areas?.length > 0);
+    setIsSectorDisabled(!hasSectors);
+    setIsAreaDisabled(!hasAreas);
+
+    // Setear sector y área
+    if (selectedRow.sector_customer_id) {
+      form.setValue('sector_service_id', selectedRow.sector_customer_id);
+    }
+    if (selectedRow.areas_customer_id) {
+      form.setValue('areas_service_id', selectedRow.areas_customer_id);
+    }
+
+    // Setear servicio (ya viene del store)
+    if (selectedServiceId) {
+      form.setValue('services', selectedServiceId);
+
+      // Buscar y setear ítem
+      const service = selectedCustomer.customer_services?.find((s) => s.id === selectedServiceId);
+      if (service?.service_items?.length && selectedRow.item) {
+        const item = service.service_items.find(
+          (i) => i.id === selectedRow.data_to_clone?.item_id || i.item_name === selectedRow.item
         );
-
-        if (service?.id) {
-          form.setValue('services', service.id);
-          setSelectedServiceId(service.id);
-
-          // Buscar y establecer el ítem
-          if (service.service_items?.length > 0 && defaultValues.item) {
-            const item = service.service_items.find(
-              (i) => i.id === defaultValues.item || i.item_name === defaultValues.item
-            );
-            if (item) {
-              form.setValue('item', item.id);
-            }
-          }
+        if (item) {
+          form.setValue('item', item.id);
         }
       }
-
-      // Establecer valores básicos
-      form.setValue('working_day', defaultValues.working_day || '');
-      form.setValue('start_time', defaultValues.start_time?.substring(0, 5) || '');
-      form.setValue('end_time', defaultValues.end_time?.substring(0, 5) || '');
-      form.setValue('status', defaultValues.status || 'pendiente');
-      form.setValue('description', defaultValues.description || '');
-      form.setValue('document_path', defaultValues.document_path || '');
-      form.setValue('type_service', defaultValues.type_service as 'mensual' | 'adicional');
-      form.setValue('cancel_reason', defaultValues.cancel_reason || '');
-      form.setValue('start_time', defaultValues.start_time?.substring(0, 5) || '');
-      form.setValue('end_time', defaultValues.end_time?.substring(0, 5) || '');
-      form.setValue('completed_day', defaultValues.completed_day || false);
-      form.setValue('completed_night', defaultValues.completed_night || false);
-
-      // Establecer sector
-      if (defaultValues.sector_customer_id) {
-        form.setValue('sector_service_id', defaultValues.sector_customer_id);
-      }
-
-      // Establecer área
-      if (defaultValues.areas_customer_id) {
-        form.setValue('areas_service_id', defaultValues.areas_customer_id);
-      }
-
-      // Establecer empleados
-      if (defaultValues.employees_references) {
-        const employeeIds = defaultValues.employees_references.map((emp) => emp.id || '');
-        form.setValue('employees', employeeIds);
-      }
-
-      if (defaultValues.customer_equipment) {
-        const equipos_clienteIds = defaultValues.customer_equipment.map((eq) => eq.id || '');
-        form.setValue('equipos_cliente', equipos_clienteIds);
-      }
-
-      // Establecer equipos
-      if (Array.isArray(defaultValues.equipment_references) && defaultValues.equipment_references.length > 0) {
-        const equipmentIds = defaultValues.equipment_references.map((eq) => eq.id || '');
-        form.setValue('equipment', equipmentIds);
-      }
     }
-  }, [selectedCustomer, defaultValues, form, customers, selectedServiceId, selectedRow]);
+
+    // Setear empleados
+    if (selectedRow.employees_references) {
+      const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
+      form.setValue('employees', employeeIds);
+    }
+
+    // Setear equipos del cliente
+    if (selectedRow.customer_equipment) {
+      const equipos_clienteIds = selectedRow.customer_equipment.map((eq) => eq.id || '');
+      form.setValue('equipos_cliente', equipos_clienteIds);
+    }
+
+    // Setear equipos propios
+    if (selectedRow.equipment_references?.length) {
+      const equipmentIds = selectedRow.equipment_references.map((eq) => eq.id || '');
+      form.setValue('equipment', equipmentIds);
+    }
+
+    console.log('✅ [FormValues] Form values set successfully');
+  }, [selectedRow, selectedCustomer, selectedServiceId]); // Depende de todos los datos necesarios
 
   // Filtrar servicios activos del cliente seleccionado
   const customerServices = useMemo(() => {
@@ -577,7 +582,7 @@ export function DailyReportForm({
     return selectedCustomer.customer_services.filter(
       (service) => service.is_active && (!service.service_validity || new Date(service.service_validity) >= new Date())
     );
-  }, [selectedCustomer, selectedRow]);
+  }, [selectedCustomer]);
 
   // Filtrar ítems activos del servicio seleccionado
   const serviceItems = useMemo(() => {
@@ -588,64 +593,27 @@ export function DailyReportForm({
 
     // Retornar los ítems activos del servicio seleccionado
     return selectedService?.service_items?.filter((item) => item.is_active) || [];
-  }, [selectedCustomer, selectedServiceId, selectedRow]);
+  }, [selectedCustomer, selectedServiceId]);
 
-  // Separar empleados asignados y no asignados al cliente seleccionado
-  const { assignedEmployees, unassignedEmployees, allEmployees } = useMemo(() => {
-    if (!selectedCustomerId) return { assignedEmployees: [], unassignedEmployees: [], allEmployees: [] };
-
-    const assigned =
-      employees?.filter(
-        (employee) =>
-          employee.is_active &&
-          employee.contractor_employee?.some((ce) => ce.customers?.id === selectedCustomerId) &&
-          (employee.workflow_diagram || employee.employees_diagram?.length > 0)
-      ) || [];
-
-    const unassigned =
-      employees?.filter(
-        (employee) =>
-          employee.is_active &&
-          !employee.contractor_employee?.some((ce) => ce.customers?.id === selectedCustomerId) &&
-          (employee.workflow_diagram || employee.employees_diagram?.length > 0)
-      ) || [];
-
-    const all = [...assigned, ...unassigned];
-
-    return { assignedEmployees: assigned, unassignedEmployees: unassigned, allEmployees: all };
-  }, [employees, selectedCustomerId, selectedRow]);
-
-  // Separar equipos asignados y no asignados al cliente seleccionado
-  const { assignedEquipments, unassignedEquipments, allEquipments } = useMemo(() => {
-    if (!selectedCustomerId) return { assignedEquipments: [], unassignedEquipments: [], allEquipments: [] };
-
-    const assigned =
-      equipments?.filter((equipment) =>
-        equipment.contractor_equipment?.some((ce) => ce.customers?.id === selectedCustomerId)
-      ) || [];
-
-    const unassigned =
-      equipments?.filter(
-        (equipment) => !equipment.contractor_equipment?.some((ce) => ce.customers?.id === selectedCustomerId)
-      ) || [];
-
-    const all = [...assigned, ...unassigned];
-
-    return { assignedEquipments: assigned, unassignedEquipments: unassigned, allEquipments: all };
-  }, [equipments, selectedCustomerId, selectedRow]);
+  // ✅ Los empleados y equipos ya se filtran arriba con los helpers optimizados
 
   // Manejar cambio de cliente
   const handleCustomerChange = (customerId: string) => {
     const customer = customers?.find((c) => c.id === customerId);
     if (customer) {
-      setSelectedCustomer(customer); // Ahora es un array
+      // Actualizar store
+      setSelectedCustomer(customer);
       setSelectedCustomerId(customerId);
+
+      // Actualizar formulario
       form.setValue('customer', customerId);
       form.setValue('services', '');
       form.setValue('item', '');
       form.setValue('sector_service_id', undefined);
       form.setValue('areas_service_id', undefined);
       form.setValue('equipos_cliente', []);
+
+      // Limpiar servicio seleccionado
       setSelectedServiceId(null);
 
       // Verificar si el cliente tiene sectores y áreas disponibles
@@ -656,39 +624,24 @@ export function DailyReportForm({
       setIsAreaDisabled(!hasAreas);
     }
   };
-  // Efecto para controlar la habilitación del campo de ítem
-  useEffect(() => {
-    if (selectedServiceId && selectedCustomer?.customer_services?.length) {
-      // Buscar el servicio seleccionado
-      const selectedService = selectedCustomer.customer_services.find((service) => service.id === selectedServiceId);
-
-      // Verificar si el servicio tiene ítems activos
-      const hasItems = selectedService?.service_items?.some((item) => item.is_active) || false;
-
-      // Si no hay ítems, limpiar el valor
-      if (!hasItems) {
-        form.setValue('item', '');
-      }
-    } else {
-      form.setValue('item', '');
-    }
-  }, [selectedServiceId, selectedCustomer, form]);
+  // ✅ Ya no necesitamos este useEffect, el useMemo serviceItems ya maneja esto
 
   // Manejar cambio de servicio
   const handleServiceChange = (serviceId: string) => {
+    // Actualizar store
+    setSelectedServiceId(serviceId);
+
+    // Actualizar formulario
     form.setValue('services', serviceId);
     form.setValue('item', '');
-    setSelectedServiceId(serviceId);
   };
 
   const onCancel = () => {
-    // Cerrar el modal
+    // Cerrar el modal físicamente
     document.getElementById('close-button-daily-report')?.click();
 
-    // Si estamos en modo edición, limpiar el selectedRow
-    if (selectedRow) {
-      setSelectedRow(null);
-    }
+    // Limpiar el store (esto limpia selectedRow, selectedCustomerId, etc.)
+    closeModal();
 
     // Limpiar valores del formulario
     form.reset({
@@ -709,29 +662,20 @@ export function DailyReportForm({
       reprogram_date: undefined,
       equipos_cliente: [],
     });
-    form.reset();
 
-    // Restablecer estados
-    setSelectedCustomerId(null);
-    setSelectedServiceId(null);
-    setSelectedCustomer(null);
-    setIsServiceDisabled(true);
-    setIsSectorDisabled(true); // Asegurar que el campo de sector esté deshabilitado
-    setIsAreaDisabled(true); // Asegurar que el campo de área esté deshabilitado
+    // Restablecer estados locales
+    setIsSectorDisabled(true);
+    setIsAreaDisabled(true);
   };
 
   // Estado para controlar la habilitación de los campos
-  const [isServiceDisabled, setIsServiceDisabled] = useState<boolean>(true);
-
-  // Efecto para habilitar/deshabilitar el select de servicio
-  useEffect(() => {
-    setIsServiceDisabled(!selectedCustomerId);
-  }, [selectedCustomerId]);
+  // ✅ Calculado directamente, sin useEffect
+  const isServiceDisabled = !selectedCustomerId;
 
   const workingDayOptions = [
-    { label: 'Jornada 8 horas', value: 'jornada 8 horas' },
-    { label: 'Jornada 12 horas', value: 'jornada 12 horas' },
-    { label: 'Jornada 24 horas', value: 'jornada 24 horas' },
+    { label: 'Jornada 8 horas', value: 'Jornada 8 horas' },
+    { label: 'Jornada 12 horas', value: 'Jornada 12 horas' },
+    { label: 'Jornada 24 horas', value: 'Jornada 24 horas' },
     { label: 'Por horario', value: 'por horario' },
   ];
 
@@ -782,6 +726,7 @@ export function DailyReportForm({
                                   role="combobox"
                                   disabled={disabled || selectedRow != null}
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                                  data-testid="customer-select-button"
                                 >
                                   {field.value
                                     ? customers?.find((customer) => customer.id === field.value)?.name
@@ -805,6 +750,7 @@ export function DailyReportForm({
                                       <CommandItem
                                         value={customer.name}
                                         key={customer.id}
+                                        data-testid={`customer-option-${customer.id}`}
                                         onSelect={() => {
                                           handleCustomerChange(customer.id);
                                           setSelectedServiceId(null);
@@ -848,6 +794,7 @@ export function DailyReportForm({
                                     !field.value && 'text-muted-foreground',
                                     isServiceDisabled && 'opacity-50 cursor-not-allowed'
                                   )}
+                                  data-testid="service-select-button"
                                 >
                                   {field.value
                                     ? customerServices.find((service) => service.id === field.value)?.service_name
@@ -897,6 +844,7 @@ export function DailyReportForm({
                                             <CommandItem
                                               value={service.service_name || ''}
                                               key={service.id}
+                                              data-testid={`service-option-${service.id}`}
                                               onSelect={() => handleServiceChange(service.id)}
                                             >
                                               <div className="flex items-center justify-between w-full">
@@ -942,6 +890,7 @@ export function DailyReportForm({
                                     !field.value && 'text-muted-foreground',
                                     !selectedServiceId && 'opacity-50 cursor-not-allowed'
                                   )}
+                                  data-testid="item-select-button"
                                 >
                                   {field.value
                                     ? serviceItems.find((item) => item.id === field.value)?.item_name ||
@@ -995,6 +944,7 @@ export function DailyReportForm({
                                               <CommandItem
                                                 value={`${item.id}-${item.item_name}`} // Usamos ID y nombre para búsqueda
                                                 key={item.id}
+                                                data-testid={`item-option-${item.id}`}
                                                 onSelect={() => {
                                                   form.setValue('item', item.id);
                                                 }}
@@ -1990,62 +1940,68 @@ export function DailyReportForm({
                 <FormField
                   control={form.control}
                   name="working_day"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Jornada</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                            >
-                              {field.value
-                                ? workingDayOptions.find((day) => day.value === field.value)?.label
-                                : 'Seleccionar jornada'}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="max-w-[400px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Buscar jornada..." className="h-9" />
-                            <CommandList>
-                              <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
-                              <CommandGroup>
-                                {workingDayOptions.map((day) => (
-                                  <CommandItem
-                                    value={day.label}
-                                    key={day.value}
-                                    onSelect={() => {
-                                      const previousValue = form.getValues('working_day');
-                                      form.setValue('working_day', day.value);
+                  render={({ field }) => {
+                    console.log(field.value);
 
-                                      // Si el valor anterior era 'por horario' o si el nuevo valor no es 'por horario', limpiar las horas
-                                      if (previousValue === 'por horario' || day.value !== 'por horario') {
-                                        form.setValue('start_time', '');
-                                        form.setValue('end_time', '');
-                                      }
-                                    }}
-                                  >
-                                    {day.label}
-                                    <Check
-                                      className={cn(
-                                        'ml-auto h-4 w-4',
-                                        day.value === field.value ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                    return (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Jornada</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                                data-testid="working-day-select-button"
+                              >
+                                {field.value
+                                  ? workingDayOptions.find((day) => day.value === field.value)?.label
+                                  : 'Seleccionar jornada'}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="max-w-[400px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar jornada..." className="h-9" />
+                              <CommandList>
+                                <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
+                                <CommandGroup>
+                                  {workingDayOptions.map((day) => (
+                                    <CommandItem
+                                      value={day.label}
+                                      key={day.value}
+                                      data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
+                                      onSelect={() => {
+                                        const previousValue = form.getValues('working_day');
+                                        form.setValue('working_day', day.value);
+
+                                        // Si el valor anterior era 'por horario' o si el nuevo valor no es 'por horario', limpiar las horas
+                                        if (previousValue === 'por horario' || day.value !== 'por horario') {
+                                          form.setValue('start_time', '');
+                                          form.setValue('end_time', '');
+                                        }
+                                      }}
+                                    >
+                                      {day.label}
+                                      <Check
+                                        className={cn(
+                                          'ml-auto h-4 w-4',
+                                          day.value === field.value ? 'opacity-100' : 'opacity-0'
+                                        )}
+                                      />
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
                 {form.watch('status') === 'pendiente' &&
                   form.watch('working_day') === 'jornada 24 horas' &&
@@ -2126,6 +2082,7 @@ export function DailyReportForm({
                                 defaultValue={field.value}
                                 defaultChecked={field.value === 'mensual'}
                                 value="mensual"
+                                data-testid="type-service-mensual"
                               />
                             </FormControl>
                             <FormLabel className="font-normal">Mensual</FormLabel>
@@ -2136,6 +2093,7 @@ export function DailyReportForm({
                                 defaultValue={field.value}
                                 defaultChecked={field.value === 'adicional'}
                                 value="adicional"
+                                data-testid="type-service-adicional"
                               />
                             </FormControl>
                             <FormLabel className="font-normal">Adicional</FormLabel>

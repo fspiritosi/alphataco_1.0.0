@@ -67,6 +67,7 @@ export const LoginButton = () => {
       className="w-[100%] sm:w-[80%] lg:w-[60%] self-center text-lg"
       formAction={(formData) => clientAccion(formData)}
       disabled={pending}
+      data-testid="login-submit-button"
     >
       {pending ? 'Cargando...' : 'Iniciar Sesión'}
     </Button>

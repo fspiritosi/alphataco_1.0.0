@@ -948,13 +948,10 @@ export async function updateDailyReportRowBody(id: string, data: Partial<DailyRe
   return updatedRow;
 }
 
-export async function updateDailyReportRowStatus(id: string[], status: DailyReportRowStatus, confirmedBy?: string) {
+export async function updateDailyReportRowStatus(id: string[], status: DailyReportRowStatus) {
   const supabase = supabaseServer();
 
   const updateData: any = { status };
-  if (status === 'ejecutado' && confirmedBy) {
-    updateData.confirmed_by = confirmedBy;
-  }
 
   const { data, error } = await supabase.from('dailyreportrows').update(updateData).in('id', id).select();
 

@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import { useDailyReportFormStore } from '@/stores/dailyReportFormStore';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info } from 'lucide-react';
@@ -56,8 +57,7 @@ export default function DayliReportDetailTableServer({
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DailyReportServerData[]>([]);
 
-  // Estado para el modal de editar/crear
-  const [selectedRow, setSelectedRow] = useState<ReturnType<typeof formatDailyReportRow> | null>(null);
+  // selectedRow ahora se maneja en el store de Zustand
 
   // Estado para datos transformados (para DailyReportForm y ClonarRegistrosButton)
   const [formattedData, setFormattedData] = useState<any[]>([]);
@@ -86,12 +86,35 @@ export default function DayliReportDetailTableServer({
   // Función para manejar la edición de una fila
   const handleEditRow = useCallback(
     (row: DailyReportServerData) => {
+      console.log('🖱️ [Table] handleEditRow clicked', {
+        rowId: row.id,
+        hasCustomers: !!customers,
+        customersLength: customers?.length,
+      });
+
       // Formatear la fila directamente usando la función utilitaria
       const transformedRow = formatDailyReportRow(row, reportDate);
-      setSelectedRow(transformedRow);
+
+      // Buscar el cliente completo para los filtros
+      const customer = customers?.find((c) => c.id === transformedRow.data_to_clone?.customer_id);
+
+      console.log('📦 [Table] Data prepared', {
+        transformedRowId: transformedRow.id,
+        customerId: transformedRow.data_to_clone?.customer_id,
+        customerFound: !!customer,
+        customerName: customer?.name,
+        serviceId: transformedRow.data_to_clone?.service_id,
+      });
+
+      // Abrir modal con el store (esto procesa todo de una vez)
+      useDailyReportFormStore.getState().openModalWithRow(transformedRow, customer || null);
+
+      console.log('✅ [Table] Store updated, opening modal...');
+
+      // Abrir el modal físicamente
       document.getElementById('open-button-daily-report')?.click();
     },
-    [reportDate]
+    [reportDate, customers]
   );
 
   // Cargar empleados, equipos y clientes de forma asíncrona en el cliente
@@ -748,6 +771,7 @@ export default function DayliReportDetailTableServer({
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8 p-0 hover:text-blue-500"
+                      data-testid={`edit-button-${row.original.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditRow(row.original);
@@ -803,8 +827,6 @@ export default function DayliReportDetailTableServer({
     },
   ];
 
-  console.log(selectedRow);
-
   return (
     <>
       <div
@@ -818,10 +840,7 @@ export default function DayliReportDetailTableServer({
           employees={employees}
           equipments={equipments}
           dailyReport={dailyReport}
-          selectedRow={selectedRow as any}
-          setSelectedRow={setSelectedRow as any}
           formattedData={formattedData}
-          defaultValues={selectedRow as any}
           refetchDailyReport={refetchDailyReport}
           disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
         />
