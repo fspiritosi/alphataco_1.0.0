@@ -24,6 +24,7 @@ export async function fetchMonthlyEquipmentDocumentsData(options: FetchMonthlyEq
         return query
           .eq('document_types.is_it_montlhy', true)
           .eq('document_types.is_active', true)
+          .eq('vehicles.is_active', true)
           .not('vehicles', 'is', null)
           .not('document_types', 'is', null);
       },

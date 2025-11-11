@@ -26,6 +26,27 @@ import { FacetedFilterConfig } from '../filters/data-table-faceted-filter-server
 import { BulkActionProps, DataTableToolbar } from '../toolbars/data-table-toolbar-base-server';
 import { DataTablePagination } from './data-table-pagination-server';
 
+// Componente para el estado vacío con opción de reset
+interface EmptyStateWithResetProps {
+  onReset: () => void;
+}
+
+function EmptyStateWithReset({ onReset }: EmptyStateWithResetProps) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-6">
+      <div className="text-muted-foreground">Sin resultados</div>
+      <div className="flex flex-col items-center gap-2 text-sm">
+        <p className="text-muted-foreground/70">
+          ¿Crees que esto es un error?{' '}
+          <button onClick={onReset} className="text-primary hover:underline inline-flex items-center gap-1">
+            Haz clic aquí para restablecer la tabla
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 interface FilterableColumn<TableName extends keyof Database['public']['Tables'], Query extends string = '*'> {
   columnId: string;
   title: string;
@@ -410,7 +431,22 @@ export function BaseDataTable<
                 ) : (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="h-24 text-center">
-                      Sin resultados
+                      <EmptyStateWithReset
+                        onReset={() => {
+                          // Limpiar filtros y sorting
+                          setColumnFilters([]);
+                          setSorting([]);
+                          setPageIndex(0);
+
+                          // Limpiar localStorage
+                          clearTableFilters(tableId);
+
+                          // Invalidar query para refetch
+                          if (serverSide && queryKey) {
+                            queryClient.invalidateQueries({ queryKey: [queryKey] });
+                          }
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 )}

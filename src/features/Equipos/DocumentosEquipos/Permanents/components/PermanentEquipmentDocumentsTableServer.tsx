@@ -67,22 +67,13 @@ export default function PermanentEquipmentDocumentsTableServer({
           {
             columnId: 'state',
             title: 'Estado',
-            config: {
-              tableName: 'documents_equipment',
-              select: 'state' as '*',
-              // 🔑 AGREGAR: Relación con document_types
-              relation: '{"document_types": "id_document_types"}',
-              p_filters: {
-                'document_types.is_it_montlhy': false, // ✅ Documentos permanentes
-              },
-              mapper: (data) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
+            options: [
+              { label: 'Presentado', value: 'presentado' },
+              { label: 'Rechazado', value: 'rechazado' },
+              { label: 'Aprobado', value: 'aprobado' },
+              { label: 'Vencido', value: 'vencido' },
+              { label: 'Pendiente', value: 'pendiente' },
+            ],
           },
           {
             columnId: 'document_types.mandatory',

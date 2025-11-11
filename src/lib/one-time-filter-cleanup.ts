@@ -7,7 +7,7 @@
  * To trigger a new cleanup, simply change the CLEANUP_VERSION string.
  */
 
-const CLEANUP_VERSION = '2025-01-v1'; // Change this to trigger a new cleanup
+const CLEANUP_VERSION = '2025-01-v2'; // Change this to trigger a new cleanup
 const CLEANUP_KEY = 'table-filters-cleanup-done';
 
 /**

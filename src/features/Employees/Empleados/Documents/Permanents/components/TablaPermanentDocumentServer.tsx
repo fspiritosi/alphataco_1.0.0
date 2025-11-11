@@ -69,17 +69,13 @@ export default function TablaPermanentDocumentServer({
           {
             columnId: 'state',
             title: 'Estado',
-            config: {
-              tableName: 'documents_employees',
-              select: 'state' as '*',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'documents_employees', 'state'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
+            options: [
+              { label: 'Presentado', value: 'presentado' },
+              { label: 'Rechazado', value: 'rechazado' },
+              { label: 'Aprobado', value: 'aprobado' },
+              { label: 'Vencido', value: 'vencido' },
+              { label: 'Pendiente', value: 'pendiente' },
+            ],
           },
           {
             columnId: 'document_types.mandatory',

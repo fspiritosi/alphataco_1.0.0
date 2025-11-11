@@ -39,24 +39,24 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
   const [status24hs, setStatus24hs] = useState<string>('');
   const [cancelReason24hs, setCancelReason24hs] = useState<string>('');
   const [rescheduleDate24hs, setRescheduleDate24hs] = useState<Date | undefined>(undefined);
-  const [confirmedBy24hs, setConfirmedBy24hs] = useState<string>('');
+  // const [confirmedBy24hs, setConfirmedBy24hs] = useState<string>('');
 
   // Estados para sub-secciones de Jornadas 24hs
   const [statusCompletarDiurno, setStatusCompletarDiurno] = useState<string>('');
   const [cancelReasonCompletarDiurno, setCancelReasonCompletarDiurno] = useState<string>('');
   const [rescheduleDateCompletarDiurno, setRescheduleDateCompletarDiurno] = useState<Date | undefined>(undefined);
-  const [confirmedByCompletarDiurno, setConfirmedByCompletarDiurno] = useState<string>('');
+  // const [confirmedByCompletarDiurno, setConfirmedByCompletarDiurno] = useState<string>('');
 
   const [statusCompletarNocturno, setStatusCompletarNocturno] = useState<string>('');
   const [cancelReasonCompletarNocturno, setCancelReasonCompletarNocturno] = useState<string>('');
   const [rescheduleDateCompletarNocturno, setRescheduleDateCompletarNocturno] = useState<Date | undefined>(undefined);
-  const [confirmedByCompletarNocturno, setConfirmedByCompletarNocturno] = useState<string>('');
+  // const [confirmedByCompletarNocturno, setConfirmedByCompletarNocturno] = useState<string>('');
 
   // Estados para Otras Jornadas
   const [statusOtras, setStatusOtras] = useState<string>('');
   const [cancelReasonOtras, setCancelReasonOtras] = useState<string>('');
   const [rescheduleDateOtras, setRescheduleDateOtras] = useState<Date | undefined>(undefined);
-  const [confirmedByOtras, setConfirmedByOtras] = useState<string>('');
+  // const [confirmedByOtras, setConfirmedByOtras] = useState<string>('');
 
   const [seccionCompletada, setSeccionCompletada] = useState<string | null>(null);
   const [guardandoSeccion, setGuardandoSeccion] = useState<string | null>(null);
@@ -90,24 +90,24 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
       setStatus24hs('');
       setCancelReason24hs('');
       setRescheduleDate24hs(undefined);
-      setConfirmedBy24hs('');
+      // setConfirmedBy24hs('');
 
       // Limpiar estados de sub-secciones de Jornadas 24hs
       setStatusCompletarDiurno('');
       setCancelReasonCompletarDiurno('');
       setRescheduleDateCompletarDiurno(undefined);
-      setConfirmedByCompletarDiurno('');
+      // setConfirmedByCompletarDiurno('');
 
       setStatusCompletarNocturno('');
       setCancelReasonCompletarNocturno('');
       setRescheduleDateCompletarNocturno(undefined);
-      setConfirmedByCompletarNocturno('');
+      // setConfirmedByCompletarNocturno('');
 
       // Limpiar estados de Otras Jornadas
       setStatusOtras('');
       setCancelReasonOtras('');
       setRescheduleDateOtras(undefined);
-      setConfirmedByOtras('');
+      // setConfirmedByOtras('');
 
       // Limpiar feedback
       setSeccionCompletada(null);
@@ -126,8 +126,6 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
 
     if (status24hs === 'reprogramado' && !rescheduleDate24hs) return false;
 
-    if (status24hs === 'ejecutado' && !confirmedBy24hs) return false;
-
     return true;
   };
 
@@ -138,8 +136,6 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
     if (statusCompletarDiurno === 'cancelado' && !cancelReasonCompletarDiurno) return false;
 
     if (statusCompletarDiurno === 'reprogramado' && !rescheduleDateCompletarDiurno) return false;
-
-    if (statusCompletarDiurno === 'ejecutado' && !confirmedByCompletarDiurno) return false;
 
     return true;
   };
@@ -152,8 +148,6 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
 
     if (statusCompletarNocturno === 'reprogramado' && !rescheduleDateCompletarNocturno) return false;
 
-    if (statusCompletarNocturno === 'ejecutado' && !confirmedByCompletarNocturno) return false;
-
     return true;
   };
 
@@ -161,9 +155,9 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
   const isFormValidOtras = () => {
     if (!statusOtras) return false;
 
-    if (statusOtras === 'cancelado' && !cancelReasonOtras) return false;
+    // if (statusOtras === 'cancelado') return false;
 
-    if (statusOtras === 'ejecutado' && !confirmedByOtras) return false;
+    // if (statusOtras === 'ejecutado' && !confirmedByOtras) return false;
 
     return true;
   };
@@ -221,25 +215,21 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
         statusToUse = status24hs;
         cancelReasonToUse = cancelReason24hs;
         rescheduleDateToUse = rescheduleDate24hs;
-        confirmedByToUse = confirmedBy24hs;
       } else if (tipoSeccion === 'completar-diurno') {
         registrosAActualizar = jornadas24hsCompletarDiurno;
         statusToUse = statusCompletarDiurno;
         cancelReasonToUse = cancelReasonCompletarDiurno;
         rescheduleDateToUse = rescheduleDateCompletarDiurno;
-        confirmedByToUse = confirmedByCompletarDiurno;
       } else if (tipoSeccion === 'completar-nocturno') {
         registrosAActualizar = jornadas24hsCompletarNocturno;
         statusToUse = statusCompletarNocturno;
         cancelReasonToUse = cancelReasonCompletarNocturno;
         rescheduleDateToUse = rescheduleDateCompletarNocturno;
-        confirmedByToUse = confirmedByCompletarNocturno;
       } else if (tipoSeccion === 'otras') {
         registrosAActualizar = otrasJornadas;
         statusToUse = statusOtras;
         cancelReasonToUse = cancelReasonOtras;
         rescheduleDateToUse = undefined; // Otras jornadas no tienen reprogramación
-        confirmedByToUse = confirmedByOtras;
       }
 
       // Crear objeto con los datos a actualizar según el estado seleccionado
@@ -279,7 +269,7 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
         }
       } else {
         // Para otros estados: actualiza status masivamente
-        await updateDailyReportRowStatus(selectedRowsIds, updateData.status, confirmedByToUse);
+        await updateDailyReportRowStatus(selectedRowsIds, updateData.status);
       }
 
       // Si es reprogramación, también crear copias en la nueva fecha
@@ -371,6 +361,7 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
     } finally {
       setGuardandoSeccion(null);
     }
+    // re
   };
 
   return (
@@ -482,22 +473,6 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
                       />
                     </PopoverContent>
                   </Popover>
-                </div>
-              )}
-
-              {/* Campo condicional para confirmante - 24hs */}
-              {status24hs === 'ejecutado' && (
-                <div className="space-y-2 mb-4">
-                  <Label htmlFor="confirmed-by-24hs">
-                    Confirmado por <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="confirmed-by-24hs"
-                    value={confirmedBy24hs}
-                    onChange={(e) => setConfirmedBy24hs(e.target.value)}
-                    placeholder="Ingrese el nombre de quien confirma"
-                    required
-                  />
                 </div>
               )}
 
@@ -795,7 +770,7 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
               )}
 
               {/* Campo condicional para confirmante - Otras */}
-              {statusOtras === 'ejecutado' && (
+              {/* {statusOtras === 'ejecutado' && (
                 <div className="space-y-2 mb-4">
                   <Label htmlFor="confirmed-by-otras">
                     Confirmado por <span className="text-red-500">*</span>
@@ -808,14 +783,14 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
                     required
                   />
                 </div>
-              )}
+              )} */}
 
               {/* Otras Jornadas no tiene opción de reprogramación */}
 
               <div className="border-t pt-3">
                 <Button
                   onClick={() => handleSave('otras')}
-                  disabled={guardandoSeccion !== null || !isFormValidOtras()}
+                  disabled={guardandoSeccion !== null}
                   size="sm"
                   className="w-full"
                 >

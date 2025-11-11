@@ -259,7 +259,7 @@ export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<Permanen
                         handleOpen={() => handleOpen()}
                         defaultDocumentId={row.original.id_document_types!}
                         // document={document}
-                        numberDocument={row.original.vehicles?.serie || undefined}
+                        numberDocument={row.original.vehicles?.id || undefined}
                       />
                     </div>
                   </div>

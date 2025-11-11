@@ -95,7 +95,6 @@ export const dailyReportSchema = z
     cancel_reason: z.string().optional(),
     reprogram_date: z.date().optional(),
     reasigment_reason: z.string().optional(),
-    confirmed_by: z.string().optional(),
   })
   // .refine(
   //   (data) => {
@@ -157,19 +156,8 @@ export const dailyReportSchema = z
       message: 'Debe seleccionar al menos un empleado o equipo cuando el estado es "Ejecutado"',
       path: ['employees'], // Solo un path para que funcione correctamente
     }
-  )
-  .refine(
-    (data) => {
-      if (data.status === 'ejecutado') {
-        return data.confirmed_by && data.confirmed_by.trim() !== '';
-      }
-      return true;
-    },
-    {
-      message: 'El campo "Confirmado por" es obligatorio cuando el estado es "Ejecutado"',
-      path: ['confirmed_by'],
-    }
   );
+
 export type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 type CustomersArray = Awaited<ReturnType<typeof getCustomers>>;
 type CustomerType = NonNullable<NonNullable<CustomersArray>[number]>;
@@ -229,7 +217,6 @@ export function DailyReportForm({
       remit_number: '',
       equipos_cliente: [],
       cancel_reason: '',
-      confirmed_by: '',
       type_service: undefined,
     },
   });
@@ -739,6 +726,7 @@ export function DailyReportForm({
                                   role="combobox"
                                   disabled={disabled || selectedRow != null}
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                                  data-testid="customer-select-button"
                                 >
                                   {field.value
                                     ? customers?.find((customer) => customer.id === field.value)?.name
@@ -762,6 +750,7 @@ export function DailyReportForm({
                                       <CommandItem
                                         value={customer.name}
                                         key={customer.id}
+                                        data-testid={`customer-option-${customer.id}`}
                                         onSelect={() => {
                                           handleCustomerChange(customer.id);
                                           setSelectedServiceId(null);
@@ -805,6 +794,7 @@ export function DailyReportForm({
                                     !field.value && 'text-muted-foreground',
                                     isServiceDisabled && 'opacity-50 cursor-not-allowed'
                                   )}
+                                  data-testid="service-select-button"
                                 >
                                   {field.value
                                     ? customerServices.find((service) => service.id === field.value)?.service_name
@@ -854,6 +844,7 @@ export function DailyReportForm({
                                             <CommandItem
                                               value={service.service_name || ''}
                                               key={service.id}
+                                              data-testid={`service-option-${service.id}`}
                                               onSelect={() => handleServiceChange(service.id)}
                                             >
                                               <div className="flex items-center justify-between w-full">
@@ -899,6 +890,7 @@ export function DailyReportForm({
                                     !field.value && 'text-muted-foreground',
                                     !selectedServiceId && 'opacity-50 cursor-not-allowed'
                                   )}
+                                  data-testid="item-select-button"
                                 >
                                   {field.value
                                     ? serviceItems.find((item) => item.id === field.value)?.item_name ||
@@ -952,6 +944,7 @@ export function DailyReportForm({
                                               <CommandItem
                                                 value={`${item.id}-${item.item_name}`} // Usamos ID y nombre para búsqueda
                                                 key={item.id}
+                                                data-testid={`item-option-${item.id}`}
                                                 onSelect={() => {
                                                   form.setValue('item', item.id);
                                                 }}
@@ -1957,6 +1950,7 @@ export function DailyReportForm({
                               variant="outline"
                               role="combobox"
                               className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                              data-testid="working-day-select-button"
                             >
                               {field.value
                                 ? workingDayOptions.find((day) => day.value === field.value)?.label
@@ -1975,6 +1969,7 @@ export function DailyReportForm({
                                   <CommandItem
                                     value={day.label}
                                     key={day.value}
+                                    data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
                                     onSelect={() => {
                                       const previousValue = form.getValues('working_day');
                                       form.setValue('working_day', day.value);
@@ -2083,6 +2078,7 @@ export function DailyReportForm({
                                 defaultValue={field.value}
                                 defaultChecked={field.value === 'mensual'}
                                 value="mensual"
+                                data-testid="type-service-mensual"
                               />
                             </FormControl>
                             <FormLabel className="font-normal">Mensual</FormLabel>
@@ -2093,6 +2089,7 @@ export function DailyReportForm({
                                 defaultValue={field.value}
                                 defaultChecked={field.value === 'adicional'}
                                 value="adicional"
+                                data-testid="type-service-adicional"
                               />
                             </FormControl>
                             <FormLabel className="font-normal">Adicional</FormLabel>

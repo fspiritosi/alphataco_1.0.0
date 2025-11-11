@@ -771,6 +771,7 @@ export default function DayliReportDetailTableServer({
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8 p-0 hover:text-blue-500"
+                      data-testid={`edit-button-${row.original.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditRow(row.original);
