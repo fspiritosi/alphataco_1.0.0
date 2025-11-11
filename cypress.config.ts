@@ -22,7 +22,9 @@ export default defineConfig({
     },
   },
   env: {
-    // Add your environment variables here
+    // Testing user credentials
+    TEST_EMAIL: 'testing@e2e.com',
+    TEST_PASSWORD: 'Testing123!',
     // These can be overridden in cypress.env.json
   },
 });
