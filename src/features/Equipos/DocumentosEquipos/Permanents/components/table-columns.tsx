@@ -29,7 +29,7 @@ export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<Permanen
     header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
     cell: ({ row }) => (
       <Link
-        href={`/dashboard/equipment/action?action=view&equipment_id=${row.original.vehicles?.id}`}
+        href={`/dashboard/equipment/action?action=view&id=${row.original.vehicles?.id}`}
         className="hover:underline "
         target="_blank"
       >
