@@ -58,9 +58,9 @@ ${error.stack || 'No stack trace available'}
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
-      <Card className="w-full max-w-3xl border-orange-200 dark:border-orange-900 shadow-xl">
-        <CardHeader className="space-y-2 border-b border-orange-100 dark:border-orange-900 bg-gradient-to-r from-orange-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="flex min-h-screen items-center justify-center px-7">
+      <Card className="w-full  border-orange-200 dark:border-orange-900 shadow-xl">
+        <CardHeader className=" border-b border-orange-100 dark:border-orange-900 bg-gradient-to-r from-orange-50 to-white dark:from-gray-900 dark:to-gray-800">
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-destructive/10 p-2">
               <AlertTriangle className="h-6 w-6 text-destructive" />
