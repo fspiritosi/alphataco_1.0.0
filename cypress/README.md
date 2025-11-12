@@ -174,6 +174,55 @@ Si los tests fallan por timeout:
 
 Verifica que el directorio `cypress/screenshots/` tenga permisos de escritura.
 
+## 🔄 Metodología de Trabajo
+
+### Flujo de Implementación de Tests
+
+Este proyecto sigue un flujo de trabajo colaborativo para implementar tests E2E:
+
+1. **Usuario especifica el test**: Indica qué archivo implementar y qué validaciones hacer
+2. **Kiro analiza componentes**: Revisa el código y identifica elementos interactivos
+3. **Kiro agrega data-testid**: Agrega identificadores a todos los elementos necesarios
+4. **Kiro implementa el test**: Crea el test siguiendo la estructura estándar
+5. **Validación**: Se ejecuta y ajusta según sea necesario
+
+**Ver detalles completos en:** `.kiro/steering/cypress-e2e-workflow.md`
+
+### Template de Test
+
+Usa el template en `cypress/support/test-template.cy.ts.example` como base para nuevos tests.
+
+### Datos de Testing
+
+Los datos de testing están en `supabase/seed-testing.sql`. Ver `cypress/DATOS_TESTING.md` para referencia rápida de IDs y datos disponibles.
+
+**Usuario de testing:**
+
+- Email: `testing@e2e.com`
+- Password: `Testing123!`
+
+**Convenciones:**
+
+- IDs predecibles (ej: `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`)
+- Año 2030 para fechas
+- Prefijos "Testing E2E" en nombres
+
+Si necesitas agregar datos nuevos, consulta con el equipo y agrégalos a `seed-testing.sql`.
+
+### Convenciones de Naming
+
+**Archivos de test:**
+
+- Con subtabs: `{tab}--{subtab}.cy.ts`
+- Sin subtabs: `{tab}.cy.ts`
+
+**data-testid:**
+
+- Botones: `{action}-button` (ej: `create-button`)
+- Inputs: `{field}-input` (ej: `name-input`)
+- Selects: `{field}-select-button`
+- Tabs: `main-tab-{value}`, `sub-tab-{value}`
+
 ## 📧 Reportar Problemas
 
 Si encuentras errores durante los tests, puedes:

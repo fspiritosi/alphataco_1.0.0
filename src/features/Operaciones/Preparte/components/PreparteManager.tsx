@@ -564,10 +564,12 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
   return (
     <div className="space-y-6 w-full max-w-[100vw] px-4">
       <div className="overflow-y-auto flex justify-between items-center w-full">
-        <h2 className="text-2xl font-bold">Gestión de Pedidos</h2>
+        <h2 className="text-2xl font-bold" data-testid="preparte-title">
+          Gestión de Pedidos
+        </h2>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button>
+            <Button data-testid="nuevo-pedido-button">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Pedido
             </Button>

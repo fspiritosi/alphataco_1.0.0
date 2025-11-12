@@ -37,6 +37,7 @@ export function StatusCards({ data, onStatusClick, selectedStatus }: StatusCards
       <div className="flex flex-nowrap gap-2 min-w-max w-full">
         {/* Total Card */}
         <div
+          data-testid="status-card-todos"
           className={cn(
             'cursor-pointer transition-all hover:shadow-md flex-1 min-w-0',
             !selectedStatus
@@ -55,6 +56,7 @@ export function StatusCards({ data, onStatusClick, selectedStatus }: StatusCards
           return (
             <div
               key={status}
+              data-testid={`status-card-${status}`}
               className={cn(
                 'cursor-pointer transition-all hover:shadow-md flex-1 min-w-0',
                 isSelected

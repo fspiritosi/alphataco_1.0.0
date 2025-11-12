@@ -12,7 +12,7 @@
 -- Cambiar el owner de InfinityBrozz al usuario de testing
 -- para que yordanpz@hotmail.com no sea owner
 UPDATE company 
-SET owner_id = '99999999-9999-9999-9999-999999999999'
+SET owner_id = '0fe29651-f272-456f-9ea0-f81ef293e3f1'
 WHERE id = '814f63ab-075f-49df-b3de-4ed87c9e596e';
 
 -- ============================================
@@ -144,6 +144,30 @@ INSERT INTO service_areas (service_id, area_id, id) VALUES
 ('33333333-3333-3333-3333-333333333333', '55555555-5555-5555-5555-555555555555', 'dddddddd-dddd-dddd-dddd-dddddddddddd'),
 ('33333333-3333-3333-3333-333333333333', '66666666-6666-6666-6666-666666666666', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee')
 ON CONFLICT (area_id, service_id, id) DO NOTHING;
+
+-- ============================================
+-- SECTORES
+-- ============================================
+-- Crear sectores generales
+INSERT INTO sectors (id, name, descripcion_corta, created_at) VALUES
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Sector Testing A', 'Sector de prueba A', '2030-01-15T10:00:00+00:00'),
+('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Sector Testing B', 'Sector de prueba B', '2030-01-15T10:00:00+00:00')
+ON CONFLICT (id) DO NOTHING;
+
+-- Vincular sectores al servicio de testing
+INSERT INTO service_sectors (id, service_id, sector_id, created_at) VALUES
+('cccccccc-cccc-cccc-cccc-cccccccccccc', '33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '2030-01-15T10:00:00+00:00'),
+('dddddddd-dddd-dddd-dddd-dddddddddddd', '33333333-3333-3333-3333-333333333333', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '2030-01-15T10:00:00+00:00')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================
+-- EQUIPOS DEL CLIENTE
+-- ============================================
+-- Crear equipos del cliente de testing
+INSERT INTO equipos_clientes (id, name, type, customer_id, created_at) VALUES
+('ffffffff-ffff-ffff-ffff-ffffffffffff', 'Equipo Testing 1', 'Perforador', '22222222-2222-2222-2222-222222222222', '2030-01-15T10:00:00+00:00'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeef', 'Equipo Testing 2', 'Work over', '22222222-2222-2222-2222-222222222222', '2030-01-15T10:00:00+00:00')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
 -- EMPLEADOS ADICIONALES

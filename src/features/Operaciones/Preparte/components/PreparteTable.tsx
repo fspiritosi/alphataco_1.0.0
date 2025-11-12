@@ -370,6 +370,7 @@ const getColumns = (
               'capitalize whitespace-nowrap',
               row.original.status === 'pendiente' ? 'bg-black text-white' : ''
             )}
+            data-testid={`status-badge-${row.original.numero_pedido}`}
           >
             {row.original.status || 'Sin estado'}
           </Badge>
@@ -591,6 +592,7 @@ const getColumns = (
                         setShowConfirmDialog(true);
                       }
                     }}
+                    data-testid={`confirmar-button-${row.original.numero_pedido}`}
                   >
                     <Check className="h-4 w-4" />
                   </Button>
@@ -627,6 +629,7 @@ const getColumns = (
                     onChange={(e) => setConfirmedBy(e.target.value)}
                     placeholder="Ingrese el nombre de quien confirma"
                     required
+                    data-testid="confirmado-por-input"
                   />
                 </div>
               </div>
@@ -644,6 +647,7 @@ const getColumns = (
                   onClick={handleConfirm}
                   className="bg-green-600 hover:bg-green-700"
                   disabled={!confirmedBy.trim()}
+                  data-testid="confirmar-modal-button"
                 >
                   Confirmar
                 </Button>
