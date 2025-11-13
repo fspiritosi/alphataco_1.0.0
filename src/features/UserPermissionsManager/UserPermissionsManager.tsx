@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserPermissions } from '@/features/Permissions/hooks/useUserPermissions';
 import { Shield, User } from 'lucide-react';
 import { useState } from 'react';
-import { ModulePermissions, RoleManager, RoleSelector } from './components';
+import { ModulePermissions, RoleSelector } from './components';
 
 interface UserPermissionsManagerProps {
   userId: string;
@@ -32,28 +32,27 @@ export function UserPermissionsManager({ userId, userName, userEmail }: UserPerm
 
   return (
     <Card className=" mx-auto p-6">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Shield className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Gestión de Permisos</h1>
-        </div>
-        <p className="text-muted-foreground">Configura los permisos de acceso para módulos, tabs y acciones</p>
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="">
           <TabsTrigger value="user-permissions">
             <User className="h-4 w-4 mr-2" />
             Permisos de Usuario
           </TabsTrigger>
-          <TabsTrigger value="role-management">
+          {/* <TabsTrigger value="role-management">
             <Shield className="h-4 w-4 mr-2" />
             Gestión de Roles
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="user-permissions" className="space-y-6">
           <Card className="p-6">
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-2">
+                <Shield className="h-6 w-6 text-primary" />
+                <h1 className="text-xl font-bold">Gestión de Permisos</h1>
+              </div>
+              <p className="text-muted-foreground">Configura los permisos de acceso para módulos, tabs y acciones</p>
+            </div>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -77,9 +76,9 @@ export function UserPermissionsManager({ userId, userName, userEmail }: UserPerm
           <ModulePermissions userId={userId} permissions={permissions} />
         </TabsContent>
 
-        <TabsContent value="role-management">
+        {/* <TabsContent value="role-management">
           <RoleManager />
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </Card>
   );

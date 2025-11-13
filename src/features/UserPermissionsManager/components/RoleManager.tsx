@@ -15,16 +15,80 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
 import { createRole, deleteRole, getRolePermissions, getRoles, updateRole } from '@/features/Permissions/actions';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Shield, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { RolePermissionsEditor } from './RolePermissionsEditor';
 
+// Componente separado para cada card de rol (evita el error de hooks en map)
+function RoleCard({
+  role,
+  onEdit,
+  onDelete,
+  isDeleting,
+}: {
+  role: any;
+  onEdit: (role: any) => void;
+  onDelete: (roleId: number, roleName: string) => void;
+  isDeleting: boolean;
+}) {
+  const { data: permissions = [] } = useQuery({
+    queryKey: ['role-permissions', role.id],
+    queryFn: () => getRolePermissions(role.id),
+    enabled: !!role.id,
+  });
+
+  return (
+    <Card className="p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5" style={{ color: role.color || 'currentColor' }} />
+          <h3 className="font-semibold">{role.name}</h3>
+        </div>
+        <div className="flex gap-1">
+          <Badge variant="outline" className="text-xs">
+            {permissions.length}
+          </Badge>
+          {role.color && (
+            <Badge
+              variant="outline"
+              style={{
+                backgroundColor: `${role.color}20`,
+                borderColor: role.color,
+                color: role.color,
+              }}
+              className="text-xs"
+            >
+              {role.is_system ? 'Sistema' : 'Personalizado'}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {role.description && <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{role.description}</p>}
+
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(role)} disabled={role.is_system}>
+          <Pencil className="h-3 w-3 mr-2" />
+          Editar
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onDelete(role.id, role.name)}
+          disabled={role.is_system || isDeleting}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 export function RoleManager() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<any | null>(null);
@@ -63,17 +127,14 @@ export function RoleManager() {
     },
     onSuccess: (newRole) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast({
-        title: 'Rol creado',
+      toast.success('Rol creado', {
         description: `El rol "${newRole.name}" ha sido creado exitosamente`,
       });
       setIsDialogOpen(false);
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.message || 'No se pudo crear el rol',
-        variant: 'destructive',
       });
     },
   });
@@ -105,17 +166,14 @@ export function RoleManager() {
     onSuccess: (updatedRole) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       queryClient.invalidateQueries({ queryKey: ['role-permissions', updatedRole.id] });
-      toast({
-        title: 'Rol actualizado',
+      toast.success('Rol actualizado', {
         description: `El rol "${updatedRole.name}" ha sido actualizado exitosamente`,
       });
       setIsDialogOpen(false);
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.message || 'No se pudo actualizar el rol',
-        variant: 'destructive',
       });
     },
   });
@@ -124,16 +182,13 @@ export function RoleManager() {
     mutationFn: deleteRole,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast({
-        title: 'Rol eliminado',
+      toast.success('Rol eliminado', {
         description: 'El rol ha sido eliminado exitosamente',
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.message || 'No se pudo eliminar el rol',
-        variant: 'destructive',
       });
     },
   });
@@ -172,10 +227,8 @@ export function RoleManager() {
 
   const handleSaveRole = () => {
     if (!roleName.trim()) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'El nombre del rol es requerido',
-        variant: 'destructive',
       });
       return;
     }
@@ -305,59 +358,15 @@ export function RoleManager() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {roles.map((role: any) => {
-            const { data: permissions = [] } = useQuery({
-              queryKey: ['role-permissions', role.id],
-              queryFn: () => getRolePermissions(role.id),
-              enabled: !!role.id,
-            });
-
-            return (
-              <Card key={role.id} className="p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" style={{ color: role.color || 'currentColor' }} />
-                    <h3 className="font-semibold">{role.name}</h3>
-                  </div>
-                  <div className="flex gap-1">
-                    {role.is_system && (
-                      <Badge variant="secondary" className="text-xs">
-                        Sistema
-                      </Badge>
-                    )}
-                    <Badge variant="outline" className="text-xs">
-                      {permissions.length}
-                    </Badge>
-                  </div>
-                </div>
-
-                {role.description && (
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{role.description}</p>
-                )}
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleEditRole(role)}
-                    disabled={role.is_system}
-                  >
-                    <Pencil className="h-3 w-3 mr-2" />
-                    Editar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteRole(role.id, role.name)}
-                    disabled={role.is_system || deleteRoleMutation.isPending}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
+          {roles.map((role: any) => (
+            <RoleCard
+              key={role.id}
+              role={role}
+              onEdit={handleEditRole}
+              onDelete={handleDeleteRole}
+              isDeleting={deleteRoleMutation.isPending}
+            />
+          ))}
         </div>
       </Card>
     </div>

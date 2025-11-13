@@ -4,27 +4,27 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
 import {
   assignRoleToUser,
   getRolePermissions,
   getRoles,
+  getRolesType,
   getUserRoles,
   removeRoleFromUser,
 } from '@/features/Permissions/actions';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield } from 'lucide-react';
 import { useMemo } from 'react';
+import { toast } from 'sonner';
 
 interface RoleSelectorProps {
   userId: string;
 }
 
 export function RoleSelector({ userId }: RoleSelectorProps) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: roles = [], isLoading: rolesLoading } = useQuery({
+  const { data: roles = [], isLoading: rolesLoading } = useQuery<getRolesType>({
     queryKey: ['roles'],
     queryFn: getRoles,
   });
@@ -37,11 +37,11 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
 
   // Obtener permisos de cada rol
   const rolePermissionsQueries = useQuery({
-    queryKey: ['all-role-permissions', roles.map((r: any) => r.id)],
+    queryKey: ['all-role-permissions', roles.map((r) => r.id)],
     queryFn: async () => {
-      const permissionsMap = new Map();
+      const permissionsMap = new Map<number, Awaited<ReturnType<typeof getRolePermissions>>>();
       await Promise.all(
-        roles.map(async (role: any) => {
+        roles.map(async (role) => {
           const perms = await getRolePermissions(role.id);
           permissionsMap.set(role.id, perms);
         })
@@ -52,7 +52,7 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
   });
 
   const selectedRoleIds = useMemo(() => {
-    return userRoles.map((ur: any) => ur.role_id);
+    return userRoles.map((ur) => ur.role_id);
   }, [userRoles]);
 
   const assignMutation = useMutation({
@@ -60,17 +60,10 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
-      toast({
-        title: 'Rol asignado',
-        description: 'El rol ha sido asignado correctamente',
-      });
+      toast.success('El rol ha sido asignado correctamente');
     },
     onError: () => {
-      toast({
-        title: 'Error',
-        description: 'No se pudo asignar el rol',
-        variant: 'destructive',
-      });
+      toast.error('No se pudo asignar el rol');
     },
   });
 
@@ -79,17 +72,10 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
-      toast({
-        title: 'Rol removido',
-        description: 'El rol ha sido removido correctamente',
-      });
+      toast.success('El rol ha sido removido correctamente');
     },
     onError: () => {
-      toast({
-        title: 'Error',
-        description: 'No se pudo remover el rol',
-        variant: 'destructive',
-      });
+      toast.error('No se pudo remover el rol');
     },
   });
 
@@ -121,7 +107,7 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
         <p className="text-sm text-muted-foreground">Selecciona uno o más roles para aplicar permisos predefinidos</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {roles.map((role: any) => {
+          {roles.map((role) => {
             const isSelected = selectedRoleIds.includes(role.id);
             const isPending = assignMutation.isPending || removeMutation.isPending;
             const rolePermissions = rolePermissionsMap.get(role.id) || [];

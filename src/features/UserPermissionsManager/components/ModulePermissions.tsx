@@ -337,11 +337,12 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge
-                      className="text-[10px] h-4 px-1.5"
+                      variant="outline"
+                      className="text-[10px] h-4 px-1.5 font-medium"
                       style={{
-                        backgroundColor: roleColor || '#3b82f6',
-                        color: 'white',
-                        border: 'none',
+                        backgroundColor: roleColor ? `${roleColor}20` : '#3b82f620',
+                        borderColor: roleColor || '#3b82f6',
+                        color: roleColor || '#3b82f6',
                       }}
                     >
                       {roleName.charAt(0).toUpperCase()}

@@ -108,7 +108,7 @@ export async function getUserAccessibleModules(userId: string) {
   }
 
   // Ensure serializable data
-  return JSON.parse(JSON.stringify(data || []));
+  return data;
 }
 
 /**
@@ -228,8 +228,10 @@ export async function getRoles() {
   }
 
   // Ensure serializable data
-  return JSON.parse(JSON.stringify(data || []));
+  return data;
 }
+
+export type getRolesType = Awaited<ReturnType<typeof getRoles>>;
 
 /**
  * Obtiene los roles asignados a un usuario
