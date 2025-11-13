@@ -40,6 +40,7 @@ export default async function UsersTabComponent() {
       ?.filter((user: any) => user.role !== 'Invitado') // Filtrar usuarios donde el rol no sea "Invitado"
       ?.map((user: any) => ({
         ...user,
+        id: user.id,
         fullname: user.fullname || '',
         customerName: user.customerName || '',
       })) || []
