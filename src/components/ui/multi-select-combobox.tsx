@@ -23,6 +23,7 @@ interface MultiSelectComboboxProps {
   selectedResourceDocuments?: EmployeeDocument[];
   showSelectAll?: boolean;
   maxSelections?: null | number;
+  'data-testid'?: string;
 }
 
 export function MultiSelectCombobox({
@@ -35,6 +36,7 @@ export function MultiSelectCombobox({
   disabled = false,
   showSelectAll = false,
   maxSelections = null,
+  'data-testid': dataTestId,
 }: MultiSelectComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -101,6 +103,7 @@ export function MultiSelectCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
+          data-testid={dataTestId}
         >
           {selectedValues?.length > 0 ? (
             maxSelections === 1 ? (
@@ -143,6 +146,7 @@ export function MultiSelectCombobox({
                 disabled={selectedResourceDocuments?.some((document) => document.applies === option.value)}
                 key={option.value}
                 onSelect={() => handleSelect(option.value)}
+                data-testid={dataTestId ? `${dataTestId}-option-${option.value}` : undefined}
               >
                 <Check
                   className={cn('mr-2 h-4 w-4', selectedValues?.includes(option.value) ? 'opacity-100' : 'opacity-0')}

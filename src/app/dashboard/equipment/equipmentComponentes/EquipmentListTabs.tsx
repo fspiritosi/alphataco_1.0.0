@@ -20,28 +20,6 @@ export default function EquipmentListTabs({
     defaultValue: subtab || 'vehicles',
     path: '/dashboard/equipment',
     tabsValues: [
-      // {
-      //   value: 'all',
-      //   name: 'Todos los equipos',
-      //   restricted: [''],
-      //   tab: tabValue,
-      //   content: {
-      //     buttonAction: (
-      //       <div className="flex flex-wrap">
-      //         <Link
-      //           href="/dashboard/equipment/action?action=new"
-      //           className={[' py-2 rounded', buttonVariants({ variant: 'default' })].join(' ')}
-      //         >
-      //           Agregar nuevo equipo
-      //         </Link>
-      //       </div>
-      //     ),
-      //     title: 'Todos los equipos',
-      //     //description: 'Información de la empresa',
-      //     buttonActioRestricted: [''],
-      //     component: <EquipmentTableWrapperServer types_of_vehicles="all" />,
-      //   },
-      // },
       {
         value: 'vehicles',
         name: 'Vehículos',
@@ -61,7 +39,6 @@ export default function EquipmentListTabs({
           ),
           buttonActioRestricted: [''],
           component: <EquipmentTableWrapperServer types_of_vehicles="Vehículos" />,
-          // component: <EquipmentTableWrapper filterType="vehicles" />,
         },
       },
       {

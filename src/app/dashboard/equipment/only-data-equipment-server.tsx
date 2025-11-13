@@ -12,6 +12,7 @@ import {
 } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { formatNumber } from '@/components/ui/price-currency-input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import Cookies from 'js-cookie';
@@ -329,10 +330,26 @@ export default function OtrosTablaEquipmentServer({
       },
     },
     {
-      accessorKey: 'showUnavaliableEquipment',
-      id: 'Ver equipos dados de baja',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Ver equipos dados de baja" />,
-      excludeFromExport: true, // No exportar la columna de selección
+      accessorKey: 'currency',
+      id: 'currency',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Moneda" />,
+      cell: ({ row }) => {
+        return row.original.currency ? <div>{row.original.currency || ''}</div> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'price',
+      id: 'price',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Precio" />,
+      cell: ({ row }) => {
+        return row.original.price ? formatNumber(String(row.original.price)) : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
     },
   ];
 
@@ -358,6 +375,22 @@ export default function OtrosTablaEquipmentServer({
               select: 'domain' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'domain'>>>) => {
+                return data.map((value) => ({
+                  label: String(value.display_value),
+                  value: String(value.col_value),
+                  count: value.col_count,
+                }));
+              },
+            },
+          },
+          {
+            columnId: 'currency',
+            title: 'Moneda',
+            config: {
+              tableName: 'vehicles',
+              select: 'currency' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'currency'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),

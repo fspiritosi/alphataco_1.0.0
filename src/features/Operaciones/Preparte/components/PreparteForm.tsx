@@ -369,6 +369,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 <FormItem>
                   <FormLabel>Cliente</FormLabel>
                   <MultiSelectCombobox
+                    data-testid="cliente-select"
                     options={clientes.map((cliente) => ({
                       label: cliente.name,
                       value: cliente.id,
@@ -402,6 +403,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 <FormItem>
                   <FormLabel>Contrato</FormLabel>
                   <MultiSelectCombobox
+                    data-testid="contrato-select"
                     options={contratos.map((contrato) => ({
                       label: contrato.service_name,
                       value: contrato.id,
@@ -550,16 +552,24 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormLabel>Jornada</FormLabel>
                   <FormControl>
                     <Select onValueChange={(value) => form.setValue('jornada', value)} value={field.value}>
-                      <SelectTrigger className="bg-background" disabled={isEditing}>
+                      <SelectTrigger className="bg-background" disabled={isEditing} data-testid="jornada-select">
                         <SelectValue placeholder="Seleccionar jornada">
                           {field.value ? field.value : 'Seleccionar jornada'}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Jornada 8 horas">Jornada 8 horas</SelectItem>
-                        <SelectItem value="Jornada 12 horas">Jornada 12 horas</SelectItem>
-                        <SelectItem value="Jornada 24 horas">Jornada 24 horas</SelectItem>
-                        <SelectItem value="por horario">Por horario</SelectItem>
+                        <SelectItem value="Jornada 8 horas" data-testid="jornada-option-8">
+                          Jornada 8 horas
+                        </SelectItem>
+                        <SelectItem value="Jornada 12 horas" data-testid="jornada-option-12">
+                          Jornada 12 horas
+                        </SelectItem>
+                        <SelectItem value="Jornada 24 horas" data-testid="jornada-option-24">
+                          Jornada 24 horas
+                        </SelectItem>
+                        <SelectItem value="por horario" data-testid="jornada-option-horario">
+                          Por horario
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </FormControl>
@@ -607,6 +617,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       disabled={isEditing}
                       defaultValue={field.value}
                       className="flex flex-col space-y-1"
+                      data-testid="tipo-servicio-radio"
                     >
                       <FormItem className="flex items-center space-x-3 space-y-0">
                         <FormControl>
@@ -615,6 +626,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                             defaultChecked={field.value === 'mensual'}
                             value="mensual"
                             className="bg-background"
+                            data-testid="tipo-servicio-mensual"
                           />
                         </FormControl>
                         <FormLabel className="font-normal">Mensual</FormLabel>
@@ -626,6 +638,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                             defaultChecked={field.value === 'adicional'}
                             value="adicional"
                             className="bg-background"
+                            data-testid="tipo-servicio-adicional"
                           />
                         </FormControl>
                         <FormLabel className="font-normal">Adicional</FormLabel>
@@ -637,6 +650,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                             defaultChecked={field.value === 'adicional_permanente'}
                             value="adicional_permanente"
                             className="bg-background"
+                            data-testid="tipo-servicio-adicional-permanente"
                           />
                         </FormControl>
                         <FormLabel className="font-normal">Adicional Permanente</FormLabel>
@@ -661,6 +675,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       className="bg-background"
                       {...field}
                       disabled={isEditing}
+                      data-testid="solicitante-input"
                     />
                   </FormControl>
                   <FormMessage />
@@ -890,6 +905,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormItem>
                     <FormLabel>Sector del Cliente</FormLabel>
                     <MultiSelectCombobox
+                      data-testid="sector-select"
                       options={sectorOptions}
                       selectedValues={field.value ? [field.value] : []}
                       onChange={(vals) => field.onChange(vals[0] || '')}
@@ -950,6 +966,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormItem>
                     <FormLabel>Área del Cliente</FormLabel>
                     <MultiSelectCombobox
+                      data-testid="area-select"
                       options={areaOptions}
                       selectedValues={field.value ? [field.value] : []}
                       onChange={(vals) => field.onChange(vals[0] || '')}
@@ -985,6 +1002,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <FormItem>
                     <FormLabel>Equipos del Cliente</FormLabel>
                     <MultiSelectCombobox
+                      data-testid="equipo-select"
                       options={equiposOptions}
                       selectedValues={selectedValues}
                       onChange={(vals) => field.onChange(vals)}
@@ -1020,6 +1038,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                           <div className="flex-1">
                             <FormLabel>{index === 0 ? 'Item' : ''}</FormLabel>
                             <MultiSelectCombobox
+                              data-testid={`item-select-${index}`}
                               options={contractItems.filter(
                                 (item) => !selectedItems.some((r) => r.id === item.value && r.id !== row.id)
                               )}
@@ -1126,6 +1145,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       placeholder="Ingrese observaciones adicionales..."
                       className="min-h-[100px] bg-background"
                       {...field}
+                      data-testid="observaciones-textarea"
                     />
                   </FormControl>
                   <FormMessage />
@@ -1158,6 +1178,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     accept="image/*,application/pdf"
                     className="bg-background"
                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    data-testid="archivo-adjunto-input"
                   />
                 </FormControl>
                 <FormMessage />
@@ -1168,7 +1189,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} data-testid="guardar-preparte-button">
                 {isSubmitting ? (
                   <>
                     <svg
