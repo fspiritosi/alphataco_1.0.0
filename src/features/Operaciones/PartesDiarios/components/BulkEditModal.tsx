@@ -64,19 +64,28 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
 
   // Agrupar registros por tipo de jornada y estado de turnos
   const jornadas24hs = selectedRows.filter(
-    (row) => row.working_day === 'jornada 24 horas' && row.completed_day !== true && row.completed_night !== true
+    (row) =>
+      row.working_day?.toLowerCase() === 'jornada 24 horas' &&
+      row.completed_day !== true &&
+      row.completed_night !== true
   );
-  const otrasJornadas = selectedRows.filter((row) => row.working_day !== 'jornada 24 horas');
+  const otrasJornadas = selectedRows.filter((row) => row.working_day?.toLowerCase() !== 'jornada 24 horas');
 
   // Obtener tipos únicos de jornadas en otrasJornadas para el título
   const tiposOtrasJornadas = [...new Set(otrasJornadas.map((row) => row.working_day))];
 
   // Sub-secciones de Jornadas 24hs según estado de turnos (para completar turnos pendientes)
   const jornadas24hsCompletarDiurno = selectedRows.filter(
-    (row) => row.working_day === 'jornada 24 horas' && row.completed_night === true && row.completed_day !== true
+    (row) =>
+      row.working_day?.toLowerCase() === 'jornada 24 horas' &&
+      row.completed_night === true &&
+      row.completed_day !== true
   );
   const jornadas24hsCompletarNocturno = selectedRows.filter(
-    (row) => row.working_day === 'jornada 24 horas' && row.completed_day === true && row.completed_night !== true
+    (row) =>
+      row.working_day?.toLowerCase() === 'jornada 24 horas' &&
+      row.completed_day === true &&
+      row.completed_night !== true
   );
 
   // Fecha mínima para reprogramación (mañana)
