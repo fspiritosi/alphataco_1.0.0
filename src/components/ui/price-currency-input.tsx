@@ -12,16 +12,6 @@ const CURRENCIES = [
     label: 'Dólar Estadounidense',
   },
   {
-    value: 'EUR',
-    symbol: '€',
-    label: 'Euro',
-  },
-  {
-    value: 'GBP',
-    symbol: '£',
-    label: 'Libra Esterlina',
-  },
-  {
     value: 'ARS',
     symbol: '$',
     label: 'Peso Argentino',
@@ -36,10 +26,23 @@ interface PriceCurrencyInputProps {
   placeholder?: string;
   disabled?: boolean;
 }
+// Función para formatear número con separadores de miles y 2 decimales
+export const formatNumber = (value: string) => {
+  if (!value || value === '0' || value === '') return '';
+
+  const numericValue = parseFloat(value);
+  if (isNaN(numericValue)) return value;
+
+  // Formatear con separadores de miles y 2 decimales
+  return numericValue.toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
 
 export function PriceCurrencyInput({
   price = '',
-  currency = 'USD',
+  currency = 'ARS',
   onPriceChange,
   onCurrencyChange,
   placeholder = '0.00',
@@ -47,20 +50,6 @@ export function PriceCurrencyInput({
 }: PriceCurrencyInputProps) {
   const [isFocused, setIsFocused] = useState(false);
   const selectedCurrency = CURRENCIES.find((c) => c.value === currency) || CURRENCIES[0];
-
-  // Función para formatear número con separadores de miles y 2 decimales
-  const formatNumber = (value: string) => {
-    if (!value || value === '0' || value === '') return '';
-
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) return value;
-
-    // Formatear con separadores de miles y 2 decimales
-    return numericValue.toLocaleString('es-AR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
 
   // Función para limpiar el formato y obtener solo números
   const cleanNumber = (value: string) => {

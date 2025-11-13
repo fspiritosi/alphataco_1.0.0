@@ -1956,7 +1956,9 @@ export function DailyReportForm({
                                 data-testid="working-day-select-button"
                               >
                                 {field.value
-                                  ? workingDayOptions.find((day) => day.value === field.value)?.label
+                                  ? workingDayOptions.find(
+                                      (day) => day.value.toLowerCase() === field.value.toLowerCase()
+                                    )?.label
                                   : 'Seleccionar jornada'}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
@@ -1970,15 +1972,18 @@ export function DailyReportForm({
                                 <CommandGroup>
                                   {workingDayOptions.map((day) => (
                                     <CommandItem
-                                      value={day.label}
-                                      key={day.value}
+                                      value={day.label.toLocaleLowerCase()}
+                                      key={day.value.toLocaleLowerCase()}
                                       data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
                                       onSelect={() => {
                                         const previousValue = form.getValues('working_day');
-                                        form.setValue('working_day', day.value);
+                                        form.setValue('working_day', day.value.toLowerCase());
 
                                         // Si el valor anterior era 'por horario' o si el nuevo valor no es 'por horario', limpiar las horas
-                                        if (previousValue === 'por horario' || day.value !== 'por horario') {
+                                        if (
+                                          previousValue.toLowerCase() === 'por horario' ||
+                                          day.value.toLowerCase() !== 'por horario'
+                                        ) {
                                           form.setValue('start_time', '');
                                           form.setValue('end_time', '');
                                         }
@@ -1988,7 +1993,9 @@ export function DailyReportForm({
                                       <Check
                                         className={cn(
                                           'ml-auto h-4 w-4',
-                                          day.value === field.value ? 'opacity-100' : 'opacity-0'
+                                          day.value.toLowerCase() === field.value.toLowerCase()
+                                            ? 'opacity-100'
+                                            : 'opacity-0'
                                         )}
                                       />
                                     </CommandItem>

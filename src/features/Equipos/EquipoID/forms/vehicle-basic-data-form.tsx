@@ -834,7 +834,7 @@ export function VehicleBasicDataForm({
                     field.onChange(price ? parseFloat(price) : undefined);
                   }}
                   onCurrencyChange={(currency: string) => {
-                    form.setValue('currency', currency as 'USD' | 'EUR' | 'GBP' | 'ARS');
+                    form.setValue('currency', currency as 'USD' | 'ARS');
                   }}
                   placeholder="0.00"
                   disabled={readOnly}
