@@ -2011,7 +2011,7 @@ export function DailyReportForm({
                   }}
                 />
                 {form.watch('status') === 'pendiente' &&
-                  form.watch('working_day') === 'jornada 24 horas' &&
+                  form.watch('working_day').toLowerCase() === 'jornada 24 horas' &&
                   selectedRow && (
                     <div className="flex flex-row gap-4 items-center">
                       <FormField
@@ -2043,7 +2043,7 @@ export function DailyReportForm({
                   )}
 
                 {/* Horario (condicional) */}
-                {form.watch('working_day') === 'por horario' && (
+                {form.watch('working_day').toLowerCase() === 'por horario' && (
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
