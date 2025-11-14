@@ -276,7 +276,11 @@ export const BaseDataTable = forwardRef<TableType<any>, DataTableProps<any, any>
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} colSpan={header.colSpan} className="sticky top-0 z-10 bg-background">
+                        <TableHead
+                          key={header.id}
+                          colSpan={header.colSpan}
+                          className="sticky top-0 z-10 bg-background dark:bg-slate-950"
+                        >
                           {header.isPlaceholder
                             ? null
                             : flexRender(header.column.columnDef.header, header.getContext())}

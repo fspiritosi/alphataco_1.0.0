@@ -145,12 +145,13 @@ export async function createPreparte(
       requestDate: item.requestDate,
       quantity: item.quantity,
       numero_pedido: item.numero_pedido,
-      sector_service_id: item.sector_service_id ?? null,
-      areas_service_id: item.areas_service_id ?? null,
-      equipos_cliente: item.equipos_cliente ?? null,
-      preparteImage: (item as any).preparteImage ?? null,
+      sector_service_id: item.sector_service_id || null,
+      areas_service_id: item.areas_service_id || null,
+      equipos_cliente: item.equipos_cliente || null,
+      preparteImage: (item as any).preparteImage || null,
     }));
 
+    console.log(validatedData, 'validatedData');
     const { data, error } = await supabase
       .from('preparte' as any)
       .insert(validatedData)

@@ -17,9 +17,7 @@ import {
   getPreparteById,
   movePreparteFile,
   updatePreparte,
-  updatePreparteImageByOrderNumber,
 } from '@/features/Operaciones/Preparte/actions/preparte';
-import { useImageUpload } from '@/hooks/useUploadImage';
 import { VisibilityState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
@@ -86,7 +84,7 @@ export type PreparteItem = {
   quantity?: number;
   numero_pedido?: string;
   // nuevos campos
-  sector_service_id: string;
+  sector_service_id?: string;
   areas_service_id: string;
   equipos_cliente: string[];
   preparteImage?: string;
@@ -133,15 +131,12 @@ const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
 };
 
 export function PreparteManager({ itemsList, Customers, contratos, prepartes }: PreparteManagerProps) {
-  const [item, setItem] = useState<PreparteItem[]>(prepartes);
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
   const [open, setOpen] = useState(false);
-  const [savedVisibility, setSavedVisibility] = useState<VisibilityState>({});
+  const [savedVisibility] = useState<VisibilityState>({});
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { uploadImage } = useImageUpload();
-  const [changingImage, setChangingImage] = useState(false);
 
   const [formData, setFormData] = useState<PreparteItem>({
     id: '',
@@ -407,38 +402,6 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
     setOpen(true);
   };
 
-  const handleChangeOrderImage = async (file: File) => {
-    if (!currentItem?.numero_pedido) {
-      toast.error('No hay número de pedido para actualizar');
-      return;
-    }
-    try {
-      setChangingImage(true);
-      const bucket = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
-      // 1) Subir a bucket
-      const tempUrl = await uploadImage(file, bucket);
-      // 2) Mover/renombrar a la ruta final
-      const cliente = Customers.find((c) => c.id === currentItem?.cliente_id);
-      const contrato = contratos.find((c) => c.id === currentItem?.contrato_id);
-      const finalUrl = await movePreparteFile(
-        tempUrl,
-        cliente?.name || 'empresa',
-        contrato?.service_name || 'servicio',
-        currentItem.numero_pedido
-      );
-      // 3) Propagar a todas las filas del pedido
-      await updatePreparteImageByOrderNumber(currentItem.numero_pedido, finalUrl);
-      toast.success('Imagen del pedido actualizada');
-      refreshTable();
-      router.refresh();
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || 'No se pudo actualizar la imagen del pedido');
-    } finally {
-      setChangingImage(false);
-    }
-  };
-
   const handleConfirm = async (item: PreparteItem) => {
     try {
       // 1. Format execution date
@@ -520,7 +483,6 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
   const handleDelete = async (id: string) => {
     try {
       await deletePreparte(id);
-      setItem((prev) => prev.filter((item) => item.id !== id));
 
       // Refresh de la tabla
       refreshTable();
@@ -544,18 +506,6 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
     } catch (error) {
       console.error('Error al cargar datos:', error);
       return { rows: [], pageCount: 0, rowCount: 0 };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFetchAllData = async (opciones: { sorting: any[]; columnFilters: any[] }) => {
-    try {
-      setIsLoading(true);
-      return await fetchPrepartes(opciones as any);
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-      return { rows: [] };
     } finally {
       setIsLoading(false);
     }
@@ -616,22 +566,6 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
                 });
               }}
             />
-            {/* {isEditing && currentItem?.numero_pedido && (
-              <div className="mt-4 space-y-2">
-                <label className="text-sm font-medium">
-                  Cambiar imagen del pedido (aplica a todo el N° {currentItem.numero_pedido})
-                </label>
-                <Input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  disabled={changingImage}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleChangeOrderImage(f);
-                  }}
-                />
-              </div>
-            )} */}
           </SheetContent>
         </Sheet>
       </div>
