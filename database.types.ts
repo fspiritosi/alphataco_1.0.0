@@ -28,6 +28,30 @@ export type Database = {
   };
   public: {
     Tables: {
+      actions: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          name: string;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          name: string;
+          slug: string;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          slug?: string;
+        };
+        Relationships: [];
+      };
       aptitudes_tecnicas: {
         Row: {
           id: string;
@@ -2299,23 +2323,38 @@ export type Database = {
         Row: {
           created_at: string;
           description: string;
+          icon: string | null;
           id: string;
+          is_active: boolean | null;
           name: string;
+          order_index: number | null;
           price: number;
+          slug: string | null;
+          updated_at: string | null;
         };
         Insert: {
           created_at?: string;
           description: string;
+          icon?: string | null;
           id?: string;
+          is_active?: boolean | null;
           name: string;
+          order_index?: number | null;
           price: number;
+          slug?: string | null;
+          updated_at?: string | null;
         };
         Update: {
           created_at?: string;
           description?: string;
+          icon?: string | null;
           id?: string;
+          is_active?: boolean | null;
           name?: string;
+          order_index?: number | null;
           price?: number;
+          slug?: string | null;
+          updated_at?: string | null;
         };
         Relationships: [];
       };
@@ -2749,27 +2788,88 @@ export type Database = {
           },
         ];
       };
+      role_permissions: {
+        Row: {
+          action_id: string;
+          created_at: string | null;
+          id: string;
+          role_id: number;
+          tab_id: string;
+        };
+        Insert: {
+          action_id: string;
+          created_at?: string | null;
+          id?: string;
+          role_id: number;
+          tab_id: string;
+        };
+        Update: {
+          action_id?: string;
+          created_at?: string | null;
+          id?: string;
+          role_id?: number;
+          tab_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'role_permissions_action_id_fkey';
+            columns: ['action_id'];
+            isOneToOne: false;
+            referencedRelation: 'actions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'role_permissions_role_id_fkey';
+            columns: ['role_id'];
+            isOneToOne: false;
+            referencedRelation: 'roles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'role_permissions_tab_id_fkey';
+            columns: ['tab_id'];
+            isOneToOne: false;
+            referencedRelation: 'tabs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       roles: {
         Row: {
+          color: string | null;
           created_at: string;
+          description: string | null;
           id: number;
           intern: boolean | null;
           is_active: boolean | null;
+          is_system: boolean | null;
           name: string;
+          slug: string | null;
+          updated_at: string | null;
         };
         Insert: {
+          color?: string | null;
           created_at?: string;
+          description?: string | null;
           id?: number;
           intern?: boolean | null;
           is_active?: boolean | null;
+          is_system?: boolean | null;
           name: string;
+          slug?: string | null;
+          updated_at?: string | null;
         };
         Update: {
+          color?: string | null;
           created_at?: string;
+          description?: string | null;
           id?: number;
           intern?: boolean | null;
           is_active?: boolean | null;
+          is_system?: boolean | null;
           name?: string;
+          slug?: string | null;
+          updated_at?: string | null;
         };
         Relationships: [];
       };
@@ -3064,6 +3164,60 @@ export type Database = {
           },
         ];
       };
+      tabs: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          is_active: boolean | null;
+          module_id: string;
+          name: string;
+          order_index: number | null;
+          parent_tab_id: string | null;
+          slug: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          module_id: string;
+          name: string;
+          order_index?: number | null;
+          parent_tab_id?: string | null;
+          slug: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          module_id?: string;
+          name?: string;
+          order_index?: number | null;
+          parent_tab_id?: string | null;
+          slug?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tabs_module_id_fkey';
+            columns: ['module_id'];
+            isOneToOne: false;
+            referencedRelation: 'modules';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'tabs_parent_tab_id_fkey';
+            columns: ['parent_tab_id'];
+            isOneToOne: false;
+            referencedRelation: 'tabs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       type: {
         Row: {
           company_id: string | null;
@@ -3205,6 +3359,86 @@ export type Database = {
           name?: string | null;
         };
         Relationships: [];
+      };
+      user_permissions: {
+        Row: {
+          action_id: string;
+          assigned_by: string | null;
+          created_at: string | null;
+          id: string;
+          is_granted: boolean;
+          tab_id: string;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          action_id: string;
+          assigned_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          is_granted?: boolean;
+          tab_id: string;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          action_id?: string;
+          assigned_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          is_granted?: boolean;
+          tab_id?: string;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_permissions_action_id_fkey';
+            columns: ['action_id'];
+            isOneToOne: false;
+            referencedRelation: 'actions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_permissions_tab_id_fkey';
+            columns: ['tab_id'];
+            isOneToOne: false;
+            referencedRelation: 'tabs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      user_roles: {
+        Row: {
+          assigned_at: string | null;
+          assigned_by: string | null;
+          id: string;
+          role_id: number;
+          user_id: string;
+        };
+        Insert: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          id?: string;
+          role_id: number;
+          user_id: string;
+        };
+        Update: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          id?: string;
+          role_id?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_roles_role_id_fkey';
+            columns: ['role_id'];
+            isOneToOne: false;
+            referencedRelation: 'roles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       vehicles: {
         Row: {
@@ -3715,12 +3949,55 @@ export type Database = {
           position_name: string;
         }[];
       };
+      get_role_permissions_summary: {
+        Args: { p_role_id: number };
+        Returns: {
+          action_id: string;
+          action_name: string;
+          action_slug: string;
+          module_id: string;
+          module_name: string;
+          module_slug: string;
+          tab_id: string;
+          tab_name: string;
+          tab_slug: string;
+        }[];
+      };
       get_services_summary_by_type: {
         Args: { p_company_id: string; save_to_history?: boolean };
         Returns: {
           percentage: number;
           service_count: number;
           type_service: string;
+        }[];
+      };
+      get_user_accessible_modules: {
+        Args: { p_user_id: string };
+        Returns: {
+          module_icon: string;
+          module_id: string;
+          module_name: string;
+          module_order: number;
+          module_slug: string;
+        }[];
+      };
+      get_user_permissions: {
+        Args: { p_user_id: string };
+        Returns: {
+          action_id: string;
+          action_name: string;
+          action_slug: string;
+          is_granted: boolean;
+          module_id: string;
+          module_name: string;
+          module_slug: string;
+          role_color: string;
+          role_id: number;
+          role_name: string;
+          source: string;
+          tab_id: string;
+          tab_name: string;
+          tab_slug: string;
         }[];
       };
       get_vehicle_usage_indicator: {
@@ -3885,6 +4162,15 @@ export type Database = {
       update_employee_diagram_status: {
         Args: { p_employee_id: string; p_is_active: boolean };
         Returns: Json;
+      };
+      user_has_permission: {
+        Args: {
+          p_action_slug: string;
+          p_module_slug: string;
+          p_tab_slug: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
       };
       verificar_documentos_vencidos_prueba: { Args: never; Returns: undefined };
     };
