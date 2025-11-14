@@ -89,8 +89,8 @@ export default function DialogComponent({
           });
         },
         exportFormatter: (value: any, row: any) => {
-          const contractors = row.original.customers
-            ?.map((contractor: any) => contractor.customer_name || '')
+          const contractors = row.original?.customers
+            ?.map((contractor: any) => contractor?.customer_name || '')
             .filter(Boolean);
           return contractors && contractors.length > 0 ? contractors.join(', ') : 'Sin afectar';
         },
