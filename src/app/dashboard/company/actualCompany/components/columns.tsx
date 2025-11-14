@@ -22,7 +22,6 @@ import { SharedUser } from '@/zodSchemas/schemas';
 import { ColumnDef } from '@tanstack/react-table';
 import { formatRelative } from 'date-fns';
 import { es } from 'date-fns/locale';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -36,9 +35,10 @@ export const columns: ColumnDef<SharedUser>[] = [
       return row.original?.role === 'Propietario' ? (
         <span>{row.original.fullname}</span>
       ) : (
-        <Link href={`/dashboard/company/actualCompany/user/${row.original.id}`} className="hover:underline">
-          {row.original.fullname}
-        </Link>
+        <span>{row.original.fullname}</span>
+        //     <Link href={`/dashboard/company/actualCompany/user/${row.original.id}`} className="hover:underline">
+        //   {row.original.fullname}
+        // </Link>
       );
     },
     filterFn: (row, id, value) => {
@@ -68,13 +68,13 @@ export const columns: ColumnDef<SharedUser>[] = [
   },
   {
     accessorKey: 'id',
-    header: ({ column }) => null,
-    cell: ({ row }) => null,
+    header: () => null,
+    cell: () => null,
   },
   {
     accessorKey: 'img',
-    header: ({ column }) => null,
-    cell: ({ row }) => null,
+    header: () => null,
+    cell: () => null,
   },
   {
     accessorKey: 'role',
@@ -84,11 +84,7 @@ export const columns: ColumnDef<SharedUser>[] = [
       const supabase = supabaseBrowser();
 
       const getRoles = async () => {
-        let { data: roles, error } = await supabase
-          .from('roles')
-          .select('*')
-          .eq('intern', false)
-          .neq('name', 'Invitado');
+        let { data: roles } = await supabase.from('roles').select('*').eq('intern', false).neq('name', 'Invitado');
         setRoles(roles);
       };
 
@@ -99,7 +95,7 @@ export const columns: ColumnDef<SharedUser>[] = [
       const changeRole = async (role: string) => {
         toast.promise(
           async () => {
-            const { data, error } = await supabase
+            const { error } = await supabase
               .from('share_company_users')
               .update({ role })
               .eq('id', row.getValue('id'))
@@ -111,7 +107,7 @@ export const columns: ColumnDef<SharedUser>[] = [
           },
           {
             loading: 'Cargando...',
-            success: (data) => {
+            success: () => {
               return `El rol ha sido cambiado a ${role}`;
             },
             error: (error) => {
@@ -178,11 +174,7 @@ export const columns: ColumnDef<SharedUser>[] = [
 
         toast.promise(
           async () => {
-            const { data, error } = await supabase
-              .from('share_company_users')
-              .delete()
-              .eq('id', row.getValue('id'))
-              .select();
+            const { error } = await supabase.from('share_company_users').delete().eq('id', row.getValue('id')).select();
 
             if (error) {
               throw new Error(handleSupabaseError(error.message));
@@ -190,7 +182,7 @@ export const columns: ColumnDef<SharedUser>[] = [
           },
           {
             loading: 'Eliminando...',
-            success: (data) => {
+            success: () => {
               useLoggedUserStore?.getState()?.FetchSharedUsers();
               return 'Usuario eliminado';
             },
@@ -229,6 +221,6 @@ export const columns: ColumnDef<SharedUser>[] = [
         </AlertDialog>
       );
     },
-    header: ({ column }) => 'Eliminar',
+    header: () => 'Eliminar',
   },
 ];
