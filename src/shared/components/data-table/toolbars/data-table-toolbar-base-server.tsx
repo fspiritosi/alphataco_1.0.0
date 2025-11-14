@@ -153,7 +153,8 @@ export function DataTableToolbar<
 }: DataTableToolbarProps<TData, TableName, Query>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const columnVisibility = table.getState().columnVisibility;
-  const [searchValue, setSearchValue] = React.useState('');
+  // Estado separado para cada columna de búsqueda
+  const [searchValues, setSearchValues] = React.useState<{ [columnId: string]: string }>({});
 
   const [visibleFilters, setVisibleFilters] = React.useState<string[]>(initialVisibleFilters || []);
 
@@ -208,8 +209,13 @@ export function DataTableToolbar<
             const tableColumn = table.getColumn(column.columnId);
             return tableColumn && columnVisibility[column.columnId] !== false ? (
               <SearchInput
-                searchValue={searchValue}
-                setSearchValue={setSearchValue}
+                searchValue={searchValues[column.columnId] || ''}
+                setSearchValue={(value) => {
+                  setSearchValues((prev) => ({
+                    ...prev,
+                    [column.columnId]: value,
+                  }));
+                }}
                 key={column.columnId}
                 placeholder={column.placeholder || `Buscar...`}
                 onFilterChange={(value) => tableColumn.setFilterValue(value)}
@@ -297,7 +303,7 @@ export function DataTableToolbar<
             onClick={() => {
               table.resetColumnFilters();
               setDateFilters({});
-              setSearchValue('');
+              setSearchValues({});
             }}
             className="h-8 px-2 lg:px-3"
             disabled={isLoading}
