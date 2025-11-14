@@ -6,7 +6,7 @@ import { getUserPermissions, getUserPermissionsType, getUserRoles, getUserRolesT
 export function useUserPermissions(userId: string) {
   const permissionsQuery = useQuery<getUserPermissionsType>({
     queryKey: ['user-permissions', userId],
-    queryFn: () => getUserPermissions(userId),
+    queryFn: () => getUserPermissions(),
     enabled: !!userId,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
