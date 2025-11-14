@@ -1,0 +1,322 @@
+'use client';
+
+import { HandshakeIcon } from '@/components/Icons';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { getModulesWithTabs } from '@/features/Permissions/actions';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Building2,
+  Calendar,
+  ClipboardList,
+  Eye,
+  FileText,
+  HelpCircle,
+  LayoutDashboard,
+  Pencil,
+  Plus,
+  Trash2,
+  Truck,
+  Users,
+  Wrench,
+} from 'lucide-react';
+import { useMemo } from 'react';
+
+interface RolePermissionsEditorProps {
+  permissions: Array<{ tabId: string; actionId: string }>;
+  onPermissionsChange: (permissions: Array<{ tabId: string; actionId: string }>) => void;
+}
+
+const ACTION_ICONS = {
+  view: Eye,
+  create: Plus,
+  update: Pencil,
+  delete: Trash2,
+};
+
+const ACTION_LABELS = {
+  view: 'Ver',
+  create: 'Crear',
+  update: 'Editar',
+  delete: 'Eliminar',
+};
+
+const ACTION_COLORS = {
+  view: 'text-blue-600',
+  create: 'text-green-600',
+  update: 'text-yellow-600',
+  delete: 'text-red-600',
+};
+
+const MODULE_ICONS: Record<string, any> = {
+  dashboard: LayoutDashboard,
+  empresa: Building2,
+  empleados: Users,
+  equipos: Truck,
+  comercial: HandshakeIcon,
+  documentacion: FileText,
+  operaciones: Calendar,
+  mantenimiento: Wrench,
+  formularios: ClipboardList,
+  ayuda: HelpCircle,
+};
+
+export function RolePermissionsEditor({ permissions, onPermissionsChange }: RolePermissionsEditorProps) {
+  const { data: modules = [], isLoading } = useQuery({
+    queryKey: ['modules-with-tabs'],
+    queryFn: getModulesWithTabs,
+  });
+
+  const permissionSet = useMemo(() => {
+    return new Set(permissions.map((p) => `${p.tabId}:${p.actionId}`));
+  }, [permissions]);
+
+  const isPermissionActive = (tabId: string, actionId: string) => {
+    return permissionSet.has(`${tabId}:${actionId}`);
+  };
+
+  const togglePermission = (tabId: string, actionId: string) => {
+    const key = `${tabId}:${actionId}`;
+    if (permissionSet.has(key)) {
+      onPermissionsChange(permissions.filter((p) => `${p.tabId}:${p.actionId}` !== key));
+    } else {
+      onPermissionsChange([...permissions, { tabId, actionId }]);
+    }
+  };
+
+  const countTabActions = (tab: any): { total: number; selected: number } => {
+    let total = tab.actions?.length || 0;
+    let selected = tab.actions?.filter((action: any) => isPermissionActive(tab.id, action.id)).length || 0;
+
+    if (tab.subtabs && tab.subtabs.length > 0) {
+      tab.subtabs.forEach((subtab: any) => {
+        const subtabCounts = countTabActions(subtab);
+        total += subtabCounts.total;
+        selected += subtabCounts.selected;
+      });
+    }
+
+    return { total, selected };
+  };
+
+  const isTabFullySelected = (tab: any): boolean => {
+    const counts = countTabActions(tab);
+    return counts.total > 0 && counts.selected === counts.total;
+  };
+
+  const toggleTab = (tab: any) => {
+    const isFullySelected = isTabFullySelected(tab);
+    const toToggle: Array<{ tabId: string; actionId: string }> = [];
+
+    const collectActions = (t: any) => {
+      t.actions?.forEach((action: any) => {
+        toToggle.push({ tabId: t.id, actionId: action.id });
+      });
+
+      if (t.subtabs && t.subtabs.length > 0) {
+        t.subtabs.forEach((subtab: any) => collectActions(subtab));
+      }
+    };
+
+    collectActions(tab);
+
+    if (isFullySelected) {
+      // Remover todos
+      const keysToRemove = new Set(toToggle.map((p) => `${p.tabId}:${p.actionId}`));
+      onPermissionsChange(permissions.filter((p) => !keysToRemove.has(`${p.tabId}:${p.actionId}`)));
+    } else {
+      // Agregar los que faltan
+      const newPermissions = [...permissions];
+      toToggle.forEach((perm) => {
+        const key = `${perm.tabId}:${perm.actionId}`;
+        if (!permissionSet.has(key)) {
+          newPermissions.push(perm);
+        }
+      });
+      onPermissionsChange(newPermissions);
+    }
+  };
+
+  const renderActions = (tab: any) => {
+    if (!tab.actions || tab.actions.length === 0) return null;
+
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        {tab.actions.map((action: any) => {
+          const ActionIcon = ACTION_ICONS[action.slug as keyof typeof ACTION_ICONS];
+          const isActive = isPermissionActive(tab.id, action.id);
+
+          return (
+            <div
+              key={action.id}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all cursor-pointer ${
+                isActive ? 'border-primary/50 bg-primary/10' : 'border-border/50 hover:border-primary/30'
+              }`}
+              onClick={() => togglePermission(tab.id, action.id)}
+            >
+              <Checkbox
+                checked={isActive}
+                onCheckedChange={() => togglePermission(tab.id, action.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="h-3 w-3"
+              />
+              {ActionIcon && (
+                <ActionIcon
+                  className={`h-3 w-3 ${
+                    ACTION_COLORS[action.slug as keyof typeof ACTION_COLORS] || 'text-muted-foreground'
+                  }`}
+                />
+              )}
+              <span className="text-xs font-medium">
+                {ACTION_LABELS[action.slug as keyof typeof ACTION_LABELS] || action.name}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderSubtab = (tab: any) => {
+    const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
+    const counts = countTabActions(tab);
+    const tabSelected = isTabFullySelected(tab);
+    const tabPartiallySelected = counts.selected > 0 && !tabSelected;
+
+    return (
+      <div key={tab.id} className="space-y-2 pl-3 border-l border-border/50">
+        <div className="flex items-start gap-2 py-1">
+          <Checkbox
+            checked={tabSelected}
+            ref={(el: any) => {
+              if (el) {
+                el.indeterminate = tabPartiallySelected;
+              }
+            }}
+            onCheckedChange={() => toggleTab(tab)}
+            className="mt-0.5 h-3 w-3"
+          />
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-xs text-muted-foreground">{tab.name}</span>
+              {counts.total > 0 && (
+                <Badge variant="outline" className="text-[9px] h-4 px-1">
+                  {counts.selected}/{counts.total}
+                </Badge>
+              )}
+            </div>
+            {renderActions(tab)}
+          </div>
+        </div>
+
+        {hasSubtabs && <div className="space-y-1.5">{tab.subtabs.map((subtab: any) => renderSubtab(subtab))}</div>}
+      </div>
+    );
+  };
+
+  if (isLoading) {
+    return <div className="text-sm text-muted-foreground">Cargando módulos...</div>;
+  }
+
+  return (
+    <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+      <Label className="text-sm font-semibold">Permisos del Rol</Label>
+      <Accordion type="multiple" className="space-y-2">
+        {modules.map((module: any) => {
+          const moduleCounts = module.tabs?.reduce(
+            (acc: { total: number; selected: number }, tab: any) => {
+              const tabCounts = countTabActions(tab);
+              return {
+                total: acc.total + tabCounts.total,
+                selected: acc.selected + tabCounts.selected,
+              };
+            },
+            { total: 0, selected: 0 }
+          ) || { total: 0, selected: 0 };
+
+          const ModuleIcon = MODULE_ICONS[module.slug] || Building2;
+
+          return (
+            <AccordionItem
+              key={module.id}
+              value={module.id}
+              className="border border-border/50 rounded-md overflow-hidden"
+            >
+              <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-muted/30">
+                <div className="flex items-center gap-2 flex-1">
+                  <ModuleIcon className="h-4 w-4 text-primary" />
+                  <span className="font-semibold text-sm">{module.name}</span>
+                  <Badge variant="secondary" className="ml-auto mr-2 text-[10px] h-5">
+                    {moduleCounts.selected}/{moduleCounts.total}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-3 pb-3 pt-1">
+                {module.tabs && module.tabs.length > 0 ? (
+                  <Accordion type="multiple" className="space-y-2">
+                    {module.tabs.map((tab: any) => {
+                      const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
+                      const counts = countTabActions(tab);
+                      const tabSelected = isTabFullySelected(tab);
+                      const tabPartiallySelected = counts.selected > 0 && !tabSelected;
+
+                      return (
+                        <AccordionItem
+                          key={tab.id}
+                          value={tab.id}
+                          className="border-l-2 border-primary/20 pl-3 bg-muted/10 rounded-r-md"
+                        >
+                          <div className="flex items-center gap-2 py-1.5">
+                            <Checkbox
+                              checked={tabSelected}
+                              ref={(el: any) => {
+                                if (el) {
+                                  el.indeterminate = tabPartiallySelected;
+                                }
+                              }}
+                              onCheckedChange={() => toggleTab(tab)}
+                              className="h-3 w-3"
+                            />
+                            <AccordionTrigger className="flex-1 hover:no-underline py-0">
+                              <div className="flex items-center gap-2 flex-1">
+                                <span className="font-semibold text-xs">{tab.name}</span>
+                                {counts.total > 0 && (
+                                  <Badge variant="outline" className="text-[9px] h-4 px-1">
+                                    {counts.selected}/{counts.total}
+                                  </Badge>
+                                )}
+                              </div>
+                            </AccordionTrigger>
+                          </div>
+                          <AccordionContent>
+                            <div className="space-y-3 pt-2 pb-1">
+                              {renderActions(tab)}
+
+                              {hasSubtabs && (
+                                <>
+                                  <Separator className="my-2" />
+                                  <div className="space-y-1.5">
+                                    {tab.subtabs.map((subtab: any) => renderSubtab(subtab))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                ) : (
+                  <div className="text-xs text-muted-foreground pt-1">No hay tabs disponibles</div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </div>
+  );
+}
