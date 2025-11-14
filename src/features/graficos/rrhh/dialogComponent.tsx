@@ -14,7 +14,6 @@ import { createNestedFilterOptions } from '@/features/Employees/Empleados/compon
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef } from '@tanstack/react-table';
-import Cookies from 'js-cookie';
 import { Building, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
@@ -34,7 +33,6 @@ export default function DialogComponent({
   disponibleEmployeesPorcent: number;
   condiciones_indicadores: any;
 }) {
-  const cookiesStore = Cookies.get('position-filter')?.split(',');
   const columns = useMemo<ColumnDef<EmployeeNotInDailyReportType[number]>[]>(
     () => [
       {

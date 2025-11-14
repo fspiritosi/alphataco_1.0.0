@@ -47,12 +47,24 @@ export type getModulesWithTabsType = Awaited<ReturnType<typeof getModulesWithTab
 
 /**
  * Obtiene todos los permisos de un usuario (combinando roles y permisos personalizados)
+ * Obtiene el userId automáticamente desde los claims de Supabase
  */
-export async function getUserPermissions(userId: string) {
+export async function getUserPermissions() {
   const supabase = supabaseBrowser();
 
+  // Obtener el userId desde los claims
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.error('Error getting user from auth:', authError);
+    throw new Error('User not authenticated');
+  }
+
   const { data, error } = await supabase.rpc('get_user_permissions', {
-    p_user_id: userId,
+    p_user_id: user.id,
   });
 
   if (error) {
@@ -68,17 +80,24 @@ export type getUserPermissionsType = Awaited<ReturnType<typeof getUserPermission
 
 /**
  * Verifica si un usuario tiene un permiso específico
+ * Obtiene el userId automáticamente desde los claims de Supabase
  */
-export async function checkUserPermission(
-  userId: string,
-  moduleSlug: string,
-  tabSlug: string,
-  actionSlug: string
-): Promise<boolean> {
+export async function checkUserPermission(moduleSlug: string, tabSlug: string, actionSlug: string): Promise<boolean> {
   const supabase = supabaseBrowser();
 
+  // Obtener el userId desde los claims
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.error('Error getting user from auth:', authError);
+    return false;
+  }
+
   const { data, error } = await supabase.rpc('user_has_permission', {
-    p_user_id: userId,
+    p_user_id: user.id,
     p_module_slug: moduleSlug,
     p_tab_slug: tabSlug,
     p_action_slug: actionSlug,
@@ -94,12 +113,24 @@ export async function checkUserPermission(
 
 /**
  * Obtiene los módulos accesibles para un usuario
+ * Obtiene el userId automáticamente desde los claims de Supabase
  */
-export async function getUserAccessibleModules(userId: string) {
+export async function getUserAccessibleModules() {
   const supabase = supabaseBrowser();
 
+  // Obtener el userId desde los claims
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.error('Error getting user from auth:', authError);
+    throw new Error('User not authenticated');
+  }
+
   const { data, error } = await supabase.rpc('get_user_accessible_modules', {
-    p_user_id: userId,
+    p_user_id: user.id,
   });
 
   if (error) {
@@ -205,9 +236,10 @@ export async function removeUserPermission(userId: string, tabId: string, action
 
 /**
  * Requiere que un usuario tenga un permiso específico, lanza error si no lo tiene
+ * Obtiene el userId automáticamente desde los claims de Supabase
  */
-export async function requirePermission(userId: string, moduleSlug: string, tabSlug: string, actionSlug: string) {
-  const hasPermission = await checkUserPermission(userId, moduleSlug, tabSlug, actionSlug);
+export async function requirePermission(moduleSlug: string, tabSlug: string, actionSlug: string) {
+  const hasPermission = await checkUserPermission(moduleSlug, tabSlug, actionSlug);
 
   if (!hasPermission) {
     throw new Error(`Permission denied: User does not have ${actionSlug} permission on ${moduleSlug}/${tabSlug}`);

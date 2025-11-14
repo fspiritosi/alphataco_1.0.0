@@ -1,28 +1,17 @@
 'use client';
 
-import { useAuthData } from '@/hooks/useAuthData';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getUserPermissions } from '../actions';
 
-interface Permission {
-  module_slug: string;
-  tab_slug: string;
-  action_slug: string;
-}
-
 export function usePermissions() {
-  const { profile } = useAuthData();
-  const userId = profile?.credential_id;
-
   const {
     data: permissions = [],
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['permissions', userId],
-    queryFn: () => (userId ? getUserPermissions(userId) : Promise.resolve([])),
-    enabled: !!userId,
+    queryKey: ['permissions'],
+    queryFn: getUserPermissions,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
     refetchOnWindowFocus: false,

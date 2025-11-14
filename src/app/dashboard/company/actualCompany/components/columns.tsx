@@ -22,6 +22,7 @@ import { SharedUser } from '@/zodSchemas/schemas';
 import { ColumnDef } from '@tanstack/react-table';
 import { formatRelative } from 'date-fns';
 import { es } from 'date-fns/locale';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -35,10 +36,10 @@ export const columns: ColumnDef<SharedUser>[] = [
       return row.original?.role === 'Propietario' ? (
         <span>{row.original.fullname}</span>
       ) : (
-        <span>{row.original.fullname}</span>
-        //     <Link href={`/dashboard/company/actualCompany/user/${row.original.id}`} className="hover:underline">
-        //   {row.original.fullname}
-        // </Link>
+        // <span>{row.original.fullname}</span>
+        <Link href={`/dashboard/company/actualCompany/user/${row.original.id}`} className="hover:underline">
+          {row.original.fullname}
+        </Link>
       );
     },
     filterFn: (row, id, value) => {
