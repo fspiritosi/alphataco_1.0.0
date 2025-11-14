@@ -951,233 +951,6 @@ export default async function DayliReportDetailTableServerWrapper({
 }
 ```
 
-#### Client Component con Lógica Compleja
-
-```typescript
-// DayliReportDetailTableServer.tsx
-'use client';
-
-import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { useState, useEffect, useCallback } from 'react';
-
-// Tipo inferido automáticamente
-type DailyReportServerData = Awaited<ReturnType<typeof fetchDailyReportData>>['rows'][0];
-
-export default function DayliReportDetailTableServer({
-  dailyReportId,
-  reportDate,
-  initialData,
-  savedFilters,
-  savedVisibility,
-  dailyReport,
-}: {
-  dailyReportId: string;
-  reportDate: string;
-  initialData?: Awaited<ReturnType<typeof fetchDailyReportData>>;
-  savedFilters: string[];
-  savedVisibility: VisibilityState;
-  dailyReport: any[];
-}) {
-  // Estados para funcionalidades específicas
-  const [selectedRows, setSelectedRows] = useState<DailyReportServerData[]>([]);
-  const [selectedRow, setSelectedRow] = useState<DailyReportServerData | null>(null);
-  const [formattedData, setFormattedData] = useState<any[]>([]);
-
-  // Estados para datos de validación (carga asíncrona)
-  const [employees, setEmployees] = useState<any[]>();
-  const [equipments, setEquipments] = useState<any[]>();
-  const [loadingValidations, setLoadingValidations] = useState(true);
-
-  // Cargar datos de validación en el cliente
-  useEffect(() => {
-    const loadValidationData = async () => {
-      try {
-        const [employeesData, equipmentsData] = await Promise.all([
-          getActiveEmployeesForDailyReport(),
-          getActiveEquipmentsForDailyReport(),
-        ]);
-        setEmployees(employeesData);
-        setEquipments(equipmentsData);
-      } catch (error) {
-        console.error('Error loading validation data:', error);
-      } finally {
-        setLoadingValidations(false);
-      }
-    };
-
-    loadValidationData();
-  }, []);
-
-  // Transformar datos para componentes específicos
-  useEffect(() => {
-    if (initialData?.rows) {
-      const transformed = initialData.rows.map((row) => ({
-        id: row.id,
-        date: reportDate,
-        // Campos transformados para formularios
-        customer: row.customers?.name,
-        employees: row.dailyreportemployeerelations?.map((rel) =>
-          `${rel.employees?.lastname} ${rel.employees?.firstname}`
-        ) || [],
-        equipment: row.dailyreportequipmentrelations?.map((rel) =>
-          rel.vehicles?.domain || rel.vehicles?.intern_number
-        ) || [],
-        // Mantener referencias originales
-        employees_references: row.dailyreportemployeerelations?.map((rel) => ({
-          ...rel.employees,
-          name: `${rel.employees?.lastname} ${rel.employees?.firstname}`,
-          id: rel.employees?.id,
-        })) || [],
-        // Datos para clonación
-        data_to_clone: {
-          customer_id: row.customers?.id,
-          service_id: row.customer_services?.id,
-          item_id: row.service_items?.id,
-          working_day: row.working_day,
-          start_time: row.start_time,
-          end_time: row.end_time,
-          description: row.description,
-          type_service: row.type_service,
-        },
-      }));
-      setFormattedData(transformed);
-    }
-  }, [initialData, reportDate]);
-
-  // Función para exportación completa
-  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
-    const result = await fetchAllDailyReportData({
-      dailyReportId,
-      sorting: options.sorting,
-      columnFilters: options.columnFilters,
-    });
-    return result;
-  };
-
-  // Funciones auxiliares para validaciones
-  const getDuplicatedEmployees = useCallback((data: DailyReportServerData[]): Set<string> => {
-    const employeeCounts = new Map<string, number>();
-
-    data.forEach((row) => {
-      row.dailyreportemployeerelations?.forEach((rel) => {
-        const employeeName = `${rel.employees?.lastname} ${rel.employees?.firstname}`;
-        if (employeeName.trim()) {
-          employeeCounts.set(employeeName, (employeeCounts.get(employeeName) || 0) + 1);
-        }
-      });
-    });
-
-    return new Set(
-      Array.from(employeeCounts.entries())
-        .filter(([_, count]) => count > 1)
-        .map(([employee, _]) => employee)
-    );
-  }, []);
-
-  return (
-    <>
-      {/* Componentes adicionales */}
-      <div className="flex justify-between items-center mb-4">
-        <DailyReportForm
-          selectedRow={selectedRow}
-          formattedData={formattedData}
-          employees={employees}
-          equipments={equipments}
-        />
-        <ClonarRegistrosButton
-          selectedRows={selectedRows}
-          fetchAllFormattedData={fetchAllFormattedData}
-        />
-      </div>
-
-      <BaseDataTable
-        columns={columns}
-        savedVisibility={savedVisibility}
-        initialData={initialData}
-        tableId="dailyReportServerTable"
-        enableRowSelection={(row) =>
-          row.original.status !== 'ejecutado' &&
-          row.original.status !== 'sin_recursos_asignados'
-        }
-        onRowSelectionChange={setSelectedRows}
-        serverSide={true}
-        fetchData={async (options) => {
-          return await fetchDailyReportData({ dailyReportId, ...options });
-        }}
-        fetchAllData={handleFetchAllData}
-        queryKey={`daily-report-server-${dailyReportId}`}
-        toolbarOptions={{
-          initialVisibleFilters: savedFilters,
-          showExport: true,
-          filterableColumns: [
-            // Filtro simple
-            {
-              columnId: 'customers.name',
-              title: 'Cliente',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'customers.name' as '*',
-                relation: '{"customers": "customer_id"}',
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data) => data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-              },
-            },
-            // Filtro complejo con múltiples joins
-            {
-              columnId: 'dailyreportemployeerelations.employees.lastname',
-              title: 'Empleados',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'id' as '*',
-                multiJoinPaths: {
-                  joins: [
-                    {
-                      from_table: 'dailyreportrows',
-                      to_table: 'dailyreportemployeerelations',
-                      from_column: 'id',
-                      to_column: 'daily_report_row_id',
-                    },
-                    {
-                      from_table: 'dailyreportemployeerelations',
-                      to_table: 'employees',
-                      from_column: 'employee_id',
-                      to_column: 'id',
-                    },
-                  ],
-                  final_column: 'employees.lastname',
-                },
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data) => data
-                  .filter((value) => value.col_value !== null)
-                  .map((value) => ({
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  })),
-              },
-            },
-          ],
-          bulkAction: {
-            enabled: true,
-            label: 'Editar',
-            icon: <Edit className="h-4 w-4" />,
-            onClick: (rows) => {
-              setSelectedRows(rows);
-              setIsBulkEditModalOpen(true);
-            },
-          },
-        }}
-      />
-    </>
-  );
-}
-```
-
 #### Definición de Columnas Complejas
 
 ```typescript
@@ -2171,97 +1944,6 @@ filterableColumns: [
 ];
 ```
 
-### Casos de Uso Comunes
-
-#### 1. Filtro por Compañía (Multi-tenant)
-
-```typescript
-// En el server wrapper
-const company_id = cookiesStore.get('actualComp')?.value;
-
-const initialData = await fetchData({
-  // ... otros parámetros
-  filters: [
-    {
-      column: 'company_id',
-      operator: 'eq',
-      value: company_id,
-    },
-  ],
-});
-
-// En todas las configuraciones de filtros
-p_filters: {
-  company_id: company_id;
-}
-```
-
-#### 2. Filtro por Estado Activo/Inactivo
-
-```typescript
-// Para tabla de empleados inactivos
-filters: [
-  {
-    column: 'is_active',
-    operator: 'eq',
-    value: false,
-  },
-];
-
-// Para tabla de empleados activos
-filters: [
-  {
-    column: 'is_active',
-    operator: 'eq',
-    value: true,
-  },
-];
-```
-
-#### 3. Filtros por Permisos de Usuario
-
-```typescript
-// Basado en rol del usuario
-const userRole = cookiesStore.get('userRole')?.value;
-const userId = cookiesStore.get('userId')?.value;
-
-let permanentFilters: PermanentFilter[] = [{ column: 'company_id', operator: 'eq', value: company_id }];
-
-// Si es supervisor, solo ve su equipo
-if (userRole === 'supervisor') {
-  permanentFilters.push({
-    column: 'supervisor_id',
-    operator: 'eq',
-    value: userId,
-  });
-}
-
-// Si es cliente, solo ve sus datos
-if (userRole === 'client') {
-  permanentFilters.push({
-    column: 'customer_id',
-    operator: 'eq',
-    value: userCustomerId,
-  });
-}
-```
-
-#### 4. Filtros por Rango de Fechas Fijo
-
-```typescript
-// Solo registros de los últimos 30 días
-const thirtyDaysAgo = new Date();
-thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-filters: [
-  {
-    column: 'created_at',
-    operator: 'gte',
-    value: thirtyDaysAgo.toISOString(),
-  },
-];
-```
-
 ### Mejores Prácticas para Filtros Permanentes
 
 #### ✅ DO (Hacer)
@@ -2271,7 +1953,18 @@ filters: [
 ```typescript
 // ✅ CORRECTO - En server wrapper
 const initialData = await fetchData({
-  filters: [{ column: 'company_id', operator: 'eq', value: company_id }],
+  permanent_filter: (query) => {
+    return (
+      query
+        // Filtros para documentos mensuales
+        .eq('document_types.is_it_montlhy', true)
+        .eq('document_types.applies', 'Persona')
+        .eq('document_types.is_active', true)
+        // Filtros para evitar nulls (igual que implementación original)
+        .not('employees', 'is', null)
+        .not('document_types', 'is', null)
+    );
+  },
   // ... otros parámetros
 });
 ```
@@ -2283,28 +1976,6 @@ const initialData = await fetchData({
 p_filters: { is_active: 'false', company_id: company_id }
 ```
 
-3. **Documentar filtros permanentes**:
-
-```typescript
-// ✅ CORRECTO - Comentarios claros
-// Filtros permanentes aplicados:
-// - company_id: Solo datos de la compañía actual
-// - is_active: false - Solo empleados inactivos
-filters: [
-  { column: 'company_id', operator: 'eq', value: company_id },
-  { column: 'is_active', operator: 'eq', value: false },
-];
-```
-
-4. **Validar contexto requerido**:
-
-```typescript
-// ✅ CORRECTO - Validar que el contexto existe
-if (!company_id) {
-  throw new Error('Company ID is required for this table');
-}
-```
-
 #### ❌ DON'T (No hacer)
 
 1. **No aplicar filtros permanentes solo en el cliente**:
@@ -2314,16 +1985,6 @@ if (!company_id) {
 useEffect(() => {
   // Filtrar datos en el cliente - INSEGURO
 }, []);
-```
-
-2. **No inconsistencia en p_filters**:
-
-```typescript
-// ❌ INCORRECTO - Filtros inconsistentes
-filterableColumns: [
-  { config: { p_filters: { is_active: 'false' } } }, // Falta company_id
-  { config: { p_filters: { company_id: company_id } } }, // Falta is_active
-];
 ```
 
 3. **No hardcodear valores**:
@@ -2340,42 +2001,11 @@ filters: [
 ];
 ```
 
-### Debugging Filtros Permanentes
-
-```typescript
-// Agregar logs para verificar filtros permanentes
-console.log('Permanent filters applied:', params.filters);
-console.log('p_filters in config:', { is_active: 'false', company_id });
-
-// Verificar que los filtros se aplican correctamente
-const { data, error, count } = await query;
-console.log('Query result count:', count);
-console.log('Sample data:', data?.[0]);
-```
-
 ### Ejemplo Completo: Tabla de Documentos por Estado
 
 ```typescript
 // DocumentosPendientesTable.tsx
 async function DocumentosPendientesTable() {
-  const cookiesStore = cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  const user_role = cookiesStore.get('userRole')?.value;
-
-  // Filtros permanentes basados en contexto
-  let permanentFilters: PermanentFilter[] = [
-    { column: 'company_id', operator: 'eq', value: company_id },
-    { column: 'state', operator: 'eq', value: 'pendiente' }, // Solo pendientes
-  ];
-
-  // Filtros adicionales por rol
-  if (user_role === 'supervisor') {
-    permanentFilters.push({
-      column: 'department_id',
-      operator: 'eq',
-      value: user_department_id,
-    });
-  }
 
   const initialData = await fetchDocumentsData({
     pageIndex: 0,
@@ -2388,7 +2018,6 @@ async function DocumentosPendientesTable() {
   return (
     <DocumentsTableServer
       initialData={initialData}
-      permanentFilters={permanentFilters} // Pasar para referencia
       // ... otras props
     />
   );
@@ -2532,17 +2161,6 @@ Los filtros permanentes son una herramienta poderosa para implementar seguridad 
 `)
 ```
 
-#### Paginación Lenta
-
-```typescript
-// ❌ PROBLEMA - Sin índices
-query = query.range(1000, 1050); // Página 100
-
-// ✅ SOLUCIÓN - Agregar índices en BD
-CREATE INDEX idx_table_created_at ON table_name(created_at);
-CREATE INDEX idx_table_company_id ON table_name(company_id);
-```
-
 ### Problemas de Datos
 
 #### Relaciones Nulas
@@ -2552,7 +2170,7 @@ CREATE INDEX idx_table_company_id ON table_name(company_id);
 cell: ({ row }) => <span>{row.original.relation.field}</span>
 
 // ✅ SOLUCIÓN - Verificar existencia
-cell: ({ row }) => <span>{row.original.relation?.field || 'N/A'}</span>
+cell: ({ row }) => <span>{row.original.relation?.field || '-'}</span>
 ```
 
 #### Arrays Undefined
@@ -2570,7 +2188,7 @@ cell: ({ row }) => <span>{row.original.relation?.field || 'N/A'}</span>
 #### Filtros No Funcionan
 
 ```typescript
-// ❌ PROBLEMA - accessorKey no coincide
+// ❌ PROBLEMA - accessorKey no coincide con el id o la estructura de los datos
 accessorKey: 'customer_name'; // Pero el dato es customers.name
 
 // ✅ SOLUCIÓN - Coincidir con estructura
@@ -2579,100 +2197,15 @@ accessorKey: 'customers.name';
 
 #### p_filters Inconsistentes
 
-```typescript
-// ❌ PROBLEMA - Filtros diferentes
-filterableColumns: [
-  { config: { p_filters: { is_active: true } } },
-  { config: { p_filters: { company_id: '123' } } }, // Falta is_active
-];
-
 // ✅ SOLUCIÓN - Filtros consistentes
 const commonFilters = { is_active: true, company_id: '123' };
 filterableColumns: [{ config: { p_filters: commonFilters } }, { config: { p_filters: commonFilters } }];
-```
 
 ---
 
 ## Recursos Adicionales
 
 ### Herramientas de Desarrollo
-
-#### Debug de Queries Supabase
-
-```typescript
-// Agregar en server actions para debugging
-console.log('Query SQL:', query.toString());
-console.log('Params:', { pageIndex, pageSize, sorting, columnFilters });
-
-const { data, error, count } = await query;
-console.log('Result:', { count, dataLength: data?.length, error });
-```
-
-#### Validación de Tipos
-
-```typescript
-// Usar satisfies para validar tipos
-const columns: ColumnDef<DataType>[] = [
-  {
-    accessorKey: 'field_name',
-    // TypeScript validará que field_name existe en DataType
-  },
-] satisfies ColumnDef<DataType>[];
-```
-
-### Extensiones Útiles
-
-#### Generador de Columnas
-
-```typescript
-// Función helper para generar columnas básicas
-function createBasicColumn<T>(
-  key: keyof T,
-  title: string,
-  options?: {
-    filterable?: boolean;
-    sortable?: boolean;
-    exportable?: boolean;
-  }
-): ColumnDef<T> {
-  return {
-    accessorKey: key as string,
-    id: key as string,
-    header: ({ column }) => <DataTableColumnHeader column={column} title={title} />,
-    cell: ({ row }) => <span>{row.original[key] as string}</span>,
-    enableSorting: options?.sortable ?? true,
-    filterFn: options?.filterable ? (row, id, value) => {
-      return value.includes(row.getValue(id));
-    } : undefined,
-    exportFormatter: options?.exportable ? (value, row) => {
-      return String(row[key] || '');
-    } : undefined,
-  };
-}
-```
-
-#### Hook para Filtros Permanentes
-
-```typescript
-// Custom hook para manejar filtros permanentes
-function usePermanentFilters(context: { companyId?: string; userId?: string; role?: string }) {
-  return useMemo(() => {
-    const filters: PermanentFilter[] = [];
-
-    if (context.companyId) {
-      filters.push({ column: 'company_id', operator: 'eq', value: context.companyId });
-    }
-
-    if (context.role === 'supervisor' && context.userId) {
-      filters.push({ column: 'supervisor_id', operator: 'eq', value: context.userId });
-    }
-
-    return filters;
-  }, [context]);
-}
-```
-
----
 
 ## Conclusión Final
 
@@ -2753,17 +2286,8 @@ export async function fetchEmployeesData(options: FetchDataOptions) {
      contractor_employee(customers(id,name))`,
     {
       ...options,
-      // Ordenamiento por defecto
-      sorting: [...options.sorting, { id: 'lastname', desc: true }],
-      // Filtros permanentes para empleados activos
       is_active: true,
-      filters: options.filters?.concat([
-        {
-          column: 'is_active',
-          operator: 'eq',
-          value: true,
-        },
-      ]),
+      //filtros y ordenamiento se hacen con la prop de permanent_filters
     }
   );
 
@@ -2786,16 +2310,9 @@ export async function fetchInactiveEmployeesData(options: FetchDataOptions) {
      contractor_employee(customers(id,name))`,
     {
       ...options,
-      sorting: [...options.sorting, { id: 'lastname', desc: true }],
+
       // DIFERENCIA: Filtro permanente para inactivos
-      is_active: false,
-      filters: options.filters?.concat([
-        {
-          column: 'is_active',
-          operator: 'eq',
-          value: false,
-        },
-      ]),
+      //filtros y ordenamiento se hacen con la prop de permanent_filters
     }
   );
 
@@ -2826,14 +2343,7 @@ export async function fetchAllEmployeesData(options: {
       pageSize: 10000, // Tamaño grande para exportación
       sorting: options.sorting,
       columnFilters: options.columnFilters,
-      is_active: options.isActive ?? true,
-      filters: options.filters?.concat([
-        {
-          column: 'is_active',
-          operator: 'eq',
-          value: options.isActive ?? true,
-        },
-      ]),
+      //filtros y ordenamiento se hacen con la prop de permanent_filters
     }
   );
 
@@ -2863,13 +2373,7 @@ async function EmpleadosInactivosTable() {
     sorting: [],
     columnFilters: [],
     // 🔑 IMPORTANTE: Filtros permanentes aplicados desde el servidor
-    filters: [
-      {
-        column: 'company_id',
-        operator: 'eq',
-        value: company_id,
-      },
-    ],
+     //filtros y ordenamiento se hacen con la prop de permanent_filters
   });
 
   return (
@@ -2946,7 +2450,7 @@ export default function TablaEmployeesInactiveServer({
 
 ### Comparación: Antes vs Después
 
-#### ❌ Patrón Anterior (No recomendado)
+#### ❌ Patrón Anterior (No hacer)
 
 ```typescript
 // Mucho código manual para manejar:
@@ -2989,8 +2493,7 @@ export async function fetchData(params) {
 export async function fetchData(options) {
   const data = await queryWithPagination('table', 'select_string', {
     ...options,
-    is_active: true,
-    filters: options.filters?.concat([{ column: 'is_active', operator: 'eq', value: true }]),
+    //filtros y ordenamiento se hacen con la prop de permanent_filters
   });
 
   return data; // queryWithPagination maneja todo automáticamente
@@ -3035,13 +2538,6 @@ fetchData={async (options) => {
 
 // Después
 fetchData={fetchData} // Pasar directamente la función
-```
-
-#### Paso 3: Verificar Filtros Permanentes
-
-```typescript
-// Asegurar que todos los filtros usen p_filters consistentes
-p_filters: { is_active: 'false', company_id: company_id }
 ```
 
 ### Conclusión
@@ -3089,7 +2585,7 @@ Cuando se migra una tabla existente del cliente al servidor, es **CRÍTICO** man
 
 #### 📋 **Durante la Migración**
 
-- [ ] **Mantener accessorKeys**: Ajustar para llegar al dato correcto pero mantener el resultado
+- [ ] **Ajustar accessorKeys**: Ajustar para llegar al dato correcto pero mantener el resultado
 - [ ] **Preservar nombres**: Los títulos de columnas deben ser idénticos
 - [ ] **Recrear filtros**: Implementar cada filtro con el mismo comportamiento
 - [ ] **Mantener búsquedas**: Las búsquedas deben funcionar igual que antes
@@ -3139,6 +2635,7 @@ const columns = [
   {
     header: 'Nombre Completo',           // ✅ Mismo nombre
     accessorKey: 'employees.lastname',   // ✅ Ajustado para server data
+    id: 'employees.lastname', // ✅ Tiene que ser el mismo que el accesorKey
     cell: ({ row }) => (
       // ✅ Mismo resultado visual: "Apellido Nombre"
       <span>{row.original.employees?.lastname} {row.original.employees?.firstname}</span>
@@ -3147,6 +2644,7 @@ const columns = [
   {
     header: 'Email',                     // ✅ Mismo nombre
     accessorKey: 'employees.email',      // ✅ Ajustado para server data
+        id: 'employees.email', // ✅ Tiene que ser el mismo que el accesorKey
     cell: ({ row }) => (
       // ✅ Mismo resultado visual
       <span>{row.original.employees?.email}</span>
@@ -3155,6 +2653,7 @@ const columns = [
   {
     header: 'Estado',                    // ✅ Mismo nombre
     accessorKey: 'state',                // ✅ Ajustado para server data
+          id: 'state', // ✅ Tiene que ser el mismo que el accesorKey
     cell: ({ row }) => (
       // ✅ Mismo resultado visual con Badge
       <Badge variant={getVariant(row.original.state)}>
@@ -3210,31 +2709,6 @@ searchableColumns: [
 ];
 ```
 
-### Validación Post-Migración
-
-#### 🔍 **Checklist de Validación**
-
-```typescript
-// Verificar que cada columna muestra los mismos datos
-console.log(
-  'Columnas antes:',
-  oldColumns.map((c) => c.header)
-);
-console.log(
-  'Columnas después:',
-  newColumns.map((c) => c.header)
-);
-// ✅ Deben ser idénticas
-
-// Verificar que los filtros tienen las mismas opciones
-console.log('Filtros antes:', oldFilters);
-console.log('Filtros después:', newFilters);
-// ✅ Deben tener las mismas opciones
-
-// Verificar que las búsquedas encuentran los mismos registros
-// ✅ Buscar "Juan Pérez" debe encontrar los mismos empleados
-```
-
 ### Errores Comunes en Migración
 
 #### ❌ **Errores a Evitar**
@@ -3250,26 +2724,9 @@ console.log('Filtros después:', newFilters);
 
 1. **Mantener interfaz idéntica**: Usuario no debe notar el cambio
 2. **Mejorar solo performance**: Optimizar sin cambiar funcionalidad
-3. **Documentar cambios internos**: Para futuros desarrolladores
-4. **Probar exhaustivamente**: Comparar antes vs después
-5. **Rollback plan**: Tener plan de vuelta atrás si algo falla
+3. **Probar exhaustivamente**: Comparar antes vs después
 
 ### Comunicación con Stakeholders
-
-#### 📢 **Mensaje para Usuarios**
-
-```
-"Estamos optimizando la tabla de [nombre] para mejorar la velocidad de carga.
-La funcionalidad permanecerá exactamente igual, solo será más rápida."
-```
-
-#### 📋 **Reporte Post-Migración**
-
-- ✅ **Funcionalidad**: Idéntica a la versión anterior
-- ✅ **Performance**: X% más rápida en carga inicial
-- ✅ **Filtros**: Todos funcionando correctamente
-- ✅ **Búsquedas**: Mismo comportamiento
-- ✅ **Exportación**: Mismos datos exportados
 
 ### Conclusión de Migración
 
@@ -3383,26 +2840,18 @@ export async function fetchMonthlyDocumentsData(options: FetchMonthlyDocumentsOp
      )`,
     {
       ...options,
-      sorting: [...options.sorting, { id: 'created_at', desc: true }],
-      // 🔑 CRÍTICO: Filtros permanentes para documentos mensuales
-      filters: [
-        {
-          column: 'document_types.is_it_montlhy',
-          operator: 'eq',
-          value: true,
-        },
-        {
-          column: 'document_types.applies',
-          operator: 'eq',
-          value: 'Persona',
-        },
-        {
-          column: 'document_types.is_active',
-          operator: 'eq',
-          value: true,
-        },
-        ...(options.filters || []),
-      ],
+      permanent_filter: (query) => {
+        return (
+          query
+            // Filtros para documentos mensuales
+            .eq('document_types.is_it_montlhy', true)
+            .eq('document_types.applies', 'Persona')
+            .eq('document_types.is_active', true)
+            // Filtros para evitar nulls (igual que implementación original)
+            .not('employees', 'is', null)
+            .not('document_types', 'is', null)
+        );
+      },
     }
   );
 
@@ -3434,32 +2883,8 @@ import moment from 'moment';
 import Link from 'next/link';
 import SimpleDocument from '@/components/SimpleDocument';
 
-// 🔑 CRÍTICO: Tipo definido manualmente basado en la estructura de datos
-type MonthlyDocumentData = {
-  id: string;
-  created_at: string;
-  state: string;
-  validity: string | null;
-  period: string | null;
-  document_types: {
-    name: string;
-    mandatory: boolean;
-    multiresource: boolean;
-    explired: boolean;
-    applies: string;
-  } | null;
-  employees: {
-    id: string;
-    lastname: string;
-    firstname: string;
-    document_number: string;
-    contractor_employee: Array<{
-      customers: { name: string; } | null;
-    }>;
-  } | null;
-  documents_employees_logs: Array<{ updated_at: string; }>;
-};
-
+// 🔑 CRÍTICO: Tipo definido segun el return de la funcion
+type MonthlyDocumentData =  Awaited<ReturnType<typeof fetchMonthlhdataData>>['row'];
 export const columnsMonthlyDocumentServer: ColumnDef<MonthlyDocumentData>[] = [
   // ✅ MANTENER: Mismas columnas que la implementación original
   {
@@ -3832,3 +3257,209 @@ La migración de `MonthlyDocuments` demuestra cómo una tabla server-side básic
 - **Lógica de negocio**: Vencimiento condicional, estados con colores, acciones dinámicas
 
 Este caso de estudio sirve como **plantilla exacta** para migrar otras tablas similares en el proyecto, especialmente aquellas que manejan documentos con relaciones complejas.
+
+---
+
+### Ejemplo 2: Dashboard con Filtros Dinámicos y Fechas (Documentos Próximos a Vencer)
+
+Este ejemplo muestra un patrón avanzado para tablas del dashboard con:
+
+- Filtros permanentes basados en fechas (documentos que vencen en el próximo mes)
+- Filtros dinámicos basados en cookies (company_id)
+- Uso de `permanent_filter` para lógica compleja con OR
+- Manejo de relaciones con `!inner` para joins requeridos
+
+#### Server Actions con Filtros de Fecha
+
+```typescript
+// src/app/dashboard/componentDashboard/actions/server-actions.ts
+'use server';
+
+import { queryWithPagination, type Filter } from '@/app/server/GET/probando';
+import type { SortingState, ColumnFiltersState } from '@tanstack/react-table';
+import moment from 'moment';
+
+// 🔑 IMPORTANTE: Función de exportación (sin paginación)
+export async function fetchAllExpiringEmployeeDocuments(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'documents_employees'>[];
+}) {
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id) {
+    return [];
+  }
+
+  const today = moment().startOf('day');
+  const nextMonth = moment().add(1, 'month').endOf('day');
+
+  const data = await queryWithPagination(
+    'documents_employees',
+    `*,
+     id_document_types(*),
+     applies!inner(*,contractor_employee(customers(*)))`,
+    {
+      pageIndex: 0,
+      pageSize: 10000, // 🔑 Tamaño grande para exportación
+      server: true,
+      columnFilters: options.columnFilters,
+
+      permanent_filter: (query) => {
+        return query
+          .not('validity', 'is', null)
+          .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`);
+      },
+    }
+  );
+
+  return data.rows; // 🔑 Solo devolver filas para exportación
+}
+
+// 🔑 PATRÓN: Documentos de vehículos próximos a vencer
+export async function fetchExpiringVehicleDocuments(options: FetchVehicleDataOptions) {
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id) {
+    return { rows: [], pageCount: 0, rowCount: 0 };
+  }
+
+  const today = moment().startOf('day');
+  const nextMonth = moment().add(1, 'month').endOf('day');
+
+  const data = await queryWithPagination(
+    'documents_equipment',
+    // 🔑 Relaciones para vehículos: tipo, marca, modelo
+    `*,
+     id_document_types(*),
+     applies!inner(*,type(*),brand_vehicles(*),model_vehicles(*))`,
+    {
+      ...options,
+      server: true,
+      permanent_filter: (query) => {
+        return (
+          query
+            // 🔑 IMPORTANTE: Validar que existan las relaciones necesarias
+            .not('id_document_types', 'is', null)
+            .not('applies', 'is', null)
+            .not('validity', 'is', null)
+            .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`)
+        );
+      },
+    }
+  );
+
+  return data;
+}
+
+// 🔑 Función de exportación para vehículos
+export async function fetchAllExpiringVehicleDocuments(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+  filters?: Filter<'documents_equipment'>[];
+}) {
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id) {
+    return [];
+  }
+
+  const today = moment().startOf('day');
+  const nextMonth = moment().add(1, 'month').endOf('day');
+
+  const data = await queryWithPagination(
+    'documents_equipment',
+    `*,
+     id_document_types(*),
+     applies!inner(*,type(*),brand_vehicles(*),model_vehicles(*))`,
+    {
+      pageIndex: 0,
+      pageSize: 10000,
+      server: true,
+      permanent_filter: (query) => {
+        return query
+          .not('id_document_types', 'is', null)
+          .not('applies', 'is', null)
+          .not('validity', 'is', null)
+          .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`);
+      },
+    }
+  );
+
+  return data.rows;
+}
+```
+
+#### Puntos Clave de este Patrón
+
+**1. Uso de `permanent_filter` para Lógica filtros**
+
+```typescript
+permanent_filter: (query) => {
+  return (
+    query
+      .not('validity', 'is', null)
+      // OR: documentos vencidos O próximos a vencer
+      .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`)
+  );
+};
+```
+
+**¿Cuándo usar `permanent_filter`?**
+-Siempre que se necesiten pedir datos filtrados (99.9% de las veces)
+
+**4. Manejo de Fechas con Moment.js**
+
+```typescript
+// 🔑 IMPORTANTE: Usar startOf/endOf para rangos precisos
+const today = moment().startOf('day');        // 00:00:00 de hoy
+const nextMonth = moment().add(1, 'month').endOf('day'); // 23:59:59 del próximo mes
+
+// Convertir a ISO para Supabase
+.or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`);
+```
+
+---
+
+## Patrones Avanzados
+
+### Uso de `permanent_filter` vs `filters`
+
+**Usar `filters` cuando:**
+
+- La condición es simple (eq, neq, gt, lt)
+- El filtro puede ser dinámico (viene de columnFilters)
+- Necesitas que el filtro sea visible/modificable por el usuario
+
+**Usar `permanent_filter` cuando:**
+
+- Necesitas lógica OR compleja
+- Necesitas validaciones de campos no nulos
+- El filtro es parte de la lógica de negocio (no modificable por usuario)
+- Necesitas encadenar múltiples condiciones con `.and()` o `.or()`
+
+```typescript
+// X INCORRECTO - Filtro simple con filters
+filters: [
+  {
+    column: 'is_active',
+    operator: 'eq',
+    value: true,
+  },
+]
+
+// ✅ CORRECTO - Lógica de filtros con permanent_filter
+permanent_filter: (query) => {
+  return query
+    .not('validity', 'is', null)
+    .or('validity.lte.2025-01-01,validity.gte.2025-12-31');
+}
+
+
+---
+
+**Última actualización:** 2025-11-13
+```

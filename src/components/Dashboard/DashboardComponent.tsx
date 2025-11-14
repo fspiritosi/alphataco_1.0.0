@@ -1,6 +1,6 @@
 import CardsGrid from '@/app/dashboard/componentDashboard/CardsGrid';
-import DocumentsTable from '@/app/dashboard/componentDashboard/DocumentsTable';
-import EmployeesTable from '@/app/dashboard/componentDashboard/EmployeesTable';
+import DocumentsTableServerWrapper from '@/app/dashboard/componentDashboard/DocumentsTableServerWrapper';
+import EmployeesTableServerWrapper from '@/app/dashboard/componentDashboard/EmployeesTableServerWrapper';
 import { ResoursesChart } from '@/components/Graficos/ResousrsesChart';
 import { ServicesChart } from '@/components/Graficos/ServicesChart';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
@@ -80,10 +80,10 @@ export default async function DashboardComponent() {
                         </TabsList>
                       </CardContent>
                       <TabsContent value="Empleados">
-                        <EmployeesTable />
+                        <EmployeesTableServerWrapper />
                       </TabsContent>
                       <TabsContent value="Vehiculos">
-                        <DocumentsTable />
+                        <DocumentsTableServerWrapper />
                       </TabsContent>
                     </Tabs>
                   </div>

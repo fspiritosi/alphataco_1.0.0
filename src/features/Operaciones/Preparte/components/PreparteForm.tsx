@@ -81,7 +81,7 @@ const formSchema = z
     quantity: z.number().optional(),
     numero_pedido: z.string().optional(),
     observaciones: z.string().optional(),
-    sector_service_id: z.string({ required_error: 'Sector del cliente es obligatorio' }).uuid('Sector inválido'),
+    sector_service_id: z.string().uuid('Sector inválido').optional().or(z.literal('')),
     areas_service_id: z.string({ required_error: 'Área del cliente es obligatoria' }).uuid('Área inválida'),
     equipos_cliente: z.array(z.string().uuid()).optional().default([]),
     image_url: z.string().optional(),

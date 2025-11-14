@@ -411,7 +411,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           savedVisibility={{}}
           tableId="enhanced-comercial-report-table"
           className="w-full"
-          row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
+          // row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
           toolbarOptions={{
             filterableColumns: filterableColumns as any,
             searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
