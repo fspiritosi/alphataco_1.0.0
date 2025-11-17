@@ -495,21 +495,9 @@ export function DailyReportForm({
 
   // 🔥 SETEAR VALORES DEL FORMULARIO CUANDO SE ABRE EL MODAL (una sola vez)
   useEffect(() => {
-    console.log('🔥 [FormValues] useEffect triggered', {
-      hasSelectedRow: !!selectedRow,
-      hasSelectedCustomer: !!selectedCustomer,
-      hasSelectedServiceId: !!selectedServiceId,
-      selectedRow: selectedRow?.id,
-      selectedCustomer: selectedCustomer?.name,
-      selectedServiceId,
-    });
-
     if (!selectedRow || !selectedCustomer) {
-      console.log('⚠️ [FormValues] Early return - missing data');
       return;
     }
-
-    console.log('✅ [FormValues] Setting form values...');
 
     // Setear valores del formulario directamente
     form.setValue('customer', selectedCustomer.id);
@@ -571,8 +559,6 @@ export function DailyReportForm({
       const equipmentIds = selectedRow.equipment_references.map((eq) => eq.id || '');
       form.setValue('equipment', equipmentIds);
     }
-
-    console.log('✅ [FormValues] Form values set successfully');
   }, [selectedRow, selectedCustomer, selectedServiceId]); // Depende de todos los datos necesarios
 
   // Filtrar servicios activos del cliente seleccionado
@@ -1941,8 +1927,6 @@ export function DailyReportForm({
                   control={form.control}
                   name="working_day"
                   render={({ field }) => {
-                    console.log(field.value);
-
                     return (
                       <FormItem className="flex flex-col">
                         <FormLabel>Jornada</FormLabel>

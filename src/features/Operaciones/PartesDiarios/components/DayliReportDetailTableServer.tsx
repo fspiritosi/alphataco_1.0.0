@@ -86,30 +86,14 @@ export default function DayliReportDetailTableServer({
   // Función para manejar la edición de una fila
   const handleEditRow = useCallback(
     (row: DailyReportServerData) => {
-      console.log('🖱️ [Table] handleEditRow clicked', {
-        rowId: row.id,
-        hasCustomers: !!customers,
-        customersLength: customers?.length,
-      });
-
       // Formatear la fila directamente usando la función utilitaria
       const transformedRow = formatDailyReportRow(row, reportDate);
 
       // Buscar el cliente completo para los filtros
       const customer = customers?.find((c) => c.id === transformedRow.data_to_clone?.customer_id);
 
-      console.log('📦 [Table] Data prepared', {
-        transformedRowId: transformedRow.id,
-        customerId: transformedRow.data_to_clone?.customer_id,
-        customerFound: !!customer,
-        customerName: customer?.name,
-        serviceId: transformedRow.data_to_clone?.service_id,
-      });
-
       // Abrir modal con el store (esto procesa todo de una vez)
       useDailyReportFormStore.getState().openModalWithRow(transformedRow, customer || null);
-
-      console.log('✅ [Table] Store updated, opening modal...');
 
       // Abrir el modal físicamente
       document.getElementById('open-button-daily-report')?.click();

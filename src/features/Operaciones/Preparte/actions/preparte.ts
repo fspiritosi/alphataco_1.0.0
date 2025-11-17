@@ -151,7 +151,6 @@ export async function createPreparte(
       preparteImage: (item as any).preparteImage || null,
     }));
 
-    console.log(validatedData, 'validatedData');
     const { data, error } = await supabase
       .from('preparte' as any)
       .insert(validatedData)

@@ -58,14 +58,6 @@ export const useDailyReportFormStore = create<DailyReportFormStore>((set) => ({
 
   // Actions
   openModalWithRow: (row, customer) => {
-    console.log('🏪 [Store] openModalWithRow called', {
-      rowId: row.id,
-      customerId: row.data_to_clone?.customer_id,
-      serviceId: row.data_to_clone?.service_id,
-      hasCustomer: !!customer,
-      customerName: customer?.name,
-    });
-
     set({
       isModalOpen: true,
       selectedRow: row,
@@ -73,8 +65,6 @@ export const useDailyReportFormStore = create<DailyReportFormStore>((set) => ({
       selectedServiceId: row.data_to_clone?.service_id || null,
       selectedCustomer: customer,
     });
-
-    console.log('✅ [Store] State updated successfully');
   },
 
   closeModal: () => {
