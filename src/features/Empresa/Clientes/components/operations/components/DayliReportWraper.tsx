@@ -86,6 +86,7 @@ export const transformDailyReports = (reports: any[]) => {
         }) || [],
       services: row.customer_services?.service_name,
       item: row.service_items?.item_name,
+      item_description: row.service_items?.item_description || '',
       start_time: row.start_time,
       end_time: row.end_time,
       status: row.status,

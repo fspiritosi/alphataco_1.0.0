@@ -8,6 +8,7 @@ import DocumentViewerModal from '@/features/Operaciones/PartesDiarios/components
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
 import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/components/ServiceDetailModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
+import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Edit } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
@@ -31,6 +32,7 @@ interface TableRow {
   customer: string;
   type_service: string;
   item: string;
+  item_description?: string;
   description: string;
   status: string;
   start_time: string | null;
@@ -126,7 +128,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'services',
         accessorKey: 'services',
-        header: 'Servicio',
+        header: ({ column }) => <DataTableColumnHeader className="min-w-[130px]" column={column} title="Servicio" />,
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const services = row.original.services;
@@ -136,11 +138,27 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'item',
         accessorKey: 'item',
-        header: 'Ítem',
+        header: ({ column }) => <DataTableColumnHeader className="min-w-[130px]" column={column} title="Ítem" />,
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const item = row.original.item;
           return value.includes(item);
+        },
+      },
+      {
+        id: 'item_description',
+        accessorKey: 'item_description',
+        header: ({ column }) => (
+          <DataTableColumnHeader className="min-w-[130px]" column={column} title="Descripción Ítem" />
+        ),
+        exportHeader: 'Descripción Ítem',
+        size: 150,
+        cell: ({ row }) => {
+          return (
+            <div className="max-w-[150px] whitespace-pre-wrap break-words">
+              <span className="text-sm text-muted-foreground">{row.original.item_description || '-'}</span>
+            </div>
+          );
         },
       },
       {
@@ -253,7 +271,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'employees',
         accessorKey: 'employees',
-        header: 'Empleados',
+        header: ({ column }) => <DataTableColumnHeader className="min-w-[200px]" column={column} title="Empleados" />,
         exportHeader: 'Empleados',
         cell: ({ row }) => {
           const employees = row.original.employees || [];
@@ -301,12 +319,18 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'working_day',
         accessorKey: 'working_day',
-        header: 'Jornada',
+        header: ({ column }) => <DataTableColumnHeader className="min-w-[100px]" column={column} title="Jornada" />,
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const workingDay = row.original.working_day;
           return value.includes(workingDay);
         },
+      },
+      {
+        id: 'description',
+        accessorKey: 'description',
+        header: ({ column }) => <DataTableColumnHeader className="min-w-[300px]" column={column} title="Descripcion" />,
+        exportHeader: 'Descripción',
       },
       // {
       //   id: 'document_path',
@@ -361,7 +385,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <ServiceDetailModal reportDate={dailyReports[0].date} serviceData={row.original as any} />
+                      <ServiceDetailModal reportDate={row.original.date} serviceData={row.original as any} />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Ver detalles</p>
