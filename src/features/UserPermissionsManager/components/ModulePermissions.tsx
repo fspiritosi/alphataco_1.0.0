@@ -68,7 +68,6 @@ const MODULE_ICONS: Record<string, any> = {
 };
 
 export function ModulePermissions({ userId, permissions }: ModulePermissionsProps) {
-  console.log('🆔 USER ID recibido en ModulePermissions:', userId);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -78,7 +77,6 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
   });
 
   const permissionMap = useMemo(() => {
-    console.log('📊 PERMISOS RECIBIDOS (total:', permissions?.length || 0, '):', permissions);
     const map = new Map<
       string,
       { source: string; isGranted: boolean; roleId?: number; roleName?: string; roleColor?: string }
@@ -95,10 +93,8 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
         });
       });
     }
-    console.log('📦 Mapa construido con', map.size, 'permisos');
     return map;
   }, [permissions]);
-  console.log(permissionMap);
   const setPermissionMutation = useMutation({
     mutationFn: ({ tabId, actionId, isGranted }: { tabId: string; actionId: string; isGranted: boolean }) =>
       setUserPermission(userId, tabId, actionId, isGranted),
@@ -304,8 +300,6 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
           const source = permission?.source;
           const roleColor = permission?.roleColor;
           const roleName = permission?.roleName;
-
-          console.log(roleName);
 
           return (
             <div

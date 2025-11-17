@@ -75,11 +75,6 @@ export default function SimpleDocument({
       ) as string) || (vehicles?.find((vehicle: any) => vehicle.id === numberDocument) as string);
 
     setIdAppliesUser(appliesUser);
-    console.log(appliesUser);
-    console.log(numberDocument);
-    console.log(employees);
-    console.log(documentResource);
-    console.log(employees?.find((emp) => emp.document === document));
   }, [numberDocument, employees, documentResource, vehicles]);
 
   const form = useForm({

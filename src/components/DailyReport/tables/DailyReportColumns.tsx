@@ -55,6 +55,17 @@ export const dailyColumns = (
     },
   },
   {
+    accessorKey: 'item_description',
+    id: 'Descripción Item',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Descripción Item" />,
+    cell: ({ row }) => {
+      return <div className="flex  items-center">{row.getValue('Descripción Item') || '-'}</div>;
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
     accessorKey: 'employees',
     id: 'Empleados',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,

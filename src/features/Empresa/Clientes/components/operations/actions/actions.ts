@@ -141,11 +141,11 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
         service_sectors(*, sectors(*)),
         service_areas(*, areas_cliente(*)),
         customer_services(id, service_name, customer_id),
-        service_items(id, item_name),
+        service_items(id, item_name, item_description),
         remit_number,
         customers(id, name),
-        dailyreportemployeerelations(employees(id, firstname, lastname)),
-        dailyreportequipmentrelations(vehicles(id, intern_number, domain)),
+        dailyreportemployeerelations(employees(id, firstname, lastname, document_number, email, phone, company_positions(name))),
+        dailyreportequipmentrelations(vehicles(id, intern_number, domain, year, type(name), brand_vehicles(name), model_vehicles(name), sub_type(name))),
         dailyreport!inner(date)
       `
       )
