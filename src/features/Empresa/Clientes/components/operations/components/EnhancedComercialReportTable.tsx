@@ -10,7 +10,7 @@ import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/compone
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Edit } from 'lucide-react';
+import { Edit } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import {
   formatCustomerEquipmentForExport,
@@ -51,6 +51,7 @@ interface TableRow {
   sector?: string;
   remit_number?: string;
   document_path?: string;
+  created_at?: string; // Para detectar filas creadas post-cierre
 }
 
 interface EnhancedComercialReportTableProps {
@@ -89,14 +90,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         id: 'date',
         accessorKey: 'date',
         exportHeader: 'Fecha',
-        header: ({ column }) => {
-          return (
-            <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-              Fecha
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[100px]" column={column} table={table} title="Fecha" />
+        ),
         cell: ({ row }) => {
           return <span className="font-medium">{row.original.date}</span>;
         },
@@ -118,7 +114,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'customer',
         accessorKey: 'customer',
-        header: 'Cliente',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Cliente" />,
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const customer = row.original.customer;
@@ -128,7 +124,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'services',
         accessorKey: 'services',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[130px]" column={column} title="Servicio" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[130px]" column={column} table={table} title="Servicio" />
+        ),
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const services = row.original.services;
@@ -138,7 +136,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'item',
         accessorKey: 'item',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[130px]" column={column} title="Ítem" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[130px]" column={column} table={table} title="Ítem" />
+        ),
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const item = row.original.item;
@@ -148,8 +148,8 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'item_description',
         accessorKey: 'item_description',
-        header: ({ column }) => (
-          <DataTableColumnHeader className="min-w-[130px]" column={column} title="Descripción Ítem" />
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[130px]" column={column} table={table} title="Descripción Ítem" />
         ),
         exportHeader: 'Descripción Ítem',
         size: 150,
@@ -164,7 +164,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'customer_equipment',
         accessorKey: 'customer_equipment',
-        header: 'Equipo Cliente',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo Cliente" />,
         exportHeader: 'Equipo Cliente',
         // Se ha modificado el cell para mostrar la propiedad 'name' del objeto
         cell: ({ row }) => {
@@ -189,7 +189,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'area',
         accessorKey: 'area',
-        header: 'Área',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Área" />,
         cell: ({ row }) => {
           return row.original.area;
         },
@@ -202,7 +202,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'sector',
         accessorKey: 'sector',
-        header: 'Sector',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Sector" />,
         cell: ({ row }) => {
           return row.original.sector;
         },
@@ -215,7 +215,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'type_service',
         accessorKey: 'type_service',
-        header: 'Tipo de Servicio',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Tipo de Servicio" />,
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const type = row.original.type_service;
@@ -225,7 +225,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'remit_number',
         accessorKey: 'remit_number',
-        header: 'N° de Remito',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="N° de Remito" />,
         filterFn: (row, id, value) => {
           if (!value) return true;
           const remit = row.original.remit_number || '';
@@ -235,7 +235,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'status',
         accessorKey: 'status',
-        header: 'Estado',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Estado" />,
         cell: ({ row }) => {
           const status = row.original.status as StatusKey;
           const statusText =
@@ -271,7 +271,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'employees',
         accessorKey: 'employees',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[200px]" column={column} title="Empleados" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[200px]" column={column} table={table} title="Empleados" />
+        ),
         exportHeader: 'Empleados',
         cell: ({ row }) => {
           const employees = row.original.employees || [];
@@ -295,7 +297,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'equipment',
         accessorKey: 'equipment',
-        header: 'Equipo Empresa',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo Empresa" />,
         exportHeader: 'Equipo Empresa',
         cell: ({ row }) => {
           const equipment = row.original.equipment || [];
@@ -319,7 +321,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'working_day',
         accessorKey: 'working_day',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[100px]" column={column} title="Jornada" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[100px]" column={column} table={table} title="Jornada" />
+        ),
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const workingDay = row.original.working_day;
@@ -329,7 +333,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'description',
         accessorKey: 'description',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[300px]" column={column} title="Descripcion" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[300px]" column={column} table={table} title="Descripción" />
+        ),
         exportHeader: 'Descripción',
       },
       // {
@@ -426,6 +432,22 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
     }
   }, []);
 
+  // Función para determinar si una fila fue creada post-cierre
+  const isCreatedPostClose = useCallback((row: TableRow) => {
+    if (!row.created_at || !row.date) return false;
+
+    // Parsear la fecha del parte (formato DD-MM-YYYY)
+    const [day, month, year] = row.date.split('-').map(Number);
+    const reportDate = new Date(year, month - 1, day);
+    reportDate.setHours(23, 59, 59, 999); // Fin del día
+
+    // Parsear created_at
+    const createdAt = new Date(row.created_at);
+
+    // Si created_at es posterior a la fecha del parte, fue creado post-cierre
+    return createdAt > reportDate;
+  }, []);
+
   return (
     <div className="space-y-4">
       {dailyReports && dailyReports.length > 0 ? (
@@ -435,7 +457,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           savedVisibility={{}}
           tableId="enhanced-comercial-report-table"
           className="w-full"
-          // row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
+          row_classname={(row) => (isCreatedPostClose(row) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '')}
           toolbarOptions={{
             filterableColumns: filterableColumns as any,
             searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],

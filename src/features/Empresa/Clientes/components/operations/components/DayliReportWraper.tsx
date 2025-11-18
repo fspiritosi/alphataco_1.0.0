@@ -7,21 +7,19 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
-  getFilterOptions,
   getFilteredDailyReportRows,
   getServicesByCustomer,
   type Service,
 } from '@/features/Empresa/Clientes/components/operations/actions/actions';
-import {
-  getActiveEmployeesForDailyReport,
-  getActiveEquipmentsForDailyReport,
-  getCustomers,
-  getDailyReportById,
-} from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { getCustomers } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { DataTableDatePicker } from '@/shared/components/data-table/filters/data-table-date-picker';
+import { useDailyReportFormStore } from '@/stores/useDailyReportFormStore';
+import { useQuery } from '@tanstack/react-query';
 import { Filter, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DailyReportForm } from './DailyReportRowForm';
+import moment from 'moment';
+import { useCallback, useMemo, useState } from 'react';
+import { useFilterOptions } from '../hooks/useFilterOptions';
+import { DailyReportRowFormRefactored } from './DailyReportRowFormRefactored';
 import EnhancedComercialReportTable from './EnhancedComercialReportTable';
 
 interface ReportFilters {
@@ -67,6 +65,7 @@ export const transformDailyReports = (reports: any[]) => {
     ?.map((row) => ({
       id: row.id,
       date: row.date,
+      created_at: row.created_at, // Agregar created_at para detectar filas post-cierre
       type_service: row.type_service,
       customer: row.customers?.name,
       cancel_reason: row.cancel_reason,
@@ -125,9 +124,11 @@ export const transformDailyReports = (reports: any[]) => {
       },
     }))
     .sort((a, b) => {
-      const customerCompare = (a.customer || '').localeCompare(b.customer || '');
-      if (customerCompare !== 0) return customerCompare;
-      return (a.item || '').localeCompare(b.item || '');
+      // Ordenar por fecha descendente (más recientes primero)
+      // Formato de fecha: DD-MM-YYYY
+      const dateA = moment(a.date, 'DD-MM-YYYY');
+      const dateB = moment(b.date, 'DD-MM-YYYY');
+      return dateB.valueOf() - dateA.valueOf();
     });
 };
 
@@ -146,105 +147,82 @@ export default function DailyReportWrapper() {
     dateTo: null,
   });
 
-  const [rawTableData, setRawTableData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    customers: [],
-    services: [],
-    employees: [],
-    equipment: [],
-    items: [],
-    customerEquipments: [],
-    areas: [],
-    sectors: [],
+  const [searchFilters, setSearchFilters] = useState<any>(null);
+
+  // Usar el hook de filtros con useQuery
+  const filterOptions = useFilterOptions();
+
+  // useQuery para obtener los datos de la tabla
+  const {
+    data: rawTableData = [],
+    isLoading: loading,
+    refetch: refetchTableData,
+  } = useQuery({
+    queryKey: ['filtered-daily-report-rows', searchFilters],
+    queryFn: async () => {
+      console.log('feting');
+      if (!searchFilters) return [];
+      const data = await getFilteredDailyReportRows(searchFilters);
+      return data || [];
+    },
+    enabled: !!searchFilters, // Solo ejecutar si hay filtros
+    staleTime: 0, // Sin caché
+    gcTime: 0, // Sin caché en memoria
   });
 
-  const [selectedRow, setSelectedRow] = useState<any | null>(null);
-  const [openForm, setOpenForm] = useState(false);
-  const [customers, setCustomers] = useState<Awaited<ReturnType<typeof getCustomers>>>([]);
-  const [employeesPromise, setEmployeesPromise] = useState<ReturnType<typeof getActiveEmployeesForDailyReport> | null>(
-    null
+  // Usar el store para manejar el formulario
+  const { openForCreate, openForEdit } = useDailyReportFormStore();
+
+  const handleEditRow = useCallback(
+    (row: any) => {
+      openForEdit(row);
+    },
+    [openForEdit]
   );
-  const [equipmentsPromise, setEquipmentsPromise] = useState<ReturnType<
-    typeof getActiveEquipmentsForDailyReport
-  > | null>(null);
-  const [dailyReport, setDailyReport] = useState<Awaited<ReturnType<typeof getDailyReportById>> | null>(null);
 
-  const handleEditRow = useCallback(async (row: any) => {
-    setSelectedRow(row);
-    setOpenForm(true);
+  const handleCreateRow = useCallback(() => {
+    openForCreate();
+  }, [openForCreate]);
 
-    try {
-      const allCustomers = await getCustomers();
-      setCustomers(allCustomers);
-
-      const employeesData = getActiveEmployeesForDailyReport();
-      setEmployeesPromise(employeesData);
-
-      const equipmentsData = getActiveEquipmentsForDailyReport();
-      setEquipmentsPromise(equipmentsData);
-    } catch (error) {
-      console.error('Error fetching data for form:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudieron cargar los datos del formulario.',
-      });
-    }
-  }, []);
-
-  const handleSearch = useCallback(async () => {
+  const handleSearch = useCallback(() => {
     if (loading) return;
 
-    setLoading(true);
     setHasSearched(true);
 
-    try {
-      const cleanFilters: any = {};
+    const cleanFilters: any = {};
 
-      // Ahora pasamos los arrays directamente al servidor
-      if (filters.customer?.length) cleanFilters.customer = filters.customer;
-      if (filters.service?.length) cleanFilters.service = filters.service;
-      if (filters.status?.length) cleanFilters.status = filters.status;
-      if (filters.employee?.length) cleanFilters.employee = filters.employee;
-      if (filters.equipment?.length) cleanFilters.equipment = filters.equipment;
-      if (filters.item?.length) cleanFilters.item = filters.item;
-      if (filters.customerEquipment?.length) cleanFilters.customerEquipment = filters.customerEquipment;
-      if (filters.areas?.length) cleanFilters.areas = filters.areas;
-      if (filters.sectors?.length) cleanFilters.sectors = filters.sectors;
+    // Ahora pasamos los arrays directamente al servidor
+    if (filters.customer?.length) cleanFilters.customer = filters.customer;
+    if (filters.service?.length) cleanFilters.service = filters.service;
+    if (filters.status?.length) cleanFilters.status = filters.status;
+    if (filters.employee?.length) cleanFilters.employee = filters.employee;
+    if (filters.equipment?.length) cleanFilters.equipment = filters.equipment;
+    if (filters.item?.length) cleanFilters.item = filters.item;
+    if (filters.customerEquipment?.length) cleanFilters.customerEquipment = filters.customerEquipment;
+    if (filters.areas?.length) cleanFilters.areas = filters.areas;
+    if (filters.sectors?.length) cleanFilters.sectors = filters.sectors;
 
-      if (filters.dateFrom instanceof Date) {
-        const y = filters.dateFrom.getFullYear();
-        const m = String(filters.dateFrom.getMonth() + 1).padStart(2, '0');
-        const d = String(filters.dateFrom.getDate()).padStart(2, '0');
-        cleanFilters.dateFrom = `${y}-${m}-${d}`;
-      }
-      if (filters.dateTo instanceof Date) {
-        const y = filters.dateTo.getFullYear();
-        const m = String(filters.dateTo.getMonth() + 1).padStart(2, '0');
-        const d = String(filters.dateTo.getDate()).padStart(2, '0');
-        cleanFilters.dateTo = `${y}-${m}-${d}`;
-      }
-
-      const filteredData = await getFilteredDailyReportRows(cleanFilters);
-      setRawTableData(filteredData || []);
-    } catch (error) {
-      console.error('Error searching reports:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudieron cargar los reportes',
-      });
-      setRawTableData([]);
-    } finally {
-      setLoading(false);
+    if (filters.dateFrom instanceof Date) {
+      const y = filters.dateFrom.getFullYear();
+      const m = String(filters.dateFrom.getMonth() + 1).padStart(2, '0');
+      const d = String(filters.dateFrom.getDate()).padStart(2, '0');
+      cleanFilters.dateFrom = `${y}-${m}-${d}`;
     }
+    if (filters.dateTo instanceof Date) {
+      const y = filters.dateTo.getFullYear();
+      const m = String(filters.dateTo.getMonth() + 1).padStart(2, '0');
+      const d = String(filters.dateTo.getDate()).padStart(2, '0');
+      cleanFilters.dateTo = `${y}-${m}-${d}`;
+    }
+
+    // Actualizar los filtros de búsqueda para que useQuery haga el fetch
+    setSearchFilters(cleanFilters);
   }, [filters, loading]);
 
   const refetchDailyReport = useCallback(async () => {
-    await handleSearch();
-  }, [handleSearch]);
+    await refetchTableData();
+  }, [refetchTableData]);
 
   const handleViewRow = useCallback((row: any) => {
     alert(`Viendo detalles de: ${row.customer} - ${row.services}`);
@@ -254,32 +232,7 @@ export default function DailyReportWrapper() {
     alert(`Viendo historial de: ${row.customer} - ${row.services}`);
   }, []);
 
-  useEffect(() => {
-    const loadFilterOptions = async () => {
-      try {
-        const options = await getFilterOptions();
-        setFilterOptions({
-          customers: options.customers,
-          services: options.services,
-          employees: options.employees,
-          equipment: options.equipment || [],
-          items: options.items || [],
-          customerEquipments: options.customerEquipments || [],
-          areas: options.areas || [],
-          sectors: options.sectors || [],
-        });
-      } catch (error) {
-        console.error('Error loading filter options:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'No se pudieron cargar las opciones de filtro',
-        });
-      }
-    };
-
-    loadFilterOptions();
-  }, []);
+  // Ya no necesitamos este useEffect, los datos se cargan automáticamente con useQuery
 
   const handleMultiSelectChange = useCallback((key: keyof ReportFilters, values: string[]) => {
     setFilters((prev) => ({ ...prev, [key]: values }));
@@ -342,15 +295,8 @@ export default function DailyReportWrapper() {
         const areaOptions = Array.from(areasMap.values());
         const sectorOptions = Array.from(sectorsMap.values());
 
-        setFilterOptions((prev) => ({
-          ...prev,
-          services: uniqueServices,
-          customerEquipments: uniqueEquipments,
-          areas: areaOptions,
-          sectors: sectorOptions,
-        }));
-
-        setCustomers(allCustomers);
+        // Los datos ya están en el hook, no necesitamos setFilterOptions
+        // El filtrado se hará en los useMemo de las opciones
       } catch (error) {
         console.error('Error loading customer data:', error);
         toast({
@@ -360,8 +306,14 @@ export default function DailyReportWrapper() {
         });
       }
     } else {
-      const options = await getFilterOptions();
-      setFilterOptions(options);
+      // Refetch de todas las opciones
+      filterOptions.refetch.customers();
+      filterOptions.refetch.services();
+      filterOptions.refetch.equipment();
+      filterOptions.refetch.items();
+      filterOptions.refetch.customerEquipments();
+      filterOptions.refetch.areas();
+      filterOptions.refetch.sectors();
     }
   }, []);
 
@@ -369,7 +321,7 @@ export default function DailyReportWrapper() {
     setFilters((prev) => ({ ...prev, service: values, item: [] }));
   }, []);
 
-  const handleClearFilters = useCallback(async () => {
+  const handleClearFilters = useCallback(() => {
     setFilters({
       customer: [],
       service: [],
@@ -383,17 +335,19 @@ export default function DailyReportWrapper() {
       dateFrom: null,
       dateTo: null,
     });
-    setRawTableData([]);
+    setSearchFilters(null);
     setHasSearched(false);
 
-    // Recargar las opciones de filtro iniciales
-    try {
-      const options = await getFilterOptions();
-      setFilterOptions(options);
-    } catch (error) {
-      console.error('Error reloading filter options:', error);
-    }
-  }, []);
+    // Refetch de todas las opciones con useQuery
+    filterOptions.refetch.customers();
+    filterOptions.refetch.services();
+    filterOptions.refetch.employees();
+    filterOptions.refetch.equipment();
+    filterOptions.refetch.items();
+    filterOptions.refetch.customerEquipments();
+    filterOptions.refetch.areas();
+    filterOptions.refetch.sectors();
+  }, [filterOptions]);
 
   const handleCustomerEquipmentChange = useCallback((values: string[]) => {
     setFilters((prev) => ({ ...prev, customerEquipment: values }));
@@ -413,7 +367,7 @@ export default function DailyReportWrapper() {
 
   const customerOptions = useMemo(
     () =>
-      filterOptions.customers.map((customer) => ({
+      filterOptions.customers.map((customer: any) => ({
         label: customer.name,
         value: customer.id,
         cuit: customer.cuit,
@@ -423,7 +377,7 @@ export default function DailyReportWrapper() {
 
   const serviceOptions = useMemo(
     () =>
-      filterOptions.services.map((service) => ({
+      filterOptions.services.map((service: any) => ({
         label: service.name,
         value: service.id,
       })),
@@ -444,7 +398,7 @@ export default function DailyReportWrapper() {
 
   const employeeOptions = useMemo(
     () =>
-      filterOptions.employees.map((employee) => ({
+      filterOptions.employees.map((employee: any) => ({
         label: employee.name,
         value: employee.id,
       })),
@@ -453,7 +407,7 @@ export default function DailyReportWrapper() {
 
   const equipmentOptions = useMemo(
     () =>
-      (filterOptions.equipment || []).map((eq) => ({
+      filterOptions.equipment.map((eq: any) => ({
         label: eq.name,
         value: eq.id,
       })),
@@ -462,7 +416,7 @@ export default function DailyReportWrapper() {
 
   const memoizedCustomerEquipmentOptions = useMemo(
     () =>
-      filterOptions.customerEquipments.map((eq) => ({
+      filterOptions.customerEquipments.map((eq: any) => ({
         label: eq.name,
         value: eq.id,
       })),
@@ -471,7 +425,7 @@ export default function DailyReportWrapper() {
 
   const memoizedAreaOptions = useMemo(
     () =>
-      filterOptions.areas.map((area) => ({
+      filterOptions.areas.map((area: any) => ({
         label: area.name,
         value: area.id,
       })),
@@ -480,7 +434,7 @@ export default function DailyReportWrapper() {
 
   const memoizedSectorOptions = useMemo(
     () =>
-      filterOptions.sectors.map((sector) => ({
+      filterOptions.sectors.map((sector: any) => ({
         label: sector.name,
         value: sector.id,
       })),
@@ -488,13 +442,14 @@ export default function DailyReportWrapper() {
   );
 
   const itemOptions = useMemo(() => {
-    const allItems = filterOptions.items || [];
+    const allItems = filterOptions.items;
     const selectedServices = filters.service || [];
     if (!selectedServices.length) return [] as { label: string; value: string }[];
-    const filtered = allItems.filter((it) => selectedServices.includes(it.customer_service_id));
-    return filtered.map((it) => ({ label: it.name, value: it.id }));
+    const filtered = allItems.filter((it: any) => selectedServices.includes(it.customer_service_id));
+    return filtered.map((it: any) => ({ label: it.name, value: it.id }));
   }, [filterOptions.items, filters.service]);
 
+  // Memoizar los datos transformados para evitar re-renders innecesarios
   const formattedData = useMemo(() => {
     return transformDailyReports(rawTableData);
   }, [rawTableData]);
@@ -774,43 +729,48 @@ export default function DailyReportWrapper() {
                   </div>
                 </div>
 
-                <div className="flex justify-end mt-4 space-x-2">
-                  <Button variant="outline" onClick={handleClearFilters} disabled={!hasActiveFilters}>
-                    <X className="mr-2 h-4 w-4" />
-                    Limpiar
+                <div className="flex justify-between mt-4">
+                  <Button variant="default" onClick={handleCreateRow}>
+                    Crear Línea
                   </Button>
-                  <Button onClick={handleSearch} disabled={loading}>
-                    {loading ? (
-                      <>
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Buscando...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="mr-2 h-4 w-4" />
-                        Buscar
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" onClick={handleClearFilters} disabled={!hasActiveFilters}>
+                      <X className="mr-2 h-4 w-4" />
+                      Limpiar
+                    </Button>
+                    <Button onClick={handleSearch} disabled={loading}>
+                      {loading ? (
+                        <>
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Buscando...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="mr-2 h-4 w-4" />
+                          Buscar
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -830,12 +790,13 @@ export default function DailyReportWrapper() {
           ) : hasSearched ? (
             rawTableData.length > 0 ? (
               <EnhancedComercialReportTable
-                dailyReports={transformDailyReports(rawTableData) as any}
+                dailyReports={formattedData as any}
                 onEdit={handleEditRow}
                 onView={handleViewRow}
                 onViewHistory={handleViewHistory}
                 showActions={true}
                 filterableColumns={filterableColumns as any}
+                refetchDailyReports={refetchDailyReport}
               />
             ) : (
               <div className="text-center py-12">
@@ -848,18 +809,8 @@ export default function DailyReportWrapper() {
             </div>
           )}
         </CardContent>
-        <DailyReportForm
-          open={openForm}
-          onOpenChange={setOpenForm}
-          selectedRow={selectedRow}
-          refetchDailyReport={refetchDailyReport}
-          customers={customers}
-          employeesPromise={employeesPromise as any}
-          equipmentsPromise={equipmentsPromise as any}
-          dailyReport={dailyReport as any}
-          setSelectedRow={setSelectedRow}
-          formattedData={transformDailyReports(rawTableData) as any}
-        />
+        {/* Componente sin props, se auto-gestiona con el store */}
+        <DailyReportRowFormRefactored />
       </Card>
     </div>
   );
