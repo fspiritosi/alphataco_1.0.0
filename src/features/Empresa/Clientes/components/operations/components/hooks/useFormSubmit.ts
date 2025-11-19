@@ -10,6 +10,7 @@ import {
   syncDailyReportEquipmentRelationsClient,
   updateDailyReportStatusAndRemitNumberClient,
 } from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
+import { createRemitoClient } from '@/features/Operaciones/PartesDiarios/remitManager/actions/actionsClient';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
@@ -73,7 +74,7 @@ export function useFormSubmit(
         dailyReportId = createdReports[0].id;
       }
 
-      // 3. Crear daily_report_row
+      // 3. Crear daily_report_row (SIN remit_number)
       // Determinar completed_day y completed_night según la jornada
       const is24Hours = data.working_day === 'jornada 24 horas';
 
@@ -86,7 +87,7 @@ export function useFormSubmit(
         start_time: data.start_time || null,
         end_time: data.end_time || null,
         status: 'en_certificacion',
-        remit_number: data.remit_number,
+        // ❌ NO guardar remit_number aquí
         description: data.observations || null, // Usar 'observations' que es el campo del formulario
         sector_service_id: data.sector_service_id || null,
         areas_service_id: data.areas_service_id || null,
@@ -101,6 +102,16 @@ export function useFormSubmit(
       }
 
       const newRowId = createdRows[0].id;
+
+      // 3.5. Crear remito en la tabla remitos (NUEVO)
+      if (data.remit_number) {
+        try {
+          await createRemitoClient(newRowId, data.remit_number);
+        } catch (error) {
+          console.error('Error al crear remito:', error);
+          toast.error('Error al crear el remito. La línea se creó pero sin remito.');
+        }
+      }
 
       // 4. Crear relaciones de empleados
       if (data.employees && data.employees.length > 0) {
@@ -169,7 +180,7 @@ export function useFormSubmit(
 
       const updateData = {
         status: finalStatus,
-        remit_number: isChangingToCertificacion ? data.remit_number : null,
+        // ❌ NO guardar remit_number aquí
         description: data.observations || null, // Usar 'observations' que es el campo del formulario
         start_time: data.start_time || null,
         end_time: data.end_time || null,
@@ -178,6 +189,21 @@ export function useFormSubmit(
         areas_service_id: data.areas_service_id || null,
       };
       await updateDailyReportStatusAndRemitNumberClient(selectedRow.id, updateData as any);
+
+      // Crear remito en la tabla remitos si se está cambiando a certificación (NUEVO)
+      if (isChangingToCertificacion && data.remit_number) {
+        try {
+          await createRemitoClient(selectedRow.id, data.remit_number);
+        } catch (error) {
+          console.error('Error al crear remito:', error);
+          // Si el remito ya existe, no es un error crítico
+          if (error instanceof Error && error.message.includes('Ya existe')) {
+            toast.warning('El remito ya existe para esta línea.');
+          } else {
+            toast.error('Error al crear el remito.');
+          }
+        }
+      }
 
       // Sincronizar relaciones de empleados
       if (data.employees !== undefined) {

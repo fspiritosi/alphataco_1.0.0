@@ -2640,6 +2640,76 @@ export type Database = {
         };
         Relationships: [];
       };
+      remito_documents: {
+        Row: {
+          created_at: string | null;
+          document_name: string;
+          document_path: string;
+          id: string;
+          remit_id: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          document_name: string;
+          document_path: string;
+          id?: string;
+          remit_id: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          document_name?: string;
+          document_path?: string;
+          id?: string;
+          remit_id?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'remito_documents_remit_id_fkey';
+            columns: ['remit_id'];
+            isOneToOne: false;
+            referencedRelation: 'remitos';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      remitos: {
+        Row: {
+          created_at: string | null;
+          daily_report_row_id: string;
+          id: string;
+          is_linked: boolean;
+          remit_number: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          daily_report_row_id: string;
+          id?: string;
+          is_linked?: boolean;
+          remit_number: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          daily_report_row_id?: string;
+          id?: string;
+          is_linked?: boolean;
+          remit_number?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'remitos_daily_report_row_id_fkey';
+            columns: ['daily_report_row_id'];
+            isOneToOne: false;
+            referencedRelation: 'dailyreportrows';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       repair_solicitudes: {
         Row: {
           created_at: string;
@@ -3366,7 +3436,7 @@ export type Database = {
           assigned_by: string | null;
           created_at: string | null;
           id: string;
-          is_granted: boolean;
+          is_granted: boolean | null;
           tab_id: string;
           updated_at: string | null;
           user_id: string;
@@ -3376,7 +3446,7 @@ export type Database = {
           assigned_by?: string | null;
           created_at?: string | null;
           id?: string;
-          is_granted?: boolean;
+          is_granted?: boolean | null;
           tab_id: string;
           updated_at?: string | null;
           user_id: string;
@@ -3386,7 +3456,7 @@ export type Database = {
           assigned_by?: string | null;
           created_at?: string | null;
           id?: string;
-          is_granted?: boolean;
+          is_granted?: boolean | null;
           tab_id?: string;
           updated_at?: string | null;
           user_id?: string;
@@ -3949,20 +4019,6 @@ export type Database = {
           position_name: string;
         }[];
       };
-      get_role_permissions_summary: {
-        Args: { p_role_id: number };
-        Returns: {
-          action_id: string;
-          action_name: string;
-          action_slug: string;
-          module_id: string;
-          module_name: string;
-          module_slug: string;
-          tab_id: string;
-          tab_name: string;
-          tab_slug: string;
-        }[];
-      };
       get_services_summary_by_type: {
         Args: { p_company_id: string; save_to_history?: boolean };
         Returns: {
@@ -3977,7 +4033,6 @@ export type Database = {
           module_icon: string;
           module_id: string;
           module_name: string;
-          module_order: number;
           module_slug: string;
         }[];
       };
@@ -4009,6 +4064,8 @@ export type Database = {
         Returns: {
           available_units: number;
           not_available_units: number;
+          subtype_id: string;
+          subtype_name: string;
           type_id: string;
           type_name: string;
           usage_indicator: number;

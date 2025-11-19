@@ -747,29 +747,30 @@ export default function DayliReportDetailTableServer({
 
         return (
           <div className={cn('flex gap-1', moment(reportDate).isBefore(moment()) ? 'gap-0 justify-center' : '')}>
-            {(row.original.status !== 'ejecutado' || (isToday && row.original.status === 'ejecutado')) && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 hover:text-blue-500"
-                      data-testid={`edit-button-${row.original.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditRow(row.original);
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Editar</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            {(row.original.status !== 'ejecutado' || (isToday && row.original.status === 'ejecutado')) &&
+              row.original.status !== 'en_certificacion' && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 hover:text-blue-500"
+                        data-testid={`edit-button-${row.original.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditRow(row.original);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Editar</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -839,6 +840,15 @@ export default function DayliReportDetailTableServer({
         columns={columns}
         savedVisibility={savedVisibility}
         initialData={initialData}
+        row_classname={(row) => {
+          if (!row.created_at || !dailyReport[0]?.date) return '';
+          // Parsear la fecha del parte (formato DD-MM-YYYY) con moment
+          const reportDate = moment(dailyReport[0]?.date, 'YYYY-MM-DD').endOf('day');
+          // Parsear created_at con moment
+          const createdAt = moment(row.created_at);
+          // Si created_at es posterior a la fecha del parte, fue creado post-cierre
+          return createdAt.isAfter(reportDate) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '';
+        }}
         tableId="dailyReportServerTable"
         enableRowSelection={(row) =>
           row.original.status !== 'ejecutado' &&

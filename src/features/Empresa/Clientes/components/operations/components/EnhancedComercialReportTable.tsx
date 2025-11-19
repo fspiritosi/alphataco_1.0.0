@@ -3,15 +3,15 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import DocumentUploadModal from '@/features/Operaciones/PartesDiarios/components/DocumentUploadModal';
-import DocumentViewerModal from '@/features/Operaciones/PartesDiarios/components/DocumentViewerFixed';
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
 import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/components/ServiceDetailModal';
+import { RemitosManagerModal } from '@/features/Operaciones/PartesDiarios/remitManager';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Edit } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { Edit, FileText } from 'lucide-react';
+import moment from 'moment';
+import { useCallback, useMemo, useState } from 'react';
 import {
   formatCustomerEquipmentForExport,
   formatEmployeesForExport,
@@ -84,6 +84,11 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
   showActions,
   filterableColumns,
 }) => {
+  // Estado para el modal de remitos
+  const [remitModalOpen, setRemitModalOpen] = useState(false);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string>('');
+
   const columns = useMemo<ExtendedColumnDef<TableRow>[]>(() => {
     const baseColumns: ExtendedColumnDef<TableRow>[] = [
       {
@@ -370,7 +375,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         id: 'actions',
         header: 'Acciones',
         cell: ({ row }) => {
-          const isEnCertificacion = row.original.status === 'en_certificacion';
+          const isEnCertificacion = row.original.status.toLocaleLowerCase() === 'en_certificacion';
           return (
             <div className="flex space-x-2">
               {onEdit && !isEnCertificacion && (
@@ -411,12 +416,28 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {isEnCertificacion &&
-                (row.original.document_path ? (
-                  <DocumentViewerModal documentUrl={row.original.document_path} documentData={row.original as any} />
-                ) : (
-                  <DocumentUploadModal documentData={row.original as any} />
-                ))}
+              {isEnCertificacion && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedRowId(row.original.id);
+                          setSelectedCustomerName(row.original.customer);
+                          setRemitModalOpen(true);
+                        }}
+                      >
+                        <FileText size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Gestionar Remitos</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           );
         },
@@ -436,40 +457,53 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
   const isCreatedPostClose = useCallback((row: TableRow) => {
     if (!row.created_at || !row.date) return false;
 
-    // Parsear la fecha del parte (formato DD-MM-YYYY)
-    const [day, month, year] = row.date.split('-').map(Number);
-    const reportDate = new Date(year, month - 1, day);
-    reportDate.setHours(23, 59, 59, 999); // Fin del día
+    // Parsear la fecha del parte (formato DD-MM-YYYY) con moment
+    const reportDate = moment(row.date, 'DD-MM-YYYY').endOf('day');
 
-    // Parsear created_at
-    const createdAt = new Date(row.created_at);
+    // Parsear created_at con moment
+    const createdAt = moment(row.created_at);
 
     // Si created_at es posterior a la fecha del parte, fue creado post-cierre
-    return createdAt > reportDate;
+    return createdAt.isAfter(reportDate);
   }, []);
-
   return (
-    <div className="space-y-4">
-      {dailyReports && dailyReports.length > 0 ? (
-        <BaseDataTable
-          columns={columns}
-          data={dailyReports}
-          savedVisibility={{}}
-          tableId="enhanced-comercial-report-table"
-          className="w-full"
-          row_classname={(row) => (isCreatedPostClose(row) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '')}
-          toolbarOptions={{
-            filterableColumns: filterableColumns as any,
-            searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
-            initialVisibleFilters: ['customer', 'services', 'item'],
-            showFilterOptions: true,
-            showViewOptions: true,
+    <>
+      <div className="space-y-4">
+        {dailyReports && dailyReports.length > 0 ? (
+          <BaseDataTable
+            columns={columns}
+            data={dailyReports}
+            savedVisibility={{}}
+            tableId="enhanced-comercial-report-table"
+            className="w-full"
+            row_classname={(row) => (isCreatedPostClose(row) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '')}
+            toolbarOptions={{
+              filterableColumns: filterableColumns as any,
+              searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
+              initialVisibleFilters: ['customer', 'services', 'item'],
+              showFilterOptions: true,
+              showViewOptions: true,
+            }}
+          />
+        ) : (
+          <p>No hay registros</p>
+        )}
+      </div>
+
+      {/* Modal de gestión de remitos */}
+      {selectedRowId && (
+        <RemitosManagerModal
+          dailyReportRowId={selectedRowId}
+          customerName={selectedCustomerName}
+          isOpen={remitModalOpen}
+          onClose={() => {
+            setRemitModalOpen(false);
+            setSelectedRowId(null);
+            setSelectedCustomerName('');
           }}
         />
-      ) : (
-        <p>No hay registros</p>
       )}
-    </div>
+    </>
   );
 };
 
