@@ -54,7 +54,7 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   });
 
   const filteredTabsResults = await Promise.all(filteredTabsPromises);
-  const filteredTabs = filteredTabsResults.filter((tab) => tab !== null);
+  const filteredTabs = filteredTabsResults.filter((tab): tab is NonNullable<typeof tab> => tab !== null);
 
   // Si no hay tabs visibles, mostrar mensaje
   if (filteredTabs.length === 0) {
@@ -73,7 +73,7 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   const activeTab = typeof paramValue === 'string' ? paramValue : defaultTab;
 
   // Verificar que el tab activo existe en la lista filtrada
-  const tabExists = filteredTabs.some((tab) => tab.value === activeTab);
+  const tabExists = filteredTabs.some((tab) => tab?.value === activeTab);
   const effectiveDefaultTab = tabExists ? activeTab : filteredTabs[0]?.value || defaultTab;
 
   return (
