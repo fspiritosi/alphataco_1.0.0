@@ -1421,27 +1421,28 @@ export const getCurrentProfile = async () => {
   }
   return data;
 };
-export const verifyUserRoleInCompany = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return '';
+// ❌ DEPRECATED: Sistema viejo de roles - Usar getUserAccessibleModulesServer() del nuevo sistema
+// export const verifyUserRoleInCompany = async () => {
+//   const cookiesStore = cookies();
+//   const supabase = supabaseServer();
+//   const company_id = cookiesStore.get('actualComp')?.value;
+//   if (!company_id) return '';
 
-  const user = await fetchCurrentUser();
-  if (!user) return '';
-  const { data, error } = await supabase
-    .from('share_company_users')
-    .select('*')
-    .eq('profile_id', user?.id || '')
-    .eq('company_id', company_id);
+//   const user = await fetchCurrentUser();
+//   if (!user) return '';
+//   const { data, error } = await supabase
+//     .from('share_company_users')
+//     .select('*')
+//     .eq('profile_id', user?.id || '')
+//     .eq('company_id', company_id);
 
-  if (error) {
-    console.error('Error verifying user role:', error);
-    return '';
-  }
+//   if (error) {
+//     console.error('Error verifying user role:', error);
+//     return '';
+//   }
 
-  return { rol: data[0]?.role || '', modulos: data[0]?.modules || [] };
-};
+//   return { rol: data[0]?.role || '', modulos: data[0]?.modules || [] };
+// };
 
 export const fetchDiagramsHistoryByEmployeeId = async (employeeId: string) => {
   const supabase = supabaseServer();

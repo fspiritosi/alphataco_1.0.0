@@ -100,6 +100,7 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
       setUserPermission(userId, tabId, actionId, isGranted),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
     },
     onError: () => {
       toast({
@@ -115,6 +116,7 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
       removeUserPermission(userId, tabId, actionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
     },
     onError: () => {
       toast({

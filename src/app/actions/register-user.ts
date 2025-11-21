@@ -36,9 +36,9 @@ export async function registerUserWithRole(values: any, company: string) {
       }
 
       // Asignar company en app_metadata si no lo tiene
-      const { data: userData } = await adminSupabase.auth.admin.getUserById(profile.credential_id);
+      const { data: userData } = await adminSupabase.auth.admin.getUserById(profile.credential_id!);
       if (!userData?.user?.app_metadata?.company) {
-        await adminSupabase.auth.admin.updateUserById(profile.credential_id, {
+        await adminSupabase.auth.admin.updateUserById(profile.credential_id!, {
           app_metadata: {
             company: company,
           },

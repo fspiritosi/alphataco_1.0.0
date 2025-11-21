@@ -35,6 +35,7 @@ Guías y notas para el desarrollo diario.
 - **[02-limpieza-filtros.md](./desarrollo/02-limpieza-filtros.md)** - Sistema de limpieza de filtros obsoletos en tablas
 - **[03-notas-desarrollo.md](./desarrollo/03-notas-desarrollo.md)** - Notas rápidas y tareas pendientes
 - **[04-migracion-tablas-servidor.md](./desarrollo/04-migracion-tablas-servidor.md)** - Guía completa para migrar tablas a server-side con paginación
+- **[04-sistema-roles-permisos.md](./desarrollo/04-sistema-roles-permisos.md)** - Sistema completo de roles y permisos (RBAC)
 
 ### 🧩 Componentes
 

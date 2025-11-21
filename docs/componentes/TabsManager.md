@@ -19,7 +19,8 @@ El feature está compuesto por dos componentes principales:
 Componente servidor que:
 
 - Determina la pestaña activa desde `searchParams`
-- Aplica filtrado de pestañas basado en roles (futuro)
+- **Filtra pestañas según permisos del usuario en la base de datos**
+- Verifica permisos usando `checkPermissionServer()` para cada tab
 - Pasa la configuración procesada al componente cliente
 
 ### 2. `TabsManagerClient` (Client Component)
@@ -242,24 +243,88 @@ export default function MiPagina({ searchParams }) {
 
 ## Props de TabsManagerServer
 
-| Prop              | Tipo              | Requerido | Descripción                                                      |
-| ----------------- | ----------------- | --------- | ---------------------------------------------------------------- |
-| `paramName`       | `string`          | ✅        | Nombre del parámetro de URL (ej: `"tab"` → `?tab=value`)         |
-| `searchParams`    | `object`          | ✅        | Objeto `searchParams` de la página (Next.js App Router)          |
-| `defaultTab`      | `string`          | ✅        | Valor de la pestaña por defecto                                  |
-| `tabs`            | `TabDefinition[]` | ✅        | Array de definiciones de pestañas                                |
-| `dependentParams` | `string[]`        | ❌        | Parámetros de URL a limpiar al cambiar de tab (ej: `['subtab']`) |
+| Prop              | Tipo              | Requerido | Descripción                                                            |
+| ----------------- | ----------------- | --------- | ---------------------------------------------------------------------- |
+| `paramName`       | `string`          | ✅        | Nombre del parámetro de URL (ej: `"tab"` → `?tab=value`)               |
+| `searchParams`    | `object`          | ✅        | Objeto `searchParams` de la página (Next.js App Router)                |
+| `defaultTab`      | `string`          | ✅        | Valor de la pestaña por defecto (debe coincidir con algún `tab.value`) |
+| `tabs`            | `TabDefinition[]` | ✅        | Array de definiciones de pestañas con tipado fuerte                    |
+| `dependentParams` | `string[]`        | ❌        | Parámetros de URL a limpiar al cambiar de tab (ver explicación abajo)  |
+
+### ¿Qué es `dependentParams`?
+
+`dependentParams` es un array de nombres de parámetros de URL que deben limpiarse cuando el usuario cambia de tab principal. Esto evita estados inconsistentes en tabs anidadas.
+
+**Ejemplo sin `dependentParams`:**
+
+```
+URL inicial: /dashboard?tab=documentacion&subtab=empleados
+Usuario cambia a: tab="estadisticas"
+URL resultante: /dashboard?tab=estadisticas&subtab=empleados ❌
+Problema: "subtab=empleados" no existe en "estadisticas"
+```
+
+**Ejemplo con `dependentParams={['subtab']}`:**
+
+```
+URL inicial: /dashboard?tab=documentacion&subtab=empleados
+Usuario cambia a: tab="estadisticas"
+URL resultante: /dashboard?tab=estadisticas ✅
+Solución: "subtab" se limpia automáticamente
+```
+
+**Cuándo usar:**
+
+- ✅ Cuando tienes tabs anidadas (tabs dentro de tabs)
+- ✅ Cuando un parámetro de URL solo tiene sentido en ciertos tabs
+- ❌ No necesario si todas las tabs son del mismo nivel
 
 ## Interfaz TabDefinition
 
 ```typescript
-interface TabDefinition {
+interface TabDefinition<M extends ModuleSlug = ModuleSlug> {
   value: string; // Valor único que se guarda en la URL
-  label: string; // Texto visible en la pestaña
+  label: string | ReactNode; // Texto o componente visible en la pestaña
   content: ReactNode; // Contenido a renderizar cuando la tab está activa
-  roles?: string[]; // (Futuro) Roles permitidos para ver esta tab
+  moduleSlug?: M; // Slug del módulo para verificación de permisos (con tipado fuerte)
+  tabSlug?: TabSlug<M> | SubtabSlug<M, any> | string; // Slug del tab/subtab (con autocompletado)
 }
 ```
+
+### Tipado Fuerte
+
+El `TabsManager` ahora usa tipado genérico que proporciona:
+
+- ✅ **Autocompletado** de `moduleSlug` con todos los módulos disponibles
+- ✅ **Autocompletado** de `tabSlug` con tabs Y subtabs del módulo seleccionado
+- ✅ **Validación en tiempo de compilación** para evitar errores de tipeo
+- ✅ **IntelliSense** completo en tu IDE
+
+**Tipos exportados:**
+
+```typescript
+// Tipo para módulos
+type ModuleSlug = 'dashboard' | 'empleados' | 'equipos' | ...
+
+// Tipo para tabs de un módulo específico
+type TabSlug<'dashboard'> = 'principal' | 'documentacion' | 'estadisticas'
+
+// Tipo para subtabs de un tab específico
+type SubtabSlug<'dashboard', 'documentacion'> = 'empleados' | 'vehiculos'
+
+// Tipo que incluye tabs Y subtabs de un módulo
+type AllTabSlugs<'dashboard'> =
+  | 'principal'
+  | 'documentacion'
+  | 'estadisticas'
+  | 'empleados'      // ← subtab de 'documentacion'
+  | 'vehiculos'      // ← subtab de 'documentacion'
+  | 'operaciones'    // ← subtab de 'estadisticas'
+  | 'rrhh'           // ← subtab de 'estadisticas'
+  | 'mantenimiento'  // ← subtab de 'estadisticas'
+```
+
+**Nota:** El tipo `AllTabSlugs` es el que usa `tabSlug` en `TabDefinition`, por eso autocompleta tanto tabs como subtabs.
 
 ## Casos de Uso Avanzados
 
@@ -434,6 +499,34 @@ defaultTab = 'paso-1';
 />
 ```
 
+### 6. Configurar Permisos Correctamente
+
+✅ **Bueno**:
+
+```typescript
+{
+  value: 'estadisticas',
+  label: 'Estadísticas',
+  moduleSlug: 'dashboard',      // Slug del módulo
+  tabSlug: 'estadisticas',      // Slug del tab (debe existir en permissions-map.ts)
+  content: <EstadisticasContent />,
+}
+```
+
+❌ **Evitar**:
+
+```typescript
+{
+  value: 'estadisticas',
+  label: 'Estadísticas',
+  moduleSlug: 'dashboard',
+  tabSlug: 'stats',  // ❌ No coincide con permissions-map.ts
+  content: <EstadisticasContent />,
+}
+```
+
+**Regla**: Los valores de `moduleSlug` y `tabSlug` deben coincidir EXACTAMENTE con los definidos en `permissions-map.ts`
+
 ## Migración desde Sistema de Cookies
 
 Si estás migrando desde el sistema anterior basado en cookies:
@@ -537,10 +630,339 @@ const data = await fetchData();
 - **Exportaciones**: `src/features/TabsManager/index.ts`
 - **Ejemplo de Uso**: `src/components/Dashboard/DashboardComponent.tsx`
 
+## Sistema de Permisos
+
+### Configuración de Permisos por Tab
+
+El `TabsManager` ahora soporta filtrado automático de tabs basado en permisos del usuario. Para habilitar esta funcionalidad, agrega `moduleSlug` y `tabSlug` a cada tab:
+
+```typescript
+<TabsManagerServer
+  paramName="tab"
+  searchParams={searchParams}
+  defaultTab="principal"
+  tabs={[
+    {
+      value: 'principal',
+      label: 'Principal',
+      moduleSlug: 'dashboard',  // ← Slug del módulo
+      tabSlug: 'principal',      // ← Slug del tab
+      content: <PrincipalContent />,
+    },
+    {
+      value: 'documentacion',
+      label: 'Documentación',
+      moduleSlug: 'dashboard',
+      tabSlug: 'documentacion',
+      content: <DocumentacionContent />,
+    },
+  ]}
+/>
+```
+
+### Cómo Funciona
+
+1. **Verificación Server-Side**: `TabsManagerServer` verifica permisos en el servidor usando `checkPermissionServer(moduleSlug, tabSlug, 'view')`
+2. **Filtrado Automático**: Solo las tabs con permiso de `view` se muestran al usuario
+3. **Seguridad**: Si un usuario intenta acceder a una tab sin permisos (manipulando la URL), no verá el contenido
+4. **Mensaje de Fallback**: Si no tiene permisos para ninguna tab, se muestra un mensaje informativo
+
+### Tabs sin Restricción
+
+Si una tab **NO** tiene `moduleSlug` y `tabSlug`, se mostrará siempre (sin verificación de permisos):
+
+```typescript
+{
+  value: 'ayuda',
+  label: 'Ayuda',
+  // Sin moduleSlug/tabSlug = visible para todos
+  content: <AyudaContent />,
+}
+```
+
+### Permisos en Tabs Anidadas
+
+El sistema funciona recursivamente para cualquier nivel de anidación:
+
+```typescript
+<TabsManagerServer
+  paramName="tab"
+  tabs={[
+    {
+      value: 'documentacion',
+      label: 'Documentación',
+      moduleSlug: 'dashboard',
+      tabSlug: 'documentacion',  // ← Verifica permiso nivel 1
+      content: (
+        <TabsManagerServer
+          paramName="subtab"
+          tabs={[
+            {
+              value: 'empleados',
+              label: 'Empleados',
+              moduleSlug: 'dashboard',
+              tabSlug: 'empleados',  // ← Verifica permiso nivel 2
+              content: <EmpleadosTable />,
+            },
+            {
+              value: 'vehiculos',
+              label: 'Vehículos',
+              moduleSlug: 'dashboard',
+              tabSlug: 'vehiculos',  // ← Verifica permiso nivel 2
+              content: <VehiculosTable />,
+            },
+          ]}
+        />
+      ),
+    },
+  ]}
+/>
+```
+
+**Comportamiento en cascada:**
+
+- Si el usuario NO tiene permiso para `documentacion`, no verá esa tab ni sus subtabs
+- Si tiene permiso para `documentacion` pero NO para `empleados`, verá la tab principal pero no la subtab de empleados
+
+### Cómo Obtener los Slugs Correctos
+
+Los slugs se obtienen de `src/features/Permissions/permissions-map.ts`. Este archivo contiene la estructura completa de módulos, tabs y subtabs del sistema.
+
+#### Paso 1: Abrir el archivo permissions-map.ts
+
+```typescript
+// src/features/Permissions/permissions-map.ts
+export const PERMISSIONS = {
+  dashboard: {
+    // ← moduleSlug
+    slug: 'dashboard',
+    tabs: {
+      principal: {
+        // ← tabSlug (nivel 1)
+        slug: 'principal',
+        tabId: '90000000-0000-0000-0000-000000000001',
+      },
+      documentacion: {
+        // ← tabSlug (nivel 1)
+        slug: 'documentacion',
+        tabId: '90000000-0000-0000-0000-000000000002',
+        subtabs: {
+          empleados: {
+            // ← tabSlug (nivel 2 - subtab)
+            slug: 'empleados',
+            tabId: '90000000-0000-0000-0000-000000000021',
+          },
+          vehiculos: {
+            // ← tabSlug (nivel 2 - subtab)
+            slug: 'vehiculos',
+            tabId: '90000000-0000-0000-0000-000000000022',
+          },
+        },
+      },
+    },
+  },
+  empleados: {
+    // ← Otro módulo
+    slug: 'empleados',
+    tabs: {
+      employees: {
+        slug: 'employees',
+        tabId: '20000000-0000-0000-0000-000000000001',
+      },
+    },
+  },
+};
+```
+
+#### Paso 2: Usar los slugs en tu componente
+
+Con el tipado fuerte, tu IDE te mostrará autocompletado:
+
+```typescript
+<TabsManagerServer
+  tabs={[
+    {
+      value: 'principal',
+      label: 'Principal',
+      moduleSlug: 'dashboard',  // ← Tu IDE autocompleta: 'dashboard', 'empleados', 'equipos', etc.
+      tabSlug: 'principal',      // ← Tu IDE autocompleta solo tabs de 'dashboard'
+      content: <PrincipalContent />,
+    },
+  ]}
+/>
+```
+
+#### Paso 3: Verificar en la Base de Datos (Opcional)
+
+Si necesitas verificar que los slugs existen en la BD:
+
+```sql
+-- Ver todos los módulos
+SELECT id, slug, name FROM modules;
+
+-- Ver tabs de un módulo específico
+SELECT t.id, t.slug, t.name, t.parent_tab_id
+FROM tabs t
+JOIN modules m ON t.module_id = m.id
+WHERE m.slug = 'dashboard'
+ORDER BY t.order_index;
+```
+
+#### Helpers Disponibles
+
+El `permissions-map.ts` también exporta funciones helper:
+
+```typescript
+import { getTabId, getSubtabId } from '@/features/Permissions/permissions-map';
+
+// Obtener el ID de un tab
+const tabId = getTabId('dashboard', 'principal');
+// Retorna: '90000000-0000-0000-0000-000000000001'
+
+// Obtener el ID de un subtab
+const subtabId = getSubtabId('dashboard', 'documentacion', 'empleados');
+// Retorna: '90000000-0000-0000-0000-000000000021'
+```
+
+### Gestión de Permisos
+
+Para asignar permisos a usuarios:
+
+1. **Via UI**: Ir a `Roles / Presets` → `Permisos por Módulo`
+2. **Via Código**: Usar funciones de `@/features/Permissions`:
+
+   ```typescript
+   import { setUserPermission } from '@/features/Permissions';
+
+   await setUserPermission(userId, tabId, actionId, true);
+   ```
+
+### Ejemplo Completo con Permisos y Tipado Fuerte
+
+```typescript
+import { TabsManagerServer } from '@/features/TabsManager';
+
+export default async function Dashboard({
+  searchParams
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
+  // ✅ Usa `as const` para habilitar autocompletado de defaultTab
+  const mainTabs = [
+    {
+      value: 'principal',
+      label: 'Principal',
+      moduleSlug: 'dashboard',  // ← Tu IDE autocompleta: 'dashboard', 'empleados', 'equipos', etc.
+      tabSlug: 'principal',      // ← Tu IDE autocompleta solo tabs de 'dashboard'
+      content: <PrincipalTabContent />,
+    },
+    {
+      value: 'estadisticas',
+      label: 'Estadísticas',
+      moduleSlug: 'dashboard',
+      tabSlug: 'estadisticas',
+      content: (
+        <TabsManagerServer
+          paramName="subtab"
+          searchParams={searchParams}
+          defaultTab="operaciones"  // ← Autocompletado: 'operaciones' | 'rrhh' | 'mantenimiento'
+          tabs={[
+            {
+              value: 'operaciones',
+              label: 'Operaciones',
+              moduleSlug: 'dashboard',
+              tabSlug: 'operaciones',
+              content: <OperacionesContent />,
+            },
+            {
+              value: 'rrhh',
+              label: 'RRHH',
+              moduleSlug: 'dashboard',
+              tabSlug: 'rrhh',
+              content: <RRHHContent />,
+            },
+            {
+              value: 'mantenimiento',
+              label: 'Mantenimiento',
+              moduleSlug: 'dashboard',
+              tabSlug: 'mantenimiento',
+              content: <MantenimientoContent />,
+            },
+          ] as const}  // ← `as const` habilita autocompletado de defaultTab
+        />
+      ),
+    },
+  ] as const;  // ← `as const` habilita autocompletado de defaultTab
+
+  return (
+    <TabsManagerServer
+      paramName="tab"
+      searchParams={searchParams}
+      defaultTab="principal"  // ← Autocompletado: 'principal' | 'estadisticas'
+      dependentParams={['subtab']}
+      tabs={mainTabs}
+    />
+  );
+}
+```
+
+**Ventajas del tipado fuerte:**
+
+- ✅ Si escribes mal un `moduleSlug`, TypeScript te alertará
+- ✅ Si usas un `tabSlug` que no existe en ese módulo, TypeScript te alertará
+- ✅ **Autocompletado de `defaultTab`** según los valores de `tabs` (usa `as const`)
+- ✅ Autocompletado completo en tu IDE (VSCode, WebStorm, etc.)
+- ✅ Refactoring seguro: si cambias un slug en `permissions-map.ts`, TypeScript te mostrará todos los lugares que necesitas actualizar
+
+**Nota sobre `as const`:**
+
+- Usa `as const` al final del array de tabs para habilitar el autocompletado de `defaultTab`
+- Sin `as const`, `defaultTab` acepta cualquier string
+- Con `as const`, `defaultTab` solo acepta los valores que existen en `tabs[].value`
+
+### Troubleshooting de Permisos
+
+#### Usuario no ve ninguna tab
+
+**Causa**: El usuario no tiene permisos de `view` para ninguna tab.
+
+**Solución**:
+
+1. Verificar que el usuario tenga un rol asignado
+2. Verificar que el rol tenga permisos para los tabs
+3. Usar la UI de gestión de permisos para asignar permisos
+
+#### Tab se muestra pero no debería
+
+**Causa**: Falta agregar `moduleSlug` y `tabSlug` a la definición de la tab.
+
+**Solución**: Agregar los slugs correspondientes:
+
+```typescript
+{
+  value: 'mi-tab',
+  label: 'Mi Tab',
+  moduleSlug: 'dashboard',  // ← Agregar
+  tabSlug: 'mi-tab',        // ← Agregar
+  content: <MiTabContent />,
+}
+```
+
+#### Error: "Permission denied"
+
+**Causa**: El slug no existe en `permissions-map.ts` o en la base de datos.
+
+**Solución**:
+
+1. Verificar que el slug esté definido en `permissions-map.ts`
+2. Verificar que exista en la tabla `tabs` de la base de datos
+3. Ejecutar las migraciones si es necesario
+
 ## Próximas Funcionalidades (Roadmap)
 
-- [ ] Filtrado de tabs basado en roles de usuario
+- [x] ✅ Filtrado de tabs basado en permisos de usuario
 - [ ] Soporte para tabs deshabilitadas dinámicamente
 - [ ] Animaciones de transición configurables
 - [ ] Modo de tabs verticales
 - [ ] Persistencia opcional en localStorage para complementar URL
+- [ ] Caché de permisos para optimizar performance

@@ -1,4 +1,3 @@
-import CardsGrid from '@/app/dashboard/componentDashboard/CardsGrid';
 import DocumentsTableServerWrapper from '@/app/dashboard/componentDashboard/DocumentsTableServerWrapper';
 import EmployeesTableServerWrapper from '@/app/dashboard/componentDashboard/EmployeesTableServerWrapper';
 import { MissingDocumentList } from '@/components/MissingDocumentList';
@@ -18,11 +17,6 @@ export default function DashboardComponent({
 }) {
   return (
     <div className="px-6">
-      <section className="grid sm:grid-cols-2 grid-cols-1 gap-6 mx-7">
-        {false && <CardsGrid />}
-        {/* <CardTitle className="text-[2vw]">Bienvenido a tu dashboard</CardTitle> */}
-      </section>
-
       {/* Main Tabs con TabsManagerServer */}
       <TabsManagerServer
         paramName="tab"
@@ -33,6 +27,8 @@ export default function DashboardComponent({
           {
             value: 'principal',
             label: 'Principal',
+            moduleSlug: 'dashboard',
+            tabSlug: 'principal',
             content: (
               <Suspense fallback={<DashboardSkeleton />}>
                 <PrincipalTabContent />
@@ -42,6 +38,8 @@ export default function DashboardComponent({
           {
             value: 'documentacion',
             label: 'Documentacion',
+            moduleSlug: 'dashboard',
+            tabSlug: 'documentacion',
             content: (
               <section className="md:mx-7 grid grid-cols-1 mt-6 xl:grid-cols-4 gap-3 mb-4 ">
                 <section className="flex flex-col gap-4 w-full">
@@ -70,11 +68,15 @@ export default function DashboardComponent({
                             {
                               value: 'empleados',
                               label: 'Empleados',
+                              moduleSlug: 'dashboard',
+                              tabSlug: 'empleados',
                               content: <EmployeesTableServerWrapper />,
                             },
                             {
                               value: 'vehiculos',
                               label: 'Vehiculos',
+                              moduleSlug: 'dashboard',
+                              tabSlug: 'vehiculos',
                               content: <DocumentsTableServerWrapper />,
                             },
                           ]}
@@ -90,7 +92,8 @@ export default function DashboardComponent({
           {
             value: 'estadisticas',
             label: 'Estadisticas',
-            // TODO: Implementar validación de roles aquí (FeatureFlag o Rol directo)
+            moduleSlug: 'dashboard',
+            tabSlug: 'estadisticas',
             content: (
               <FeatureFlagShow featureFlagName="mostrar_tab_de_graficos_en_dashboard">
                 {/* Nested Tabs para Estadísticas */}
@@ -102,6 +105,8 @@ export default function DashboardComponent({
                     {
                       value: 'operaciones',
                       label: 'Operaciones',
+                      moduleSlug: 'dashboard',
+                      tabSlug: 'operaciones',
                       content: (
                         <Suspense fallback={<div>Cargando operaciones...</div>}>
                           <OperacionesTabContent />
@@ -111,6 +116,8 @@ export default function DashboardComponent({
                     {
                       value: 'rrhh',
                       label: 'RRHH',
+                      moduleSlug: 'dashboard',
+                      tabSlug: 'rrhh',
                       content: (
                         <Card className="md:mx-7 grid grid-cols-1 mt-6 gap-3 mb-4 p-4">
                           <AbsenteeismDashboard />
@@ -120,6 +127,8 @@ export default function DashboardComponent({
                     {
                       value: 'mantenimiento',
                       label: 'Mantenimiento',
+                      moduleSlug: 'dashboard',
+                      tabSlug: 'mantenimiento',
                       content: (
                         <section className="md:mx-7 grid grid-cols-1 mt-6 gap-3 mb-4">
                           {/* Maintenance statistics content will go here */}

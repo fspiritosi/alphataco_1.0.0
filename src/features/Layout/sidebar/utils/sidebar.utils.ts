@@ -1,35 +1,31 @@
-import { NavigationLink, navigationLinks } from '../constants/navigation';
+import { NavigationLink } from '../constants/navigation';
 
-export function filterNavigationLinks(role: string | null, userModules?: ModulosEnum[] | null) {
-  let filteredLinks = [...navigationLinks];
-
-  if (role === 'owner') {
-    return filteredLinks;
-  }
-
-  if (role === 'Invitado') {
-    return filteredLinks.filter(
-      (link) => !['empresa', 'operaciones', 'mantenimiento', 'documentación'].includes(link.name.toLowerCase())
-    );
-  }
-
-  // Si el usuario tiene módulos específicos
-  if (userModules?.length) {
-    return filteredLinks.filter((link) => userModules.some((mod) => mod.toLowerCase() === link.name.toLowerCase()));
-  }
-
-  return filteredLinks;
+/**
+ * Crea una expresión regular para matching de rutas
+ *
+ * @param href - URL del link
+ * @returns RegExp para matching
+ */
+export function createLinkRegex(href: string): RegExp {
+  return new RegExp(`^${href.replace(/\//g, '\\/')}(\/|$)`);
 }
 
-export function sortNavigationLinks(links: NavigationLink[]) {
-  return [...links].sort((a, b) => a.position - b.position);
-}
+/**
+ * Encuentra el mejor match entre links y pathname
+ *
+ * @param links - Array de links con regex
+ * @param pathname - Pathname actual
+ * @returns Nombre del link con mejor match
+ */
+export function findBestMatch(links: Array<NavigationLink & { regex: RegExp }>, pathname: string): string {
+  const bestMatch = links.reduce(
+    (best, link) => {
+      const match = pathname.match(link.regex);
+      const matchLength = match ? match[0].length : 0;
+      return matchLength > best.matchLength ? { link, matchLength } : best;
+    },
+    { link: null as any, matchLength: 0 }
+  );
 
-export function cleanPath(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.pathname;
-  } catch {
-    return '';
-  }
+  return bestMatch.link?.name || '';
 }

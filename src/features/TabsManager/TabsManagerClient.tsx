@@ -1,19 +1,35 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { ModuleSlug } from '@/features/Permissions/permissions-map';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { TabsManagerClientProps } from './types';
 
 /**
- * TabsManagerClient - Componente cliente para gestionar pestañas con estado en URL.
+ * TabsManagerClient - Componente cliente para gestionar pestañas con estado en URL y tipado fuerte.
  *
  * OPTIMIZACIÓN:
  * - Usa estado local (useState) para navegación instantánea.
  * - Usa window.history.replaceState para actualizar la URL sin disparar una navegación de Next.js.
  * - Esto evita que se muestren fallbacks de Suspense o estados de carga al cambiar de pestaña.
+ *
+ * PERMISOS:
+ * - Las tabs ya vienen filtradas desde TabsManagerServer según permisos del usuario.
+ * - Este componente solo renderiza las tabs que el usuario tiene permiso de ver.
+ *
+ * @example
+ * ```tsx
+ * // Este componente normalmente se usa internamente por TabsManagerServer
+ * // No necesitas usarlo directamente en la mayoría de casos
+ * ```
  */
-export function TabsManagerClient({ paramName, tabs, defaultTab, dependentParams = [] }: TabsManagerClientProps) {
+export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
+  paramName,
+  tabs,
+  defaultTab,
+  dependentParams = [],
+}: TabsManagerClientProps<M>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 

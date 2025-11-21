@@ -1,13 +1,12 @@
-export type UserRoleData =
-  | {
-      rol: string | null;
-      modulos: ModulosEnum[];
-    }
-  | '';
+export interface AccessibleModule {
+  module_id: string;
+  module_slug: string;
+  module_name: string;
+  module_icon: string;
+}
 
-export type SidebarProps = {
+export interface SidebarProps {
   pathname: string;
-  role: string | null;
-  userModules?: ModulosEnum[] | null;
+  accessibleModules: AccessibleModule[];
   isActive: string | undefined;
-};
+}
