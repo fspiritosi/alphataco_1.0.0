@@ -3,7 +3,6 @@ import { Label, Pie, PieChart } from 'recharts';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { use } from 'react';
 
 const chartConfig = {
   visitors: {
@@ -19,11 +18,11 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function ResoursesChart({ employees, equipments }: { employees: Promise<number>; equipments: Promise<number> }) {
+export function ResoursesChart({ employees, equipments }: { employees: number; equipments: number }) {
   // const [data, setData] = useState<ChartData>();
 
-  const employeesCount = use(employees);
-  const equipmentsCount = use(equipments);
+  const employeesCount = employees;
+  const equipmentsCount = equipments;
 
   const dataChart = [
     {

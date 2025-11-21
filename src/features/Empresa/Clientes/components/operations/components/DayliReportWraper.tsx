@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import {
   getFilteredDailyReportRows,
+  getFilteredDailyReportRowsType,
   getServicesByCustomer,
   type Service,
 } from '@/features/Empresa/Clientes/components/operations/actions/actions';
@@ -60,22 +61,24 @@ interface FilterOptions {
   sectors: FilterOption[];
 }
 
-export const transformDailyReports = (reports: any[]) => {
+export const transformDailyReports = (reports: getFilteredDailyReportRowsType) => {
   return reports
     ?.map((row) => ({
       id: row.id,
       date: row.date,
+      dailyReportStatus: row.dailyreport.status,
       created_at: row.created_at, // Agregar created_at para detectar filas post-cierre
       type_service: row.type_service,
+      last_comercial_edit_at: row.last_comercial_edit_at,
       customer: row.customers?.name,
       cancel_reason: row.cancel_reason,
       employees: row.dailyreportemployeerelations.map(
-        (rel: any) => rel.employees?.firstname + ' ' + rel.employees?.lastname
+        (rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname
       ),
       equipment:
-        row.dailyreportequipmentrelations.map((rel: any) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
+        row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
       customer_equipment:
-        row.dailyreport_customer_equipment_relations.map((rel: any) => {
+        row.dailyreport_customer_equipment_relations.map((rel) => {
           return {
             name: rel.equipos_clientes?.name,
             type: rel.equipos_clientes?.type,
@@ -99,12 +102,12 @@ export const transformDailyReports = (reports: any[]) => {
       description: row.description || '',
       document_path: row.document_path,
       remit_number: row.remit_number,
-      employees_references: row.dailyreportemployeerelations.map((rel: any) => ({
+      employees_references: row.dailyreportemployeerelations.map((rel) => ({
         ...rel.employees,
         name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
         id: rel.employees?.id,
       })),
-      equipment_references: row.dailyreportequipmentrelations.map((rel: any) => ({
+      equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
         ...rel.vehicles,
         name: rel.vehicles?.domain || rel.vehicles?.intern_number,
         id: rel.vehicles?.id,
@@ -131,6 +134,8 @@ export const transformDailyReports = (reports: any[]) => {
       return dateB.valueOf() - dateA.valueOf();
     });
 };
+
+export type transformDailyReportsType = ReturnType<typeof transformDailyReports>;
 
 export default function DailyReportWrapper() {
   const [filters, setFilters] = useState<ReportFilters>({
@@ -161,7 +166,6 @@ export default function DailyReportWrapper() {
   } = useQuery({
     queryKey: ['filtered-daily-report-rows', searchFilters],
     queryFn: async () => {
-      console.log('feting');
       if (!searchFilters) return [];
       const data = await getFilteredDailyReportRows(searchFilters);
       return data || [];
@@ -790,7 +794,7 @@ export default function DailyReportWrapper() {
           ) : hasSearched ? (
             rawTableData.length > 0 ? (
               <EnhancedComercialReportTable
-                dailyReports={formattedData as any}
+                dailyReports={formattedData}
                 onEdit={handleEditRow}
                 onView={handleViewRow}
                 onViewHistory={handleViewHistory}

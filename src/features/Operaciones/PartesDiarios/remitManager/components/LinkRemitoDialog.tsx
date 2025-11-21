@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -69,8 +68,8 @@ export function LinkRemitoDialog({ dailyReportRowId, isOpen, onClose, onRemitoLi
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-          <div className="relative">
+        <div className="space-y-4 flex-1 flex flex-col min-h-0">
+          <div className="relative flex-shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por número de remito..."
@@ -82,7 +81,7 @@ export function LinkRemitoDialog({ dailyReportRowId, isOpen, onClose, onRemitoLi
           </div>
 
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-3 flex-shrink-0">
               {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-24 w-full" />
               ))}
@@ -99,7 +98,7 @@ export function LinkRemitoDialog({ dailyReportRowId, isOpen, onClose, onRemitoLi
               </div>
             </div>
           ) : (
-            <ScrollArea className="flex-1 -mx-6 px-6 max-h-[400px]">
+            <div className="flex-1 min-h-0 overflow-auto -mx-6 px-6">
               <div className="space-y-3 pr-4">
                 {!searchInput && (
                   <p className="text-xs text-muted-foreground mb-3 px-1">Mostrando los últimos 10 remitos creados</p>
@@ -108,17 +107,30 @@ export function LinkRemitoDialog({ dailyReportRowId, isOpen, onClose, onRemitoLi
                   const customer = remito.dailyreportrows?.customers;
                   const reportDate = remito.dailyreportrows?.dailyreport?.date;
                   const docCount = remito.remito_documents?.[0]?.count || 0;
+                  const isSameCustomer = remito.isSameCustomer;
 
                   return (
-                    <div key={remito.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                    <div
+                      key={remito.id}
+                      className={`border rounded-lg p-4 transition-colors ${
+                        isSameCustomer
+                          ? 'hover:bg-muted/50'
+                          : 'border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20'
+                      }`}
+                    >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-semibold text-lg">{remito.remit_number}</h4>
                             <Badge variant="secondary" className="text-xs">
                               <FileText className="h-3 w-3 mr-1" />
                               {docCount} {docCount === 1 ? 'documento' : 'documentos'}
                             </Badge>
+                            {!isSameCustomer && (
+                              <Badge variant="destructive" className="text-xs">
+                                Cliente diferente
+                              </Badge>
+                            )}
                           </div>
 
                           {customer && (
@@ -132,18 +144,26 @@ export function LinkRemitoDialog({ dailyReportRowId, isOpen, onClose, onRemitoLi
                               Parte diario: {format(new Date(reportDate), "d 'de' MMMM, yyyy", { locale: es })}
                             </p>
                           )}
+
+                          {!isSameCustomer && (
+                            <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                              ⚠️ Este remito pertenece a un registro con otro cliente
+                            </p>
+                          )}
                         </div>
 
-                        <Button onClick={() => handleLink(remito.id)} disabled={linkRemito.isPending} size="sm">
-                          <Link2 className="h-4 w-4 mr-2" />
-                          Vincular
-                        </Button>
+                        {isSameCustomer && (
+                          <Button onClick={() => handleLink(remito.id)} disabled={linkRemito.isPending} size="sm">
+                            <Link2 className="h-4 w-4 mr-2" />
+                            Vincular
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           )}
         </div>
       </DialogContent>

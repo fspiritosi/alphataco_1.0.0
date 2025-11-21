@@ -50,6 +50,15 @@ export async function getAvailableDocumentsForLinkingClient(dailyReportRowId: st
 export async function getAvailableRemitosForLinkingClient(currentDailyReportRowId: string, searchQuery?: string) {
   const supabase = supabaseBrowser();
 
+  // Primero obtener el customer_id del dailyReportRow actual
+  const { data: currentRow, error: currentRowError } = await supabase
+    .from('dailyreportrows')
+    .select('customer_id')
+    .eq('id', currentDailyReportRowId)
+    .single();
+
+  if (currentRowError) throw currentRowError;
+
   let query = supabase
     .from('remitos')
     .select(
@@ -58,6 +67,7 @@ export async function getAvailableRemitosForLinkingClient(currentDailyReportRowI
       remito_documents(count),
       dailyreportrows!inner(
         id,
+        customer_id,
         customers(
           id,
           name
@@ -79,7 +89,15 @@ export async function getAvailableRemitosForLinkingClient(currentDailyReportRowI
   const { data, error } = await query.order('created_at', { ascending: false }).limit(10);
 
   if (error) throw error;
-  return data || [];
+
+  // Agregar flag para indicar si el remito pertenece al mismo cliente
+  const remitosWithClientMatch = (data || []).map((remito) => ({
+    ...remito,
+    isSameCustomer: remito.dailyreportrows?.customer_id === currentRow.customer_id,
+    currentCustomerId: currentRow.customer_id,
+  }));
+
+  return remitosWithClientMatch;
 }
 
 // =====================================================

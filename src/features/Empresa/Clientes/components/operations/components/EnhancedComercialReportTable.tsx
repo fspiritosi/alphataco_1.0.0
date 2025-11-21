@@ -18,6 +18,8 @@ import {
   formatEquipmentForExport,
 } from './export-formatters';
 
+import { transformDailyReports, transformDailyReportsType } from './DayliReportWraper';
+
 // Tipo extendido para columnas con propiedades adicionales de exportación
 type ExtendedColumnDef<TData> = ColumnDef<TData> & {
   exportFormatter?: (value: any, row: TData) => string;
@@ -26,36 +28,10 @@ type ExtendedColumnDef<TData> = ColumnDef<TData> & {
 };
 
 // Se ha modificado la interfaz para que customer_equipment acepte un array de objetos
-interface TableRow {
-  id: string;
-  date: string;
-  customer: string;
-  type_service: string;
-  item: string;
-  item_description?: string;
-  description: string;
-  status: string;
-  start_time: string | null;
-  end_time: string | null;
-  employees: string[];
-  equipment: string[];
-  customer_equipment: {
-    name: string;
-    type: string;
-    id: string;
-    relacion_id: string;
-  }[];
-  services: string;
-  working_day?: string;
-  area?: string;
-  sector?: string;
-  remit_number?: string;
-  document_path?: string;
-  created_at?: string; // Para detectar filas creadas post-cierre
-}
+type TableRow = ReturnType<typeof transformDailyReports>[number];
 
 interface EnhancedComercialReportTableProps {
-  dailyReports: TableRow[];
+  dailyReports: transformDailyReportsType;
   onEdit?: (row: TableRow) => void;
   onView?: (row: TableRow) => void;
   onViewHistory?: (row: TableRow) => void;
@@ -376,18 +352,29 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         header: 'Acciones',
         cell: ({ row }) => {
           const isEnCertificacion = row.original.status.toLocaleLowerCase() === 'en_certificacion';
+          const isDailyReportOpen = row.original.dailyReportStatus === 'abierto';
+          console.log(row.original.dailyReportStatus);
           return (
             <div className="flex space-x-2">
               {onEdit && !isEnCertificacion && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => onEdit(row.original as TableRow)}>
+                    <TooltipTrigger>
+                      <Button
+                        disabled={isDailyReportOpen}
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEdit(row.original as TableRow)}
+                      >
                         <Edit size={16} />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Editar</p>
+                      {isDailyReportOpen ? (
+                        <p>El parte esta abierto, debe editarse desde Operaciones</p>
+                      ) : (
+                        <p>Editar</p>
+                      )}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -425,7 +412,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                         size="icon"
                         onClick={() => {
                           setSelectedRowId(row.original.id);
-                          setSelectedCustomerName(row.original.customer);
+                          setSelectedCustomerName(row.original.customer!);
                           setRemitModalOpen(true);
                         }}
                       >
@@ -446,12 +433,6 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
 
     return baseColumns;
   }, [onEdit, onView, onViewHistory, showActions, filterableColumns]);
-
-  const handleRowClick = useCallback((row: TableRow) => {
-    if (row.document_path) {
-      window.open(row.document_path, '_blank');
-    }
-  }, []);
 
   // Función para determinar si una fila fue creada post-cierre
   const isCreatedPostClose = useCallback((row: TableRow) => {
@@ -476,7 +457,11 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
             savedVisibility={{}}
             tableId="enhanced-comercial-report-table"
             className="w-full"
-            row_classname={(row) => (isCreatedPostClose(row) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '')}
+            row_classname={(row) => {
+              if (isCreatedPostClose(row)) return 'bg-yellow-100 dark:bg-yellow-900/30';
+              if (row.last_comercial_edit_at) return 'bg-blue-100 dark:bg-blue-900/30';
+              return '';
+            }}
             toolbarOptions={{
               filterableColumns: filterableColumns as any,
               searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],

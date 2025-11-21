@@ -1032,6 +1032,7 @@ export type Database = {
           end_time: string | null;
           id: string;
           item_id: string | null;
+          last_comercial_edit_at: string | null;
           preparte_id: string | null;
           remit_number: string | null;
           sector_service_id: string | null;
@@ -1055,6 +1056,7 @@ export type Database = {
           end_time?: string | null;
           id?: string;
           item_id?: string | null;
+          last_comercial_edit_at?: string | null;
           preparte_id?: string | null;
           remit_number?: string | null;
           sector_service_id?: string | null;
@@ -1078,6 +1080,7 @@ export type Database = {
           end_time?: string | null;
           id?: string;
           item_id?: string | null;
+          last_comercial_edit_at?: string | null;
           preparte_id?: string | null;
           remit_number?: string | null;
           sector_service_id?: string | null;

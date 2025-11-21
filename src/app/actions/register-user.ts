@@ -35,6 +35,16 @@ export async function registerUserWithRole(values: any, company: string) {
         throw new Error('El usuario ya tiene acceso a esta empresa');
       }
 
+      // Asignar company en app_metadata si no lo tiene
+      const { data: userData } = await adminSupabase.auth.admin.getUserById(profile.credential_id);
+      if (!userData?.user?.app_metadata?.company) {
+        await adminSupabase.auth.admin.updateUserById(profile.credential_id, {
+          app_metadata: {
+            company: company,
+          },
+        });
+      }
+
       // Compartir la empresa con el usuario existente
       const { error: shareError } = await supabase.from('share_company_users').insert([
         {
@@ -58,9 +68,6 @@ export async function registerUserWithRole(values: any, company: string) {
         redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
         data: {
           fullname: fullname,
-          company_id: company,
-          role: values.role,
-          customer_id: values.customer || null,
           needs_password_change: true, // Flag para indicar que necesita cambiar contraseña
         },
       });
@@ -93,6 +100,22 @@ export async function registerUserWithRole(values: any, company: string) {
         await adminSupabase.auth.admin.deleteUser(userId);
 
         throw new Error(`Error al crear perfil: ${profileCreateError.message}`);
+      }
+
+      // Asignar company en app_metadata
+      const { error: metadataError } = await adminSupabase.auth.admin.updateUserById(userId, {
+        app_metadata: {
+          company: company,
+        },
+      });
+
+      if (metadataError) {
+        console.error('❌ [INVITE] Error asignando metadata:', metadataError);
+        // ROLLBACK: Eliminar usuario y perfil si falla la asignación de metadata
+        await adminSupabase.from('profile').delete().eq('id', userId);
+        await adminSupabase.auth.admin.deleteUser(userId);
+
+        throw new Error(`Error al asignar metadata: ${metadataError.message}`);
       }
 
       // Compartir empresa

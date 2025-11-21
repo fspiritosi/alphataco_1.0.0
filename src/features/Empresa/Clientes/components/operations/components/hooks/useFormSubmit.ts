@@ -180,13 +180,13 @@ export function useFormSubmit(
 
       const updateData = {
         status: finalStatus,
-        // ❌ NO guardar remit_number aquí
         description: data.observations || null, // Usar 'observations' que es el campo del formulario
         start_time: data.start_time || null,
         end_time: data.end_time || null,
         working_day: data.working_day || null,
         sector_service_id: data.sector_service_id || null,
         areas_service_id: data.areas_service_id || null,
+        last_comercial_edit_at: new Date().toISOString(),
       };
       await updateDailyReportStatusAndRemitNumberClient(selectedRow.id, updateData as any);
 

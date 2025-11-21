@@ -17,8 +17,8 @@ import { getDailyReportsLatestType } from '@/features/Operaciones/PartesDiarios/
 
 export const description = 'A multiple bar chart per client using dailyReports';
 
-export function ChartBarServiceHistory({ dailyReports }: { dailyReports: Promise<getDailyReportsLatestType> }) {
-  const dailyReportsData = React.use(dailyReports);
+export function ChartBarServiceHistory({ dailyReports }: { dailyReports: getDailyReportsLatestType }) {
+  const dailyReportsData = dailyReports;
   const [timeRange, setTimeRange] = React.useState('30d');
 
   // Derivar datos desde la prop: agregamos por cliente por día y mapeamos cada cliente como una serie

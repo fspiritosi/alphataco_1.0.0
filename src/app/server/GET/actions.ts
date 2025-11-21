@@ -606,7 +606,7 @@ export const getNextMonthExpiringDocumentsEmployees = async () => {
     .not('id_document_types.is_it_montlhy', 'is', true)
     .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`)
     .not('validity', 'is', null)
-    .eq('applies.company_id', company_id || user?.app_metadata?.company_id || '')
+    .eq('applies.company_id', company_id || user?.app_metadata?.company || '')
     .order('validity', { ascending: true }) // Ordenar por fecha de validez en orden ascendente
     .returns<EmployeeDocumentWithContractors[]>();
 
@@ -631,7 +631,7 @@ export const getNextMonthExpiringDocumentsVehicles = async () => {
   const { data, error } = await supabase
     .from('documents_equipment')
     .select('*,id_document_types(*),applies!inner(*,type(*),brand(*),model(*))')
-    .eq('applies.company_id', company_id || user?.app_metadata?.company_id || '')
+    .eq('applies.company_id', company_id || user?.app_metadata?.company || '')
     .not('id_document_types.is_it_montlhy', 'is', true)
     .not('id_document_types', 'is', null)
     .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`)

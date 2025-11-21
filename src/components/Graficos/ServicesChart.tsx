@@ -14,7 +14,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getServicesDetailByClient } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { Eye } from 'lucide-react';
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pie, PieChart } from 'recharts';
 import { ServicesDetailByClient } from './ServicesDetailByClient';
 
@@ -35,8 +35,8 @@ interface ClientServiceData {
   fill: string;
 }
 
-export function ServicesChart({ servicesSummary }: { servicesSummary: Promise<ServicesSummary[]> }) {
-  const servicesData = use(servicesSummary);
+export function ServicesChart({ servicesSummary }: { servicesSummary: ServicesSummary[] }) {
+  const servicesData = servicesSummary;
   const [chartData, setChartData] = useState<ClientServiceData[]>([]);
   const [chartConfig2, setChartConfig2] = useState<ChartConfig>({});
   const [isLoading, setIsLoading] = useState(true);

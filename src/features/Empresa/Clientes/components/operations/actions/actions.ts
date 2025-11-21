@@ -73,7 +73,7 @@ export async function getCustomersClient() {
     )
   `
     )
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
     console.error(error);
   }
@@ -173,7 +173,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
         customers(id, name),
         dailyreportemployeerelations(employees(id, firstname, lastname, document_number, email, phone, company_positions(name))),
         dailyreportequipmentrelations(vehicles(id, intern_number, domain, year, type(name), brand_vehicles(name), model_vehicles(name), sub_type(name))),
-        dailyreport!inner(date)
+        dailyreport!inner(date,status)
       `
       )
       .order('date', { foreignTable: 'dailyreport', ascending: false });
@@ -269,7 +269,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
     });
 
     // Procesar las filas filtradas
-    const processedRows = filteredRows.map((row: any) => {
+    const processedRows = filteredRows.map((row) => {
       // Mapeo de empleados
       const employees: string[] = (row.dailyreportemployeerelations || [])
         .map((rel: any) => (rel?.employees ? `${rel.employees.firstname} ${rel.employees.lastname}`.trim() : ''))
@@ -320,6 +320,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
     throw error;
   }
 }
+export type getFilteredDailyReportRowsType = Awaited<ReturnType<typeof getFilteredDailyReportRows>>;
 
 // Función auxiliar para convertir a array
 function toArray<T>(value: T | T[] | undefined | null): T[] {

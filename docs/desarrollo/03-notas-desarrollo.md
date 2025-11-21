@@ -42,4 +42,6 @@ revisar el guardado de indicadores que se esta duplicando
 👍la fecha del comercial es de ayer hacia atras
 👍eliminar el compeleto dia y noche
 
-ver algo de sinergia
+👍En comercial solo se deben poder editar las lineas que tienen el parte cerrado, solo desde comercial
+👍Agregar un campo fecha
+👍controlar el cliente, es decir solo filtrar remitos del mismo cliente

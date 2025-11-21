@@ -150,7 +150,6 @@ export default function DayliReportDetailTableServer({
       sorting: [],
       columnFilters: [],
     });
-
     // Transformar todos los datos al formato esperado por ClonarRegistrosButton
     const transformed =
       allData?.map((row) => ({
@@ -159,6 +158,7 @@ export default function DayliReportDetailTableServer({
         type_service: row.type_service,
         customer: row.customers?.name,
         preparte: row.preparte,
+        last_comercial_edit_at: row.last_comercial_edit_at,
         cancel_reason: row.cancel_reason,
         employees:
           row.dailyreportemployeerelations?.map((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}`) ||
@@ -847,6 +847,8 @@ export default function DayliReportDetailTableServer({
           // Parsear created_at con moment
           const createdAt = moment(row.created_at);
           // Si created_at es posterior a la fecha del parte, fue creado post-cierre
+
+          if (row.last_comercial_edit_at) return 'bg-blue-100 dark:bg-blue-900/30';
           return createdAt.isAfter(reportDate) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '';
         }}
         tableId="dailyReportServerTable"

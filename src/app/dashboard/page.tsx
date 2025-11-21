@@ -1,22 +1,27 @@
 import DashboardComponent from '@/components/Dashboard/DashboardComponent';
-import DashboardSkeleton from '@/components/Skeletons/DashboardSkeleton';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
-import { getRole } from '@/lib/utils/getRole';
 import { cookies } from 'next/headers';
-import { Suspense } from 'react';
 import { query } from '../server/GET/probando';
-import WelcomeComponent from './welcome-component';
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
   // Mover las consultas dentro de la función del componente para evitar errores durante el build
   // const data = await query('employees', '*');
-  const role = await getRole();
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      {!role && <DashboardSkeleton />}
-      {role === 'Invitado' && typeof role === 'string' ? <WelcomeComponent /> : <DashboardComponent />}
-    </Suspense>
-  );
+  return <DashboardComponent searchParams={searchParams} />;
+  // const role = await getRole();
+  // return (
+  //   <Suspense fallback={<DashboardSkeleton />}>
+  //     {!role && <DashboardSkeleton />}
+  //     {role === 'Invitado' && typeof role === 'string' ? (
+  //       <WelcomeComponent />
+  //     ) : (
+  //       <DashboardComponent searchParams={searchParams} />
+  //     )}
+  //   </Suspense>
+  // );
 }
 
 // Exportar el tipo basado en una consulta de ejemplo
