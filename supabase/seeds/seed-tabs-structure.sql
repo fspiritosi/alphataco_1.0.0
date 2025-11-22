@@ -176,6 +176,12 @@ INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_ta
 ('30000000-0000-0000-0000-000000000044', '34d7f9e5-7c01-4def-9446-6b3f52d761a0', 'maintenance_groups', 'Grupos', 'Grupos de mantenimiento', 4, '30000000-0000-0000-0000-000000000004')
 ON CONFLICT (id) DO NOTHING;
 
+-- Subtabs de type_of_repair_new_entry (nivel 3)
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('30000000-0000-0000-0000-000000000431', '34d7f9e5-7c01-4def-9446-6b3f52d761a0', 'carga-individual', 'Carga Individual', 'Carga individual de solicitudes de mantenimiento', 1, '30000000-0000-0000-0000-000000000043'),
+('30000000-0000-0000-0000-000000000432', '34d7f9e5-7c01-4def-9446-6b3f52d761a0', 'carga-multiple', 'Carga Múltiple', 'Carga múltiple de solicitudes de mantenimiento', 2, '30000000-0000-0000-0000-000000000043')
+ON CONFLICT (id) DO NOTHING;
+
 -- ============================================
 -- 5. COMERCIAL (module_id: 92bfac14-dc5b-41be-b366-740bfbeaea13)
 -- ============================================

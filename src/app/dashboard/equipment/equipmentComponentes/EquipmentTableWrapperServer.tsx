@@ -1,4 +1,5 @@
 import { fetchEquipmentData } from '@/app/server/GET/probando';
+import { Card } from '@/components/ui/card';
 import { cookies } from 'next/headers';
 import TablaEquipmentServer from '../data-equipment-server';
 
@@ -21,14 +22,14 @@ async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: Equipm
   });
 
   return (
-    <>
+    <Card className="p-6">
       <TablaEquipmentServer
         types_of_vehicles={types_of_vehicles}
         initialData={initialData}
         savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
         savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
       />
-    </>
+    </Card>
   );
 }
 

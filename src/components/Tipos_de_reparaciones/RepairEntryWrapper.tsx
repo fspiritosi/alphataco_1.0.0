@@ -1,15 +1,24 @@
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import { TypeOfRepair } from '@/types/types';
+import { FileText, Files } from 'lucide-react';
 import { cookies } from 'next/headers';
+import { Suspense } from 'react';
 import InfoComponent from '../InfoComponent';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Card } from '../ui/card';
 import RepairNewEntry from './RepairEntry';
 import RepairNewEntryMultiple from './RepairEntryMultiple';
 import { fetchAllTypesOfRepairs } from './actions/actions';
 import { fetchMaintenanceGroupsAction } from './actions/maintenanceGroupActions';
 
-async function RepairEntryWrapper({ equipment_id }: { equipment_id?: string }) {
+async function RepairEntryWrapper({
+  equipment_id,
+  searchParams,
+}: {
+  equipment_id?: string;
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
   const supabase = supabaseServer();
   const {
     data: { user },
@@ -30,36 +39,63 @@ async function RepairEntryWrapper({ equipment_id }: { equipment_id?: string }) {
     'El kilometraje de las unidades seleccionadas no se podran modificar durante la carga multiple, si desea cargar el kilometraje de las unidades seleccionadas, por favor haga la carga individual de cada una de ellas.';
 
   return (
-    <Tabs defaultValue="carga_simple" className="">
-      <TabsList>
-        <TabsTrigger value="carga_simple">Carga individual</TabsTrigger>
-        <TabsTrigger value="carga_multiple">Carga multiple</TabsTrigger>
-      </TabsList>
-      <TabsContent value="carga_simple">
-        {' '}
-        <RepairNewEntry
-          user_id={user?.id}
-          equipment={vehiclesFormatted}
-          tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
-          maintenance_groups={maintenanceGroups || []}
-          default_equipment_id={equipment_id}
-          savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
-          savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
-        />
-      </TabsContent>
-      <TabsContent value="carga_multiple">
-        {' '}
-        <InfoComponent size="lg" message={message} />
-        <RepairNewEntryMultiple
-          user_id={user?.id}
-          equipment={vehiclesFormatted}
-          tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
-          default_equipment_id={equipment_id}
-          savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
-          savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
-        />
-      </TabsContent>
-    </Tabs>
+    <TabsManagerServer
+      paramName="mode"
+      searchParams={searchParams}
+      defaultTab="carga-individual"
+      tabs={[
+        {
+          value: 'carga-individual',
+          label: (
+            <span className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Carga Individual
+            </span>
+          ),
+          moduleSlug: 'equipos',
+          tabSlug: 'carga-individual',
+          content: (
+            <Suspense fallback={<div>Cargando formulario...</div>}>
+              <RepairNewEntry
+                user_id={user?.id}
+                equipment={vehiclesFormatted}
+                tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
+                maintenance_groups={maintenanceGroups || []}
+                default_equipment_id={equipment_id}
+                savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
+                savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
+              />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'carga-multiple',
+          label: (
+            <span className="flex items-center gap-2">
+              <Files className="h-4 w-4" />
+              Carga Múltiple
+            </span>
+          ),
+          moduleSlug: 'equipos',
+          tabSlug: 'carga-multiple',
+          content: (
+            <Suspense fallback={<div>Cargando formulario...</div>}>
+              <Card className="p-6">
+                <InfoComponent size="lg" message={message} />
+                <RepairNewEntryMultiple
+                  user_id={user?.id}
+                  equipment={vehiclesFormatted}
+                  tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
+                  default_equipment_id={equipment_id}
+                  savedFilters={savedVisibilityFilters2 ? JSON.parse(savedVisibilityFilters2) : []}
+                  savedVisibility={savedVisibility2 ? JSON.parse(savedVisibility2) : []}
+                />
+              </Card>
+            </Suspense>
+          ),
+        },
+      ]}
+    />
   );
 }
 

@@ -56,7 +56,7 @@ export async function getEmployeesByGenderAndPosition() {
   const companyId = getCompanyId();
 
   if (!companyId) {
-    throw new Error('No se encontró el ID de la empresa');
+    return;
   }
 
   const { data, error } = await supabase
@@ -86,7 +86,7 @@ export async function getEmployeesByContractType() {
   const companyId = getCompanyId();
 
   if (!companyId) {
-    throw new Error('No se encontró el ID de la empresa');
+    return;
   }
 
   const { data, error } = await supabase

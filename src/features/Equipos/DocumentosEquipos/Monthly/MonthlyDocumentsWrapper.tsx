@@ -1,3 +1,4 @@
+import { Card } from '@/components/ui/card';
 import { cookies } from 'next/headers';
 import MonthlyEquipmentDocumentsTableServer from './components/MonthlyEquipmentDocumentsTableServer';
 import { fetchMonthlyEquipmentDocumentsData } from './components/lib/actions/actions';
@@ -18,11 +19,13 @@ async function MonthlyEquipmentDocumentsWrapper() {
   });
 
   return (
-    <MonthlyEquipmentDocumentsTableServer
-      initialData={initialData}
-      savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : undefined}
-      savedFilters={savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : []}
-    />
+    <Card className="p-6">
+      <MonthlyEquipmentDocumentsTableServer
+        initialData={initialData}
+        savedVisibility={savedVisibilityMonthly ? JSON.parse(savedVisibilityMonthly) : undefined}
+        savedFilters={savedFiltersMonthly ? JSON.parse(savedFiltersMonthly) : []}
+      />
+    </Card>
   );
 }
 

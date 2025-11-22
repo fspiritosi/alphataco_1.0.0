@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { Card } from '../ui/card';
 import { RepairTypeForm } from './RepairTypeForm';
 import { fetchAllTypesOfRepairs } from './actions/actions';
 
@@ -10,11 +11,13 @@ async function RepairTypeFormWrapper() {
   const savedVisibilityFilters = coockiesStore.get('repair-type-table-filters')?.value;
 
   return (
-    <RepairTypeForm
-      types_of_repairs={types_of_repairs}
-      savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
-      savedFilters={savedVisibilityFilters ? JSON.parse(savedVisibilityFilters) : []}
-    />
+    <Card className="p-6">
+      <RepairTypeForm
+        types_of_repairs={types_of_repairs}
+        savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : []}
+        savedFilters={savedVisibilityFilters ? JSON.parse(savedVisibilityFilters) : []}
+      />
+    </Card>
   );
 }
 

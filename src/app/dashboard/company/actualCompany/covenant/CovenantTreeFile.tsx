@@ -1,5 +1,6 @@
 'use client';
 
+import { Card } from '@/components/ui/card';
 import { TreeNode, TreeNodeData } from './TreeFile';
 
 export default function CovenantTreeFile({ formattedData }: { formattedData: TreeNodeData[] }) {
@@ -38,8 +39,10 @@ export default function CovenantTreeFile({ formattedData }: { formattedData: Tre
   // }
 
   return (
-    <div className="bg-background text-foreground">
-      <TreeNode node={treeData} level={0} />
-    </div>
+    <Card className="p-6">
+      <div className="bg-background text-foreground">
+        <TreeNode node={treeData} level={0} />
+      </div>
+    </Card>
   );
 }

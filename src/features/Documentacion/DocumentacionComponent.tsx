@@ -1,0 +1,78 @@
+import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
+import { TabsManagerServer } from '@/features/TabsManager';
+import { Building2, FileType, Truck, Users } from 'lucide-react';
+import { Suspense } from 'react';
+import DocumentosEmpleadosTabContent from './DocumentosEmpleados/DocumentosEmpleadosTabContent';
+import DocumentosEmpresaTabContent from './DocumentosEmpresa/DocumentosEmpresaTabContent';
+import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
+
+export default function DocumentacionComponent({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  return (
+    <div className="px-6">
+      <TabsManagerServer
+        paramName="tab"
+        searchParams={searchParams}
+        defaultTab="documentos-de-empleados"
+        dependentParams={['subtab']}
+        tabs={[
+          {
+            value: 'documentos-de-empleados',
+            label: (
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Documentos de Empleados
+              </span>
+            ),
+            moduleSlug: 'documentacion',
+            tabSlug: 'documentos-de-empleados',
+            content: <DocumentosEmpleadosTabContent searchParams={searchParams} />,
+          },
+          {
+            value: 'documentos-de-equipos',
+            label: (
+              <span className="flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                Documentos de Equipos
+              </span>
+            ),
+            moduleSlug: 'documentacion',
+            tabSlug: 'documentos-de-equipos',
+            content: <DocumentosEquiposTabContent searchParams={searchParams} />,
+          },
+          {
+            value: 'documentos-de-empresa',
+            label: (
+              <span className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Documentos de Empresa
+              </span>
+            ),
+            moduleSlug: 'documentacion',
+            tabSlug: 'documentos-de-empresa',
+            content: <DocumentosEmpresaTabContent searchParams={searchParams} />,
+          },
+          {
+            value: 'tipos-de-documentos',
+            label: (
+              <span className="flex items-center gap-2">
+                <FileType className="h-4 w-4" />
+                Tipos de Documentos
+              </span>
+            ),
+            moduleSlug: 'documentacion',
+            tabSlug: 'tipos-de-documentos',
+            content: (
+              <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
+                <TypesDocumentsViewWrapper optionChildrenProp="all" equipos={true} empresa={true} personas={true} />
+              </Suspense>
+            ),
+          },
+        ]}
+      />
+    </div>
+  );
+}

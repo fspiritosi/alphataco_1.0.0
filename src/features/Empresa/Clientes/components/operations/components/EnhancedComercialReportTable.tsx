@@ -18,7 +18,10 @@ import {
   formatEquipmentForExport,
 } from './export-formatters';
 
-import { transformDailyReports, transformDailyReportsType } from './DayliReportWraper';
+import {
+  transformDailyReports,
+  transformDailyReportsType,
+} from '../../../../../Comercial/Comerce/components/DayliReportWraper';
 
 // Tipo extendido para columnas con propiedades adicionales de exportación
 type ExtendedColumnDef<TData> = ColumnDef<TData> & {

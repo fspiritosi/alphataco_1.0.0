@@ -1,3 +1,4 @@
+import { Card } from '@/components/ui/card';
 import { cookies } from 'next/headers';
 import PermanentEquipmentDocumentsTableServer from './components/PermanentEquipmentDocumentsTableServer';
 import { fetchPermanentEquipmentDocumentsData } from './components/lib/actions/actions';
@@ -18,11 +19,13 @@ async function PermanentEquipmentDocumentsWrapper() {
   });
 
   return (
-    <PermanentEquipmentDocumentsTableServer
-      initialData={initialData}
-      savedVisibility={savedVisibilityPermanent ? JSON.parse(savedVisibilityPermanent) : undefined}
-      savedFilters={savedFiltersPermanent ? JSON.parse(savedFiltersPermanent) : []}
-    />
+    <Card className="p-6">
+      <PermanentEquipmentDocumentsTableServer
+        initialData={initialData}
+        savedVisibility={savedVisibilityPermanent ? JSON.parse(savedVisibilityPermanent) : undefined}
+        savedFilters={savedFiltersPermanent ? JSON.parse(savedFiltersPermanent) : []}
+      />
+    </Card>
   );
 }
 

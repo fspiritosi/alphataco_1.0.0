@@ -135,6 +135,20 @@ export const PERMISSIONS = {
             name: 'Usuarios',
             tabId: '10000000-0000-0000-0000-000000000014',
             parent: 'general',
+            subtabs: {
+              'usuarios-empleados': {
+                slug: 'usuarios-empleados',
+                name: 'Usuarios',
+                tabId: '10000000-0000-0000-0000-000000000141',
+                parent: 'users',
+              },
+              'gestion-roles': {
+                slug: 'gestion-roles',
+                name: 'Gestión de Roles',
+                tabId: '10000000-0000-0000-0000-000000000142',
+                parent: 'users',
+              },
+            },
           },
           documentacion: {
             slug: 'documentacion',
@@ -410,6 +424,20 @@ export const PERMISSIONS = {
             name: 'Nueva Solicitud',
             tabId: '30000000-0000-0000-0000-000000000043',
             parent: 'type_of_repairs',
+            subtabs: {
+              'carga-individual': {
+                slug: 'carga-individual',
+                name: 'Carga Individual',
+                tabId: '30000000-0000-0000-0000-000000000431',
+                parent: 'type_of_repair_new_entry',
+              },
+              'carga-multiple': {
+                slug: 'carga-multiple',
+                name: 'Carga Múltiple',
+                tabId: '30000000-0000-0000-0000-000000000432',
+                parent: 'type_of_repair_new_entry',
+              },
+            },
           },
           maintenance_groups: {
             slug: 'maintenance_groups',
@@ -673,12 +701,28 @@ export type SubtabSlug<M extends ModuleSlug, T extends TabSlug<M>> = (typeof PER
   ? keyof S
   : never;
 
-// Tipo para obtener todos los slugs de tabs y subtabs de un módulo
+// Tipo helper para obtener subtabs de nivel 3 (subtabs de subtabs)
+type SubSubtabSlug<M extends ModuleSlug, T extends TabSlug<M>> = {
+  [ST in SubtabSlug<M, T>]: (typeof PERMISSIONS)[M]['tabs'][T] extends { subtabs: infer S }
+    ? S extends Record<string, any>
+      ? ST extends keyof S
+        ? S[ST] extends { subtabs: infer SS }
+          ? keyof SS
+          : never
+        : never
+      : never
+    : never;
+}[SubtabSlug<M, T>];
+
+// Tipo para obtener todos los slugs de tabs, subtabs y sub-subtabs de un módulo (hasta 3 niveles)
 export type AllTabSlugs<M extends ModuleSlug> =
-  | TabSlug<M>
+  | TabSlug<M> // Nivel 1: tabs principales
   | {
       [T in TabSlug<M>]: SubtabSlug<M, T>;
-    }[TabSlug<M>];
+    }[TabSlug<M>] // Nivel 2: subtabs
+  | {
+      [T in TabSlug<M>]: SubSubtabSlug<M, T>;
+    }[TabSlug<M>]; // Nivel 3: sub-subtabs
 
 // Helper para obtener el tabId correcto
 export function getTabId(module: ModuleSlug, tab: string): string {

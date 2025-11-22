@@ -36,15 +36,16 @@ function MantenimientoPage({ searchParams }: { searchParams: { tab: string; subt
           buttonActioRestricted: [''],
           component: (
             <RepairTypes
-              created_solicitudes
-              type_of_repair
-              type_of_repair_new_entry
-              type_of_repair_new_entry2
-              type_of_repair_new_entry3
+              // created_solicitudes
+              // type_of_repair
+              // type_of_repair_new_entry
+              // type_of_repair_new_entry2
+              // type_of_repair_new_entry3
               mechanic
-              subtab={searchParams?.subtab}
-              tabValue="type_of_repairs"
-              path="/dashboard/maintenance"
+              // subtab={searchParams?.subtab}
+              // tabValue="type_of_repairs"
+              // path="/dashboard/maintenance"
+              searchParams={searchParams}
             />
           ),
         },

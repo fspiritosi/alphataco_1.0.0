@@ -1,91 +1,14 @@
-import DocumentNav from '@/components/DocumentNav';
-import Viewcomponent from '@/components/ViewComponent';
-import EmployeeDocumentsTabs from '../../../features/Employees/Empleados/Documents/EmployeeDocumentsTabs';
-import CompanyTabsWrapper from './documentComponents/CompanyTabsWrapper';
-import EquipmentTabs from './documentComponents/EquipmentTabs';
-import TypesDocumentsViewWrapper from './documentComponents/TypesDocumentsViewWrapper';
+import DocumentacionComponent from '@/features/Documentacion/DocumentacionComponent';
 
 export const metadata = {
   title: 'Documentos | GH Gestión',
-  description: 'Página de documentos de GH Gestión con información general, comercial, HR y equipos',
+  description: 'Gestión de documentos de empleados, equipos y empresa',
 };
-export default function page({
-  params,
-}: {
-  params: {
-    tab: string;
-    subtab: string;
-  };
-}) {
-  const viewData = {
-    defaultValue: 'Documentos de empleados',
-    path: '/dashboard/document',
-    tabsValues: [
-      {
-        value: 'Documentos de empleados',
-        name: 'Documentos de empleados',
-        restricted: [''],
-        content: {
-          title: 'Documentos cargados',
-          description: 'Aquí encontrarás todos los documentos de tus empleados',
-          buttonActioRestricted: [''],
-          buttonAction: (
-            <div className="flex gap-4 flex-wrap pl-6">
-              <DocumentNav onlyEmployees onlyEquipment />
-            </div>
-          ),
-          component: <EmployeeDocumentsTabs path="/dashboard/document" tabValue={params.tab} subtab={params.subtab} />,
-        },
-      },
-      {
-        value: 'Documentos de equipos',
-        name: 'Documentos de equipos',
-        restricted: [''],
-        content: {
-          title: 'Documentos cargados',
-          description: 'Aquí encontrarás todos los documentos de tus equipos',
-          buttonActioRestricted: [''],
-          buttonAction: (
-            <div className="flex gap-4 flex-wrap pl-6">
-              <DocumentNav />
-            </div>
-          ),
-          component: <EquipmentTabs path="/dashboard/equipment" tabValue={params.tab} subtab={params.subtab} />,
-        },
-      },
-      {
-        value: 'Documentos de empresa',
-        name: 'Documentos de empresa',
-        restricted: [''],
-        content: {
-          title: 'Documentos cargados',
-          description: 'Aquí encontrarás todos los documentos de tus empresa',
-          buttonActioRestricted: [''],
-          buttonAction: (
-            <div className="flex gap-4 flex-wrap pl-6">
-              <DocumentNav />
-            </div>
-          ),
-          component: (
-            <CompanyTabsWrapper path="/dashboard/document" tabValue="Documentos de empresa" subtab={params.subtab} />
-          ),
-        },
-      },
-      {
-        value: 'Tipos de documentos',
-        name: 'Tipos de documentos',
-        restricted: ['Invitado'],
-        content: {
-          title: 'Tipos de documentos',
-          description: 'Tipos de documentos auditables',
-          buttonActioRestricted: [''],
-          component: (
-            <TypesDocumentsViewWrapper optionChildrenProp="all" equipos={true} empresa={true} personas={true} />
-          ),
-        },
-      },
-    ],
-  };
 
-  return <Viewcomponent viewData={viewData} />;
+export default function DocumentosPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  return <DocumentacionComponent searchParams={searchParams} />;
 }

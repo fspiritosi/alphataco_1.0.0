@@ -21,7 +21,7 @@ export function EmployeeContractTypeChartComponent({ data }: EmployeeContractTyp
     // Contar empleados por tipo de contrato
     const contractCounts = new Map<string, number>();
 
-    data.forEach((employee) => {
+    data?.forEach((employee) => {
       const contractType = employee.types_of_contract?.name || 'Sin especificar';
       contractCounts.set(contractType, (contractCounts.get(contractType) || 0) + 1);
     });

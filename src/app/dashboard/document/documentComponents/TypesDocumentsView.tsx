@@ -1,8 +1,9 @@
 'use client';
 import { fetchAllDocumentTypes } from '@/app/server/GET/actions';
-import { CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisibilityState } from '@tanstack/react-table';
+import { Building2, Truck, User } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import DocumentsTable from './DocumentsTable';
 import FilterHeader from './FilterComponent';
@@ -100,59 +101,86 @@ function TypesDocumentsView({
     <CardContent className="px-0 pt-1">
       <Tabs defaultValue={optionValue} className="w-full">
         <div className="flex flex-col w-fit gap-2">
-          <TabsList className="w-fit">
-            {personas && <TabsTrigger value="Personas">Personas ({filteredDocPersonas?.length || 0})</TabsTrigger>}
-            {equipos && <TabsTrigger value="Equipos">Equipos ({filteredDocEquipos?.length || 0})</TabsTrigger>}
-            {empresa && <TabsTrigger value="Empresa">Empresa ({filteredDocEmpresa?.length || 0})</TabsTrigger>}
+          <TabsList className="w-fit bg-muted">
+            {personas && (
+              <TabsTrigger value="Personas">
+                <span className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Personas ({filteredDocPersonas?.length || 0})
+                </span>
+              </TabsTrigger>
+            )}
+            {equipos && (
+              <TabsTrigger value="Equipos">
+                <span className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  Equipos ({filteredDocEquipos?.length || 0})
+                </span>
+              </TabsTrigger>
+            )}
+            {empresa && (
+              <TabsTrigger value="Empresa">
+                <span className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Empresa ({filteredDocEmpresa?.length || 0})
+                </span>
+              </TabsTrigger>
+            )}
           </TabsList>
           <div>{actionComponent}</div>
         </div>
         {personas && (
           <TabsContent value="Personas">
-            <DocumentsTable
-              data={filteredDocPersonas || []}
-              filters={filters.personas}
-              savedFilters={savedFilters}
-              savedVisibility={savedVisibility}
-            >
-              <FilterHeader
+            <Card className="p-6">
+              <DocumentsTable
+                data={filteredDocPersonas || []}
                 filters={filters.personas}
-                docOptions={docOptions as any}
-                onFilterChange={(name, value) => handleFilterChange('personas', name, value)}
-              />
-            </DocumentsTable>
+                savedFilters={savedFilters}
+                savedVisibility={savedVisibility}
+              >
+                <FilterHeader
+                  filters={filters.personas}
+                  docOptions={docOptions as any}
+                  onFilterChange={(name, value) => handleFilterChange('personas', name, value)}
+                />
+              </DocumentsTable>
+            </Card>
           </TabsContent>
         )}
         {equipos && (
           <TabsContent value="Equipos">
-            <DocumentsTable
-              savedVisibility={savedVisibility}
-              savedFilters={savedFilters}
-              data={filteredDocEquipos || []}
-              filters={filters.equipos}
-            >
-              <FilterHeader
+            <Card className="p-6">
+              <DocumentsTable
+                savedVisibility={savedVisibility}
+                savedFilters={savedFilters}
+                data={filteredDocEquipos || []}
                 filters={filters.equipos}
-                docOptions={docOptions as any}
-                onFilterChange={(name, value) => handleFilterChange('equipos', name, value)}
-              />
-            </DocumentsTable>
+              >
+                <FilterHeader
+                  filters={filters.equipos}
+                  docOptions={docOptions as any}
+                  onFilterChange={(name, value) => handleFilterChange('equipos', name, value)}
+                />
+              </DocumentsTable>
+            </Card>
           </TabsContent>
         )}
         {empresa && (
           <TabsContent value="Empresa">
-            <DocumentsTable
-              savedVisibility={savedVisibility}
-              savedFilters={savedFilters}
-              data={filteredDocEmpresa || []}
-              filters={filters.empresa}
-            >
-              <FilterHeader
+            <Card className="p-6">
+              <DocumentsTable
+                savedVisibility={savedVisibility}
+                savedFilters={savedFilters}
+                data={filteredDocEmpresa || []}
                 filters={filters.empresa}
-                docOptions={docOptions as any}
-                onFilterChange={(name, value) => handleFilterChange('empresa', name, value)}
-              />
-            </DocumentsTable>
+              >
+                <FilterHeader
+                  filters={filters.empresa}
+                  docOptions={docOptions as any}
+                  onFilterChange={(name, value) => handleFilterChange('empresa', name, value)}
+                />
+              </DocumentsTable>
+            </Card>
           </TabsContent>
         )}
       </Tabs>
