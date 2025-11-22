@@ -2,9 +2,9 @@
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLoggedUserStore } from '@/store/loggedUser';
-import { ExpiredColums } from '../../colums';
 import { ColumnsMonthly } from '../../columsMonthly';
 import { ExpiredDataTable } from '../../data-table';
+import { ExpiredColums } from '../../pedidos/colums';
 
 function page() {
   const { allDocumentsToShow } = useLoggedUserStore();

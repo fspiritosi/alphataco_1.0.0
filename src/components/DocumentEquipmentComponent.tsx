@@ -1,17 +1,17 @@
 // 'use client';
-import { ExpiredColums } from '@/app/dashboard/colums';
 import { ColumnsMonthly } from '@/app/dashboard/columsMonthly';
 import { ExpiredDataTable } from '@/app/dashboard/data-table';
+import { ExpiredColums } from '@/app/dashboard/pedidos/colums';
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // import { useLoggedUserStore } from '@/store/loggedUser';
 import { fetchMonthlyDocumentsByEquipmentId, fetchPermanentDocumentsByEquipmentId } from '@/app/server/GET/actions';
 import { supabaseServer } from '@/lib/supabase/server';
-import { formatVehiculesDocuments, getActualRole } from '@/lib/utils';
+import { formatVehiculesDocuments } from '@/lib/utils';
 import { cookies } from 'next/headers';
 import DocumentNav from './DocumentNav';
 
-export default async function DocumentEquipmentComponent({ id, role }: { id: string,role: string }) {
+export default async function DocumentEquipmentComponent({ id, role }: { id: string; role: string }) {
   const monthlyDocuments = (await fetchMonthlyDocumentsByEquipmentId(id)).map(formatVehiculesDocuments);
   const supabase = supabaseServer();
   const permanentDocuments = (await fetchPermanentDocumentsByEquipmentId(id)).map(formatVehiculesDocuments);

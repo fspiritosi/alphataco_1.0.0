@@ -69,7 +69,7 @@ export default function EquiposComponent({
             ),
             moduleSlug: 'equipos',
             tabSlug: 'type_of_repairs',
-            content: <RepairTypes searchParams={searchParams} />,
+            content: <RepairTypes searchParams={searchParams} moduleSlug="equipos" />,
           },
         ]}
       />

@@ -1,7 +1,7 @@
 'use client';
 import { useLoggedUserStore } from '@/store/loggedUser';
-import { ExpiredColums } from '../colums';
 import { ExpiredDataTable } from '../data-table';
+import { ExpiredColums } from '../pedidos/colums';
 
 function VPendingDocumentTable() {
   const vehicles = useLoggedUserStore((state) => state.pendingDocuments)?.vehicles;

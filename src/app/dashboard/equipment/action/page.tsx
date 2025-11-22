@@ -76,13 +76,10 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} role={role} />}
           repairsComponent={
             <RepairTypes
-              // tabValue="created_solicitudes"
               searchParams={searchParams}
               equipment_id={searchParams.id}
-              // type_of_repair_new_entry
-              // created_solicitudes
-              // defaultValue="created_solicitudes"
               hiddenTabs={['type_of_repair']}
+              moduleSlug="equipos"
             />
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}

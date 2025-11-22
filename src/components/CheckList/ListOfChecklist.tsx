@@ -1,4 +1,5 @@
 import { fetchCustomForms } from '@/app/server/GET/actions';
+import { Card } from '../ui/card';
 import { checkListColumns } from './tables/checkListColumns';
 import { TypesOfCheckListTable } from './tables/data-table';
 
@@ -25,7 +26,7 @@ export default async function ChecklistTable() {
   // }
 
   return (
-    <>
+    <Card className="p-6">
       {/* <ReportModal vehicles={vehicles} checklists={checklists} /> */}
       <TypesOfCheckListTable
         columns={checkListColumns}
@@ -40,7 +41,7 @@ export default async function ChecklistTable() {
           };
         })}
       />
-    </>
+    </Card>
   );
 }
 

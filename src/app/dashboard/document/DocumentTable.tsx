@@ -8,9 +8,9 @@ import DocumentNav from '@/components/DocumentNav';
 import { CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatEmployeeDocuments } from '@/lib/utils';
-import { ExpiredColums } from '../colums';
 import { ColumnsMonthly } from '../columsMonthly';
 import { ExpiredDataTable } from '../data-table';
+import { ExpiredColums } from '../pedidos/colums';
 
 type Props = { employee_id: string; role?: string };
 

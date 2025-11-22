@@ -1,8 +1,6 @@
 import { fetchCustomFormById, fetchFormsAnswersByFormId } from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
-import Viewcomponent from '@/components/ViewComponent';
 import { PDFPreviewDialog } from '@/components/pdf-preview-dialog';
-
 import { TransporteSPANAYCHKHYS01 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS01';
 import { TransporteSPANAYCHKHYS03 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS03';
 import { TransporteSPANAYCHKHYS04 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS04';
@@ -23,45 +21,30 @@ const renderForm = (activeFormType: string) => {
   }
 };
 
-async function page({ params }: { params: { id: string } }) {
+export default async function FormDetailPage({ params }: { params: { id: string } }) {
   const answers = await fetchFormsAnswersByFormId(params.id);
   const formInfo = await fetchCustomFormById(params.id);
   const formName = formInfo[0].name;
+  const formDescription = (answers[0]?.form_id?.form as any)?.description ?? '';
 
-  const viewData = {
-    defaultValue: 'anwers',
-    path: `/dashboard/forms/${params.id}`,
-    tabsValues: [
-      {
-        value: 'anwers',
-        name: 'Respuesta de checklist',
-        restricted: [''],
-        content: {
-          buttonAction: (
-            <div className="flex gap-4">
-              <BackButton />
-              <PDFPreviewDialog
-                buttonText="Imprimir vacío"
-                title={formName}
-                description="Vista previa del formulario vacío"
-              >
-                <div className="h-full w-full bg-white">{renderForm(formName)}</div>
-              </PDFPreviewDialog>
-              <Link className={buttonVariants({ variant: 'default' })} href={`/dashboard/forms/${params.id}/new`}>
-                Nueva respuesta
-              </Link>
-            </div>
-          ),
-          title: formName,
-          description: `${(answers[0]?.form_id?.form as any)?.description ?? ''}`,
-          buttonActioRestricted: [''],
-          component: <CheckListAnwersTable answers={answers} />,
-        },
-      },
-    ],
-  };
+  return (
+    <div className="px-6">
+      <div className="flex gap-4 mb-6">
+        <BackButton />
+        <PDFPreviewDialog buttonText="Imprimir vacío" title={formName} description="Vista previa del formulario vacío">
+          <div className="h-full w-full bg-white">{renderForm(formName)}</div>
+        </PDFPreviewDialog>
+        <Link className={buttonVariants({ variant: 'default' })} href={`/dashboard/forms/${params.id}/new`}>
+          Nueva respuesta
+        </Link>
+      </div>
 
-  return <Viewcomponent viewData={viewData} />;
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">{formName}</h1>
+        {formDescription && <p className="text-muted-foreground">{formDescription}</p>}
+      </div>
+
+      <CheckListAnwersTable answers={answers} />
+    </div>
+  );
 }
-
-export default page;

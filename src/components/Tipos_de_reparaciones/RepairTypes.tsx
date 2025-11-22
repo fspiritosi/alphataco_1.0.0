@@ -11,11 +11,13 @@ export default async function RepairTypes({
   equipment_id,
   searchParams,
   hiddenTabs,
+  moduleSlug = 'equipos',
 }: {
   mechanic?: boolean;
   equipment_id?: string;
   searchParams: { [key: string]: string | string[] | undefined };
   hiddenTabs?: string[];
+  moduleSlug?: 'equipos' | 'mantenimiento';
 }) {
   const allTabs = [
     {
@@ -26,7 +28,7 @@ export default async function RepairTypes({
           {mechanic ? 'Solicitudes Activas' : 'Solicitudes'}
         </span>
       ),
-      moduleSlug: 'equipos' as const,
+      moduleSlug: moduleSlug,
       tabSlug: 'created_solicitudes' as const,
       content: (
         <Suspense fallback={<div>Cargando solicitudes...</div>}>
@@ -42,7 +44,7 @@ export default async function RepairTypes({
           Tipos de Reparación
         </span>
       ),
-      moduleSlug: 'equipos' as const,
+      moduleSlug: moduleSlug,
       tabSlug: 'type_of_repair' as const,
       content: (
         <Suspense fallback={<div>Cargando tipos de reparación...</div>}>
@@ -58,7 +60,7 @@ export default async function RepairTypes({
           Nueva Solicitud
         </span>
       ),
-      moduleSlug: 'equipos' as const,
+      moduleSlug: moduleSlug,
       tabSlug: 'type_of_repair_new_entry' as const,
       content: (
         <Suspense fallback={<div>Cargando formulario...</div>}>
@@ -74,7 +76,7 @@ export default async function RepairTypes({
           Grupos
         </span>
       ),
-      moduleSlug: 'equipos' as const,
+      moduleSlug: moduleSlug,
       tabSlug: 'maintenance_groups' as const,
       content: (
         <Suspense fallback={<div>Cargando grupos...</div>}>
