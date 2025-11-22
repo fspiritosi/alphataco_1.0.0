@@ -11,7 +11,7 @@ import { companySchema } from '@/zodSchemas/schemas';
 import { useRouter } from 'next/navigation';
 import { ChangeEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { EditCompany } from '../accions';
+import { EditCompany } from '../actions/actions';
 
 interface EditCompanyButtonProps {
   defaultImage?: string | null;

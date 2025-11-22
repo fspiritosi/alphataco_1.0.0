@@ -7,11 +7,11 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import EditCompanyButton from '@/features/Empresa/General/components/EditCompanyButton';
 import { cn } from '@/lib/utils';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { revalidatePath } from 'next/cache';
 import CityInput from '../new/components/CityInput';
-import EditCompanyButton from '../new/components/EditCompanyButton';
 export default async function companyRegister({ params }: { params: { id: string } }) {
   const supabase = supabaseServer();
   const {
