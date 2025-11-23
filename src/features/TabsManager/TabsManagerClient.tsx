@@ -49,7 +49,6 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
     const currentUrlValue = searchParams.get(paramName);
     // Solo actualizar si hay un valor en la URL, es diferente al actual, y es válido
     if (currentUrlValue && currentUrlValue !== activeTab && tabs.some((t) => t.value === currentUrlValue)) {
-      console.log(`TabsManagerClient [${paramName}] Sync from URL: ${currentUrlValue}`);
       setActiveTab(currentUrlValue);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,8 +60,6 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
    */
   const handleTabChange = (newTab: string) => {
     if (newTab === activeTab) return;
-
-    console.log(`TabsManagerClient [${paramName}] Changing to: ${newTab}`);
 
     // 1. Actualización Inmediata de UI
     setActiveTab(newTab);

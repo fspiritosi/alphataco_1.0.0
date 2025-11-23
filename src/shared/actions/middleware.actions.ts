@@ -8,7 +8,7 @@ export async function getUserProfile(email: string) {
       `
     id, email, role,
     company(id),
-    share_company_users(company_id, role)
+    share_company_users(company_id)
   `
     )
     .eq('email', email)

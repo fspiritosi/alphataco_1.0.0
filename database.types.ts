@@ -3144,7 +3144,6 @@ export type Database = {
           id: string;
           modules: Database['public']['Enums']['modulos'][] | null;
           profile_id: string | null;
-          role: string | null;
         };
         Insert: {
           company_id?: string | null;
@@ -3153,7 +3152,6 @@ export type Database = {
           id?: string;
           modules?: Database['public']['Enums']['modulos'][] | null;
           profile_id?: string | null;
-          role?: string | null;
         };
         Update: {
           company_id?: string | null;
@@ -3162,7 +3160,6 @@ export type Database = {
           id?: string;
           modules?: Database['public']['Enums']['modulos'][] | null;
           profile_id?: string | null;
-          role?: string | null;
         };
         Relationships: [
           {
@@ -3185,13 +3182,6 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'customers';
             referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'share_company_users_role_fkey';
-            columns: ['role'];
-            isOneToOne: false;
-            referencedRelation: 'roles';
-            referencedColumns: ['name'];
           },
         ];
       };

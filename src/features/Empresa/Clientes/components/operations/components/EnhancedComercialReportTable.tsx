@@ -356,7 +356,6 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         cell: ({ row }) => {
           const isEnCertificacion = row.original.status.toLocaleLowerCase() === 'en_certificacion';
           const isDailyReportOpen = row.original.dailyReportStatus === 'abierto';
-          console.log(row.original.dailyReportStatus);
           return (
             <div className="flex space-x-2">
               {onEdit && !isEnCertificacion && (

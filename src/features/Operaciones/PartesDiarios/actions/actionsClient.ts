@@ -30,7 +30,6 @@ export async function getCustomersClient() {
     throw error;
   }
 
-  console.log('Customers cargados:', data?.length);
   return data || [];
 }
 

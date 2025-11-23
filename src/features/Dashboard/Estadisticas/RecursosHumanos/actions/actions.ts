@@ -32,7 +32,7 @@ export async function getAbsenteeismSummary({
   const companyId = getCompanyId();
 
   if (!companyId) {
-    throw new Error('No se encontró el ID de la empresa');
+    return;
   }
 
   const { data, error } = await supabase.rpc('hr_get_absenteeism_summary', {
@@ -153,6 +153,7 @@ export async function getCurrentAbsentEmployees({
   const companyId = getCompanyId();
 
   if (!companyId) {
+    return;
     throw new Error('No se encontró el ID de la empresa');
   }
 
@@ -184,6 +185,7 @@ export async function getDailyAbsenceTimeseries({
   const companyId = getCompanyId();
 
   if (!companyId) {
+    return;
     throw new Error('No se encontró el ID de la empresa');
   }
 
@@ -214,6 +216,7 @@ export async function getDepartmentAbsenceReasons({
   const companyId = getCompanyId();
 
   if (!companyId) {
+    return;
     throw new Error('No se encontró el ID de la empresa');
   }
 
@@ -243,6 +246,7 @@ export async function getDepartmentAbsenceSummary({
   const companyId = getCompanyId();
 
   if (!companyId) {
+    return;
     throw new Error('No se encontró el ID de la empresa');
   }
 

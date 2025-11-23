@@ -23,17 +23,9 @@ export default async function DocumentosEmpresaTabContent({
     .select('*,id_document_types(*),user_id(*)')
     .eq('applies', actualCompany || '');
 
-  // Get user role for filtering private documents if necessary
-  const { data: userShared } = await supabase
-    .from('share_company_users')
-    .select('*')
-    .eq('profile_id', user?.data?.user?.id || '');
-  const role: string | null = userShared?.[0]?.role || null;
-
   // Type the data and filter if needed based on role
   const typedDataCompany: CompanyDocumentsType[] | null = documents_company as CompanyDocumentsType[] | null;
-  const companyData =
-    role === 'Invitado' ? typedDataCompany?.filter((e) => !e.id_document_types.private) : typedDataCompany;
+  const companyData = typedDataCompany;
 
   return (
     <TabsManagerServer

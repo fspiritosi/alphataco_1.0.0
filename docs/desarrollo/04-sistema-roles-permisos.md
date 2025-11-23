@@ -588,8 +588,6 @@ async function createEditorRole() {
     { tabId: 'tab-clientes-uuid', actionId: 'action-update-uuid' },
     { tabId: 'tab-empleados-uuid', actionId: 'action-view-uuid' },
   ]);
-
-  console.log('Rol creado:', role);
 }
 ```
 

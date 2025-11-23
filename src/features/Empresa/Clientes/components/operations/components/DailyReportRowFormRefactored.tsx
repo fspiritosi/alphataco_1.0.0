@@ -32,8 +32,6 @@ export function DailyReportRowFormRefactored() {
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
-  console.log(customers);
-
   // 1. Generar esquema de validación dinámico
   const schema = useFormSchema(isCreating);
 

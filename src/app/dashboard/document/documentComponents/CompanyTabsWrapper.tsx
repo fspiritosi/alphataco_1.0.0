@@ -20,12 +20,11 @@ async function CompanyTabsWrapper({ subtab, tabValue, path }: { subtab?: string;
     .from('share_company_users')
     .select('*')
     .eq('profile_id', user?.data?.user?.id || '');
-  const role: string | null = userShared?.[0]?.role || null;
+  // const role: string | null = userShared?.[0]?.role || null;
 
   // Type the data and filter if needed based on role
   const typedDataCompany: CompanyDocumentsType[] | null = documents_company as CompanyDocumentsType[] | null;
-  const companyData =
-    role === 'Invitado' ? typedDataCompany?.filter((e) => !e.id_document_types.private) : typedDataCompany;
+  const companyData = typedDataCompany;
 
   return <CompanyTabs path={path} tabValue={tabValue} subtab={subtab} companyData={companyData as any} />;
 }

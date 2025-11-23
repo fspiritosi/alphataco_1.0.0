@@ -42,7 +42,6 @@ export function DataTableColumnHeader<TData, TValue>({
 
   const handleSort = (desc: boolean) => {
     if (!table) {
-      console.log('⚠️ handleSort - NO HAY TABLA, usando fallback');
       // Fallback al comportamiento original si no hay tabla
       column.toggleSorting(desc);
       return;
