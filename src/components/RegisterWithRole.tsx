@@ -115,8 +115,19 @@ export const RegisterWithRole = () => {
   const [roles, setRoles] = useState<any[] | null>([]);
 
   const getRoles = async () => {
-    let { data: roles, error } = await supabase.from('roles').select('*').eq('intern', false).neq('name', 'Invitado');
-    setRoles(roles);
+    // Obtener roles del sistema de permisos (excluyendo roles de sistema si es necesario)
+    let { data: roles, error } = await supabase
+      .from('roles')
+      .select('id, name, slug, description, color, is_system')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching roles:', error);
+      setRoles([]);
+    } else {
+      setRoles(roles);
+    }
   };
 
   useEffect(() => {

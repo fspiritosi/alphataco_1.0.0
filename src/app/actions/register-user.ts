@@ -59,6 +59,32 @@ export async function registerUserWithRole(values: any, company: string) {
         console.error('Error insertando en share_company_users:', shareError);
         throw new Error(shareError.message);
       }
+
+      // Asignar rol en el sistema de permisos para usuario existente
+      const { data: roleData, error: roleError } = await supabase
+        .from('roles')
+        .select('id, slug')
+        .or(`name.eq.${values.role},slug.eq.${values.role.toLowerCase()}`)
+        .single();
+
+      if (!roleError && roleData) {
+        // Verificar si ya tiene el rol asignado
+        const { data: existingRole } = await supabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', profile.id)
+          .eq('role_id', roleData.id)
+          .single();
+
+        if (!existingRole) {
+          await supabase.from('user_roles').insert([
+            {
+              user_id: profile.id,
+              role_id: roleData.id,
+            },
+          ]);
+        }
+      }
     } else {
       // 3. Si no existe el perfil, invitar nuevo usuario usando Supabase Auth
       const fullname = values.firstname && values.lastname ? `${values.firstname} ${values.lastname}`.trim() : '';
@@ -135,6 +161,33 @@ export async function registerUserWithRole(values: any, company: string) {
         await adminSupabase.auth.admin.deleteUser(userId);
 
         throw new Error(`Error al compartir empresa: ${shareError.message}`);
+      }
+    }
+
+    // 4. Asignar rol en el sistema de permisos (user_roles)
+    // Buscar el rol por nombre o slug
+    const { data: roleData, error: roleError } = await supabase
+      .from('roles')
+      .select('id, slug')
+      .or(`name.eq.${values.role},slug.eq.${values.role.toLowerCase()}`)
+      .single();
+
+    if (roleError || !roleData) {
+      console.warn('⚠️ No se encontró el rol en el sistema de permisos:', values.role);
+      // No hacer rollback, el usuario ya fue creado exitosamente
+    } else {
+      // Asignar el rol al usuario
+      const { error: userRoleError } = await supabase.from('user_roles').insert([
+        {
+          user_id: userId,
+          role_id: roleData.id,
+        },
+      ]);
+
+      if (userRoleError) {
+        console.error('❌ Error asignando rol al usuario:', userRoleError);
+        // No hacer rollback, el usuario ya fue creado exitosamente
+        // El rol se puede asignar manualmente después
       }
     }
 
