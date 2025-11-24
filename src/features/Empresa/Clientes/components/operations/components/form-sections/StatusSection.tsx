@@ -99,7 +99,7 @@ export function StatusSection({ form, isCreating, currentStatus, disabled }: Sta
                 </Select>
                 {statusWatch === 'sin_recursos_asignados' && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    El estado cambiará automáticamente a "Pendiente" cuando asigne recursos
+                    El estado cambiará automáticamente a Pendiente cuando asigne recursos
                   </p>
                 )}
                 <FormMessage />
