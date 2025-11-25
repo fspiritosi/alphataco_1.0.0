@@ -6,7 +6,11 @@ export interface AccessibleModule {
 }
 
 export interface SidebarProps {
-  pathname: string;
+  /**
+   * Pathname inicial obtenido del servidor (SSR)
+   * Se usa como fallback si usePathname() no está disponible
+   */
+  initialPathname: string;
   accessibleModules: AccessibleModule[];
   isActive: string | undefined;
 }

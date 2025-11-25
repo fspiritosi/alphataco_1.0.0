@@ -8,17 +8,21 @@ import { Sidebar } from './components/Sidebar';
  *
  * Responsabilidades:
  * - Fetch de permisos en el servidor
- * - Obtener pathname actual
+ * - Obtener pathname inicial para SSR
  * - Pasar datos al componente cliente
+ *
+ * Nota: El pathname inicial se usa solo para la primera carga (SSR).
+ * El componente cliente se sincroniza automáticamente con usePathname()
+ * en navegaciones posteriores.
  */
 async function SidebarFeat() {
   // Fetch en servidor
-  const pathname = await getCurrentPath();
+  const initialPathname = await getCurrentPath();
   const accessibleModules = await getUserAccessibleModulesServer();
   const isActive = cookies().get('sidebar_state')?.value;
 
-  // Pasar solo datos necesarios al cliente
-  return <Sidebar pathname={pathname} accessibleModules={accessibleModules} isActive={isActive} />;
+  // Pasar pathname inicial y datos necesarios al cliente
+  return <Sidebar initialPathname={initialPathname} accessibleModules={accessibleModules} isActive={isActive} />;
 }
 
 export default SidebarFeat;

@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
 import { useActiveLink } from '../hooks/useActiveLink';
 import { useSidebarLinks } from '../hooks/useSidebarLinks';
 import { useSidebarStore } from '../store/useSidebarStore';
@@ -12,13 +13,24 @@ import { SidebarLink } from './SidebarLink';
  *
  * Renderiza el sidebar con los links filtrados según permisos del usuario
  * Usa hooks personalizados para separar la lógica de negocio
+ *
+ * Estrategia de pathname:
+ * - initialPathname: Viene del servidor (SSR) para la primera carga
+ * - usePathname(): Se sincroniza automáticamente en navegaciones client-side
+ * - Fallback: Si usePathname() falla, usa initialPathname
  */
-export function Sidebar({ pathname, accessibleModules }: SidebarProps) {
+export function Sidebar({ initialPathname, accessibleModules }: SidebarProps) {
   const isActiveSidebar = useSidebarStore((state) => state.isActiveSidebar);
+
+  // Obtener pathname actual del cliente (se actualiza automáticamente)
+  const clientPathname = usePathname();
+
+  // Usar pathname del cliente si está disponible, sino usar el inicial del servidor
+  const currentPathname = clientPathname || initialPathname;
 
   // Hooks personalizados para lógica de negocio
   const filteredLinks = useSidebarLinks(accessibleModules);
-  const activeLink = useActiveLink(filteredLinks, pathname);
+  const activeLink = useActiveLink(filteredLinks, currentPathname);
 
   return (
     <div
