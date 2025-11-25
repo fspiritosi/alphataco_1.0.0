@@ -426,3 +426,103 @@ export async function setRolePermissions(roleId: number, permissions: Array<{ ta
 
   return { success: true };
 }
+
+/**
+ * Obtiene el conteo de usuarios por cada rol
+ * Retorna un objeto con roleId como clave y cantidad de usuarios como valor
+ */
+export async function getRoleUserCounts() {
+  const supabase = supabaseBrowser();
+
+  const { data, error } = await supabase.from('user_roles').select('role_id');
+
+  if (error) {
+    console.error('Error fetching role user counts:', error);
+    throw new Error('Failed to fetch role user counts');
+  }
+
+  // Contar usuarios por rol
+  const counts = new Map<number, number>();
+  data?.forEach((ur) => {
+    counts.set(ur.role_id, (counts.get(ur.role_id) || 0) + 1);
+  });
+
+  // Convertir a objeto para serialización
+  return Object.fromEntries(counts);
+}
+
+/**
+ * Obtiene todos los usuarios de la empresa actual con indicador de si tienen un rol específico
+ */
+export async function getUsersWithRoleStatus(roleId: number) {
+  const supabase = supabaseBrowser();
+
+  // Obtener company_id desde cookies
+  const cookies = document.cookie.split('; ').reduce(
+    (acc, cookie) => {
+      const [key, value] = cookie.split('=');
+      acc[key] = value;
+      return acc;
+    },
+    {} as Record<string, string>
+  );
+  const companyId = cookies['actualComp'];
+
+  if (!companyId) {
+    throw new Error('No company selected');
+  }
+
+  // Obtener todos los usuarios compartidos en la empresa actual
+  const { data: users, error: usersError } = await supabase
+    .from('share_company_users')
+    .select('id, profile_id')
+    .eq('company_id', companyId);
+
+  if (usersError) {
+    console.error('Error fetching users:', usersError);
+    throw new Error('Failed to fetch users');
+  }
+
+  // Obtener información de los profiles
+  const profileIds = users?.map((u) => u.profile_id).filter(Boolean) || [];
+
+  if (profileIds.length === 0) {
+    return [];
+  }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profile')
+    .select('id, fullname, email, credential_id')
+    .in('id', profileIds);
+
+  if (profilesError) {
+    console.error('Error fetching profiles:', profilesError);
+    throw new Error('Failed to fetch profiles');
+  }
+
+  // Crear un mapa de profile_id a share_company_users.id
+  const profileToShareUserId = new Map(users?.map((u) => [u.profile_id, u.id]) || []);
+
+  // Obtener usuarios que tienen este rol (user_roles usa credential_id)
+  const { data: userRoles, error: rolesError } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role_id', roleId);
+
+  if (rolesError) {
+    console.error('Error fetching user roles:', rolesError);
+    throw new Error('Failed to fetch user roles');
+  }
+
+  const usersWithRole = new Set(userRoles?.map((ur) => ur.user_id) || []);
+
+  return (
+    profiles?.map((profile) => ({
+      userId: profileToShareUserId.get(profile.id) || profile.id, // ID de share_company_users para el link
+      credentialId: profile.credential_id, // credential_id para operaciones de roles
+      userName: profile.fullname || 'Sin nombre',
+      userEmail: profile.email || 'Sin email',
+      hasRole: usersWithRole.has(profile.credential_id!), // user_roles usa credential_id
+    })) || []
+  );
+}

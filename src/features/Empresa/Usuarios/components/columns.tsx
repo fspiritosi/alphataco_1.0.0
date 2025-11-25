@@ -21,7 +21,7 @@ import { useLoggedUserStore } from '@/store/loggedUser';
 import { ColumnDef } from '@tanstack/react-table';
 import { formatRelative } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -47,7 +47,7 @@ const RoleCell = ({ userId }: { userId: string }) => {
     return <span>-</span>;
   }
 
-  const { roles, customPermissionsCount } = data;
+  const { roles, customPermissionsCount, rolePermissionsCount } = data;
   const hasRole = roles && roles.length > 0;
   const hasCustomPermissions = customPermissionsCount > 0;
 
@@ -69,7 +69,7 @@ const RoleCell = ({ userId }: { userId: string }) => {
       <div className="flex items-center gap-2">
         <Badge
           variant="outline"
-          className="gap-1 pr-1.5"
+          className="gap-1"
           style={{
             backgroundColor: `${roleColor}15`,
             color: roleColor,
@@ -77,15 +77,20 @@ const RoleCell = ({ userId }: { userId: string }) => {
           }}
         >
           {roleName}
-          {hasCustomPermissions && (
-            <span
-              className="ml-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-background/50 px-1 text-[10px] font-medium"
-              title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
-            >
-              +{customPermissionsCount}
-            </span>
-          )}
         </Badge>
+        <Badge variant="outline" className="text-xs flex items-center gap-1">
+          <Shield className="h-3 w-3" />
+          {rolePermissionsCount}
+        </Badge>
+        {hasCustomPermissions && (
+          <Badge
+            variant="outline"
+            className="text-xs"
+            title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
+          >
+            +{customPermissionsCount}
+          </Badge>
+        )}
       </div>
     );
   }
@@ -95,7 +100,6 @@ const RoleCell = ({ userId }: { userId: string }) => {
     <div className="flex items-center gap-2">
       <Badge
         variant="outline"
-        className="gap-1 pr-1.5"
         style={{
           backgroundColor: '#64748B15',
           color: '#64748B',
@@ -103,12 +107,13 @@ const RoleCell = ({ userId }: { userId: string }) => {
         }}
       >
         Permisos personalizados
-        <span
-          className="ml-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-background/50 px-1 text-[10px] font-medium"
-          title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
-        >
-          {customPermissionsCount}
-        </span>
+      </Badge>
+      <Badge
+        variant="outline"
+        className="text-xs"
+        title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
+      >
+        {customPermissionsCount}
       </Badge>
     </div>
   );

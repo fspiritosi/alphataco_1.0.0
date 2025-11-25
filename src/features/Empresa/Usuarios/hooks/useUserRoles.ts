@@ -31,9 +31,22 @@ export async function fetchUserRolesAndPermissions(userId: string) {
     throw new Error(permissionsResult.error.message);
   }
 
+  // Get role permissions count if user has a role
+  let rolePermissionsCount = 0;
+  if (rolesResult.data && rolesResult.data.length > 0) {
+    const roleId = rolesResult.data[0].role_id;
+    const rolePermissionsResult = await supabase
+      .from('role_permissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('role_id', roleId);
+
+    rolePermissionsCount = rolePermissionsResult.count || 0;
+  }
+
   return {
     roles: rolesResult.data || [],
     customPermissions: permissionsResult.data || [],
     customPermissionsCount: permissionsResult.data?.length || 0,
+    rolePermissionsCount,
   };
 }
