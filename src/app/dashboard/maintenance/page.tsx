@@ -1,5 +1,4 @@
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
-import Viewcomponent from '@/components/ViewComponent';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
 
@@ -9,56 +8,27 @@ export async function generateMetadata() {
   if (companyName) {
     return {
       title: `Mantenimiento | ${companyName}`,
-      description: `Página de mantenimiento de ${companyName} con información general, comercial, HR y equipos`,
+      description: `Gestión de mantenimiento y solicitudes de reparación de ${companyName}`,
     };
   } else {
-    const companyName = await getCompanyName();
-    if (companyName) {
+    const actualCompany = await getCompanyName();
+    if (actualCompany) {
       return {
-        title: `Mantenimiento | ${companyName.company_name}`,
-        description: `Página de mantenimiento de ${companyName.company_name} con información general, comercial, HR y equipos`,
+        title: `Mantenimiento | ${actualCompany.company_name}`,
+        description: `Gestión de mantenimiento y solicitudes de reparación de ${actualCompany.company_name}`,
       };
     }
   }
 }
-function MantenimientoPage({ searchParams }: { searchParams: { tab: string; subtab?: string } }) {
-  const viewData = {
-    defaultValue: searchParams?.tab || 'type_of_repairs',
-    path: '/dashboard/maintenance',
-    tabsValues: [
-      {
-        value: 'type_of_repairs',
-        name: 'Solicitudes de mantenimiento',
-        restricted: [],
-        content: {
-          title: 'Mantenimiento de unidades',
-          description: 'Genera solicitudes de mantenimiento para tus equipos',
-          buttonActioRestricted: [''],
-          component: (
-            <RepairTypes
-              created_solicitudes
-              type_of_repair
-              type_of_repair_new_entry
-              type_of_repair_new_entry2
-              type_of_repair_new_entry3
-              mechanic
-              subtab={searchParams?.subtab}
-              tabValue="type_of_repairs"
-              path="/dashboard/maintenance"
-            />
-          ),
-        },
-      },
-    ],
-  };
 
+export default function MantenimientoPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
   return (
-    // <Suspense fallback={<RepairsSkeleton />}>
-    // <div className="h-full">
-    <Viewcomponent viewData={viewData} />
-    // </div>
-    // </Suspense>
+    <div className="px-6">
+      <RepairTypes mechanic searchParams={searchParams} moduleSlug="mantenimiento" />
+    </div>
   );
 }
-
-export default MantenimientoPage;

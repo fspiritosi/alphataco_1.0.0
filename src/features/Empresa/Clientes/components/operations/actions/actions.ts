@@ -1,5 +1,5 @@
-// import { supabase } from '@/../supabase/supabase';
 import { supabaseBrowser } from '@/lib/supabase/browser';
+import Cookies from 'js-cookie';
 import moment from 'moment';
 
 export interface DailyReportRow {
@@ -52,6 +52,33 @@ export interface DailyReportRow {
       domain: string;
     };
   };
+}
+export async function getCustomersClient() {
+  const supabase = supabaseBrowser();
+  const company_id = Cookies.get('actualComp');
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('customers')
+    .select(
+      `
+    *,
+    equipos_clientes(*),
+    customer_services!customer_services_customer_id_fkey(
+      *,
+      service_sectors(*, sectors(*) ),
+      service_areas(*, areas_cliente(*)),
+      service_items(*,measure_units(*))  
+    )
+  `
+    )
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
+  if (error) {
+    console.error(error);
+  }
+
+  return data;
 }
 
 export interface ProcessedDailyReportRow extends Omit<DailyReportRow, 'date' | 'remit_number'> {
@@ -146,7 +173,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
         customers(id, name),
         dailyreportemployeerelations(employees(id, firstname, lastname, document_number, email, phone, company_positions(name))),
         dailyreportequipmentrelations(vehicles(id, intern_number, domain, year, type(name), brand_vehicles(name), model_vehicles(name), sub_type(name))),
-        dailyreport!inner(date)
+        dailyreport!inner(date,status)
       `
       )
       .order('date', { foreignTable: 'dailyreport', ascending: false });
@@ -242,7 +269,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
     });
 
     // Procesar las filas filtradas
-    const processedRows = filteredRows.map((row: any) => {
+    const processedRows = filteredRows.map((row) => {
       // Mapeo de empleados
       const employees: string[] = (row.dailyreportemployeerelations || [])
         .map((rel: any) => (rel?.employees ? `${rel.employees.firstname} ${rel.employees.lastname}`.trim() : ''))
@@ -293,6 +320,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
     throw error;
   }
 }
+export type getFilteredDailyReportRowsType = Awaited<ReturnType<typeof getFilteredDailyReportRows>>;
 
 // Función auxiliar para convertir a array
 function toArray<T>(value: T | T[] | undefined | null): T[] {
@@ -308,73 +336,131 @@ export interface FilterOptions {
   items: Array<{ id: string; name: string; customer_service_id: string }>;
   customerEquipments: Array<{ id: string; name: string; customer_id: string }>;
   areas: Array<{ id: string; name: string; customer_id: string }>;
-  sectors: Array<{ id: string; name: string; customer_id: string }>;
+  sectors: Array<{ id: string; name: string; customer_id?: string }>; // customer_id es opcional
 }
 
+// Funciones individuales para cada recurso
+export async function getFilterCustomers() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase.from('customers').select('id, name').order('name').eq('is_active', true);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getFilterServices() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase
+    .from('customer_services')
+    .select('id, service_name, customer_id')
+    .order('service_name')
+    .eq('is_active', true);
+  if (error) throw error;
+  return (data || []).map((s) => ({
+    id: s.id,
+    name: s.service_name,
+    customer_id: s.customer_id,
+  }));
+}
+
+export async function getFilterEmployees() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase
+    .from('employees')
+    .select('id, firstname, lastname')
+    .order('firstname')
+    .eq('is_active', true);
+  if (error) throw error;
+  return (data || []).map((e) => ({
+    id: e.id,
+    name: `${e.firstname || ''} ${e.lastname || ''}`.trim(),
+  }));
+}
+
+export async function getFilterEquipment() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('id, intern_number, domain')
+    .order('intern_number')
+    .eq('is_active', true);
+  if (error) throw error;
+  return (data || []).map((v) => ({
+    id: v.id,
+    name: [v.intern_number, v.domain].filter(Boolean).join(' - '),
+  }));
+}
+
+export async function getFilterItems() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase
+    .from('service_items')
+    .select('id, item_name, customer_service_id')
+    .order('item_name')
+    .eq('is_active', true);
+  if (error) throw error;
+  return (data || []).map((i) => ({
+    id: i.id,
+    name: i.item_name,
+    customer_service_id: i.customer_service_id,
+  }));
+}
+
+export async function getFilterCustomerEquipments() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase.from('equipos_clientes').select('id, name, customer_id').order('name');
+  if (error) throw error;
+  return (data || []).map((ce) => ({
+    id: ce.id,
+    name: ce.name,
+    customer_id: ce.customer_id,
+  }));
+}
+
+export async function getFilterAreas() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase.from('areas_cliente').select('id, nombre, customer_id').order('nombre');
+  if (error) throw error;
+  return (data || []).map((a: any) => ({
+    id: a.id,
+    name: a.nombre,
+    customer_id: a.customer_id,
+  }));
+}
+
+export async function getFilterSectors() {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase.from('sectors').select('id, name').order('name');
+  if (error) throw error;
+  return (data || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    customer_id: undefined,
+  }));
+}
+
+// Mantener la función original para compatibilidad (ahora usa las funciones individuales)
 export async function getFilterOptions(): Promise<FilterOptions> {
   try {
-    const supabase = supabaseBrowser();
-    const [customers, services, employees, vehicles, items, customerEquipments, areas, sectors] = await Promise.all([
-      supabase.from('customers').select('id, name').order('name').eq('is_active', true),
-
-      supabase
-        .from('customer_services')
-        .select('id, service_name, customer_id')
-        .order('service_name')
-        .eq('is_active', true),
-
-      supabase.from('employees').select('id, firstname, lastname').order('firstname').eq('is_active', true),
-
-      supabase.from('vehicles').select('id, intern_number, domain').order('intern_number').eq('is_active', true),
-
-      supabase
-        .from('service_items')
-        .select('id, item_name, customer_service_id')
-        .order('item_name')
-        .eq('is_active', true),
-
-      supabase.from('equipos_clientes').select('id, name, customer_id').order('name'),
-
-      supabase.from('areas_cliente').select('id, name, customer_id').order('name'),
-
-      supabase.from('sectors').select('id, name, customer_id').order('name'),
+    const [customers, services, employees, equipment, items, customerEquipments, areas, sectors] = await Promise.all([
+      getFilterCustomers(),
+      getFilterServices(),
+      getFilterEmployees(),
+      getFilterEquipment(),
+      getFilterItems(),
+      getFilterCustomerEquipments(),
+      getFilterAreas(),
+      getFilterSectors(),
     ]);
 
     return {
-      customers: customers.data || [],
-      services: (services.data || []).map((s) => ({
-        id: s.id,
-        name: s.service_name,
-        customer_id: s.customer_id,
-      })) as any,
-      employees: (employees.data || []).map((e) => ({
-        id: e.id,
-        name: `${e.firstname || ''} ${e.lastname || ''}`.trim(),
-      })),
-      equipment: (vehicles.data || []).map((v) => ({
-        id: v.id,
-        name: [v.intern_number, v.domain].filter(Boolean).join(' - '),
-      })),
-      items: (items.data || []).map((i) => ({
-        id: i.id,
-        name: i.item_name,
-        customer_service_id: i.customer_service_id,
-      })),
-      customerEquipments: (customerEquipments.data || []).map((ce) => ({
-        id: ce.id,
-        name: ce.name,
-        customer_id: ce.customer_id,
-      })),
-      areas: (areas.data || []).map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        customer_id: a.customer_id,
-      })),
-      sectors: (sectors.data || []).map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        customer_id: s.customer_id,
-      })),
+      customers,
+      services: services as any,
+      employees,
+      equipment,
+      items,
+      customerEquipments,
+      areas,
+      sectors,
     };
   } catch (error) {
     console.error('Error in getFilterOptions:', error);

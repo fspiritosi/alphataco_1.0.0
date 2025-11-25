@@ -1,4 +1,5 @@
 import { fetchInactiveEquipmentData } from '@/app/server/GET/probando';
+import { Card } from '@/components/ui/card';
 import { cookies } from 'next/headers';
 import TablaEquipmentServerInactive from '../data-equipment-server-inactive';
 
@@ -22,14 +23,14 @@ async function EquipmentTableWrapperServerInactive({ types_of_vehicles = 'all' }
   });
 
   return (
-    <>
+    <Card className="p-6">
       <TablaEquipmentServerInactive
         types_of_vehicles={types_of_vehicles}
         initialData={initialData}
         savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
         savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
       />
-    </>
+    </Card>
   );
 }
 

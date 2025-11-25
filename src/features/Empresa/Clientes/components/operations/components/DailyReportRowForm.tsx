@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,12 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  checkDailyReportExists,
+  createDailyReport,
+  createDailyReportCustomerEquipmentRelations,
+  createDailyReportEmployeeRelations,
+  createDailyReportEquipmentRelations,
+  createDailyReportRow,
   getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
   getCustomers,
@@ -29,6 +36,8 @@ import {
 import { transformDailyReports } from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTable';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Building, CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -56,10 +65,12 @@ type DailyReportFormProps = {
   // customersAreas: Awaited<ReturnType<typeof getCustomersAreas>>;
   // customersSectors: Awaited<ReturnType<typeof getCustomersSectors>>;
   formattedData: ReturnType<typeof transformDailyReports>;
+  isCreating?: boolean; // Nueva prop para indicar modo creación
 };
 
 export const dailyReportSchema = z
   .object({
+    date: z.date().optional(), // Campo de fecha para modo creación
     customer: z.string().min(1, 'Debe seleccionar un cliente'),
     services: z.string().min(1, 'Debe seleccionar un servicio'),
     item: z.string().min(1, 'Debe seleccionar un ítem'),
@@ -79,7 +90,7 @@ export const dailyReportSchema = z
     end_time: z.string().optional(),
     status: z
       .enum(['pendiente', 'sin_recursos_asignados', 'ejecutado', 'reprogramado', 'cancelado', 'en_certificacion'])
-      .default('pendiente'),
+      .default('en_certificacion'), // Estado inicial para modo creación
     description: z.string().optional(),
     document_path: z.string().optional(),
     sector_service_id: z.string().optional(),
@@ -136,6 +147,18 @@ export const dailyReportSchema = z
       message: 'El número de remito es obligatorio cuando el estado es "En certificación"',
       path: ['remit_number'],
     }
+  )
+  .refine(
+    (data) => {
+      // Validación: Al menos 1 empleado O 1 equipo propio (para modo creación)
+      const hasEmployees = data.employees && data.employees.length > 0;
+      const hasEquipment = data.equipment && data.equipment.length > 0;
+      return hasEmployees || hasEquipment;
+    },
+    {
+      message: 'Debe seleccionar al menos un empleado o un equipo propio',
+      path: ['employees'],
+    }
   );
 export type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 type CustomersArray = Awaited<ReturnType<typeof getCustomers>>;
@@ -153,6 +176,7 @@ export function DailyReportForm({
   formattedData,
   dailyReport,
   refetchDailyReport,
+  isCreating = false,
 }: DailyReportFormProps) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
@@ -166,6 +190,7 @@ export function DailyReportForm({
   const form = useForm<DailyReportFormValues>({
     resolver: zodResolver(dailyReportSchema),
     defaultValues: {
+      date: isCreating ? undefined : undefined,
       customer: '',
       services: '',
       item: '',
@@ -174,12 +199,12 @@ export function DailyReportForm({
       working_day: '',
       start_time: '',
       end_time: '',
-      status: 'pendiente',
+      status: isCreating ? 'en_certificacion' : 'pendiente',
       description: '',
       document_path: '',
       sector_service_id: '',
       areas_service_id: '',
-      remit_number: '',
+      remit_number: isCreating ? '' : '',
       equipos_cliente: [],
       cancel_reason: '',
       type_service: defaultValues?.type_service || undefined,
@@ -233,27 +258,104 @@ export function DailyReportForm({
 
   const onSubmit = async (data: DailyReportFormValues) => {
     try {
-      const currentStatusInRow = selectedRow?.status;
-      const isChangingToCertificacion = data.status === 'en_certificacion';
-      if (isChangingToCertificacion) {
+      if (isCreating) {
+        // MODO CREACIÓN
+        if (!data.date) {
+          toast.error('Debe seleccionar una fecha.');
+          return;
+        }
+
         if (!data.remit_number) {
-          form.trigger('remit_number');
-          toast.error('El número de remito es obligatorio para el estado "En certificación".');
+          toast.error('El número de remito es obligatorio.');
           return;
         }
-        if (currentStatusInRow !== 'ejecutado') {
-          toast.error('El estado solo puede cambiar a "en_certificacion" si el parte ya está en estado "ejecutado".');
+
+        const formattedDate = format(data.date, 'yyyy-MM-dd');
+
+        // 1. Verificar si existe daily_report para esa fecha
+        const existingReports = await checkDailyReportExists([formattedDate]);
+        let dailyReportId: string;
+
+        if (existingReports && existingReports.length > 0) {
+          dailyReportId = existingReports[0].id;
+        } else {
+          // 2. Crear daily_report si no existe
+          const createdReports = await createDailyReport([formattedDate]);
+          if (!createdReports || createdReports.length === 0) {
+            toast.error('Error al crear el parte diario.');
+            return;
+          }
+          dailyReportId = createdReports[0].id;
+        }
+
+        // 3. Crear daily_report_row
+        const rowData = {
+          daily_report_id: dailyReportId,
+          customers_id: data.customer,
+          customer_services_id: data.services,
+          service_items_id: data.item,
+          working_day: data.working_day,
+          start_time: data.start_time || null,
+          end_time: data.end_time || null,
+          status: 'en_certificacion',
+          description: data.description || null,
+          type_service: data.type_service || null,
+          areas_service_id: data.areas_service_id || null,
+          sector_service_id: data.sector_service_id || null,
+          remit_number: data.remit_number,
+          completed_day: data.completed_day || false,
+          completed_night: data.completed_night || false,
+        };
+
+        const createdRows = await createDailyReportRow([rowData as any]);
+        if (!createdRows || createdRows.length === 0) {
+          toast.error('Error al crear la línea del parte diario.');
           return;
         }
+
+        const newRowId = createdRows[0].id;
+
+        // 4. Crear relaciones de empleados
+        if (data.employees && data.employees.length > 0) {
+          await createDailyReportEmployeeRelations(newRowId, data.employees);
+        }
+
+        // 5. Crear relaciones de equipos
+        if (data.equipment && data.equipment.length > 0) {
+          await createDailyReportEquipmentRelations(newRowId, data.equipment);
+        }
+
+        // 6. Crear relaciones de equipos de cliente
+        if (data.equipos_cliente && data.equipos_cliente.length > 0) {
+          await createDailyReportCustomerEquipmentRelations(newRowId, data.equipos_cliente);
+        }
+
+        toast.success('Línea creada exitosamente.');
+      } else {
+        // MODO EDICIÓN
+        const currentStatusInRow = selectedRow?.status;
+        const isChangingToCertificacion = data.status === 'en_certificacion';
+
+        if (isChangingToCertificacion) {
+          if (!data.remit_number) {
+            form.trigger('remit_number');
+            toast.error('El número de remito es obligatorio para el estado "En certificación".');
+            return;
+          }
+          if (currentStatusInRow !== 'ejecutado') {
+            toast.error('El estado solo puede cambiar a "en_certificacion" si el parte ya está en estado "ejecutado".');
+            return;
+          }
+        }
+
+        const updateData = {
+          status: data.status,
+          remit_number: isChangingToCertificacion ? data.remit_number : null,
+        };
+        await updateDailyReportStatusAndRemitNumber(selectedRow.id, updateData as any);
+
+        toast.success('Parte diario actualizado exitosamente.');
       }
-
-      const updateData = {
-        status: data.status,
-        remit_number: isChangingToCertificacion ? data.remit_number : null,
-      };
-      await updateDailyReportStatusAndRemitNumber(selectedRow.id, updateData as any);
-
-      toast.success('Parte diario actualizado exitosamente.');
 
       document.getElementById('close-button-daily-report')?.click();
       setSelectedRow(null);
@@ -261,9 +363,8 @@ export function DailyReportForm({
       setSelectedCustomerId(null);
       setSelectedServiceId(null);
     } catch (error) {
-      // Si algo falla, el error se mostrará aquí
-      console.error('Error al actualizar el parte diario:', error);
-      toast.error('Error al actualizar el parte diario.');
+      console.error('Error:', error);
+      toast.error(isCreating ? 'Error al crear la línea.' : 'Error al actualizar el parte diario.');
     }
     refetchDailyReport();
     router.refresh();
@@ -432,11 +533,11 @@ export function DailyReportForm({
         </SheetTrigger>
         <SheetContent className="sm:max-w-screen-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{selectedRow ? 'Editar' : 'Agregar'} Parte Diario</SheetTitle>
+            <SheetTitle>{isCreating ? 'Crear Línea de Parte Diario' : 'Editar Parte Diario'}</SheetTitle>
             <SheetDescription>
-              {selectedRow
-                ? 'Actualice los campos necesarios para modificar el parte diario.'
-                : 'Complete los campos para agregar un nuevo parte diario.'}
+              {isCreating
+                ? 'Complete los campos para crear una nueva línea. Estado inicial: En certificación.'
+                : 'Actualice los campos necesarios para modificar el parte diario.'}
             </SheetDescription>
           </SheetHeader>
           <div className="grid gap-4 py-4">
@@ -449,6 +550,42 @@ export function DailyReportForm({
                     Datos del Cliente
                   </h4>
                   <div className="grid grid-cols-1 gap-4 w-full">
+                    {/* Campo de Fecha - Solo visible en modo creación */}
+                    {isCreating && (
+                      <FormField
+                        control={form.control}
+                        name="date"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Fecha del Parte Diario *</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      'w-full pl-3 text-left font-normal',
+                                      !field.value && 'text-muted-foreground'
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, 'PPP', { locale: es })
+                                    ) : (
+                                      <span>Seleccione una fecha</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                     <FormField
                       control={form.control}
                       name="customer"
@@ -461,17 +598,21 @@ export function DailyReportForm({
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  disabled={true} // Deshabilitado
+                                  disabled={!isCreating} // Editable solo en modo creación
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
                                 >
-                                  {selectedRow?.customer}
+                                  {isCreating
+                                    ? field.value
+                                      ? activeCustomers.find((c) => c.id === field.value)?.name
+                                      : 'Seleccionar cliente'
+                                    : selectedRow?.customer}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
                             <PopoverContent align="start" className="max-w-[400px] p-0">
                               <Command>
-                                <CommandInput placeholder="Buscar cliente..." className="h-9" disabled />
+                                <CommandInput placeholder="Buscar cliente..." className="h-9" disabled={!isCreating} />
                                 <CommandList>
                                   <CommandEmpty>No se encontraron clientes.</CommandEmpty>
                                   <div className="px-3 py-1.5 text-xs text-muted-foreground">
@@ -487,7 +628,7 @@ export function DailyReportForm({
                                           setSelectedServiceId(null);
                                           setSelectedCustomer(customer);
                                         }}
-                                        disabled
+                                        disabled={!isCreating}
                                       >
                                         {customer.name}
                                         <Check
@@ -520,17 +661,21 @@ export function DailyReportForm({
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  disabled={true} // Deshabilitado
+                                  disabled={!isCreating} // Editable solo en modo creación
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
                                 >
-                                  {selectedRow?.services}
+                                  {isCreating
+                                    ? field.value
+                                      ? customerServices.find((s) => s.id === field.value)?.service_name
+                                      : 'Seleccionar servicio'
+                                    : selectedRow?.services}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
                             <PopoverContent align="start" className="max-w-[400px] p-0">
                               <Command>
-                                <CommandInput placeholder="Buscar servicio..." className="h-9" disabled />
+                                <CommandInput placeholder="Buscar servicio..." className="h-9" disabled={!isCreating} />
                                 <CommandList>
                                   <CommandEmpty>
                                     {!selectedCustomerId
@@ -563,7 +708,7 @@ export function DailyReportForm({
                                               value={service.service_name || ''}
                                               key={service.id}
                                               onSelect={() => handleServiceChange(service.id)}
-                                              disabled
+                                              disabled={!isCreating}
                                             >
                                               <div className="flex items-center justify-between w-full">
                                                 <span>{service.service_name}</span>
@@ -601,10 +746,14 @@ export function DailyReportForm({
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  disabled={true} // Deshabilitado
+                                  disabled={!isCreating} // Editable solo en modo creación
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
                                 >
-                                  {selectedRow?.item}
+                                  {isCreating
+                                    ? field.value
+                                      ? serviceItems.find((i) => i.id === field.value)?.item_name
+                                      : 'Seleccionar ítem'
+                                    : selectedRow?.item}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
@@ -614,7 +763,7 @@ export function DailyReportForm({
                                 <CommandInput
                                   placeholder={!selectedServiceId ? 'Seleccione un servicio primero' : 'Buscar ítem...'}
                                   className="h-9"
-                                  disabled
+                                  disabled={!isCreating}
                                 />
                                 <CommandList>
                                   <CommandEmpty>
@@ -892,12 +1041,12 @@ export function DailyReportForm({
                               onValueChange={field.onChange}
                               defaultValue={field.value}
                               className="flex flex-col space-y-1"
-                              disabled // Deshabilitado
+                              disabled={!isCreating} // Editable solo en modo creación
                             >
                               {workingDayOptions.map((option) => (
                                 <FormItem key={option.value} className="flex items-center space-x-3 space-y-0">
                                   <FormControl>
-                                    <RadioGroupItem value={option.value} />
+                                    <RadioGroupItem value={option.value} disabled={!isCreating} />
                                   </FormControl>
                                   <FormLabel className="font-normal">{option.label}</FormLabel>
                                 </FormItem>
@@ -919,7 +1068,7 @@ export function DailyReportForm({
                               <FormItem>
                                 <FormLabel>Hora de inicio</FormLabel>
                                 <FormControl>
-                                  <Input type="time" disabled={true} {...field} />
+                                  <Input type="time" disabled={!isCreating} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -932,7 +1081,7 @@ export function DailyReportForm({
                               <FormItem>
                                 <FormLabel>Hora de fin</FormLabel>
                                 <FormControl>
-                                  <Input type="time" disabled={true} {...field} />
+                                  <Input type="time" disabled={!isCreating} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1080,7 +1229,7 @@ export function DailyReportForm({
                       <FormLabel>Descripción</FormLabel>
                       <FormControl>
                         <Textarea
-                          disabled={true}
+                          disabled={!isCreating}
                           placeholder="Ingrese una descripción"
                           className="min-h-[100px]"
                           {...field}
@@ -1101,7 +1250,7 @@ export function DailyReportForm({
                       onSubmit(formData).catch(console.error);
                     }}
                   >
-                    Actualizar
+                    {isCreating ? 'Crear' : 'Actualizar'}
                   </Button>
                 </div>
               </form>

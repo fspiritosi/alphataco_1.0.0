@@ -304,7 +304,7 @@ export const useLoggedUserStore = create<State>((set, get) => {
     if (error) {
       console.error('Error al obtener el perfil:', error);
     } else {
-      const user = share_company_users?.find((e) => e.profile_id === id);
+      const user = share_company_users?.find((e) => e.profile_id === id) as any;
 
       if (user?.role) {
         set({ roleActualCompany: user?.role });

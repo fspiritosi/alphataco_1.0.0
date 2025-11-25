@@ -37,7 +37,7 @@ export async function fetchDailyReportsWithFilters({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!company_id && !user?.app_metadata?.company_id) {
+  if (!company_id && !user?.app_metadata?.company) {
     return [];
   }
 
@@ -45,7 +45,7 @@ export async function fetchDailyReportsWithFilters({
     .from('dailyreport')
     .select(`*,dailyreportrows(status)`)
     .order('date', { ascending: false })
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   // Aplicar filtros de fecha si existen
   if (fromDate) {
@@ -82,7 +82,7 @@ export async function getDailyReports() {
     .from('dailyreport')
     .select(`*,dailyreportrows(status)`)
     .order('date', { ascending: false })
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
     console.error('Error fetching daily reports:', error);
@@ -105,7 +105,7 @@ export async function getDailyReportsForCurrentMonth() {
     .gte('date', moment().startOf('month').format('YYYY-MM-DD'))
     .lte('date', moment().endOf('month').format('YYYY-MM-DD'))
     .order('date', { ascending: false })
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
     console.error('Error fetching daily reports:', error);
@@ -614,7 +614,7 @@ export async function checkDailyReportExists(date: string[]) {
     .from('dailyreport')
     .select('*')
     .in('date', date)
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
     console.error('Error checking daily reportsss:', error);
@@ -636,7 +636,7 @@ export async function createDailyReport(date: string[]) {
     .insert(
       date.map((date) => ({
         date,
-        company_id: company_id || user?.app_metadata?.company_id || '',
+        company_id: company_id || user?.app_metadata?.company || '',
       }))
     )
     .select();
@@ -668,7 +668,7 @@ export async function getCustomers() {
     )
   `
     )
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
     console.error(error);
   }
@@ -694,7 +694,7 @@ export async function getServiceItems() {
   const { data, error } = await supabase
     .from('service_items')
     .select('*,measure_units(*)')
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
     console.error(error);
   }
@@ -727,7 +727,7 @@ export async function getActiveEmployeesForDailyReport() {
     .eq('employees_diagram.year', year)
     .eq('employees_diagram.diagram_type.work_active', true)
     .not('employees_diagram.diagram_type', 'is', null)
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
     console.error('Error al obtener empleados con diagrama:', error);
@@ -751,7 +751,7 @@ export async function getActiveEquipmentsForDailyReport() {
     .eq('is_active', true)
     .neq('condition', 'no operativo')
     .neq('condition', 'en reparacion')
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
     console.error('Error al obtener equipos activos:', error);
     return [];
@@ -1338,7 +1338,7 @@ export async function getDailyReportsWithRows(): Promise<DailyReportWithRows[]> 
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!company_id && !user?.app_metadata?.company_id) {
+  if (!company_id && !user?.app_metadata?.company) {
     throw new Error('No se pudo determinar la compañía');
   }
 
@@ -1431,7 +1431,7 @@ export async function getDailyReportsLatest() {
     .gte('date', moment().startOf('month').format('YYYY-MM-DD'))
     .lte('date', moment().endOf('month').format('YYYY-MM-DD'))
     .order('date', { ascending: false })
-    .eq('company_id', company_id || user?.app_metadata?.company_id || '');
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
     console.error('Error fetching daily reports:', error);
@@ -1455,13 +1455,13 @@ export async function getServicesSummaryByType(saveToHistory?: boolean) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!company_id && !user?.app_metadata?.company_id) {
+  if (!company_id && !user?.app_metadata?.company) {
     return [];
   }
 
   try {
     const { data, error } = await supabase.rpc('get_services_summary_by_type', {
-      p_company_id: company_id || user?.app_metadata?.company_id || '',
+      p_company_id: company_id || user?.app_metadata?.company || '',
       save_to_history: saveToHistory || false,
     });
 
@@ -1543,7 +1543,7 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!company_id && !user?.app_metadata?.company_id) {
+  if (!company_id && !user?.app_metadata?.company) {
     return [];
   }
 
@@ -1567,7 +1567,7 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
         )
       `
       )
-      .eq('daily_report_id.company_id', company_id || user?.app_metadata?.company_id || '')
+      .eq('daily_report_id.company_id', company_id || user?.app_metadata?.company || '')
       .eq('daily_report_id.date', today);
 
     if (error) {

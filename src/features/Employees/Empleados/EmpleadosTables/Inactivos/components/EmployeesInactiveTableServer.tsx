@@ -7,6 +7,7 @@ import { Mail, User } from 'lucide-react';
 // import { fetchEmployeesData } from "@/lib/supabase-query"
 import { fetchInactiveEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import moment from 'moment';
@@ -457,271 +458,273 @@ export default function TablaEmployeesInactiveServer({
   );
 
   return (
-    <BaseDataTable
-      columns={columns}
-      savedVisibility={savedVisibility}
-      initialData={initialData}
-      tableId="inactiveEmployeesServerTable"
-      enableRowSelection={true}
-      serverSide={true}
-      fetchData={fetchInactiveEmployeesData}
-      queryKey="inactive-employees-supabase"
-      toolbarOptions={{
-        initialVisibleFilters: savedFilters,
-        filterableColumns: [
-          {
-            columnId: 'gender',
-            title: 'Genero',
-            config: {
-              tableName: 'employees',
-              select: 'gender' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'gender'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.marital_status,
-            title: 'Estado Civil',
-            config: {
-              tableName: 'employees',
-              select: 'marital_status' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'marital_status'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.nationality,
-            title: 'Nacionalidad',
-            config: {
-              tableName: 'employees',
-              select: 'nationality' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'nationality'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.document_type,
-            title: 'Tipo de Documento',
-            config: {
-              tableName: 'employees',
-              select: 'document_type' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'document_type'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: columnKeys.level_of_education,
-            title: 'Nivel de Educación',
-            config: {
-              tableName: 'employees',
-              select: 'level_of_education' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'level_of_education'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'provinces.name',
-            title: 'Provincia',
-            config: {
-              tableName: 'employees',
-              select: 'provinces.name' as '*',
-              relation: '{"provinces": "province"}',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'provinces.name'>>>) => {
-                const mappedData = data.map((value, index) => {
-                  return {
+    <Card className="p-6">
+      <BaseDataTable
+        columns={columns}
+        savedVisibility={savedVisibility}
+        initialData={initialData}
+        tableId="inactiveEmployeesServerTable"
+        enableRowSelection={true}
+        serverSide={true}
+        fetchData={fetchInactiveEmployeesData}
+        queryKey="inactive-employees-supabase"
+        toolbarOptions={{
+          initialVisibleFilters: savedFilters,
+          filterableColumns: [
+            {
+              columnId: 'gender',
+              title: 'Genero',
+              config: {
+                tableName: 'employees',
+                select: 'gender' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'gender'>>>) => {
+                  return data.map((value) => ({
                     label: String(value.display_value),
                     value: String(value.col_value),
                     count: value.col_count,
-                  };
-                });
+                  }));
+                },
+              },
+            },
+            {
+              columnId: columnKeys.marital_status,
+              title: 'Estado Civil',
+              config: {
+                tableName: 'employees',
+                select: 'marital_status' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'marital_status'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+            {
+              columnId: columnKeys.nationality,
+              title: 'Nacionalidad',
+              config: {
+                tableName: 'employees',
+                select: 'nationality' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'nationality'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+            {
+              columnId: columnKeys.document_type,
+              title: 'Tipo de Documento',
+              config: {
+                tableName: 'employees',
+                select: 'document_type' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'document_type'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+            {
+              columnId: columnKeys.level_of_education,
+              title: 'Nivel de Educación',
+              config: {
+                tableName: 'employees',
+                select: 'level_of_education' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'level_of_education'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+            {
+              columnId: 'provinces.name',
+              title: 'Provincia',
+              config: {
+                tableName: 'employees',
+                select: 'provinces.name' as '*',
+                relation: '{"provinces": "province"}',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'provinces.name'>>>) => {
+                  const mappedData = data.map((value, index) => {
+                    return {
+                      label: String(value.display_value),
+                      value: String(value.col_value),
+                      count: value.col_count,
+                    };
+                  });
 
-                return mappedData;
+                  return mappedData;
+                },
               },
             },
-          },
-          {
-            columnId: 'hierarchy.name',
-            title: 'Sector',
-            config: {
-              tableName: 'employees',
-              select: 'hierarchy.name' as '*',
-              relation: '{"hierarchy": "hierarchical_position"}',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'hierarchy', 'name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'hierarchy.name',
+              title: 'Sector',
+              config: {
+                tableName: 'employees',
+                select: 'hierarchy.name' as '*',
+                relation: '{"hierarchy": "hierarchical_position"}',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'hierarchy', 'name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'company_positions.name',
-            title: 'Puesto',
-            config: {
-              tableName: 'employees',
-              select: 'company_positions.name' as '*',
-              relation: '{"company_positions": "company_position"}',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'company_positions', 'name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'company_positions.name',
+              title: 'Puesto',
+              config: {
+                tableName: 'employees',
+                select: 'company_positions.name' as '*',
+                relation: '{"company_positions": "company_position"}',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'company_positions', 'name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'work_diagram.name',
-            title: 'Diagrama',
-            config: {
-              tableName: 'employees',
-              select: 'work_diagram.name' as '*',
-              relation: '{"work_diagram": "workflow_diagram"}',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'work_diagram.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'work_diagram.name',
+              title: 'Diagrama',
+              config: {
+                tableName: 'employees',
+                select: 'work_diagram.name' as '*',
+                relation: '{"work_diagram": "workflow_diagram"}',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'work_diagram.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: columnKeys.type_of_contract,
-            title: 'Tipo de Contrato',
-            config: {
-              tableName: 'employees',
-              select: 'type_of_contract' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'type_of_contract'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: columnKeys.type_of_contract,
+              title: 'Tipo de Contrato',
+              config: {
+                tableName: 'employees',
+                select: 'type_of_contract' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'type_of_contract'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'contractor_employee.customers.name',
-            title: 'Afectaciones',
-            config: {
-              tableName: 'employees' as const,
-              select: 'id' as '*',
-              p_filters: { is_active: 'false' },
-              multiJoinPaths: {
-                joins: [
-                  {
-                    from_table: 'employees',
-                    to_table: 'contractor_employee',
-                    from_column: 'id',
-                    to_column: 'employee_id',
-                  },
-                  {
-                    from_table: 'contractor_employee',
-                    to_table: 'customers',
-                    from_column: 'contractor_id',
-                    to_column: 'id',
-                  },
-                ],
-                final_column: 'customers.name',
-              },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'cost_center.name',
-            title: 'Centro de Costo',
-            config: {
-              tableName: 'employees',
-              select: 'cost_center.name' as '*',
-              relation: '{"cost_center": "cost_center_id"}',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_center.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'contractor_employee.customers.name',
+              title: 'Afectaciones',
+              config: {
+                tableName: 'employees' as const,
+                select: 'id' as '*',
+                p_filters: { is_active: 'false' },
+                multiJoinPaths: {
+                  joins: [
+                    {
+                      from_table: 'employees',
+                      to_table: 'contractor_employee',
+                      from_column: 'id',
+                      to_column: 'employee_id',
+                    },
+                    {
+                      from_table: 'contractor_employee',
+                      to_table: 'customers',
+                      from_column: 'contractor_id',
+                      to_column: 'id',
+                    },
+                  ],
+                  final_column: 'customers.name',
+                },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'id'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: columnKeys.affiliate_status,
-            title: 'Estado de Afiliación',
-            config: {
-              tableName: 'employees',
-              select: 'affiliate_status' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'affiliate_status'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'cost_center.name',
+              title: 'Centro de Costo',
+              config: {
+                tableName: 'employees',
+                select: 'cost_center.name' as '*',
+                relation: '{"cost_center": "cost_center_id"}',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_center.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: columnKeys.status,
-            title: 'Estado',
-            config: {
-              tableName: 'employees',
-              select: 'status' as '*',
-              p_filters: { is_active: 'false' },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'status'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: columnKeys.affiliate_status,
+              title: 'Estado de Afiliación',
+              config: {
+                tableName: 'employees',
+                select: 'affiliate_status' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'affiliate_status'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-        ],
-        showFilterOptions: true,
-      }}
-    />
+            {
+              columnId: columnKeys.status,
+              title: 'Estado',
+              config: {
+                tableName: 'employees',
+                select: 'status' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'status'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+          ],
+          showFilterOptions: true,
+        }}
+      />
+    </Card>
   );
 }

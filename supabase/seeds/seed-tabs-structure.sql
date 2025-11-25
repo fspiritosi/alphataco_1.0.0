@@ -4,9 +4,36 @@
 -- ============================================
 
 -- ============================================
--- 1. DASHBOARD (sin tabs)
+-- 1. DASHBOARD (module_id: 91ed9ae4-6713-41ac-a87e-6b156e079948)
 -- ============================================
--- El dashboard no tiene tabs, es una vista única
+
+-- Tab: Principal (sin subtabs)
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('90000000-0000-0000-0000-000000000001', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'principal', 'Principal', 'Vista principal del dashboard', 1, NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- Tab: Documentacion (2 subtabs)
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('90000000-0000-0000-0000-000000000002', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'documentacion', 'Documentacion', 'Documentación y vencimientos', 2, NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- Subtabs de Documentacion
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('90000000-0000-0000-0000-000000000021', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'empleados', 'Empleados', 'Documentos de empleados', 1, '90000000-0000-0000-0000-000000000002'),
+('90000000-0000-0000-0000-000000000022', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'vehiculos', 'Vehiculos', 'Documentos de vehículos', 2, '90000000-0000-0000-0000-000000000002')
+ON CONFLICT (id) DO NOTHING;
+
+-- Tab: Estadisticas (3 subtabs)
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('90000000-0000-0000-0000-000000000003', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'estadisticas', 'Estadisticas', 'Estadísticas y métricas', 3, NULL)
+ON CONFLICT (id) DO NOTHING;
+
+-- Subtabs de Estadisticas
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('90000000-0000-0000-0000-000000000031', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'operaciones', 'Operaciones', 'Estadísticas de operaciones', 1, '90000000-0000-0000-0000-000000000003'),
+('90000000-0000-0000-0000-000000000032', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'rrhh', 'RRHH', 'Estadísticas de recursos humanos', 2, '90000000-0000-0000-0000-000000000003'),
+('90000000-0000-0000-0000-000000000033', '91ed9ae4-6713-41ac-a87e-6b156e079948', 'mantenimiento', 'Mantenimiento', 'Estadísticas de mantenimiento', 3, '90000000-0000-0000-0000-000000000003')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
 -- 2. EMPRESA (module_id: e0478383-1287-4b5e-a727-985baf867173)
@@ -149,6 +176,12 @@ INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_ta
 ('30000000-0000-0000-0000-000000000044', '34d7f9e5-7c01-4def-9446-6b3f52d761a0', 'maintenance_groups', 'Grupos', 'Grupos de mantenimiento', 4, '30000000-0000-0000-0000-000000000004')
 ON CONFLICT (id) DO NOTHING;
 
+-- Subtabs de type_of_repair_new_entry (nivel 3)
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('30000000-0000-0000-0000-000000000431', '34d7f9e5-7c01-4def-9446-6b3f52d761a0', 'carga-individual', 'Carga Individual', 'Carga individual de solicitudes de mantenimiento', 1, '30000000-0000-0000-0000-000000000043'),
+('30000000-0000-0000-0000-000000000432', '34d7f9e5-7c01-4def-9446-6b3f52d761a0', 'carga-multiple', 'Carga Múltiple', 'Carga múltiple de solicitudes de mantenimiento', 2, '30000000-0000-0000-0000-000000000043')
+ON CONFLICT (id) DO NOTHING;
+
 -- ============================================
 -- 5. COMERCIAL (module_id: 92bfac14-dc5b-41be-b366-740bfbeaea13)
 -- ============================================
@@ -259,6 +292,6 @@ ON CONFLICT (id) DO NOTHING;
 -- ============================================
 -- RESUMEN
 -- ============================================
--- Total de tabs principales: 28
--- Total de subtabs: 44
--- Total general: 72 tabs
+-- Total de tabs principales: 25 (Dashboard: 3, Empresa: 3, Empleados: 5, Equipos: 4, Comercial: 1, Documentación: 4, Mantenimiento: 1, Operaciones: 2, Formularios: 1, Ayuda: 1)
+-- Total de subtabs: 55 (Dashboard: 5, Empresa: 16, Empleados: 8, Equipos: 9, Comercial: 7, Documentación: 6, Mantenimiento: 4, Operaciones: 0, Formularios: 0, Ayuda: 0)
+-- Total general: 80 tabs

@@ -1,103 +1,70 @@
-import ViewcomponentInternal, { ViewDataObj } from '@/components/ViewComponentInternal';
-import { buttonVariants } from '@/components/ui/button';
-import Link from 'next/link';
+import { TabsManagerServer } from '@/features/TabsManager';
+import { Car, Package, XCircle } from 'lucide-react';
+import { Suspense } from 'react';
 import EquipmentTableWrapperServer from './EquipmentTableWrapperServer';
 import EquipmentTableWrapperServerInactive from './EquipmentTableWrapperServerInactive';
 import OtrosEquipmentTableWrapperServer from './OnlyEquipmentTableWrapperServer';
 
-export default function EquipmentListTabs({
-  inactives,
-  actives,
-  tabValue,
-  subtab,
+export default async function EquipmentListTabs({
+  searchParams,
 }: {
-  inactives?: boolean;
-  actives?: boolean;
-  tabValue: string;
-  subtab: string | undefined;
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const viewData: ViewDataObj = {
-    defaultValue: subtab || 'vehicles',
-    path: '/dashboard/equipment',
-    tabsValues: [
-      {
-        value: 'vehicles',
-        name: 'Vehículos',
-        restricted: [''],
-        tab: tabValue,
-        content: {
-          title: 'Vehículos',
-          buttonAction: (
-            <div className="flex flex-wrap">
-              <Link
-                href="/dashboard/equipment/action?action=new"
-                className={[' py-2 rounded', buttonVariants({ variant: 'default' })].join(' ')}
-              >
-                Agregar nuevo equipo
-              </Link>
-            </div>
-          ),
-          buttonActioRestricted: [''],
-          component: <EquipmentTableWrapperServer types_of_vehicles="Vehículos" />,
-        },
-      },
-      {
-        value: 'others',
-        name: 'Otros',
-        restricted: [''],
-        tab: tabValue,
-        content: {
-          title: 'Otros',
-          buttonAction: (
-            <div className="flex flex-wrap">
-              <Link
-                href="/dashboard/equipment/action?action=new"
-                className={[' py-2 rounded', buttonVariants({ variant: 'default' })].join(' ')}
-              >
-                Agregar nuevo equipo
-              </Link>
-            </div>
-          ),
-          buttonActioRestricted: [''],
-          // component: <EquipmentTableWrapper filterType="others" />,
-          component: <OtrosEquipmentTableWrapperServer types_of_vehicles="Otros" />,
-        },
-      },
-      {
-        value: 'inactive',
-        name: 'Vehículos dados de baja',
-        restricted: [''],
-        tab: tabValue,
-        content: {
-          title: 'Vehículos dados de baja',
-          buttonActioRestricted: [''],
-          component: <EquipmentTableWrapperServerInactive types_of_vehicles="all" />,
-        },
-      },
-    ],
-  };
-
   return (
-    <div className=" max-w-full">
-      <ViewcomponentInternal currentMainTab={tabValue} viewData={viewData} />
-      {/* <Tabs defaultValue="all">
-        <CardContent className="pl-0 pb-0">
-          <TabsList>
-            <TabsTrigger value="all">Todos los equipos</TabsTrigger>
-            <TabsTrigger value="vehicles">Solo vehículos</TabsTrigger>
-            <TabsTrigger value="others">Otros</TabsTrigger>
-          </TabsList>
-        </CardContent>
-        <TabsContent value="all">
-          <EquipmentTable role={role} columns={EquipmentColums || []} data={equipments || []} />
-        </TabsContent>
-        <TabsContent value="vehicles">
-          <EquipmentTable role={role} columns={EquipmentColums || []} data={onlyVehicles || []} />
-        </TabsContent>
-        <TabsContent value="others">
-          <EquipmentTable role={role} columns={EquipmentColums || []} data={onlyNoVehicles || []} />
-        </TabsContent>
-      </Tabs> */}
-    </div>
+    <TabsManagerServer
+      paramName="subtab"
+      searchParams={searchParams}
+      defaultTab="vehicles"
+      tabs={[
+        {
+          value: 'vehicles',
+          label: (
+            <span className="flex items-center gap-2">
+              <Car className="h-4 w-4" />
+              Vehículos
+            </span>
+          ),
+          moduleSlug: 'equipos',
+          tabSlug: 'vehicles',
+          content: (
+            <Suspense fallback={<div>Cargando vehículos...</div>}>
+              <EquipmentTableWrapperServer types_of_vehicles="Vehículos" />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'others',
+          label: (
+            <span className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Otros
+            </span>
+          ),
+          moduleSlug: 'equipos',
+          tabSlug: 'others',
+          content: (
+            <Suspense fallback={<div>Cargando otros equipos...</div>}>
+              <OtrosEquipmentTableWrapperServer types_of_vehicles="Otros" />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'inactive',
+          label: (
+            <span className="flex items-center gap-2">
+              <XCircle className="h-4 w-4" />
+              Dados de Baja
+            </span>
+          ),
+          moduleSlug: 'equipos',
+          tabSlug: 'inactive',
+          content: (
+            <Suspense fallback={<div>Cargando equipos dados de baja...</div>}>
+              <EquipmentTableWrapperServerInactive types_of_vehicles="all" />
+            </Suspense>
+          ),
+        },
+      ]}
+    />
   );
 }

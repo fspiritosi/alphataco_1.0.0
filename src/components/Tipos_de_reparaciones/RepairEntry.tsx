@@ -729,405 +729,412 @@ export default function RepairNewEntry({
   );
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="pt-6 flex flex-wrap sm:flex-nowrap w-full">
-      <ResizablePanel className="sm:min-w-[280px] min-w-full">
-        <div>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="space-y-3 p-3 w-full">
-                <FormField
-                  control={form.control}
-                  name="vehicle_id"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Seleccionar equipo</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              disabled={limittedEquipment ? false : allRepairs?.length > 0}
-                              variant="outline"
-                              role="combobox"
-                              className={cn('justify-between', !field.value && 'text-muted-foreground')}
-                            >
-                              {field.value
-                                ? equipment?.find((equip) => equip.id === field.value)?.domain ||
-                                  equipment?.find((equip) => equip.id === field.value)?.serie
-                                : 'Selecciona un equipo'}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className=" p-0">
-                          <Command>
-                            <CommandInput
-                              placeholder="Buscar equipo..."
-                              onValueChange={(value) => setSearchTerm(value)}
-                            />
-                            <CommandList className="max-h-[300px] overflow-auto">
-                              <CommandEmpty>No se encontro el equipo</CommandEmpty>
-                              <CommandGroup>
-                                {filteredEquipment.map((equip) => {
-                                  return (
+    <Card className="p-6">
+      <ResizablePanelGroup direction="horizontal" className="pt-6 flex flex-wrap sm:flex-nowrap w-full">
+        <ResizablePanel className="sm:min-w-[280px] min-w-full">
+          <div>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)}>
+                <div className="space-y-3 p-3 w-full">
+                  <FormField
+                    control={form.control}
+                    name="vehicle_id"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Seleccionar equipo</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                disabled={limittedEquipment ? false : allRepairs?.length > 0}
+                                variant="outline"
+                                role="combobox"
+                                className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                              >
+                                {field.value
+                                  ? equipment?.find((equip) => equip.id === field.value)?.domain ||
+                                    equipment?.find((equip) => equip.id === field.value)?.serie
+                                  : 'Selecciona un equipo'}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className=" p-0">
+                            <Command>
+                              <CommandInput
+                                placeholder="Buscar equipo..."
+                                onValueChange={(value) => setSearchTerm(value)}
+                              />
+                              <CommandList className="max-h-[300px] overflow-auto">
+                                <CommandEmpty>No se encontro el equipo</CommandEmpty>
+                                <CommandGroup>
+                                  {filteredEquipment.map((equip) => {
+                                    return (
+                                      <CommandItem
+                                        value={equip.domain || equip.serie || ''}
+                                        key={equip.domain}
+                                        onSelect={handleSelectEquipment(equip)}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            'mr-2 h-4 w-4',
+                                            equip.id === field.value ? 'opacity-100' : 'opacity-0'
+                                          )}
+                                        />
+                                        {`${equip.domain ?? equip.serie} ${equip.intern_number ? ' (Nº' + equip.intern_number + ')' : ''}`}
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="kilometer"
+                    // disabled={limittedEquipment ? false : allRepairs?.length > 0}
+                    render={({ field }) => (
+                      <FormItem className={cn(typeOfEquipment?.name === 'Vehículos' ? '' : 'hidden')}>
+                        <FormLabel>Kilometraje</FormLabel>
+                        <FormControl>
+                          <Input
+                            disabled={limittedEquipment ? false : allRepairs?.length > 0}
+                            {...field}
+                            placeholder="Kilometraje"
+                            value={field.value === undefined || field.value === null ? '' : field.value.toString()}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (isNaN(Number(value)) || value === ' ') {
+                                return;
+                              }
+
+                              form.setValue('kilometer', value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="repair"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Selecciona un tipo de reparación</FormLabel>
+                        <Popover open={open} onOpenChange={setOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn('justify-between', !field.value && 'text-muted-foreground')}
+                              >
+                                {field.value
+                                  ? tipo_de_mantenimiento.find((item) => item.id === field.value)?.name
+                                  : 'Tipos de reparaciones'}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar tipo de reparación..." />
+                              <CommandList>
+                                <CommandEmpty>No se encontró ningún tipo de reparación.</CommandEmpty>
+                                <CommandGroup>
+                                  {tipo_de_mantenimiento?.map((item) => (
                                     <CommandItem
-                                      value={equip.domain || equip.serie || ''}
-                                      key={equip.domain}
-                                      onSelect={handleSelectEquipment(equip)}
+                                      value={item.name}
+                                      key={item.name}
+                                      disabled={allRepairs.some((e) => e.repair === item.id)}
+                                      onSelect={() => {
+                                        form.setValue('repair', item.id);
+                                        setOpen(false);
+                                      }}
                                     >
                                       <Check
                                         className={cn(
                                           'mr-2 h-4 w-4',
-                                          equip.id === field.value ? 'opacity-100' : 'opacity-0'
+                                          item.id === field.value ? 'opacity-100' : 'opacity-0'
                                         )}
                                       />
-                                      {`${equip.domain ?? equip.serie} ${equip.intern_number ? ' (Nº' + equip.intern_number + ')' : ''}`}
+                                      {item.name}
                                     </CommandItem>
-                                  );
-                                })}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="kilometer"
-                  // disabled={limittedEquipment ? false : allRepairs?.length > 0}
-                  render={({ field }) => (
-                    <FormItem className={cn(typeOfEquipment?.name === 'Vehículos' ? '' : 'hidden')}>
-                      <FormLabel>Kilometraje</FormLabel>
-                      <FormControl>
-                        <Input
-                          disabled={limittedEquipment ? false : allRepairs?.length > 0}
-                          {...field}
-                          placeholder="Kilometraje"
-                          value={field.value === undefined || field.value === null ? '' : field.value.toString()}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (isNaN(Number(value)) || value === ' ') {
-                              return;
-                            }
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                            form.setValue('kilometer', value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="repair"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Selecciona un tipo de reparación</FormLabel>
-                      <Popover open={open} onOpenChange={setOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn('justify-between', !field.value && 'text-muted-foreground')}
-                            >
-                              {field.value
-                                ? tipo_de_mantenimiento.find((item) => item.id === field.value)?.name
-                                : 'Tipos de reparaciones'}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="p-0">
-                          <Command>
-                            <CommandInput placeholder="Buscar tipo de reparación..." />
-                            <CommandList>
-                              <CommandEmpty>No se encontró ningún tipo de reparación.</CommandEmpty>
-                              <CommandGroup>
-                                {tipo_de_mantenimiento?.map((item) => (
+                  {/* Select de Grupos de Reparación */}
+                  <div className="flex flex-col space-y-2">
+                    <Label>O selecciona un grupo de reparaciones</Label>
+                    <Popover open={openGroup} onOpenChange={setOpenGroup}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn('w-full justify-between', !selectedGroupId && 'text-muted-foreground')}
+                        >
+                          {selectedGroupId
+                            ? maintenance_groups.find((g) => g.id === selectedGroupId)?.name
+                            : 'Selecciona un grupo'}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0 w-[400px]">
+                        <Command>
+                          <CommandInput placeholder="Buscar grupo..." />
+                          <CommandList className="max-h-[300px]">
+                            <CommandEmpty>No se encontró ningún grupo.</CommandEmpty>
+                            <CommandGroup>
+                              {maintenance_groups?.map((group) => {
+                                const groupRepairNames = group.maintenance_group_type_of_repairs
+                                  .map((r) => tipo_de_mantenimiento.find((t) => t.id === r.type_id)?.name)
+                                  .filter(Boolean);
+
+                                return (
                                   <CommandItem
-                                    value={item.name}
-                                    key={item.name}
-                                    disabled={allRepairs.some((e) => e.repair === item.id)}
+                                    value={group.name}
+                                    key={group.id}
+                                    disabled={isGroupFullyAdded(group.id)}
                                     onSelect={() => {
-                                      form.setValue('repair', item.id);
-                                      setOpen(false);
+                                      setSelectedGroupId(group.id);
+                                      setOpenGroup(false);
                                     }}
+                                    className="flex-col items-start py-3"
                                   >
-                                    <Check
-                                      className={cn(
-                                        'mr-2 h-4 w-4',
-                                        item.id === field.value ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                    {item.name}
+                                    <div className="flex items-center w-full">
+                                      <Check
+                                        className={cn(
+                                          'mr-2 h-4 w-4 shrink-0',
+                                          selectedGroupId === group.id ? 'opacity-100' : 'opacity-0'
+                                        )}
+                                      />
+                                      <div className="flex flex-col flex-1">
+                                        <span className="font-medium">{group.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {group.maintenance_group_type_of_repairs.length} reparaciones
+                                          {isGroupFullyAdded(group.id) && ' (Ya agregadas)'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {groupRepairNames.length > 0 && (
+                                      <div className="ml-6 mt-1 text-xs text-muted-foreground">
+                                        • {groupRepairNames.join(' • ')}
+                                      </div>
+                                    )}
                                   </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Select de Grupos de Reparación */}
-                <div className="flex flex-col space-y-2">
-                  <Label>O selecciona un grupo de reparaciones</Label>
-                  <Popover open={openGroup} onOpenChange={setOpenGroup}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn('w-full justify-between', !selectedGroupId && 'text-muted-foreground')}
-                      >
-                        {selectedGroupId
-                          ? maintenance_groups.find((g) => g.id === selectedGroupId)?.name
-                          : 'Selecciona un grupo'}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="p-0 w-[400px]">
-                      <Command>
-                        <CommandInput placeholder="Buscar grupo..." />
-                        <CommandList className="max-h-[300px]">
-                          <CommandEmpty>No se encontró ningún grupo.</CommandEmpty>
-                          <CommandGroup>
-                            {maintenance_groups?.map((group) => {
-                              const groupRepairNames = group.maintenance_group_type_of_repairs
-                                .map((r) => tipo_de_mantenimiento.find((t) => t.id === r.type_id)?.name)
-                                .filter(Boolean);
-
-                              return (
-                                <CommandItem
-                                  value={group.name}
-                                  key={group.id}
-                                  disabled={isGroupFullyAdded(group.id)}
-                                  onSelect={() => {
-                                    setSelectedGroupId(group.id);
-                                    setOpenGroup(false);
-                                  }}
-                                  className="flex-col items-start py-3"
-                                >
-                                  <div className="flex items-center w-full">
-                                    <Check
-                                      className={cn(
-                                        'mr-2 h-4 w-4 shrink-0',
-                                        selectedGroupId === group.id ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                    <div className="flex flex-col flex-1">
-                                      <span className="font-medium">{group.name}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {group.maintenance_group_type_of_repairs.length} reparaciones
-                                        {isGroupFullyAdded(group.id) && ' (Ya agregadas)'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  {groupRepairNames.length > 0 && (
-                                    <div className="ml-6 mt-1 text-xs text-muted-foreground">
-                                      • {groupRepairNames.join(' • ')}
-                                    </div>
-                                  )}
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-4 mt-2 justify-end pr-4">
-                <Button type="submit" variant={'outline'}>
-                  {' '}
-                  Agregar reparacion
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </div>
-      </ResizablePanel>
-      <ResizableHandle withHandle className="hidden sm:flex" />
-      <ResizablePanel className="pl-6 min-w-[600px] hidden sm:flex w-full" defaultSize={70}>
-        <div className="flex flex-col gap-4 w-full ">
-          <CardTitle>Se registraran las siguientes reparaciones</CardTitle>
+                <div className="flex gap-4 mt-2 justify-end pr-4">
+                  <Button type="submit" variant={'outline'}>
+                    {' '}
+                    Agregar reparacion
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle className="hidden sm:flex" />
+        <ResizablePanel className="pl-6 min-w-[600px] hidden sm:flex w-full" defaultSize={70}>
+          <div className="flex flex-col gap-4 w-full ">
+            <CardTitle>Se registraran las siguientes reparaciones</CardTitle>
 
-          <BaseDataTable
-            columns={getRepairEntryColumns(tipo_de_mantenimiento, handleDeleteRepair, handleOpenDetailsModal)}
-            data={allRepairs}
-            tableId="repair-entry-table"
-            savedVisibility={savedVisibility}
-            toolbarOptions={{
-              initialVisibleFilters: savedFilters || [],
-              filterableColumns: [
-                {
-                  columnId: 'Dominio',
-                  title: 'Dominio',
-                  options: domainOptions,
-                },
-              ],
-            }}
-          />
-          {allRepairs?.length > 0 && (
-            <Button
-              onClick={() => {
-                createRepair();
+            <BaseDataTable
+              columns={getRepairEntryColumns(tipo_de_mantenimiento, handleDeleteRepair, handleOpenDetailsModal)}
+              data={allRepairs}
+              tableId="repair-entry-table"
+              savedVisibility={savedVisibility}
+              toolbarOptions={{
+                initialVisibleFilters: savedFilters || [],
+                filterableColumns: [
+                  {
+                    columnId: 'Dominio',
+                    title: 'Dominio',
+                    options: domainOptions,
+                  },
+                ],
               }}
-              className="w-1/3 self-center mt-3"
-            >
-              Registrar solicitudes
-            </Button>
-          )}
-        </div>
-      </ResizablePanel>
-      <ResizablePanel className=" min-w-[250px] sm:hidden" defaultSize={70}>
-        <div className="">
-          <Separator></Separator>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              {/* <CardTitle className="text-2xl font-bold">{repair?.name}</CardTitle> */}
-              {/* <Badge variant="outline" className="text-sm">
+            />
+            {allRepairs?.length > 0 && (
+              <Button
+                onClick={() => {
+                  createRepair();
+                }}
+                className="w-1/3 self-center mt-3"
+              >
+                Registrar solicitudes
+              </Button>
+            )}
+          </div>
+        </ResizablePanel>
+        <ResizablePanel className=" min-w-[250px] sm:hidden" defaultSize={70}>
+          <div className="">
+            <Separator></Separator>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                {/* <CardTitle className="text-2xl font-bold">{repair?.name}</CardTitle> */}
+                {/* <Badge variant="outline" className="text-sm">
                 {repair?.criticity}
               </Badge> */}
-            </CardHeader>
-            <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
-              <div className="flex p-2  gap-3 flex-wrap">
-                {vehicle?.picture && (
-                  <div className="relative w-24 h-24 rounded-md overflow-hidden">
-                    <Image src={vehicle?.picture} alt={`Vehicle ${vehicle?.domain}`} layout="fill" objectFit="cover" />
+              </CardHeader>
+              <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
+                <div className="flex p-2  gap-3 flex-wrap">
+                  {vehicle?.picture && (
+                    <div className="relative w-24 h-24 rounded-md overflow-hidden">
+                      <Image
+                        src={vehicle?.picture}
+                        alt={`Vehicle ${vehicle?.domain}`}
+                        layout="fill"
+                        objectFit="cover"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">Vehiculo: {vehicle?.domain}</p>
+                    <p className="text-sm text-muted-foreground">Numero interno: {vehicle?.intern_number}</p>
+                    <p className="text-sm text-muted-foreground">Año: {vehicle?.year}</p>
+                    <p className="text-sm text-muted-foreground">Condicion: {vehicle?.condition}</p>
                   </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium">Vehiculo: {vehicle?.domain}</p>
-                  <p className="text-sm text-muted-foreground">Numero interno: {vehicle?.intern_number}</p>
-                  <p className="text-sm text-muted-foreground">Año: {vehicle?.year}</p>
-                  <p className="text-sm text-muted-foreground">Condicion: {vehicle?.condition}</p>
-                </div>
-                <ul className="w-full">
-                  {allRepairs?.map((field, index) => {
-                    const repair = tipo_de_mantenimiento.find((e) => e.id === field.repair);
-                    const maintenance = tipo_de_mantenimiento.find((e) => e.id === field.repair);
-                    const priority = criticidad.find((priority) => priority.value === repair?.criticity);
-                    const badgeVariant =
-                      repair?.criticity === 'Baja'
-                        ? 'success'
-                        : repair?.criticity === 'Media'
-                          ? 'yellow'
-                          : ('destructive' as
-                              | 'success'
-                              | 'default'
-                              | 'destructive'
-                              | 'outline'
-                              | 'secondary'
-                              | 'yellow'
-                              | 'red'
-                              | null
-                              | undefined);
-                    return (
-                      <Accordion type="single" collapsible key={field.provicionalId}>
-                        <AccordionItem value="item-1">
-                          <AccordionTrigger className="active:no-underline focus:no-underline">
-                            {' '}
-                            <div className="flex flex-row items-center w-full justify-between space-y-0 pb-2 mr-2">
-                              <div className="flex gap-2">
-                                <CardDescription>{repair?.name}</CardDescription>
-                                <Badge variant={badgeVariant} className="font-bold">
-                                  {' '}
-                                  {priority?.icon && <priority.icon className="mr-2 h-4 w-4 font-bold" />}
-                                  {repair?.criticity}
-                                </Badge>
+                  <ul className="w-full">
+                    {allRepairs?.map((field, index) => {
+                      const repair = tipo_de_mantenimiento.find((e) => e.id === field.repair);
+                      const maintenance = tipo_de_mantenimiento.find((e) => e.id === field.repair);
+                      const priority = criticidad.find((priority) => priority.value === repair?.criticity);
+                      const badgeVariant =
+                        repair?.criticity === 'Baja'
+                          ? 'success'
+                          : repair?.criticity === 'Media'
+                            ? 'yellow'
+                            : ('destructive' as
+                                | 'success'
+                                | 'default'
+                                | 'destructive'
+                                | 'outline'
+                                | 'secondary'
+                                | 'yellow'
+                                | 'red'
+                                | null
+                                | undefined);
+                      return (
+                        <Accordion type="single" collapsible key={field.provicionalId}>
+                          <AccordionItem value="item-1">
+                            <AccordionTrigger className="active:no-underline focus:no-underline">
+                              {' '}
+                              <div className="flex flex-row items-center w-full justify-between space-y-0 pb-2 mr-2">
+                                <div className="flex gap-2">
+                                  <CardDescription>{repair?.name}</CardDescription>
+                                  <Badge variant={badgeVariant} className="font-bold">
+                                    {' '}
+                                    {priority?.icon && <priority.icon className="mr-2 h-4 w-4 font-bold" />}
+                                    {repair?.criticity}
+                                  </Badge>
+                                </div>
                               </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <li key={field.provicionalId} className="">
-                              <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
-                                <div className="flex flex-col ">
-                                  <div className="flex items-center">
-                                    <FiTool className="mr-2 h-4 w-4" />
-                                    <span className="text-sm">
-                                      Tipo de mantenimiento: {maintenance?.type_of_maintenance}
-                                    </span>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <li key={field.provicionalId} className="">
+                                <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
+                                  <div className="flex flex-col ">
+                                    <div className="flex items-center">
+                                      <FiTool className="mr-2 h-4 w-4" />
+                                      <span className="text-sm">
+                                        Tipo de mantenimiento: {maintenance?.type_of_maintenance}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <FiTool className="mr-2 h-4 w-4" />
+                                      <span className="text-sm">Nombre: {maintenance?.name}</span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center">
-                                    <FiTool className="mr-2 h-4 w-4" />
-                                    <span className="text-sm">Nombre: {maintenance?.name}</span>
-                                  </div>
-                                </div>
 
-                                {/* Botón para abrir modal de detalles */}
-                                <div className="flex flex-col gap-2">
+                                  {/* Botón para abrir modal de detalles */}
+                                  <div className="flex flex-col gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleOpenDetailsModal(field.provicionalId)}
+                                      className="w-full"
+                                    >
+                                      {field.description ? 'Editar detalles' : 'Agregar detalles'}
+                                    </Button>
+
+                                    {/* Indicadores de estado */}
+                                    <div className="flex gap-2">
+                                      {field.description && (
+                                        <Badge variant="success" className="text-xs">
+                                          ✓ Descripción
+                                        </Badge>
+                                      )}
+                                      {field.user_images.some((img) => img !== null) && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          {field.user_images.filter((img) => img !== null).length} imágenes
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+
                                   <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleOpenDetailsModal(field.provicionalId)}
-                                    className="w-full"
+                                    variant={'destructive'}
+                                    size={'sm'}
+                                    onClick={() => handleDeleteRepair(field.provicionalId)}
                                   >
-                                    {field.description ? 'Editar detalles' : 'Agregar detalles'}
+                                    Eliminar
                                   </Button>
+                                </CardContent>
+                              </li>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
 
-                                  {/* Indicadores de estado */}
-                                  <div className="flex gap-2">
-                                    {field.description && (
-                                      <Badge variant="success" className="text-xs">
-                                        ✓ Descripción
-                                      </Badge>
-                                    )}
-                                    {field.user_images.some((img) => img !== null) && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        {field.user_images.filter((img) => img !== null).length} imágenes
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
+            {allRepairs?.length > 0 && (
+              <Button
+                onClick={() => {
+                  createRepair();
+                }}
+                className="w-full mt-4"
+              >
+                Registrar solicitudes
+              </Button>
+            )}
+          </div>
+        </ResizablePanel>
 
-                                <Button
-                                  variant={'destructive'}
-                                  size={'sm'}
-                                  onClick={() => handleDeleteRepair(field.provicionalId)}
-                                >
-                                  Eliminar
-                                </Button>
-                              </CardContent>
-                            </li>
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
-                    );
-                  })}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-
-          {allRepairs?.length > 0 && (
-            <Button
-              onClick={() => {
-                createRepair();
-              }}
-              className="w-full mt-4"
-            >
-              Registrar solicitudes
-            </Button>
-          )}
-        </div>
-      </ResizablePanel>
-
-      {/* Modal de detalles */}
-      <RepairDetailsModal
-        isOpen={detailsModalOpen}
-        onClose={handleCloseDetailsModal}
-        repair={selectedRepair || null}
-        repairType={selectedRepairType}
-        onSave={handleSaveDetails}
-      />
-    </ResizablePanelGroup>
+        {/* Modal de detalles */}
+        <RepairDetailsModal
+          isOpen={detailsModalOpen}
+          onClose={handleCloseDetailsModal}
+          repair={selectedRepair || null}
+          repairType={selectedRepairType}
+          onSave={handleSaveDetails}
+        />
+      </ResizablePanelGroup>
+    </Card>
   );
 }

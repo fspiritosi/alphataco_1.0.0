@@ -79,6 +79,27 @@ export async function getUserPermissions() {
 export type getUserPermissionsType = Awaited<ReturnType<typeof getUserPermissions>>;
 
 /**
+ * Obtiene los permisos de un usuario específico (por userId)
+ * Útil para gestión de permisos de otros usuarios
+ */
+export async function getUserPermissionsByUserId(userId: string) {
+  const supabase = supabaseBrowser();
+
+  const { data, error } = await supabase.rpc('get_user_permissions', {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    console.error('Error fetching user permissions:', error);
+    throw new Error('Failed to fetch user permissions');
+  }
+
+  return data || [];
+}
+
+export type getUserPermissionsByUserIdType = Awaited<ReturnType<typeof getUserPermissionsByUserId>>;
+
+/**
  * Verifica si un usuario tiene un permiso específico
  * Obtiene el userId automáticamente desde los claims de Supabase
  */

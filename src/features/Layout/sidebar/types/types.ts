@@ -1,13 +1,16 @@
-export type UserRoleData =
-  | {
-      rol: string | null;
-      modulos: ModulosEnum[];
-    }
-  | '';
+export interface AccessibleModule {
+  module_id: string;
+  module_slug: string;
+  module_name: string;
+  module_icon: string;
+}
 
-export type SidebarProps = {
-  pathname: string;
-  role: string | null;
-  userModules?: ModulosEnum[] | null;
+export interface SidebarProps {
+  /**
+   * Pathname inicial obtenido del servidor (SSR)
+   * Se usa como fallback si usePathname() no está disponible
+   */
+  initialPathname: string;
+  accessibleModules: AccessibleModule[];
   isActive: string | undefined;
-};
+}

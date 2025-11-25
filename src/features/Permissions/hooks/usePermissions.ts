@@ -12,9 +12,9 @@ export function usePermissions() {
   } = useQuery({
     queryKey: ['permissions'],
     queryFn: getUserPermissions,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
-    refetchOnWindowFocus: false,
+    staleTime: 0, // Sin caché por ahora
+    gcTime: 0, // Sin caché por ahora
+    refetchOnWindowFocus: true,
   });
 
   // Create a Map for O(1) permission lookups

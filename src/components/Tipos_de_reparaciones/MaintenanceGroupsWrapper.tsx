@@ -3,6 +3,7 @@ import {
   fetchTypesOfRepairAction,
 } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { cookies } from 'next/headers';
+import { Card } from '../ui/card';
 import MaintenanceGroupsClient from './MaintenanceGroupsClient';
 
 export default async function MaintenanceGroupsWrapper() {
@@ -14,11 +15,13 @@ export default async function MaintenanceGroupsWrapper() {
   const savedFilter = cookiesStore.get('maintenance-groups-table-filters')?.value;
 
   return (
-    <MaintenanceGroupsClient
-      groups={groups}
-      savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-      savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
-      types={types}
-    />
+    <Card className="p-6">
+      <MaintenanceGroupsClient
+        groups={groups}
+        savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
+        savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
+        types={types}
+      />
+    </Card>
   );
 }

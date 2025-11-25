@@ -60,6 +60,7 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
       toast.success('El rol ha sido asignado correctamente');
     },
     onError: () => {
@@ -72,6 +73,7 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] }); // Invalidar también la query global
       toast.success('El rol ha sido removido correctamente');
     },
     onError: () => {

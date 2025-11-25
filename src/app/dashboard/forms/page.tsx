@@ -1,6 +1,5 @@
-import ChecklistTable from '@/components/CheckList/ListOfChecklist';
-import Viewcomponent from '@/components/ViewComponent';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import FormulariosComponent from '@/features/Formularios/FormulariosComponent';
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {
@@ -9,65 +8,23 @@ export async function generateMetadata() {
   if (companyName) {
     return {
       title: `Formularios | ${companyName}`,
-      description: `Página de formularios de ${companyName} con información general, comercial, HR y equipos`,
+      description: `Gestión de formularios y checklists de ${companyName}`,
     };
   } else {
-    const companyName = await getCompanyName();
-    if (companyName) {
+    const actualCompany = await getCompanyName();
+    if (actualCompany) {
       return {
-        title: `Formularios | ${companyName.company_name}`,
-        description: `Página de formularios de ${companyName.company_name} con información general, comercial, HR y equipos`,
+        title: `Formularios | ${actualCompany.company_name}`,
+        description: `Gestión de formularios y checklists de ${actualCompany.company_name}`,
       };
     }
   }
 }
-async function MantenimientoPage() {
-  const viewData = {
-    defaultValue: 'formularios',
-    path: '/dashboard/forms',
-    tabsValues: [
-      {
-        value: 'formularios',
-        name: 'Tipos de checklist',
-        restricted: [''],
-        content: {
-          title: 'Tipos de checklist',
-          description: 'Aqui encontraras los checkList de mantenimiento',
-          buttonActioRestricted: ['Invitado'],
-          // buttonAction: <ReportModal vehicles={vehicles} checklists={checklists} />,
-          component: <ChecklistTable />,
-        },
-      },
-      // {
-      //   value: 'create_new_form',
-      //   name: 'Crear nuevo formulario',
-      //   restricted: [''],
-      //   content: {
-      //     title: 'Crear nuevo formulario',
-      //     description: 'Aquí podrás crear un nuevo formulario',
-      //     buttonActioRestricted: [''],
-      //     component: <NewForm />,
-      //   },
-      // },
-      // {
-      //   value: 'Cargados',
-      //   name: 'Formularios cargados',
-      //   restricted: [''],
-      //   content: {
-      //     title: 'Formularios cargados',
-      //     description: 'Aquí encontrarás todos los formularios cargados',
-      //     buttonActioRestricted: [''],
-      //     component: <FormCustomContainer showAnswers={true} employees={true} company={true}  documents={true} equipment={true} />,
-      //   },
-      // },
-    ],
-  };
 
-  return (
-    <div className="h-full">
-      <Viewcomponent viewData={viewData} />
-    </div>
-  );
+export default function FormulariosPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  return <FormulariosComponent searchParams={searchParams} />;
 }
-
-export default MantenimientoPage;

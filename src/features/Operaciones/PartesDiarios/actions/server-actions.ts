@@ -38,6 +38,7 @@ export async function fetchDailyReportData({
             remit_number,
             cancel_reason,
             type_service,
+            last_comercial_edit_at,
             completed_day,
             completed_night,
             preparte_id,

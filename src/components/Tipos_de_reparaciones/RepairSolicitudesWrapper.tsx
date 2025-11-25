@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { Card } from '../ui/card';
 import RepairSolicitudes from './RepairSolicitudesTable/RepairSolicitudes';
 import { fetchRepairSolicitudes } from './actions/actions';
 
@@ -15,13 +16,15 @@ async function RepairSolicitudesWrapper({ mechanic, equipment_id }: { mechanic?:
   });
 
   return (
-    <RepairSolicitudes
-      mechanic={mechanic}
-      initialData={initialData}
-      default_equipment_id={equipment_id}
-      savedFilters={filters ? JSON.parse(filters) : []}
-      savedVisibility={savedVisibility3 ? JSON.parse(savedVisibility3) : []}
-    />
+    <Card className="p-6">
+      <RepairSolicitudes
+        mechanic={mechanic}
+        initialData={initialData}
+        default_equipment_id={equipment_id}
+        savedFilters={filters ? JSON.parse(filters) : []}
+        savedVisibility={savedVisibility3 ? JSON.parse(savedVisibility3) : []}
+      />
+    </Card>
   );
 }
 

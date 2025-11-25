@@ -606,7 +606,7 @@ export const getNextMonthExpiringDocumentsEmployees = async () => {
     .not('id_document_types.is_it_montlhy', 'is', true)
     .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`)
     .not('validity', 'is', null)
-    .eq('applies.company_id', company_id || user?.app_metadata?.company_id || '')
+    .eq('applies.company_id', company_id || user?.app_metadata?.company || '')
     .order('validity', { ascending: true }) // Ordenar por fecha de validez en orden ascendente
     .returns<EmployeeDocumentWithContractors[]>();
 
@@ -631,7 +631,7 @@ export const getNextMonthExpiringDocumentsVehicles = async () => {
   const { data, error } = await supabase
     .from('documents_equipment')
     .select('*,id_document_types(*),applies!inner(*,type(*),brand(*),model(*))')
-    .eq('applies.company_id', company_id || user?.app_metadata?.company_id || '')
+    .eq('applies.company_id', company_id || user?.app_metadata?.company || '')
     .not('id_document_types.is_it_montlhy', 'is', true)
     .not('id_document_types', 'is', null)
     .or(`validity.lte.${today.toISOString()},validity.lte.${nextMonth.toISOString()}`)
@@ -1421,27 +1421,28 @@ export const getCurrentProfile = async () => {
   }
   return data;
 };
-export const verifyUserRoleInCompany = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return '';
+// ❌ DEPRECATED: Sistema viejo de roles - Usar getUserAccessibleModulesServer() del nuevo sistema
+// export const verifyUserRoleInCompany = async () => {
+//   const cookiesStore = cookies();
+//   const supabase = supabaseServer();
+//   const company_id = cookiesStore.get('actualComp')?.value;
+//   if (!company_id) return '';
 
-  const user = await fetchCurrentUser();
-  if (!user) return '';
-  const { data, error } = await supabase
-    .from('share_company_users')
-    .select('*')
-    .eq('profile_id', user?.id || '')
-    .eq('company_id', company_id);
+//   const user = await fetchCurrentUser();
+//   if (!user) return '';
+//   const { data, error } = await supabase
+//     .from('share_company_users')
+//     .select('*')
+//     .eq('profile_id', user?.id || '')
+//     .eq('company_id', company_id);
 
-  if (error) {
-    console.error('Error verifying user role:', error);
-    return '';
-  }
+//   if (error) {
+//     console.error('Error verifying user role:', error);
+//     return '';
+//   }
 
-  return { rol: data[0]?.role || '', modulos: data[0]?.modules || [] };
-};
+//   return { rol: data[0]?.role || '', modulos: data[0]?.modules || [] };
+// };
 
 export const fetchDiagramsHistoryByEmployeeId = async (employeeId: string) => {
   const supabase = supabaseServer();

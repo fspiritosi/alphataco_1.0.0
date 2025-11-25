@@ -283,7 +283,7 @@ export const BaseDataTable = forwardRef<TableType<any>, DataTableProps<any, any>
                         >
                           {header.isPlaceholder
                             ? null
-                            : flexRender(header.column.columnDef.header, header.getContext())}
+                            : flexRender(header.column.columnDef.header, { ...header.getContext(), table })}
                         </TableHead>
                       );
                     })}

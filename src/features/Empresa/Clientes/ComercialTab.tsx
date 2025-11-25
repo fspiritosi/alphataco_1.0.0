@@ -1,11 +1,11 @@
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
-import CustomerTabWrapper from './components/CustomerTabWrapper';
-import ServiceComponentWrapper from './components/Services/ServiceComponentWrapper';
-import DataCustomersWrapper from './components/data-customer/DataCustomersWrapper';
-import CustomerEquipmentTabWrapper from './components/equipos/CustomerEquipmentTabWrapper';
-import MensureUnitsWrapper from './components/meansure_units/MensureUnitsWrapper';
-import DayliReportWraper from './components/operations/components/DayliReportWraper';
-import SectorTabsWrapper from './components/sector_clientes/SectorTabsWrapper';
+import CustomerEquipmentTabWrapper from '../../Comercial/Comerce/components/CustomerEquipmentTabWrapper';
+import CustomerTabWrapper from '../../Comercial/Comerce/components/CustomerTabWrapper';
+import DataCustomersWrapper from '../../Comercial/Comerce/components/DataCustomersWrapper';
+import DayliReportWraper from '../../Comercial/Comerce/components/DayliReportWraper';
+import MensureUnitsWrapper from '../../Comercial/Comerce/components/MensureUnitsWrapper';
+import SectorTabsWrapper from '../../Comercial/Comerce/components/SectorTabsWrapper';
+import ServiceComponentWrapper from '../../Comercial/Comerce/components/ServiceComponentWrapper';
 
 function ComercialTab({
   tabValue,

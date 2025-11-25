@@ -3,20 +3,25 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import DocumentUploadModal from '@/features/Operaciones/PartesDiarios/components/DocumentUploadModal';
-import DocumentViewerModal from '@/features/Operaciones/PartesDiarios/components/DocumentViewerFixed';
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
 import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/components/ServiceDetailModal';
+import { RemitosManagerModal } from '@/features/Operaciones/PartesDiarios/remitManager';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Edit } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { Edit, FileText } from 'lucide-react';
+import moment from 'moment';
+import { useCallback, useMemo, useState } from 'react';
 import {
   formatCustomerEquipmentForExport,
   formatEmployeesForExport,
   formatEquipmentForExport,
 } from './export-formatters';
+
+import {
+  transformDailyReports,
+  transformDailyReportsType,
+} from '../../../../../Comercial/Comerce/components/DayliReportWraper';
 
 // Tipo extendido para columnas con propiedades adicionales de exportación
 type ExtendedColumnDef<TData> = ColumnDef<TData> & {
@@ -26,35 +31,10 @@ type ExtendedColumnDef<TData> = ColumnDef<TData> & {
 };
 
 // Se ha modificado la interfaz para que customer_equipment acepte un array de objetos
-interface TableRow {
-  id: string;
-  date: string;
-  customer: string;
-  type_service: string;
-  item: string;
-  item_description?: string;
-  description: string;
-  status: string;
-  start_time: string | null;
-  end_time: string | null;
-  employees: string[];
-  equipment: string[];
-  customer_equipment: {
-    name: string;
-    type: string;
-    id: string;
-    relacion_id: string;
-  }[];
-  services: string;
-  working_day?: string;
-  area?: string;
-  sector?: string;
-  remit_number?: string;
-  document_path?: string;
-}
+type TableRow = ReturnType<typeof transformDailyReports>[number];
 
 interface EnhancedComercialReportTableProps {
-  dailyReports: TableRow[];
+  dailyReports: transformDailyReportsType;
   onEdit?: (row: TableRow) => void;
   onView?: (row: TableRow) => void;
   onViewHistory?: (row: TableRow) => void;
@@ -83,20 +63,20 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
   showActions,
   filterableColumns,
 }) => {
+  // Estado para el modal de remitos
+  const [remitModalOpen, setRemitModalOpen] = useState(false);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string>('');
+
   const columns = useMemo<ExtendedColumnDef<TableRow>[]>(() => {
     const baseColumns: ExtendedColumnDef<TableRow>[] = [
       {
         id: 'date',
         accessorKey: 'date',
         exportHeader: 'Fecha',
-        header: ({ column }) => {
-          return (
-            <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-              Fecha
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          );
-        },
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[100px]" column={column} table={table} title="Fecha" />
+        ),
         cell: ({ row }) => {
           return <span className="font-medium">{row.original.date}</span>;
         },
@@ -118,7 +98,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'customer',
         accessorKey: 'customer',
-        header: 'Cliente',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Cliente" />,
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const customer = row.original.customer;
@@ -128,7 +108,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'services',
         accessorKey: 'services',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[130px]" column={column} title="Servicio" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[130px]" column={column} table={table} title="Servicio" />
+        ),
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const services = row.original.services;
@@ -138,7 +120,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'item',
         accessorKey: 'item',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[130px]" column={column} title="Ítem" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[130px]" column={column} table={table} title="Ítem" />
+        ),
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const item = row.original.item;
@@ -148,8 +132,8 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'item_description',
         accessorKey: 'item_description',
-        header: ({ column }) => (
-          <DataTableColumnHeader className="min-w-[130px]" column={column} title="Descripción Ítem" />
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[130px]" column={column} table={table} title="Descripción Ítem" />
         ),
         exportHeader: 'Descripción Ítem',
         size: 150,
@@ -164,7 +148,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'customer_equipment',
         accessorKey: 'customer_equipment',
-        header: 'Equipo Cliente',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo Cliente" />,
         exportHeader: 'Equipo Cliente',
         // Se ha modificado el cell para mostrar la propiedad 'name' del objeto
         cell: ({ row }) => {
@@ -189,7 +173,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'area',
         accessorKey: 'area',
-        header: 'Área',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Área" />,
         cell: ({ row }) => {
           return row.original.area;
         },
@@ -202,7 +186,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'sector',
         accessorKey: 'sector',
-        header: 'Sector',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Sector" />,
         cell: ({ row }) => {
           return row.original.sector;
         },
@@ -215,7 +199,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'type_service',
         accessorKey: 'type_service',
-        header: 'Tipo de Servicio',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Tipo de Servicio" />,
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const type = row.original.type_service;
@@ -225,7 +209,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'remit_number',
         accessorKey: 'remit_number',
-        header: 'N° de Remito',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="N° de Remito" />,
         filterFn: (row, id, value) => {
           if (!value) return true;
           const remit = row.original.remit_number || '';
@@ -235,7 +219,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'status',
         accessorKey: 'status',
-        header: 'Estado',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Estado" />,
         cell: ({ row }) => {
           const status = row.original.status as StatusKey;
           const statusText =
@@ -271,7 +255,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'employees',
         accessorKey: 'employees',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[200px]" column={column} title="Empleados" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[200px]" column={column} table={table} title="Empleados" />
+        ),
         exportHeader: 'Empleados',
         cell: ({ row }) => {
           const employees = row.original.employees || [];
@@ -295,7 +281,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'equipment',
         accessorKey: 'equipment',
-        header: 'Equipo Empresa',
+        header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo Empresa" />,
         exportHeader: 'Equipo Empresa',
         cell: ({ row }) => {
           const equipment = row.original.equipment || [];
@@ -319,7 +305,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'working_day',
         accessorKey: 'working_day',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[100px]" column={column} title="Jornada" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[100px]" column={column} table={table} title="Jornada" />
+        ),
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
           const workingDay = row.original.working_day;
@@ -329,7 +317,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'description',
         accessorKey: 'description',
-        header: ({ column }) => <DataTableColumnHeader className="min-w-[300px]" column={column} title="Descripcion" />,
+        header: ({ column, table }) => (
+          <DataTableColumnHeader className="min-w-[300px]" column={column} table={table} title="Descripción" />
+        ),
         exportHeader: 'Descripción',
       },
       // {
@@ -364,19 +354,29 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         id: 'actions',
         header: 'Acciones',
         cell: ({ row }) => {
-          const isEnCertificacion = row.original.status === 'en_certificacion';
+          const isEnCertificacion = row.original.status.toLocaleLowerCase() === 'en_certificacion';
+          const isDailyReportOpen = row.original.dailyReportStatus === 'abierto';
           return (
             <div className="flex space-x-2">
               {onEdit && !isEnCertificacion && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => onEdit(row.original as TableRow)}>
+                    <TooltipTrigger>
+                      <Button
+                        disabled={isDailyReportOpen}
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEdit(row.original as TableRow)}
+                      >
                         <Edit size={16} />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Editar</p>
+                      {isDailyReportOpen ? (
+                        <p>El parte esta abierto, debe editarse desde Operaciones</p>
+                      ) : (
+                        <p>Editar</p>
+                      )}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -405,12 +405,28 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {isEnCertificacion &&
-                (row.original.document_path ? (
-                  <DocumentViewerModal documentUrl={row.original.document_path} documentData={row.original as any} />
-                ) : (
-                  <DocumentUploadModal documentData={row.original as any} />
-                ))}
+              {isEnCertificacion && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedRowId(row.original.id);
+                          setSelectedCustomerName(row.original.customer!);
+                          setRemitModalOpen(true);
+                        }}
+                      >
+                        <FileText size={16} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Gestionar Remitos</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           );
         },
@@ -420,34 +436,61 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
     return baseColumns;
   }, [onEdit, onView, onViewHistory, showActions, filterableColumns]);
 
-  const handleRowClick = useCallback((row: TableRow) => {
-    if (row.document_path) {
-      window.open(row.document_path, '_blank');
-    }
-  }, []);
+  // Función para determinar si una fila fue creada post-cierre
+  const isCreatedPostClose = useCallback((row: TableRow) => {
+    if (!row.created_at || !row.date) return false;
 
+    // Parsear la fecha del parte (formato DD-MM-YYYY) con moment
+    const reportDate = moment(row.date, 'DD-MM-YYYY').endOf('day');
+
+    // Parsear created_at con moment
+    const createdAt = moment(row.created_at);
+
+    // Si created_at es posterior a la fecha del parte, fue creado post-cierre
+    return createdAt.isAfter(reportDate);
+  }, []);
   return (
-    <div className="space-y-4">
-      {dailyReports && dailyReports.length > 0 ? (
-        <BaseDataTable
-          columns={columns}
-          data={dailyReports}
-          savedVisibility={{}}
-          tableId="enhanced-comercial-report-table"
-          className="w-full"
-          // row_classname={(row) => 'cursor-pointer hover:bg-gray-50'}
-          toolbarOptions={{
-            filterableColumns: filterableColumns as any,
-            searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
-            initialVisibleFilters: ['customer', 'services', 'item'],
-            showFilterOptions: true,
-            showViewOptions: true,
+    <>
+      <div className="space-y-4">
+        {dailyReports && dailyReports.length > 0 ? (
+          <BaseDataTable
+            columns={columns}
+            data={dailyReports}
+            savedVisibility={{}}
+            tableId="enhanced-comercial-report-table"
+            className="w-full"
+            row_classname={(row) => {
+              if (isCreatedPostClose(row)) return 'bg-yellow-100 dark:bg-yellow-900/30';
+              if (row.last_comercial_edit_at) return 'bg-blue-100 dark:bg-blue-900/30';
+              return '';
+            }}
+            toolbarOptions={{
+              filterableColumns: filterableColumns as any,
+              searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
+              initialVisibleFilters: ['customer', 'services', 'item'],
+              showFilterOptions: true,
+              showViewOptions: true,
+            }}
+          />
+        ) : (
+          <p>No hay registros</p>
+        )}
+      </div>
+
+      {/* Modal de gestión de remitos */}
+      {selectedRowId && (
+        <RemitosManagerModal
+          dailyReportRowId={selectedRowId}
+          customerName={selectedCustomerName}
+          isOpen={remitModalOpen}
+          onClose={() => {
+            setRemitModalOpen(false);
+            setSelectedRowId(null);
+            setSelectedCustomerName('');
           }}
         />
-      ) : (
-        <p>No hay registros</p>
       )}
-    </div>
+    </>
   );
 };
 

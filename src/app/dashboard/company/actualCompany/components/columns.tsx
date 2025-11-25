@@ -95,15 +95,14 @@ export const columns: ColumnDef<SharedUser>[] = [
       const changeRole = async (role: string) => {
         toast.promise(
           async () => {
-            const { error } = await supabase
-              .from('share_company_users')
-              .update({ role })
-              .eq('id', row.getValue('id'))
-              .select();
-
-            if (error) {
-              throw new Error(handleSupabaseError(error.message));
-            }
+            // const { error } = await supabase
+            //   .from('share_company_users')
+            //   .update({ role })
+            //   .eq('id', row.getValue('id'))
+            //   .select();
+            // if (error) {
+            //   throw new Error(handleSupabaseError(error.message));
+            // }
           },
           {
             loading: 'Cargando...',

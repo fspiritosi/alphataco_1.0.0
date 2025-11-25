@@ -20,7 +20,6 @@ export default async function DocumentTabComponent() {
     .select('*')
     .eq('profile_id', user?.data?.user?.id || '');
   const sharedUsersAll = userShared;
-  const role: string | null = userShared?.[0]?.role || null;
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   let { data: documents_company, error: documents_company_error } = await supabase

@@ -1,7 +1,7 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { VerActivosButton } from '@/features/Empresa/RRHH/components/rrhh/verActivosButton';
+import { VerActivosButton } from '@/features/Empresa/RRHH/components/verActivosButton';
 import { useEffect, useState } from 'react';
 import { DiagramNewTypeForm } from './DiagramNewTypeForm';
 

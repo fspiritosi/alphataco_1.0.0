@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AddCompany } from '@/features/Empresa/General/actions/actions';
 import { useImageUpload } from '@/hooks/useUploadImage';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
@@ -11,7 +12,6 @@ import { companySchema } from '@/zodSchemas/schemas';
 import { useRouter } from 'next/navigation';
 import { ChangeEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { AddCompany } from '../accions';
 
 export default function CreateCompanyButton() {
   const url = process.env.NEXT_PUBLIC_PROJECT_URL;

@@ -38,7 +38,7 @@ export function EmployeeGenderPositionChartComponent({ data }: EmployeeGenderPos
   const sortedData = useMemo(() => {
     const positionData = new Map<string, { male: number; female: number }>();
 
-    data.forEach((employee) => {
+    data?.forEach((employee) => {
       const position = employee.company_positions.name || 'Undefined Position';
       const gender = employee.gender || 'Undefined';
 
@@ -72,7 +72,7 @@ export function EmployeeGenderPositionChartComponent({ data }: EmployeeGenderPos
     const positionData = new Map<string, { male: number; female: number }>();
 
     // Count employees by position and gender
-    data.forEach((employee) => {
+    data?.forEach((employee) => {
       const position = employee.company_positions.name || 'Undefined Position';
       const gender = employee.gender || 'Undefined';
 
@@ -106,7 +106,7 @@ export function EmployeeGenderPositionChartComponent({ data }: EmployeeGenderPos
         </MultiSelectTrigger>
         <MultiSelectContent>
           <MultiSelectGroup>
-            {Array.from(new Set(data.map((item) => item.company_positions.name))).map((position) => (
+            {Array.from(new Set(data?.map((item) => item.company_positions.name))).map((position) => (
               <MultiSelectItem key={position} value={position!}>
                 {position}
               </MultiSelectItem>

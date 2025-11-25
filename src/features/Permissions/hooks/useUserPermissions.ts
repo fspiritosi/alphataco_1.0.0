@@ -1,14 +1,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getUserPermissions, getUserPermissionsType, getUserRoles, getUserRolesType } from '../actions';
+import { getUserPermissionsByUserId, getUserPermissionsByUserIdType, getUserRoles, getUserRolesType } from '../actions';
 
 export function useUserPermissions(userId: string) {
-  const permissionsQuery = useQuery<getUserPermissionsType>({
+  const permissionsQuery = useQuery<getUserPermissionsByUserIdType>({
     queryKey: ['user-permissions', userId],
-    queryFn: () => getUserPermissions(),
+    queryFn: () => getUserPermissionsByUserId(userId),
     enabled: !!userId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 0, // Sin caché para ver cambios inmediatos
   });
 
   const rolesQuery = useQuery<getUserRolesType>({

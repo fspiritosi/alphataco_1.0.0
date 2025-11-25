@@ -1,4 +1,5 @@
 import { onlyFetchEquipmentData } from '@/app/server/GET/probando';
+import { Card } from '@/components/ui/card';
 import { cookies } from 'next/headers';
 import OtrosTablaEquipmentServer from '../only-data-equipment-server';
 
@@ -20,14 +21,14 @@ async function OtrosEquipmentTableWrapperServer({ types_of_vehicles = 'all' }: E
     server: true,
   });
   return (
-    <>
+    <Card className="p-6">
       <OtrosTablaEquipmentServer
         types_of_vehicles={types_of_vehicles}
         initialData={initialData}
         savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
         savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
       />
-    </>
+    </Card>
   );
 }
 
