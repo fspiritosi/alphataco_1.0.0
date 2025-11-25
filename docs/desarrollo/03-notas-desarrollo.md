@@ -45,3 +45,6 @@ revisar el guardado de indicadores que se esta duplicando
 👍En comercial solo se deben poder editar las lineas que tienen el parte cerrado, solo desde comercial
 👍Agregar un campo fecha
 👍controlar el cliente, es decir solo filtrar remitos del mismo cliente
+
+Agrear boton de crear empleado
+Manera de borrar todos los filtros
