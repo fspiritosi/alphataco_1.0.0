@@ -3832,6 +3832,15 @@ export type Database = {
             };
             Returns: Json;
           };
+      check_multiple_permissions: {
+        Args: { p_permissions: Json; p_user_id: string };
+        Returns: {
+          action_slug: string;
+          has_permission: boolean;
+          module_slug: string;
+          tab_slug: string;
+        }[];
+      };
       collect_daily_indicators: {
         Args: {
           p_company_id: string;

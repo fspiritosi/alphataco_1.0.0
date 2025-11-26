@@ -35,6 +35,7 @@ export {
 
 // Actions (Server)
 export {
+  checkMultiplePermissionsServer,
   checkPermissionServer,
   getUserAccessibleModulesServer,
   getUserPermissionsServer,
