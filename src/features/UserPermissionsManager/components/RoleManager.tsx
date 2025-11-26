@@ -494,7 +494,7 @@ export function RoleManager() {
               role.description?.toLowerCase().includes(searchQuery.toLowerCase())
           ).length === 0 && (
             <div className="col-span-full text-center py-8 text-sm text-muted-foreground">
-              No se encontraron roles que coincidan con "{searchQuery}"
+              No se encontraron roles que coincidan con {searchQuery}
             </div>
           )}
         </div>
