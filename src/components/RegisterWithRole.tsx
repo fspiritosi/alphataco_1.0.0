@@ -363,7 +363,7 @@ export const RegisterWithRole = () => {
                                     </SelectItem>
                                   ) : (
                                     roles?.map((role) => (
-                                      <SelectItem key={role.id} value={role.name}>
+                                      <SelectItem key={role.id} value={role.id}>
                                         {role.name}
                                       </SelectItem>
                                     ))
@@ -463,7 +463,7 @@ export const RegisterWithRole = () => {
                                     </SelectItem>
                                   ) : (
                                     roles?.map((role) => (
-                                      <SelectItem key={role.id} value={role.name}>
+                                      <SelectItem key={role.id} value={role.id}>
                                         {role.name}
                                       </SelectItem>
                                     ))

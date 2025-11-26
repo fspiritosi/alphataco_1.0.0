@@ -115,7 +115,7 @@ export async function registerUserWithRole(values: any, company: string) {
           id: userId,
           email: values.email,
           fullname: fullname,
-          role: 'CodeControlClient',
+          role: values.role,
           credential_id: userId,
         },
       ]);
