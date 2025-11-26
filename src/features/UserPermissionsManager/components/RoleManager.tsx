@@ -51,7 +51,7 @@ function RoleCard({
   const { data: permissions = [] } = useQuery({
     queryKey: ['role-permissions', role.id],
     queryFn: () => getRolePermissions(role.id),
-    enabled: !!role.id,
+    enabled: !!role.id && role.slug !== 'owner',
   });
 
   return (
@@ -68,7 +68,7 @@ function RoleCard({
           </Badge>
           <Badge variant="outline" className="text-xs flex items-center gap-1">
             <Shield className="h-3 w-3" />
-            {permissions.length}
+            {role.slug === 'owner' ? 'ALL' : permissions.length}
           </Badge>
           {role.color && (
             <Badge
