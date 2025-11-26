@@ -1,5 +1,6 @@
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
+import { buttonVariants } from '@/components/ui/button';
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
 import EmployeeTable from '@/features/Employees/Empleados/EmpleadosTables/Activos/employee_table';
@@ -8,6 +9,7 @@ import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import { Suspense } from 'react';
 import CovenantTreeFileWrapper from '../company/actualCompany/covenant/CovenantTreeFileWrapper';
 import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
@@ -56,6 +58,14 @@ export default async function EmployeePage({
             tabSlug: 'employees',
             content: (
               <div>
+                <div className="flex gap-4 flex-wrap mb-4">
+                  <Link
+                    className={buttonVariants({ variant: 'gh_orange' })}
+                    href={'/dashboard/employee/action?action=new'}
+                  >
+                    Agregar empleado
+                  </Link>
+                </div>
                 <TabsManagerServer
                   paramName="subtab"
                   searchParams={searchParams}
