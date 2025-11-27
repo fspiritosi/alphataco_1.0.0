@@ -13,6 +13,10 @@ import { useState } from 'react';
 import { getCurrentAbsentEmployees } from '../../actions/actions';
 import { EmployeeAbsenceTableComponent } from './employee-absence-table';
 
+// Constante para el porcentaje esperado de ausentismo (debe coincidir con el gráfico)
+const EXPECTED_ABSENTEEISM_PERCENTAGE = 5;
+const WARNING_THRESHOLD = 4; // Umbral de advertencia (amarillo)
+
 interface DailyAbsence {
   fecha: string;
   dotacion: number;
@@ -91,8 +95,16 @@ function getDetailedColumns(): ColumnDef<DailyAbsence>[] {
       header: ({ column }) => <DataTableColumnHeader column={column} title="% Ausentismo" />,
       cell: ({ getValue }) => {
         const p = getValue<number>() ?? 0;
+        // Colores basados en el umbral esperado del 5%:
+        // - Verde: ≤ 5% (dentro del rango aceptable)
+        // - Amarillo: 4-5% (cerca del límite, advertencia)
+        // - Rojo: > 5% (por encima del límite aceptable)
         const cls =
-          p > 3 ? 'bg-red-100 text-red-800' : p > 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+          p > EXPECTED_ABSENTEEISM_PERCENTAGE
+            ? 'bg-red-100 text-red-800'
+            : p >= WARNING_THRESHOLD
+              ? 'bg-yellow-100 text-yellow-800'
+              : 'bg-green-100 text-green-800';
         return (
           <div>
             <span className={`px-2 py-1 rounded text-xs ${cls}`}>{p.toFixed(2)}%</span>

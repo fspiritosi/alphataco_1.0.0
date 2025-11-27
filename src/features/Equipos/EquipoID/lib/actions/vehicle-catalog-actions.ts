@@ -162,3 +162,16 @@ export async function getSubTypesByType(typeId: string) {
 
   return data || [];
 }
+
+export async function getHierarchicalPositions() {
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase.from('hierarchy').select('id, name').eq('is_active', true).order('name');
+
+  if (error) {
+    console.error('Error fetching hierarchical positions:', error);
+    return [];
+  }
+
+  return data || [];
+}

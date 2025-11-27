@@ -1,6 +1,6 @@
 import AddBrandModal from './AddBrandModal';
 import AddModelModal from './AddModelModal';
-import { generic } from './VehiclesForm';
+// import { generic } from './VehiclesForm';
 
 export function Modal({
   children,

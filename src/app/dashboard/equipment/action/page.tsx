@@ -12,6 +12,7 @@ import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form
 import { VehicleHeader } from '@/features/Equipos/EquipoID/components/vehicle-header';
 import VehicleQr from '@/features/Equipos/EquipoID/components/vehicle-qr';
 import {
+  getHierarchicalPositions,
   getModelsByBrand,
   getSubTypesByType,
   getTypesOfVehicles,
@@ -73,6 +74,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           subTypesPromise={getSubTypesByType(vehicle?.type.id!)}
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
+          hierarchicalPositionsPromise={getHierarchicalPositions()}
           documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} role={role} />}
           repairsComponent={
             <RepairTypes

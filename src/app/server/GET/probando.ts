@@ -354,7 +354,7 @@ export async function fetchEquipmentData(options: {
 }) {
   const data = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name),hierarchy(id,name)',
     {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
@@ -394,7 +394,7 @@ export async function onlyFetchEquipmentData(options: {
 }) {
   const data = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name),hierarchy(id,name)',
     {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
@@ -429,7 +429,7 @@ export async function fetchInactiveEquipmentData(options: {
 }) {
   const data = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name),hierarchy(id,name)',
     {
       ...options,
       sorting: [...options.sorting, { id: 'domain', desc: true }],
@@ -479,7 +479,7 @@ export async function fetchAllEquipmentsData(options: {
 }) {
   const result = await queryWithPagination(
     'vehicles',
-    '*,equipment_owners(id,name),brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    '*,equipment_owners(id,name),brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),hierarchy(id,name)',
     {
       pageIndex: 0,
       pageSize: 10000, // Límite alto para obtener todos los datos
@@ -511,7 +511,7 @@ export async function otrosFetchAllEquipmentsData(options: {
 }) {
   const result = await queryWithPagination(
     'vehicles',
-    '*,equipment_owners(id,name),brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*))',
+    '*,equipment_owners(id,name),brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),hierarchy(id,name)',
     {
       pageIndex: 0,
       pageSize: 10000, // Límite alto para obtener todos los datos
@@ -548,7 +548,7 @@ export async function fetchAllInactiveEquipmentsData(options: {
 }) {
   const result = await queryWithPagination(
     'vehicles',
-    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name)',
+    '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name),hierarchy(id,name)',
     {
       pageIndex: 0,
       pageSize: 10000, // Límite alto para obtener todos los datos
