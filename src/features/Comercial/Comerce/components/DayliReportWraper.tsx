@@ -69,6 +69,7 @@ export const transformDailyReports = (reports: getFilteredDailyReportRowsType) =
       dailyReportStatus: row.dailyreport.status,
       created_at: row.created_at, // Agregar created_at para detectar filas post-cierre
       type_service: row.type_service,
+      preparte: row.preparte,
       last_comercial_edit_at: row.last_comercial_edit_at,
       customer: row.customers?.name,
       cancel_reason: row.cancel_reason,

@@ -778,14 +778,6 @@ export function PreparteTable({
     return result;
   };
 
-  // Usar directamente los datos de las props
-  const uniqueStatuses = [...new Set(tableDataProp.map((item) => item.status))];
-  const uniqueClientIds = [...new Set(tableDataProp.map((item) => item.cliente_id))];
-  const filteredCustomers = Customers.filter((customer) => uniqueClientIds.includes(customer.id));
-
-  const uniqueContratoIds = [...new Set(tableDataProp.map((item) => item.contrato_id))];
-  const filteredContratos = contratos.filter((contrato) => uniqueContratoIds.includes(contrato.id));
-
   const [initialVisibleFilters] = useState<string[]>(() => {
     try {
       if (typeof window === 'undefined') return [];
