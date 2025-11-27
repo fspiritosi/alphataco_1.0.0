@@ -517,7 +517,7 @@ export function RoleManager() {
           if (filteredRoles.length === 0) {
             return (
               <div className="text-center py-8 text-sm text-muted-foreground">
-                No se encontraron roles que coincidan con "{searchQuery}"
+                No se encontraron roles que coincidan con {searchQuery}
               </div>
             );
           }
@@ -532,7 +532,7 @@ export function RoleManager() {
                     Roles Personalizados ({customRoles.length})
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {customRoles.map((role: any) => (
+                    {customRoles.map((role) => (
                       <RoleCard
                         key={role.id}
                         role={role}
@@ -579,7 +579,7 @@ export function RoleManager() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar rol?</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Estás seguro de que deseas eliminar el rol "{roleToDelete?.name}"? Esta acción no se puede deshacer.
+              ¿Estás seguro de que deseas eliminar el rol {roleToDelete?.name}? Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
