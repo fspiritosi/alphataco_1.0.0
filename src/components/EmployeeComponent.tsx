@@ -1325,7 +1325,7 @@
 //                           control={form.control}
 //                           name="born_date"
 //                           render={({ field }) => (
-//                             <FormItem className="">
+//                             <FormItem  >
 //                               <FormLabel>
 //                                 Fecha de nacimiento <span className="text-red-500">*</span>
 //                               </FormLabel>
@@ -1345,7 +1345,7 @@
 //                           control={form.control}
 //                           name={data.name as names}
 //                           render={({ field }) => (
-//                             <FormItem className="">
+//                             <FormItem  >
 //                               <FormControl>
 //                                 <div className="flex lg:items-center flex-wrap md:flex-nowrap flex-col lg:flex-row gap-8">
 //                                   <ImageHander

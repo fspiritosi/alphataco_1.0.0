@@ -914,7 +914,7 @@ export function DiagramMassiveForm({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="">Filtros de Empleados</CardTitle>
+            <CardTitle>Filtros de Empleados</CardTitle>
             <div className="flex items-center space-x-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
                 <Search className="h-4 w-4 mr-2" />

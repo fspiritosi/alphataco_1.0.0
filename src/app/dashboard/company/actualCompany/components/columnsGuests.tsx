@@ -32,7 +32,7 @@ export const columnsGuests: ColumnDef<SharedUser>[] = [
     accessorKey: 'fullname',
     id: 'Nombre',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
-    cell: ({ row }) => <div className="">{row.getValue('fullname')}</div>,
+    cell: ({ row }) => <div>{row.getValue('fullname')}</div>,
     enableSorting: false,
     enableHiding: false,
   },
@@ -44,7 +44,7 @@ export const columnsGuests: ColumnDef<SharedUser>[] = [
       return (
         <div className="flex space-x-2 items-center">
           {
-            <Avatar className="">
+            <Avatar>
               <AvatarImage src={row.getValue('img')} alt="Logo de la empresa" className="rounded-full object-cover" />
               <AvatarFallback>Logo</AvatarFallback>
             </Avatar>

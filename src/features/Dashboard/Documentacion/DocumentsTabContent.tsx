@@ -7,7 +7,7 @@ import { MissingDocumentList } from './components/MissingDocumentList';
 
 function DocumentsTabContent({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
   return (
-    <section className="md:mx-7 grid grid-cols-1 mt-6 xl:grid-cols-4 gap-3 mb-4 ">
+    <section className=" grid grid-cols-1 xl:grid-cols-4 gap-3 mb-4 ">
       <section className="flex flex-col gap-4 w-full">
         <MissingDocumentList />
       </section>

@@ -1283,7 +1283,7 @@ export function EditModal({ Equipo }: Props) {
                         name={item.id as 'name' | 'applies' | 'multiresource' | 'mandatory' | 'explired' | 'special'}
                         render={({ field }) => (
                           <FormItem>
-                            <div className="">
+                            <div>
                               <FormLabel className="flex gap-1 items-center mb-2">{item.label}</FormLabel>
                               <FormControl>
                                 <div className="flex flex-col space-x-2">

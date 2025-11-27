@@ -235,7 +235,7 @@ export default function ViewDailysReports() {
   };
 
   return (
-    <div className="">
+    <div>
       <h1 className="text-2xl font-bold mb-4">Todos los Partes Diarios</h1>
       <div className="mb-4 flex items-center gap-2">
         <span className="mr-4">Filtrar por estado:</span>

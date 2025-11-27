@@ -93,7 +93,7 @@ export const MissingDocumentList = () => {
                 {allValuesToShow?.employees?.length > 0 &&
                   allValuesToShow.employees?.map((item: any, index) => {
                     return (
-                      <Accordion key={crypto.randomUUID()} type="single" className="" collapsible>
+                      <Accordion key={crypto.randomUUID()} type="single" collapsible>
                         <AccordionItem value="item-1">
                           <AccordionTrigger className="px-2">
                             <div

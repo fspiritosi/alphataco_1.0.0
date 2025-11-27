@@ -134,6 +134,7 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
         </Link>
       );
     },
+    enableColumnFilter: true,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
@@ -149,7 +150,7 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
 
       return (
         <div className="flex space-x-2 items-center">
-          <Avatar className="">
+          <Avatar>
             <AvatarImage src={avatar} alt="Avatar" className="rounded-full object-cover" />
             <AvatarFallback>{email.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
@@ -157,18 +158,20 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
         </div>
       );
     },
+    enableColumnFilter: true,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
     exportFormatter: (value, row) => row.profile?.email || '',
   },
   {
-    accessorKey: 'roles.name',
-    id: 'role',
+    accessorKey: 'user_roles.roles.name',
+    id: 'user_roles.roles.name',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Rol" />,
     cell: ({ row }) => {
       return <RoleCell userId={row.original.profile?.id || ''} />;
     },
+    enableColumnFilter: true,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },

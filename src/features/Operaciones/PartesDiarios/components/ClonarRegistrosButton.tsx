@@ -363,7 +363,7 @@ export function ClonarRegistrosButton({
             >
               Cancelar
             </Button>
-            <Button onClick={handleClonar} disabled={loading} className="">
+            <Button onClick={handleClonar} disabled={loading}>
               {loading ? 'Clonando...' : 'Clonar registros'}
             </Button>
           </DialogFooter>

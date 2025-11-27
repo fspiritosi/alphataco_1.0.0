@@ -20,7 +20,7 @@ export default async function GeneralTabContent({
   const company_id = cookiesStore.get('actualComp')?.value;
 
   return (
-    <div className="px-6">
+    <div>
       <TabsManagerServer
         paramName="subtab"
         searchParams={searchParams}

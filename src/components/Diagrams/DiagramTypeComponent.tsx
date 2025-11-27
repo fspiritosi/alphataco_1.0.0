@@ -120,7 +120,7 @@ function DiagramTypeComponent({
   const descriptionShort = createFilterOptions(filteredData, (document) => document.short_description);
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="">
+    <ResizablePanelGroup direction="horizontal">
       <ResizablePanel defaultSize={40}>
         <DiagramNewTypeForm
           selectedDiagram={selectDiagramType}

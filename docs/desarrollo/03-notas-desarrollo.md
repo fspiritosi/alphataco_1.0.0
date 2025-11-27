@@ -45,22 +45,21 @@ revisar el guardado de indicadores que se esta duplicando
 👍En comercial solo se deben poder editar las lineas que tienen el parte cerrado, solo desde comercial
 👍Agregar un campo fecha
 👍controlar el cliente, es decir solo filtrar remitos del mismo cliente
+👍Agrear boton de crear empleado
+👍Manera de borrar todos los filtros
+👍El componente de tabs no hay veces que dice son roles
 
-El componente de tabs no hay veces que dice son roles
+👍Agregar los filtros a la tabla de usuarios
+👍La tabla de usuarios tiene pegados los mismos usuarios siempre
+👍Mostrar un mejor mensaje al poner el mismo nombre en el role
+👍Mostrar un mejor mensaje al elimiar un role con usuarios asignados
+👍Serarar roles de sistemas por roles personalizados
 
-Agregar los filtros a la tabla de usuarios
-La tabla de usuarios tiene pegados los mismos usuarios siempre
-Mostrar un mejor mensaje al poner el mismo nombre en el role
-Mostrar un mejor mensaje al elimiar un role con usuarios asignados
-Serarar roles de sistemas por roles personalizados
+👍-Los roles de sistemas solo se pueden asignar, mantener a los botones en los roles personaliados
+👍-En los roles personalizados poner disbaled el de borrar si hay usuarios, y en rojo si se puede borrar
 
--Los roles de sistemas solo se pueden asignar, mantener a los botones en los roles personaliados
--En los roles personalizados poner disbaled el de borrar si hay usuarios, y en rojo si se puede borrar
-Arreglar padding de las vistas
-
-message
+👍message
 :
 "duplicate key value violates unique constraint \"roles_pkey\""
 
-Agrear boton de crear empleado
-Manera de borrar todos los filtros
+Arreglar padding de las vistas

@@ -32,8 +32,8 @@ export function UserPermissionsManager({ userId, userName, userEmail }: UserPerm
 
   return (
     <div>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="">
-        <TabsList className="">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
           <TabsTrigger value="user-permissions">
             <User className="h-4 w-4 mr-2" />
             Permisos de Usuario
@@ -44,7 +44,7 @@ export function UserPermissionsManager({ userId, userName, userEmail }: UserPerm
           </TabsTrigger> */}
         </TabsList>
 
-        <TabsContent value="user-permissions" className="">
+        <TabsContent value="user-permissions">
           <Card className="p-3 space-y-6">
             <Card className="p-6">
               <div className="mb-8">

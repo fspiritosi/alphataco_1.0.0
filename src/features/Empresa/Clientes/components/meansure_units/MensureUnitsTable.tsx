@@ -117,7 +117,7 @@ function MensureUnitsTable({ units, setSelectedUnit, setMode, savedVisibility, s
     <div className="flex flex-col gap-4 p-4 pt-0">
       <h2 className="text-xl font-bold">Unidades de Medida</h2>
 
-      <div className="">
+      <div>
         <BaseDataTable
           columns={columns}
           data={units}

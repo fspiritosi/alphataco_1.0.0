@@ -112,7 +112,7 @@ function getServiceItemsColumns(
       header: ({ column }) => <DataTableColumnHeader column={column} title="Precio" />,
       cell: ({ row }) => {
         const price = row.original.item_price;
-        return <div className="">${price}</div>;
+        return <div>${price}</div>;
       },
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));

@@ -1,5 +1,15 @@
 'use client';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -54,6 +64,9 @@ function RoleCard({
     enabled: !!role.id && role.slug !== 'owner',
   });
 
+  const hasUsers = userCount > 0;
+  const canDelete = !role.is_system && !hasUsers;
+
   return (
     <Card className="p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
@@ -89,21 +102,33 @@ function RoleCard({
       {role.description && <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{role.description}</p>}
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(role)} disabled={role.is_system}>
-          <Pencil className="h-3 w-3 mr-2" />
-          Editar
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => onManageUsers(role)} title="Gestionar usuarios">
-          <Users className="h-3 w-3" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onDelete(role.id, role.name)}
-          disabled={role.is_system || isDeleting}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        {/* Roles de sistema: solo botón de asignar */}
+        {role.is_system ? (
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => onManageUsers(role)}>
+            <Users className="h-4 w-4 mr-2" />
+            Asignar Usuarios
+          </Button>
+        ) : (
+          /* Roles personalizados: editar, asignar y eliminar */
+          <>
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(role)}>
+              <Pencil className="h-3 w-3 mr-2" />
+              Editar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onManageUsers(role)} title="Asignar usuarios">
+              <Users className="h-3 w-3" />
+            </Button>
+            <Button
+              variant={canDelete ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={() => onDelete(role.id, role.name)}
+              disabled={!canDelete || isDeleting}
+              title={hasUsers ? `No se puede eliminar: ${userCount} usuario(s) asignado(s)` : 'Eliminar rol'}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </>
+        )}
       </div>
     </Card>
   );
@@ -113,6 +138,8 @@ export function RoleManager() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<any | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<{ id: number; name: string } | null>(null);
   const [roleName, setRoleName] = useState('');
   const [roleDescription, setRoleDescription] = useState('');
   const [roleColor, setRoleColor] = useState('#3b82f6');
@@ -331,8 +358,15 @@ export function RoleManager() {
   };
 
   const handleDeleteRole = (roleId: number, roleName: string) => {
-    if (confirm(`¿Estás seguro de eliminar el rol "${roleName}"?`)) {
-      deleteRoleMutation.mutate(roleId);
+    setRoleToDelete({ id: roleId, name: roleName });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteRole = () => {
+    if (roleToDelete) {
+      deleteRoleMutation.mutate(roleToDelete.id);
+      setDeleteConfirmOpen(false);
+      setRoleToDelete(null);
     }
   };
 
@@ -469,36 +503,96 @@ export function RoleManager() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {roles
-            .filter(
-              (role: any) =>
-                role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                role.description?.toLowerCase().includes(searchQuery.toLowerCase())
-            )
-            .map((role: any) => (
-              <RoleCard
-                key={role.id}
-                role={role}
-                userCount={roleUserCounts[role.id] || 0}
-                onEdit={handleEditRole}
-                onManageUsers={handleManageUsers}
-                onDelete={handleDeleteRole}
-                isDeleting={deleteRoleMutation.isPending}
-              />
-            ))}
-
-          {roles.filter(
+        {/* Agrupar roles por tipo */}
+        {(() => {
+          const filteredRoles = roles.filter(
             (role: any) =>
               role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
               role.description?.toLowerCase().includes(searchQuery.toLowerCase())
-          ).length === 0 && (
-            <div className="col-span-full text-center py-8 text-sm text-muted-foreground">
-              No se encontraron roles que coincidan con {searchQuery}
+          );
+
+          const systemRoles = filteredRoles.filter((role: any) => role.is_system);
+          const customRoles = filteredRoles.filter((role: any) => !role.is_system);
+
+          if (filteredRoles.length === 0) {
+            return (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No se encontraron roles que coincidan con "{searchQuery}"
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-6">
+              {/* Roles Personalizados */}
+              {customRoles.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Roles Personalizados ({customRoles.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {customRoles.map((role: any) => (
+                      <RoleCard
+                        key={role.id}
+                        role={role}
+                        userCount={roleUserCounts[role.id] || 0}
+                        onEdit={handleEditRole}
+                        onManageUsers={handleManageUsers}
+                        onDelete={handleDeleteRole}
+                        isDeleting={deleteRoleMutation.isPending}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Roles de Sistema */}
+              {systemRoles.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Roles de Sistema ({systemRoles.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {systemRoles.map((role: any) => (
+                      <RoleCard
+                        key={role.id}
+                        role={role}
+                        userCount={roleUserCounts[role.id] || 0}
+                        onEdit={handleEditRole}
+                        onManageUsers={handleManageUsers}
+                        onDelete={handleDeleteRole}
+                        isDeleting={deleteRoleMutation.isPending}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
       </Card>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar rol?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar el rol "{roleToDelete?.name}"? Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRoleToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteRole}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ManageRoleUsersDialog
         role={manageUsersRole}

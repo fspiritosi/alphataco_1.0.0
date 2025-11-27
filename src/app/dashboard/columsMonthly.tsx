@@ -641,7 +641,6 @@ export const ColumnsMonthly: ColumnDef<Colum>[] = [
               min={new Date().toISOString().split('T')[0]}
               onChange={(e) => setValue(e.target.value)}
               defaultValue={row.original.period}
-              className=""
               disabled={disabled}
               value={value || ''}
             />

@@ -36,7 +36,7 @@ function Services() {
         <div className="grid items-center py-5 md:p-8">
           <Reveal>
             <div className="grid grid-flow-col gap-5 px-4 py-2 rounded-3xl group ">
-              <div className="">
+              <div>
                 <div className="flex items-center gap-4 mb-2">
                   <div className="w-[50px] h-[50px]">
                     <DactilarIcon />
@@ -51,7 +51,7 @@ function Services() {
           </Reveal>
           <Reveal>
             <div className="grid grid-flow-col gap-5 px-4 py-2 rounded-3xl group">
-              <div className="">
+              <div>
                 <div className="flex items-center gap-4 mb-2">
                   <div className="w-[50px] h-[50px]">
                     <ChatIcon />
@@ -68,7 +68,7 @@ function Services() {
           </Reveal>
           <Reveal>
             <div className="grid grid-flow-col gap-5 px-4 py-2 rounded-3xl group">
-              <div className="">
+              <div>
                 <div className="flex items-center gap-4 mb-2">
                   <div className="w-[50px] h-[50px]">
                     <SearchIcon />

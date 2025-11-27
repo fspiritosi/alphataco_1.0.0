@@ -228,7 +228,6 @@ export const RegisterWithRole = () => {
               onValueChange={(e) => {
                 handleTabChange(e);
               }}
-              className=""
             >
               <TabsList className="w-full">
                 <TabsTrigger className="w-1/2" value="createUser">

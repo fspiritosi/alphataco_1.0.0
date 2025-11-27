@@ -12,7 +12,7 @@ async function page({ params }: { params: { uuid: string } }) {
       {/* Header compartido */}
       {/* <Card className="p-4">
         <div className="flex justify-between mb-4">
-          <div className="">
+          <div  >
             <div className="flex items-center gap-2">
               <CardTitle className="text-xl">Parte diario</CardTitle>
               {dailyReportStatus && (

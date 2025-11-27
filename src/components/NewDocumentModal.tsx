@@ -31,7 +31,7 @@ export default function NewDocumentModal({
       <AlertDialog open={isOpen} onOpenChange={handleOpen}>
         <AlertDialogContent className="max-h-[90dvh] overflow-y-auto dark:bg-slate-950">
           <Tabs defaultValue={empleados ? 'Empleados' : 'Equipos'} className="p-2">
-            <TabsList className="">
+            <TabsList>
               {empleados && <TabsTrigger value="Empleados">Empleados</TabsTrigger>}
               {equipment && <TabsTrigger value="Equipos">Equipos</TabsTrigger>}
             </TabsList>

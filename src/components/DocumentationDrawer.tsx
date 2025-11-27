@@ -181,7 +181,7 @@ export const DocumentationDrawer = ({ resource, document, id }: Props) => {
             {props?.map((doc, index) => (
               <div key={crypto.randomUUID()} className="flex justify-between items-center h-14 px-2 text-nowrap">
                 <div className="flex  w-[75%]">
-                  <div className="">
+                  <div>
                     {doc.state === 'pendiente' && (
                       <ExclamationTriangleIcon className="inline mr-2 text-red-400 size-5" />
                     )}{' '}

@@ -220,7 +220,7 @@ export function EmployeeTabs({
       </TabsList>
 
       {/* Tabs del formulario */}
-      <TabsContent value="personalData" className="">
+      <TabsContent value="personalData">
         {errors?.personalData && (
           <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
             Falta corregir algunos campos
@@ -255,7 +255,7 @@ export function EmployeeTabs({
         />
       </TabsContent>
 
-      <TabsContent value="contactData" className="">
+      <TabsContent value="contactData">
         {errors?.contactData && (
           <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
             Falta corregir algunos campos
@@ -290,7 +290,7 @@ export function EmployeeTabs({
         />
       </TabsContent>
 
-      <TabsContent value="workData" className="">
+      <TabsContent value="workData">
         {errors?.workData && (
           <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
             Faltan corregir algunos campos
@@ -326,17 +326,9 @@ export function EmployeeTabs({
       </TabsContent>
 
       {/* Tabs independientes */}
-      {employeeId && (
-        <TabsContent value="documents" className="">
-          {documentsComponent}
-        </TabsContent>
-      )}
+      {employeeId && <TabsContent value="documents">{documentsComponent}</TabsContent>}
 
-      {employeeId && (
-        <TabsContent value="diagrams" className="">
-          {diagramsComponent}
-        </TabsContent>
-      )}
+      {employeeId && <TabsContent value="diagrams">{diagramsComponent}</TabsContent>}
     </Tabs>
   );
 }

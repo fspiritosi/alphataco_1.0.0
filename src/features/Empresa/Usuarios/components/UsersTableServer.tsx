@@ -1,7 +1,9 @@
 'use client';
 
+import { querySelectDistinct } from '@/app/server/GET/probando';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import type { VisibilityState } from '@tanstack/react-table';
+import Cookies from 'js-cookie';
 import { fetchAllCompanyUsersData, fetchCompanyUsers, fetchCompanyUsersType } from '../actions/server-actions';
 import { columnsUsers } from './columns';
 
@@ -12,6 +14,8 @@ interface UsersTableServerProps {
 }
 
 export default function UsersTableServer({ initialData, savedVisibility, savedFilters }: UsersTableServerProps) {
+  const company_id = Cookies.get('actualComp');
+
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
     const result = await fetchAllCompanyUsersData({
       sorting: options.sorting,
@@ -20,6 +24,7 @@ export default function UsersTableServer({ initialData, savedVisibility, savedFi
     });
     return result.rows;
   };
+
   return (
     <BaseDataTable
       columns={columnsUsers}
@@ -32,21 +37,38 @@ export default function UsersTableServer({ initialData, savedVisibility, savedFi
       queryKey="users-employ-table"
       toolbarOptions={{
         initialVisibleFilters: savedFilters,
+        searchableColumns: [
+          {
+            columnId: 'profile.fullname',
+            placeholder: 'Buscar por nombre...',
+          },
+          // {
+          //   columnId: 'user_roles.roles.name',
+          //   placeholder: 'Buscar por rol...',
+          // },
+        ],
         filterableColumns: [
-          // {
-          //     columnId: 'profile_id.fullname',
-          //     title: 'Nombre',
-          //     // We can't easily get all options for server-side without a separate query.
-          //     // For now, we can use a text search or omit options to fallback to text input?
-          //     // BaseDataTable supports text search if no options provided?
-          //     // The previous implementation generated options from ALL data (client-side).
-          //     // For server-side, we usually use a text search or fetch options.
-          //     // Let's try without options first (text search).
-          // },
-          // {
-          //     columnId: 'profile.email',
-          //     title: 'Correo',
-          // },
+          {
+            columnId: 'profile.email',
+            title: 'Correo',
+            config: {
+              tableName: 'share_company_users',
+              select: 'profile.email' as '*',
+              relation: '{"profile": "profile_id"}',
+              p_filters: { company_id: company_id! },
+              mapper: (
+                data: Awaited<ReturnType<typeof querySelectDistinct<'share_company_users', 'profile.email'>>>
+              ) => {
+                return data
+                  .filter((value) => value.col_value !== null)
+                  .map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+              },
+            },
+          },
         ],
         showExport: true,
         showFilterOptions: true,

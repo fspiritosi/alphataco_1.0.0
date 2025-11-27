@@ -1307,7 +1307,7 @@ export default function VehiclesForm2({
                     control={form.control}
                     name="picture"
                     render={({ field }) => (
-                      <FormItem className="">
+                      <FormItem>
                         <FormControl>
                           <div className="flex lg:items-center flex-wrap  flex-col lg:flex-row gap-8">
                             <ImageHander

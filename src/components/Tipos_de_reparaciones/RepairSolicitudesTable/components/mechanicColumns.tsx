@@ -777,7 +777,7 @@ export const mechanicColums: ColumnDef<RepairSolicitudeData>[] = [
                     <CarouselContent className="p-2">
                       {imageUrl?.map((image, index) => (
                         <CarouselItem key={crypto.randomUUID()} className="md:basis-1/2 lg:basis-1/3  overflow-hidden">
-                          <Card className="">
+                          <Card>
                             <Link target="_blank" href={image || ''}>
                               <CardContent className="flex aspect-square items-center justify-center p-1">
                                 <img
@@ -819,7 +819,7 @@ export const mechanicColums: ColumnDef<RepairSolicitudeData>[] = [
                               key={crypto.randomUUID()}
                               className="md:basis-1/2 lg:basis-1/3  overflow-hidden"
                             >
-                              <Card className="">
+                              <Card>
                                 <Link target="_blank" href={image || ''}>
                                   <CardContent className="flex aspect-square items-center justify-center p-1">
                                     <img

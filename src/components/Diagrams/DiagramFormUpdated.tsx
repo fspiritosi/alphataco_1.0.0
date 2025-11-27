@@ -305,8 +305,8 @@ function DiagramFormUpdated({
   }, [form.watch('diagram_type'), form.watch('employee_id'), form.watch('dateRange.from'), form.watch('dateRange.to')]);
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="">
-      <ResizablePanel className="">
+    <ResizablePanelGroup direction="horizontal">
+      <ResizablePanel>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <h2 className="text-xl font-bold mb-4">{'Generar Diagrama'}</h2>
@@ -418,7 +418,7 @@ function DiagramFormUpdated({
           </Card>
         )}
         {succesDiagrams?.length > 0 && (
-          <Card className="">
+          <Card>
             <CardHeader>
               <CardTitle>Diagramas correctos</CardTitle>
             </CardHeader>

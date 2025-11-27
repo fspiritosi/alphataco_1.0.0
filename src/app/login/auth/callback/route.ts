@@ -46,7 +46,7 @@
 //           {/* Navbar */}
 //           <Skeleton className="h-10 w-full " />
 //         </nav>
-//         <section className="" style={{ maxHeight: '100%', height: '100%' }}>
+//         <section   style={{ maxHeight: '100%', height: '100%' }}>
 //           {/* Employee Table */}
 //           <Skeleton className="h-72 w-full " />
 //           <Skeleton className="h-4 mt-2" />

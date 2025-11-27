@@ -343,7 +343,13 @@ export async function createRole(name: string, description?: string, color?: str
 
   if (error) {
     console.error('Error creating role:', error);
-    throw new Error('Failed to create role');
+
+    // Manejar error de duplicado (constraint unique en name)
+    if (error.code === '23505') {
+      throw new Error(`Ya existe un rol con el nombre "${name}". Por favor, elige un nombre diferente.`);
+    }
+
+    throw new Error('No se pudo crear el rol. Por favor, intenta nuevamente.');
   }
 
   return JSON.parse(JSON.stringify(data));
@@ -370,7 +376,13 @@ export async function updateRole(roleId: number, name: string, description?: str
 
   if (error) {
     console.error('Error updating role:', error);
-    throw new Error('Failed to update role');
+
+    // Manejar error de duplicado (constraint unique en name)
+    if (error.code === '23505') {
+      throw new Error(`Ya existe un rol con el nombre "${name}". Por favor, elige un nombre diferente.`);
+    }
+
+    throw new Error('No se pudo actualizar el rol. Por favor, intenta nuevamente.');
   }
 
   return JSON.parse(JSON.stringify(data));

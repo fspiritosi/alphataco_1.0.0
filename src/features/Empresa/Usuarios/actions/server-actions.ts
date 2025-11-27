@@ -26,6 +26,8 @@ export async function fetchAllCompanyUsersData(options: {
     sorting: options.sorting,
     columnFilters: options.columnFilters,
     server: options.server,
+    permanent_filter: (query) =>
+      query.order('fullname', { nullsFirst: false, referencedTable: 'profile', ascending: true }),
   });
 
   return { rows: data.rows }; // Mantener estructura para compatibilidad
@@ -33,8 +35,9 @@ export async function fetchAllCompanyUsersData(options: {
 
 export async function fetchCompanyUsers(options: FetchDataOptions) {
   const data = await queryWithPagination('share_company_users', 'id,created_at,company_id,profile(*)', {
-    pageIndex: 0,
-    pageSize: 10, // Límite alto para obtener todos los datos
+    pageIndex: options.pageIndex,
+    pageSize: options.pageSize,
+    sorting: options.sorting.length > 0 ? options.sorting : [{ id: 'profile.fullname', desc: true }],
     columnFilters: options.columnFilters,
     server: true,
   });

@@ -12,7 +12,7 @@ export default function DashboardComponent({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return (
-    <div className="px-6">
+    <div>
       {/* Main Tabs con TabsManagerServer */}
       <TabsManagerServer
         paramName="tab"

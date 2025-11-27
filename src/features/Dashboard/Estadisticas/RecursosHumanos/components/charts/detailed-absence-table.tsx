@@ -59,7 +59,7 @@ function getDetailedColumns(): ColumnDef<DailyAbsence>[] {
       accessorKey: 'dotacion',
       id: 'Dotación',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Dotación" />,
-      cell: ({ getValue }) => <div className="">{getValue<number>()}</div>,
+      cell: ({ getValue }) => <div>{getValue<number>()}</div>,
     },
     {
       accessorKey: 'altas',
@@ -83,7 +83,7 @@ function getDetailedColumns(): ColumnDef<DailyAbsence>[] {
       accessorKey: 'totalAusentes',
       id: 'Total Ausentes',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Total Ausentes" />,
-      cell: ({ getValue }) => <div className="">{getValue<number>()}</div>,
+      cell: ({ getValue }) => <div>{getValue<number>()}</div>,
     },
     {
       accessorKey: 'porcentajeAusentismo',
@@ -94,7 +94,7 @@ function getDetailedColumns(): ColumnDef<DailyAbsence>[] {
         const cls =
           p > 3 ? 'bg-red-100 text-red-800' : p > 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
         return (
-          <div className="">
+          <div>
             <span className={`px-2 py-1 rounded text-xs ${cls}`}>{p.toFixed(2)}%</span>
           </div>
         );

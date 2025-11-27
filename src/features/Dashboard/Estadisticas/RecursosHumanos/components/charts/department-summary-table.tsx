@@ -50,13 +50,13 @@ function getDepartmentColumns(): ColumnDef<DepartmentData>[] {
       accessorKey: 'dotacion',
       id: 'Dotación',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Dotación" />,
-      cell: ({ getValue }) => <div className="">{getValue<number>()}</div>,
+      cell: ({ getValue }) => <div>{getValue<number>()}</div>,
     },
     {
       accessorKey: 'ausentes',
       id: 'Ausentes',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Ausentes" />,
-      cell: ({ getValue }) => <div className="">{getValue<number>()}</div>,
+      cell: ({ getValue }) => <div>{getValue<number>()}</div>,
     },
     {
       accessorKey: 'porcentaje',
@@ -67,7 +67,7 @@ function getDepartmentColumns(): ColumnDef<DepartmentData>[] {
         const cls =
           p > 5 ? 'bg-red-100 text-red-800' : p > 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
         return (
-          <div className="">
+          <div>
             <span className={`px-2 py-1 rounded text-xs ${cls}`}>{p.toFixed(2)}%</span>
           </div>
         );
