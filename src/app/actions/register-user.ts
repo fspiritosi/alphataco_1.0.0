@@ -1,10 +1,15 @@
 'use server';
 
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
-export async function registerUserWithRole(values: any, company: string) {
+export async function registerUserWithRole(values: any) {
   const supabase = supabaseServer();
   const adminSupabase = adminSupabaseServer();
+  const cookiesStore = cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id) throw new Error('No hay compani id');
 
   try {
     // 1. Verificar si el usuario ya existe
@@ -28,7 +33,7 @@ export async function registerUserWithRole(values: any, company: string) {
         .from('share_company_users')
         .select('*')
         .eq('profile_id', profile.id)
-        .eq('company_id', company);
+        .eq('company_id', company_id);
 
       if (accessError) throw new Error(accessError.message);
       if (existingAccess && existingAccess.length > 0) {
@@ -40,7 +45,7 @@ export async function registerUserWithRole(values: any, company: string) {
       if (!userData?.user?.app_metadata?.company) {
         await adminSupabase.auth.admin.updateUserById(profile.credential_id!, {
           app_metadata: {
-            company: company,
+            company: company_id,
           },
         });
       }
@@ -48,9 +53,8 @@ export async function registerUserWithRole(values: any, company: string) {
       // Compartir la empresa con el usuario existente
       const { error: shareError } = await supabase.from('share_company_users').insert([
         {
-          company_id: company,
+          company_id: company_id,
           profile_id: profile.id,
-          role: values.role,
           customer_id: values.customer || null,
         },
       ]);
@@ -61,28 +65,28 @@ export async function registerUserWithRole(values: any, company: string) {
       }
 
       // Asignar rol en el sistema de permisos para usuario existente
-      const { data: roleData, error: roleError } = await supabase
-        .from('roles')
-        .select('id, slug')
-        .or(`name.eq.${values.role},slug.eq.${values.role.toLowerCase()}`)
-        .single();
+      const roleId = Number(values.role);
 
-      if (!roleError && roleData) {
+      if (!isNaN(roleId)) {
         // Verificar si ya tiene el rol asignado
         const { data: existingRole } = await supabase
           .from('user_roles')
           .select('id')
           .eq('user_id', profile.id)
-          .eq('role_id', roleData.id)
+          .eq('role_id', roleId)
           .single();
 
         if (!existingRole) {
-          await supabase.from('user_roles').insert([
+          const { error: userRoleError } = await supabase.from('user_roles').insert([
             {
               user_id: profile.id,
-              role_id: roleData.id,
+              role_id: roleId,
             },
           ]);
+
+          if (userRoleError) {
+            console.error('Error asignando rol al usuario existente:', userRoleError);
+          }
         }
       }
     } else {
@@ -109,13 +113,25 @@ export async function registerUserWithRole(values: any, company: string) {
         throw new Error('No se pudo obtener el ID del usuario');
       }
 
+      // Obtener el nombre del rol para el campo legacy profile.role
+      const roleId = Number(values.role);
+      let roleName = 'User'; // Default
+
+      if (!isNaN(roleId)) {
+        const { data: roleData } = await supabase.from('roles').select('name').eq('id', roleId).single();
+
+        if (roleData) {
+          roleName = roleData.name;
+        }
+      }
+
       // Crear perfil
       const { error: profileCreateError } = await adminSupabase.from('profile').insert([
         {
           id: userId,
           email: values.email,
           fullname: fullname,
-          role: values.role,
+          role: roleName, // Usar el nombre del rol, no el ID
           credential_id: userId,
         },
       ]);
@@ -131,7 +147,7 @@ export async function registerUserWithRole(values: any, company: string) {
       // Asignar company en app_metadata
       const { error: metadataError } = await adminSupabase.auth.admin.updateUserById(userId, {
         app_metadata: {
-          company: company,
+          company: company_id,
         },
       });
 
@@ -147,9 +163,8 @@ export async function registerUserWithRole(values: any, company: string) {
       // Compartir empresa
       const { error: shareError } = await adminSupabase.from('share_company_users').insert([
         {
-          company_id: company,
+          company_id: company_id,
           profile_id: userId,
-          role: values.role,
           customer_id: values.customer || null,
         },
       ]);
@@ -165,22 +180,14 @@ export async function registerUserWithRole(values: any, company: string) {
     }
 
     // 4. Asignar rol en el sistema de permisos (user_roles)
-    // Buscar el rol por nombre o slug
-    const { data: roleData, error: roleError } = await supabase
-      .from('roles')
-      .select('id, slug')
-      .or(`name.eq.${values.role},slug.eq.${values.role.toLowerCase()}`)
-      .single();
+    const roleId = Number(values.role);
 
-    if (roleError || !roleData) {
-      console.warn('⚠️ No se encontró el rol en el sistema de permisos:', values.role);
-      // No hacer rollback, el usuario ya fue creado exitosamente
-    } else {
+    if (!isNaN(roleId)) {
       // Asignar el rol al usuario
       const { error: userRoleError } = await supabase.from('user_roles').insert([
         {
           user_id: userId,
-          role_id: roleData.id,
+          role_id: roleId,
         },
       ]);
 
@@ -189,6 +196,8 @@ export async function registerUserWithRole(values: any, company: string) {
         // No hacer rollback, el usuario ya fue creado exitosamente
         // El rol se puede asignar manualmente después
       }
+    } else {
+      console.warn('⚠️ El rol proporcionado no es un ID válido:', values.role);
     }
 
     return {
