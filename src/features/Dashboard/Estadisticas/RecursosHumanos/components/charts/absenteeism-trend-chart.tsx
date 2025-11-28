@@ -66,10 +66,11 @@ export function AbsenteeismTrendChartComponent({ chartConfig, data, showLabels }
           strokeWidth={2}
           strokeDasharray="5 5"
           label={{
-            value: `Esperado: ${EXPECTED_ABSENTEEISM_PERCENTAGE}%`,
-            position: 'right',
+            value: `${EXPECTED_ABSENTEEISM_PERCENTAGE}%`,
+            position: 'insideTopRight',
             fill: 'hsl(142.1 76.2% 36.3%)',
             fontSize: 12,
+            fontWeight: 600,
           }}
         />
 

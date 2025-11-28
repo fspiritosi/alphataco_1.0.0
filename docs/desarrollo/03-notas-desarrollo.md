@@ -57,9 +57,9 @@ revisar el guardado de indicadores que se esta duplicando
 
 👍-Los roles de sistemas solo se pueden asignar, mantener a los botones en los roles personaliados
 👍-En los roles personalizados poner disbaled el de borrar si hay usuarios, y en rojo si se puede borrar
+👍Arreglar padding de las vistas
+👍Agregar boton de equipos, crar equipo
+👍Empleados /diagramas / diagramas cargados el componente le falta el fondo
+👍arreglar el label de la linea
 
-👍message
-:
-"duplicate key value violates unique constraint \"roles_pkey\""
-
-Arreglar padding de las vistas
+Usar el componente de tabs en el detalle del empleado y equipo, argregarlo al tema de roles

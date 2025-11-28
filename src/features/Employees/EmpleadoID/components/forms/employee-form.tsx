@@ -67,6 +67,7 @@ export const employeeFormSchema = z.object({
   covenants_id: z.string().optional(),
   category_id: z.string().optional(),
   cost_center_id: z.string().optional(),
+  cost_type: z.string().optional(),
 });
 
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;

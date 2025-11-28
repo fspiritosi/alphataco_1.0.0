@@ -1699,6 +1699,7 @@ export type Database = {
           company_id: string | null;
           company_position: string | null;
           cost_center_id: string | null;
+          cost_type: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id: string | null;
           created_at: string;
           cuil: string;
@@ -1740,6 +1741,7 @@ export type Database = {
           company_id?: string | null;
           company_position?: string | null;
           cost_center_id?: string | null;
+          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id?: string | null;
           created_at?: string;
           cuil: string;
@@ -1781,6 +1783,7 @@ export type Database = {
           company_id?: string | null;
           company_position?: string | null;
           cost_center_id?: string | null;
+          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id?: string | null;
           created_at?: string;
           cuil?: string;
@@ -3925,6 +3928,7 @@ export type Database = {
           company_id: string | null;
           company_position: string | null;
           cost_center_id: string | null;
+          cost_type: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id: string | null;
           created_at: string;
           cuil: string;

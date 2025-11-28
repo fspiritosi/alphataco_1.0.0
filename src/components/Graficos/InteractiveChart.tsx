@@ -33,11 +33,11 @@ const chartConfig = {
     color: 'hsl(var(--chart-5))',
   },
   inactivos: {
-    label: 'Inactivos',
+    label: 'Fuera de Servicio',
     color: 'hsl(var(--chart-1))',
   },
   usados: {
-    label: 'Usados',
+    label: 'Trabajando',
     color: 'hsl(var(--chart-2))',
   },
 } satisfies ChartConfig;
@@ -78,11 +78,11 @@ const chartRender = ({ data }: { data: any[] }) => {
             <BarChart accessibilityLayer data={data} layout="vertical" margin={{ right: 16 }}>
               <CartesianGrid horizontal={false} />
               <XAxis type="number" hide />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+              <ChartTooltip cursor={false} content={<ChartTooltipContent className="w-[200px]" />} />
               <ChartLegend content={<ChartLegendContent />} />
               <Bar dataKey="Activos" stackId="a" fill="var(--color-activos)" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Inactivos" stackId="a" fill="var(--color-inactivos)" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Usados" stackId="a" fill="var(--color-usados)" radius={[0, 2, 2, 0]}>
+              <Bar dataKey="Fuera de Servicio" stackId="a" fill="var(--color-inactivos)" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Trabajando" stackId="a" fill="var(--color-usados)" radius={[0, 2, 2, 0]}>
                 <LabelList dataKey="NombreShort" position="right" offset={8} fontSize={12} width={120} />
               </Bar>
               <YAxis
@@ -125,7 +125,7 @@ const chartRender = ({ data }: { data: any[] }) => {
                 <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
               </Line>
               <Line
-                dataKey="Inactivos"
+                dataKey="Fuera de Servicio"
                 type="natural"
                 stroke="var(--color-inactivos)"
                 strokeWidth={2}
@@ -135,7 +135,7 @@ const chartRender = ({ data }: { data: any[] }) => {
                 <LabelList position="top" offset={12} className="fill-foreground" fontSize={12} />
               </Line>
               <Line
-                dataKey="Usados"
+                dataKey="Trabajando"
                 type="natural"
                 stroke="var(--color-usados)"
                 strokeWidth={2}
@@ -151,8 +151,8 @@ const chartRender = ({ data }: { data: any[] }) => {
               <PolarAngleAxis dataKey="Nombre" />
               <PolarGrid />
               <Radar dataKey="Activos" fill="var(--color-activos)" fillOpacity={0.6} />
-              <Radar dataKey="Inactivos" fill="var(--color-inactivos)" fillOpacity={0.6} />
-              <Radar dataKey="Usados" fill="var(--color-usados)" fillOpacity={0.6} />
+              <Radar dataKey="Fuera de Servicio" fill="var(--color-inactivos)" fillOpacity={0.6} />
+              <Radar dataKey="Trabajando" fill="var(--color-usados)" fillOpacity={0.6} />
             </RadarChart>
           )}
         </ChartContainer>
@@ -256,8 +256,8 @@ export function InteractiveChart({ chartData }: { chartData: any }) {
         Nombre: name,
         NombreShort: short,
         Activos: item.available_units ?? 0,
-        Inactivos: item.not_available_units ?? 0,
-        Usados: item.used_units ?? 0,
+        'Fuera de Servicio': item.not_available_units ?? 0,
+        Trabajando: item.used_units ?? 0,
       };
     });
   }, [chartData, filters, displayMode]);
@@ -286,8 +286,8 @@ export function InteractiveChart({ chartData }: { chartData: any }) {
           <CardTitle>Estado de Equipos</CardTitle>
           <CardDescription>
             {displayMode === 'subtypes'
-              ? 'Activos, Inactivos y Usados por Subtipo'
-              : 'Activos, Inactivos y Usados por Tipo'}
+              ? 'Activos, Fuera de Servicio y Trabajando por Subtipo'
+              : 'Activos, Fuera de Servicio y Trabajando por Tipo'}
           </CardDescription>
 
           {/* Filters */}

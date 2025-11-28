@@ -511,6 +511,17 @@ export default function TablaEmployeesSupabase({
       },
     },
     {
+      accessorKey: 'cost_type',
+      id: 'cost_type',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de costo" />,
+      cell: ({ row }) => {
+        return row.original.cost_type ? <Badge variant="outline">{row.original.cost_type}</Badge> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)));
+      },
+    },
+    {
       accessorKey: 'affiliate_status',
       id: 'affiliate_status',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Estado de afiliación" />,
@@ -836,6 +847,22 @@ export default function TablaEmployeesSupabase({
                       value: String(value.col_value),
                       count: value.col_count,
                     }));
+                },
+              },
+            },
+            {
+              columnId: 'cost_type',
+              title: 'Tipo de costo',
+              config: {
+                tableName: 'employees',
+                select: 'cost_type' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_type'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
                 },
               },
             },

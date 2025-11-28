@@ -428,6 +428,29 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
             </FormItem>
           )}
         />
+
+        {/* Tipo de costo */}
+        <FormField
+          control={form.control}
+          name="cost_type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tipo de costo</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione tipo de costo" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="Directo">Directo</SelectItem>
+                  <SelectItem value="Indirecto">Indirecto</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

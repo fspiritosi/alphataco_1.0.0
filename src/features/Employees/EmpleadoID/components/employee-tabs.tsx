@@ -125,6 +125,7 @@ export function EmployeeTabs({
       covenants_id: employee?.covenants_id || undefined,
       category_id: employee?.category_id || undefined,
       cost_center_id: employee?.cost_center_id || undefined,
+      cost_type: employee?.cost_type || undefined,
     },
   });
 
