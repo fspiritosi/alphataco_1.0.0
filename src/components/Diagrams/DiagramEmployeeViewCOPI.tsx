@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 import { z } from 'zod';
 import InfoComponent from '../InfoComponent';
 import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import { Form, FormDescription, FormField, FormItem, FormMessage } from '../ui/form';
 import { MultiSelectCombobox } from '../ui/multi-select-combobox';
 
@@ -228,7 +229,7 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
   const [isDescending, setIsDescending] = useState(false);
 
   return (
-    <div>
+    <Card className="p-4">
       {/* Controles superiores (filtros y acciones) */}
       <div className="py-2 w-full flex justify-between gap-4 items-center">
         <div className="flex gap-4">
@@ -426,7 +427,7 @@ function DiagramEmployeeViewCOPI({ employeesData }: { employeesData: EmployeeWit
           Exportar a Excel
         </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 

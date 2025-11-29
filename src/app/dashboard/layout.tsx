@@ -22,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       <TanstackQueryInicializador>
         <PasswordChangeAlertWrapper />
-        {children}
+        <div className="px-6">{children}</div>
       </TanstackQueryInicializador>
     </div>
   );

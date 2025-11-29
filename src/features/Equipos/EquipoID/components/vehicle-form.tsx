@@ -34,6 +34,7 @@ interface VehicleFormProps {
   typesOfVehiclesPromise: ReturnType<typeof getTypesOfVehicles>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
+  hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
   documentsComponent?: React.ReactNode;
   repairsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;
@@ -79,6 +80,8 @@ const vehicleSchema = z
     // Assignment Data
     allocated_to: z.array(z.string()).optional(),
     cost_center_id: z.string().optional().nullable(),
+    cost_type: z.enum(['Directo', 'Indirecto'], { required_error: 'El tipo de costo es requerido' }),
+    sector: z.string({ required_error: 'El sector es requerido' }),
 
     // Price Data
     price: z.number().positive('El precio debe ser mayor a 0').optional(),
@@ -239,6 +242,8 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       picture: vehicle?.picture || null,
       allocated_to: vehicle?.allocated_to || [],
       cost_center_id: vehicle?.cost_center_id || null,
+      cost_type: vehicle?.cost_type || undefined,
+      sector: vehicle?.sector || '',
       owner_id: vehicle?.equipment_owners?.id || null,
       type_of_contract: vehicle?.type_of_contract || null,
       contract_expiration_date: vehicle?.contract_expiration_date

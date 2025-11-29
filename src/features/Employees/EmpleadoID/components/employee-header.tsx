@@ -27,7 +27,7 @@ function EmployeeHeaderContent({ employee, isEditable, showEditButton, exitEditM
 
   if (!employee) {
     return (
-      <Card className="">
+      <Card>
         <CardContent className="p-6">
           <div className="text-center text-muted-foreground">No se pudo cargar la información del empleado</div>
         </CardContent>
@@ -51,7 +51,7 @@ function EmployeeHeaderContent({ employee, isEditable, showEditButton, exitEditM
   };
 
   return (
-    <div className="">
+    <div>
       <CardContent className="p-6">
         <div className="flex items-start gap-6">
           {/* Profile Picture */}

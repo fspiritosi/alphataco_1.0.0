@@ -484,7 +484,7 @@ function CreatedForm() {
                         </TableCell>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className="">
+                    <TableBody>
                       {forms?.map((formItem: any, formIndex) => (
                         <TableRow key={formIndex}>
                           {formKeys.map((key, index) => {

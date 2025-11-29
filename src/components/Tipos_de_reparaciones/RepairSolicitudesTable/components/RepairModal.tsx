@@ -227,7 +227,7 @@ function RepairModal({ row, onlyView, action }: { row: any; onlyView?: boolean; 
                   {imagesMechanic?.length
                     ? imagesMechanic?.map((image, index) => (
                         <CarouselItem key={crypto.randomUUID()} className="md:basis-1/2 lg:basis-1/3  overflow-hidden">
-                          <Card className="">
+                          <Card>
                             <Link target="_blank" href={image || ''}>
                               <CardContent className="flex aspect-square items-center justify-center p-1">
                                 <img

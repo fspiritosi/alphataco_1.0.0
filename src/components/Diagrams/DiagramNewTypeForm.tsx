@@ -150,7 +150,7 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
             control={form.control}
             name="work_active"
             render={({ field }) => (
-              <FormItem className="">
+              <FormItem>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="airplane-mode"

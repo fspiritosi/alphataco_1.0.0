@@ -549,7 +549,7 @@ export default function RepairNewEntryMultiple({
         </div>
       </ResizablePanel>
       <ResizablePanel className=" min-w-[250px] sm:hidden" defaultSize={70}>
-        <div className="">
+        <div>
           <Separator></Separator>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -608,7 +608,7 @@ export default function RepairNewEntryMultiple({
                             </div>
                           </AccordionTrigger>
                           <AccordionContent>
-                            <li key={crypto.randomUUID()} className="">
+                            <li key={crypto.randomUUID()}>
                               <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
                                 <div className="flex flex-col ">
                                   <div className="flex items-center">

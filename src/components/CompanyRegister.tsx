@@ -512,7 +512,7 @@ export function CompanyRegister({ company = null, formEnabled = true }: CompanyR
     //         control={form.control}
     //         name="company_logo"
     //         render={({ field }) => (
-    //           <FormItem className="">
+    //           <FormItem  >
     //             <FormControl>
     //               <div className="flex lg:items-center flex-wrap md:flex-nowrap flex-col lg:flex-row gap-8">
     //                 <ImageHander

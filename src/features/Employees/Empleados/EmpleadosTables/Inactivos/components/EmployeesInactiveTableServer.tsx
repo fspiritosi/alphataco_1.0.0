@@ -408,6 +408,17 @@ export default function TablaEmployeesInactiveServer({
       },
     },
     {
+      accessorKey: 'cost_type',
+      id: 'cost_type',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de costo" />,
+      cell: ({ row }) => {
+        return row.original.cost_type ? <Badge variant="outline">{row.original.cost_type}</Badge> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(String(row.getValue(id)));
+      },
+    },
+    {
       accessorKey: 'affiliate_status',
       id: 'affiliate_status',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Estado de afiliación" />,
@@ -681,6 +692,22 @@ export default function TablaEmployeesInactiveServer({
                 relation: '{"cost_center": "cost_center_id"}',
                 p_filters: { is_active: 'false' },
                 mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_center.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+            {
+              columnId: 'cost_type',
+              title: 'Tipo de Costo',
+              config: {
+                tableName: 'employees',
+                select: 'cost_type' as '*',
+                p_filters: { is_active: 'false' },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'employees', 'cost_type'>>>) => {
                   return data.map((value) => ({
                     label: String(value.display_value),
                     value: String(value.col_value),

@@ -68,7 +68,7 @@ export function OrganigramTable({
         <h2 className="text-xl font-bold">Sectores</h2>
         <VerActivosButton data={sectors} filterKey="is_active" onFilteredChange={setFilteredData} />
       </div>
-      <div className="">
+      <div>
         <BaseDataTable
           savedVisibility={savedVisibility}
           columns={getOrganigramColumns(onEdit)}

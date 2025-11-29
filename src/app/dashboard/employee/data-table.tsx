@@ -410,7 +410,7 @@ export function EmployeesTable<TData, TValue>({ columns, data, role }: DataTable
                                       });
                                     }}
                                   >
-                                    <SelectTrigger className="">
+                                    <SelectTrigger>
                                       <SelectValue placeholder={header.column.columnDef.header as string} />
                                     </SelectTrigger>
                                     <SelectContent>

@@ -39,7 +39,7 @@ export default async function EmployeePage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return (
-    <div className="px-6">
+    <div>
       <TabsManagerServer
         paramName="tab"
         searchParams={searchParams}

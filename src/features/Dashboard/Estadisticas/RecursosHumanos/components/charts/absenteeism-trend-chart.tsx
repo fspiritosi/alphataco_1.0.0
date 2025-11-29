@@ -1,7 +1,7 @@
 'use client';
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
-import { CartesianGrid, LabelList, Line, LineChart, XAxis } from 'recharts';
+import { CartesianGrid, LabelList, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 interface TrendData {
   date: string;
@@ -13,6 +13,9 @@ interface AbsenteeismTrendChartProps {
   chartConfig: ChartConfig;
   showLabels?: boolean;
 }
+
+// Constante para el porcentaje esperado de ausentismo
+const EXPECTED_ABSENTEEISM_PERCENTAGE = 5;
 
 export function AbsenteeismTrendChartComponent({ chartConfig, data, showLabels }: AbsenteeismTrendChartProps) {
   return (
@@ -53,17 +56,46 @@ export function AbsenteeismTrendChartComponent({ chartConfig, data, showLabels }
             return value;
           }}
         />
+        <YAxis hide />
         <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+
+        {/* Línea de referencia del porcentaje esperado */}
+        <ReferenceLine
+          y={EXPECTED_ABSENTEEISM_PERCENTAGE}
+          stroke="hsl(142.1 76.2% 36.3%)"
+          strokeWidth={2}
+          strokeDasharray="5 5"
+          label={{
+            value: `${EXPECTED_ABSENTEEISM_PERCENTAGE}%`,
+            position: 'insideTopRight',
+            fill: 'hsl(142.1 76.2% 36.3%)',
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        />
+
+        {/* Línea principal con stroke gris y puntos de colores */}
         <Line
           dataKey="percentage"
-          type="natural"
-          stroke="var(--color-percentage)"
+          type="monotone"
+          stroke="hsl(var(--muted-foreground) / 0.3)"
           strokeWidth={2}
-          dot={{
-            fill: 'var(--color-percentage)',
+          dot={(props: any) => {
+            const { cx, cy, payload } = props;
+            const isAboveExpected = payload.percentage > EXPECTED_ABSENTEEISM_PERCENTAGE;
+            return (
+              <circle
+                cx={cx}
+                cy={cy}
+                r={5}
+                fill={isAboveExpected ? 'hsl(0 84.2% 60.2%)' : 'hsl(142.1 76.2% 36.3%)'}
+                stroke="white"
+                strokeWidth={2}
+              />
+            );
           }}
           activeDot={{
-            r: 6,
+            r: 7,
           }}
         >
           {showLabels && (

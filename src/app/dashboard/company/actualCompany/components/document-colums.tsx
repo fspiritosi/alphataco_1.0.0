@@ -22,7 +22,7 @@ export const columnsDocuments: ColumnDef<SharedUser>[] = [
     accessorKey: 'fullname',
     id: 'Nombre',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre del documento" />,
-    cell: ({ row }) => <div className="">{row.getValue('fullname')}</div>,
+    cell: ({ row }) => <div>{row.getValue('fullname')}</div>,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
@@ -36,7 +36,7 @@ export const columnsDocuments: ColumnDef<SharedUser>[] = [
         <div className="flex space-x-2 items-center">
           {row.getValue('email') !== 'Documento pendiente' ? (
             <>
-              <Avatar className="">
+              <Avatar>
                 <AvatarImage src={row.getValue('img')} alt="Logo de la empresa" className="rounded-full object-cover" />
                 <AvatarFallback>Logo</AvatarFallback>
               </Avatar>

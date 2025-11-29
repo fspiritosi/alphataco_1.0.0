@@ -10,7 +10,7 @@ export default function OperacionesComponent({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return (
-    <div className="px-6">
+    <div>
       <TabsManagerServer
         paramName="tab"
         searchParams={searchParams}

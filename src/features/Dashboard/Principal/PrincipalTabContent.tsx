@@ -12,7 +12,7 @@ export default async function PrincipalTabContent() {
   const servicesSummary = await getServicesSummaryByType();
 
   return (
-    <section className="md:mx-7 grid grid-cols-1 mt-6 xl:grid-cols-4 gap-3 mb-4 ">
+    <section className=" grid grid-cols-1 xl:grid-cols-4 gap-3 mb-4 ">
       <section className="flex flex-col gap-4 w-full">
         <ResourcesOverviewChart employees={employees} equipments={equipments} />
         <ServicesDistributionSection servicesSummary={servicesSummary} />

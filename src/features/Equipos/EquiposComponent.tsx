@@ -1,7 +1,9 @@
 import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
+import { buttonVariants } from '@/components/ui/button';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
+import Link from 'next/link';
 import { Suspense } from 'react';
 import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
 import EquiposTabContent from './Equipos/EquiposTabContent';
@@ -12,7 +14,7 @@ export default function EquiposComponent({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return (
-    <div className="px-6">
+    <div>
       <TabsManagerServer
         paramName="tab"
         searchParams={searchParams}
@@ -29,7 +31,19 @@ export default function EquiposComponent({
             ),
             moduleSlug: 'equipos',
             tabSlug: 'equipos',
-            content: <EquiposTabContent searchParams={searchParams} />,
+            content: (
+              <div>
+                <div className="flex gap-4 flex-wrap mb-4">
+                  <Link
+                    className={buttonVariants({ variant: 'gh_orange' })}
+                    href={'/dashboard/equipment/action?action=new'}
+                  >
+                    Agregar equipo
+                  </Link>
+                </div>
+                <EquiposTabContent searchParams={searchParams} />
+              </div>
+            ),
           },
           {
             value: 'documentos-de-equipos',

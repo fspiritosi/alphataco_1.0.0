@@ -35,7 +35,7 @@ export const TreeNode: React.FC<TreeNodeProps> = ({ node, level }) => {
   };
 
   return (
-    <div className="">
+    <div>
       <div
         className={`flex items-center p-1 hover:bg-accent rounded cursor-pointer ${level === 0 ? 'font-semibold' : ''}`}
         style={{ paddingLeft: `${level * 20}px` }}
@@ -47,7 +47,7 @@ export const TreeNode: React.FC<TreeNodeProps> = ({ node, level }) => {
             <span>{node.name}</span>
           </div>
 
-          <div className="">
+          <div>
             {node.type === 'sindicatoPadre' && <AddGuildModal company_id={company_id} />}
             {node.type === 'sindicato' && (
               <AddCovenantModal company_id={company_id} guildInfo={{ name: node.name, id: node.id }} />

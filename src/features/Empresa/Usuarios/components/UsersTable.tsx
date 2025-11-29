@@ -14,7 +14,7 @@ async function UsersTable() {
     columnFilters: [],
   });
 
-  console.log(initialData.rows[0], 'initialData');
+  console.log(initialData.rows, 'initialData');
   return (
     <div className="py-2">
       <UsersTableServer

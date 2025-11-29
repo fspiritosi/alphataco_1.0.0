@@ -14,7 +14,7 @@ export default function RrhhTabContent({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return (
-    <div className="px-6">
+    <div>
       <TabsManagerServer
         paramName="subtab"
         searchParams={searchParams}

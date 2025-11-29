@@ -53,7 +53,7 @@ export const columns: ColumnDef<SharedUser>[] = [
       return (
         <div className="flex space-x-2 items-center">
           {
-            <Avatar className="">
+            <Avatar>
               <AvatarImage src={row.original.img} alt="Logo de la empresa" className="rounded-full object-cover" />
               <AvatarFallback>Logo</AvatarFallback>
             </Avatar>

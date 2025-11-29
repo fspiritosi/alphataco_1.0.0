@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <Toaster />
             <Sonner richColors={true} />
-            <main className="">{children}</main>
+            <main>{children}</main>
           </ThemeProvider>
         </PostHogProvider>
       </body>

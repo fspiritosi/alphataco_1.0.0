@@ -1,5 +1,15 @@
 'use client';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,31 +25,47 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { createRole, deleteRole, getRolePermissions, getRoles, updateRole } from '@/features/Permissions/actions';
+import {
+  createRole,
+  deleteRole,
+  getRolePermissions,
+  getRoleUserCounts,
+  getRoles,
+  updateRole,
+} from '@/features/Permissions/actions';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Shield, Trash2 } from 'lucide-react';
+import { Download, Pencil, Plus, Search, Shield, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ManageRoleUsersDialog } from './ManageRoleUsersDialog';
 import { RolePermissionsEditor } from './RolePermissionsEditor';
+import { RoleTemplateSelector } from './RoleTemplateSelector';
 
 // Componente separado para cada card de rol (evita el error de hooks en map)
 function RoleCard({
   role,
+  userCount,
   onEdit,
+  onManageUsers,
   onDelete,
   isDeleting,
 }: {
   role: any;
+  userCount: number;
   onEdit: (role: any) => void;
+  onManageUsers: (role: any) => void;
   onDelete: (roleId: number, roleName: string) => void;
   isDeleting: boolean;
 }) {
   const { data: permissions = [] } = useQuery({
     queryKey: ['role-permissions', role.id],
     queryFn: () => getRolePermissions(role.id),
-    enabled: !!role.id,
+    enabled: !!role.id && role.slug !== 'owner',
   });
+
+  const hasUsers = userCount > 0;
+  const canDelete = !role.is_system && !hasUsers;
 
   return (
     <Card className="p-4 hover:shadow-md transition-shadow">
@@ -49,8 +75,13 @@ function RoleCard({
           <h3 className="font-semibold">{role.name}</h3>
         </div>
         <div className="flex gap-1">
-          <Badge variant="outline" className="text-xs">
-            {permissions.length}
+          <Badge variant="outline" className="text-xs flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            {userCount}
+          </Badge>
+          <Badge variant="outline" className="text-xs flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            {role.slug === 'owner' ? 'ALL' : permissions.length}
           </Badge>
           {role.color && (
             <Badge
@@ -71,18 +102,33 @@ function RoleCard({
       {role.description && <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{role.description}</p>}
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(role)} disabled={role.is_system}>
-          <Pencil className="h-3 w-3 mr-2" />
-          Editar
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onDelete(role.id, role.name)}
-          disabled={role.is_system || isDeleting}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        {/* Roles de sistema: solo botón de asignar */}
+        {role.is_system ? (
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => onManageUsers(role)}>
+            <Users className="h-4 w-4 mr-2" />
+            Asignar Usuarios
+          </Button>
+        ) : (
+          /* Roles personalizados: editar, asignar y eliminar */
+          <>
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(role)}>
+              <Pencil className="h-3 w-3 mr-2" />
+              Editar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onManageUsers(role)} title="Asignar usuarios">
+              <Users className="h-3 w-3" />
+            </Button>
+            <Button
+              variant={canDelete ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={() => onDelete(role.id, role.name)}
+              disabled={!canDelete || isDeleting}
+              title={hasUsers ? `No se puede eliminar: ${userCount} usuario(s) asignado(s)` : 'Eliminar rol'}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </>
+        )}
       </div>
     </Card>
   );
@@ -92,14 +138,25 @@ export function RoleManager() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<any | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<{ id: number; name: string } | null>(null);
   const [roleName, setRoleName] = useState('');
   const [roleDescription, setRoleDescription] = useState('');
   const [roleColor, setRoleColor] = useState('#3b82f6');
   const [rolePermissions, setRolePermissions] = useState<Array<{ tabId: string; actionId: string }>>([]);
+  const [templateRoleIds, setTemplateRoleIds] = useState<number[]>([]);
+  const [manageUsersRole, setManageUsersRole] = useState<any | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: getRoles,
+  });
+
+  const { data: roleUserCounts = {} } = useQuery<Record<number, number>>({
+    queryKey: ['role-user-counts'],
+    queryFn: getRoleUserCounts,
+    staleTime: 2 * 60 * 1000, // 2 minutos
   });
 
   const createRoleMutation = useMutation({
@@ -199,6 +256,7 @@ export function RoleManager() {
     setRoleDescription('');
     setRoleColor('#3b82f6');
     setRolePermissions([]);
+    setTemplateRoleIds([]);
     setIsDialogOpen(true);
   };
 
@@ -207,6 +265,7 @@ export function RoleManager() {
     setRoleName(role.name);
     setRoleDescription(role.description || '');
     setRoleColor(role.color || '#3b82f6');
+    setTemplateRoleIds([]);
 
     // Cargar permisos del rol
     try {
@@ -251,9 +310,63 @@ export function RoleManager() {
     }
   };
 
+  const handleImportPermissions = async () => {
+    if (templateRoleIds.length === 0) {
+      toast.error('Error', {
+        description: 'Selecciona al menos un rol para importar permisos',
+      });
+      return;
+    }
+
+    try {
+      // Obtener permisos de todos los roles seleccionados
+      const allPermissions = await Promise.all(templateRoleIds.map((roleId) => getRolePermissions(roleId)));
+
+      // Combinar permisos (eliminar duplicados)
+      const uniquePermissions = new Map<string, { tabId: string; actionId: string }>();
+
+      allPermissions.flat().forEach((perm) => {
+        const key = `${perm.tab_id}:${perm.action_id}`;
+        uniquePermissions.set(key, {
+          tabId: perm.tab_id,
+          actionId: perm.action_id,
+        });
+      });
+
+      // Combinar con permisos ya seleccionados
+      const existingPermissions = new Map(rolePermissions.map((p) => [`${p.tabId}:${p.actionId}`, p]));
+
+      uniquePermissions.forEach((perm, key) => {
+        existingPermissions.set(key, perm);
+      });
+
+      setRolePermissions(Array.from(existingPermissions.values()));
+
+      toast.success('Permisos importados', {
+        description: `Se importaron ${uniquePermissions.size} permisos únicos de ${templateRoleIds.length} rol(es)`,
+      });
+    } catch (error) {
+      console.error('Error importing permissions:', error);
+      toast.error('Error', {
+        description: 'No se pudieron importar los permisos',
+      });
+    }
+  };
+
+  const handleManageUsers = (role: any) => {
+    setManageUsersRole(role);
+  };
+
   const handleDeleteRole = (roleId: number, roleName: string) => {
-    if (confirm(`¿Estás seguro de eliminar el rol "${roleName}"?`)) {
-      deleteRoleMutation.mutate(roleId);
+    setRoleToDelete({ id: roleId, name: roleName });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteRole = () => {
+    if (roleToDelete) {
+      deleteRoleMutation.mutate(roleToDelete.id);
+      setDeleteConfirmOpen(false);
+      setRoleToDelete(null);
     }
   };
 
@@ -268,107 +381,224 @@ export function RoleManager() {
   return (
     <div className="space-y-4">
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <Label className="text-base font-semibold">Roles Disponibles</Label>
-            <p className="text-sm text-muted-foreground mt-1">Crea y gestiona roles con permisos predefinidos</p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleCreateRole}>
-                <Plus className="h-4 w-4 mr-2" />
-                Crear Rol
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingRole ? 'Editar Rol' : 'Crear Nuevo Rol'}</DialogTitle>
-                <DialogDescription>Define el nombre, descripción, color y permisos para este rol</DialogDescription>
-              </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base font-semibold">Roles Disponibles</Label>
+              <p className="text-sm text-muted-foreground mt-1">Crea y gestiona roles con permisos predefinidos</p>
+            </div>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={handleCreateRole}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear Rol
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingRole ? 'Editar Rol' : 'Crear Nuevo Rol'}</DialogTitle>
+                  <DialogDescription>Define el nombre, descripción, color y permisos para este rol</DialogDescription>
+                </DialogHeader>
 
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="role-name">Nombre del Rol</Label>
+                      <Input
+                        id="role-name"
+                        placeholder="Ej: Administrador, Editor, Visor"
+                        value={roleName}
+                        onChange={(e) => setRoleName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="role-color">Color del Rol</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="role-color"
+                          type="color"
+                          value={roleColor}
+                          onChange={(e) => setRoleColor(e.target.value)}
+                          className="w-20 h-10 cursor-pointer"
+                        />
+                        <Input
+                          type="text"
+                          value={roleColor}
+                          onChange={(e) => setRoleColor(e.target.value)}
+                          placeholder="#3b82f6"
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="role-name">Nombre del Rol</Label>
-                    <Input
-                      id="role-name"
-                      placeholder="Ej: Administrador, Editor, Visor"
-                      value={roleName}
-                      onChange={(e) => setRoleName(e.target.value)}
+                    <Label htmlFor="role-description">Descripción</Label>
+                    <Textarea
+                      id="role-description"
+                      placeholder="Describe las responsabilidades de este rol"
+                      value={roleDescription}
+                      onChange={(e) => setRoleDescription(e.target.value)}
+                      rows={2}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="role-color">Color del Rol</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="role-color"
-                        type="color"
-                        value={roleColor}
-                        onChange={(e) => setRoleColor(e.target.value)}
-                        className="w-20 h-10 cursor-pointer"
-                      />
-                      <Input
-                        type="text"
-                        value={roleColor}
-                        onChange={(e) => setRoleColor(e.target.value)}
-                        placeholder="#3b82f6"
-                        className="flex-1"
-                      />
-                    </div>
+                    <Label>Importar Permisos desde Roles Existentes (Opcional)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Selecciona uno o más roles para usar sus permisos como plantilla
+                    </p>
+
+                    <RoleTemplateSelector
+                      roles={roles.filter((r) => !editingRole || r.id !== editingRole.id)}
+                      selectedRoleIds={templateRoleIds}
+                      onSelectionChange={setTemplateRoleIds}
+                    />
+
+                    {templateRoleIds.length > 0 && (
+                      <Button variant="outline" size="sm" onClick={handleImportPermissions} className="w-full">
+                        <Download className="h-4 w-4 mr-2" />
+                        Importar Permisos ({templateRoleIds.length} rol{templateRoleIds.length > 1 ? 'es' : ''})
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <RolePermissionsEditor permissions={rolePermissions} onPermissionsChange={setRolePermissions} />
+                    <p className="text-xs text-muted-foreground">
+                      Total de permisos seleccionados: {rolePermissions.length}
+                    </p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="role-description">Descripción</Label>
-                  <Textarea
-                    id="role-description"
-                    placeholder="Describe las responsabilidades de este rol"
-                    value={roleDescription}
-                    onChange={(e) => setRoleDescription(e.target.value)}
-                    rows={2}
-                  />
-                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleSaveRole}
+                    disabled={createRoleMutation.isPending || updateRoleMutation.isPending}
+                  >
+                    {createRoleMutation.isPending || updateRoleMutation.isPending
+                      ? 'Guardando...'
+                      : editingRole
+                        ? 'Guardar Cambios'
+                        : 'Crear Rol'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-                <div className="space-y-2">
-                  <RolePermissionsEditor permissions={rolePermissions} onPermissionsChange={setRolePermissions} />
-                  <p className="text-xs text-muted-foreground">
-                    Total de permisos seleccionados: {rolePermissions.length}
-                  </p>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleSaveRole}
-                  disabled={createRoleMutation.isPending || updateRoleMutation.isPending}
-                >
-                  {createRoleMutation.isPending || updateRoleMutation.isPending
-                    ? 'Guardando...'
-                    : editingRole
-                      ? 'Guardar Cambios'
-                      : 'Crear Rol'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {roles.map((role: any) => (
-            <RoleCard
-              key={role.id}
-              role={role}
-              onEdit={handleEditRole}
-              onDelete={handleDeleteRole}
-              isDeleting={deleteRoleMutation.isPending}
+          {/* Buscador de roles */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar roles por nombre o descripción..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 mb-4 md:w-1/4"
             />
-          ))}
+          </div>
         </div>
+
+        {/* Agrupar roles por tipo */}
+        {(() => {
+          const filteredRoles = roles.filter(
+            (role: any) =>
+              role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              role.description?.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+
+          const systemRoles = filteredRoles.filter((role: any) => role.is_system);
+          const customRoles = filteredRoles.filter((role: any) => !role.is_system);
+
+          if (filteredRoles.length === 0) {
+            return (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No se encontraron roles que coincidan con {searchQuery}
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-6">
+              {/* Roles Personalizados */}
+              {customRoles.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Roles Personalizados ({customRoles.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {customRoles.map((role) => (
+                      <RoleCard
+                        key={role.id}
+                        role={role}
+                        userCount={roleUserCounts[role.id] || 0}
+                        onEdit={handleEditRole}
+                        onManageUsers={handleManageUsers}
+                        onDelete={handleDeleteRole}
+                        isDeleting={deleteRoleMutation.isPending}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Roles de Sistema */}
+              {systemRoles.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Roles de Sistema ({systemRoles.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {systemRoles.map((role: any) => (
+                      <RoleCard
+                        key={role.id}
+                        role={role}
+                        userCount={roleUserCounts[role.id] || 0}
+                        onEdit={handleEditRole}
+                        onManageUsers={handleManageUsers}
+                        onDelete={handleDeleteRole}
+                        isDeleting={deleteRoleMutation.isPending}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Card>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar rol?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar el rol {roleToDelete?.name}? Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRoleToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteRole}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ManageRoleUsersDialog
+        role={manageUsersRole}
+        open={!!manageUsersRole}
+        onOpenChange={(open: boolean) => !open && setManageUsersRole(null)}
+      />
     </div>
   );
 }

@@ -353,6 +353,28 @@ export default function TablaEquipmentServer({
         return value.includes(row.getValue(id));
       },
     },
+    {
+      accessorKey: 'cost_type',
+      id: 'cost_type',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de costo" />,
+      cell: ({ row }) => {
+        return row.original.cost_type ? <Badge variant="outline">{row.original.cost_type}</Badge> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'hierarchy.name',
+      id: 'hierarchy.name',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
+      cell: ({ row }) => {
+        return row.original.hierarchy?.name ? <Badge variant="secondary">{row.original.hierarchy.name}</Badge> : '-';
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
     // {
     //   accessorKey: 'showUnavaliableEquipment',
     //   id: 'Ver equipos dados de baja',
@@ -679,6 +701,39 @@ export default function TablaEquipmentServer({
               select: 'intern_number' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'intern_number'>>>) => {
+                return data.map((value) => ({
+                  label: String(value.display_value),
+                  value: String(value.col_value),
+                  count: value.col_count,
+                }));
+              },
+            },
+          },
+          {
+            columnId: 'cost_type',
+            title: 'Tipo de costo',
+            config: {
+              tableName: 'vehicles',
+              select: 'cost_type' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'cost_type'>>>) => {
+                return data.map((value) => ({
+                  label: String(value.display_value),
+                  value: String(value.col_value),
+                  count: value.col_count,
+                }));
+              },
+            },
+          },
+          {
+            columnId: 'hierarchy.name',
+            title: 'Sector',
+            config: {
+              tableName: 'vehicles',
+              select: 'hierarchy.name' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
+              relation: '{"hierarchy": "sector"}',
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'hierarchy.name'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),

@@ -15,6 +15,7 @@ interface VehicleAssignmentDataFormProps {
   readOnly?: boolean;
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
+  hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
 }
 
 export function VehicleAssignmentDataForm({
@@ -22,9 +23,11 @@ export function VehicleAssignmentDataForm({
   readOnly = false,
   contractorsPromise,
   costCentersPromise,
+  hierarchicalPositionsPromise,
 }: VehicleAssignmentDataFormProps) {
   const costCenters = use(costCentersPromise);
   const contractorCompanies = use(contractorsPromise);
+  const hierarchicalPositions = use(hierarchicalPositionsPromise);
   const allocatedTo = form.watch('allocated_to') || [];
 
   const handleContractorChange = (contractorId: string, checked: boolean) => {
@@ -48,7 +51,7 @@ export function VehicleAssignmentDataForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Centro de costo</FormLabel>
-              <Select disabled={readOnly} value={field.value} onValueChange={field.onChange}>
+              <Select disabled={readOnly} value={field.value || undefined} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar centro de costo" />
@@ -63,6 +66,59 @@ export function VehicleAssignmentDataForm({
                 </SelectContent>
               </Select>
               <FormDescription>Selecciona el centro de costo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="cost_type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Tipo de costo <span className="text-red-500">*</span>
+              </FormLabel>
+              <Select disabled={readOnly} value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo de costo" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="Directo">Directo</SelectItem>
+                  <SelectItem value="Indirecto">Indirecto</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>Selecciona el tipo de costo del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="sector"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Sector <span className="text-red-500">*</span>
+              </FormLabel>
+              <Select disabled={readOnly} value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar sector" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {hierarchicalPositions.map((position) => (
+                    <SelectItem key={position.id} value={position.id}>
+                      {position.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>Selecciona el sector del equipo</FormDescription>
               <FormMessage />
             </FormItem>
           )}

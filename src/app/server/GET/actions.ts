@@ -1981,7 +1981,8 @@ export async function getEmployeeById(employeeId: string) {
       is_active,
       hierarchy(id,name),
       countries(id,name),
-      empleado_aptitudes(aptitudes_tecnicas(id,nombre))
+      empleado_aptitudes(aptitudes_tecnicas(id,nombre)),
+      cost_type
     `
     )
     .eq('id', employeeId)

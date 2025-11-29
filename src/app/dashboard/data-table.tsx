@@ -567,7 +567,7 @@ export function ExpiredDataTable<TData, TValue>({
                                       });
                                     }}
                                   >
-                                    <SelectTrigger className="">
+                                    <SelectTrigger>
                                       <SelectValue
                                         placeholder={
                                           header.column.columnDef.header === 'Empleado' && vehicles

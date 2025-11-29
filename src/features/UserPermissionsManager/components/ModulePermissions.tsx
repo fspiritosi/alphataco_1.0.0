@@ -2,19 +2,37 @@
 
 import { HandshakeIcon } from '@/components/Icons';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/use-toast';
-import { getModulesWithTabs, removeUserPermission, setUserPermission } from '@/features/Permissions/actions';
+import {
+  getModulesWithTabs,
+  getUserRoles,
+  removeRoleFromUser,
+  removeUserPermission,
+  setUserPermission,
+} from '@/features/Permissions/actions';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Calendar,
   ClipboardList,
+  Eraser,
   Eye,
   FileText,
   HelpCircle,
@@ -26,7 +44,7 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface ModulePermissionsProps {
   userId: string;
@@ -70,10 +88,17 @@ const MODULE_ICONS: Record<string, any> = {
 export function ModulePermissions({ userId, permissions }: ModulePermissionsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isCleanDialogOpen, setIsCleanDialogOpen] = useState(false);
 
   const { data: modules = [], isLoading } = useQuery({
     queryKey: ['modules-with-tabs'],
     queryFn: getModulesWithTabs,
+  });
+
+  const { data: userRoles = [] } = useQuery({
+    queryKey: ['user-roles', userId],
+    queryFn: () => getUserRoles(userId),
+    enabled: !!userId,
   });
 
   const permissionMap = useMemo(() => {
@@ -122,6 +147,61 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
       toast({
         title: 'Error',
         description: 'No se pudo remover el permiso',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const cleanCustomPermissionsMutation = useMutation({
+    mutationFn: async () => {
+      const supabase = (await import('@/lib/supabase/browser')).supabaseBrowser();
+      const { error } = await supabase.from('user_permissions').delete().eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
+      toast({
+        title: 'Permisos limpiados',
+        description: 'Se eliminaron todos los permisos personalizados',
+      });
+      setIsCleanDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'No se pudieron limpiar los permisos',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const cleanAllPermissionsMutation = useMutation({
+    mutationFn: async () => {
+      const supabase = (await import('@/lib/supabase/browser')).supabaseBrowser();
+
+      // Eliminar permisos personalizados
+      await supabase.from('user_permissions').delete().eq('user_id', userId);
+
+      // Eliminar todos los roles del usuario
+      await Promise.all(userRoles.map((ur: any) => removeRoleFromUser(userId, ur.role_id)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['user-roles', userId] });
+      queryClient.invalidateQueries({ queryKey: ['role-user-counts'] });
+      toast({
+        title: 'Todos los permisos eliminados',
+        description: 'Se eliminaron todos los roles y permisos personalizados',
+      });
+      setIsCleanDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'No se pudieron eliminar todos los permisos',
         variant: 'destructive',
       });
     },
@@ -403,15 +483,85 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
     );
   }
 
+  const customPermissions = permissions.filter((p) => p.source === 'custom');
+  const hasCustomPermissions = customPermissions.length > 0;
+  const hasRoles = userRoles.length > 0;
+  const hasAnyPermissions = hasCustomPermissions || hasRoles;
+
   return (
     <TooltipProvider>
       <Card className="p-6">
         <div className="space-y-4">
-          <div>
-            <Label className="text-base font-semibold">Permisos por Módulo</Label>
-            <p className="text-sm text-muted-foreground mt-1">
-              Configura el acceso a módulos, tabs y acciones específicas
-            </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <Label className="text-base font-semibold">Permisos por Módulo</Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configura el acceso a módulos, tabs y acciones específicas
+              </p>
+            </div>
+
+            {hasAnyPermissions && (
+              <AlertDialog open={isCleanDialogOpen} onOpenChange={setIsCleanDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Eraser className="h-4 w-4 mr-2" />
+                    Limpiar Permisos
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="max-w-lg">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpiar Permisos</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p>Selecciona qué permisos deseas eliminar:</p>
+
+                      {hasRoles && (
+                        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                          <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
+                            ⚠️ Este usuario tiene {userRoles.length} rol(es) asignado(s):
+                          </p>
+                          <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1">
+                            {userRoles.map((ur: any) => {
+                              const role = ur.roles;
+                              const roleName = Array.isArray(role) ? role[0]?.name : role?.name;
+                              return <li key={ur.id}>• {roleName}</li>;
+                            })}
+                          </ul>
+                        </div>
+                      )}
+
+                      {hasCustomPermissions && (
+                        <p className="text-sm">
+                          Permisos personalizados: <strong>{customPermissions.length}</strong>
+                        </p>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+                    {hasCustomPermissions && (
+                      <Button
+                        variant="outline"
+                        onClick={() => cleanCustomPermissionsMutation.mutate()}
+                        disabled={cleanCustomPermissionsMutation.isPending || cleanAllPermissionsMutation.isPending}
+                        className="w-full"
+                      >
+                        {cleanCustomPermissionsMutation.isPending ? 'Limpiando...' : 'Solo Permisos Personalizados'}
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="destructive"
+                      onClick={() => cleanAllPermissionsMutation.mutate()}
+                      disabled={cleanCustomPermissionsMutation.isPending || cleanAllPermissionsMutation.isPending}
+                      className="w-full"
+                    >
+                      {cleanAllPermissionsMutation.isPending ? 'Eliminando...' : 'Eliminar Todo (Roles + Permisos)'}
+                    </Button>
+
+                    <AlertDialogCancel className="w-full mt-0">Cancelar</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
 
           <Accordion type="multiple" className="space-y-3">

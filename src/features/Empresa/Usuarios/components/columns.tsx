@@ -21,7 +21,7 @@ import { useLoggedUserStore } from '@/store/loggedUser';
 import { ColumnDef } from '@tanstack/react-table';
 import { formatRelative } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -47,7 +47,7 @@ const RoleCell = ({ userId }: { userId: string }) => {
     return <span>-</span>;
   }
 
-  const { roles, customPermissionsCount } = data;
+  const { roles, customPermissionsCount, rolePermissionsCount } = data;
   const hasRole = roles && roles.length > 0;
   const hasCustomPermissions = customPermissionsCount > 0;
 
@@ -69,7 +69,7 @@ const RoleCell = ({ userId }: { userId: string }) => {
       <div className="flex items-center gap-2">
         <Badge
           variant="outline"
-          className="gap-1 pr-1.5"
+          className="gap-1"
           style={{
             backgroundColor: `${roleColor}15`,
             color: roleColor,
@@ -77,15 +77,20 @@ const RoleCell = ({ userId }: { userId: string }) => {
           }}
         >
           {roleName}
-          {hasCustomPermissions && (
-            <span
-              className="ml-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-background/50 px-1 text-[10px] font-medium"
-              title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
-            >
-              +{customPermissionsCount}
-            </span>
-          )}
         </Badge>
+        <Badge variant="outline" className="text-xs flex items-center gap-1">
+          <Shield className="h-3 w-3" />
+          {rolePermissionsCount}
+        </Badge>
+        {hasCustomPermissions && (
+          <Badge
+            variant="outline"
+            className="text-xs"
+            title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
+          >
+            +{customPermissionsCount}
+          </Badge>
+        )}
       </div>
     );
   }
@@ -95,7 +100,6 @@ const RoleCell = ({ userId }: { userId: string }) => {
     <div className="flex items-center gap-2">
       <Badge
         variant="outline"
-        className="gap-1 pr-1.5"
         style={{
           backgroundColor: '#64748B15',
           color: '#64748B',
@@ -103,12 +107,13 @@ const RoleCell = ({ userId }: { userId: string }) => {
         }}
       >
         Permisos personalizados
-        <span
-          className="ml-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-background/50 px-1 text-[10px] font-medium"
-          title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
-        >
-          {customPermissionsCount}
-        </span>
+      </Badge>
+      <Badge
+        variant="outline"
+        className="text-xs"
+        title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
+      >
+        {customPermissionsCount}
       </Badge>
     </div>
   );
@@ -129,6 +134,7 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
         </Link>
       );
     },
+    enableColumnFilter: true,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
@@ -144,7 +150,7 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
 
       return (
         <div className="flex space-x-2 items-center">
-          <Avatar className="">
+          <Avatar>
             <AvatarImage src={avatar} alt="Avatar" className="rounded-full object-cover" />
             <AvatarFallback>{email.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
@@ -152,18 +158,20 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
         </div>
       );
     },
+    enableColumnFilter: true,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
     exportFormatter: (value, row) => row.profile?.email || '',
   },
   {
-    accessorKey: 'roles.name',
-    id: 'role',
+    accessorKey: 'user_roles.roles.name',
+    id: 'user_roles.roles.name',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Rol" />,
     cell: ({ row }) => {
       return <RoleCell userId={row.original.profile?.id || ''} />;
     },
+    enableColumnFilter: true,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },

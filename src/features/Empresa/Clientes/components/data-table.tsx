@@ -339,7 +339,7 @@ export function DataTable<TData, TValue>({
                                       });
                                     }}
                                   >
-                                    <SelectTrigger className="">
+                                    <SelectTrigger>
                                       <SelectValue placeholder={header.column.columnDef.header as string} />
                                     </SelectTrigger>
                                     <SelectContent>

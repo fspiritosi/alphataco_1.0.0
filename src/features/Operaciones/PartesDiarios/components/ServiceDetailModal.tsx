@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { IdCardIcon } from '@radix-ui/react-icons';
+import Cookies from 'js-cookie';
 import {
   Building2,
   Calendar,
@@ -59,7 +60,7 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
       day: 'numeric',
     });
   };
-
+  console.log(serviceData);
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -125,9 +126,44 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex items-center gap-2 text-sm text-amber-700">
                     <span className="font-medium">Número de Pedido:</span>
-                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
-                      {(serviceData.preparte as any).numero_pedido || 'Sin número'}
-                    </Badge>
+                    <Link
+                      href="/dashboard/operations?tab=preparte"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        const numeroPedido = (serviceData.preparte as any).numero_pedido || 'Sin número';
+
+                        // Setear localStorage
+                        const tableFilters = {
+                          columnFilters: [
+                            {
+                              id: 'numero_pedido',
+                              value: [numeroPedido],
+                              type: 'faceted',
+                              title: 'numero_pedido',
+                            },
+                          ],
+                          sorting: [],
+                          pagination: {
+                            pageIndex: 0,
+                            pageSize: 10,
+                          },
+                          columnVisibility: {},
+                        };
+                        localStorage.setItem('table-filters-preparte-table', JSON.stringify(tableFilters));
+
+                        // Setear cookie usando js-cookie
+                        Cookies.set('preparte-table-filters', JSON.stringify(['numero_pedido']), { path: '/' });
+                      }}
+                    >
+                      <Badge
+                        variant="outline"
+                        className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 cursor-pointer transition-colors"
+                      >
+                        {(serviceData.preparte as any).numero_pedido || 'Sin número'}
+                        <ExternalLinkIcon className="h-3 w-3 ml-1 inline" />
+                      </Badge>
+                    </Link>
                   </div>
                 </div>
               </div>

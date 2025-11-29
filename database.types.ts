@@ -1699,6 +1699,7 @@ export type Database = {
           company_id: string | null;
           company_position: string | null;
           cost_center_id: string | null;
+          cost_type: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id: string | null;
           created_at: string;
           cuil: string;
@@ -1740,6 +1741,7 @@ export type Database = {
           company_id?: string | null;
           company_position?: string | null;
           cost_center_id?: string | null;
+          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id?: string | null;
           created_at?: string;
           cuil: string;
@@ -1781,6 +1783,7 @@ export type Database = {
           company_id?: string | null;
           company_position?: string | null;
           cost_center_id?: string | null;
+          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id?: string | null;
           created_at?: string;
           cuil?: string;
@@ -3514,6 +3517,7 @@ export type Database = {
           contract_number: string | null;
           contract_start_date: string | null;
           cost_center_id: string | null;
+          cost_type: Database['public']['Enums']['cost_type_enum'] | null;
           created_at: string;
           currency: Database['public']['Enums']['currency_enum'] | null;
           domain: string | null;
@@ -3527,6 +3531,7 @@ export type Database = {
           picture: string | null;
           price: number | null;
           reason_for_termination: Database['public']['Enums']['termination_reason_enum'] | null;
+          sector: string | null;
           serie: string | null;
           status: Database['public']['Enums']['status_type'] | null;
           subType: string | null;
@@ -3548,6 +3553,7 @@ export type Database = {
           contract_number?: string | null;
           contract_start_date?: string | null;
           cost_center_id?: string | null;
+          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           created_at?: string;
           currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
@@ -3561,6 +3567,7 @@ export type Database = {
           picture?: string | null;
           price?: number | null;
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
+          sector?: string | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
           subType?: string | null;
@@ -3582,6 +3589,7 @@ export type Database = {
           contract_number?: string | null;
           contract_start_date?: string | null;
           cost_center_id?: string | null;
+          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
           created_at?: string;
           currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
@@ -3595,6 +3603,7 @@ export type Database = {
           picture?: string | null;
           price?: number | null;
           reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
+          sector?: string | null;
           serie?: string | null;
           status?: Database['public']['Enums']['status_type'] | null;
           subType?: string | null;
@@ -3647,6 +3656,13 @@ export type Database = {
             columns: ['owner_id'];
             isOneToOne: false;
             referencedRelation: 'equipment_owners';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'vehicles_sector_fkey';
+            columns: ['sector'];
+            isOneToOne: false;
+            referencedRelation: 'hierarchy';
             referencedColumns: ['id'];
           },
           {
@@ -3832,6 +3848,15 @@ export type Database = {
             };
             Returns: Json;
           };
+      check_multiple_permissions: {
+        Args: { p_permissions: Json; p_user_id: string };
+        Returns: {
+          action_slug: string;
+          has_permission: boolean;
+          module_slug: string;
+          tab_slug: string;
+        }[];
+      };
       collect_daily_indicators: {
         Args: {
           p_company_id: string;
@@ -3903,6 +3928,7 @@ export type Database = {
           company_id: string | null;
           company_position: string | null;
           cost_center_id: string | null;
+          cost_type: Database['public']['Enums']['cost_type_enum'] | null;
           covenants_id: string | null;
           created_at: string;
           cuil: string;
@@ -4229,6 +4255,7 @@ export type Database = {
       condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
       contract_type_enum: 'Leasing' | 'Alquiler' | 'Prendado';
       contract_type_vehicles_enum: 'Leasing' | 'Alquiler' | 'Propio' | 'Prendado';
+      cost_type_enum: 'Directo' | 'Indirecto';
       currency_enum: 'USD' | 'EUR' | 'GBP' | 'ARS';
       daily_report_header_status_new: 'abierto' | 'cerrado' | 'cerrado_completo' | 'cerrado_incompleto';
       daily_report_status:
@@ -4418,6 +4445,7 @@ export const Constants = {
       condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
       contract_type_enum: ['Leasing', 'Alquiler', 'Prendado'],
       contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio', 'Prendado'],
+      cost_type_enum: ['Directo', 'Indirecto'],
       currency_enum: ['USD', 'EUR', 'GBP', 'ARS'],
       daily_report_header_status_new: ['abierto', 'cerrado', 'cerrado_completo', 'cerrado_incompleto'],
       daily_report_status: [

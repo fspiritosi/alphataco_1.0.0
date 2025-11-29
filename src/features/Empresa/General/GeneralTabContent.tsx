@@ -1,12 +1,13 @@
 import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
 import DocumentTabComponent from '@/components/DocumentTabComponent';
-import EditCompanyButton from '@/components/EditCompanyButton';
-import { RegisterWithRole } from '@/components/RegisterWithRole';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, DollarSign, FileText, Network, Users } from 'lucide-react';
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
+import { CreateUserModal } from '../Usuarios/components/create-user-modal';
 import CompanyComponent from './components/company/CompanyComponent';
 import CostCenterTab from './components/cost-center/CostCenterTab';
 import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
@@ -20,7 +21,7 @@ export default async function GeneralTabContent({
   const company_id = cookiesStore.get('actualComp')?.value;
 
   return (
-    <div className="px-6">
+    <div>
       <TabsManagerServer
         paramName="subtab"
         searchParams={searchParams}
@@ -43,7 +44,11 @@ export default async function GeneralTabContent({
                     <CardTitle>Empresa</CardTitle>
                     <CardDescription>Información de la empresa</CardDescription>
                   </div>
-                  <EditCompanyButton companyId={company_id?.toString() ?? ''} />
+                  {/* <EditCompanyButton companyId={company_id?.toString() ?? ''} /> */}
+                  <Link
+                    href={`/dashboard/company/${company_id?.toString()}`}
+                    className={buttonVariants({ variant: 'gh_orange' })}
+                  ></Link>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <CompanyComponent />
@@ -112,7 +117,7 @@ export default async function GeneralTabContent({
                     <CardTitle>Usuarios</CardTitle>
                     <CardDescription>Gestión de usuarios de la empresa</CardDescription>
                   </div>
-                  <RegisterWithRole />
+                  <CreateUserModal />
                 </CardHeader>
                 <CardContent className="pt-6">
                   <UsersTabComponent searchParams={searchParams} />

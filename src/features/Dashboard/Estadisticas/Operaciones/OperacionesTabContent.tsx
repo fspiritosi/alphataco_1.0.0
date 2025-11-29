@@ -6,7 +6,7 @@ export default async function OperacionesTabContent() {
   const dailyReports = await getDailyReportsLatest();
 
   return (
-    <section className="md:mx-7 grid grid-cols-1 mt-6 gap-3 mb-4">
+    <section className=" grid grid-cols-1 gap-3 mb-4">
       <ServicesHistory dailyReports={dailyReports} />
       <ChartBarServiceHistory dailyReports={dailyReports} />
     </section>

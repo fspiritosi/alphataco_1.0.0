@@ -45,6 +45,21 @@ revisar el guardado de indicadores que se esta duplicando
 👍En comercial solo se deben poder editar las lineas que tienen el parte cerrado, solo desde comercial
 👍Agregar un campo fecha
 👍controlar el cliente, es decir solo filtrar remitos del mismo cliente
+👍Agrear boton de crear empleado
+👍Manera de borrar todos los filtros
+👍El componente de tabs no hay veces que dice son roles
 
-Agrear boton de crear empleado
-Manera de borrar todos los filtros
+👍Agregar los filtros a la tabla de usuarios
+👍La tabla de usuarios tiene pegados los mismos usuarios siempre
+👍Mostrar un mejor mensaje al poner el mismo nombre en el role
+👍Mostrar un mejor mensaje al elimiar un role con usuarios asignados
+👍Serarar roles de sistemas por roles personalizados
+
+👍-Los roles de sistemas solo se pueden asignar, mantener a los botones en los roles personaliados
+👍-En los roles personalizados poner disbaled el de borrar si hay usuarios, y en rojo si se puede borrar
+👍Arreglar padding de las vistas
+👍Agregar boton de equipos, crar equipo
+👍Empleados /diagramas / diagramas cargados el componente le falta el fondo
+👍arreglar el label de la linea
+
+Usar el componente de tabs en el detalle del empleado y equipo, argregarlo al tema de roles

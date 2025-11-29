@@ -446,9 +446,7 @@ const ServiceTable = ({
                         Items del Servicio
                       </TabsTrigger>
                     </TabsList>
-                    <Button onClick={() => setOpenDetail(false)} className="">
-                      Cerrar
-                    </Button>
+                    <Button onClick={() => setOpenDetail(false)}>Cerrar</Button>
                   </div>
                   <TabsContent value="detail">
                     <ServicesForm

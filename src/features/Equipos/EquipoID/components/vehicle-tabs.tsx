@@ -35,6 +35,8 @@ export type VehicleFormData = {
   picture?: string | null;
   allocated_to?: string[];
   cost_center_id?: string | null;
+  cost_type: 'Directo' | 'Indirecto';
+  sector: string;
   type_of_contract?: string | null;
   contract_expiration_date?: Date | null;
   contract_start_date?: Date | null;
@@ -53,6 +55,7 @@ interface VehicleTabsProps {
   typesOfVehiclesPromise: ReturnType<typeof getTypesOfVehicles>;
   contractorsPromise: ReturnType<typeof fetchAllContractorForVehicles>;
   costCentersPromise: ReturnType<typeof fetchAllCostCenters>;
+  hierarchicalPositionsPromise: Promise<Array<{ id: string; name: string }>>;
   documentsComponent?: React.ReactNode;
   repairsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;
@@ -71,6 +74,7 @@ export function VehicleTabs({
   typesOfVehiclesPromise,
   contractorsPromise,
   costCentersPromise,
+  hierarchicalPositionsPromise,
   documentsComponent,
   qrComponent,
   repairsComponent,
@@ -110,7 +114,7 @@ export function VehicleTabs({
       'contract_start_date',
     ];
     // const technicalDataFields = ['engine', 'type', 'subType', 'chassis', 'serie', 'domain'];
-    const assignmentDataFields = ['allocated_to', 'cost_center_id'];
+    const assignmentDataFields = ['allocated_to', 'cost_center_id', 'cost_type', 'sector'];
 
     const basicDataErrors = basicDataFields.some(
       (field) => form.formState.errors[field as keyof typeof form.formState.errors]
@@ -176,6 +180,7 @@ export function VehicleTabs({
             <VehicleAssignmentDataForm
               contractorsPromise={contractorsPromise}
               costCentersPromise={costCentersPromise}
+              hierarchicalPositionsPromise={hierarchicalPositionsPromise}
               form={form}
               readOnly={readOnly}
             />

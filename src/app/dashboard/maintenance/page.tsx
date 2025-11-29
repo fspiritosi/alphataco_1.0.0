@@ -27,7 +27,7 @@ export default function MantenimientoPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return (
-    <div className="px-6">
+    <div>
       <RepairTypes mechanic searchParams={searchParams} moduleSlug="mantenimiento" />
     </div>
   );

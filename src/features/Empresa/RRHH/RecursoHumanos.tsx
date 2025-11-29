@@ -31,7 +31,7 @@
 //           <TabsTrigger value="contract-types">Tipos de Contrato</TabsTrigger>
 //         </TabsList>
 
-//         <TabsContent value="contract-types" className="">
+//         <TabsContent value="contract-types"  >
 //           <ContractTypesTab
 //             savedFilter={savedFilter ? JSON.parse(savedFilter) : []}
 //             allContractTypes={allContractTypes}

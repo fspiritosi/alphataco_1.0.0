@@ -469,7 +469,7 @@ export function DiagramForm({
           </Card>
         )}
         {succesDiagrams?.length > 0 && (
-          <Card className="">
+          <Card>
             <CardHeader>
               <CardTitle>Diagramas correctos</CardTitle>
             </CardHeader>

@@ -12,7 +12,7 @@ export default function DocumentacionComponent({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   return (
-    <div className="px-6">
+    <div className="">
       <TabsManagerServer
         paramName="tab"
         searchParams={searchParams}
