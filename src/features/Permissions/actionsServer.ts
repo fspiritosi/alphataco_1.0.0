@@ -1,6 +1,7 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
+import { PERMISSIONS, type ModuleSlug } from './permissions-map';
 
 /**
  * Server Actions para verificación de permisos
@@ -175,6 +176,60 @@ export async function checkPermissionServer(moduleSlug: string, tabSlug: string,
   }
 
   return data || false;
+}
+
+/**
+ * Verifica si el usuario puede ver un tab con lógica de visibilidad inferida (server-side)
+ *
+ * Si el usuario no tiene permiso explícito de 'view', verifica si tiene acceso a alguna subtab.
+ * Esto permite que tabs padre sean visibles si el usuario tiene acceso a alguna de sus subtabs.
+ *
+ * @param moduleSlug - Slug del módulo
+ * @param tabSlug - Slug del tab
+ * @returns true si el usuario puede ver el tab (explícito o inferido)
+ */
+export async function canViewServer(moduleSlug: string, tabSlug: string): Promise<boolean> {
+  // 1. Verificar permiso explícito de 'view'
+  const hasExplicitView = await checkPermissionServer(moduleSlug, tabSlug, 'view');
+  if (hasExplicitView) return true;
+
+  // 2. Verificar visibilidad inferida (si tiene acceso a alguna subtab)
+  const moduleDef = PERMISSIONS[moduleSlug as ModuleSlug];
+  if (!moduleDef) return false;
+
+  // Helper para encontrar la definición del tab
+  const findTabDef = (tabs: any): any => {
+    if (tabs[tabSlug]) return tabs[tabSlug];
+    for (const key in tabs) {
+      if (tabs[key].subtabs) {
+        const found = findTabDef(tabs[key].subtabs);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const tabDef = findTabDef(moduleDef.tabs);
+  if (!tabDef || !tabDef.subtabs) return false;
+
+  // Helper para verificar si alguna subtab tiene permiso de 'view'
+  const hasAnySubtabPermission = async (subtabs: any): Promise<boolean> => {
+    for (const key in subtabs) {
+      const subtab = subtabs[key];
+      // Verificar si esta subtab tiene permiso de 'view'
+      const hasView = await checkPermissionServer(moduleSlug, subtab.slug, 'view');
+      if (hasView) return true;
+
+      // Recursivamente verificar sus subtabs
+      if (subtab.subtabs) {
+        const hasSubView = await hasAnySubtabPermission(subtab.subtabs);
+        if (hasSubView) return true;
+      }
+    }
+    return false;
+  };
+
+  return await hasAnySubtabPermission(tabDef.subtabs);
 }
 
 /**

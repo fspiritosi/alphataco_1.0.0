@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Cliente } from '@/features/Operaciones/Preparte/components/PreparteManager';
+import { PermissionGuard } from '@/features/Permissions';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
@@ -556,7 +557,7 @@ const getColumns = (
           </TooltipProvider>
 
           {isPending && (
-            <>
+            <PermissionGuard module="operaciones" tab="preparte" action="update">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -569,7 +570,7 @@ const getColumns = (
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            </>
+            </PermissionGuard>
           )}
 
           <TooltipProvider>

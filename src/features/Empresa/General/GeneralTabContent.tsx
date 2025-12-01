@@ -2,6 +2,7 @@ import TypesDocumentAction from '@/app/dashboard/document/documentComponents/Typ
 import DocumentTabComponent from '@/components/DocumentTabComponent';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, DollarSign, FileText, Network, Users } from 'lucide-react';
 import { cookies } from 'next/headers';
@@ -111,18 +112,12 @@ export default async function GeneralTabContent({
             moduleSlug: 'empresa',
             tabSlug: 'users',
             content: (
-              <Card>
-                <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
-                  <div className="flex-1">
-                    <CardTitle>Usuarios</CardTitle>
-                    <CardDescription>Gestión de usuarios de la empresa</CardDescription>
-                  </div>
+              <div>
+                <PermissionGuardServer module="empresa" tab="usuarios-empleados" action="create">
                   <CreateUserModal />
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <UsersTabComponent searchParams={searchParams} />
-                </CardContent>
-              </Card>
+                </PermissionGuardServer>
+                <UsersTabComponent searchParams={searchParams} />
+              </div>
             ),
           },
           {
@@ -136,20 +131,12 @@ export default async function GeneralTabContent({
             moduleSlug: 'empresa',
             tabSlug: 'documentacion',
             content: (
-              <Card>
-                <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
-                  <div className="flex-1">
-                    <CardTitle>Documentos empresa</CardTitle>
-                    <CardDescription>Documentos a nombre de la empresa</CardDescription>
-                  </div>
-                  <div className="flex gap-4 flex-wrap">
-                    <TypesDocumentAction optionChildrenProp="Empresa" />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <DocumentTabComponent />
-                </CardContent>
-              </Card>
+              <div className="">
+                <PermissionGuardServer module="empresa" tab="documentacion" action="create">
+                  <TypesDocumentAction optionChildrenProp="Empresa" />
+                </PermissionGuardServer>
+                <DocumentTabComponent />
+              </div>
             ),
           },
         ]}

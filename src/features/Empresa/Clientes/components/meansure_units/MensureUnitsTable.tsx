@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { PencilIcon, TrashIcon } from 'lucide-react';
@@ -67,6 +68,9 @@ function MensureUnitsTable({ units, setSelectedUnit, setMode, savedVisibility, s
     }
   };
 
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('comercial', 'mensure_units', 'update');
+
   // Definir las columnas de la tabla
   const columns: ColumnDef<Awaited<ReturnType<typeof fetchMeasureUnits>>[number]>[] = [
     {
@@ -93,7 +97,11 @@ function MensureUnitsTable({ units, setSelectedUnit, setMode, savedVisibility, s
         return value.includes(row.getValue(id));
       },
     },
-    {
+  ];
+
+  // Conditionally add actions column
+  if (canEdit) {
+    columns.push({
       id: 'actions',
       cell: ({ row }) => {
         const unit = row.original;
@@ -108,8 +116,9 @@ function MensureUnitsTable({ units, setSelectedUnit, setMode, savedVisibility, s
           </div>
         );
       },
-    },
-  ];
+    });
+  }
+
   const simbols = createFilterOptions(units, (unit) => unit.simbol);
   const unitsOptions = createFilterOptions(units, (unit) => unit.unit);
   const types = createFilterOptions(units, (unit) => unit.tipo);

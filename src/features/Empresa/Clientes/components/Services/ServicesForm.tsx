@@ -7,6 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { handleServiceSubmit, handleServiceUpdate } from '@/features/Empresa/Clientes/actions/services';
+import { PermissionGuard } from '@/features/Permissions';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -472,7 +473,9 @@ export default function ServicesForm({
       {/* {view && ( */}
       {editingService && (
         <div className="flex justify-end space-x-4 mr-2">
-          <Button onClick={() => setView(!view)}>{view ? 'Habilitar Edicion' : 'Ver'}</Button>
+          <PermissionGuard module="comercial" tab="detalle-contrato" action="update">
+            <Button onClick={() => setView(!view)}>{view ? 'Habilitar Edicion' : 'Ver'}</Button>
+          </PermissionGuard>
 
           {/* <Link href="/dashboard/company/actualCompany?tab=comerce&subtab=service">
               <Button>Volver</Button>
@@ -744,9 +747,11 @@ export default function ServicesForm({
                   </FormItem>
                 )}
               />
-              <Button disabled={view} className="mt-4" type="submit" variant={'gh_orange'}>
-                {isEditing ? 'Editar' : 'Crear'}
-              </Button>
+              <PermissionGuard module="comercial" tab="detalle-contrato" action="update">
+                <Button disabled={view} className="mt-4" type="submit" variant={'gh_orange'}>
+                  {isEditing ? 'Editar' : 'Crear'}
+                </Button>
+              </PermissionGuard>
               <Button disabled={view} className="mt-4 ml-2" type="button" onClick={handleCancel} variant={'outline'}>
                 Cancelar
               </Button>

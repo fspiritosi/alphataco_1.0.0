@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { PermissionGuard } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -407,11 +408,13 @@ const ServiceTable = ({
               }}
             >
               <DialogTrigger asChild>
-                {hideCreateButton && (
-                  <Button size="sm" variant="gh_orange" className="mb-4" onClick={handleOpen}>
-                    Crear Contrato
-                  </Button>
-                )}
+                <PermissionGuard module="comercial" tab="service" action="create">
+                  {hideCreateButton && (
+                    <Button size="sm" variant="gh_orange" className="mb-4" onClick={handleOpen}>
+                      Crear Contrato
+                    </Button>
+                  )}
+                </PermissionGuard>
               </DialogTrigger>
               <DialogContent className="max-w-4xl">
                 <DialogTitle>Crear Contrato</DialogTitle>

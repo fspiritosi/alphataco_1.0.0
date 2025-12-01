@@ -67,7 +67,7 @@ export default function DocumentacionComponent({
             tabSlug: 'tipos-de-documentos',
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TypesDocumentsViewWrapper optionChildrenProp="all" equipos={true} empresa={true} personas={true} />
+                <TypesDocumentsViewWrapper optionChildrenProp="all" equipos={true} personas={true} />
               </Suspense>
             ),
           },

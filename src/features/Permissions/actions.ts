@@ -13,6 +13,14 @@ export interface ModuleWithTabs extends Module {
  * Obtiene todos los módulos con sus tabs y acciones disponibles
  * Estructura jerárquica: Módulos > Tabs principales > Subtabs > Acciones
  */
+import { PERMISSIONS, type ModuleSlug } from './permissions-map';
+
+// ... (existing types)
+
+/**
+ * Obtiene todos los módulos con sus tabs y acciones disponibles
+ * Estructura jerárquica: Módulos > Tabs principales > Subtabs > Acciones
+ */
 export async function getModulesWithTabs() {
   const supabase = supabaseBrowser();
 
@@ -26,21 +34,57 @@ export async function getModulesWithTabs() {
   const allTabs = tabsResult.data || [];
   const actions = actionsResult.data || [];
 
+  // Helper para encontrar la definición del tab en PERMISSIONS
+  const findTabDefinition = (moduleSlug: string, tabSlug: string) => {
+    const moduleDef = PERMISSIONS[moduleSlug as ModuleSlug];
+    if (!moduleDef) return null;
+
+    // Buscar en tabs principales
+    const tabDef = moduleDef.tabs[tabSlug as keyof typeof moduleDef.tabs];
+    if (tabDef) return tabDef;
+
+    // Buscar en subtabs (nivel 2)
+    for (const t of Object.values(moduleDef.tabs)) {
+      if ((t as any).subtabs && (t as any).subtabs[tabSlug]) {
+        return (t as any).subtabs[tabSlug];
+      }
+      // Buscar en subtabs (nivel 3)
+      if ((t as any).subtabs) {
+        for (const st of Object.values((t as any).subtabs)) {
+          if ((st as any).subtabs && (st as any).subtabs[tabSlug]) {
+            return (st as any).subtabs[tabSlug];
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   // Función recursiva para construir la jerarquía de tabs
-  const buildTabHierarchy = (parentId: string | null, moduleId: string): any[] => {
+  const buildTabHierarchy = (parentId: string | null, moduleId: string, moduleSlug: string): any[] => {
     return allTabs
       .filter((tab) => tab.module_id === moduleId && tab.parent_tab_id === parentId)
-      .map((tab) => ({
-        ...tab,
-        actions,
-        subtabs: buildTabHierarchy(tab.id, moduleId), // Recursivamente obtener subtabs
-      }));
+      .map((tab) => {
+        const tabDefinition = findTabDefinition(moduleSlug, tab.slug);
+
+        // Filtrar acciones si allowedActions está definido
+        let tabActions = actions;
+        if (tabDefinition && (tabDefinition as any).allowedActions) {
+          tabActions = actions.filter((action) => (tabDefinition as any).allowedActions.includes(action.slug));
+        }
+
+        return {
+          ...tab,
+          actions: tabActions,
+          subtabs: buildTabHierarchy(tab.id, moduleId, moduleSlug), // Recursivamente obtener subtabs
+        };
+      });
   };
 
   // Construir estructura jerárquica
   return modules.map((module) => ({
     ...module,
-    tabs: buildTabHierarchy(null, module.id), // Solo tabs principales (parent_tab_id = null)
+    tabs: buildTabHierarchy(null, module.id, module.slug!), // Solo tabs principales (parent_tab_id = null)
   }));
 }
 export type getModulesWithTabsType = Awaited<ReturnType<typeof getModulesWithTabs>>;

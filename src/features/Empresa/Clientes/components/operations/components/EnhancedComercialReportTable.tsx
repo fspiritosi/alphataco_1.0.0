@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
 import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/components/ServiceDetailModal';
 import { RemitosManagerModal } from '@/features/Operaciones/PartesDiarios/remitManager';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -359,27 +360,29 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           return (
             <div className="flex space-x-2">
               {onEdit && !isEnCertificacion && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Button
-                        disabled={isDailyReportOpen}
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEdit(row.original as TableRow)}
-                      >
-                        <Edit size={16} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isDailyReportOpen ? (
-                        <p>El parte esta abierto, debe editarse desde Operaciones</p>
-                      ) : (
-                        <p>Editar</p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <PermissionGuard module="comercial" tab="daily_reports" action="update">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Button
+                          disabled={isDailyReportOpen}
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onEdit(row.original as TableRow)}
+                        >
+                          <Edit size={16} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isDailyReportOpen ? (
+                          <p>El parte esta abierto, debe editarse desde Operaciones</p>
+                        ) : (
+                          <p>Editar</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </PermissionGuard>
               )}
               {onView && (
                 <TooltipProvider>

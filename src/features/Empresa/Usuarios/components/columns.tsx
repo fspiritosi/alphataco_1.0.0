@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -231,28 +232,34 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
         router.refresh();
       };
       return (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant={'destructive'}>Eliminar</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar eliminación de la empresa</AlertDialogTitle>
-              <AlertDialogDescription>Este usuario dejara de tener acceso a la empresa</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <Button onClick={handleDelete} variant={'destructive'}>
-                  Eliminar
-                </Button>
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <PermissionGuard module="empresa" tab="usuarios-empleados" action="delete">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant={'destructive'}>Eliminar</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar eliminación de la empresa</AlertDialogTitle>
+                <AlertDialogDescription>Este usuario dejara de tener acceso a la empresa</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <Button onClick={handleDelete} variant={'destructive'}>
+                    Eliminar
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
       );
     },
-    header: () => 'Eliminar',
+    header: () => (
+      <PermissionGuard module="empresa" tab="usuarios-empleados" action="delete">
+        Eliminar
+      </PermissionGuard>
+    ),
     excludeFromExport: true,
   },
 ];

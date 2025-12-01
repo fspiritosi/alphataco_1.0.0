@@ -41,8 +41,8 @@ export default async function DocumentosEmpresaTabContent({
               Documentos Permanentes
             </span>
           ),
-          moduleSlug: 'documentacion',
-          tabSlug: 'empresa-permanentes',
+          moduleSlug: 'empresa',
+          tabSlug: 'documentacion',
           content: (
             <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
               <EmpresaPermanentesWrapper companyData={companyData || []} />
@@ -57,8 +57,8 @@ export default async function DocumentosEmpresaTabContent({
               Documentos Mensuales
             </span>
           ),
-          moduleSlug: 'documentacion',
-          tabSlug: 'empresa-mensuales',
+          moduleSlug: 'empresa',
+          tabSlug: 'documentacion',
           content: (
             <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
               <EmpresaMensualesWrapper companyData={companyData || []} />

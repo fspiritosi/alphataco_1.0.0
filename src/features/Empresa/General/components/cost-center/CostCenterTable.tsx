@@ -3,14 +3,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { VerActivosButton } from '@/features/Empresa/RRHH/components/verActivosButton';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { use, useState } from 'react';
 import { useCostCenterStore } from './store/costCenter.store';
 
-export function getCostCenterColumns(onEdit: (costCenter: CostCenter) => void): ColumnDef<CostCenter>[] {
-  return [
+export function getCostCenterColumns(
+  onEdit: (costCenter: CostCenter) => void,
+  canEdit: boolean
+): ColumnDef<CostCenter>[] {
+  const columns: ColumnDef<CostCenter>[] = [
     {
       accessorKey: 'name',
       id: 'Nombre',
@@ -31,7 +35,10 @@ export function getCostCenterColumns(onEdit: (costCenter: CostCenter) => void): 
         </Badge>
       ),
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
@@ -40,8 +47,10 @@ export function getCostCenterColumns(onEdit: (costCenter: CostCenter) => void): 
         </Button>
       ),
       enableSorting: false,
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 export function CostCenterTable({
@@ -58,6 +67,8 @@ export function CostCenterTable({
   const costCentersData = use(costCenters);
   const onEdit = useCostCenterStore((state) => state.setCostCenter);
   const [filteredData, setFilteredData] = useState<CostCenter[]>(costCentersData);
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('empresa', 'cost-center', 'update');
 
   const names = createFilterOptions(
     filteredData,
@@ -73,7 +84,7 @@ export function CostCenterTable({
       <div className="overflow-x-auto max-h-96 overflow-y-auto w-full">
         <BaseDataTable
           savedVisibility={savedVisibility}
-          columns={getCostCenterColumns(onEdit)}
+          columns={getCostCenterColumns(onEdit, canEdit)}
           data={filteredData}
           tableId="cost-center-table"
           toolbarOptions={{

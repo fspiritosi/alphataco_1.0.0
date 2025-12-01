@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { VerActivosButton } from '@/features/Empresa/RRHH/components/verActivosButton';
+import { usePermissions } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -21,7 +22,8 @@ interface PositionsTableProps {
 }
 
 export function getPositionsColumns(
-  onEdit: (position: PositionsTableProps['positions'][number]) => void
+  onEdit: (position: PositionsTableProps['positions'][number]) => void,
+  canEdit: boolean
 ): ColumnDef<PositionsTableProps['positions'][number]>[] {
   return [
     {
@@ -95,11 +97,12 @@ export function getPositionsColumns(
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -143,6 +146,9 @@ function PositionsTable({
   const name = createFilterOptions(positions, (position) => position.name);
   const positionsOptions = createFilterOptions(allPositions, (name) => name);
 
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission('empresa', 'positions', 'update');
+
   return (
     <div className="ml-4">
       <div className="flex justify-between">
@@ -151,101 +157,10 @@ function PositionsTable({
           <VerActivosButton data={positions} filterKey="is_active" onFilteredChange={setFilteredData} />
         </div>
       </div>
-      {/* <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Puestos</TableHead>
-            <TableHead>Aptitudes</TableHead>
-            <TableHead>Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredData?.length > 0 ? (
-            filteredData.map((position) => (
-              <TableRow key={position.id}>
-                <TableCell>{position.name}</TableCell>
-                <TableCell>
-                  <Badge variant={position.is_active ? 'success' : 'destructive'}>
-                    {position.is_active ? 'Activo' : 'Inactivo'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="truncate max-w-[200px] cursor-pointer">
-                          <Badge>
-                            {hierarchicalPositions.find((h) => h.id === position?.hierarchical_position_id?.[0])
-                              ?.name || '-'}
-                            {(position?.hierarchical_position_id?.length||0) > 1 &&
-                              ` +${((position?.hierarchical_position_id?.length||0)) - 1}`}
-                          </Badge>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="flex flex-col ">
-                          {hierarchicalPositions
-                            .filter((h) => position?.hierarchical_position_id?.includes(h.id))
-                            .map((hierarchicalPosition) => (
-                              <span key={hierarchicalPosition.id}>{hierarchicalPosition.name}</span>
-                            ))}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </TableCell>
-                <TableCell>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="truncate max-w-[200px] cursor-pointer">
-                          <Badge>
-                            {position.aptitudes?.[0]?.nombre || 'No hay aptitudes asignadas'}
-                            {position.aptitudes?.length &&
-                              position.aptitudes.length > 1 &&
-                              ` +${position.aptitudes.length - 1}`}
-                          </Badge>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="flex flex-col gap-1">
-                          {position.aptitudes?.map((aptitude: any, index: number) => (
-                            <span key={`${aptitude.id}-${index}`}>{aptitude.nombre}</span>
-                          )) || <span>No hay aptitudes asignadas</span>}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    variant="link"
-                    className="hover:text-blue-400"
-                    onClick={() => {
-                      setMode('edit'), setSelectedPosition(position);
-                    }}
-                  >
-                    Editar
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-4">
-                No hay tipos de Posiciones {mode === 'create' ? 'activos' : 'inactivos'} disponibles
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table> */}
 
       <BaseDataTable
         className="mt-4"
-        columns={getPositionsColumns(handleEdit)}
+        columns={getPositionsColumns(handleEdit, canUpdate)}
         data={formattedData as any}
         savedVisibility={savedVisibility}
         tableId="positions-table"

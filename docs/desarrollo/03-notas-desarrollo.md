@@ -63,3 +63,76 @@ revisar el guardado de indicadores que se esta duplicando
 👍arreglar el label de la linea
 
 Usar el componente de tabs en el detalle del empleado y equipo, argregarlo al tema de roles
+
+INSERT INTO public.tabs
+(id, module_id, slug, name, description, order_index, parent_tab_id)
+VALUES
+('20000000-0000-0000-0000-000000000041',
+'3c54a757-162c-4afc-8ea5-dca462f92e0c',
+'tipos-docs-personas',
+'Personas',
+'Sub‑tab de tipos de documentos para personas',
+1,
+'20000000-0000-0000-0000-000000000004'),
+
+    ('20000000-0000-0000-0000-000000000042',
+     '3c54a757-162c-4afc-8ea5-dca462f92e0c',
+     'tipos-docs-equipos',
+     'Equipos',
+     'Sub‑tab de tipos de documentos para equipos',
+     2,
+     '20000000-0000-0000-0000-000000000004'),
+
+    ('20000000-0000-0000-0000-000000000043',
+     '3c54a757-162c-4afc-8ea5-dca462f92e0c',
+     'tipos-docs-empresa',
+     'Empresa',
+     'Sub‑tab de tipos de documentos para la empresa',
+     3,
+     '20000000-0000-0000-0000-000000000004')
+
+ON CONFLICT (module_id, slug) DO NOTHING;
+
+-- Eliminar las subtabs de equipos y empresa del módulo empleados
+DELETE FROM tabs
+WHERE id IN (
+'20000000-0000-0000-0000-000000000042', -- tipos-docs-equipos
+'20000000-0000-0000-0000-000000000043' -- tipos-docs-empresa
+);
+
+-- Subtabs para Clientes (4 subtabs)
+INSERT INTO public.tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('40000000-0000-0000-0000-000000000111', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'detalle-cliente', 'Detalle', 'Detalle del cliente', 1, '40000000-0000-0000-0000-000000000011'),
+('40000000-0000-0000-0000-000000000112', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'empleados-cliente', 'Empleados', 'Empleados del cliente', 2, '40000000-0000-0000-0000-000000000011'),
+('40000000-0000-0000-0000-000000000113', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'equipos-cliente', 'Equipos', 'Equipos del cliente', 3, '40000000-0000-0000-0000-000000000011'),
+('40000000-0000-0000-0000-000000000114', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'contratos-cliente', 'Contratos', 'Contratos del cliente', 4, '40000000-0000-0000-0000-000000000011')
+ON CONFLICT (id) DO NOTHING;
+
+-- Subtabs para Contratos/Servicios (3 subtabs)
+INSERT INTO public.tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('40000000-0000-0000-0000-000000000151', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'detalle-contrato', 'Detalle', 'Detalle del contrato', 1, '40000000-0000-0000-0000-000000000015'),
+('40000000-0000-0000-0000-000000000152', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'documentos-contrato', 'Documentos', 'Documentos del contrato', 2, '40000000-0000-0000-0000-000000000015'),
+('40000000-0000-0000-0000-000000000153', '92bfac14-dc5b-41be-b366-740bfbeaea13', 'items-contrato', 'Items del Servicio', 'Items del servicio/contrato', 3, '40000000-0000-0000-0000-000000000015')
+ON CONFLICT (id) DO NOTHING;
+
+-- Agregar subtabs para tipos-de-documentos en el módulo Documentación
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('50000000-0000-0000-0000-000000000041', '4783f7df-3580-4f54-bf8f-6ef7f252d038', 'tipos-docs-personas', 'Personas', 'Tipos de documentos de personas', 1, '50000000-0000-0000-0000-000000000004'),
+('50000000-0000-0000-0000-000000000042', '4783f7df-3580-4f54-bf8f-6ef7f252d038', 'tipos-docs-equipos', 'Equipos', 'Tipos de documentos de equipos', 2, '50000000-0000-0000-0000-000000000004')
+ON CONFLICT (id) DO NOTHING;
+
+-- Eliminar todas las subtabs del módulo Documentación
+DELETE FROM tabs WHERE id IN (
+-- Empleados
+'50000000-0000-0000-0000-000000000011',
+'50000000-0000-0000-0000-000000000012',
+-- Equipos
+'50000000-0000-0000-0000-000000000021',
+'50000000-0000-0000-0000-000000000022',
+-- Empresa
+'50000000-0000-0000-0000-000000000031',
+'50000000-0000-0000-0000-000000000032',
+-- Tipos de documentos
+'50000000-0000-0000-0000-000000000041',
+'50000000-0000-0000-0000-000000000042'
+);

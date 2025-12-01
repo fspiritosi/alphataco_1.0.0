@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { VerActivosButton } from '@/features/Empresa/RRHH/components/verActivosButton';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -13,8 +14,8 @@ interface Sector {
   is_active: boolean;
 }
 
-export function getOrganigramColumns(onEdit: (sector: Sector) => void): ColumnDef<Sector>[] {
-  return [
+export function getOrganigramColumns(onEdit: (sector: Sector) => void, canEdit: boolean): ColumnDef<Sector>[] {
+  const columns: ColumnDef<Sector>[] = [
     {
       accessorKey: 'name',
       id: 'Nombre',
@@ -34,7 +35,10 @@ export function getOrganigramColumns(onEdit: (sector: Sector) => void): ColumnDe
         </Badge>
       ),
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
@@ -43,8 +47,10 @@ export function getOrganigramColumns(onEdit: (sector: Sector) => void): ColumnDe
         </Button>
       ),
       enableSorting: false,
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 export function OrganigramTable({
@@ -59,6 +65,8 @@ export function OrganigramTable({
   savedFilter: string[];
 }) {
   const [filteredData, setFilteredData] = useState<Sector[]>(sectors);
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('empresa', 'organigrama', 'update');
 
   const names = createFilterOptions(filteredData, (sector) => sector.name);
 
@@ -71,7 +79,7 @@ export function OrganigramTable({
       <div>
         <BaseDataTable
           savedVisibility={savedVisibility}
-          columns={getOrganigramColumns(onEdit)}
+          columns={getOrganigramColumns(onEdit, canEdit)}
           data={filteredData}
           tableId="organigram-table"
           toolbarOptions={{

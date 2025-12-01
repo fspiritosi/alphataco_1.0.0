@@ -2,8 +2,8 @@
 import { fetchAllContractorForVehicles } from '@/app/dashboard/employee/action/actions/actions';
 import { VehicleById } from '@/app/dashboard/equipment/action/page';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import { useEffect, useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { VehicleAssignmentDataForm } from '../forms/vehicle-assignment-data-form';
@@ -133,73 +133,88 @@ export function VehicleTabs({
     });
   }, [form.formState.errors]);
 
-  return (
-    <div className="p-2">
-      <Tabs defaultValue="basicData" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="basicData" className="relative">
-            Datos Básicos
-            {errors?.basicData && <Badge variant="destructive" className="ml-2 h-2 w-2 p-0" />}
-          </TabsTrigger>
-          <TabsTrigger value="assignmentData" className="relative">
-            Asignación
-            {errors?.assignmentData && <Badge variant="destructive" className="ml-2 h-2 w-2 p-0" />}
-          </TabsTrigger>
-          <TabsTrigger value="documents" disabled={!showDocuments}>
-            Documentos
-          </TabsTrigger>
-          <TabsTrigger value="repairs" disabled={!showRepairs}>
-            Reparaciones
-          </TabsTrigger>
-          <TabsTrigger value="qr">QR</TabsTrigger>
-        </TabsList>
-
-        <div className="mt-6">
-          <TabsContent value="basicData" className="space-y-4">
-            <VehicleBasicDataForm
-              ownersPromise={ownersPromise}
-              brandsPromise={brandsPromise}
-              modelsPromise={modelsPromise}
-              typesPromise={typesPromise}
-              subTypesPromise={subTypesPromise}
-              typesOfVehiclesPromise={typesOfVehiclesPromise}
-              form={form}
-              readOnly={readOnly}
-            />
-          </TabsContent>
-          {/* <TabsContent value="technicalData" className="space-y-4">
-            <VehicleTechnicalDataForm
-              typesPromise={typesPromise}
-              subTypesPromise={subTypesPromise}
-              typesOfVehiclesPromise={typesOfVehiclesPromise}
-              form={form}
-              readOnly={readOnly}
-            />
-          </TabsContent> */}
-          <TabsContent value="assignmentData" className="space-y-4">
-            <VehicleAssignmentDataForm
-              contractorsPromise={contractorsPromise}
-              costCentersPromise={costCentersPromise}
-              hierarchicalPositionsPromise={hierarchicalPositionsPromise}
-              form={form}
-              readOnly={readOnly}
-            />
-          </TabsContent>
-          {showDocuments && (
-            <TabsContent value="documents" className="space-y-4">
-              {documentsComponent}
-            </TabsContent>
-          )}
-          {showRepairs && (
-            <TabsContent value="repairs" className="space-y-4">
-              {repairsComponent}
-            </TabsContent>
-          )}
-          <TabsContent value="qr" className="space-y-4">
-            {qrComponent}
-          </TabsContent>
+  const tabs = [
+    {
+      value: 'basicData',
+      label: (
+        <div className="relative">
+          Datos Básicos
+          {errors?.basicData && <Badge variant="destructive" className="ml-2 h-2 w-2 p-0" />}
         </div>
-      </Tabs>
+      ),
+      moduleSlug: 'equipos',
+      tabSlug: 'datos-basicos',
+      content: (
+        <div className="space-y-4">
+          <VehicleBasicDataForm
+            ownersPromise={ownersPromise}
+            brandsPromise={brandsPromise}
+            modelsPromise={modelsPromise}
+            typesPromise={typesPromise}
+            subTypesPromise={subTypesPromise}
+            typesOfVehiclesPromise={typesOfVehiclesPromise}
+            form={form}
+            readOnly={readOnly}
+          />
+        </div>
+      ),
+    },
+    {
+      value: 'assignmentData',
+      label: (
+        <div className="relative">
+          Asignación
+          {errors?.assignmentData && <Badge variant="destructive" className="ml-2 h-2 w-2 p-0" />}
+        </div>
+      ),
+      moduleSlug: 'equipos',
+      tabSlug: 'asignacion',
+      content: (
+        <div className="space-y-4">
+          <VehicleAssignmentDataForm
+            contractorsPromise={contractorsPromise}
+            costCentersPromise={costCentersPromise}
+            hierarchicalPositionsPromise={hierarchicalPositionsPromise}
+            form={form}
+            readOnly={readOnly}
+          />
+        </div>
+      ),
+    },
+    {
+      value: 'documents',
+      label: 'Documentos',
+      moduleSlug: 'equipos',
+      tabSlug: 'documentos-equipo',
+      disabled: !showDocuments,
+      content: showDocuments ? <div className="space-y-4">{documentsComponent}</div> : null,
+    },
+    {
+      value: 'repairs',
+      label: 'Reparaciones',
+      moduleSlug: 'equipos',
+      tabSlug: 'reparaciones',
+      disabled: !showRepairs,
+      content: showRepairs ? <div className="space-y-4">{repairsComponent}</div> : null,
+    },
+    {
+      value: 'qr',
+      label: 'QR',
+      moduleSlug: 'equipos',
+      tabSlug: 'qr-equipo',
+      content: <div className="space-y-4">{qrComponent}</div>,
+    },
+  ] as const;
+
+  return (
+    <div className="">
+      <TabsManagerClientSide
+        paramName="tab"
+        defaultTab="basicData"
+        tabs={tabs}
+        listClassName="grid w-full grid-cols-5"
+        triggerClassName="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+      />
     </div>
   );
 }

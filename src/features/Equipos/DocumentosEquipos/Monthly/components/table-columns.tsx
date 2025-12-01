@@ -4,6 +4,7 @@ import SimpleDocument from '@/components/SimpleDocument';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionGuard } from '@/features/Permissions';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { ColumnDef } from '@tanstack/react-table';
@@ -212,35 +213,41 @@ export const columnsMonthlyEquipmentDocumentServer: ExtendedColumnDef<MonthlyEqu
 
       if (isNoPresented) {
         return (
-          <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogTrigger asChild>
-              {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <div className="max-h-[90vh] overflow-y-auto">
-                  <div className="space-y-3">
-                    <div>
-                      <SimpleDocument
-                        resource={'equipo'}
-                        handleOpen={() => handleOpen()}
-                        defaultDocumentId={row.original.id_document_types!}
-                        // document={document}
-                        numberDocument={row.original.vehicles?.serie || undefined}
-                      />
+          <PermissionGuard module="equipos" tab="docs-equipos-mensuales" action="update">
+            <AlertDialog open={open} onOpenChange={setOpen}>
+              <AlertDialogTrigger asChild>
+                {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <div className="max-h-[90vh] overflow-y-auto">
+                    <div className="space-y-3">
+                      <div>
+                        <SimpleDocument
+                          resource={'equipo'}
+                          handleOpen={() => handleOpen()}
+                          defaultDocumentId={row.original.id_document_types!}
+                          // document={document}
+                          numberDocument={row.original.vehicles?.serie || undefined}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </AlertDialogHeader>
-            </AlertDialogContent>
-          </AlertDialog>
+                </AlertDialogHeader>
+              </AlertDialogContent>
+            </AlertDialog>
+          </PermissionGuard>
         );
       }
 
       return (
-        <Link href={`/dashboard/document/${row.original.id}?resource=${row.original.vehicles ? 'Equipos' : 'Persona'}`}>
-          <Button>Ver documento</Button>
-        </Link>
+        <PermissionGuard module="equipos" tab="docs-equipos-mensuales" action="view">
+          <Link
+            href={`/dashboard/document/${row.original.id}?resource=${row.original.vehicles ? 'Equipos' : 'Persona'}`}
+          >
+            <Button>Ver documento</Button>
+          </Link>
+        </PermissionGuard>
       );
     },
   },

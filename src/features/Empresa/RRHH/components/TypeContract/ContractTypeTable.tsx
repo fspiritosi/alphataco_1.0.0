@@ -2,6 +2,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -14,7 +15,10 @@ interface ContractTypeTableProps {
   savedFilter: string[];
 }
 
-export function getContractTypeColumns(onEdit: (contractType: ContractType) => void): ColumnDef<ContractType>[] {
+export function getContractTypeColumns(
+  onEdit: (contractType: ContractType) => void,
+  canEdit: boolean
+): ColumnDef<ContractType>[] {
   return [
     {
       accessorKey: 'name',
@@ -47,11 +51,12 @@ export function getContractTypeColumns(onEdit: (contractType: ContractType) => v
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -77,6 +82,9 @@ export default function ContractTypeTable({
 
   const names = createFilterOptions(filteredContractTypes, (document) => document.name);
 
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission('empresa', 'contract-types', 'update');
+
   return (
     <div className="flex flex-col ml-4">
       <div className="flex justify-between">
@@ -84,51 +92,9 @@ export default function ContractTypeTable({
         <VerActivosButton data={contractTypes} filterKey="is_active" onFilteredChange={setFilteredContractTypes} />
       </div>
       <div className="overflow-x-auto max-h-96 overflow-y-auto w-full">
-        {/* <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Nombre</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredContractTypes?.length > 0 ? (
-              filteredContractTypes.map((contractType) => (
-                <TableRow key={contractType.id}>
-                  <TableCell className="font-medium">{contractType.name}</TableCell>
-                  <TableCell>{contractType.description}</TableCell>
-                  <TableCell>
-                    <Badge variant={contractType.is_active ? 'success' : 'default'}>
-                      {contractType.is_active ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant="link"
-                      className="hover:text-blue-400"
-                      onClick={() => onEdit(contractType)}
-                    >
-                      Editar
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-4">
-                  No hay tipos de contrato {isActiveFilter ? 'activos' : 'inactivos'} disponibles
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table> */}
-
         <BaseDataTable
           className="mt-4"
-          columns={getContractTypeColumns(onEdit)}
+          columns={getContractTypeColumns(onEdit, canUpdate)}
           data={filteredContractTypes}
           savedVisibility={savedVisibility}
           tableId="contract-type-table"

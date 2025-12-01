@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -50,9 +51,10 @@ interface ServiceItemsTableProps {
 <TableHead>Acciones</TableHead> */
 }
 function getServiceItemsColumns(
-  handleEdit: (sector: ServiceItemsTableProps['items'][number]) => void
+  handleEdit: (sector: ServiceItemsTableProps['items'][number]) => void,
+  hasUpdatePermission: boolean
 ): ColumnDef<ServiceItemsTableProps['items'][number]>[] {
-  return [
+  const columns: ColumnDef<ServiceItemsTableProps['items'][number]>[] = [
     {
       accessorKey: 'item_name',
       id: 'Nombre',
@@ -118,7 +120,11 @@ function getServiceItemsColumns(
         return value.includes(row.getValue(id));
       },
     },
-    {
+  ];
+
+  // Solo agregar columna de acciones si tiene permisos
+  if (hasUpdatePermission) {
+    columns.push({
       accessorKey: 'actions',
       id: 'Acciones',
       enableHiding: false,
@@ -134,8 +140,10 @@ function getServiceItemsColumns(
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 export default function ServiceItemsTable({
@@ -156,6 +164,12 @@ export default function ServiceItemsTable({
   const [filteredItems, setFilteredItems] = useState<ServiceItemsTableProps['items']>([]);
   const [allItems, setAllItems] = useState<ServiceItemsTableProps['items']>([]);
   const [showInactive, setShowInactive] = useState(false);
+
+  // Verificar permisos
+  const { hasPermission } = usePermissions();
+  const hasUpdatePermission = hasPermission('comercial', 'items-contrato', 'update');
+  const canCreateOrUpdate =
+    hasPermission('comercial', 'items-contrato', 'create') || hasPermission('comercial', 'items-contrato', 'update');
 
   // Función para cargar los items del servicio
   const loadItems = useCallback(async () => {
@@ -238,21 +252,25 @@ export default function ServiceItemsTable({
 
   return (
     <ResizablePanelGroup className=" flex flex-col gap-2" direction="horizontal">
-      <ResizablePanel>
-        <Card>
-          <ServiceItemsForm
-            measure_units={measure_units}
-            customers={customers}
-            services={services}
-            company_id={modified_company_id}
-            editingService={editingService}
-            editService={editService}
-            onSuccess={handleItemSaved}
-          />
-        </Card>
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel className=" min-w-[500px] flex flex-col gap-2" defaultSize={75}>
+      {canCreateOrUpdate && (
+        <>
+          <ResizablePanel defaultSize={40}>
+            <Card>
+              <ServiceItemsForm
+                measure_units={measure_units}
+                customers={customers}
+                services={services}
+                company_id={modified_company_id}
+                editingService={editingService}
+                editService={editService}
+                onSuccess={handleItemSaved}
+              />
+            </Card>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+        </>
+      )}
+      <ResizablePanel className=" min-w-[500px] flex flex-col gap-2" defaultSize={canCreateOrUpdate ? 60 : 100}>
         <Card>
           <div className="flex flex-col p-4">
             <div className="flex space-x-4 justify-end mb-2">
@@ -263,7 +281,7 @@ export default function ServiceItemsTable({
             </div>
             <div>
               <BaseDataTable
-                columns={getServiceItemsColumns(handleSelectItem)}
+                columns={getServiceItemsColumns(handleSelectItem, hasUpdatePermission)}
                 data={filteredItems}
                 savedVisibility={savedVisibility || {}}
                 tableId="service-items-table"

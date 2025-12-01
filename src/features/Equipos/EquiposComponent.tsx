@@ -5,6 +5,7 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { PermissionGuardServer } from '../Permissions';
 import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
 import EquiposTabContent from './Equipos/EquiposTabContent';
 
@@ -33,14 +34,16 @@ export default function EquiposComponent({
             tabSlug: 'equipos',
             content: (
               <div>
-                <div className="flex gap-4 flex-wrap mb-4">
-                  <Link
-                    className={buttonVariants({ variant: 'gh_orange' })}
-                    href={'/dashboard/equipment/action?action=new'}
-                  >
-                    Agregar equipo
-                  </Link>
-                </div>
+                <PermissionGuardServer module="equipos" tab="equipos" action="create">
+                  <div className="flex gap-4 flex-wrap mb-4">
+                    <Link
+                      className={buttonVariants({ variant: 'gh_orange' })}
+                      href={'/dashboard/equipment/action?action=new'}
+                    >
+                      Agregar equipo
+                    </Link>
+                  </div>
+                </PermissionGuardServer>
                 <EquiposTabContent searchParams={searchParams} />
               </div>
             ),

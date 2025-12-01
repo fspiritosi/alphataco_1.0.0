@@ -33,8 +33,9 @@ export {
   updateRole,
 } from './actions';
 
-// Actions (Server)
+// Server Actions
 export {
+  canViewServer,
   checkMultiplePermissionsServer,
   checkPermissionServer,
   getUserAccessibleModulesServer,
@@ -44,4 +45,4 @@ export {
 
 // Mapa de permisos y tipos
 export { ACTIONS, PERMISSIONS, getSubtabId, getTabId } from './permissions-map';
-export type { ActionSlug, ModuleSlug, SubtabSlug, TabSlug } from './permissions-map';
+export type { ActionSlug, AllTabSlugs, ModuleSlug, SubtabSlug, TabSlug } from './permissions-map';

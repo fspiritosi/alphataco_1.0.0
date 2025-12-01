@@ -13,6 +13,7 @@ import {
   type Service,
 } from '@/features/Empresa/Clientes/components/operations/actions/actions';
 import { getCustomers } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableDatePicker } from '@/shared/components/data-table/filters/data-table-date-picker';
 import { useDailyReportFormStore } from '@/stores/useDailyReportFormStore';
 import { useQuery } from '@tanstack/react-query';
@@ -735,9 +736,11 @@ export default function DailyReportWrapper() {
                 </div>
 
                 <div className="flex justify-between mt-4">
-                  <Button variant="default" onClick={handleCreateRow}>
-                    Crear Línea
-                  </Button>
+                  <PermissionGuard module="comercial" tab="daily_reports" action="create">
+                    <Button variant="default" onClick={handleCreateRow}>
+                      Crear Línea
+                    </Button>
+                  </PermissionGuard>
                   <div className="flex space-x-2">
                     <Button variant="outline" onClick={handleClearFilters} disabled={!hasActiveFilters}>
                       <X className="mr-2 h-4 w-4" />

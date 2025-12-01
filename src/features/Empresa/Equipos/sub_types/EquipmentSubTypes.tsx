@@ -1,5 +1,6 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { usePermissions } from '@/features/Permissions';
 import { useState } from 'react';
 // import { EquipmentType } from '../actions/actions';
 import { Database } from '../../../../../database.types';
@@ -21,27 +22,42 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
     // Aquí podrías mostrar un mensaje de éxito o actualizar la lista
   };
 
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission('empresa', 'subtipos', 'create');
+  const canUpdate = hasPermission('empresa', 'subtipos', 'update');
+  const showForm = canCreate || canUpdate;
+
   return (
     <div>
-      <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel defaultSize={35}>
-          <EquipmentSubTypesForm
-            initialData={editingType}
-            onReset={() => setEditingType(null)}
-            isEditing={!!editingType}
-            onSuccess={handleSuccess}
-            types={vehicleTypes}
-          />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={65} className="ml-4">
-          <EquipmentSubTypesTable
-            vehicleTypes={vehicleTypes}
-            vehicleSubTypes={vehicleSubTypes}
-            onEdit={setEditingType}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      {showForm ? (
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel defaultSize={35}>
+            <EquipmentSubTypesForm
+              initialData={editingType}
+              onReset={() => setEditingType(null)}
+              isEditing={!!editingType}
+              onSuccess={handleSuccess}
+              types={vehicleTypes}
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={65} className="ml-4">
+            <EquipmentSubTypesTable
+              vehicleTypes={vehicleTypes}
+              vehicleSubTypes={vehicleSubTypes}
+              onEdit={setEditingType}
+              canEdit={canUpdate}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        <EquipmentSubTypesTable
+          vehicleTypes={vehicleTypes}
+          vehicleSubTypes={vehicleSubTypes}
+          onEdit={setEditingType}
+          canEdit={canUpdate}
+        />
+      )}
     </div>
   );
 }

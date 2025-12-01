@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { PermissionGuard } from '@/features/Permissions';
 import { useEmployeeFormReset } from '@/store/employeeFormReset';
 import { Edit, FileText, Mail, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -97,12 +98,14 @@ function EmployeeHeaderContent({ employee, isEditable, showEditButton, exitEditM
 
           {/* Action Buttons */}
           {showEditButton && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => onEdit()}>
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </Button>
-            </div>
+            <PermissionGuard module="empleados" tab="detalle-empleado" action="update">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => onEdit()}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              </div>
+            </PermissionGuard>
           )}
           {exitEditMode && (
             <Button variant="outline" size="sm" onClick={() => onExitEditMode()}>
@@ -110,7 +113,9 @@ function EmployeeHeaderContent({ employee, isEditable, showEditButton, exitEditM
               Cancelar
             </Button>
           )}
-          <EmployeeQuickActions employeeId={employee.id} isActive={employee.is_active!} email={employee.email!} />
+          <PermissionGuard module="empleados" tab="detalle-empleado" action="update">
+            <EmployeeQuickActions employeeId={employee.id} isActive={employee.is_active!} email={employee.email!} />
+          </PermissionGuard>
           <Separator orientation="vertical" className="w-[1px] h-10 my-0" />
 
           <div className="flex items-center justify-end gap-4 mb-4">

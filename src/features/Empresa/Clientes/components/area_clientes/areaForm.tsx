@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createArea, fetchAreasWithProvinces, updateArea } from '@/features/Empresa/Clientes/actions/create';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -135,99 +136,101 @@ function AreaForm({ customers, provinces, mode, setMode, selectedArea, setSelect
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
-        <h2 className="text-xl font-bold mb-4">{mode === 'create' ? 'Crear Area' : 'Editar Area'}</h2>
+    <PermissionGuard module="comercial" tab="areas" action={mode === 'create' ? 'create' : 'update'}>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
+          <h2 className="text-xl font-bold mb-4">{mode === 'create' ? 'Crear Area' : 'Editar Area'}</h2>
 
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nombre del Área</FormLabel>
-              <FormControl>
-                <Input type="text" {...field} placeholder="Nombre del área" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre del Área</FormLabel>
+                <FormControl>
+                  <Input type="text" {...field} placeholder="Nombre del área" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="descripcion_corta"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descripción Corta</FormLabel>
-              <FormControl>
-                <Input type="text" {...field} placeholder="Descripción breve" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="descripcion_corta"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Descripción Corta</FormLabel>
+                <FormControl>
+                  <Input type="text" {...field} placeholder="Descripción breve" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="customer_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cliente</FormLabel>
-              <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Clientes</SelectLabel>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="customer_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cliente</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Clientes</SelectLabel>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="province_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Provincias</FormLabel>
-              <FormControl>
-                <MultiSelectCombobox
-                  options={provinces.map((province) => ({
-                    label: province.name,
-                    value: province.id.toString(),
-                  }))}
-                  emptyMessage="No hay provincias disponibles"
-                  selectedValues={field.value.map(String)}
-                  onChange={(values) => field.onChange(values.map(Number))}
-                  placeholder="Selecciona provincias"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="province_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Provincias</FormLabel>
+                <FormControl>
+                  <MultiSelectCombobox
+                    options={provinces.map((province) => ({
+                      label: province.name,
+                      value: province.id.toString(),
+                    }))}
+                    emptyMessage="No hay provincias disponibles"
+                    selectedValues={field.value.map(String)}
+                    onChange={(values) => field.onChange(values.map(Number))}
+                    placeholder="Selecciona provincias"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div className="flex gap-4">
-          <Button type="submit" variant="gh_orange">
-            {mode === 'create' ? 'Crear' : 'Actualizar'}
-          </Button>
-          <Button type="button" variant="outline" onClick={handleCancel}>
-            Cancelar
-          </Button>
-        </div>
-      </form>
-    </Form>
+          <div className="flex gap-4">
+            <Button type="submit" variant="gh_orange">
+              {mode === 'create' ? 'Crear' : 'Actualizar'}
+            </Button>
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </PermissionGuard>
   );
 }
 

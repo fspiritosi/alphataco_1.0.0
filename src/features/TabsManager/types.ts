@@ -38,6 +38,8 @@ export interface TabDefinition<M extends ModuleSlug = ModuleSlug> {
    * Autocompleta tabs y subtabs del módulo seleccionado
    */
   tabSlug?: AllTabSlugs<M>;
+  /** Deshabilita la pestaña */
+  disabled?: boolean;
 }
 
 /**
@@ -107,4 +109,10 @@ export interface TabsManagerClientProps<M extends ModuleSlug = ModuleSlug> {
   defaultTab: string;
   /** Parámetros dependientes a limpiar al cambiar de tab */
   dependentParams?: string[];
+  /** Clases CSS para la lista de tabs */
+  listClassName?: string;
+  /** Clases CSS para los triggers de tabs */
+  triggerClassName?: string;
+  /** Clases CSS para el contenido de tabs */
+  contentClassName?: string;
 }

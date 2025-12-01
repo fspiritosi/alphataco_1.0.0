@@ -1,6 +1,7 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/toaster';
+import { usePermissions } from '@/features/Permissions';
 import { VisibilityState } from '@tanstack/react-table';
 import { useState } from 'react';
 import MaintenanceGroupForm from './MaintenanceGroupForm';
@@ -22,15 +23,25 @@ export default function MaintenanceGroupsClient({
 }: MaintenanceGroupsClientProps) {
   const [selectedGroup, setSelectedGroup] = useState<fetchMaintenanceGroupsActionType['groups'][number] | null>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const { hasPermission } = usePermissions();
+
+  // Verificar permisos
+  const canCreate = hasPermission('equipos', 'maintenance_groups', 'create');
+  const canUpdate = hasPermission('equipos', 'maintenance_groups', 'update');
+  const canCreateOrUpdate = canCreate || canUpdate;
 
   return (
     <div>
       <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-        <ResizablePanel defaultSize={40}>
-          <MaintenanceGroupForm group={selectedGroup} mode={mode} setMode={setMode} types={types} />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={60}>
+        {canCreateOrUpdate && (
+          <>
+            <ResizablePanel defaultSize={40}>
+              <MaintenanceGroupForm group={selectedGroup} mode={mode} setMode={setMode} types={types} />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+          </>
+        )}
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
           <MaintenanceGroupsTable
             savedFilter={savedFilter}
             savedVisibility={savedVisibility}
@@ -40,6 +51,7 @@ export default function MaintenanceGroupsClient({
             setMode={setMode}
             types={types}
             mode={mode}
+            canEdit={canUpdate}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

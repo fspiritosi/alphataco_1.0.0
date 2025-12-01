@@ -28,8 +28,8 @@ export default function DocumentosEquiposTabContent({
                 Documentos Permanentes
               </span>
             ),
-            moduleSlug: 'documentacion',
-            tabSlug: 'equipos-permanentes',
+            moduleSlug: 'equipos',
+            tabSlug: 'docs-equipos-permanentes',
             content: (
               <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
                 <PermanentEquipmentDocumentsWrapper />
@@ -44,8 +44,8 @@ export default function DocumentosEquiposTabContent({
                 Documentos Mensuales
               </span>
             ),
-            moduleSlug: 'documentacion',
-            tabSlug: 'equipos-mensuales',
+            moduleSlug: 'equipos',
+            tabSlug: 'docs-equipos-mensuales',
             content: (
               <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
                 <MonthlyEquipmentDocumentsWrapper />

@@ -1,3 +1,4 @@
+import { Card } from '@/components/ui/card';
 import { cookies } from 'next/headers';
 import { fetchCompanyUsers } from '../actions/server-actions';
 import UsersTableServer from './UsersTableServer';
@@ -16,13 +17,13 @@ async function UsersTable() {
 
   console.log(initialData.rows, 'initialData');
   return (
-    <div className="py-2">
+    <Card className="p-4">
       <UsersTableServer
         initialData={initialData}
         savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
         savedFilters={savedFilter ? JSON.parse(savedFilter) : []}
       />
-    </div>
+    </Card>
   );
 }
 

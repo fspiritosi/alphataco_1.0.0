@@ -311,6 +311,25 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
     const permKey = `${tabId}:${actionId}`;
     const permission = permissionMap.get(permKey);
 
+    // Encontrar el action slug
+    const action = tab?.actions?.find((a: any) => a.id === actionId);
+    const actionSlug = action?.slug;
+
+    // Si estamos intentando REMOVER el permiso de 'view', verificar si hay otros permisos activos
+    if (isActive && actionSlug === 'view') {
+      const hasOtherPermissions = tab?.actions?.some((a: any) => {
+        if (a.slug === 'view') return false; // Ignorar el permiso de view
+        const otherKey = `${tabId}:${a.id}`;
+        const otherPerm = permissionMap.get(otherKey);
+        return otherPerm?.isGranted;
+      });
+
+      if (hasOtherPermissions) {
+        // No permitir remover 'view' si hay otros permisos activos
+        return;
+      }
+    }
+
     // Si el tab tiene subtabs, aplicar el cambio recursivamente
     if (tab && tab.subtabs && tab.subtabs.length > 0) {
       const toAdd: Array<{ tabId: string; actionId: string }> = [];
@@ -331,6 +350,38 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
 
       // Incluir el tab actual y todos sus hijos
       collectAllTabs(tab);
+
+      // AUTO-ASSIGN VIEW: Si estamos agregando create/update/delete, también agregar 'view'
+      if (!isActive && actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
+        const viewAction = tab?.actions?.find((a: any) => a.slug === 'view');
+        if (viewAction) {
+          const viewKey = `${tabId}:${viewAction.id}`;
+          const viewPerm = permissionMap.get(viewKey);
+          if (!viewPerm?.isGranted) {
+            toAdd.push({ tabId, actionId: viewAction.id });
+          }
+
+          // También agregar 'view' a los subtabs
+          const addViewToSubtabs = (subtabs: any[]) => {
+            subtabs.forEach((subtab) => {
+              const subtabViewAction = subtab.actions?.find((a: any) => a.slug === 'view');
+              if (subtabViewAction) {
+                const subtabViewKey = `${subtab.id}:${subtabViewAction.id}`;
+                const subtabViewPerm = permissionMap.get(subtabViewKey);
+                if (!subtabViewPerm?.isGranted) {
+                  toAdd.push({ tabId: subtab.id, actionId: subtabViewAction.id });
+                }
+              }
+              if (subtab.subtabs) {
+                addViewToSubtabs(subtab.subtabs);
+              }
+            });
+          };
+          if (tab.subtabs && tab.subtabs.length > 0) {
+            addViewToSubtabs(tab.subtabs);
+          }
+        }
+      }
 
       // Ejecutar batch mutations
       try {
@@ -356,7 +407,20 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
         console.error('Error toggling permission with children:', error);
       }
     } else {
-      // Si no tiene hijos, solo cambiar este permiso
+      // Si no tiene hijos, verificar auto-assign view
+      if (!isActive && actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
+        const viewAction = tab?.actions?.find((a: any) => a.slug === 'view');
+        if (viewAction) {
+          const viewKey = `${tabId}:${viewAction.id}`;
+          const viewPerm = permissionMap.get(viewKey);
+          if (!viewPerm?.isGranted) {
+            // Agregar view primero
+            await setPermissionMutation.mutateAsync({ tabId, actionId: viewAction.id, isGranted: true });
+          }
+        }
+      }
+
+      // Cambiar el permiso actual
       if (isActive) {
         if (permission?.source === 'role') {
           setPermissionMutation.mutate({ tabId, actionId, isGranted: false });
@@ -382,20 +446,37 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
           const source = permission?.source;
           const roleColor = permission?.roleColor;
           const roleName = permission?.roleName;
+          const isFromRole = source === 'role';
 
-          return (
+          // Verificar si 'view' está bloqueado por otros permisos activos
+          const isViewLocked =
+            action.slug === 'view' &&
+            isActive &&
+            tab.actions?.some((a: any) => {
+              if (a.slug === 'view') return false;
+              const otherKey = `${tab.id}:${a.id}`;
+              const otherPerm = permissionMap.get(otherKey);
+              return otherPerm?.isGranted;
+            });
+
+          const isDisabled = isFromRole || isViewLocked;
+
+          const checkboxElement = (
             <div
               key={action.id}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all ${
+                isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+              } ${
                 isActive
                   ? 'border-primary/50 bg-primary/10 shadow-sm'
                   : 'border-border/50 hover:border-primary/30 hover:bg-muted/50'
               }`}
-              onClick={() => handlePermissionToggle(tab.id, action.id, tab)}
+              onClick={() => !isDisabled && handlePermissionToggle(tab.id, action.id, tab)}
             >
               <Checkbox
                 checked={isActive}
-                onCheckedChange={() => handlePermissionToggle(tab.id, action.id, tab)}
+                disabled={isDisabled}
+                onCheckedChange={() => !isDisabled && handlePermissionToggle(tab.id, action.id, tab)}
                 onClick={(e) => e.stopPropagation()}
                 className="h-4 w-4"
               />
@@ -410,27 +491,38 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                 {ACTION_LABELS[action.slug as keyof typeof ACTION_LABELS] || action.name}
               </span>
               {source === 'role' && roleName && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] h-4 px-1.5 font-medium"
-                      style={{
-                        backgroundColor: roleColor ? `${roleColor}20` : '#3b82f620',
-                        borderColor: roleColor || '#3b82f6',
-                        color: roleColor || '#3b82f6',
-                      }}
-                    >
-                      {roleName.charAt(0).toUpperCase()}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Rol: {roleName}</p>
-                  </TooltipContent>
-                </Tooltip>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] h-4 px-1.5 font-medium"
+                  style={{
+                    backgroundColor: roleColor ? `${roleColor}20` : '#3b82f620',
+                    borderColor: roleColor || '#3b82f6',
+                    color: roleColor || '#3b82f6',
+                  }}
+                >
+                  {roleName.charAt(0).toUpperCase()}
+                </Badge>
               )}
             </div>
           );
+
+          // Envolver en tooltip si está deshabilitado
+          if (isDisabled) {
+            return (
+              <Tooltip key={action.id}>
+                <TooltipTrigger asChild>{checkboxElement}</TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    {isFromRole
+                      ? `Este permiso viene del rol "${roleName}" y no puede ser removido aquí`
+                      : 'No se puede desactivar "Ver" mientras otros permisos estén activos'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return checkboxElement;
         })}
       </div>
     );

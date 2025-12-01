@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -19,9 +20,10 @@ export interface AreaTableProp {
 }
 
 export function getAreaColums(
-  handleEdit: (sector: AreaTableProp['areas'][number]) => void
+  handleEdit: (sector: AreaTableProp['areas'][number]) => void,
+  canEdit: boolean
 ): ColumnDef<AreaTableProp['areas']>[] {
-  return [
+  const columns: ColumnDef<AreaTableProp['areas']>[] = [
     {
       accessorKey: 'nombre',
       id: 'Nombre',
@@ -86,7 +88,10 @@ export function getAreaColums(
         return value.some((val) => rowValues.includes(val));
       },
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       accessorKey: 'actions',
       id: 'Acciones',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
@@ -103,14 +108,18 @@ export function getAreaColums(
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 function AreaTable({ areas, savedFilters, selectedArea, setSelectedArea, setMode, mode }: AreaTableProp) {
   // Leer las cookies necesarias
   const visibilityCookie = Cookies.get('areaTable');
   const filtersCookie = Cookies.get('areaTable-filters');
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('comercial', 'areas', 'update');
 
   const handleEdit = (area: AreaTableProp['areas'][number]) => {
     setSelectedArea(area);
@@ -145,7 +154,7 @@ function AreaTable({ areas, savedFilters, selectedArea, setSelectedArea, setMode
       <h2 className="text-xl font-bold ">Areas</h2>
 
       <BaseDataTable
-        columns={getAreaColums(handleEdit)}
+        columns={getAreaColums(handleEdit, canEdit)}
         data={formattedAreas}
         savedVisibility={savedVisibility}
         tableId="areaTable"

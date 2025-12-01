@@ -14,6 +14,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { useLoggedUserStore } from '@/store/loggedUser';
 // import { TypeOfRepair } from '@/types/types';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,8 +32,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../ui/textarea';
 import { createTypeOfRepair, deleteTypeOfRepair, updateTypeOfRepair } from './actions/actions';
 
-export function getRepairTypeColumns(onEdit: (repair: TypeOfRepair) => void): ColumnDef<TypeOfRepair>[] {
-  return [
+export function getRepairTypeColumns(
+  onEdit: (repair: TypeOfRepair) => void,
+  canEdit: boolean
+): ColumnDef<TypeOfRepair>[] {
+  const columns: ColumnDef<TypeOfRepair>[] = [
     {
       accessorKey: 'name',
       id: 'Nombre',
@@ -99,7 +103,10 @@ export function getRepairTypeColumns(onEdit: (repair: TypeOfRepair) => void): Co
         return value.includes(row.getValue(id));
       },
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
@@ -108,8 +115,10 @@ export function getRepairTypeColumns(onEdit: (repair: TypeOfRepair) => void): Co
         </Button>
       ),
       enableSorting: false,
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 export function RepairTypeForm({
@@ -124,6 +133,12 @@ export function RepairTypeForm({
   const company_id = useLoggedUserStore((state) => state.actualCompany)?.id;
   const [selectedRepair, setSelectedRepair] = useState<TypeOfRepair | null>(null);
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+
+  // Verificar permisos
+  const canCreate = hasPermission('equipos', 'type_of_repair', 'create');
+  const canUpdate = hasPermission('equipos', 'type_of_repair', 'update');
+  const canCreateOrUpdate = canCreate || canUpdate;
 
   const typeOfRepair = z.object({
     name: z.string({ required_error: 'El nombre es requerido' }).min(1, { message: 'Debe ingresar un nombre' }),
@@ -231,119 +246,125 @@ export function RepairTypeForm({
 
   return (
     <ResizablePanelGroup direction="horizontal" className="pt-6">
-      <ResizablePanel defaultSize={30}>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(selectedRepair ? onUpdate : onSubmit)} className="space-y-4 pt-3 pr-3">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre del tipo de reparación</FormLabel>
-                  <Input placeholder="Ingresar nombre" {...field} value={field.value} />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descripción</FormLabel>
-                  <Textarea placeholder="Ingresa una descripción" {...field} value={field.value} />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="criticity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nivel de criticidad</FormLabel>
-                  <FormControl>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+      {canCreateOrUpdate && (
+        <>
+          <ResizablePanel defaultSize={30}>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(selectedRepair ? onUpdate : onSubmit)} className="space-y-4 pt-3 pr-3">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre del tipo de reparación</FormLabel>
+                      <Input placeholder="Ingresar nombre" {...field} value={field.value} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descripción</FormLabel>
+                      <Textarea placeholder="Ingresa una descripción" {...field} value={field.value} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="criticity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nivel de criticidad</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Elije el nivel de criticidad" />
-                        </SelectTrigger>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Elije el nivel de criticidad" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Baja">Baja</SelectItem>
+                            <SelectItem value="Media">Media</SelectItem>
+                            <SelectItem value="Alta">Alta</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Baja">Baja</SelectItem>
-                        <SelectItem value="Media">Media</SelectItem>
-                        <SelectItem value="Alta">Alta</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type_of_maintenance"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de mantenimiento</FormLabel>
-                  <FormControl>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="type_of_maintenance"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de mantenimiento</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Elegir tipo de mantenimiento" />
-                        </SelectTrigger>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Elegir tipo de mantenimiento" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Preventivo">Preventivo</SelectItem>
+                            <SelectItem value="Correctivo">Correctivo</SelectItem>
+                            <SelectItem value="Otro">Otro</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Preventivo">Preventivo</SelectItem>
-                        <SelectItem value="Correctivo">Correctivo</SelectItem>
-                        <SelectItem value="Otro">Otro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {selectedRepair ? (
-              <div className="flex justify-between mt-4">
-                <Button type="submit">Actualizar tipo de reparación</Button>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {selectedRepair ? (
+                  <div className="flex justify-between mt-4">
+                    <Button type="submit">Actualizar tipo de reparación</Button>
 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive">Eliminar</Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>¿Estás seguro de que deseas eliminar este tipo de reparación?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta acción no se puede deshacer y se perderán todos los datos relacionados como las solicitudes
-                        de reparaciones que tengan este tipo de reparación.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction asChild>
-                        <Button variant={'destructive'} type="button" onClick={() => onDelete(selectedRepair.id)}>
-                          Eliminar
-                        </Button>
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            ) : (
-              <Button type="submit" className="mt-4">
-                Crear tipo de reparación
-              </Button>
-            )}
-          </form>
-        </Form>
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel className="pl-6 min-w-[600px] flex flex-col gap-4" defaultSize={70}>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive">Eliminar</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            ¿Estás seguro de que deseas eliminar este tipo de reparación?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer y se perderán todos los datos relacionados como las
+                            solicitudes de reparaciones que tengan este tipo de reparación.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction asChild>
+                            <Button variant={'destructive'} type="button" onClick={() => onDelete(selectedRepair.id)}>
+                              Eliminar
+                            </Button>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ) : (
+                  <Button type="submit" className="mt-4">
+                    Crear tipo de reparación
+                  </Button>
+                )}
+              </form>
+            </Form>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+        </>
+      )}
+      <ResizablePanel className="pl-6 min-w-[600px] flex flex-col gap-4" defaultSize={canCreateOrUpdate ? 70 : 100}>
         <BaseDataTable
           savedVisibility={savedVisibility}
-          columns={getRepairTypeColumns(handleModify)}
+          columns={getRepairTypeColumns(handleModify, canUpdate)}
           data={types_of_repairs}
           tableId="repair-type-table"
           toolbarOptions={{

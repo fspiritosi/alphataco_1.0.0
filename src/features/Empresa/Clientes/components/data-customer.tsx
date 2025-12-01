@@ -12,6 +12,7 @@ import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeesTableReusable } from '@/features/Employees/Empleados/components/tables/data/employees-table';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { PermissionGuard } from '@/features/Permissions';
 // import { fetchAllEmployees } from '@/shared/actions/employees.actions';
 import { fetchAllEmployees2 } from '@/shared/actions/employees.actions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
@@ -591,9 +592,11 @@ export function DataCustomers<TData extends Customer, TValue>({
             <div className=" p-6 rounded-lg border">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold">Información del Cliente</h3>
-                <Button variant="gh_orange" onClick={() => setIsEditing(!isEditing)}>
-                  {isEditing ? 'Deshabilitar edición' : 'Habilitar edición'}
-                </Button>
+                <PermissionGuard module="comercial" tab="detalle-cliente" action="update">
+                  <Button variant="gh_orange" onClick={() => setIsEditing(!isEditing)}>
+                    {isEditing ? 'Deshabilitar edición' : 'Habilitar edición'}
+                  </Button>
+                </PermissionGuard>
               </div>
               <CustomerForm
                 customer={selectedCustomer}
@@ -612,7 +615,9 @@ export function DataCustomers<TData extends Customer, TValue>({
                 <h3 className="text-xl font-semibold">Empleados del Cliente</h3>
                 <Dialog open={isEmployeeDialogOpen} onOpenChange={() => handleEmployeeDialogOpenChange()}>
                   <DialogTrigger asChild>
-                    <Button variant="gh_orange">Cargar empleados</Button>
+                    <PermissionGuard module="comercial" tab="empleados-cliente" action="update">
+                      <Button variant="gh_orange">Cargar empleados</Button>
+                    </PermissionGuard>
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader>
@@ -698,7 +703,9 @@ export function DataCustomers<TData extends Customer, TValue>({
                 <h3 className="text-xl font-semibold">Equipos del Cliente</h3>
                 <Dialog open={isEquipmentDialogOpen} onOpenChange={handleEquipmentDialogOpenChange}>
                   <DialogTrigger asChild>
-                    <Button variant="gh_orange">Asignar Equipos</Button>
+                    <PermissionGuard module="comercial" tab="equipos-cliente" action="update">
+                      <Button variant="gh_orange">Asignar Equipos</Button>
+                    </PermissionGuard>
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader>
@@ -808,9 +815,11 @@ export function DataCustomers<TData extends Customer, TValue>({
           <div className="mb-4">
             <Dialog>
               <DialogTrigger asChild>
-                <Button id="" variant="gh_orange">
-                  Registrar Cliente
-                </Button>
+                <PermissionGuard module="comercial" tab="customers" action="create">
+                  <Button id="" variant="gh_orange">
+                    Registrar Cliente
+                  </Button>
+                </PermissionGuard>
               </DialogTrigger>
               <DialogContent className="max-w-4xl">
                 <CustomerForm

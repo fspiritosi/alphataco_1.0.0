@@ -1,9 +1,10 @@
 'use client';
 import { fetchAllDocumentTypes } from '@/app/server/GET/actions';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePermissions } from '@/features/Permissions';
+import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import { VisibilityState } from '@tanstack/react-table';
-import { Building2, Truck, User } from 'lucide-react';
+import { Truck, User } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import DocumentsTable from './DocumentsTable';
 import FilterHeader from './FilterComponent';
@@ -36,6 +37,11 @@ function TypesDocumentsView({
   const doc_personas = document_types?.filter((doc) => doc.applies === 'Persona').filter((e) => e.is_active);
   const doc_equipos = document_types?.filter((doc) => doc.applies === 'Equipos').filter((e) => e.is_active);
   const doc_empresa = document_types?.filter((doc) => doc.applies === 'Empresa').filter((e) => e.is_active);
+
+  // Verificar permisos de edición para cada tipo
+  const { hasPermission } = usePermissions();
+  const canEditPersonas = hasPermission('empleados', 'tipos-docs-personas', 'update');
+  const canEditEquipos = hasPermission('equipos', 'tipos-docs-equipos', 'update');
 
   const [filters, setFilters] = useState({
     personas: { name: '', multiresource: '', special: '', monthly: '', expired: '', mandatory: '', private: '' },
@@ -97,93 +103,76 @@ function TypesDocumentsView({
   const optionValue =
     personas && equipos && empresa ? 'Personas' : personas ? 'Personas' : equipos ? 'Equipos' : 'Empresa';
 
+  const tabs = [] as any[];
+
+  if (personas) {
+    tabs.push({
+      value: 'Personas',
+      label: (
+        <span className="flex items-center gap-2">
+          <User className="h-4 w-4" />
+          Personas ({filteredDocPersonas?.length || 0})
+        </span>
+      ),
+      moduleSlug: 'empleados' as const,
+      tabSlug: 'tipos-docs-personas' as const,
+      content: (
+        <Card className="p-6">
+          <DocumentsTable
+            data={filteredDocPersonas || []}
+            filters={filters.personas}
+            savedFilters={savedFilters}
+            savedVisibility={savedVisibility}
+            canEdit={canEditPersonas}
+          >
+            <FilterHeader
+              filters={filters.personas}
+              docOptions={docOptions as any}
+              onFilterChange={(name, value) => handleFilterChange('personas', name, value)}
+            />
+          </DocumentsTable>
+        </Card>
+      ),
+    });
+  }
+
+  if (equipos) {
+    tabs.push({
+      value: 'Equipos',
+      label: (
+        <span className="flex items-center gap-2">
+          <Truck className="h-4 w-4" />
+          Equipos ({filteredDocEquipos?.length || 0})
+        </span>
+      ),
+      moduleSlug: 'equipos' as const,
+      tabSlug: 'tipos-docs-equipos' as const,
+      content: (
+        <Card className="p-6">
+          <DocumentsTable
+            savedVisibility={savedVisibility}
+            savedFilters={savedFilters}
+            data={filteredDocEquipos || []}
+            filters={filters.equipos}
+            canEdit={canEditEquipos}
+          >
+            <FilterHeader
+              filters={filters.equipos}
+              docOptions={docOptions as any}
+              onFilterChange={(name, value) => handleFilterChange('equipos', name, value)}
+            />
+          </DocumentsTable>
+        </Card>
+      ),
+    });
+  }
+
+  // Empresa tab removed - no existe en el sistema de permisos
+
   return (
     <CardContent className="px-0 pt-1">
-      <Tabs defaultValue={optionValue} className="w-full">
-        <div className="flex flex-col w-fit gap-2">
-          <TabsList className="w-fit bg-muted">
-            {personas && (
-              <TabsTrigger value="Personas">
-                <span className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Personas ({filteredDocPersonas?.length || 0})
-                </span>
-              </TabsTrigger>
-            )}
-            {equipos && (
-              <TabsTrigger value="Equipos">
-                <span className="flex items-center gap-2">
-                  <Truck className="h-4 w-4" />
-                  Equipos ({filteredDocEquipos?.length || 0})
-                </span>
-              </TabsTrigger>
-            )}
-            {empresa && (
-              <TabsTrigger value="Empresa">
-                <span className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Empresa ({filteredDocEmpresa?.length || 0})
-                </span>
-              </TabsTrigger>
-            )}
-          </TabsList>
-          <div>{actionComponent}</div>
-        </div>
-        {personas && (
-          <TabsContent value="Personas">
-            <Card className="p-6">
-              <DocumentsTable
-                data={filteredDocPersonas || []}
-                filters={filters.personas}
-                savedFilters={savedFilters}
-                savedVisibility={savedVisibility}
-              >
-                <FilterHeader
-                  filters={filters.personas}
-                  docOptions={docOptions as any}
-                  onFilterChange={(name, value) => handleFilterChange('personas', name, value)}
-                />
-              </DocumentsTable>
-            </Card>
-          </TabsContent>
-        )}
-        {equipos && (
-          <TabsContent value="Equipos">
-            <Card className="p-6">
-              <DocumentsTable
-                savedVisibility={savedVisibility}
-                savedFilters={savedFilters}
-                data={filteredDocEquipos || []}
-                filters={filters.equipos}
-              >
-                <FilterHeader
-                  filters={filters.equipos}
-                  docOptions={docOptions as any}
-                  onFilterChange={(name, value) => handleFilterChange('equipos', name, value)}
-                />
-              </DocumentsTable>
-            </Card>
-          </TabsContent>
-        )}
-        {empresa && (
-          <TabsContent value="Empresa">
-            <Card className="p-6">
-              <DocumentsTable
-                savedVisibility={savedVisibility}
-                savedFilters={savedFilters}
-                data={filteredDocEmpresa || []}
-                filters={filters.empresa}
-              >
-                <FilterHeader
-                  filters={filters.empresa}
-                  docOptions={docOptions as any}
-                  onFilterChange={(name, value) => handleFilterChange('empresa', name, value)}
-                />
-              </DocumentsTable>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+      <div className="mb-4">{actionComponent}</div>
+      <TabsManagerClientSide tabs={tabs} paramName="subtab" defaultTab={optionValue} listClassName="w-fit bg-muted" />
     </CardContent>
   );
 }

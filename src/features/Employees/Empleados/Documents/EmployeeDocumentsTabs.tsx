@@ -2,6 +2,7 @@ import DocumentNav from '@/components/DocumentNav';
 import ViewcomponentInternal from '@/components/ViewComponentInternal';
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
+import { PermissionGuardServer } from '@/features/Permissions';
 
 async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: string; subtab?: string; path: string }) {
   const viewData = {
@@ -19,7 +20,9 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
           buttonActioRestricted: [''],
           buttonAction: (
             <div className="flex gap-4 flex-wrap">
-              <DocumentNav onlyEmployees />
+              <PermissionGuardServer module="empleados" tab="docs-empleados-permanentes" action="create">
+                <DocumentNav onlyEmployees />
+              </PermissionGuardServer>
             </div>
           ),
           component: <PermanentDocuments />,
@@ -36,7 +39,9 @@ async function EmployeeDocumentsTabs({ tabValue, subtab, path }: { tabValue: str
           buttonActioRestricted: [''],
           buttonAction: (
             <div className="flex gap-4 flex-wrap">
-              <DocumentNav onlyEmployees />
+              <PermissionGuardServer module="empleados" tab="docs-empleados-mensuales" action="create">
+                <DocumentNav onlyEmployees />
+              </PermissionGuardServer>
             </div>
           ),
           component: <MonthlyDocuments />,

@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { PermissionGuard } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, ColumnFiltersState, FilterFn, Row, Updater, VisibilityState } from '@tanstack/react-table';
@@ -159,32 +160,34 @@ export const reportColumnas: ColumnDef<Awaited<ReturnType<typeof getDailyReports
       };
 
       return (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              className="h-8 w-8 p-0"
-              disabled={hasRows}
-              title={hasRows ? 'No se puede eliminar un parte con registros' : 'Eliminar parte diario'}
-            >
-              <Trash2 className={hasRows ? 'text-gray-400' : 'text-red-500'} size={16} />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Está seguro de eliminar este parte diario?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. El parte diario será eliminado permanentemente.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
-                Eliminar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <PermissionGuard module="operaciones" tab="dailyreportstable" action="create">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                disabled={hasRows}
+                title={hasRows ? 'No se puede eliminar un parte con registros' : 'Eliminar parte diario'}
+              >
+                <Trash2 className={hasRows ? 'text-gray-400' : 'text-red-500'} size={16} />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Está seguro de eliminar este parte diario?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción no se puede deshacer. El parte diario será eliminado permanentemente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                  Eliminar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
       );
     },
   },

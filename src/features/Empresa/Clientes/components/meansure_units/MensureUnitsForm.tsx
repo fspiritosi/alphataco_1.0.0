@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -100,7 +101,7 @@ function MensureUnitsForm({ selectedUnit, setSelectedUnit, mode, setMode }: Mens
   }
 
   return (
-    <>
+    <PermissionGuard module="comercial" tab="mensure_units" action={mode === 'create' ? 'create' : 'update'}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 w-[300px]">
           <h2 className="text-xl font-bold mb-4">
@@ -158,7 +159,7 @@ function MensureUnitsForm({ selectedUnit, setSelectedUnit, mode, setMode }: Mens
           </div>
         </form>
       </Form>
-    </>
+    </PermissionGuard>
   );
 }
 

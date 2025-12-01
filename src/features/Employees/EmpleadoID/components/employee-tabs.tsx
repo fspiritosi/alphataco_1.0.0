@@ -2,9 +2,9 @@
 
 import { getEmployeeById } from '@/app/server/GET/actions';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
 import { fetchAllContractTypes } from '@/features/Empresa/RRHH/components/TypeContract/actions/actions';
+import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import { cn } from '@/lib/utils';
 import { fetchCountrys } from '@/shared/actions/employees.actions';
 import { useEmployeeFormReset } from '@/store/employeeFormReset';
@@ -166,170 +166,168 @@ export function EmployeeTabs({
     });
   }, [form.formState.errors]);
 
-  return (
-    <Tabs defaultValue="personalData" className="w-full p-4">
-      <TabsList className="grid w-full grid-cols-5">
-        <TabsTrigger
-          value="personalData"
-          className={cn('flex items-center gap-2', errors?.personalData && 'bg-red-300 text-red-50')}
-        >
+  const tabs = [
+    {
+      value: 'personalData',
+      label: (
+        <div className={cn('flex items-center gap-2', errors?.personalData && 'bg-red-300 text-red-50')}>
           <User className="h-4 w-4" />
           <span className="hidden sm:inline">Datos Personales</span>
-        </TabsTrigger>
-
-        <TabsTrigger
-          value="contactData"
-          className={cn('flex items-center gap-2', errors?.contactData && 'bg-red-300 text-red-50')}
-        >
+        </div>
+      ),
+      moduleSlug: 'empleados',
+      tabSlug: 'datos-personales',
+      content: (
+        <>
+          {errors?.personalData && (
+            <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
+              Falta corregir algunos campos
+            </Badge>
+          )}
+          <EmployeeForm
+            options={{
+              personalData: { countriesPromise },
+              contactData: { provincesPromise, citiesPromise },
+              workData: {
+                costCentersPromise,
+                hierarchicalPositionsPromise,
+                companyPositionsPromise,
+                workflowDiagramsPromise,
+                guildsPromise,
+                covenantsPromise,
+                categoriesPromise,
+                contractorCompaniesPromise,
+                typeOfContractsPromise,
+                aptitudesPromise,
+              },
+            }}
+            form={form}
+            employee={employee}
+            activeTab="personalData"
+            mode={mode}
+          />
+        </>
+      ),
+    },
+    {
+      value: 'contactData',
+      label: (
+        <div className={cn('flex items-center gap-2', errors?.contactData && 'bg-red-300 text-red-50')}>
           <Phone className="h-4 w-4" />
           <span className="hidden sm:inline">Datos de Contacto</span>
-        </TabsTrigger>
-
-        <TabsTrigger
-          value="workData"
-          className={cn('flex items-center gap-2', errors?.workData && 'bg-red-300 text-red-50')}
-        >
+        </div>
+      ),
+      moduleSlug: 'empleados',
+      tabSlug: 'datos-contacto',
+      content: (
+        <>
+          {errors?.contactData && (
+            <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
+              Falta corregir algunos campos
+            </Badge>
+          )}
+          <EmployeeForm
+            options={{
+              personalData: { countriesPromise },
+              contactData: { provincesPromise, citiesPromise },
+              workData: {
+                costCentersPromise,
+                hierarchicalPositionsPromise,
+                companyPositionsPromise,
+                workflowDiagramsPromise,
+                guildsPromise,
+                covenantsPromise,
+                categoriesPromise,
+                contractorCompaniesPromise,
+                typeOfContractsPromise,
+                aptitudesPromise,
+              },
+            }}
+            activeTab="contactData"
+            form={form}
+            employee={employee}
+            mode={mode}
+          />
+        </>
+      ),
+    },
+    {
+      value: 'workData',
+      label: (
+        <div className={cn('flex items-center gap-2', errors?.workData && 'bg-red-300 text-red-50')}>
           <Briefcase className="h-4 w-4" />
           <span className="hidden sm:inline">Datos Laborales</span>
-        </TabsTrigger>
+        </div>
+      ),
+      moduleSlug: 'empleados',
+      tabSlug: 'datos-laborales',
+      content: (
+        <>
+          {errors?.workData && (
+            <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
+              Faltan corregir algunos campos
+            </Badge>
+          )}
+          <EmployeeForm
+            options={{
+              personalData: { countriesPromise },
+              contactData: { provincesPromise, citiesPromise },
+              workData: {
+                costCentersPromise,
+                hierarchicalPositionsPromise,
+                companyPositionsPromise,
+                workflowDiagramsPromise,
+                guildsPromise,
+                covenantsPromise,
+                categoriesPromise,
+                contractorCompaniesPromise,
+                typeOfContractsPromise,
+                aptitudesPromise,
+              },
+            }}
+            activeTab="workData"
+            form={form}
+            employee={employee}
+            mode={mode}
+          />
+        </>
+      ),
+    },
+    {
+      value: 'documents',
+      label: (
+        <div className="flex items-center gap-2">
+          {mode === 'new' ? <Lock className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+          <span className="hidden sm:inline">Documentación</span>
+        </div>
+      ),
+      moduleSlug: 'empleados',
+      tabSlug: 'documentacion-empleado',
+      disabled: mode === 'new',
+      content: documentsComponent,
+    },
+    {
+      value: 'diagrams',
+      label: (
+        <div className="flex items-center gap-2">
+          {mode === 'new' ? <Lock className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
+          <span className="hidden sm:inline">Diagramas</span>
+        </div>
+      ),
+      moduleSlug: 'empleados',
+      tabSlug: 'diagramas-empleado',
+      disabled: mode === 'new',
+      content: diagramsComponent,
+    },
+  ] as const;
 
-        {employeeId && (
-          <div
-            className={cn('w-full flex items- justify-center gap-2', mode === 'new' ? 'hover:cursor-not-allowed' : '')}
-          >
-            <TabsTrigger value="documents" disabled={mode === 'new'} className="flex items-center gap-2">
-              {mode === 'new' ? <Lock className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
-              <span className="hidden sm:inline">Documentación</span>
-            </TabsTrigger>
-          </div>
-        )}
-
-        {employeeId && (
-          <div
-            className={cn('w-full flex items- justify-center gap-2', mode === 'new' ? 'hover:cursor-not-allowed' : '')}
-          >
-            <TabsTrigger
-              value="diagrams"
-              disabled={mode === 'new'}
-              className={cn('flex items-center gap-2', mode === 'new' ? 'hover:cursor-not-allowed opacity-50' : '')}
-            >
-              {mode === 'new' ? <Lock className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
-              <span className="hidden sm:inline">Diagramas</span>
-            </TabsTrigger>
-          </div>
-        )}
-      </TabsList>
-
-      {/* Tabs del formulario */}
-      <TabsContent value="personalData">
-        {errors?.personalData && (
-          <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
-            Falta corregir algunos campos
-          </Badge>
-        )}
-        <EmployeeForm
-          options={{
-            personalData: {
-              countriesPromise,
-            },
-            contactData: {
-              provincesPromise,
-              citiesPromise,
-            },
-            workData: {
-              costCentersPromise,
-              hierarchicalPositionsPromise,
-              companyPositionsPromise,
-              workflowDiagramsPromise,
-              guildsPromise,
-              covenantsPromise,
-              categoriesPromise,
-              contractorCompaniesPromise,
-              typeOfContractsPromise,
-              aptitudesPromise,
-            },
-          }}
-          form={form}
-          employee={employee}
-          activeTab="personalData"
-          mode={mode}
-        />
-      </TabsContent>
-
-      <TabsContent value="contactData">
-        {errors?.contactData && (
-          <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
-            Falta corregir algunos campos
-          </Badge>
-        )}
-        <EmployeeForm
-          options={{
-            personalData: {
-              countriesPromise,
-            },
-            contactData: {
-              provincesPromise,
-              citiesPromise,
-            },
-            workData: {
-              costCentersPromise,
-              hierarchicalPositionsPromise,
-              companyPositionsPromise,
-              workflowDiagramsPromise,
-              guildsPromise,
-              covenantsPromise,
-              categoriesPromise,
-              contractorCompaniesPromise,
-              typeOfContractsPromise,
-              aptitudesPromise,
-            },
-          }}
-          activeTab="contactData"
-          form={form}
-          employee={employee}
-          mode={mode}
-        />
-      </TabsContent>
-
-      <TabsContent value="workData">
-        {errors?.workData && (
-          <Badge className="h-6 hover:no-underline mb-4" variant="destructive">
-            Faltan corregir algunos campos
-          </Badge>
-        )}
-        <EmployeeForm
-          options={{
-            personalData: {
-              countriesPromise,
-            },
-            contactData: {
-              provincesPromise,
-              citiesPromise,
-            },
-            workData: {
-              costCentersPromise,
-              hierarchicalPositionsPromise,
-              companyPositionsPromise,
-              workflowDiagramsPromise,
-              guildsPromise,
-              covenantsPromise,
-              categoriesPromise,
-              contractorCompaniesPromise,
-              typeOfContractsPromise,
-              aptitudesPromise,
-            },
-          }}
-          activeTab="workData"
-          form={form}
-          employee={employee}
-          mode={mode}
-        />
-      </TabsContent>
-
-      {/* Tabs independientes */}
-      {employeeId && <TabsContent value="documents">{documentsComponent}</TabsContent>}
-
-      {employeeId && <TabsContent value="diagrams">{diagramsComponent}</TabsContent>}
-    </Tabs>
+  return (
+    <TabsManagerClientSide
+      paramName="tab"
+      defaultTab="personalData"
+      tabs={tabs}
+      listClassName="grid w-full grid-cols-5"
+      triggerClassName="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+    />
   );
 }

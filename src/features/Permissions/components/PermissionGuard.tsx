@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
-import type { ActionSlug, ModuleSlug, SubtabSlug, TabSlug } from '../permissions-map';
+import type { ActionSlug, AllTabSlugs, ModuleSlug } from '../permissions-map';
 
 /**
  * Props para PermissionGuard con tipado fuerte
@@ -14,7 +14,7 @@ import type { ActionSlug, ModuleSlug, SubtabSlug, TabSlug } from '../permissions
  */
 interface PermissionGuardProps<M extends ModuleSlug = ModuleSlug> {
   module: M;
-  tab: TabSlug<M> | SubtabSlug<M, any>;
+  tab: AllTabSlugs<M>;
   action: ActionSlug;
   children: ReactNode;
   fallback?: ReactNode;

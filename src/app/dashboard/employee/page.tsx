@@ -6,6 +6,7 @@ import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permane
 import EmployeeTable from '@/features/Employees/Empleados/EmpleadosTables/Activos/employee_table';
 import EmpleadosInactivosTable from '@/features/Employees/Empleados/EmpleadosTables/Inactivos/EmpleadosInactivosTable';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
@@ -59,12 +60,14 @@ export default async function EmployeePage({
             content: (
               <div>
                 <div className="flex gap-4 flex-wrap mb-4">
-                  <Link
-                    className={buttonVariants({ variant: 'gh_orange' })}
-                    href={'/dashboard/employee/action?action=new'}
-                  >
-                    Agregar empleado
-                  </Link>
+                  <PermissionGuardServer module="empleados" tab="employees" action="create">
+                    <Link
+                      className={buttonVariants({ variant: 'gh_orange' })}
+                      href={'/dashboard/employee/action?action=new'}
+                    >
+                      Agregar empleado
+                    </Link>
+                  </PermissionGuardServer>
                 </div>
                 <TabsManagerServer
                   paramName="subtab"
@@ -121,7 +124,9 @@ export default async function EmployeePage({
             content: (
               <div>
                 <div className="flex gap-4 flex-wrap mb-4">
-                  <DocumentNav onlyEmployees />
+                  <PermissionGuardServer module="empleados" tab="documentos-de-empleados" action="create">
+                    <DocumentNav onlyEmployees />
+                  </PermissionGuardServer>
                 </div>
                 <TabsManagerServer
                   paramName="subtab"

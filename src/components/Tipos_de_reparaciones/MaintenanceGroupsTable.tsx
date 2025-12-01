@@ -16,6 +16,7 @@ interface MaintenanceGroupsTableProps {
   mode: 'create' | 'edit';
   savedVisibility: VisibilityState;
   savedFilter: string[];
+  canEdit: boolean;
 }
 
 function getTypeNames(typeIds: string[], types: MaintenanceGroupsTableProps['types']) {
@@ -24,9 +25,10 @@ function getTypeNames(typeIds: string[], types: MaintenanceGroupsTableProps['typ
 
 export function getMaintenanceGroupsColumns(
   types: MaintenanceGroupsTableProps['types'],
-  onEdit: (group: MaintenanceGroupsTableProps['groups'][number]) => void
+  onEdit: (group: MaintenanceGroupsTableProps['groups'][number]) => void,
+  canEdit: boolean
 ): ColumnDef<MaintenanceGroupsTableProps['groups'][number]>[] {
-  return [
+  const columns: ColumnDef<MaintenanceGroupsTableProps['groups'][number]>[] = [
     {
       accessorKey: 'name',
       id: 'Nombre',
@@ -90,7 +92,10 @@ export function getMaintenanceGroupsColumns(
       ),
       filterFn: (row, id, value) => value.includes(row.getValue(id)),
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => (
@@ -99,8 +104,10 @@ export function getMaintenanceGroupsColumns(
         </Button>
       ),
       enableSorting: false,
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 function MaintenanceGroupsTable({
@@ -111,6 +118,7 @@ function MaintenanceGroupsTable({
   mode,
   savedVisibility,
   savedFilter,
+  canEdit,
 }: MaintenanceGroupsTableProps) {
   const [filteredData, setFilteredData] = useState<MaintenanceGroupsTableProps['groups']>(
     groups.filter((g) => g.is_active)
@@ -135,7 +143,7 @@ function MaintenanceGroupsTable({
       </div>
       <BaseDataTable
         className="mt-4"
-        columns={getMaintenanceGroupsColumns(types, handleEdit)}
+        columns={getMaintenanceGroupsColumns(types, handleEdit, canEdit)}
         data={groups as any}
         savedVisibility={savedVisibility}
         tableId="maintenance-groups-table"

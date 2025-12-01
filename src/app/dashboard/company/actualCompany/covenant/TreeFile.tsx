@@ -2,6 +2,7 @@
 import AddCategoryModal from '@/components/AddCategoryModal';
 import AddCovenantModal from '@/components/AddCovenantModal';
 import AddGuildModal from '@/components/AddGuildModal';
+import { PermissionGuard } from '@/features/Permissions';
 import Cookies from 'js-cookie';
 import { ChevronDown, ChevronRight, FileText, FolderClosed, FolderOpen } from 'lucide-react';
 import React, { useState } from 'react';
@@ -48,12 +49,20 @@ export const TreeNode: React.FC<TreeNodeProps> = ({ node, level }) => {
           </div>
 
           <div>
-            {node.type === 'sindicatoPadre' && <AddGuildModal company_id={company_id} />}
+            {node.type === 'sindicatoPadre' && (
+              <PermissionGuard module="empresa" tab="convenios" action="create">
+                <AddGuildModal company_id={company_id} />
+              </PermissionGuard>
+            )}
             {node.type === 'sindicato' && (
-              <AddCovenantModal company_id={company_id} guildInfo={{ name: node.name, id: node.id }} />
+              <PermissionGuard module="empresa" tab="convenios" action="create">
+                <AddCovenantModal company_id={company_id} guildInfo={{ name: node.name, id: node.id }} />
+              </PermissionGuard>
             )}
             {node.type === 'convenio' && (
-              <AddCategoryModal company_id={company_id} covenantInfo={{ name: node.name, id: node.id }} />
+              <PermissionGuard module="empresa" tab="convenios" action="create">
+                <AddCategoryModal company_id={company_id} covenantInfo={{ name: node.name, id: node.id }} />
+              </PermissionGuard>
             )}
           </div>
         </div>

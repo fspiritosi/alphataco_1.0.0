@@ -1,5 +1,6 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { VisibilityState } from '@tanstack/react-table';
 import { useState } from 'react';
 import OrganigramForm from './OrganigramForm';
@@ -10,7 +11,8 @@ interface Sector {
   name: string;
   is_active: boolean;
 }
-function organigramTab({
+
+function OrganigramTab({
   sectors,
   savedVisibility,
   savedFilter,
@@ -20,16 +22,26 @@ function organigramTab({
   savedFilter: string[];
 }) {
   const [sector, setSector] = useState<Sector | null>(null);
+  const { hasPermission } = usePermissions();
+
+  // Verificar si tiene permisos de crear o editar
+  const canCreateOrUpdate =
+    hasPermission('empresa', 'organigrama', 'create') || hasPermission('empresa', 'organigrama', 'update');
+
   return (
     <div>
       <div className="w-full">
         <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-          <ResizablePanel defaultSize={40}>
-            <OrganigramForm editingSector={sector} />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
+          {canCreateOrUpdate && (
+            <>
+              <ResizablePanel defaultSize={40}>
+                <OrganigramForm editingSector={sector} />
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
+          )}
 
-          <ResizablePanel defaultSize={60}>
+          <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
             {/* <CostCenterTable costCenters={costCenters} onEdit={setCostCenter} /> */}
             <OrganigramTable
               savedFilter={savedFilter}
@@ -44,4 +56,4 @@ function organigramTab({
   );
 }
 
-export default organigramTab;
+export default OrganigramTab;
