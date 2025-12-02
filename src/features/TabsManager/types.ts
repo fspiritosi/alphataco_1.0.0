@@ -1,4 +1,4 @@
-import type { AllTabSlugs, ModuleSlug } from '@/features/Permissions/permissions-map';
+import type { AllTabSlugsUnion, ModuleSlug } from '@/features/Permissions/permissions-map';
 import React from 'react';
 
 /**
@@ -6,17 +6,38 @@ import React from 'react';
  *
  * El tipado genérico permite autocompletado inteligente:
  * - moduleSlug: Autocompleta todos los módulos disponibles
- * - tabSlug: Autocompleta tabs y subtabs del módulo seleccionado
+ * - tabSlug: Autocompleta tabs y subtabs del módulo seleccionado (hasta 3 niveles de anidación)
+ *
+ * Soporta:
+ * - Tabs principales de un módulo (nivel 1)
+ * - Subtabs de una tab principal (nivel 2)
+ * - Sub-subtabs de una subtab (nivel 3)
+ * - Múltiples módulos en un mismo array de tabs
  *
  * @example
  * ```tsx
+ * // Tab principal
  * const tab: TabDefinition<'dashboard'> = {
  *   value: 'principal',
  *   label: 'Principal',
  *   moduleSlug: 'dashboard',  // ← Tipado fuerte
- *   tabSlug: 'principal',      // ← Autocompleta: 'principal', 'documentacion', 'estadisticas', 'empleados', 'vehiculos', etc.
+ *   tabSlug: 'principal',      // ← Autocompleta tabs de dashboard
  *   content: <Content />,
  * };
+ *
+ * // Subtabs (nivel 2)
+ * const subtab: TabDefinition<'dashboard'> = {
+ *   value: 'empleados',
+ *   moduleSlug: 'dashboard',
+ *   tabSlug: 'empleados',      // ← Subtabs de 'documentacion'
+ *   content: <Content />,
+ * };
+ *
+ * // Múltiples módulos
+ * const tabs: TabDefinition<'empleados' | 'documentacion'>[] = [
+ *   { moduleSlug: 'empleados', tabSlug: 'employees', ... },
+ *   { moduleSlug: 'documentacion', tabSlug: 'tipos-de-documentos', ... },
+ * ];
  * ```
  */
 export interface TabDefinition<M extends ModuleSlug = ModuleSlug> {
@@ -30,14 +51,24 @@ export interface TabDefinition<M extends ModuleSlug = ModuleSlug> {
    * Slug del módulo para verificación de permisos.
    * Obtener de: src/features/Permissions/permissions-map.ts
    * Ejemplo: 'dashboard', 'empleados', 'equipos'
+   *
+   * Autocompleta automáticamente todos los módulos disponibles.
+   * Debe ser un módulo válido definido en permissions-map.ts.
    */
   moduleSlug?: M;
   /**
-   * Slug del tab/subtab para verificación de permisos.
+   * Slug del tab/subtab/sub-subtab para verificación de permisos.
    * Obtener de: src/features/Permissions/permissions-map.ts
-   * Autocompleta tabs y subtabs del módulo seleccionado
+   *
+   * Autocompleta automáticamente todos los tabs y subtabs válidos (hasta 3 niveles de anidación):
+   * - Nivel 1: Tabs principales (ej: 'employees', 'diagrams')
+   * - Nivel 2: Subtabs (ej: 'empleados-activos', 'empleados-inactivos')
+   * - Nivel 3: Sub-subtabs (ej: 'carga-individual', 'carga-multiple')
+   *
+   * Cuando hay múltiples módulos en el array, acepta tabs válidos de cualquiera de esos módulos.
+   * Se valida en tiempo de compilación que el tabSlug existe en permissions-map.ts.
    */
-  tabSlug?: AllTabSlugs<M>;
+  tabSlug?: AllTabSlugsUnion<M>;
   /** Deshabilita la pestaña */
   disabled?: boolean;
 }

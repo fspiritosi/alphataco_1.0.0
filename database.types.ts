@@ -4038,6 +4038,7 @@ export type Database = {
           position_name: string;
         }[];
       };
+      get_max_order_number: { Args: never; Returns: string };
       get_services_summary_by_type: {
         Args: { p_company_id: string; save_to_history?: boolean };
         Returns: {

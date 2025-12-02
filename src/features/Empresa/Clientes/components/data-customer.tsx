@@ -585,7 +585,10 @@ export function DataCustomers<TData extends Customer, TValue>({
             <TabsTrigger value="detalle">Detalle</TabsTrigger>
             <TabsTrigger value="empleados">Empleados</TabsTrigger>
             <TabsTrigger value="equipos">Equipos</TabsTrigger>
-            <TabsTrigger value="contratos">Contratos</TabsTrigger>
+            {/* Hereda permisos de comercial/service */}
+            <PermissionGuard module="comercial" tab="service" action="view">
+              <TabsTrigger value="contratos">Contratos</TabsTrigger>
+            </PermissionGuard>
           </TabsList>
 
           <TabsContent value="detalle">
@@ -778,26 +781,29 @@ export function DataCustomers<TData extends Customer, TValue>({
             </div>
           </TabsContent>
 
-          <TabsContent value="contratos">
-            <div className=" p-6 rounded-lg border">
-              <h3 className="text-xl font-semibold mb-6">Contratos del Cliente</h3>
-              {selectedCustomer ? (
-                <ServiceTable
-                  services={services.filter((service) => service.customer_id === selectedCustomer.id)}
-                  customers={[selectedCustomer] as any}
-                  company_id={company_id}
-                  areas={areas}
-                  sectors={sectors}
-                  itemsList={itemsList}
-                  measureUnitsList={measureUnitsList}
-                  hideCreateButton={false}
-                  savedFilter={savedFiltersServiceTable}
-                />
-              ) : (
-                <p className="text-muted-foreground">Seleccione un cliente para ver sus contratos</p>
-              )}
-            </div>
-          </TabsContent>
+          {/* Hereda permisos de comercial/service */}
+          <PermissionGuard module="comercial" tab="service" action="view">
+            <TabsContent value="contratos">
+              <div className=" p-6 rounded-lg border">
+                <h3 className="text-xl font-semibold mb-6">Contratos del Cliente</h3>
+                {selectedCustomer ? (
+                  <ServiceTable
+                    services={services.filter((service) => service.customer_id === selectedCustomer.id)}
+                    customers={[selectedCustomer] as any}
+                    company_id={company_id}
+                    areas={areas}
+                    sectors={sectors}
+                    itemsList={itemsList}
+                    measureUnitsList={measureUnitsList}
+                    hideCreateButton={false}
+                    savedFilter={savedFiltersServiceTable}
+                  />
+                ) : (
+                  <p className="text-muted-foreground">Seleccione un cliente para ver sus contratos</p>
+                )}
+              </div>
+            </TabsContent>
+          </PermissionGuard>
         </Tabs>
       </div>
     );

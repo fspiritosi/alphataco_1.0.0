@@ -213,7 +213,7 @@ export const columnsMonthlyEquipmentDocumentServer: ExtendedColumnDef<MonthlyEqu
 
       if (isNoPresented) {
         return (
-          <PermissionGuard module="equipos" tab="docs-equipos-mensuales" action="update">
+          <PermissionGuard module="documentacion" tab="docs-equipos-mensuales" action="update">
             <AlertDialog open={open} onOpenChange={setOpen}>
               <AlertDialogTrigger asChild>
                 {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
@@ -241,7 +241,7 @@ export const columnsMonthlyEquipmentDocumentServer: ExtendedColumnDef<MonthlyEqu
       }
 
       return (
-        <PermissionGuard module="equipos" tab="docs-equipos-mensuales" action="view">
+        <PermissionGuard module="documentacion" tab="docs-equipos-mensuales" action="view">
           <Link
             href={`/dashboard/document/${row.original.id}?resource=${row.original.vehicles ? 'Equipos' : 'Persona'}`}
           >

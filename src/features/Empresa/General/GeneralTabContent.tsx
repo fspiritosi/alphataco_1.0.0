@@ -46,10 +46,14 @@ export default async function GeneralTabContent({
                     <CardDescription>Información de la empresa</CardDescription>
                   </div>
                   {/* <EditCompanyButton companyId={company_id?.toString() ?? ''} /> */}
-                  <Link
-                    href={`/dashboard/company/${company_id?.toString()}`}
-                    className={buttonVariants({ variant: 'gh_orange' })}
-                  ></Link>
+                  <PermissionGuardServer module="empresa" tab="general" action="update">
+                    <Link
+                      href={`/dashboard/company/${company_id?.toString()}`}
+                      className={buttonVariants({ variant: 'gh_orange' })}
+                    >
+                      Editar Empresa
+                    </Link>
+                  </PermissionGuardServer>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <CompanyComponent />

@@ -1,3 +1,4 @@
+import { checkPermissionServer } from '@/features/Permissions';
 import { cookies } from 'next/headers';
 import { getDailyReportById } from '../actions/actions';
 import { fetchDailyReportData } from '../actions/server-actions';
@@ -11,6 +12,9 @@ export default async function DayliReportDetailTableServerWrapper({ params }: { 
   // Obtener datos del daily report para obtener la fecha
   const dailyReport = await getDailyReportById(params.uuid);
   const reportDate = dailyReport[0]?.date || '';
+
+  // Verificar permiso de editar para mostrar/ocultar columna de checkbox
+  const canEdit = await checkPermissionServer('operaciones', 'detalle-parte-diario', 'update');
 
   // Cargar datos iniciales con paginación
   const initialData = await fetchDailyReportData({
@@ -29,6 +33,7 @@ export default async function DayliReportDetailTableServerWrapper({ params }: { 
       savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
       savedFilters={savedFilter ? JSON.parse(savedFilter) : []}
       dailyReport={dailyReport}
+      canEdit={canEdit}
     />
   );
 }

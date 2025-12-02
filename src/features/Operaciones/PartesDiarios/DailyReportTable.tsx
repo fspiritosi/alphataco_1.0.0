@@ -160,7 +160,7 @@ export const reportColumnas: ColumnDef<Awaited<ReturnType<typeof getDailyReports
       };
 
       return (
-        <PermissionGuard module="operaciones" tab="dailyreportstable" action="create">
+        <PermissionGuard module="operaciones" tab="dailyreportstable" action="delete">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button

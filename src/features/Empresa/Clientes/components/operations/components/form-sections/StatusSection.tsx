@@ -42,15 +42,15 @@ export function StatusSection({ form, isCreating, currentStatus, disabled }: Sta
             </div>
           </div>
 
-          {/* Número de remito - Obligatorio */}
+          {/* Número de remito - Opcional */}
           <FormField
             control={form.control}
             name="remit_number"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Número de Remito *</FormLabel>
+                <FormLabel>Número de Remito</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ingrese el número de remito" disabled={disabled} {...field} />
+                  <Input placeholder="Ingrese el número de remito (opcional)" disabled={disabled} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -108,16 +108,16 @@ export function StatusSection({ form, isCreating, currentStatus, disabled }: Sta
           }}
         />
 
-        {/* Número de remito - Solo si el estado es "en_certificacion" */}
+        {/* Número de remito - Solo si el estado es "en_certificacion" - Opcional */}
         {statusWatch === 'en_certificacion' && (
           <FormField
             control={form.control}
             name="remit_number"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Número de Remito *</FormLabel>
+                <FormLabel>Número de Remito</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ingrese el número de remito" disabled={disabled} {...field} />
+                  <Input placeholder="Ingrese el número de remito (opcional)" disabled={disabled} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

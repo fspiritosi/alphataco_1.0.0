@@ -1,55 +1,110 @@
-// 'use client';
-
 import {
   fetchEmployeeMonthlyDocumentsByEmployeeId,
   fetchEmployeePermanentDocumentsByEmployeeId,
 } from '@/app/server/GET/actions';
 import DocumentNav from '@/components/DocumentNav';
-import { CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PermissionGuardServer } from '@/features/Permissions';
+import { TabsManagerServer } from '@/features/TabsManager';
 import { formatEmployeeDocuments } from '@/lib/utils';
+import { Calendar, FileArchive } from 'lucide-react';
+import { Suspense } from 'react';
 import { ColumnsMonthly } from '../columsMonthly';
 import { ExpiredDataTable } from '../data-table';
 import { ExpiredColums } from '../pedidos/colums';
 
-type Props = { employee_id: string; role?: string };
+type Props = { employee_id: string; role?: string; searchParams?: { [key: string]: string | string[] | undefined } };
 
-export default async function DocumentTable({ employee_id, role }: Props) {
+export default async function DocumentTable({ employee_id, role, searchParams = {} }: Props) {
   // const { allDocumentsToShow } = useLoggedUserStore();
   const monthlyDocuments = (await fetchEmployeeMonthlyDocumentsByEmployeeId(employee_id)).map(formatEmployeeDocuments);
 
   const permanentDocuments = (await fetchEmployeePermanentDocumentsByEmployeeId(employee_id)).map(
     formatEmployeeDocuments
   );
+
   return (
-    <Tabs defaultValue="permanentes">
-      <CardContent className="flex justify-between">
-        <TabsList>
-          <TabsTrigger value="permanentes">Documentos permanentes</TabsTrigger>
-          <TabsTrigger value="mensuales">Documentos mensuales</TabsTrigger>
-        </TabsList>
-        {role !== 'Invitado' && <DocumentNav id_user={employee_id} onlyEmployees onlyNoMultiresource />}
-      </CardContent>
-      <TabsContent value="permanentes">
-        <ExpiredDataTable
-          data={permanentDocuments}
-          columns={ExpiredColums}
-          pending={true}
-          defaultVisibleColumnsCustom={['date', 'resource', 'documentName', 'validity', 'id', 'mandatory', 'state']}
-          localStorageName={'dashboardEmployeesPermanentes'}
-          permanent
-        />
-      </TabsContent>
-      <TabsContent value="mensuales">
-        <ExpiredDataTable
-          data={monthlyDocuments}
-          columns={ColumnsMonthly}
-          pending={true}
-          defaultVisibleColumnsCustom={['date', 'resource', 'documentName', 'validity', 'id', 'mandatory', 'state']}
-          localStorageName={'dashboardEmployeesMensuales'}
-          monthly
-        />
-      </TabsContent>
-    </Tabs>
+    <TabsManagerServer
+      paramName="subtab"
+      searchParams={searchParams}
+      defaultTab="permanentes"
+      tabs={[
+        {
+          value: 'permanentes',
+          label: (
+            <span className="flex items-center gap-2">
+              <FileArchive className="h-4 w-4" />
+              Documentos Permanentes
+            </span>
+          ),
+          moduleSlug: 'documentacion',
+          tabSlug: 'docs-empleados-permanentes',
+          content: (
+            <div>
+              <PermissionGuardServer module="documentacion" tab="documentos-de-empleados" action="create">
+                <div className="flex gap-4 flex-wrap mb-4">
+                  <DocumentNav id_user={employee_id} onlyEmployees onlyNoMultiresource />
+                </div>
+              </PermissionGuardServer>
+              <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
+                <ExpiredDataTable
+                  data={permanentDocuments}
+                  columns={ExpiredColums}
+                  pending={true}
+                  defaultVisibleColumnsCustom={[
+                    'date',
+                    'resource',
+                    'documentName',
+                    'validity',
+                    'id',
+                    'mandatory',
+                    'state',
+                  ]}
+                  localStorageName={'dashboardEmployeesPermanentes'}
+                  permanent
+                />
+              </Suspense>
+            </div>
+          ),
+        },
+        {
+          value: 'mensuales',
+          label: (
+            <span className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Documentos Mensuales
+            </span>
+          ),
+          moduleSlug: 'documentacion',
+          tabSlug: 'docs-empleados-mensuales',
+          content: (
+            <div>
+              <PermissionGuardServer module="documentacion" tab="documentos-de-empleados" action="create">
+                <div className="flex gap-4 flex-wrap mb-4">
+                  <DocumentNav id_user={employee_id} onlyEmployees onlyNoMultiresource />
+                </div>
+              </PermissionGuardServer>
+              <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
+                <ExpiredDataTable
+                  data={monthlyDocuments}
+                  columns={ColumnsMonthly}
+                  pending={true}
+                  defaultVisibleColumnsCustom={[
+                    'date',
+                    'resource',
+                    'documentName',
+                    'validity',
+                    'id',
+                    'mandatory',
+                    'state',
+                  ]}
+                  localStorageName={'dashboardEmployeesMensuales'}
+                  monthly
+                />
+              </Suspense>
+            </div>
+          ),
+        },
+      ]}
+    />
   );
 }

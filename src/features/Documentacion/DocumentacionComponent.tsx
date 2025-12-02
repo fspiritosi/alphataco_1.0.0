@@ -1,10 +1,10 @@
-import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, FileType, Truck, Users } from 'lucide-react';
 import { Suspense } from 'react';
 import DocumentosEmpleadosTabContent from './DocumentosEmpleados/DocumentosEmpleadosTabContent';
 import DocumentosEmpresaTabContent from './DocumentosEmpresa/DocumentosEmpresaTabContent';
 import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
+import TiposDocumentosTabContent from './TiposDocumentos/TiposDocumentosTabContent';
 
 export default function DocumentacionComponent({
   searchParams,
@@ -67,7 +67,7 @@ export default function DocumentacionComponent({
             tabSlug: 'tipos-de-documentos',
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TypesDocumentsViewWrapper optionChildrenProp="all" equipos={true} personas={true} />
+                <TiposDocumentosTabContent searchParams={searchParams} />
               </Suspense>
             ),
           },

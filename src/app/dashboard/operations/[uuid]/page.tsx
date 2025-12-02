@@ -25,7 +25,7 @@ async function page({
           </CardDescription>
         </div>
 
-        <TabsManagerServer
+        <TabsManagerServer<'operaciones'>
           paramName="tab"
           searchParams={searchParams}
           defaultTab="detalle"

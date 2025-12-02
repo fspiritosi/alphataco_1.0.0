@@ -118,13 +118,14 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             mode={mode}
             employee={employee}
             //Componentes
-            documentsComponent={<DocumentTable employee_id={employee_id} />}
+            documentsComponent={<DocumentTable employee_id={employee_id} searchParams={searchParams} />}
             diagramsComponent={
               <DiagramDetailEmployeeView
                 historyData={historyData}
                 diagrams={diagrams2 as any}
                 diagrams_types={diagrams_types2}
                 activeEmploees={[employee]}
+                searchParams={searchParams}
               />
             }
             // Promises para las opciones

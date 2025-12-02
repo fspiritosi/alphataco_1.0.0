@@ -13,6 +13,7 @@ export default function DocumentosEmpleadosTabContent({
 }) {
   return (
     <div>
+      {/* Botón crear está en la tab principal, no en subtabs */}
       <PermissionGuardServer module="documentacion" tab="documentos-de-empleados" action="create">
         <div className="flex gap-4 flex-wrap mb-4">
           <DocumentNav onlyEmployees />
@@ -31,7 +32,7 @@ export default function DocumentosEmpleadosTabContent({
                 Documentos Permanentes
               </span>
             ),
-            moduleSlug: 'empleados',
+            moduleSlug: 'documentacion',
             tabSlug: 'docs-empleados-permanentes',
             content: (
               <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
@@ -47,7 +48,7 @@ export default function DocumentosEmpleadosTabContent({
                 Documentos Mensuales
               </span>
             ),
-            moduleSlug: 'empleados',
+            moduleSlug: 'documentacion',
             tabSlug: 'docs-empleados-mensuales',
             content: (
               <Suspense fallback={<div>Cargando documentos mensuales...</div>}>

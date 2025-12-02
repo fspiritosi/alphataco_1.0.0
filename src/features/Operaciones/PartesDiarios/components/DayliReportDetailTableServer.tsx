@@ -46,6 +46,7 @@ export default function DayliReportDetailTableServer({
   savedFilters,
   savedVisibility,
   dailyReport,
+  canEdit = false,
 }: {
   dailyReportId: string;
   reportDate: string;
@@ -53,6 +54,7 @@ export default function DayliReportDetailTableServer({
   savedFilters: string[];
   savedVisibility: VisibilityState;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
+  canEdit?: boolean;
 }) {
   // Estado para controlar la apertura del modal de edición masiva
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
@@ -322,32 +324,37 @@ export default function DayliReportDetailTableServer({
 
   // Definición de columnas
   const columns: ExtendedColumnDef<DailyReportServerData>[] = [
-    {
-      id: 'select',
-      header: ({ table }) => (
-        <div className="w-[20px]">
-          <Checkbox
-            disabled={table.getRowModel().rows.every((row) => !row.getCanSelect())}
-            checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
-            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-            aria-label="Select all"
-            className="translate-y-[2px]"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          disabled={!row.getCanSelect()}
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-          className="translate-y-[2px]"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-      excludeFromExport: true,
-    },
+    // Columna de checkbox solo si tiene permiso de editar
+    ...(canEdit
+      ? [
+          {
+            id: 'select',
+            header: ({ table }) => (
+              <div className="w-[20px]">
+                <Checkbox
+                  disabled={table.getRowModel().rows.every((row) => !row.getCanSelect())}
+                  checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
+                  onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                  aria-label="Select all"
+                  className="translate-y-[2px]"
+                />
+              </div>
+            ),
+            cell: ({ row }) => (
+              <Checkbox
+                disabled={!row.getCanSelect()}
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Select row"
+                className="translate-y-[2px]"
+              />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+            excludeFromExport: true,
+          } as ExtendedColumnDef<DailyReportServerData>,
+        ]
+      : []),
     {
       accessorKey: 'customers.name',
       id: 'customers.name',
@@ -859,10 +866,13 @@ export default function DayliReportDetailTableServer({
           return createdAt.isAfter(reportDate) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '';
         }}
         tableId="dailyReportServerTable"
-        enableRowSelection={(row) =>
-          row.original.status !== 'ejecutado' &&
-          row.original.status !== 'sin_recursos_asignados' &&
-          row.original.status !== 'reprogramado'
+        enableRowSelection={
+          canEdit
+            ? (row) =>
+                row.original.status !== 'ejecutado' &&
+                row.original.status !== 'sin_recursos_asignados' &&
+                row.original.status !== 'reprogramado'
+            : false
         }
         onRowSelectionChange={(rows) => {
           setSelectedRows(rows);
@@ -1163,15 +1173,17 @@ export default function DayliReportDetailTableServer({
             },
           ],
           showFilterOptions: true,
-          bulkAction: {
-            enabled: true,
-            label: 'Editar',
-            icon: <Edit className="h-4 w-4" />,
-            onClick: (rows) => {
-              setSelectedRows(rows);
-              setIsBulkEditModalOpen(true);
-            },
-          },
+          bulkAction: canEdit
+            ? {
+                enabled: true,
+                label: 'Editar',
+                icon: <Edit className="h-4 w-4" />,
+                onClick: (rows) => {
+                  setSelectedRows(rows);
+                  setIsBulkEditModalOpen(true);
+                },
+              }
+            : undefined,
         }}
       />
 

@@ -204,7 +204,7 @@ export const columnsEmployeeDocumentServer: ColumnDef<EmployeeData>[] = [
 
       if (isNoPresented) {
         return (
-          <PermissionGuard module="empleados" tab="docs-empleados-permanentes" action="update">
+          <PermissionGuard module="documentacion" tab="docs-empleados-permanentes" action="update">
             <AlertDialog open={open} onOpenChange={setOpen}>
               <AlertDialogTrigger asChild>
                 <Button variant="outline">Subir documento</Button>
@@ -232,7 +232,7 @@ export const columnsEmployeeDocumentServer: ColumnDef<EmployeeData>[] = [
       }
 
       return (
-        <PermissionGuard module="empleados" tab="docs-empleados-permanentes" action="view">
+        <PermissionGuard module="documentacion" tab="docs-empleados-permanentes" action="view">
           <Link
             href={`/dashboard/document/${row.original.id}?resource=${row.original.employees ? 'Persona' : 'Equipos'}`}
           >

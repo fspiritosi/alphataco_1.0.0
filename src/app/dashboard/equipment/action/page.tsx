@@ -75,14 +75,11 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
           hierarchicalPositionsPromise={getHierarchicalPositions()}
-          documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} role={role} />}
+          documentsComponent={
+            <DocumentEquipmentComponent id={vehicle?.id || ''} role={role} searchParams={searchParams} />
+          }
           repairsComponent={
-            <RepairTypes
-              searchParams={searchParams}
-              equipment_id={searchParams.id}
-              hiddenTabs={['type_of_repair']}
-              moduleSlug="equipos"
-            />
+            <RepairTypes searchParams={searchParams} equipment_id={searchParams.id} moduleSlug="equipos" />
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
         />

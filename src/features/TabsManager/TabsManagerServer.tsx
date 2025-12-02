@@ -1,4 +1,4 @@
-import { canViewServer } from '@/features/Permissions';
+import { checkPermissionServer } from '@/features/Permissions';
 import type { ModuleSlug } from '@/features/Permissions/permissions-map';
 import { TabsManagerClient } from './TabsManagerClient';
 import type { TabsManagerServerProps } from './types';
@@ -39,15 +39,19 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   searchParams,
   dependentParams = [],
 }: TabsManagerServerProps<M>) {
-  // Filtrar tabs basándose en permisos con visibilidad inferida
+  // Filtrar tabs basándose en permisos
+  // Para subtabs directas, usar verificación explícita (sin inferencia)
+  // Para tabs padre, usar canViewServer con visibilidad inferida
   const filteredTabsPromises = tabs.map(async (tab) => {
     // Si no tiene moduleSlug/tabSlug, mostrar siempre (sin restricción)
     if (!tab.moduleSlug || !tab.tabSlug) {
       return { tab, hasPermission: true };
     }
 
-    // Usar canViewServer que implementa visibilidad inferida
-    const hasPermission = await canViewServer(String(tab.moduleSlug), String(tab.tabSlug));
+    // Para tabs que son subtabs directas (nivel 1), verificar explícitamente sin inferir
+    // Esto previene que se muestren subtabs que no tienen permiso explícito
+    // Solo usar canViewServer con inferencia para tabs padre que pueden necesitarla
+    const hasPermission = await checkPermissionServer(String(tab.moduleSlug), String(tab.tabSlug), 'view');
     return { tab, hasPermission };
   });
 

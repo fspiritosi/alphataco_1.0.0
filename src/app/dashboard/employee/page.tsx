@@ -1,6 +1,7 @@
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
 import { buttonVariants } from '@/components/ui/button';
+import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
 import EmployeeTable from '@/features/Employees/Empleados/EmpleadosTables/Activos/employee_table';
@@ -13,7 +14,6 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import CovenantTreeFileWrapper from '../company/actualCompany/covenant/CovenantTreeFileWrapper';
-import TypesDocumentsViewWrapper from '../document/documentComponents/TypesDocumentsViewWrapper';
 
 export async function generateMetadata() {
   const cookiesStore = cookies();
@@ -55,8 +55,8 @@ export default async function EmployeePage({
                 Empleados
               </span>
             ),
-            moduleSlug: 'empleados',
-            tabSlug: 'employees',
+            moduleSlug: 'empleados' as const,
+            tabSlug: 'employees' as const,
             content: (
               <div>
                 <div className="flex gap-4 flex-wrap mb-4">
@@ -178,8 +178,8 @@ export default async function EmployeePage({
                 Diagramas
               </span>
             ),
-            moduleSlug: 'empleados',
-            tabSlug: 'diagrams',
+            moduleSlug: 'empleados' as const,
+            tabSlug: 'diagrams' as const,
             content: <EmployesDiagram searchParams={searchParams} />,
           },
           {
@@ -190,11 +190,12 @@ export default async function EmployeePage({
                 Tipos de Documentos
               </span>
             ),
-            moduleSlug: 'empleados',
-            tabSlug: 'tipos-de-documentos',
+            // Hereda permisos de documentacion/tipos-de-documentos
+            moduleSlug: 'documentacion' as const,
+            tabSlug: 'tipos-de-documentos' as const,
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TypesDocumentsViewWrapper optionChildrenProp="Persona" />
+                <TiposDocumentosTabContent searchParams={searchParams} showOnlyPersonas={true} />
               </Suspense>
             ),
           },
@@ -206,8 +207,8 @@ export default async function EmployeePage({
                 CCT
               </span>
             ),
-            moduleSlug: 'empleados',
-            tabSlug: 'covenant',
+            moduleSlug: 'empleados' as const,
+            tabSlug: 'covenant' as const,
             content: (
               <Suspense fallback={<div>Cargando convenios...</div>}>
                 <CovenantTreeFileWrapper />

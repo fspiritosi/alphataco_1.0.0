@@ -184,16 +184,18 @@ export function VehicleTabs({
     {
       value: 'documents',
       label: 'Documentos',
-      moduleSlug: 'equipos',
-      tabSlug: 'documentos-equipo',
+      // Hereda permisos de documentacion/documentos-de-equipos
+      moduleSlug: 'documentacion',
+      tabSlug: 'documentos-de-equipos',
       disabled: !showDocuments,
       content: showDocuments ? <div className="space-y-4">{documentsComponent}</div> : null,
     },
     {
       value: 'repairs',
       label: 'Reparaciones',
+      // Hereda permisos de equipos/type_of_repairs
       moduleSlug: 'equipos',
-      tabSlug: 'reparaciones',
+      tabSlug: 'type_of_repairs',
       disabled: !showRepairs,
       content: showRepairs ? <div className="space-y-4">{repairsComponent}</div> : null,
     },

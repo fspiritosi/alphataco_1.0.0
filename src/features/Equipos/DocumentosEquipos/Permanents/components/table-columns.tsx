@@ -246,7 +246,7 @@ export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<Permanen
 
       if (isNoPresented) {
         return (
-          <PermissionGuard module="equipos" tab="docs-equipos-permanentes" action="update">
+          <PermissionGuard module="documentacion" tab="docs-equipos-permanentes" action="update">
             <AlertDialog open={open} onOpenChange={setOpen}>
               <AlertDialogTrigger asChild>
                 {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
@@ -274,7 +274,7 @@ export const columnsPermanentEquipmentDocumentServer: ExtendedColumnDef<Permanen
       }
 
       return (
-        <PermissionGuard module="equipos" tab="docs-equipos-permanentes" action="view">
+        <PermissionGuard module="documentacion" tab="docs-equipos-permanentes" action="view">
           <Link
             href={`/dashboard/document/${row.original.id}?resource=${row.original.vehicles ? 'Equipos' : 'Persona'}`}
           >

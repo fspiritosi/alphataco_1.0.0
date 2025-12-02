@@ -296,11 +296,6 @@ export default function DailyReportWrapper() {
           });
         }
 
-        const uniqueServices = Array.from(new Map(services.map((s) => [s.id, s])).values());
-        const uniqueEquipments = Array.from(new Map(equipmentOptions.map((eq) => [eq.id, eq])).values());
-        const areaOptions = Array.from(areasMap.values());
-        const sectorOptions = Array.from(sectorsMap.values());
-
         // Los datos ya están en el hook, no necesitamos setFilterOptions
         // El filtrado se hará en los useMemo de las opciones
       } catch (error) {

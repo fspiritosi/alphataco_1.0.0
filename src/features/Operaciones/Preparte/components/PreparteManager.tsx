@@ -519,7 +519,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           Gestión de Pedidos
         </h2>
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
+          <SheetTrigger>
             <PermissionGuard module="operaciones" tab="preparte" action="create">
               <Button data-testid="nuevo-pedido-button">
                 <Plus className="mr-2 h-4 w-4" />

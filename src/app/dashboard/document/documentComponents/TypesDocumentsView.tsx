@@ -21,6 +21,7 @@ function TypesDocumentsView({
   savedFilters,
   optionChildrenProp,
   actionComponent,
+  hideTabs = false,
 }: {
   personas?: boolean;
   equipos?: boolean;
@@ -33,15 +34,16 @@ function TypesDocumentsView({
   savedFilters: string[];
   optionChildrenProp?: string;
   actionComponent?: ReactNode;
+  hideTabs?: boolean;
 }) {
   const doc_personas = document_types?.filter((doc) => doc.applies === 'Persona').filter((e) => e.is_active);
   const doc_equipos = document_types?.filter((doc) => doc.applies === 'Equipos').filter((e) => e.is_active);
   const doc_empresa = document_types?.filter((doc) => doc.applies === 'Empresa').filter((e) => e.is_active);
 
-  // Verificar permisos de edición para cada tipo
+  // Verificar permisos de edición para cada tipo (ahora desde módulo documentacion)
   const { hasPermission } = usePermissions();
-  const canEditPersonas = hasPermission('empleados', 'tipos-docs-personas', 'update');
-  const canEditEquipos = hasPermission('equipos', 'tipos-docs-equipos', 'update');
+  const canEditPersonas = hasPermission('documentacion', 'tipos-docs-personas', 'update');
+  const canEditEquipos = hasPermission('documentacion', 'tipos-docs-equipos', 'update');
 
   const [filters, setFilters] = useState({
     personas: { name: '', multiresource: '', special: '', monthly: '', expired: '', mandatory: '', private: '' },
@@ -114,7 +116,7 @@ function TypesDocumentsView({
           Personas ({filteredDocPersonas?.length || 0})
         </span>
       ),
-      moduleSlug: 'empleados' as const,
+      moduleSlug: 'documentacion' as const,
       tabSlug: 'tipos-docs-personas' as const,
       content: (
         <Card className="p-6">
@@ -145,7 +147,7 @@ function TypesDocumentsView({
           Equipos ({filteredDocEquipos?.length || 0})
         </span>
       ),
-      moduleSlug: 'equipos' as const,
+      moduleSlug: 'documentacion' as const,
       tabSlug: 'tipos-docs-equipos' as const,
       content: (
         <Card className="p-6">
@@ -169,9 +171,21 @@ function TypesDocumentsView({
 
   // Empresa tab removed - no existe en el sistema de permisos
 
+  // Si hideTabs es true, mostrar solo el contenido sin tabs (para uso desde TiposDocumentosTabContent)
+  if (hideTabs) {
+    const content =
+      personas && !equipos
+        ? tabs.find((t) => t.value === 'Personas')?.content
+        : equipos && !personas
+          ? tabs.find((t) => t.value === 'Equipos')?.content
+          : null;
+
+    return <>{content}</>;
+  }
+
   return (
     <CardContent className="px-0 pt-1">
-      <div className="mb-4">{actionComponent}</div>
+      {actionComponent && <div className="mb-4">{actionComponent}</div>}
       <TabsManagerClientSide tabs={tabs} paramName="subtab" defaultTab={optionValue} listClassName="w-fit bg-muted" />
     </CardContent>
   );

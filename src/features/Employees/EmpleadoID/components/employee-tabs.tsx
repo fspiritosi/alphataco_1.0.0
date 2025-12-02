@@ -4,6 +4,7 @@ import { getEmployeeById } from '@/app/server/GET/actions';
 import { Badge } from '@/components/ui/badge';
 import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
 import { fetchAllContractTypes } from '@/features/Empresa/RRHH/components/TypeContract/actions/actions';
+import { usePermissions } from '@/features/Permissions';
 import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import { cn } from '@/lib/utils';
 import { fetchCountrys } from '@/shared/actions/employees.actions';
@@ -77,6 +78,12 @@ export function EmployeeTabs({
   typeOfContractsPromise,
   aptitudesPromise,
 }: EmployeeTabsProps) {
+  const { canView } = usePermissions();
+
+  // Verificar si el usuario tiene acceso a alguna de las subtabs de diagramas
+  // Si tiene acceso a diagramas-empleado/view o a diagrams/new/view, mostrar la tab principal
+  const hasDiagramAccess = canView('empleados', 'diagramas-empleado') || canView('empleados', 'new');
+
   // const [activeTab, setActiveTab] = useState("personalData")
   const [errors, setErrors] = useState<{
     personalData: boolean;
@@ -175,8 +182,8 @@ export function EmployeeTabs({
           <span className="hidden sm:inline">Datos Personales</span>
         </div>
       ),
-      moduleSlug: 'empleados',
-      tabSlug: 'datos-personales',
+      moduleSlug: 'empleados' as const,
+      tabSlug: 'datos-personales' as const,
       content: (
         <>
           {errors?.personalData && (
@@ -217,8 +224,8 @@ export function EmployeeTabs({
           <span className="hidden sm:inline">Datos de Contacto</span>
         </div>
       ),
-      moduleSlug: 'empleados',
-      tabSlug: 'datos-contacto',
+      moduleSlug: 'empleados' as const,
+      tabSlug: 'datos-contacto' as const,
       content: (
         <>
           {errors?.contactData && (
@@ -259,8 +266,8 @@ export function EmployeeTabs({
           <span className="hidden sm:inline">Datos Laborales</span>
         </div>
       ),
-      moduleSlug: 'empleados',
-      tabSlug: 'datos-laborales',
+      moduleSlug: 'empleados' as const,
+      tabSlug: 'datos-laborales' as const,
       content: (
         <>
           {errors?.workData && (
@@ -301,28 +308,34 @@ export function EmployeeTabs({
           <span className="hidden sm:inline">Documentación</span>
         </div>
       ),
-      moduleSlug: 'empleados',
-      tabSlug: 'documentacion-empleado',
+      // Hereda permisos de documentacion/documentos-de-empleados
+      moduleSlug: 'documentacion' as const,
+      tabSlug: 'documentos-de-empleados' as const,
       disabled: mode === 'new',
       content: documentsComponent,
     },
-    {
-      value: 'diagrams',
-      label: (
-        <div className="flex items-center gap-2">
-          {mode === 'new' ? <Lock className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
-          <span className="hidden sm:inline">Diagramas</span>
-        </div>
-      ),
-      moduleSlug: 'empleados',
-      tabSlug: 'diagramas-empleado',
-      disabled: mode === 'new',
-      content: diagramsComponent,
-    },
-  ] as const;
+    // Solo mostrar la tab de diagramas si el usuario tiene acceso a alguna de sus subtabs
+    ...(hasDiagramAccess && mode !== 'new'
+      ? [
+          {
+            value: 'diagrams',
+            label: (
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Diagramas</span>
+              </div>
+            ),
+            // Sin moduleSlug/tabSlug para que la visibilidad se controle por las subtabs internas
+            // Las subtabs dentro de DiagramDetailEmployeeView manejan sus propios permisos
+            disabled: false,
+            content: diagramsComponent,
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <TabsManagerClientSide
+    <TabsManagerClientSide<'empresa' | 'empleados' | 'documentacion'>
       paramName="tab"
       defaultTab="personalData"
       tabs={tabs}

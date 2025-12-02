@@ -119,7 +119,7 @@ export const PERMISSIONS = {
         name: 'General',
         tabId: '10000000-0000-0000-0000-000000000001',
         parent: null,
-        allowedActions: ['view'],
+        allowedActions: ['view', 'update'],
         subtabs: {
           company: {
             slug: 'company',
@@ -162,6 +162,13 @@ export const PERMISSIONS = {
                 tabId: '10000000-0000-0000-0000-000000000142',
                 parent: 'users',
                 allowedActions: ['view', 'create', 'update', 'delete'],
+              },
+              'detalle-usuario': {
+                slug: 'detalle-usuario',
+                name: 'Detalle de Usuario',
+                tabId: '10000000-0000-0000-0000-000000000143',
+                parent: 'users',
+                allowedActions: ['view', 'update'],
               },
             },
           },
@@ -363,22 +370,9 @@ export const PERMISSIONS = {
           },
         },
       },
-      'tipos-de-documentos': {
-        slug: 'tipos-de-documentos',
-        name: 'Tipos de Documentos',
-        tabId: '20000000-0000-0000-0000-000000000004',
-        parent: null,
-        allowedActions: ['view', 'create'],
-        subtabs: {
-          'tipos-docs-personas': {
-            slug: 'tipos-docs-personas',
-            name: 'Personas',
-            tabId: '20000000-0000-0000-0000-000000000041',
-            parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update'],
-          },
-        },
-      },
+      // 'tipos-de-documentos': HEREDA permisos de 'documentacion/tipos-de-documentos'
+      // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
+      // Ver implementación en: src/app/dashboard/employee/page.tsx
       covenant: {
         slug: 'covenant',
         name: 'CCT',
@@ -415,13 +409,9 @@ export const PERMISSIONS = {
             parent: 'detalle-empleado',
             allowedActions: ['view'],
           },
-          'documentacion-empleado': {
-            slug: 'documentacion-empleado',
-            name: 'Documentación',
-            tabId: '20000000-0000-0000-0000-000000000064',
-            parent: 'detalle-empleado',
-            allowedActions: ['view'],
-          },
+          // 'documentacion-empleado': HEREDA permisos de 'documentacion/documentos-de-empleados'
+          // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
+          // Ver implementación en: src/features/Employees/EmpleadoID/components/employee-tabs.tsx
           'diagramas-empleado': {
             slug: 'diagramas-empleado',
             name: 'Diagramas',
@@ -495,22 +485,9 @@ export const PERMISSIONS = {
           },
         },
       },
-      'tipos-de-documentos': {
-        slug: 'tipos-de-documentos',
-        name: 'Tipos de Documentos',
-        tabId: '30000000-0000-0000-0000-000000000003',
-        parent: null,
-        allowedActions: ['view', 'create'],
-        subtabs: {
-          'tipos-docs-equipos': {
-            slug: 'tipos-docs-equipos',
-            name: 'Equipos',
-            tabId: '30000000-0000-0000-0000-000000000032',
-            parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update'],
-          },
-        },
-      },
+      // 'tipos-de-documentos': HEREDA permisos de 'documentacion/tipos-de-documentos'
+      // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
+      // Ver implementación en: src/features/Equipos/EquiposComponent.tsx
       type_of_repairs: {
         slug: 'type_of_repairs',
         name: 'Mantenimiento',
@@ -569,37 +546,34 @@ export const PERMISSIONS = {
         name: 'Detalle de Equipo',
         tabId: '30000000-0000-0000-0000-000000000005',
         parent: null,
-        allowedActions: ['view'],
+        allowedActions: ['view', 'update'],
         subtabs: {
           'datos-basicos': {
             slug: 'datos-basicos',
             name: 'Datos Básicos',
             tabId: '30000000-0000-0000-0000-000000000051',
             parent: 'detalle-equipo',
+            allowedActions: ['view'],
           },
           asignacion: {
             slug: 'asignacion',
             name: 'Asignación',
             tabId: '30000000-0000-0000-0000-000000000052',
             parent: 'detalle-equipo',
+            allowedActions: ['view'],
           },
-          'documentos-equipo': {
-            slug: 'documentos-equipo',
-            name: 'Documentos',
-            tabId: '30000000-0000-0000-0000-000000000053',
-            parent: 'detalle-equipo',
-          },
-          reparaciones: {
-            slug: 'reparaciones',
-            name: 'Reparaciones',
-            tabId: '30000000-0000-0000-0000-000000000054',
-            parent: 'detalle-equipo',
-          },
+          // 'documentos-equipo': HEREDA permisos de 'documentacion/documentos-de-equipos'
+          // Esta tab no debe estar aquí porque hereda permisos del módulo de documentación.
+          // Ver implementación en: src/features/Equipos/EquipoID/components/vehicle-tabs.tsx
+          // 'reparaciones': HEREDA permisos de 'equipos/type_of_repairs'
+          // Esta tab no debe estar aquí porque hereda permisos del módulo de equipos.
+          // Ver implementación en: src/features/Equipos/EquipoID/components/vehicle-tabs.tsx
           'qr-equipo': {
             slug: 'qr-equipo',
             name: 'QR',
             tabId: '30000000-0000-0000-0000-000000000055',
             parent: 'detalle-equipo',
+            allowedActions: ['view'],
           },
         },
       },
@@ -627,7 +601,7 @@ export const PERMISSIONS = {
         name: 'Partes Diarios',
         tabId: '70000000-0000-0000-0000-000000000002',
         parent: null,
-        allowedActions: ['view', 'create', 'update'],
+        allowedActions: ['view', 'create', 'delete'],
         subtabs: {},
       },
       'detalle-parte-diario': {
@@ -685,16 +659,46 @@ export const PERMISSIONS = {
         name: 'Documentos de Empleados',
         tabId: '50000000-0000-0000-0000-000000000001',
         parent: null,
-        allowedActions: ['view', 'create'],
-        subtabs: {},
+        allowedActions: ['view', 'create'], // view y create en la tab principal
+        subtabs: {
+          'docs-empleados-permanentes': {
+            slug: 'docs-empleados-permanentes',
+            name: 'Permanentes',
+            tabId: '60000000-0000-0000-0000-000000000003',
+            parent: 'documentos-de-empleados',
+            allowedActions: ['view', 'update'], // Solo view y update, sin create
+          },
+          'docs-empleados-mensuales': {
+            slug: 'docs-empleados-mensuales',
+            name: 'Mensuales',
+            tabId: '60000000-0000-0000-0000-000000000002',
+            parent: 'documentos-de-empleados',
+            allowedActions: ['view', 'update'], // Solo view y update, sin create
+          },
+        },
       },
       'documentos-de-equipos': {
         slug: 'documentos-de-equipos',
         name: 'Documentos de Equipos',
         tabId: '50000000-0000-0000-0000-000000000002',
         parent: null,
-        allowedActions: ['view', 'create'],
-        subtabs: {},
+        allowedActions: ['view', 'create'], // view y create en la tab principal
+        subtabs: {
+          'docs-equipos-permanentes': {
+            slug: 'docs-equipos-permanentes',
+            name: 'Permanentes',
+            tabId: '60000000-0000-0000-0000-000000000004',
+            parent: 'documentos-de-equipos',
+            allowedActions: ['view', 'update'], // Solo view y update, sin create
+          },
+          'docs-equipos-mensuales': {
+            slug: 'docs-equipos-mensuales',
+            name: 'Mensuales',
+            tabId: '60000000-0000-0000-0000-000000000005',
+            parent: 'documentos-de-equipos',
+            allowedActions: ['view', 'update'], // Solo view y update, sin create
+          },
+        },
       },
       'documentos-de-empresa': {
         slug: 'documentos-de-empresa',
@@ -709,8 +713,53 @@ export const PERMISSIONS = {
         name: 'Tipos de Documentos',
         tabId: '50000000-0000-0000-0000-000000000004',
         parent: null,
-        allowedActions: ['view', 'create'],
-        subtabs: {},
+        allowedActions: ['view', 'create'], // create para el botón de crear
+        subtabs: {
+          'tipos-docs-personas': {
+            slug: 'tipos-docs-personas',
+            name: 'Personas',
+            tabId: '60000000-0000-0000-0000-000000000006',
+            parent: 'tipos-de-documentos',
+            allowedActions: ['view', 'update'], // view y update para editar
+          },
+          'tipos-docs-equipos': {
+            slug: 'tipos-docs-equipos',
+            name: 'Equipos',
+            tabId: '60000000-0000-0000-0000-000000000007',
+            parent: 'tipos-de-documentos',
+            allowedActions: ['view', 'update'], // view y update para editar
+          },
+        },
+      },
+      'detalle-de-documento': {
+        slug: 'detalle-de-documento',
+        name: 'Detalle de Documento',
+        tabId: '50000000-0000-0000-0000-000000000005',
+        parent: null,
+        allowedActions: ['view', 'update'],
+        subtabs: {
+          'detalle-doc-empresa': {
+            slug: 'detalle-doc-empresa',
+            name: 'Empresa',
+            tabId: '60000000-0000-0000-0000-000000000008',
+            parent: 'detalle-de-documento',
+            allowedActions: ['view'],
+          },
+          'detalle-doc-empleado': {
+            slug: 'detalle-doc-empleado',
+            name: 'Empleado',
+            tabId: '60000000-0000-0000-0000-000000000009',
+            parent: 'detalle-de-documento',
+            allowedActions: ['view'],
+          },
+          'detalle-doc-documento': {
+            slug: 'detalle-doc-documento',
+            name: 'Documento',
+            tabId: '60000000-0000-0000-0000-000000000010',
+            parent: 'detalle-de-documento',
+            allowedActions: ['view'],
+          },
+        },
       },
     },
   },
@@ -806,13 +855,9 @@ export const PERMISSIONS = {
                 parent: 'customers',
                 allowedActions: ['view', 'update'],
               },
-              'contratos-cliente': {
-                slug: 'contratos-cliente',
-                name: 'Contratos',
-                tabId: '40000000-0000-0000-0000-000000000114',
-                parent: 'customers',
-                allowedActions: ['view'],
-              },
+              // 'contratos-cliente': HEREDA permisos de 'comercial/comerce/service'
+              // Esta tab no debe estar aquí porque hereda permisos de la tab Contratos/Servicios.
+              // Ver implementación en: src/features/Empresa/Clientes/components/data-customer.tsx
             },
           },
           areas: {
@@ -923,6 +968,10 @@ export type AllTabSlugs<M extends ModuleSlug> =
   | {
       [T in TabSlug<M>]: SubSubtabSlug<M, T>;
     }[TabSlug<M>]; // Nivel 3: sub-subtabs
+
+// Tipo helper para distribuir AllTabSlugs sobre uniones de módulos
+// Esto permite que funcione correctamente cuando M es una unión como 'empleados' | 'documentacion'
+export type AllTabSlugsUnion<M extends ModuleSlug> = M extends any ? AllTabSlugs<M> : never;
 
 // Helper para obtener el tabId correcto
 export function getTabId(module: ModuleSlug, tab: string): string {
