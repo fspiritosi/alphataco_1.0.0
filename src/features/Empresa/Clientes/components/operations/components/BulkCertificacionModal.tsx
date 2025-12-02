@@ -51,7 +51,7 @@ export function BulkCertificacionModal({ isOpen, onClose, selectedRows, onSucces
 
       toast({
         title: 'Éxito',
-        description: `Se actualizaron ${selectedRows.length} registro(s) a "En certificación".`,
+        description: `Se actualizaron ${selectedRows.length} registro(s) a En certificación.`,
       });
 
       // Llamar callback para refrescar datos
@@ -78,7 +78,7 @@ export function BulkCertificacionModal({ isOpen, onClose, selectedRows, onSucces
         <DialogHeader>
           <DialogTitle>Actualización masiva a En certificación</DialogTitle>
           <DialogDescription>
-            Se cambiará el estado de {selectedRows.length} registro(s) seleccionado(s) a "En certificación".
+            Se cambiará el estado de {selectedRows.length} registro(s) seleccionado(s) a En certificación.
           </DialogDescription>
         </DialogHeader>
 
