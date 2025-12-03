@@ -13,8 +13,6 @@ export default async function DocumentosEquiposTabContent({
   searchParams: { [key: string]: string | string[] | undefined };
   permissions: Record<string, boolean>;
 }) {
-  console.log('[DocumentosEquiposTabContent] Recibió permisos, count:', Object.keys(permissions).length);
-
   return (
     <div>
       <div className="flex gap-4 flex-wrap mb-4">

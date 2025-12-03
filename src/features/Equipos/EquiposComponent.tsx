@@ -16,13 +16,6 @@ export default async function EquiposComponent({
   searchParams: { [key: string]: string | string[] | undefined };
   permissions: Record<string, boolean>;
 }) {
-  console.log('[EquiposComponent] Recibió permisos, count:', Object.keys(permissions).length);
-  console.log(
-    '[EquiposComponent] Tipo de permissions:',
-    typeof permissions,
-    Array.isArray(permissions) ? 'array' : 'object'
-  );
-
   return (
     <div>
       <TabsManagerServer

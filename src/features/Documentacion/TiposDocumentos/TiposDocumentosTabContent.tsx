@@ -16,8 +16,6 @@ export default async function TiposDocumentosTabContent({
   showOnlyEquipos?: boolean;
   permissions: Record<string, boolean>;
 }) {
-  console.log('[TiposDocumentosTabContent] Recibió permisos, count:', Object.keys(permissions).length);
-
   const allTabs = [];
 
   // Solo agregar tab de Personas si corresponde

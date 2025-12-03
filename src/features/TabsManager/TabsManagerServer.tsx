@@ -48,27 +48,13 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
 }: TabsManagerServerProps<M>) {
   // Convertir el objeto plano de permisos a Map para acceso O(1)
   // Los permisos son obligatorios, no hay fallback
-  const tabIdentifier = `${paramName}:${defaultTab}`;
-  console.log(
-    `[TabsManagerServer:${tabIdentifier}] Iniciando, providedPermissions es:`,
-    providedPermissions ? `objeto con ${Object.keys(providedPermissions).length} keys` : 'undefined/null'
-  );
-  console.log(`[TabsManagerServer:${tabIdentifier}] Tipo de providedPermissions:`, typeof providedPermissions);
-  console.log(`[TabsManagerServer:${tabIdentifier}] Es array?:`, Array.isArray(providedPermissions));
-
   const permissionMap = new Map<string, boolean>();
   if (providedPermissions && typeof providedPermissions === 'object' && !Array.isArray(providedPermissions)) {
     const entries = Object.entries(providedPermissions);
-    console.log(`[TabsManagerServer:${tabIdentifier}] Convirtiendo a Map, entries count:`, entries.length);
     entries.forEach(([key, value]) => {
       permissionMap.set(key, value);
     });
-  } else {
-    console.log(`[TabsManagerServer:${tabIdentifier}] ⚠️ NO se convirtió a Map - providedPermissions inválido`);
-    console.log(`[TabsManagerServer:${tabIdentifier}] Stack trace:`, new Error().stack);
   }
-
-  console.log(`[TabsManagerServer:${tabIdentifier}] permissionMap size final:`, permissionMap.size);
 
   // Helper para verificar visibilidad inferida (si tiene acceso a alguna subtab)
   const checkInferredVisibility = (moduleSlug: string, tabSlug: string): boolean => {

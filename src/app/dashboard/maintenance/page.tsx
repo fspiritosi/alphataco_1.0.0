@@ -28,7 +28,6 @@ export default async function MantenimientoPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const permissions = await getUserPermissionsMapServer();
-  console.log('[Maintenance page] Permisos obtenidos, count:', Object.keys(permissions).length);
 
   return (
     <div>

@@ -12,8 +12,6 @@ export default function EquiposTabContent({
   searchParams: { [key: string]: string | string[] | undefined };
   permissions: Record<string, boolean>;
 }) {
-  console.log('[EquiposTabContent] Recibió permisos, count:', Object.keys(permissions).length);
-
   return (
     <TabsManagerServer
       paramName="subtab"

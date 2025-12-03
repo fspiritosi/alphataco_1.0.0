@@ -30,7 +30,5 @@ export default async function Equipment({
   // Obtener permisos en el servidor (sin caché, datos frescos en cada petición)
   const permissions = await getUserPermissionsMapServer();
 
-  console.log('[Equipment page] Permisos obtenidos, count:', Object.keys(permissions).length);
-
   return <EquiposComponent searchParams={searchParams} permissions={permissions} />;
 }
