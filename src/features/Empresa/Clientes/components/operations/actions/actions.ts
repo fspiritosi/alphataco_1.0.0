@@ -152,6 +152,7 @@ interface ReportFilters {
   sectors?: string[];
   dateFrom?: string | null;
   dateTo?: string | null;
+  remitNumber?: string | null;
 }
 
 export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
@@ -172,6 +173,7 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
         remit_number,
         customers(id, name),
         preparte(*),
+        remitos(id, remit_number, created_at),
         dailyreportemployeerelations(employees(id, firstname, lastname, document_number, email, phone, company_positions(name))),
         dailyreportequipmentrelations(vehicles(id, intern_number, domain, year, type(name), brand_vehicles(name), model_vehicles(name), sub_type(name))),
         dailyreport!inner(date,status)
@@ -213,39 +215,39 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
 
     if (!rows) return [];
 
-    // Filtrar en el código JavaScript para aplicar AND en las relaciones
+    // Filtrar en el código JavaScript para aplicar filtros OR en relaciones múltiples (equipos, empleados, etc.)
     const filteredRows = rows.filter((row: any) => {
-      // Verificar filtro de empleados
+      // Verificar filtro de empleados (OR: al menos uno debe coincidir)
       if (filters.employee?.length) {
         const employeeIds = filters.employee;
         const rowEmployeeIds = (row.dailyreportemployeerelations || [])
           .map((rel: any) => rel.employees?.id)
           .filter(Boolean);
 
-        const hasAllEmployees = employeeIds.every((id) => rowEmployeeIds.includes(id));
-        if (!hasAllEmployees) return false;
+        const hasAnyEmployee = employeeIds.some((id) => rowEmployeeIds.includes(id));
+        if (!hasAnyEmployee) return false;
       }
 
-      // Verificar filtro de equipos
+      // Verificar filtro de equipos (OR: al menos uno debe coincidir)
       if (filters.equipment?.length) {
         const equipmentIds = filters.equipment;
         const rowEquipmentIds = (row.dailyreportequipmentrelations || [])
           .map((rel: any) => rel.vehicles?.id)
           .filter(Boolean);
 
-        const hasAllEquipment = equipmentIds.every((id) => rowEquipmentIds.includes(id));
-        if (!hasAllEquipment) return false;
+        const hasAnyEquipment = equipmentIds.some((id) => rowEquipmentIds.includes(id));
+        if (!hasAnyEquipment) return false;
       }
 
-      // Verificar filtro de equipos de cliente
+      // Verificar filtro de equipos de cliente (OR: al menos uno debe coincidir)
       if (filters.customerEquipment?.length) {
         const customerEquipmentIds = filters.customerEquipment;
         const rowCustomerEquipmentIds = (row.dailyreport_customer_equipment_relations || [])
           .map((rel: any) => rel.equipos_clientes?.id)
           .filter(Boolean);
 
-        const hasAllCustomerEquipment = customerEquipmentIds.every((id) => rowCustomerEquipmentIds.includes(id));
-        if (!hasAllCustomerEquipment) return false;
+        const hasAnyCustomerEquipment = customerEquipmentIds.some((id) => rowCustomerEquipmentIds.includes(id));
+        if (!hasAnyCustomerEquipment) return false;
       }
 
       // Verificar filtro de áreas
@@ -264,6 +266,23 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
 
         const hasSector = sectorIds.includes(rowSectorId);
         if (!hasSector) return false;
+      }
+
+      // Verificar filtro de remitos (buscar en la relación remitos)
+      if (filters.remitNumber) {
+        const remitNumbers = (row.remitos || [])
+          .map((remito: any) => remito?.remit_number)
+          .filter(Boolean)
+          .map((num: string) => num.toLowerCase());
+
+        const searchTerm = String(filters.remitNumber).toLowerCase().trim();
+        const hasMatchingRemit = remitNumbers.some((num: string) => num.includes(searchTerm));
+
+        // También verificar el campo deprecated por compatibilidad
+        const oldRemitNumber = row.remit_number ? String(row.remit_number).toLowerCase() : '';
+        const matchesOldRemit = oldRemitNumber.includes(searchTerm);
+
+        if (!hasMatchingRemit && !matchesOldRemit) return false;
       }
 
       return true;
@@ -296,6 +315,24 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
       // Mapeo de sector
       const sector = row.service_sectors?.sectors?.name || '';
 
+      // Mapeo de remitos - obtener desde la tabla remitos
+      const remitos_list: Array<{ id: string; remit_number: string; created_at: string }> = Array.isArray(row.remitos)
+        ? row.remitos
+            .map((remito: any) => ({
+              id: remito?.id,
+              remit_number: remito?.remit_number,
+              created_at: remito?.created_at,
+            }))
+            .filter((r: any) => r.id && r.remit_number)
+        : [];
+
+      // Extraer solo los números de remito como array de strings (para compatibilidad)
+      const remit_numbers: string[] = remitos_list.map((r) => r.remit_number).filter(Boolean);
+
+      // Para compatibilidad con código antiguo, mantener un string con todos los remitos separados por coma
+      // O si solo hay uno, mantener el formato original
+      const remit_number_display: string = remit_numbers.length > 0 ? remit_numbers.join(', ') : row.remit_number || ''; // Fallback al campo deprecated por compatibilidad
+
       return {
         ...row,
         date: moment(row.dailyreport?.date).format('DD-MM-YYYY'),
@@ -308,10 +345,14 @@ export async function getFilteredDailyReportRows(filters: ReportFilters = {}) {
         customer_equipment,
         area,
         sector,
+        remit_number: remit_number_display, // String con todos los remitos separados por coma
+        remit_numbers, // Array con todos los números de remito
+        remitos: remitos_list, // Array completo de objetos remito
         employees_references: row.dailyreportemployeerelations?.map((rel: any) => rel.employees) || [],
         equipment_references: row.dailyreportequipmentrelations?.map((rel: any) => rel.vehicles) || [],
         customer_equipment_references:
           row.dailyreport_customer_equipment_relations?.map((rel: any) => rel.equipos_clientes) || [],
+        dailyreport: row.dailyreport, // Incluir dailyreport para acceso a status
       };
     });
 
