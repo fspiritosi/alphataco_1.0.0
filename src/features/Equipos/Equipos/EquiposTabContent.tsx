@@ -7,14 +7,19 @@ import OtrosEquipmentTableWrapperServer from './components/OnlyEquipmentTableWra
 
 export default function EquiposTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
+  console.log('[EquiposTabContent] Recibió permisos, count:', Object.keys(permissions).length);
+
   return (
     <TabsManagerServer
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="vehicles"
+      permissions={permissions}
       tabs={[
         {
           value: 'vehicles',

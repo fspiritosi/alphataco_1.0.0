@@ -1,7 +1,7 @@
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { buttonVariants } from '@/components/ui/button';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
-import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
 import Link from 'next/link';
@@ -11,11 +11,17 @@ import EquiposTabContent from './Equipos/EquiposTabContent';
 
 export default async function EquiposComponent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
-  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
-  const permissions = await getUserPermissionsMapServer();
+  console.log('[EquiposComponent] Recibió permisos, count:', Object.keys(permissions).length);
+  console.log(
+    '[EquiposComponent] Tipo de permissions:',
+    typeof permissions,
+    Array.isArray(permissions) ? 'array' : 'object'
+  );
 
   return (
     <div>
@@ -48,7 +54,7 @@ export default async function EquiposComponent({
                     </Link>
                   </div>
                 </PermissionGuardServer>
-                <EquiposTabContent searchParams={searchParams} />
+                <EquiposTabContent searchParams={searchParams} permissions={permissions} />
               </div>
             ),
           },
@@ -62,7 +68,7 @@ export default async function EquiposComponent({
             ),
             moduleSlug: 'equipos',
             tabSlug: 'documentos-de-equipos',
-            content: <DocumentosEquiposTabContent searchParams={searchParams} />,
+            content: <DocumentosEquiposTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'tipos-de-documentos',
@@ -77,7 +83,11 @@ export default async function EquiposComponent({
             tabSlug: 'tipos-de-documentos',
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TiposDocumentosTabContent searchParams={searchParams} showOnlyEquipos={true} />
+                <TiposDocumentosTabContent
+                  searchParams={searchParams}
+                  showOnlyEquipos={true}
+                  permissions={permissions}
+                />
               </Suspense>
             ),
           },
@@ -91,7 +101,7 @@ export default async function EquiposComponent({
             ),
             moduleSlug: 'equipos',
             tabSlug: 'type_of_repairs',
-            content: <RepairTypes searchParams={searchParams} moduleSlug="equipos" />,
+            content: <RepairTypes searchParams={searchParams} moduleSlug="equipos" permissions={permissions} />,
           },
         ]}
       />

@@ -34,7 +34,7 @@ export default async function DocumentacionComponent({
             ),
             moduleSlug: 'documentacion',
             tabSlug: 'documentos-de-empleados',
-            content: <DocumentosEmpleadosTabContent searchParams={searchParams} />,
+            content: <DocumentosEmpleadosTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'documentos-de-equipos',
@@ -46,7 +46,7 @@ export default async function DocumentacionComponent({
             ),
             moduleSlug: 'documentacion',
             tabSlug: 'documentos-de-equipos',
-            content: <DocumentosEquiposTabContent searchParams={searchParams} />,
+            content: <DocumentosEquiposTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'documentos-de-empresa',
@@ -58,7 +58,7 @@ export default async function DocumentacionComponent({
             ),
             moduleSlug: 'documentacion',
             tabSlug: 'documentos-de-empresa',
-            content: <DocumentosEmpresaTabContent searchParams={searchParams} />,
+            content: <DocumentosEmpresaTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'tipos-de-documentos',
@@ -72,7 +72,7 @@ export default async function DocumentacionComponent({
             tabSlug: 'tipos-de-documentos',
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TiposDocumentosTabContent searchParams={searchParams} />
+                <TiposDocumentosTabContent searchParams={searchParams} permissions={permissions} />
               </Suspense>
             ),
           },

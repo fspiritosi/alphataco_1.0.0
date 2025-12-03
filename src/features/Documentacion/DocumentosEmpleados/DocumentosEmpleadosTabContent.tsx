@@ -1,19 +1,18 @@
 import DocumentNav from '@/components/DocumentNav';
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
-import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
 export default async function DocumentosEmpleadosTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
-  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
-  const permissions = await getUserPermissionsMapServer();
-
   return (
     <div>
       {/* Botón crear está en la tab principal, no en subtabs */}

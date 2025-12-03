@@ -31,7 +31,7 @@ export default async function EmpresaComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'general',
-          content: <GeneralTabContent searchParams={searchParams} />,
+          content: <GeneralTabContent searchParams={searchParams} permissions={permissions} />,
         },
         {
           value: 'rrhh',
@@ -43,7 +43,7 @@ export default async function EmpresaComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'rrhh',
-          content: <RrhhTabContent searchParams={searchParams} />,
+          content: <RrhhTabContent searchParams={searchParams} permissions={permissions} />,
         },
         {
           value: 'vehicles',
@@ -55,7 +55,7 @@ export default async function EmpresaComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'vehicles',
-          content: <EquipmentsTabContent searchParams={searchParams} />,
+          content: <EquipmentsTabContent searchParams={searchParams} permissions={permissions} />,
         },
       ]}
     />

@@ -1,18 +1,19 @@
 import DocumentNav from '@/components/DocumentNav';
 import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
 import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
-import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
 export default async function DocumentosEquiposTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
-  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
-  const permissions = await getUserPermissionsMapServer();
+  console.log('[DocumentosEquiposTabContent] Recibió permisos, count:', Object.keys(permissions).length);
 
   return (
     <div>

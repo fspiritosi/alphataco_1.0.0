@@ -1,5 +1,6 @@
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import EquiposComponent from '@/features/Equipos/EquiposComponent';
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {
@@ -21,10 +22,15 @@ export async function generateMetadata() {
   }
 }
 
-export default function Equipment({
+export default async function Equipment({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  return <EquiposComponent searchParams={searchParams} />;
+  // Obtener permisos en el servidor (sin caché, datos frescos en cada petición)
+  const permissions = await getUserPermissionsMapServer();
+
+  console.log('[Equipment page] Permisos obtenidos, count:', Object.keys(permissions).length);
+
+  return <EquiposComponent searchParams={searchParams} permissions={permissions} />;
 }

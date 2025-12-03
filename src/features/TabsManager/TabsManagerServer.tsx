@@ -1,4 +1,3 @@
-import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { PERMISSIONS, type ModuleSlug } from '@/features/Permissions/permissions-map';
 import { TabsManagerClient } from './TabsManagerClient';
 import type { TabsManagerServerProps } from './types';
@@ -7,13 +6,13 @@ import type { TabsManagerServerProps } from './types';
  * TabsManagerServer - Componente servidor para gestionar pestañas con tipado fuerte.
  *
  * Este componente se encarga de:
- * - Filtrar pestañas según permisos del usuario en la base de datos
- * - Verificar permisos usando cache de React para optimizar rendimiento
+ * - Filtrar pestañas según permisos del usuario proporcionados como prop
+ * - Verificar permisos usando el objeto proporcionado directamente (sin caché)
  * - Determinar el valor por defecto basado en searchParams o defaultTab
  * - Renderizar el componente cliente con la configuración procesada
  *
- * OPTIMIZADO: Usa getUserPermissionsMapServer() que cachea los permisos durante el mismo request.
- * Esto significa que si hay múltiples TabsManagerServer en la misma página, solo se hace UNA query.
+ * IMPORTANTE: Los permisos deben obtenerse en cada página y pasarse como prop obligatoria.
+ * No hay fallback: si no hay permisos, no hay acceso.
  *
  * VISIBILIDAD INFERIDA: Si el usuario no tiene permiso explícito de 'view' en una tab,
  * pero tiene acceso a alguna de sus subtabs, la tab será visible automáticamente.
@@ -22,6 +21,9 @@ import type { TabsManagerServerProps } from './types';
  *
  * @example
  * ```tsx
+ * // En cada página
+ * const permissions = await getUserPermissionsMapServer();
+ *
  * const tabs = [
  *   { value: 'principal', label: 'Principal', moduleSlug: 'dashboard', tabSlug: 'principal', content: <Content /> },
  *   { value: 'documentacion', label: 'Documentación', moduleSlug: 'dashboard', tabSlug: 'documentacion', content: <Content /> },
@@ -31,7 +33,8 @@ import type { TabsManagerServerProps } from './types';
  *   paramName="tab"
  *   searchParams={searchParams}
  *   tabs={tabs}
- *   defaultTab="principal"  // ← Autocompletado: 'principal' | 'documentacion'
+ *   defaultTab="principal"
+ *   permissions={permissions}  // ← OBLIGATORIO
  * />
  * ```
  */
@@ -43,11 +46,29 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   dependentParams = [],
   permissions: providedPermissions,
 }: TabsManagerServerProps<M>) {
-  // OPTIMIZACIÓN: Usar permisos proporcionados o obtener del cache
-  // Si se pasan permisos como prop, usarlos directamente (sin query)
-  // Si no, usar cache de React (pre-cargado en layout)
-  // Asegurar que siempre tengamos un Map válido (incluso si está vacío)
-  const permissionMap = providedPermissions || (await getUserPermissionsMapServer()) || new Map<string, boolean>();
+  // Convertir el objeto plano de permisos a Map para acceso O(1)
+  // Los permisos son obligatorios, no hay fallback
+  const tabIdentifier = `${paramName}:${defaultTab}`;
+  console.log(
+    `[TabsManagerServer:${tabIdentifier}] Iniciando, providedPermissions es:`,
+    providedPermissions ? `objeto con ${Object.keys(providedPermissions).length} keys` : 'undefined/null'
+  );
+  console.log(`[TabsManagerServer:${tabIdentifier}] Tipo de providedPermissions:`, typeof providedPermissions);
+  console.log(`[TabsManagerServer:${tabIdentifier}] Es array?:`, Array.isArray(providedPermissions));
+
+  const permissionMap = new Map<string, boolean>();
+  if (providedPermissions && typeof providedPermissions === 'object' && !Array.isArray(providedPermissions)) {
+    const entries = Object.entries(providedPermissions);
+    console.log(`[TabsManagerServer:${tabIdentifier}] Convirtiendo a Map, entries count:`, entries.length);
+    entries.forEach(([key, value]) => {
+      permissionMap.set(key, value);
+    });
+  } else {
+    console.log(`[TabsManagerServer:${tabIdentifier}] ⚠️ NO se convirtió a Map - providedPermissions inválido`);
+    console.log(`[TabsManagerServer:${tabIdentifier}] Stack trace:`, new Error().stack);
+  }
+
+  console.log(`[TabsManagerServer:${tabIdentifier}] permissionMap size final:`, permissionMap.size);
 
   // Helper para verificar visibilidad inferida (si tiene acceso a alguna subtab)
   const checkInferredVisibility = (moduleSlug: string, tabSlug: string): boolean => {

@@ -8,8 +8,10 @@ import { AbsenteeismDashboard } from './RecursosHumanos/absenteeism-dashboard';
 
 function EstadisticasTabComponent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <FeatureFlagShow featureFlagName="mostrar_tab_de_graficos_en_dashboard">
@@ -18,6 +20,7 @@ function EstadisticasTabComponent({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="operaciones"
+        permissions={permissions}
         tabs={[
           {
             value: 'operaciones',

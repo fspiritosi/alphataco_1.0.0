@@ -30,7 +30,7 @@ export default async function ComercialComponent({
             ),
             moduleSlug: 'comercial',
             tabSlug: 'comerce',
-            content: <ComerceTabContent searchParams={searchParams} />,
+            content: <ComerceTabContent searchParams={searchParams} permissions={permissions} />,
           },
         ]}
       />

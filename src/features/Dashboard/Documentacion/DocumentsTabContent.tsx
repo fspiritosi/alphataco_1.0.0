@@ -5,7 +5,13 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { Truck, Users } from 'lucide-react';
 import { MissingDocumentList } from './components/MissingDocumentList';
 
-function DocumentsTabContent({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
+function DocumentsTabContent({
+  searchParams,
+  permissions,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
+}) {
   return (
     <section className=" grid grid-cols-1 xl:grid-cols-4 gap-3 mb-4 ">
       <section className="flex flex-col gap-4 w-full">
@@ -28,6 +34,7 @@ function DocumentsTabContent({ searchParams }: { searchParams: { [key: string]: 
                 paramName="subtab"
                 searchParams={searchParams}
                 defaultTab="empleados"
+                permissions={permissions}
                 tabs={[
                   {
                     value: 'empleados',

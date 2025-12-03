@@ -9,9 +9,9 @@ import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 import DocumentNav from './DocumentNav';
 
-type Props = { id: string; role: string; searchParams?: { [key: string]: string | string[] | undefined } };
+type Props = { id: string; searchParams?: { [key: string]: string | string[] | undefined } };
 
-export default async function DocumentEquipmentComponent({ id, role, searchParams = {} }: Props) {
+export default async function DocumentEquipmentComponent({ id, searchParams = {} }: Props) {
   const monthlyDocuments = (await fetchMonthlyDocumentsByEquipmentId(id)).map(formatVehiculesDocuments);
   const permanentDocuments = (await fetchPermanentDocumentsByEquipmentId(id)).map(formatVehiculesDocuments);
 

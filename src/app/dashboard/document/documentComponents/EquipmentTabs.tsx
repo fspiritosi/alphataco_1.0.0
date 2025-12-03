@@ -7,8 +7,10 @@ import { Suspense } from 'react';
 
 export default async function EquipmentTabs({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <div>
@@ -19,6 +21,7 @@ export default async function EquipmentTabs({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="docs-equipos-permanentes"
+        permissions={permissions}
         tabs={[
           {
             value: 'docs-equipos-permanentes',

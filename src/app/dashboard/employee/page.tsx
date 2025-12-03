@@ -186,7 +186,7 @@ export default async function EmployeePage({
             ),
             moduleSlug: 'empleados' as const,
             tabSlug: 'diagrams' as const,
-            content: <EmployesDiagram searchParams={searchParams} />,
+            content: <EmployesDiagram searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'tipos-de-documentos',
@@ -201,7 +201,11 @@ export default async function EmployeePage({
             tabSlug: 'tipos-de-documentos' as const,
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TiposDocumentosTabContent searchParams={searchParams} showOnlyPersonas={true} />
+                <TiposDocumentosTabContent
+                  searchParams={searchParams}
+                  showOnlyPersonas={true}
+                  permissions={permissions}
+                />
               </Suspense>
             ),
           },

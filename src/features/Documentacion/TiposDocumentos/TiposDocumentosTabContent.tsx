@@ -1,6 +1,6 @@
 import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
 import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
-import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Truck, User } from 'lucide-react';
 import { Suspense } from 'react';
@@ -9,13 +9,14 @@ export default async function TiposDocumentosTabContent({
   searchParams,
   showOnlyPersonas = false,
   showOnlyEquipos = false,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
   showOnlyPersonas?: boolean;
   showOnlyEquipos?: boolean;
+  permissions: Record<string, boolean>;
 }) {
-  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
-  const permissions = await getUserPermissionsMapServer();
+  console.log('[TiposDocumentosTabContent] Recibió permisos, count:', Object.keys(permissions).length);
 
   const allTabs = [];
 

@@ -79,37 +79,37 @@ export async function getUserPermissionsServer() {
 }
 
 /**
- * Obtiene todos los permisos del usuario como un Map para búsquedas O(1)
+ * Obtiene todos los permisos del usuario como un objeto plano (serializable)
  *
- * OPTIMIZADO: Usa cache de React y retorna un Map para acceso rápido.
- * Útil cuando necesitas verificar múltiples permisos sin hacer queries adicionales.
+ * Retorna un objeto plano (Record) en lugar de Map para que sea serializable
+ * cuando se pasa como prop entre componentes del servidor en Next.js.
  *
- * @returns Map con key = "module:tab:action", value = boolean
- * Siempre retorna un Map válido, incluso si está vacío o hay un error.
+ * @returns Objeto plano con key = "module:tab:action", value = boolean
+ * Siempre retorna un objeto válido, incluso si está vacío o hay un error.
  */
-export async function getUserPermissionsMapServer(): Promise<Map<string, boolean>> {
+export async function getUserPermissionsMapServer(): Promise<Record<string, boolean>> {
   try {
     const permissions = await getCachedUserPermissions();
 
     // Asegurar que permissions sea un array válido
     if (!Array.isArray(permissions)) {
-      console.warn('getUserPermissionsMapServer: permissions is not an array, returning empty Map');
-      return new Map<string, boolean>();
+      console.warn('getUserPermissionsMapServer: permissions is not an array, returning empty object');
+      return {};
     }
 
-    const permissionMap = new Map<string, boolean>();
+    const permissionMap: Record<string, boolean> = {};
     permissions.forEach((perm: any) => {
       if (perm && perm.module_slug && perm.tab_slug && perm.action_slug) {
         const key = `${perm.module_slug}:${perm.tab_slug}:${perm.action_slug}`;
-        permissionMap.set(key, perm.is_granted !== false);
+        permissionMap[key] = perm.is_granted !== false;
       }
     });
 
     return permissionMap;
   } catch (error) {
     console.error('Error in getUserPermissionsMapServer:', error);
-    // Siempre retornar un Map válido, incluso si hay un error
-    return new Map<string, boolean>();
+    // Siempre retornar un objeto válido, incluso si hay un error
+    return {};
   }
 }
 

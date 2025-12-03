@@ -16,7 +16,7 @@ export function usePermissions() {
     staleTime: 5 * 60 * 1000, // 5 minutos - datos se consideran frescos
     gcTime: 30 * 60 * 1000, // 30 minutos - mantener en cache
     refetchOnWindowFocus: false, // NO refetch automático al volver a la ventana
-    refetchOnMount: false, // Usar cache si existe (no refetch en cada mount)
+    refetchOnMount: true, // Usar cache si existe (no refetch en cada mount)
     refetchOnReconnect: true, // Solo refetch si se reconecta la red
   });
 

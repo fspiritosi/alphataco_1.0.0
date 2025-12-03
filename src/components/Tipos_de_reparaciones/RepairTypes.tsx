@@ -12,12 +12,14 @@ export default async function RepairTypes({
   searchParams,
   hiddenTabs,
   moduleSlug = 'equipos',
+  permissions,
 }: {
   mechanic?: boolean;
   equipment_id?: string;
   searchParams: { [key: string]: string | string[] | undefined };
   hiddenTabs?: string[];
   moduleSlug?: 'equipos' | 'mantenimiento';
+  permissions: Record<string, boolean>;
 }) {
   const allTabs = [
     {
@@ -64,7 +66,7 @@ export default async function RepairTypes({
       tabSlug: 'type_of_repair_new_entry' as const,
       content: (
         <Suspense fallback={<div>Cargando formulario...</div>}>
-          <RepairEntryWrapper equipment_id={equipment_id} searchParams={searchParams} />
+          <RepairEntryWrapper equipment_id={equipment_id} searchParams={searchParams} permissions={permissions} />
         </Suspense>
       ),
     },
@@ -93,6 +95,7 @@ export default async function RepairTypes({
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="created_solicitudes"
+      permissions={permissions}
       tabs={filteredTabs}
     />
   );

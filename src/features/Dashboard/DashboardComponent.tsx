@@ -51,7 +51,7 @@ export default async function DashboardComponent({
             ),
             moduleSlug: 'dashboard',
             tabSlug: 'documentacion',
-            content: <DocumentsTabContent searchParams={searchParams} />,
+            content: <DocumentsTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'estadisticas',
@@ -63,7 +63,7 @@ export default async function DashboardComponent({
             ),
             moduleSlug: 'dashboard',
             tabSlug: 'estadisticas',
-            content: <EstadisticasTabComponent searchParams={searchParams} />,
+            content: <EstadisticasTabComponent searchParams={searchParams} permissions={permissions} />,
           },
         ]}
       />

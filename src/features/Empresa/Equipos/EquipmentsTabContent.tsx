@@ -9,8 +9,10 @@ import EquipmentTypesWrapper from './types/EquipmentTypesWrapper';
 
 export default function EquipmentsTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <div>
@@ -18,6 +20,7 @@ export default function EquipmentsTabContent({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="tipos"
+        permissions={permissions}
         tabs={[
           {
             value: 'tipos',
