@@ -80,11 +80,110 @@ export function RolePermissionsEditor({ permissions, onPermissionsChange }: Role
 
   const togglePermission = (tabId: string, actionId: string) => {
     const key = `${tabId}:${actionId}`;
-    if (permissionSet.has(key)) {
-      onPermissionsChange(permissions.filter((p) => `${p.tabId}:${p.actionId}` !== key));
-    } else {
-      onPermissionsChange([...permissions, { tabId, actionId }]);
+    const isAdding = !permissionSet.has(key);
+
+    // Encontrar el tab actual y sus subtabs para aplicar lógica masiva
+    const findTab = (items: any[]): any => {
+      for (const item of items) {
+        if (item.id === tabId) return item;
+        if (item.tabs) {
+          const found = findTab(item.tabs);
+          if (found) return found;
+        }
+        if (item.subtabs) {
+          const found = findTab(item.subtabs);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const targetTab = findTab(modules);
+
+    // Encontrar el action slug para saber si es view, create, update o delete
+    const action = targetTab?.actions?.find((a: any) => a.id === actionId);
+    const actionSlug = action?.slug;
+
+    // Si estamos intentando REMOVER el permiso de 'view', verificar si hay otros permisos activos
+    if (!isAdding && actionSlug === 'view') {
+      const hasOtherPermissions = targetTab?.actions?.some((a: any) => {
+        if (a.slug === 'view') return false; // Ignorar el permiso de view
+        const otherKey = `${tabId}:${a.id}`;
+        return permissionSet.has(otherKey);
+      });
+
+      if (hasOtherPermissions) {
+        // No permitir remover 'view' si hay otros permisos activos
+        return;
+      }
     }
+
+    const permissionsToToggle: Array<{ tabId: string; actionId: string }> = [{ tabId, actionId }];
+
+    // Si es un tab padre, propagar a los hijos
+    if (targetTab && targetTab.subtabs && targetTab.subtabs.length > 0) {
+      const collectSubtabPermissions = (subtabs: any[]) => {
+        subtabs.forEach((subtab) => {
+          // Verificar si el subtab soporta esta acción
+          const supportsAction = subtab.actions?.some((a: any) => a.id === actionId);
+          if (supportsAction) {
+            permissionsToToggle.push({ tabId: subtab.id, actionId });
+          }
+          if (subtab.subtabs) {
+            collectSubtabPermissions(subtab.subtabs);
+          }
+        });
+      };
+      collectSubtabPermissions(targetTab.subtabs);
+    }
+
+    let newPermissions = [...permissions];
+
+    if (isAdding) {
+      // Agregar permisos que no estén ya
+      permissionsToToggle.forEach((perm) => {
+        const permKey = `${perm.tabId}:${perm.actionId}`;
+        if (!permissionSet.has(permKey)) {
+          newPermissions.push(perm);
+        }
+      });
+
+      // AUTO-ASSIGN VIEW: Si estamos agregando create/update/delete, también agregar 'view'
+      if (actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
+        const viewAction = targetTab?.actions?.find((a: any) => a.slug === 'view');
+        if (viewAction) {
+          const viewKey = `${tabId}:${viewAction.id}`;
+          if (!permissionSet.has(viewKey)) {
+            newPermissions.push({ tabId, actionId: viewAction.id });
+          }
+
+          // También agregar 'view' a los subtabs si estamos propagando
+          if (targetTab.subtabs && targetTab.subtabs.length > 0) {
+            const addViewToSubtabs = (subtabs: any[]) => {
+              subtabs.forEach((subtab) => {
+                const subtabViewAction = subtab.actions?.find((a: any) => a.slug === 'view');
+                if (subtabViewAction) {
+                  const subtabViewKey = `${subtab.id}:${subtabViewAction.id}`;
+                  if (!permissionSet.has(subtabViewKey)) {
+                    newPermissions.push({ tabId: subtab.id, actionId: subtabViewAction.id });
+                  }
+                }
+                if (subtab.subtabs) {
+                  addViewToSubtabs(subtab.subtabs);
+                }
+              });
+            };
+            addViewToSubtabs(targetTab.subtabs);
+          }
+        }
+      }
+    } else {
+      // Remover permisos
+      const keysToRemove = new Set(permissionsToToggle.map((p) => `${p.tabId}:${p.actionId}`));
+      newPermissions = newPermissions.filter((p) => !keysToRemove.has(`${p.tabId}:${p.actionId}`));
+    }
+
+    onPermissionsChange(newPermissions);
   };
 
   const countTabActions = (tab: any): { total: number; selected: number } => {

@@ -2,16 +2,20 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import HistoryModal from '@/features/Operaciones/PartesDiarios/components/HistoryModal';
 import { ServiceDetailModal } from '@/features/Operaciones/PartesDiarios/components/ServiceDetailModal';
 import { RemitosManagerModal } from '@/features/Operaciones/PartesDiarios/remitManager';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Edit, FileText } from 'lucide-react';
+import { CheckCircle2, Edit, FileText } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useMemo, useState } from 'react';
+import { BulkCertificacionModal } from './BulkCertificacionModal';
 import {
   formatCustomerEquipmentForExport,
   formatEmployeesForExport,
@@ -62,14 +66,54 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
   onViewHistory,
   showActions,
   filterableColumns,
+  refetchDailyReports,
 }) => {
   // Estado para el modal de remitos
   const [remitModalOpen, setRemitModalOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [selectedCustomerName, setSelectedCustomerName] = useState<string>('');
 
+  // Estado para la selección masiva
+  const [selectedRows, setSelectedRows] = useState<TableRow[]>([]);
+  const [isBulkCertificacionModalOpen, setIsBulkCertificacionModalOpen] = useState(false);
+
+  // Verificar permisos de edición
+  const { canUpdate } = usePermissions();
+  const canEdit = canUpdate('comercial', 'daily_reports');
+
   const columns = useMemo<ExtendedColumnDef<TableRow>[]>(() => {
     const baseColumns: ExtendedColumnDef<TableRow>[] = [
+      // Columna de selección - Solo visible si tiene permisos de edición
+      ...(canEdit
+        ? [
+            {
+              id: 'select',
+              header: ({ table }) => (
+                <div className="w-[20px]">
+                  <Checkbox
+                    disabled={table.getRowModel().rows.every((row) => !row.getCanSelect())}
+                    checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
+                    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                    aria-label="Select all"
+                    className="translate-y-[2px]"
+                  />
+                </div>
+              ),
+              cell: ({ row }) => (
+                <Checkbox
+                  disabled={!row.getCanSelect()}
+                  checked={row.getIsSelected()}
+                  onCheckedChange={(value) => row.toggleSelected(!!value)}
+                  aria-label="Select row"
+                  className="translate-y-[2px]"
+                />
+              ),
+              enableSorting: false,
+              enableHiding: false,
+              excludeFromExport: true,
+            } as ExtendedColumnDef<TableRow>,
+          ]
+        : []),
       {
         id: 'date',
         accessorKey: 'date',
@@ -359,27 +403,29 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           return (
             <div className="flex space-x-2">
               {onEdit && !isEnCertificacion && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Button
-                        disabled={isDailyReportOpen}
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEdit(row.original as TableRow)}
-                      >
-                        <Edit size={16} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isDailyReportOpen ? (
-                        <p>El parte esta abierto, debe editarse desde Operaciones</p>
-                      ) : (
-                        <p>Editar</p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <PermissionGuard module="comercial" tab="daily_reports" action="update">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Button
+                          disabled={isDailyReportOpen}
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onEdit(row.original as TableRow)}
+                        >
+                          <Edit size={16} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isDailyReportOpen ? (
+                          <p>El parte esta abierto, debe editarse desde Operaciones</p>
+                        ) : (
+                          <p>Editar</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </PermissionGuard>
               )}
               {onView && (
                 <TooltipProvider>
@@ -406,26 +452,28 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
                 </TooltipProvider>
               )}
               {isEnCertificacion && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedRowId(row.original.id);
-                          setSelectedCustomerName(row.original.customer!);
-                          setRemitModalOpen(true);
-                        }}
-                      >
-                        <FileText size={16} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Gestionar Remitos</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <PermissionGuard module="comercial" tab="daily_reports" action="update">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedRowId(row.original.id);
+                            setSelectedCustomerName(row.original.customer!);
+                            setRemitModalOpen(true);
+                          }}
+                        >
+                          <FileText size={16} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Gestionar Remitos</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </PermissionGuard>
               )}
             </div>
           );
@@ -434,7 +482,7 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
     }
 
     return baseColumns;
-  }, [onEdit, onView, onViewHistory, showActions, filterableColumns]);
+  }, [onEdit, onView, onViewHistory, showActions, filterableColumns, canEdit]);
 
   // Función para determinar si una fila fue creada post-cierre
   const isCreatedPostClose = useCallback((row: TableRow) => {
@@ -464,12 +512,35 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
               if (row.last_comercial_edit_at) return 'bg-blue-100 dark:bg-blue-900/30';
               return '';
             }}
+            enableRowSelection={
+              canEdit
+                ? (row) => {
+                    // Solo permitir seleccionar filas con estado "ejecutado"
+                    return row.original.status?.toLowerCase() === 'ejecutado';
+                  }
+                : false
+            }
+            onRowSelectionChange={(rows) => {
+              setSelectedRows(rows);
+            }}
             toolbarOptions={{
               filterableColumns: filterableColumns as any,
               searchableColumns: [{ columnId: 'description', placeholder: 'Buscar en descripción...' }],
               initialVisibleFilters: ['customer', 'services', 'item'],
               showFilterOptions: true,
               showViewOptions: true,
+              bulkAction:
+                canEdit && selectedRows.length > 0
+                  ? {
+                      enabled: true,
+                      label: 'Enviar a certificación',
+                      icon: <CheckCircle2 className="h-4 w-4" />,
+                      onClick: (rows) => {
+                        setSelectedRows(rows);
+                        setIsBulkCertificacionModalOpen(true);
+                      },
+                    }
+                  : undefined,
             }}
           />
         ) : (
@@ -490,6 +561,24 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           }}
         />
       )}
+
+      {/* Modal de actualización masiva a certificación */}
+      <BulkCertificacionModal
+        isOpen={isBulkCertificacionModalOpen}
+        onClose={() => {
+          setIsBulkCertificacionModalOpen(false);
+          setSelectedRows([]);
+        }}
+        selectedRows={selectedRows}
+        onSuccess={() => {
+          // Refrescar los datos de la tabla
+          if (refetchDailyReports) {
+            refetchDailyReports();
+          }
+          // Limpiar selección
+          setSelectedRows([]);
+        }}
+      />
     </>
   );
 };

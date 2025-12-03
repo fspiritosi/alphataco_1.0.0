@@ -4,6 +4,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { handleSubmit } from '@/features/Empresa/Clientes/actions/itemsService';
+import { PermissionGuard } from '@/features/Permissions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -278,9 +279,11 @@ export default function ServiceItemsForm({
 
           {/* Botones de acción */}
           <div className="flex gap-2 pt-4">
-            <Button type="submit" variant="gh_orange">
-              {isEditing ? 'Editar' : 'Crear'}
-            </Button>
+            <PermissionGuard module="comercial" tab="items-contrato" action={isEditing ? 'update' : 'create'}>
+              <Button type="submit" variant="gh_orange">
+                {isEditing ? 'Editar' : 'Crear'}
+              </Button>
+            </PermissionGuard>
 
             <Button type="button" variant="outline" onClick={() => handleCancel()}>
               Cancelar

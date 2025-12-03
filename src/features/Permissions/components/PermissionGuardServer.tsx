@@ -1,10 +1,10 @@
 import { ReactNode } from 'react';
 import { checkPermissionServer } from '../actionsServer';
-import type { ActionSlug, ModuleSlug, SubtabSlug, TabSlug } from '../permissions-map';
+import type { ActionSlug, AllTabSlugs, ModuleSlug } from '../permissions-map';
 
 interface PermissionGuardServerProps<M extends ModuleSlug = ModuleSlug> {
   module: M;
-  tab: TabSlug<M> | SubtabSlug<M, any>;
+  tab: AllTabSlugs<M>;
   action: ActionSlug;
   children: ReactNode;
   fallback?: ReactNode;

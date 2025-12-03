@@ -13,9 +13,10 @@ interface UserPermissionsManagerProps {
   userId: string;
   userName?: string;
   userEmail?: string;
+  canEdit?: boolean;
 }
 
-export function UserPermissionsManager({ userId, userName, userEmail }: UserPermissionsManagerProps) {
+export function UserPermissionsManager({ userId, userName, userEmail, canEdit = true }: UserPermissionsManagerProps) {
   const { permissions, isLoading } = useUserPermissions(userId);
   const [activeTab, setActiveTab] = useState('user-permissions');
 
@@ -72,9 +73,9 @@ export function UserPermissionsManager({ userId, userName, userEmail }: UserPerm
               </div>
             </Card>
 
-            <RoleSelector userId={userId} />
+            <RoleSelector userId={userId} disabled={!canEdit} />
 
-            <ModulePermissions userId={userId} permissions={permissions} />
+            <ModulePermissions userId={userId} permissions={permissions} disabled={!canEdit} />
           </Card>
         </TabsContent>
         {/* <TabsContent value="role-management">

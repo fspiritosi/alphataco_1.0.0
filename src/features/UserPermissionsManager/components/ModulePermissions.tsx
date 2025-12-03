@@ -49,6 +49,7 @@ import { useMemo, useState } from 'react';
 interface ModulePermissionsProps {
   userId: string;
   permissions: any[];
+  disabled?: boolean;
 }
 
 const ACTION_ICONS = {
@@ -85,7 +86,7 @@ const MODULE_ICONS: Record<string, any> = {
   ayuda: HelpCircle,
 };
 
-export function ModulePermissions({ userId, permissions }: ModulePermissionsProps) {
+export function ModulePermissions({ userId, permissions, disabled = false }: ModulePermissionsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCleanDialogOpen, setIsCleanDialogOpen] = useState(false);
@@ -239,6 +240,8 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
   };
 
   const toggleModule = async (module: any) => {
+    if (disabled) return; // No permitir cambios si está deshabilitado
+
     const isFullySelected = isModuleFullySelected(module);
     const toAdd: Array<{ tabId: string; actionId: string }> = [];
     const toRemove: Array<{ tabId: string; actionId: string }> = [];
@@ -286,6 +289,8 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
   };
 
   const toggleTab = (tab: any) => {
+    if (disabled) return; // No permitir cambios si está deshabilitado
+
     const isFullySelected = isTabFullySelected(tab);
 
     const toggleTabRecursive = (t: any) => {
@@ -307,9 +312,30 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
   };
 
   const handlePermissionToggle = async (tabId: string, actionId: string, tab?: any) => {
+    if (disabled) return; // No permitir cambios si está deshabilitado
+
     const isActive = isPermissionActive(tabId, actionId);
     const permKey = `${tabId}:${actionId}`;
     const permission = permissionMap.get(permKey);
+
+    // Encontrar el action slug
+    const action = tab?.actions?.find((a: any) => a.id === actionId);
+    const actionSlug = action?.slug;
+
+    // Si estamos intentando REMOVER el permiso de 'view', verificar si hay otros permisos activos
+    if (isActive && actionSlug === 'view') {
+      const hasOtherPermissions = tab?.actions?.some((a: any) => {
+        if (a.slug === 'view') return false; // Ignorar el permiso de view
+        const otherKey = `${tabId}:${a.id}`;
+        const otherPerm = permissionMap.get(otherKey);
+        return otherPerm?.isGranted;
+      });
+
+      if (hasOtherPermissions) {
+        // No permitir remover 'view' si hay otros permisos activos
+        return;
+      }
+    }
 
     // Si el tab tiene subtabs, aplicar el cambio recursivamente
     if (tab && tab.subtabs && tab.subtabs.length > 0) {
@@ -331,6 +357,38 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
 
       // Incluir el tab actual y todos sus hijos
       collectAllTabs(tab);
+
+      // AUTO-ASSIGN VIEW: Si estamos agregando create/update/delete, también agregar 'view'
+      if (!isActive && actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
+        const viewAction = tab?.actions?.find((a: any) => a.slug === 'view');
+        if (viewAction) {
+          const viewKey = `${tabId}:${viewAction.id}`;
+          const viewPerm = permissionMap.get(viewKey);
+          if (!viewPerm?.isGranted) {
+            toAdd.push({ tabId, actionId: viewAction.id });
+          }
+
+          // También agregar 'view' a los subtabs
+          const addViewToSubtabs = (subtabs: any[]) => {
+            subtabs.forEach((subtab) => {
+              const subtabViewAction = subtab.actions?.find((a: any) => a.slug === 'view');
+              if (subtabViewAction) {
+                const subtabViewKey = `${subtab.id}:${subtabViewAction.id}`;
+                const subtabViewPerm = permissionMap.get(subtabViewKey);
+                if (!subtabViewPerm?.isGranted) {
+                  toAdd.push({ tabId: subtab.id, actionId: subtabViewAction.id });
+                }
+              }
+              if (subtab.subtabs) {
+                addViewToSubtabs(subtab.subtabs);
+              }
+            });
+          };
+          if (tab.subtabs && tab.subtabs.length > 0) {
+            addViewToSubtabs(tab.subtabs);
+          }
+        }
+      }
 
       // Ejecutar batch mutations
       try {
@@ -356,7 +414,20 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
         console.error('Error toggling permission with children:', error);
       }
     } else {
-      // Si no tiene hijos, solo cambiar este permiso
+      // Si no tiene hijos, verificar auto-assign view
+      if (!isActive && actionSlug && ['create', 'update', 'delete'].includes(actionSlug)) {
+        const viewAction = tab?.actions?.find((a: any) => a.slug === 'view');
+        if (viewAction) {
+          const viewKey = `${tabId}:${viewAction.id}`;
+          const viewPerm = permissionMap.get(viewKey);
+          if (!viewPerm?.isGranted) {
+            // Agregar view primero
+            await setPermissionMutation.mutateAsync({ tabId, actionId: viewAction.id, isGranted: true });
+          }
+        }
+      }
+
+      // Cambiar el permiso actual
       if (isActive) {
         if (permission?.source === 'role') {
           setPermissionMutation.mutate({ tabId, actionId, isGranted: false });
@@ -382,20 +453,37 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
           const source = permission?.source;
           const roleColor = permission?.roleColor;
           const roleName = permission?.roleName;
+          const isFromRole = source === 'role';
 
-          return (
+          // Verificar si 'view' está bloqueado por otros permisos activos
+          const isViewLocked =
+            action.slug === 'view' &&
+            isActive &&
+            tab.actions?.some((a: any) => {
+              if (a.slug === 'view') return false;
+              const otherKey = `${tab.id}:${a.id}`;
+              const otherPerm = permissionMap.get(otherKey);
+              return otherPerm?.isGranted;
+            });
+
+          const isDisabled = disabled || isFromRole || isViewLocked;
+
+          const checkboxElement = (
             <div
               key={action.id}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all ${
+                isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+              } ${
                 isActive
                   ? 'border-primary/50 bg-primary/10 shadow-sm'
                   : 'border-border/50 hover:border-primary/30 hover:bg-muted/50'
               }`}
-              onClick={() => handlePermissionToggle(tab.id, action.id, tab)}
+              onClick={() => !isDisabled && handlePermissionToggle(tab.id, action.id, tab)}
             >
               <Checkbox
                 checked={isActive}
-                onCheckedChange={() => handlePermissionToggle(tab.id, action.id, tab)}
+                disabled={isDisabled}
+                onCheckedChange={() => !isDisabled && handlePermissionToggle(tab.id, action.id, tab)}
                 onClick={(e) => e.stopPropagation()}
                 className="h-4 w-4"
               />
@@ -410,33 +498,44 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                 {ACTION_LABELS[action.slug as keyof typeof ACTION_LABELS] || action.name}
               </span>
               {source === 'role' && roleName && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] h-4 px-1.5 font-medium"
-                      style={{
-                        backgroundColor: roleColor ? `${roleColor}20` : '#3b82f620',
-                        borderColor: roleColor || '#3b82f6',
-                        color: roleColor || '#3b82f6',
-                      }}
-                    >
-                      {roleName.charAt(0).toUpperCase()}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Rol: {roleName}</p>
-                  </TooltipContent>
-                </Tooltip>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] h-4 px-1.5 font-medium"
+                  style={{
+                    backgroundColor: roleColor ? `${roleColor}20` : '#3b82f620',
+                    borderColor: roleColor || '#3b82f6',
+                    color: roleColor || '#3b82f6',
+                  }}
+                >
+                  {roleName.charAt(0).toUpperCase()}
+                </Badge>
               )}
             </div>
           );
+
+          // Envolver en tooltip si está deshabilitado
+          if (isDisabled) {
+            return (
+              <Tooltip key={action.id}>
+                <TooltipTrigger asChild>{checkboxElement}</TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    {isFromRole
+                      ? `Este permiso viene del rol "${roleName}" y no puede ser removido aquí`
+                      : 'No se puede desactivar "Ver" mientras otros permisos estén activos'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return checkboxElement;
         })}
       </div>
     );
   };
 
-  const renderSubtab = (tab: any, level: number) => {
+  const renderSubtab = (tab: any, level: number, moduleSlug?: string) => {
     const hasSubtabs = tab.subtabs && tab.subtabs.length > 0;
     const counts = countTabActions(tab);
     const tabSelected = isTabFullySelected(tab);
@@ -453,6 +552,7 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
               }
             }}
             onCheckedChange={() => toggleTab(tab)}
+            disabled={disabled}
             className="mt-0.5"
           />
           <div className="flex-1 space-y-2">
@@ -469,7 +569,28 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
         </div>
 
         {hasSubtabs && (
-          <div className="space-y-2">{tab.subtabs.map((subtab: any) => renderSubtab(subtab, level + 1))}</div>
+          <div className="space-y-2">
+            {tab.subtabs.map((subtab: any) => renderSubtab(subtab, level + 1, moduleSlug))}
+          </div>
+        )}
+
+        {/* Aviso de herencia para contratos-cliente */}
+        {moduleSlug === 'comercial' && tab.slug === 'customers' && (
+          <>
+            <Separator className="my-3" />
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+              <div className="flex items-start gap-2">
+                <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">Tab Contratos</p>
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    Los permisos para la tab de Contratos se heredan del módulo <strong>Comercial</strong> → tab{' '}
+                    <strong>Contratos/Servicios</strong>. Gestiona los permisos desde allí.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
     );
@@ -503,7 +624,7 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
             {hasAnyPermissions && (
               <AlertDialog open={isCleanDialogOpen} onOpenChange={setIsCleanDialogOpen}>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled={disabled}>
                     <Eraser className="h-4 w-4 mr-2" />
                     Limpiar Permisos
                   </Button>
@@ -551,7 +672,9 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                     <Button
                       variant="destructive"
                       onClick={() => cleanAllPermissionsMutation.mutate()}
-                      disabled={cleanCustomPermissionsMutation.isPending || cleanAllPermissionsMutation.isPending}
+                      disabled={
+                        disabled || cleanCustomPermissionsMutation.isPending || cleanAllPermissionsMutation.isPending
+                      }
                       className="w-full"
                     >
                       {cleanAllPermissionsMutation.isPending ? 'Eliminando...' : 'Eliminar Todo (Roles + Permisos)'}
@@ -597,6 +720,7 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                           }
                         }}
                         onCheckedChange={() => toggleModule(module)}
+                        disabled={disabled}
                         onClick={(e) => e.stopPropagation()}
                       />
                       <ModuleIcon className="h-5 w-5 text-primary" />
@@ -630,6 +754,7 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                                     }
                                   }}
                                   onCheckedChange={() => toggleTab(tab)}
+                                  disabled={disabled}
                                 />
                                 <AccordionTrigger className="flex-1 hover:no-underline py-0">
                                   <div className="flex items-center gap-2 flex-1">
@@ -650,7 +775,88 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                                     <>
                                       <Separator className="my-3" />
                                       <div className="space-y-2">
-                                        {tab.subtabs.map((subtab: any) => renderSubtab(subtab, 1))}
+                                        {tab.subtabs.map((subtab: any) => renderSubtab(subtab, 1, module.slug))}
+                                      </div>
+                                    </>
+                                  )}
+
+                                  {/* Aviso de herencia para documentacion-empleado */}
+                                  {module.slug === 'empleados' && tab.slug === 'detalle-empleado' && (
+                                    <>
+                                      <Separator className="my-3" />
+                                      <div className="space-y-3">
+                                        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                                          <div className="flex items-start gap-2">
+                                            <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                                                Tab Documentación
+                                              </p>
+                                              <p className="text-xs text-blue-800 dark:text-blue-200">
+                                                Los permisos para la tab de Documentación se heredan del módulo{' '}
+                                                <strong>Documentación</strong> → tab{' '}
+                                                <strong>Documentos de Empleados</strong>. Gestiona los permisos desde
+                                                allí.
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                                          <div className="flex items-start gap-2">
+                                            <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                                                Subtab Nuevo Diagrama
+                                              </p>
+                                              <p className="text-xs text-blue-800 dark:text-blue-200">
+                                                Los permisos para la subtab <strong>Nuevo Diagrama</strong> se heredan
+                                                del módulo <strong>Empleados</strong> → tab <strong>Diagramas</strong> →
+                                                subtab <strong>Cargar Diagramas</strong>. Gestiona los permisos desde
+                                                allí.
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+
+                                  {/* Aviso de herencia para documentacion-equipo */}
+                                  {module.slug === 'equipos' && tab.slug === 'detalle-equipo' && (
+                                    <>
+                                      <Separator className="my-3" />
+                                      <div className="space-y-3">
+                                        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                                          <div className="flex items-start gap-2">
+                                            <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                                                Tab Documentación
+                                              </p>
+                                              <p className="text-xs text-blue-800 dark:text-blue-200">
+                                                Los permisos para la tab de Documentación se heredan del módulo{' '}
+                                                <strong>Documentación</strong> → tab{' '}
+                                                <strong>Documentos de Equipos</strong>. Gestiona los permisos desde
+                                                allí.
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                                          <div className="flex items-start gap-2">
+                                            <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                            <div className="flex-1">
+                                              <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                                                Tab Reparaciones
+                                              </p>
+                                              <p className="text-xs text-blue-800 dark:text-blue-200">
+                                                Los permisos para la tab de Reparaciones se heredan del módulo{' '}
+                                                <strong>Equipos</strong> → tab <strong>Mantenimiento</strong>. Gestiona
+                                                los permisos desde allí.
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
                                       </div>
                                     </>
                                   )}
@@ -659,6 +865,50 @@ export function ModulePermissions({ userId, permissions }: ModulePermissionsProp
                             </AccordionItem>
                           );
                         })}
+
+                        {/* Aviso de herencia para tipos-de-documentos en empleados */}
+                        {module.slug === 'empleados' && (
+                          <>
+                            <Separator className="my-3" />
+                            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                              <div className="flex items-start gap-2">
+                                <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                                    Tab Tipos de Documentos
+                                  </p>
+                                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                                    Los permisos para la tab de Tipos de Documentos se heredan del módulo{' '}
+                                    <strong>Documentación</strong> → tab <strong>Tipos de Documentos</strong>. Gestiona
+                                    los permisos desde allí.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Aviso de herencia para tipos-de-documentos en equipos */}
+                        {module.slug === 'equipos' && (
+                          <>
+                            <Separator className="my-3" />
+                            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                              <div className="flex items-start gap-2">
+                                <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                                    Tab Tipos de Documentos
+                                  </p>
+                                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                                    Los permisos para la tab de Tipos de Documentos se heredan del módulo{' '}
+                                    <strong>Documentación</strong> → tab <strong>Tipos de Documentos</strong>. Gestiona
+                                    los permisos desde allí.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </Accordion>
                     ) : (
                       <div className="text-sm text-muted-foreground pt-2">No hay tabs disponibles para este módulo</div>

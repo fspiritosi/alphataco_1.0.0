@@ -112,35 +112,38 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
           </div>
         )}
         {/* Employee Tabs */}
-        <EmployeeTabs
-          employeeId={employee_id}
-          mode={mode}
-          employee={employee}
-          //Componentes
-          documentsComponent={<DocumentTable employee_id={employee_id} />}
-          diagramsComponent={
-            <DiagramDetailEmployeeView
-              historyData={historyData}
-              diagrams={diagrams2 as any}
-              diagrams_types={diagrams_types2}
-              activeEmploees={[employee]}
-            />
-          }
-          // Promises para las opciones
-          countriesPromise={countries}
-          costCentersPromise={costCenters}
-          hierarchicalPositionsPromise={hierarchicalPositions}
-          companyPositionsPromise={companyPositions}
-          workflowDiagramsPromise={workflowDiagrams}
-          guildsPromise={guilds}
-          covenantsPromise={covenants}
-          categoriesPromise={categories}
-          contractorCompaniesPromise={contractorCompanies}
-          provincesPromise={provinces}
-          citiesPromise={cities}
-          typeOfContractsPromise={typeOfContracts}
-          aptitudesPromise={aptitudes}
-        />
+        <div className="p-6">
+          <EmployeeTabs
+            employeeId={employee_id}
+            mode={mode}
+            employee={employee}
+            //Componentes
+            documentsComponent={<DocumentTable employee_id={employee_id} searchParams={searchParams} />}
+            diagramsComponent={
+              <DiagramDetailEmployeeView
+                historyData={historyData}
+                diagrams={diagrams2 as any}
+                diagrams_types={diagrams_types2}
+                activeEmploees={[employee]}
+                searchParams={searchParams}
+              />
+            }
+            // Promises para las opciones
+            countriesPromise={countries}
+            costCentersPromise={costCenters}
+            hierarchicalPositionsPromise={hierarchicalPositions}
+            companyPositionsPromise={companyPositions}
+            workflowDiagramsPromise={workflowDiagrams}
+            guildsPromise={guilds}
+            covenantsPromise={covenants}
+            categoriesPromise={categories}
+            contractorCompaniesPromise={contractorCompanies}
+            provincesPromise={provinces}
+            citiesPromise={cities}
+            typeOfContractsPromise={typeOfContracts}
+            aptitudesPromise={aptitudes}
+          />
+        </div>
       </Card>
     </div>
   );

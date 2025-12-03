@@ -19,10 +19,11 @@ interface DocumentsTableProps {
   children: React.ReactNode;
   savedFilters: string[];
   savedVisibility: VisibilityState;
+  canEdit: boolean;
 }
 
-export function getDocumentColumns(): ColumnDef<any>[] {
-  return [
+export function getDocumentColumns(canEdit: boolean): ColumnDef<any>[] {
+  const columns: ColumnDef<any>[] = [
     {
       accessorKey: 'name',
       id: 'Nombre',
@@ -106,16 +107,21 @@ export function getDocumentColumns(): ColumnDef<any>[] {
         return value.includes(val);
       },
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => <EditModal Equipo={row.original} />,
       enableSorting: false,
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
-const DocumentsTable = ({ data, savedVisibility, savedFilters }: DocumentsTableProps) => {
+const DocumentsTable = ({ data, savedVisibility, savedFilters, canEdit }: DocumentsTableProps) => {
   const multiresourceOptions = createFilterOptions(data, (doc) => (doc.multiresource ? 'Si' : 'No'));
 
   const specialOptions = createFilterOptions(data, (doc) => (doc.special ? 'Si' : 'No'));
@@ -132,7 +138,7 @@ const DocumentsTable = ({ data, savedVisibility, savedFilters }: DocumentsTableP
 
   return (
     <BaseDataTable
-      columns={getDocumentColumns()}
+      columns={getDocumentColumns(canEdit)}
       data={data}
       savedVisibility={savedVisibility}
       toolbarOptions={{

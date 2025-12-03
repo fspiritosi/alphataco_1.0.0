@@ -37,6 +37,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { PermissionGuard } from '@/features/Permissions';
 import { useEdgeFunctions } from '@/hooks/useEdgeFunctions';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
@@ -701,39 +702,86 @@ export const ExpiredColums: ColumnDef<Colum>[] = [
 
       const handleOpen = () => setOpen(!open);
       const applies = row.original.applies === 'Persona' ? 'empleado' : 'equipo';
+      const isEmployee = applies === 'empleado';
 
       if (isNoPresented) {
-        return (
-          <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogTrigger asChild>
-              {role !== 'Invitado' && <Button variant="outline">Subir documento</Button>}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <div className="max-h-[90vh] overflow-y-auto">
-                  <div className="space-y-3">
-                    <div>
-                      <SimpleDocument
-                        resource={applies}
-                        handleOpen={() => handleOpen()}
-                        defaultDocumentId={row.original.id_document_types}
-                        // document={document}
-                        numberDocument={row.original.document_number || row.original.vehicle_id}
-                      />
+        // Protección condicional: empleado o equipo
+        if (isEmployee) {
+          return (
+            <PermissionGuard module="documentacion" tab="docs-empleados-permanentes" action="update">
+              <AlertDialog open={open} onOpenChange={setOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline">Subir documento</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <div className="max-h-[90vh] overflow-y-auto">
+                      <div className="space-y-3">
+                        <div>
+                          <SimpleDocument
+                            resource={applies}
+                            handleOpen={() => handleOpen()}
+                            defaultDocumentId={row.original.id_document_types}
+                            // document={document}
+                            numberDocument={row.original.document_number || row.original.vehicle_id}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </AlertDialogHeader>
-            </AlertDialogContent>
-          </AlertDialog>
-        );
+                  </AlertDialogHeader>
+                </AlertDialogContent>
+              </AlertDialog>
+            </PermissionGuard>
+          );
+        } else {
+          // Para equipos
+          return (
+            <PermissionGuard module="documentacion" tab="docs-equipos-permanentes" action="update">
+              <AlertDialog open={open} onOpenChange={setOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline">Subir documento</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <div className="max-h-[90vh] overflow-y-auto">
+                      <div className="space-y-3">
+                        <div>
+                          <SimpleDocument
+                            resource={applies}
+                            handleOpen={() => handleOpen()}
+                            defaultDocumentId={row.original.id_document_types}
+                            // document={document}
+                            numberDocument={row.original.document_number || row.original.vehicle_id}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </AlertDialogHeader>
+                </AlertDialogContent>
+              </AlertDialog>
+            </PermissionGuard>
+          );
+        }
       }
 
-      return (
-        <Link href={`/dashboard/document/${row.original.id}?resource=${row.original.applies}`}>
-          <Button>Ver documento</Button>
-        </Link>
-      );
+      // Protección condicional para "Ver documento"
+      if (isEmployee) {
+        return (
+          <PermissionGuard module="documentacion" tab="docs-empleados-permanentes" action="view">
+            <Link href={`/dashboard/document/${row.original.id}?resource=${row.original.applies}`}>
+              <Button>Ver documento</Button>
+            </Link>
+          </PermissionGuard>
+        );
+      } else {
+        return (
+          <PermissionGuard module="documentacion" tab="docs-equipos-permanentes" action="view">
+            <Link href={`/dashboard/document/${row.original.id}?resource=${row.original.applies}`}>
+              <Button>Ver documento</Button>
+            </Link>
+          </PermissionGuard>
+        );
+      }
     },
   },
 ];

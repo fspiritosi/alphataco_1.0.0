@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { PermissionGuard } from '@/features/Permissions';
 import { Edit, Truck } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import React from 'react';
@@ -72,10 +73,12 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
               <div className="flex items-center gap-2">
                 <div className="flex gap-2">
                   {mode === 'view' && (
-                    <Button onClick={handleEdit} size="sm">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Editar
-                    </Button>
+                    <PermissionGuard module="equipos" tab="detalle-equipo" action="update">
+                      <Button onClick={handleEdit} size="sm">
+                        <Edit className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                    </PermissionGuard>
                   )}
                   {mode === 'edit' && (
                     <Button type="button" variant="outline" onClick={handleCancelEdit}>
@@ -84,11 +87,13 @@ export function VehicleHeader({ vehicle, mode, onSave }: VehicleHeaderProps) {
                   )}
                 </div>
 
-                <VehicleQuickActions
-                  condition={vehicle?.condition!}
-                  equipmentId={vehicle?.id}
-                  isActive={vehicle?.is_active!}
-                />
+                <PermissionGuard module="equipos" tab="detalle-equipo" action="update">
+                  <VehicleQuickActions
+                    condition={vehicle?.condition!}
+                    equipmentId={vehicle?.id}
+                    isActive={vehicle?.is_active!}
+                  />
+                </PermissionGuard>
                 <Separator orientation="vertical" className="w-[1px] h-10 my-0" />
 
                 <div className="flex items-center justify-end gap-4 ">

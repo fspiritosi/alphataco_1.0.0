@@ -18,6 +18,7 @@ import {
   movePreparteFile,
   updatePreparte,
 } from '@/features/Operaciones/Preparte/actions/preparte';
+import { PermissionGuard } from '@/features/Permissions';
 import { VisibilityState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
@@ -518,11 +519,13 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           Gestión de Pedidos
         </h2>
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button data-testid="nuevo-pedido-button">
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Pedido
-            </Button>
+          <SheetTrigger>
+            <PermissionGuard module="operaciones" tab="preparte" action="create">
+              <Button data-testid="nuevo-pedido-button">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Pedido
+              </Button>
+            </PermissionGuard>
           </SheetTrigger>
           <SheetContent side="right" className="overflow-y-auto w-[750px] max-w-[75vw] sm:max-w-[75vw]">
             <SheetHeader className="mb-6">

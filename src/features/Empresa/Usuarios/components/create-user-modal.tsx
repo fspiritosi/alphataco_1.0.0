@@ -27,7 +27,9 @@ export function CreateUserModal({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={triggerVariant}>{triggerLabel}</Button>
+        <Button className="" variant={triggerVariant}>
+          {triggerLabel}
+        </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>

@@ -21,7 +21,8 @@ const defaultVisibility: VisibilityState = {
 } as const;
 
 export function getEquipmentBrandColumns(
-  onEdit: (equipmentBrand: EquipmentBrand) => void
+  onEdit: (equipmentBrand: EquipmentBrand) => void,
+  canEdit: boolean
 ): ColumnDef<EquipmentBrand>[] {
   return [
     {
@@ -50,11 +51,12 @@ export function getEquipmentBrandColumns(
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -63,12 +65,14 @@ export function getEquipmentBrandColumns(
 interface EquipmentBrandsTableProps {
   equipmentBrands: EquipmentBrand[];
   onEdit?: (equipmentBrand: EquipmentBrand) => void;
+  canEdit?: boolean;
   savedVisibility?: VisibilityState;
 }
 
 function EquipmentBrandsTable({
   equipmentBrands,
   onEdit = () => {},
+  canEdit = false,
   savedVisibility = defaultVisibility,
 }: EquipmentBrandsTableProps) {
   const [columnFilters, setColumnFilters] = React.useState<Array<{ id: string; value: any }>>(() => {
@@ -110,7 +114,7 @@ function EquipmentBrandsTable({
     return columnFilters.map((filter) => filter.id);
   }, [columnFilters]);
 
-  const columns = React.useMemo(() => getEquipmentBrandColumns(onEdit), [onEdit]);
+  const columns = React.useMemo(() => getEquipmentBrandColumns(onEdit, canEdit), [onEdit, canEdit]);
 
   const nameOptions = React.useMemo(() => {
     return equipmentBrands?.map((type) => ({

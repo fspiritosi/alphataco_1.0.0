@@ -1,6 +1,7 @@
 import DocumentNav from '@/components/DocumentNav';
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
@@ -12,9 +13,12 @@ export default function DocumentosEmpleadosTabContent({
 }) {
   return (
     <div>
-      <div className="flex gap-4 flex-wrap mb-4">
-        <DocumentNav onlyEmployees />
-      </div>
+      {/* Botón crear está en la tab principal, no en subtabs */}
+      <PermissionGuardServer module="documentacion" tab="documentos-de-empleados" action="create">
+        <div className="flex gap-4 flex-wrap mb-4">
+          <DocumentNav onlyEmployees />
+        </div>
+      </PermissionGuardServer>
       <TabsManagerServer
         paramName="subtab"
         searchParams={searchParams}
@@ -29,7 +33,7 @@ export default function DocumentosEmpleadosTabContent({
               </span>
             ),
             moduleSlug: 'documentacion',
-            tabSlug: 'empleados-permanentes',
+            tabSlug: 'docs-empleados-permanentes',
             content: (
               <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
                 <PermanentDocuments />
@@ -45,7 +49,7 @@ export default function DocumentosEmpleadosTabContent({
               </span>
             ),
             moduleSlug: 'documentacion',
-            tabSlug: 'empleados-mensuales',
+            tabSlug: 'docs-empleados-mensuales',
             content: (
               <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
                 <MonthlyDocuments />

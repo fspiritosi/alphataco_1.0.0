@@ -380,22 +380,16 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
 export async function getLastOrderNumber() {
   const supabase = supabaseServer();
 
-  // Evitar .single() que dispara PGRST116 cuando no hay filas
-  const { data, error } = await supabase
-    .from('preparte' as any)
-    .select('numero_pedido')
-    .not('numero_pedido', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1);
+  // Usar función RPC optimizada que calcula el máximo directamente en PostgreSQL
+  const { data, error } = await supabase.rpc('get_max_order_number');
 
   if (error) {
     console.error('Error al obtener el último número de pedido:', error);
     return 'PED-0000';
   }
 
-  if (!data || data.length === 0) return 'PED-0000';
-
-  return (data[0] as any)?.numero_pedido || 'PED-0000';
+  // La función RPC retorna directamente el número formateado (ej: "PED-0170")
+  return (data as string) || 'PED-0000';
 }
 
 export async function fetchPrepartes({

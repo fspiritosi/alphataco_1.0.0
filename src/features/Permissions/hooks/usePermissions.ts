@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getUserPermissions } from '../actions';
+import { PERMISSIONS, type ModuleSlug } from '../permissions-map';
 
 export function usePermissions() {
   const {
@@ -36,10 +37,55 @@ export function usePermissions() {
   };
 
   /**
-   * Convenience helper for view permission
+   * Helper to check inferred permission (if any child is accessible)
+   */
+  const checkInferredPermission = (moduleSlug: string, tabSlug: string): boolean => {
+    const moduleDef = PERMISSIONS[moduleSlug as ModuleSlug];
+    if (!moduleDef) return false;
+
+    // Helper to find the tab definition
+    const findTabDef = (tabs: any): any => {
+      if (tabs[tabSlug]) return tabs[tabSlug];
+      for (const key in tabs) {
+        if (tabs[key].subtabs) {
+          const found = findTabDef(tabs[key].subtabs);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const tabDef = findTabDef(moduleDef.tabs);
+    if (!tabDef || !tabDef.subtabs) return false;
+
+    // Helper to check if any subtab has permission
+    const hasAnySubtabPermission = (subtabs: any): boolean => {
+      for (const key in subtabs) {
+        const subtab = subtabs[key];
+        // Check if this subtab has 'view' permission
+        if (hasPermission(moduleSlug, subtab.slug, 'view')) return true;
+
+        // Recursively check its subtabs
+        if (subtab.subtabs && hasAnySubtabPermission(subtab.subtabs)) return true;
+      }
+      return false;
+    };
+
+    return hasAnySubtabPermission(tabDef.subtabs);
+  };
+
+  /**
+   * Convenience helper for view permission with INFERRED VISIBILITY
+   * If explicit view permission is missing, checks if user has access to any subtab
    */
   const canView = (moduleSlug: string, tabSlug: string): boolean => {
-    return hasPermission(moduleSlug, tabSlug, 'view');
+    // 1. Check explicit permission
+    if (hasPermission(moduleSlug, tabSlug, 'view')) {
+      return true;
+    }
+
+    // 2. Check inferred permission (if any child is accessible)
+    return checkInferredPermission(moduleSlug, tabSlug);
   };
 
   /**

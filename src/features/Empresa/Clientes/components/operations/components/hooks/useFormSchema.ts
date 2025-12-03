@@ -19,12 +19,12 @@ export function useFormSchema(isCreating: boolean) {
     };
 
     if (isCreating) {
-      // En modo creación, remit_number y date son obligatorios
+      // En modo creación, date es obligatorio, remit_number es opcional
       return z
         .object({
           ...baseSchema,
           date: z.date({ required_error: 'La fecha es requerida' }),
-          remit_number: z.string().min(1, 'El número de remito es requerido'),
+          remit_number: z.string().optional(),
         })
         .refine(
           (data) => {
@@ -41,24 +41,10 @@ export function useFormSchema(isCreating: boolean) {
     }
 
     // En modo edición
-    return z
-      .object({
-        ...baseSchema,
-        status: z.string().min(1, 'El estado es requerido'),
-        remit_number: z.string().optional(),
-      })
-      .refine(
-        (data) => {
-          // Si el estado es "en_certificacion", remit_number es obligatorio
-          if (data.status === 'en_certificacion') {
-            return data.remit_number && data.remit_number.length > 0;
-          }
-          return true;
-        },
-        {
-          message: 'El número de remito es requerido cuando el estado es "En certificación"',
-          path: ['remit_number'],
-        }
-      );
+    return z.object({
+      ...baseSchema,
+      status: z.string().min(1, 'El estado es requerido'),
+      remit_number: z.string().optional(),
+    });
   }, [isCreating]);
 }

@@ -11,16 +11,17 @@ async function TypesDocumentsViewWrapper({
   equipos = false,
   empresa = false,
   personas = false,
+  hideTabs = false,
 }: {
   optionChildrenProp?: string;
   equipos?: boolean;
   empresa?: boolean;
   personas?: boolean;
+  hideTabs?: boolean;
 }) {
   const cookiesStore = cookies();
   const savedVisibility = cookiesStore.get(`document_type_employees`)?.value;
   const savedFilters = cookiesStore.get(`document_type_employees-filters`)?.value;
-  const role = cookiesStore.get('guestRole')?.value || '';
 
   const document_types = await fetchAllDocumentTypes();
 
@@ -33,8 +34,8 @@ async function TypesDocumentsViewWrapper({
       empresa={empresa}
       personas={personas || (equipos || empresa ? false : true)}
       document_types={document_types}
-      role={role}
-      actionComponent={<TypesDocumentAction optionChildrenProp="all" />}
+      actionComponent={null}
+      hideTabs={hideTabs}
     />
   );
 }

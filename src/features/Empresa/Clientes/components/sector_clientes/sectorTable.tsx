@@ -1,6 +1,7 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -18,9 +19,10 @@ interface SectorTableProp {
 }
 
 export function getCustomerEquipmentColums(
-  handleEdit: (sector: SectorTableProp['contractorSectors'][number]) => void
+  handleEdit: (sector: SectorTableProp['contractorSectors'][number]) => void,
+  canEdit: boolean
 ): ColumnDef<SectorTableProp['contractorSectors'][number]>[] {
-  return [
+  const columns: ColumnDef<SectorTableProp['contractorSectors'][number]>[] = [
     {
       accessorKey: 'sectors.name',
       id: 'Nombre',
@@ -45,7 +47,10 @@ export function getCustomerEquipmentColums(
         return value.includes(row.getValue(id));
       },
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       accessorKey: 'actions',
       id: 'Acciones',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
@@ -62,8 +67,10 @@ export function getCustomerEquipmentColums(
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 function SectorTable({
@@ -75,6 +82,9 @@ function SectorTable({
   setMode,
   mode,
 }: SectorTableProp) {
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('comercial', 'sector', 'update');
+
   const handleEdit = (sector: SectorTableProp['contractorSectors'][number]) => {
     setSelectedSector(sector);
     setMode('edit');
@@ -91,7 +101,7 @@ function SectorTable({
     <div className="p-4 pt-0">
       <h2 className="text-xl font-bold mb-4">Sectores </h2>
       <BaseDataTable
-        columns={getCustomerEquipmentColums(handleEdit)}
+        columns={getCustomerEquipmentColums(handleEdit, canEdit)}
         data={contractorSectors}
         savedVisibility={savedVisibility}
         tableId="comercial-sector-table"

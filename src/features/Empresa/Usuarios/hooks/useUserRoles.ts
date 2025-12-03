@@ -21,19 +21,27 @@ export async function fetchUserRolesAndPermissions(userId: string) {
     throw new Error(permissionsResult.error.message);
   }
 
-  let rolePermissionsCount = 0;
-  if (rolesResult.data && rolesResult.data.length > 0) {
-    const roleId = rolesResult.data[0].role_id;
-    const rolePermissionsResult = await supabase
-      .from('role_permissions')
-      .select('id', { count: 'exact', head: true })
-      .eq('role_id', roleId);
+  // Obtener permisos para cada rol
+  const rolesWithPermissions = await Promise.all(
+    (rolesResult.data || []).map(async (userRole) => {
+      const roleId = userRole.role_id;
+      const rolePermissionsResult = await supabase
+        .from('role_permissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('role_id', roleId);
 
-    rolePermissionsCount = rolePermissionsResult.count || 0;
-  }
+      return {
+        ...userRole,
+        permissionsCount: rolePermissionsResult.count || 0,
+      };
+    })
+  );
+
+  // Calcular total de permisos de roles (solo para compatibilidad)
+  const rolePermissionsCount = rolesWithPermissions.reduce((total, role) => total + (role.permissionsCount || 0), 0);
 
   return {
-    roles: rolesResult.data || [],
+    roles: rolesWithPermissions,
     customPermissions: permissionsResult.data || [],
     customPermissionsCount: permissionsResult.data?.length || 0,
     rolePermissionsCount,

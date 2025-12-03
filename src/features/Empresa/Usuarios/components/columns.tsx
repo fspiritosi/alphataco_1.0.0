@@ -14,6 +14,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
@@ -47,7 +49,7 @@ const RoleCell = ({ userId }: { userId: string }) => {
     return <span>-</span>;
   }
 
-  const { roles, customPermissionsCount, rolePermissionsCount } = data;
+  const { roles, customPermissionsCount } = data;
   const hasRole = roles && roles.length > 0;
   const hasCustomPermissions = customPermissionsCount > 0;
 
@@ -56,39 +58,115 @@ const RoleCell = ({ userId }: { userId: string }) => {
     return <span className="text-muted-foreground">Sin permisos</span>;
   }
 
-  // Case 2: Has role (with or without custom permissions)
-  if (hasRole) {
-    const roleRelation = roles[0];
-    const roleData = roleRelation.roles;
-    const role = Array.isArray(roleData) ? roleData[0] : roleData;
+  // Extract all roles with their data and permissions
+  const rolesWithData = roles
+    .map((roleRelation: any) => {
+      const roleData = roleRelation.roles;
+      const role = Array.isArray(roleData) ? roleData[0] : roleData;
+      return {
+        role,
+        permissionsCount: roleRelation.permissionsCount || 0,
+      };
+    })
+    .filter((item: any) => item.role); // Filter out any null/undefined roles
 
-    const roleName = role?.name || 'Unknown';
-    const roleColor = role?.color || '#2563EB';
+  // Case 2: Has role (with or without custom permissions)
+  if (hasRole && rolesWithData.length > 0) {
+    const firstRoleData = rolesWithData[0];
+    const firstRole = firstRoleData.role;
+    const roleName = firstRole?.name || 'Unknown';
+    const roleColor = firstRole?.color || '#2563EB';
+    const firstRolePermissionsCount = firstRoleData.permissionsCount || 0;
+    const additionalRolesCount = rolesWithData.length > 1 ? rolesWithData.length - 1 : 0;
+    const additionalRoles = rolesWithData.slice(1);
 
     return (
-      <div className="flex items-center gap-2">
-        <Badge
-          variant="outline"
-          className="gap-1"
-          style={{
-            backgroundColor: `${roleColor}15`,
-            color: roleColor,
-            borderColor: `${roleColor}30`,
-          }}
-        >
-          {roleName}
-        </Badge>
-        <Badge variant="outline" className="text-xs flex items-center gap-1">
-          <Shield className="h-3 w-3" />
-          {rolePermissionsCount}
-        </Badge>
+      <div className="flex items-center gap-2 flex-wrap">
+        {additionalRolesCount > 0 ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 cursor-pointer">
+                  <Badge
+                    variant="outline"
+                    className="gap-1 flex items-center"
+                    style={{
+                      backgroundColor: `${roleColor}15`,
+                      color: roleColor,
+                      borderColor: `${roleColor}30`,
+                    }}
+                  >
+                    <span>{roleName}</span>
+                    <span className="flex items-center gap-1">
+                      <Shield className="h-3 w-3" />
+                      {firstRolePermissionsCount}
+                    </span>
+                    <span>{` +${additionalRolesCount}`}</span>
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs z-50">
+                <div className="flex flex-col gap-2">
+                  <p className="font-semibold text-sm mb-1">Roles adicionales:</p>
+                  <div className="flex flex-col gap-2">
+                    {additionalRoles.map((roleData: any, index: number) => {
+                      const role = roleData.role;
+                      const roleColor = role?.color || '#2563EB';
+                      const permissionsCount = roleData.permissionsCount || 0;
+                      return (
+                        <div key={index} className="flex items-center">
+                          <Badge
+                            variant="outline"
+                            className="flex items-center gap-1 w-full justify-start"
+                            style={{
+                              backgroundColor: `${roleColor}15`,
+                              color: roleColor,
+                              borderColor: `${roleColor}30`,
+                            }}
+                          >
+                            <span>{role?.name || 'Unknown'}</span>
+                            <span className="flex items-center gap-1">
+                              <Shield className="h-3 w-3" />
+                              {permissionsCount}
+                            </span>
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <Badge
+            variant="outline"
+            className="gap-1 flex items-center"
+            style={{
+              backgroundColor: `${roleColor}15`,
+              color: roleColor,
+              borderColor: `${roleColor}30`,
+            }}
+          >
+            <span>{roleName}</span>
+            <span className="flex items-center gap-1">
+              <Shield className="h-3 w-3" />
+              {firstRolePermissionsCount}
+            </span>
+          </Badge>
+        )}
         {hasCustomPermissions && (
           <Badge
             variant="outline"
-            className="text-xs"
+            className="text-xs flex items-center gap-1"
+            style={{
+              backgroundColor: '#64748B15',
+              color: '#64748B',
+              borderColor: '#64748B30',
+            }}
             title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
           >
-            +{customPermissionsCount}
+            <Shield className="h-3 w-3" />+{customPermissionsCount}
           </Badge>
         )}
       </div>
@@ -100,20 +178,18 @@ const RoleCell = ({ userId }: { userId: string }) => {
     <div className="flex items-center gap-2">
       <Badge
         variant="outline"
+        className="flex items-center gap-1"
         style={{
           backgroundColor: '#64748B15',
           color: '#64748B',
           borderColor: '#64748B30',
         }}
       >
-        Permisos personalizados
-      </Badge>
-      <Badge
-        variant="outline"
-        className="text-xs"
-        title={`${customPermissionsCount} permiso${customPermissionsCount !== 1 ? 's' : ''} personalizado${customPermissionsCount !== 1 ? 's' : ''}`}
-      >
-        {customPermissionsCount}
+        <span>Permisos personalizados</span>
+        <span className="flex items-center gap-1">
+          <Shield className="h-3 w-3" />
+          {customPermissionsCount}
+        </span>
       </Badge>
     </div>
   );
@@ -167,7 +243,7 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
   {
     accessorKey: 'user_roles.roles.name',
     id: 'user_roles.roles.name',
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Rol" />,
+    header: 'Rol',
     cell: ({ row }) => {
       return <RoleCell userId={row.original.profile?.id || ''} />;
     },
@@ -231,28 +307,34 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
         router.refresh();
       };
       return (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant={'destructive'}>Eliminar</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar eliminación de la empresa</AlertDialogTitle>
-              <AlertDialogDescription>Este usuario dejara de tener acceso a la empresa</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction asChild>
-                <Button onClick={handleDelete} variant={'destructive'}>
-                  Eliminar
-                </Button>
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <PermissionGuard module="empresa" tab="usuarios-empleados" action="delete">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant={'destructive'}>Eliminar</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar eliminación de la empresa</AlertDialogTitle>
+                <AlertDialogDescription>Este usuario dejara de tener acceso a la empresa</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <Button onClick={handleDelete} variant={'destructive'}>
+                    Eliminar
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
       );
     },
-    header: () => 'Eliminar',
+    header: () => (
+      <PermissionGuard module="empresa" tab="usuarios-empleados" action="delete">
+        Eliminar
+      </PermissionGuard>
+    ),
     excludeFromExport: true,
   },
 ];

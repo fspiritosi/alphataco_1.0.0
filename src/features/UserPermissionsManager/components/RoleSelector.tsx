@@ -19,9 +19,10 @@ import { toast } from 'sonner';
 
 interface RoleSelectorProps {
   userId: string;
+  disabled?: boolean;
 }
 
-export function RoleSelector({ userId }: RoleSelectorProps) {
+export function RoleSelector({ userId, disabled = false }: RoleSelectorProps) {
   const queryClient = useQueryClient();
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery<getRolesType>({
@@ -120,15 +121,15 @@ export function RoleSelector({ userId }: RoleSelectorProps) {
             return (
               <div
                 key={role.id}
-                className={`flex items-start gap-3 p-4 rounded-lg border transition-colors cursor-pointer ${
-                  isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                }`}
-                onClick={() => !isPending && handleRoleToggle(role.id)}
+                className={`flex items-start gap-3 p-4 rounded-lg border transition-colors ${
+                  disabled || isPending ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-primary/50'
+                } ${isSelected ? 'border-primary bg-primary/5' : 'border-border'}`}
+                onClick={() => !disabled && !isPending && handleRoleToggle(role.id)}
               >
                 <Checkbox
                   checked={isSelected}
-                  onCheckedChange={() => handleRoleToggle(role.id)}
-                  disabled={isPending}
+                  onCheckedChange={() => !disabled && handleRoleToggle(role.id)}
+                  disabled={disabled || isPending}
                   className="mt-0.5"
                   onClick={(e) => e.stopPropagation()}
                 />

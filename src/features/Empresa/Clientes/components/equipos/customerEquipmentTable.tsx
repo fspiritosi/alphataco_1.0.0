@@ -1,6 +1,7 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -19,9 +20,10 @@ interface CustomerEquipmentTableProp {
 }
 
 export function getCustomerEquipmentColums(
-  handleEdit: (sector: CustomerEquipmentTableProp['customerEquipments'][number]) => void
+  handleEdit: (sector: CustomerEquipmentTableProp['customerEquipments'][number]) => void,
+  canEdit: boolean
 ): ColumnDef<CustomerEquipmentTableProp['customerEquipments']>[] {
-  return [
+  const columns: ColumnDef<CustomerEquipmentTableProp['customerEquipments']>[] = [
     {
       accessorKey: 'name',
       id: 'Nombre',
@@ -46,7 +48,10 @@ export function getCustomerEquipmentColums(
         return value.includes(row.getValue(id));
       },
     },
-    {
+  ];
+
+  if (canEdit) {
+    columns.push({
       accessorKey: 'actions',
       id: 'Acciones',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
@@ -63,8 +68,10 @@ export function getCustomerEquipmentColums(
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
       },
-    },
-  ];
+    });
+  }
+
+  return columns;
 }
 
 function CustomerEquipmentTable({
@@ -75,6 +82,9 @@ function CustomerEquipmentTable({
   setMode,
   mode,
 }: CustomerEquipmentTableProp) {
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission('comercial', 'equipment', 'update');
+
   const handleEdit = (customerEquipment: CustomerEquipmentTableProp['customerEquipments'][number]) => {
     setSelectedCustomerEquipment(customerEquipment);
     setMode('edit');
@@ -93,7 +103,7 @@ function CustomerEquipmentTable({
     <div className="p-4 pt-0">
       <h2 className="text-xl font-bold mb-4">Equipos del cliente</h2>
       <BaseDataTable
-        columns={getCustomerEquipmentColums(handleEdit)}
+        columns={getCustomerEquipmentColums(handleEdit, canEdit)}
         data={customerEquipments as any}
         savedVisibility={savedVisibility}
         tableId="comercial-equipment-table"

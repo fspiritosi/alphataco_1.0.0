@@ -141,14 +141,16 @@ export function VehicleAssignmentDataForm({
                     <div>
                       {allocatedTo.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {allocatedTo.map((contractorId: any) => {
-                            const contractor = contractorCompanies.find((c) => c.id === contractorId);
-                            return (
-                              <Badge key={contractorId} variant="secondary">
-                                {contractor?.name || contractorId}
-                              </Badge>
-                            );
-                          })}
+                          {allocatedTo
+                            .filter((contractorId: any) => contractorCompanies.some((c) => c.id === contractorId))
+                            .map((contractorId: any) => {
+                              const contractor = contractorCompanies.find((c) => c.id === contractorId);
+                              return (
+                                <Badge key={contractorId} variant="secondary">
+                                  {contractor?.name}
+                                </Badge>
+                              );
+                            })}
                         </div>
                       ) : (
                         <p className="text-muted-foreground">No hay contratistas asignados</p>

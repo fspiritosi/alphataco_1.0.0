@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { createEquipmentCustomer, updateEquipmentCustomer } from '@/features/Empresa/Clientes/actions/create';
 import { Customer, Equipment } from '@/features/Empresa/Clientes/types/types';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -98,89 +99,91 @@ function customerEquipmentForm({
     setMode('create');
   };
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
-        <h2 className="text-xl font-bold mb-4">{mode === 'create' ? 'Crear Equipo' : 'Editar Equipo'}</h2>
+    <PermissionGuard module="comercial" tab="equipment" action={mode === 'create' ? 'create' : 'update'}>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
+          <h2 className="text-xl font-bold mb-4">{mode === 'create' ? 'Crear Equipo' : 'Editar Equipo'}</h2>
 
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nombre del Equipo</FormLabel>
-              <FormControl>
-                <Input type="text" {...field} placeholder="Nombre del Equipo" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre del Equipo</FormLabel>
+                <FormControl>
+                  <Input type="text" {...field} placeholder="Nombre del Equipo" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Tipo de Equipo</FormLabel>
-              <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un tipo de Equipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Tipos de Equipos</SelectLabel>
-                      {Object.values(EquipmentCustomerSchema.shape.type.options).map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="customer_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cliente</FormLabel>
-              <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Clientes</SelectLabel>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo de Equipo</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un tipo de Equipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Tipos de Equipos</SelectLabel>
+                        {Object.values(EquipmentCustomerSchema.shape.type.options).map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="customer_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cliente</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Clientes</SelectLabel>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div className="flex gap-4">
-          <Button type="submit" variant="gh_orange">
-            {mode === 'create' ? 'Crear' : 'Actualizar'}
-          </Button>
-          <Button type="button" variant="outline" onClick={handleCancel}>
-            Cancelar
-          </Button>
-        </div>
-      </form>
-    </Form>
+          <div className="flex gap-4">
+            <Button type="submit" variant="gh_orange">
+              {mode === 'create' ? 'Crear' : 'Actualizar'}
+            </Button>
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </PermissionGuard>
   );
 }
 

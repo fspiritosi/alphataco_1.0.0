@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { PermissionGuard } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -407,11 +408,13 @@ const ServiceTable = ({
               }}
             >
               <DialogTrigger asChild>
-                {hideCreateButton && (
-                  <Button size="sm" variant="gh_orange" className="mb-4" onClick={handleOpen}>
-                    Crear Contrato
-                  </Button>
-                )}
+                <PermissionGuard module="comercial" tab="service" action="create">
+                  {hideCreateButton && (
+                    <Button size="sm" variant="gh_orange" className="mb-4" onClick={handleOpen}>
+                      Crear Contrato
+                    </Button>
+                  )}
+                </PermissionGuard>
               </DialogTrigger>
               <DialogContent className="max-w-4xl">
                 <DialogTitle>Crear Contrato</DialogTitle>
@@ -436,44 +439,62 @@ const ServiceTable = ({
                 <Tabs defaultValue="detail">
                   <div className="flex justify-between items-center mr-3">
                     <TabsList className="flex gap-1 bg-gh_contrast/50">
-                      <TabsTrigger value="detail" className="text-gh_orange font-semibold">
-                        Detalle
-                      </TabsTrigger>
-                      <TabsTrigger value="documents" className="text-gh_orange font-semibold">
-                        Documentos
-                      </TabsTrigger>
-                      <TabsTrigger value="items" className="text-gh_orange font-semibold">
-                        Items del Servicio
-                      </TabsTrigger>
+                      {/* Hereda permisos de comercial/service/detalle-contrato */}
+                      <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
+                        <TabsTrigger value="detail" className="text-gh_orange font-semibold">
+                          Detalle
+                        </TabsTrigger>
+                      </PermissionGuard>
+                      {/* Hereda permisos de comercial/service/documentos-contrato */}
+                      <PermissionGuard module="comercial" tab="documentos-contrato" action="view">
+                        <TabsTrigger value="documents" className="text-gh_orange font-semibold">
+                          Documentos
+                        </TabsTrigger>
+                      </PermissionGuard>
+                      {/* Hereda permisos de comercial/service/items-contrato */}
+                      <PermissionGuard module="comercial" tab="items-contrato" action="view">
+                        <TabsTrigger value="items" className="text-gh_orange font-semibold">
+                          Items del Servicio
+                        </TabsTrigger>
+                      </PermissionGuard>
                     </TabsList>
                     <Button onClick={() => setOpenDetail(false)}>Cerrar</Button>
                   </div>
-                  <TabsContent value="detail">
-                    <ServicesForm
-                      editingService={editingService as any}
-                      company_id={company_id}
-                      areas={areas}
-                      sectors={sectors}
-                      customers={customers as any}
-                      id={editingService?.id}
-                    />
-                  </TabsContent>
-                  <TabsContent value="documents">
-                    <ContractDocuments id={editingService?.id as string} />
-                  </TabsContent>
-                  <TabsContent value="items">
-                    <ServiceItemsTable
-                      editService={editingService || null}
-                      measure_units={measureUnitsList || []}
-                      customers={customers || []}
-                      services={(services as any) || []}
-                      company_id={company_id}
-                      customer_service_id={customerServiceId}
-                      items={itemsList || []}
-                      savedFilters={savedFilters}
-                      savedVisibility={savedVisibility}
-                    />
-                  </TabsContent>
+                  {/* Hereda permisos de comercial/service/detalle-contrato */}
+                  <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
+                    <TabsContent value="detail">
+                      <ServicesForm
+                        editingService={editingService as any}
+                        company_id={company_id}
+                        areas={areas}
+                        sectors={sectors}
+                        customers={customers as any}
+                        id={editingService?.id}
+                      />
+                    </TabsContent>
+                  </PermissionGuard>
+                  {/* Hereda permisos de comercial/service/documentos-contrato */}
+                  <PermissionGuard module="comercial" tab="documentos-contrato" action="view">
+                    <TabsContent value="documents">
+                      <ContractDocuments id={editingService?.id as string} />
+                    </TabsContent>
+                  </PermissionGuard>
+                  {/* Hereda permisos de comercial/service/items-contrato */}
+                  <PermissionGuard module="comercial" tab="items-contrato" action="view">
+                    <TabsContent value="items">
+                      <ServiceItemsTable
+                        editService={editingService || null}
+                        measure_units={measureUnitsList || []}
+                        customers={customers || []}
+                        services={(services as any) || []}
+                        company_id={company_id}
+                        customer_service_id={customerServiceId}
+                        items={itemsList || []}
+                        savedFilters={savedFilters}
+                        savedVisibility={savedVisibility}
+                      />
+                    </TabsContent>
+                  </PermissionGuard>
                 </Tabs>
               </div>
             ) : (

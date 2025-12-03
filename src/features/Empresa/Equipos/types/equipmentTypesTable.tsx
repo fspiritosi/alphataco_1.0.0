@@ -17,7 +17,10 @@ const defaultVisibility: VisibilityState = {
   Estado: true,
   Acciones: true,
 } as const;
-export function getEquipmentTypeColumns(onEdit: (equipmentType: EquipmentType) => void): ColumnDef<EquipmentType>[] {
+export function getEquipmentTypeColumns(
+  onEdit: (equipmentType: EquipmentType) => void,
+  canEdit: boolean
+): ColumnDef<EquipmentType>[] {
   return [
     {
       accessorKey: 'name',
@@ -47,11 +50,12 @@ export function getEquipmentTypeColumns(onEdit: (equipmentType: EquipmentType) =
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -59,6 +63,7 @@ export function getEquipmentTypeColumns(onEdit: (equipmentType: EquipmentType) =
 interface EquipmentTypesTableProps {
   vehicleTypes: Awaited<ReturnType<typeof FetchTypeOfVehicles>>;
   onEdit?: (equipmentType: EquipmentType) => void;
+  canEdit?: boolean;
   savedVisibility?: VisibilityState;
   savedFilter?: string[];
   names?: { label: string; value: string }[];
@@ -67,6 +72,7 @@ interface EquipmentTypesTableProps {
 function EquipmentTypesTable({
   vehicleTypes,
   onEdit = () => {},
+  canEdit = false,
   savedVisibility = defaultVisibility,
   savedFilter: initialSavedFilter = [],
   names = [],
@@ -115,7 +121,7 @@ function EquipmentTypesTable({
   }, [columnFilters]);
 
   // Obtener las columnas con la función onEdit
-  const columns = React.useMemo(() => getEquipmentTypeColumns(onEdit), [onEdit]);
+  const columns = React.useMemo(() => getEquipmentTypeColumns(onEdit, canEdit), [onEdit, canEdit]);
 
   // Generar opciones de nombres para los filtros
   const nameOptions = React.useMemo(() => {
@@ -144,7 +150,7 @@ function EquipmentTypesTable({
 
   return (
     <BaseDataTable
-      columns={getEquipmentTypeColumns(onEdit)}
+      columns={columns}
       // data={vehicleTypes}
       tableId="equipment-types-table-type"
       serverSide={true}

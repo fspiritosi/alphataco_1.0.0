@@ -31,7 +31,8 @@ const defaultVisibility: VisibilityState = {
 
 export function getEquipmentModelColumns(
   onEdit: (equipmentModel: EquipmentModel) => void,
-  brands: Brand[]
+  brands: Brand[],
+  canEdit: boolean
 ): ColumnDef<EquipmentModel>[] {
   return [
     {
@@ -80,11 +81,12 @@ export function getEquipmentModelColumns(
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -93,6 +95,7 @@ export function getEquipmentModelColumns(
 interface EquipmentModelTableProps {
   brands: Brand[];
   onEdit?: (equipmentModel: EquipmentModel) => void;
+  canEdit?: boolean;
   savedVisibility?: VisibilityState;
   savedFilter?: string[];
   models: EquipmentModel[];
@@ -101,6 +104,7 @@ interface EquipmentModelTableProps {
 function EquipmentModelTable({
   brands,
   onEdit = () => {},
+  canEdit = false,
   savedVisibility = defaultVisibility,
   savedFilter = [],
   models,
@@ -149,7 +153,7 @@ function EquipmentModelTable({
   }, [columnFilters]);
 
   // Obtener las columnas con la función onEdit
-  const columns = React.useMemo(() => getEquipmentModelColumns(onEdit, brands), [onEdit, brands]);
+  const columns = React.useMemo(() => getEquipmentModelColumns(onEdit, brands, canEdit), [onEdit, brands, canEdit]);
 
   // Generar opciones de marcas para los filtros
   const brandOptions = React.useMemo(() => {

@@ -3,6 +3,7 @@ import { createFilterOptions } from '@/features/Employees/Empleados/components/u
 import { supabaseServer } from '@/lib/supabase/server';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { cookies } from 'next/headers';
+import { Card } from './ui/card';
 
 export default async function DocumentTabComponent() {
   const supabase = supabaseServer();
@@ -97,8 +98,8 @@ export default async function DocumentTabComponent() {
   const savedVisibility2 = savedVisibility ? JSON.parse(savedVisibility) : {};
   const savedFilters = cookiesStore.get('documents-company-table-filters')?.value;
   return (
-    <div>
-      <div className="py-8 pt-0">
+    <Card className="p-4 mt-4">
+      <div className="">
         <BaseDataTable
           savedVisibility={savedVisibility2}
           data={documentCompany || []}
@@ -131,6 +132,6 @@ export default async function DocumentTabComponent() {
           }}
         />
       </div>
-    </div>
+    </Card>
   );
 }

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
@@ -45,6 +46,7 @@ export default function DayliReportDetailTableServer({
   savedFilters,
   savedVisibility,
   dailyReport,
+  canEdit = false,
 }: {
   dailyReportId: string;
   reportDate: string;
@@ -52,6 +54,7 @@ export default function DayliReportDetailTableServer({
   savedFilters: string[];
   savedVisibility: VisibilityState;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
+  canEdit?: boolean;
 }) {
   // Estado para controlar la apertura del modal de edición masiva
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
@@ -321,32 +324,37 @@ export default function DayliReportDetailTableServer({
 
   // Definición de columnas
   const columns: ExtendedColumnDef<DailyReportServerData>[] = [
-    {
-      id: 'select',
-      header: ({ table }) => (
-        <div className="w-[20px]">
-          <Checkbox
-            disabled={table.getRowModel().rows.every((row) => !row.getCanSelect())}
-            checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
-            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-            aria-label="Select all"
-            className="translate-y-[2px]"
-          />
-        </div>
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          disabled={!row.getCanSelect()}
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-          className="translate-y-[2px]"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-      excludeFromExport: true,
-    },
+    // Columna de checkbox solo si tiene permiso de editar
+    ...(canEdit
+      ? [
+          {
+            id: 'select',
+            header: ({ table }) => (
+              <div className="w-[20px]">
+                <Checkbox
+                  disabled={table.getRowModel().rows.every((row) => !row.getCanSelect())}
+                  checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
+                  onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                  aria-label="Select all"
+                  className="translate-y-[2px]"
+                />
+              </div>
+            ),
+            cell: ({ row }) => (
+              <Checkbox
+                disabled={!row.getCanSelect()}
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Select row"
+                className="translate-y-[2px]"
+              />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+            excludeFromExport: true,
+          } as ExtendedColumnDef<DailyReportServerData>,
+        ]
+      : []),
     {
       accessorKey: 'customers.name',
       id: 'customers.name',
@@ -749,27 +757,29 @@ export default function DayliReportDetailTableServer({
           <div className={cn('flex gap-1', moment(reportDate).isBefore(moment()) ? 'gap-0 justify-center' : '')}>
             {(row.original.status !== 'ejecutado' || (isToday && row.original.status === 'ejecutado')) &&
               row.original.status !== 'en_certificacion' && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 hover:text-blue-500"
-                        data-testid={`edit-button-${row.original.id}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditRow(row.original);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Editar</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <PermissionGuard module="operaciones" tab="detalle-parte-diario" action="update">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 hover:text-blue-500"
+                          data-testid={`edit-button-${row.original.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditRow(row.original);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Editar</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </PermissionGuard>
               )}
             <TooltipProvider>
               <Tooltip>
@@ -820,20 +830,24 @@ export default function DayliReportDetailTableServer({
           dailyReport[0]?.status !== 'abierto' ? 'justify-end' : ''
         )}
       >
-        <DailyReportForm
-          customers={customers}
-          employees={employees}
-          equipments={equipments}
-          dailyReport={dailyReport}
-          formattedData={formattedData}
-          refetchDailyReport={refetchDailyReport}
-          disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
-        />
-        <ClonarRegistrosButton
-          formattedData={formattedData}
-          selectedRows={selectedRows as any}
-          fetchAllFormattedData={fetchAllFormattedData}
-        />
+        <PermissionGuard module="operaciones" tab="detalle-parte-diario" action="create">
+          <DailyReportForm
+            customers={customers}
+            employees={employees}
+            equipments={equipments}
+            dailyReport={dailyReport}
+            formattedData={formattedData}
+            refetchDailyReport={refetchDailyReport}
+            disabled={dailyReport[0]?.status !== 'abierto' && dailyReport[0]?.date !== moment().format('YYYY-MM-DD')}
+          />
+        </PermissionGuard>
+        <PermissionGuard module="operaciones" tab="detalle-parte-diario" action="create">
+          <ClonarRegistrosButton
+            formattedData={formattedData}
+            selectedRows={selectedRows as any}
+            fetchAllFormattedData={fetchAllFormattedData}
+          />
+        </PermissionGuard>
       </div>
 
       <BaseDataTable
@@ -852,10 +866,13 @@ export default function DayliReportDetailTableServer({
           return createdAt.isAfter(reportDate) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '';
         }}
         tableId="dailyReportServerTable"
-        enableRowSelection={(row) =>
-          row.original.status !== 'ejecutado' &&
-          row.original.status !== 'sin_recursos_asignados' &&
-          row.original.status !== 'reprogramado'
+        enableRowSelection={
+          canEdit
+            ? (row) =>
+                row.original.status !== 'ejecutado' &&
+                row.original.status !== 'sin_recursos_asignados' &&
+                row.original.status !== 'reprogramado'
+            : false
         }
         onRowSelectionChange={(rows) => {
           setSelectedRows(rows);
@@ -1156,15 +1173,17 @@ export default function DayliReportDetailTableServer({
             },
           ],
           showFilterOptions: true,
-          bulkAction: {
-            enabled: true,
-            label: 'Editar',
-            icon: <Edit className="h-4 w-4" />,
-            onClick: (rows) => {
-              setSelectedRows(rows);
-              setIsBulkEditModalOpen(true);
-            },
-          },
+          bulkAction: canEdit
+            ? {
+                enabled: true,
+                label: 'Editar',
+                icon: <Edit className="h-4 w-4" />,
+                onClick: (rows) => {
+                  setSelectedRows(rows);
+                  setIsBulkEditModalOpen(true);
+                },
+              }
+            : undefined,
         }}
       />
 

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { usePermissions } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -73,7 +74,7 @@ interface Diagram {
 // <TableHead className="w-[180px]">Novedad inactiva</TableHead>
 // <TableHead>Acciones</TableHead>
 
-export function getDiagramColumns(onEdit: (diagram: Diagram) => void): ColumnDef<Diagram>[] {
+export function getDiagramColumns(onEdit: (diagram: Diagram) => void, canEdit: boolean): ColumnDef<Diagram>[] {
   return [
     {
       accessorKey: 'name',
@@ -165,11 +166,12 @@ export function getDiagramColumns(onEdit: (diagram: Diagram) => void): ColumnDef
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -209,6 +211,9 @@ export default function ListDiagrams({
     onModeChange('edit');
   };
 
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission('empresa', 'listado', 'update');
+
   return (
     <div className="mx-auto ml-4">
       <div className="flex flex-col">
@@ -223,7 +228,7 @@ export default function ListDiagrams({
         <div className="overflow-x-auto max-h-96 overflow-y-auto w-full">
           <BaseDataTable
             savedVisibility={savedVisibility}
-            columns={getDiagramColumns(handleEdit)}
+            columns={getDiagramColumns(handleEdit, canUpdate)}
             data={filteredData as any}
             tableId="diagram-table-empresa"
             toolbarOptions={{

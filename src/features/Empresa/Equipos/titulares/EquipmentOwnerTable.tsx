@@ -16,7 +16,8 @@ const defaultVisibility: VisibilityState = {
 export function getEquipmentOwnerColumns(
   onEdit: (equipmentSubType: FetchEquipmentOwnersType[0]) => void,
   onViewEquipment: (equipmentSubType: FetchEquipmentOwnersType[0]) => void,
-  equipmentOwners: FetchEquipmentOwnersType
+  equipmentOwners: FetchEquipmentOwnersType,
+  canEdit: boolean
 ): ColumnDef<FetchEquipmentOwnersType[0]>[] {
   return [
     {
@@ -79,9 +80,11 @@ export function getEquipmentOwnerColumns(
       header: 'Acciones',
       cell: ({ row }) => (
         <div className="flex gap-2">
-          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-            Editar
-          </Button>
+          {canEdit && (
+            <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+              Editar
+            </Button>
+          )}
           <Button
             size="sm"
             variant="link"
@@ -100,12 +103,14 @@ interface EquipmentOwnerTableProps {
   equipmentOwners: FetchEquipmentOwnersType;
   onEdit?: (equipmentType: FetchEquipmentOwnersType[0]) => void;
   onViewEquipment?: (equipmentType: FetchEquipmentOwnersType[0]) => void;
+  canEdit?: boolean;
 }
 
 function EquipmentOwnerTable({
   equipmentOwners,
   onEdit = () => {},
   onViewEquipment = () => {},
+  canEdit = false,
 }: EquipmentOwnerTableProps) {
   // Leer las cookies necesarias
   const visibilityCookie = Cookies.get('equipment-owners-table');
@@ -162,7 +167,7 @@ function EquipmentOwnerTable({
 
   return (
     <BaseDataTable
-      columns={getEquipmentOwnerColumns(onEdit, onViewEquipment, equipmentOwners)}
+      columns={getEquipmentOwnerColumns(onEdit, onViewEquipment, equipmentOwners, canEdit)}
       data={equipmentOwners}
       tableId="equipment-owners-table"
       savedVisibility={visibilityCookie ? JSON.parse(visibilityCookie) : {}}

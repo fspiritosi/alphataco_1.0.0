@@ -1,6 +1,7 @@
 import DocumentNav from '@/components/DocumentNav';
 import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
 import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
@@ -12,9 +13,12 @@ export default function DocumentosEquiposTabContent({
 }) {
   return (
     <div>
-      <div className="flex gap-4 flex-wrap mb-4">
-        <DocumentNav onlyEquipment />
-      </div>
+      {/* Botón crear está en la tab principal, no en subtabs */}
+      <PermissionGuardServer module="documentacion" tab="documentos-de-equipos" action="create">
+        <div className="flex gap-4 flex-wrap mb-4">
+          <DocumentNav onlyEquipment />
+        </div>
+      </PermissionGuardServer>
       <TabsManagerServer
         paramName="subtab"
         searchParams={searchParams}
@@ -29,7 +33,7 @@ export default function DocumentosEquiposTabContent({
               </span>
             ),
             moduleSlug: 'documentacion',
-            tabSlug: 'equipos-permanentes',
+            tabSlug: 'docs-equipos-permanentes',
             content: (
               <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
                 <PermanentEquipmentDocumentsWrapper />
@@ -45,7 +49,7 @@ export default function DocumentosEquiposTabContent({
               </span>
             ),
             moduleSlug: 'documentacion',
-            tabSlug: 'equipos-mensuales',
+            tabSlug: 'docs-equipos-mensuales',
             content: (
               <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
                 <MonthlyEquipmentDocumentsWrapper />

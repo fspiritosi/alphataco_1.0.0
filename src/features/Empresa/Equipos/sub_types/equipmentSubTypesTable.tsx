@@ -16,7 +16,8 @@ const defaultVisibility: VisibilityState = {
 } as const;
 export function getEquipmentSubTypeColumns(
   onEdit: (equipmentSubType: VehicleSubType) => void,
-  vehicleTypes: VehicleType[]
+  vehicleTypes: VehicleType[],
+  canEdit: boolean
 ): ColumnDef<VehicleSubType>[] {
   return [
     {
@@ -62,11 +63,12 @@ export function getEquipmentSubTypeColumns(
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -75,6 +77,7 @@ interface EquipmentSubTypesTableProps {
   vehicleSubTypes: VehicleSubType[];
   vehicleTypes: VehicleType[];
   onEdit?: (equipmentType: VehicleSubType) => void;
+  canEdit?: boolean;
   savedVisibility?: VisibilityState;
   savedFilter?: string[];
   names?: { label: string; value: string }[];
@@ -84,6 +87,7 @@ function EquipmentSubTypesTable({
   vehicleSubTypes,
   vehicleTypes,
   onEdit = () => {},
+  canEdit = false,
   savedVisibility = defaultVisibility,
   savedFilter = [],
   names = [],
@@ -95,7 +99,10 @@ function EquipmentSubTypesTable({
   // const savedVisibility = visibilityCookie ? JSON.parse(visibilityCookie) : {};
   const savedFiltersFromCookie = filtersCookie ? JSON.parse(filtersCookie) : savedFilter || [];
   // Obtener las columnas con la función onEdit
-  const columns = React.useMemo(() => getEquipmentSubTypeColumns(onEdit, vehicleTypes), [onEdit]);
+  const columns = React.useMemo(
+    () => getEquipmentSubTypeColumns(onEdit, vehicleTypes, canEdit),
+    [onEdit, vehicleTypes, canEdit]
+  );
 
   // Opciones para el filtro de estado
   const statusOptions = [
@@ -140,7 +147,7 @@ function EquipmentSubTypesTable({
 
   return (
     <BaseDataTable
-      columns={getEquipmentSubTypeColumns(onEdit, vehicleTypes)}
+      columns={columns}
       data={vehicleSubTypes}
       tableId="equipment-subtypes-table"
       savedVisibility={savedVisibility}

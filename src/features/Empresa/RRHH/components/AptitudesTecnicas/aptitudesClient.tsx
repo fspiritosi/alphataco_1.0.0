@@ -1,6 +1,7 @@
 'use client';
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { usePermissions } from '@/features/Permissions';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AptitudTecnica } from '../../actions/rrhh/aptitudesTecnicas';
@@ -65,15 +66,26 @@ export function AptitudesClient({ initialAptitudes = [], initialPositions = [] }
     toast.success('Aptitud eliminada correctamente');
   };
 
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission('empresa', 'aptitudes', 'create');
+  const canUpdate = hasPermission('empresa', 'aptitudes', 'update');
+  const showForm = canCreate || canUpdate;
+
   return (
-    <ResizablePanelGroup direction="horizontal" className="w-full">
-      <ResizablePanel defaultSize={35}>
-        <AptitudesForm onSuccess={handleSuccess} positions={positions} initialData={editingAptitud} />
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel defaultSize={65}>
+    <div className="w-full">
+      {showForm ? (
+        <ResizablePanelGroup direction="horizontal" className="w-full">
+          <ResizablePanel defaultSize={35}>
+            <AptitudesForm onSuccess={handleSuccess} positions={positions} initialData={editingAptitud} />
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel defaultSize={65}>
+            <AptitudesTable aptitudes={aptitudes} onEdit={handleEdit} />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
         <AptitudesTable aptitudes={aptitudes} onEdit={handleEdit} />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      )}
+    </div>
   );
 }

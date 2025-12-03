@@ -2,11 +2,12 @@
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsManagerClientSide } from '@/features/TabsManager';
 import { cn } from '@/lib/utils';
 import { CalendarIcon } from '@radix-ui/react-icons';
 import { addDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { FolderOpen, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { DateRange } from 'react-day-picker';
 import InfoComponent from '../InfoComponent';
@@ -37,12 +38,14 @@ export function DiagramDetailEmployeeView({
   activeEmploees,
   historyData,
   role,
+  searchParams = {},
 }: {
   historyData: any;
   diagrams: diagram[] | [];
   diagrams_types: any;
   activeEmploees: any;
   role?: string | null;
+  searchParams?: { [key: string]: string | string[] | undefined };
 }) {
   const [date, setDate] = useState<DateRange | undefined>({
     from: new Date(),
@@ -72,14 +75,19 @@ export function DiagramDetailEmployeeView({
   const diagramsFilteredByDate = filterDiagramsByDate(diagrams, date);
   const diagramsFilteredByType = filterDiagramsByType(diagramsFilteredByDate, diagramType);
 
-  return (
-    <>
-      <Tabs defaultValue="Diagramas">
-        <TabsList>
-          <TabsTrigger value="Diagramas">Diagramas</TabsTrigger>
-          {role !== 'Invitado' && <TabsTrigger value="NuevoDiagrama">Nuevo Diagrama</TabsTrigger>}
-        </TabsList>
-        <TabsContent value="Diagramas">
+  const tabs = [
+    {
+      value: 'Diagramas',
+      label: (
+        <span className="flex items-center gap-2">
+          <FolderOpen className="h-4 w-4" />
+          Diagramas
+        </span>
+      ),
+      moduleSlug: 'empleados' as const,
+      tabSlug: 'diagramas-empleado' as const,
+      content: (
+        <div>
           <div className={cn('gap-2 flex')}>
             <Popover>
               <PopoverTrigger asChild>
@@ -114,7 +122,7 @@ export function DiagramDetailEmployeeView({
                 />
               </PopoverContent>
             </Popover>
-            <InfoComponent message="La selección máxima es de 30 díass" size="sm" />
+            <InfoComponent message="La selección máxima es de 30 días" size="sm" />
           </div>
           <div className="gap-4 pr-7 ">
             <div className=" mt-3">
@@ -242,18 +250,30 @@ export function DiagramDetailEmployeeView({
               </Card>
             </div> */}
           </div>
-        </TabsContent>
-        <TabsContent value="NuevoDiagrama">
-          <DiagramFormUpdated
-            employees={activeEmploees}
-            //diagrams={diagrams as EmployeeDiagramWithDiagramType[]}
-            diagrams_types={diagrams_types}
-            defaultId={activeEmploees[0].id}
-          />
-        </TabsContent>
-      </Tabs>
-    </>
-  );
+        </div>
+      ),
+    },
+    {
+      value: 'NuevoDiagrama',
+      label: (
+        <span className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Nuevo Diagrama
+        </span>
+      ),
+      moduleSlug: 'empleados' as const,
+      tabSlug: 'new' as const, // Hereda de empleados/diagrams/new
+      content: (
+        <DiagramFormUpdated
+          employees={activeEmploees}
+          diagrams_types={diagrams_types}
+          defaultId={activeEmploees[0].id}
+        />
+      ),
+    },
+  ] as const;
+
+  return <TabsManagerClientSide<'empleados'> paramName="subtab" defaultTab="Diagramas" tabs={tabs} />;
 }
 
 /* TODO

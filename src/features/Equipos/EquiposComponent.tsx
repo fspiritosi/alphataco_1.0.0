@@ -1,10 +1,11 @@
-import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { buttonVariants } from '@/components/ui/button';
+import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { PermissionGuardServer } from '../Permissions';
 import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
 import EquiposTabContent from './Equipos/EquiposTabContent';
 
@@ -33,14 +34,16 @@ export default function EquiposComponent({
             tabSlug: 'equipos',
             content: (
               <div>
-                <div className="flex gap-4 flex-wrap mb-4">
-                  <Link
-                    className={buttonVariants({ variant: 'gh_orange' })}
-                    href={'/dashboard/equipment/action?action=new'}
-                  >
-                    Agregar equipo
-                  </Link>
-                </div>
+                <PermissionGuardServer module="equipos" tab="equipos" action="create">
+                  <div className="flex gap-4 flex-wrap mb-4">
+                    <Link
+                      className={buttonVariants({ variant: 'gh_orange' })}
+                      href={'/dashboard/equipment/action?action=new'}
+                    >
+                      Agregar equipo
+                    </Link>
+                  </div>
+                </PermissionGuardServer>
                 <EquiposTabContent searchParams={searchParams} />
               </div>
             ),
@@ -65,11 +68,12 @@ export default function EquiposComponent({
                 Tipos de Documentos
               </span>
             ),
-            moduleSlug: 'equipos',
+            // Hereda permisos de documentacion/tipos-de-documentos
+            moduleSlug: 'documentacion',
             tabSlug: 'tipos-de-documentos',
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TypesDocumentsViewWrapper equipos={true} personas={false} optionChildrenProp="Equipo" />
+                <TiposDocumentosTabContent searchParams={searchParams} showOnlyEquipos={true} />
               </Suspense>
             ),
           },

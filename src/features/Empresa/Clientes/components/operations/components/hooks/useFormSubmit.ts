@@ -51,11 +51,6 @@ export function useFormSubmit(
         return;
       }
 
-      if (!data.remit_number) {
-        toast.error('El número de remito es obligatorio.');
-        return;
-      }
-
       const formattedDate = format(data.date, 'yyyy-MM-dd');
 
       // 1. Verificar si existe daily_report para esa fecha
@@ -155,10 +150,6 @@ export function useFormSubmit(
       const isChangingToCertificacion = data.status === 'en_certificacion';
 
       if (isChangingToCertificacion) {
-        if (!data.remit_number) {
-          toast.error('El número de remito es obligatorio para el estado "En certificación".');
-          return;
-        }
         if (currentStatusInRow !== 'ejecutado') {
           toast.error('El estado solo puede cambiar a "en_certificacion" si el parte ya está en estado "ejecutado".');
           return;

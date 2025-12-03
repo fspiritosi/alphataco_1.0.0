@@ -1,5 +1,6 @@
 'use client';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import Cookies from 'js-cookie';
 import { useEffect, useState } from 'react';
 import CustomerEquipmentForm from './customerEquipmentForm';
@@ -38,6 +39,11 @@ function customerEquipmentTab({ customers, equipments, key }: CustomerEquipmentT
   const [SelectedEquipment, setSelectedEquipment] = useState<any | null>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [initialized, setInitialized] = useState(false);
+  const { hasPermission } = usePermissions();
+
+  // Verificar si tiene permisos de crear o editar
+  const canCreateOrUpdate =
+    hasPermission('comercial', 'equipment', 'create') || hasPermission('comercial', 'equipment', 'update');
 
   useEffect(() => {
     if (customers.length > 0 || equipments.length > 0) {
@@ -64,18 +70,22 @@ function customerEquipmentTab({ customers, equipments, key }: CustomerEquipmentT
   return (
     <div>
       <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
-        <ResizablePanel defaultSize={40}>
-          <CustomerEquipmentForm
-            customers={companyCustomers}
-            equipments={companyEquipments}
-            mode={mode}
-            setMode={setMode}
-            selectedEquipment={SelectedEquipment}
-            setSelectedEquipment={setSelectedEquipment}
-          />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={60}>
+        {canCreateOrUpdate && (
+          <>
+            <ResizablePanel defaultSize={40}>
+              <CustomerEquipmentForm
+                customers={companyCustomers}
+                equipments={companyEquipments}
+                mode={mode}
+                setMode={setMode}
+                selectedEquipment={SelectedEquipment}
+                setSelectedEquipment={setSelectedEquipment}
+              />
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+          </>
+        )}
+        <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
           <CustomerEquipmentTable
             customers={companyCustomers as any}
             customerEquipments={companyEquipments}

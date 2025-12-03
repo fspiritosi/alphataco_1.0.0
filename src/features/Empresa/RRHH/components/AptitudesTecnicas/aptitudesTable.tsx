@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { VerActivosButton } from '@/features/Empresa/RRHH/components/verActivosButton';
+import { usePermissions } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -18,7 +19,10 @@ interface AptitudesTableProps {
   savedFilter?: string[];
 }
 
-export function getAptitudesColumns(onEdit: (aptitud: AptitudTecnica) => void): ColumnDef<AptitudTecnica>[] {
+export function getAptitudesColumns(
+  onEdit: (aptitud: AptitudTecnica) => void,
+  canEdit: boolean
+): ColumnDef<AptitudTecnica>[] {
   return [
     {
       accessorKey: 'nombre',
@@ -82,11 +86,12 @@ export function getAptitudesColumns(onEdit: (aptitud: AptitudTecnica) => void): 
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -105,6 +110,9 @@ export function AptitudesTable({ aptitudes, onEdit, savedVisibility = {}, savedF
 
   const puestosOptions = createFilterOptions(allPuestos, (puesto) => puesto);
 
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission('empresa', 'aptitudes', 'update');
+
   return (
     <div className="ml-4">
       <div className="flex justify-between">
@@ -116,7 +124,7 @@ export function AptitudesTable({ aptitudes, onEdit, savedVisibility = {}, savedF
 
       <BaseDataTable
         className="mt-4"
-        columns={getAptitudesColumns(onEdit)}
+        columns={getAptitudesColumns(onEdit, canUpdate)}
         data={aptitudes}
         savedVisibility={savedVisibility}
         tableId="aptitudes-table"

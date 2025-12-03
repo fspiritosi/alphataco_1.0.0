@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { VerActivosButton } from '@/features/Empresa/RRHH/components/verActivosButton';
+import { usePermissions } from '@/features/Permissions';
 import { useEffect, useState } from 'react';
 import { DiagramNewTypeForm } from './DiagramNewTypeForm';
 
@@ -11,7 +12,7 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Badge } from '../ui/badge';
 
-export function getDiagramColumns(onEdit: (diagram: DiagramType) => void): ColumnDef<DiagramType>[] {
+export function getDiagramColumns(onEdit: (diagram: DiagramType) => void, canEdit: boolean): ColumnDef<DiagramType>[] {
   return [
     {
       accessorKey: 'name',
@@ -71,11 +72,12 @@ export function getDiagramColumns(onEdit: (diagram: DiagramType) => void): Colum
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
-          Editar
-        </Button>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <Button size="sm" variant="link" className="hover:text-blue-400" onClick={() => onEdit(row.original)}>
+            Editar
+          </Button>
+        ) : null,
       enableSorting: false,
     },
   ];
@@ -119,47 +121,88 @@ function DiagramTypeComponent({
   const names = createFilterOptions(filteredData, (document) => document.name);
   const descriptionShort = createFilterOptions(filteredData, (document) => document.short_description);
 
-  return (
-    <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel defaultSize={40}>
-        <DiagramNewTypeForm
-          selectedDiagram={selectDiagramType}
-          diagramToEdit={diagramToEdit}
-          setDiagramToEdit={setDiagramToEdit}
-        />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel className="pl-6 min-w-[600px]" defaultSize={60}>
-        <div className="flex justify-between">
-          <h2 className="text-xl font-bold">Tipos de Novedades</h2>
-          <VerActivosButton data={diagrams_types} filterKey="is_active" onFilteredChange={setFilteredData} />
-        </div>
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission('empresa', 'diagrams', 'create');
+  const canUpdate = hasPermission('empresa', 'diagrams', 'update');
+  const showForm = canCreate || canUpdate;
 
-        <BaseDataTable
-          className="mt-4"
-          columns={getDiagramColumns(setDiagram)}
-          data={filteredData}
-          savedVisibility={savedVisibility}
-          tableId="novelty-types-table-empresa"
-          toolbarOptions={{
-            initialVisibleFilters: savedFilters || [],
-            filterableColumns: [
-              {
-                columnId: 'Nombre',
-                title: 'Nombre',
-                options: names,
-              },
-              {
-                columnId: 'Descripción corta',
-                title: 'Descripción corta',
-                options: descriptionShort,
-              },
-            ],
-          }}
-        />
-        {/* <BtnXlsDownload fn={createDataToDownload} dataToDownload={diagrams_types} nameFile={'Tipos_de_Diagrama'} /> */}
-      </ResizablePanel>
-    </ResizablePanelGroup>
+  const columns = getDiagramColumns(setDiagram, canUpdate);
+
+  return (
+    <div>
+      {showForm ? (
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel defaultSize={40}>
+            <DiagramNewTypeForm
+              selectedDiagram={selectDiagramType}
+              diagramToEdit={diagramToEdit}
+              setDiagramToEdit={setDiagramToEdit}
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel className="pl-6 min-w-[600px]" defaultSize={60}>
+            <div className="flex justify-between">
+              <h2 className="text-xl font-bold">Tipos de Novedades</h2>
+              <VerActivosButton data={diagrams_types} filterKey="is_active" onFilteredChange={setFilteredData} />
+            </div>
+
+            <BaseDataTable
+              className="mt-4"
+              columns={columns}
+              data={filteredData}
+              savedVisibility={savedVisibility}
+              tableId="novelty-types-table-empresa"
+              toolbarOptions={{
+                initialVisibleFilters: savedFilters || [],
+                filterableColumns: [
+                  {
+                    columnId: 'Nombre',
+                    title: 'Nombre',
+                    options: names,
+                  },
+                  {
+                    columnId: 'Descripción corta',
+                    title: 'Descripción corta',
+                    options: descriptionShort,
+                  },
+                ],
+              }}
+            />
+            {/* <BtnXlsDownload fn={createDataToDownload} dataToDownload={diagrams_types} nameFile={'Tipos_de_Diagrama'} /> */}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        <div className="pl-6">
+          <div className="flex justify-between">
+            <h2 className="text-xl font-bold">Tipos de Novedades</h2>
+            <VerActivosButton data={diagrams_types} filterKey="is_active" onFilteredChange={setFilteredData} />
+          </div>
+
+          <BaseDataTable
+            className="mt-4"
+            columns={columns}
+            data={filteredData}
+            savedVisibility={savedVisibility}
+            tableId="novelty-types-table-empresa"
+            toolbarOptions={{
+              initialVisibleFilters: savedFilters || [],
+              filterableColumns: [
+                {
+                  columnId: 'Nombre',
+                  title: 'Nombre',
+                  options: names,
+                },
+                {
+                  columnId: 'Descripción corta',
+                  title: 'Descripción corta',
+                  options: descriptionShort,
+                },
+              ],
+            }}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

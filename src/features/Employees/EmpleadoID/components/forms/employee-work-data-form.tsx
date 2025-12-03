@@ -23,7 +23,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
   const guilds = use(options.guildsPromise);
   const covenants = use(options.covenantsPromise);
   const categories = use(options.categoriesPromise);
-  const contractorCompanies = use(options.contractorCompaniesPromise);
+  const contractorCompanies = use(options.contractorCompaniesPromise).filter((c: any) => c.is_active);
   const typeOfContracts = use(options.typeOfContractsPromise);
   const aptitudes = use(options.aptitudesPromise);
 

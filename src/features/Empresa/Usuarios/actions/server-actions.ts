@@ -6,6 +6,36 @@ import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 // import { supabaseBrowser } from '@/lib/supabase/browser';
 
+/**
+ * 🔑 Helper: Obtiene los profile_ids de usuarios que tienen los roles especificados
+ */
+async function getProfileIdsByRoles(roleNames: string[]): Promise<string[] | undefined> {
+  if (roleNames.length === 0) return undefined;
+
+  const supabase = supabaseServer();
+
+  // Obtener los IDs de roles por nombre
+  const { data: roles, error: rolesError } = await supabase.from('roles').select('id').in('name', roleNames);
+
+  if (rolesError || !roles || roles.length === 0) {
+    return undefined;
+  }
+
+  const roleIds = roles.map((r) => r.id);
+
+  // Obtener los user_id (que son iguales a profile.id) que tienen esos roles
+  const { data: userRoles, error: userRolesError } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .in('role_id', roleIds);
+
+  if (userRolesError || !userRoles || userRoles.length === 0) {
+    return [];
+  }
+
+  return userRoles.map((ur) => ur.user_id);
+}
+
 interface FetchDataOptions {
   pageIndex: number;
   pageSize: number;
@@ -20,26 +50,73 @@ export async function fetchAllCompanyUsersData(options: {
   columnFilters: ColumnFiltersState;
   server?: boolean;
 }) {
+  // 🔑 Extraer el filtro de roles si existe
+  const roleFilter = options.columnFilters?.find((f) => f.id === 'user_roles.roles.name');
+  const otherFilters = options.columnFilters?.filter((f) => f.id !== 'user_roles.roles.name') || [];
+
+  // 🔑 Si hay filtro de roles, obtener los profile_ids que tienen esos roles
+  let profileIdsWithRoles: string[] | undefined = undefined;
+  if (roleFilter?.value && Array.isArray(roleFilter.value) && roleFilter.value.length > 0) {
+    const roleNames = roleFilter.value.filter((v) => v !== 'null' && v !== null && v !== '');
+    if (roleNames.length > 0) {
+      profileIdsWithRoles = await getProfileIdsByRoles(roleNames);
+    }
+  }
+
   const data = await queryWithPagination('share_company_users', 'id,created_at,company_id,profile(*)', {
     pageIndex: 0,
     pageSize: 10000, // 🔑 Tamaño grande para exportación
     sorting: options.sorting,
-    columnFilters: options.columnFilters,
+    columnFilters: otherFilters,
     server: options.server,
-    permanent_filter: (query) =>
-      query.order('fullname', { nullsFirst: false, referencedTable: 'profile', ascending: true }),
+    permanent_filter: (query) => {
+      let filteredQuery = query.order('fullname', { nullsFirst: false, referencedTable: 'profile', ascending: true });
+
+      // 🔑 Aplicar filtro por profile_ids que tienen los roles seleccionados
+      if (profileIdsWithRoles && profileIdsWithRoles.length > 0) {
+        filteredQuery = filteredQuery.in('profile_id', profileIdsWithRoles);
+      } else if (profileIdsWithRoles !== undefined && profileIdsWithRoles.length === 0) {
+        // Si no hay usuarios con esos roles, retornar vacío usando un ID imposible
+        filteredQuery = filteredQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+      }
+
+      return filteredQuery;
+    },
   });
 
   return { rows: data.rows }; // Mantener estructura para compatibilidad
 }
 
 export async function fetchCompanyUsers(options: FetchDataOptions) {
+  // 🔑 Extraer el filtro de roles si existe
+  const roleFilter = options.columnFilters?.find((f) => f.id === 'user_roles.roles.name');
+  const otherFilters = options.columnFilters?.filter((f) => f.id !== 'user_roles.roles.name') || [];
+
+  // 🔑 Si hay filtro de roles, obtener los profile_ids que tienen esos roles
+  let profileIdsWithRoles: string[] | undefined = undefined;
+  if (roleFilter?.value && Array.isArray(roleFilter.value) && roleFilter.value.length > 0) {
+    const roleNames = roleFilter.value.filter((v) => v !== 'null' && v !== null && v !== '');
+    if (roleNames.length > 0) {
+      profileIdsWithRoles = await getProfileIdsByRoles(roleNames);
+    }
+  }
+
   const data = await queryWithPagination('share_company_users', 'id,created_at,company_id,profile(*)', {
     pageIndex: options.pageIndex,
     pageSize: options.pageSize,
     sorting: options.sorting.length > 0 ? options.sorting : [{ id: 'profile.fullname', desc: true }],
-    columnFilters: options.columnFilters,
+    columnFilters: otherFilters,
     server: true,
+    permanent_filter: (query) => {
+      // 🔑 Aplicar filtro por profile_ids que tienen los roles seleccionados
+      if (profileIdsWithRoles && profileIdsWithRoles.length > 0) {
+        query = query.in('profile_id', profileIdsWithRoles);
+      } else if (profileIdsWithRoles !== undefined && profileIdsWithRoles.length === 0) {
+        // Si no hay usuarios con esos roles, retornar vacío usando un ID imposible
+        query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+      }
+      return query;
+    },
   });
 
   return data;

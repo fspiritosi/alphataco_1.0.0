@@ -69,6 +69,47 @@ export default function UsersTableServer({ initialData, savedVisibility, savedFi
               },
             },
           },
+          {
+            columnId: 'user_roles.roles.name',
+            title: 'Rol',
+            config: {
+              tableName: 'share_company_users',
+              select: 'id' as '*',
+              multiJoinPaths: {
+                joins: [
+                  {
+                    from_table: 'share_company_users',
+                    to_table: 'profile',
+                    from_column: 'profile_id',
+                    to_column: 'id',
+                  },
+                  {
+                    from_table: 'profile',
+                    to_table: 'user_roles',
+                    from_column: 'id',
+                    to_column: 'user_id',
+                  },
+                  {
+                    from_table: 'user_roles',
+                    to_table: 'roles',
+                    from_column: 'role_id',
+                    to_column: 'id',
+                  },
+                ],
+                final_column: 'roles.name',
+              },
+              p_filters: { company_id: company_id! },
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'share_company_users', 'id'>>>) => {
+                return data
+                  .filter((value) => value.col_value !== null && value.col_value !== 'null')
+                  .map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+              },
+            },
+          },
         ],
         showExport: true,
         showFilterOptions: true,

@@ -6,5 +6,6 @@
  */
 
 export { TabsManagerClient } from './TabsManagerClient';
+export { TabsManagerClientSide } from './TabsManagerClientSide';
 export { TabsManagerServer } from './TabsManagerServer';
 export type { TabDefinition, TabsManagerClientProps, TabsManagerServerProps } from './types';

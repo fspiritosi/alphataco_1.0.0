@@ -1,6 +1,7 @@
 import DocumentNav from '@/components/DocumentNav';
 import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
 import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
+import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
@@ -13,7 +14,9 @@ export default function DocumentosEquiposTabContent({
   return (
     <div>
       <div className="flex gap-4 flex-wrap mb-4">
-        <DocumentNav onlyEquipment />
+        <PermissionGuardServer module="equipos" tab="documentos-de-equipos" action="create">
+          <DocumentNav onlyEquipment />
+        </PermissionGuardServer>
       </div>
       <TabsManagerServer
         paramName="subtab"

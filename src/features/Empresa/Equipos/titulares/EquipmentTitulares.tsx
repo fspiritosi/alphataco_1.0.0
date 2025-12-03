@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { usePermissions } from '@/features/Permissions';
 import { Loader2 } from 'lucide-react';
 import { Suspense, useState } from 'react';
 import EquipmentByOwnerTableWrapper from './EquipmentByOwnerTableWrapper';
@@ -21,6 +22,11 @@ function EquipmentTitulares({ equipmentOwners }: TitularesProps) {
     const data = await fetchEquipmentByOwnerId(owner.id);
     setSelectedOwner(data);
   };
+
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission('empresa', 'titulares', 'create');
+  const canUpdate = hasPermission('empresa', 'titulares', 'update');
+  const showForm = canCreate || canUpdate;
 
   return (
     <div>
@@ -84,7 +90,7 @@ function EquipmentTitulares({ equipmentOwners }: TitularesProps) {
             </>
           )}
         </Card>
-      ) : (
+      ) : showForm ? (
         <ResizablePanelGroup direction="horizontal">
           <ResizablePanel defaultSize={35}>
             <EquipmentOwnerForm
@@ -99,9 +105,17 @@ function EquipmentTitulares({ equipmentOwners }: TitularesProps) {
               onViewEquipment={handleViewEquipment}
               equipmentOwners={equipmentOwners}
               onEdit={setEditingOwner}
+              canEdit={canUpdate}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
+      ) : (
+        <EquipmentOwnerTable
+          onViewEquipment={handleViewEquipment}
+          equipmentOwners={equipmentOwners}
+          onEdit={setEditingOwner}
+          canEdit={canUpdate}
+        />
       )}
     </div>
   );

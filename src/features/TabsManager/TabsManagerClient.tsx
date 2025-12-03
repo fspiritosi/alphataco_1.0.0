@@ -29,6 +29,9 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
   tabs,
   defaultTab,
   dependentParams = [],
+  listClassName,
+  triggerClassName,
+  contentClassName,
 }: TabsManagerClientProps<M>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -84,12 +87,15 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
   return (
     <div className="flex flex-col gap-6 py-1 h-full">
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="flex gap-1 justify-start w-fit bg-muted/50 dark:bg-slate-900">
+        <TabsList
+          className={listClassName ? listClassName : 'flex gap-1 justify-start w-fit bg-muted/50 dark:bg-slate-900'}
+        >
           {tabs.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="text-gh_orange font-semibold"
+              disabled={tab.disabled}
+              className={triggerClassName ? triggerClassName : 'text-gh_orange font-semibold'}
               data-testid={`tab-${tab.value.toLowerCase().replace(/\s+/g, '-')}`}
             >
               {tab.label}
@@ -98,8 +104,8 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
         </TabsList>
 
         {tabs.map((tab) => (
-          <TabsContent key={tab.value} value={tab.value}>
-            <div className="py-2">{tab.content}</div>
+          <TabsContent key={tab.value} value={tab.value} className={contentClassName}>
+            <div className="">{tab.content}</div>
           </TabsContent>
         ))}
       </Tabs>

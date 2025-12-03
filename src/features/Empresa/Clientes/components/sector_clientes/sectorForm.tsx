@@ -18,6 +18,7 @@ import {
   fetchAllSectors,
   updateSector,
 } from '@/features/Empresa/Clientes/actions/create';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -118,67 +119,68 @@ function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSele
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
-        <h2 className="text-xl font-bold mb-4">{mode === 'create' ? 'Crear Sector' : 'Editar Sector'}</h2>
+    <PermissionGuard module="comercial" tab="sector" action={mode === 'create' ? 'create' : 'update'}>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 w-[300px]">
+          <h2 className="text-xl font-bold mb-4">{mode === 'create' ? 'Crear Sector' : 'Editar Sector'}</h2>
 
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nombre del Sector</FormLabel>
-              <FormControl>
-                <Input type="text" {...field} placeholder="Nombre del sector" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre del Sector</FormLabel>
+                <FormControl>
+                  <Input type="text" {...field} placeholder="Nombre del sector" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="descripcion_corta"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descripción Corta</FormLabel>
-              <FormControl>
-                <Input type="text" {...field} placeholder="Descripción breve" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="descripcion_corta"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Descripción Corta</FormLabel>
+                <FormControl>
+                  <Input type="text" {...field} placeholder="Descripción breve" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="customer_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cliente</FormLabel>
-              <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Clientes</SelectLabel>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="customer_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cliente</FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Clientes</SelectLabel>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        {/* <FormField
+          {/* <FormField
           control={form.control}
           name="province_id"
           render={({ field }) => (
@@ -201,16 +203,17 @@ function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSele
           )}
         /> */}
 
-        <div className="flex gap-4">
-          <Button type="submit" variant="gh_orange">
-            {mode === 'create' ? 'Crear' : 'Actualizar'}
-          </Button>
-          <Button type="button" variant="outline" onClick={handleCancel}>
-            Cancelar
-          </Button>
-        </div>
-      </form>
-    </Form>
+          <div className="flex gap-4">
+            <Button type="submit" variant="gh_orange">
+              {mode === 'create' ? 'Crear' : 'Actualizar'}
+            </Button>
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </PermissionGuard>
   );
 }
 

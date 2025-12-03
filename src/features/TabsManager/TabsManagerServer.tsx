@@ -1,4 +1,4 @@
-import { checkMultiplePermissionsServer } from '@/features/Permissions';
+import { checkPermissionServer } from '@/features/Permissions';
 import type { ModuleSlug } from '@/features/Permissions/permissions-map';
 import { TabsManagerClient } from './TabsManagerClient';
 import type { TabsManagerServerProps } from './types';
@@ -8,12 +8,12 @@ import type { TabsManagerServerProps } from './types';
  *
  * Este componente se encarga de:
  * - Filtrar pestañas según permisos del usuario en la base de datos
- * - Verificar permisos usando checkMultiplePermissionsServer() en UNA SOLA llamada (optimizado)
+ * - Verificar permisos usando canViewServer() con lógica de visibilidad inferida
  * - Determinar el valor por defecto basado en searchParams o defaultTab
  * - Renderizar el componente cliente con la configuración procesada
  *
- * OPTIMIZACIÓN: Usa checkMultiplePermissionsServer para verificar todos los tabs
- * en una sola llamada a la base de datos, reduciendo latencia de ~1000ms a ~80ms.
+ * VISIBILIDAD INFERIDA: Si el usuario no tiene permiso explícito de 'view' en una tab,
+ * pero tiene acceso a alguna de sus subtabs, la tab será visible automáticamente.
  *
  * Para habilitar autocompletado de `defaultTab`, usa `as const` en el array de tabs.
  *
@@ -39,29 +39,24 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   searchParams,
   dependentParams = [],
 }: TabsManagerServerProps<M>) {
-  // 1. Preparar todas las verificaciones de permisos
-  const permissionsToCheck = tabs
-    .filter((tab) => tab.moduleSlug && tab.tabSlug)
-    .map((tab) => ({
-      moduleSlug: String(tab.moduleSlug),
-      tabSlug: String(tab.tabSlug),
-      actionSlug: 'view',
-    }));
-
-  // 2. UNA SOLA LLAMADA para verificar TODOS los permisos (OPTIMIZADO)
-  const permissionsMap = await checkMultiplePermissionsServer(permissionsToCheck);
-
-  // 3. Filtrar tabs basándose en los resultados
-  const filteredTabs = tabs.filter((tab) => {
+  // Filtrar tabs basándose en permisos
+  // Para subtabs directas, usar verificación explícita (sin inferencia)
+  // Para tabs padre, usar canViewServer con visibilidad inferida
+  const filteredTabsPromises = tabs.map(async (tab) => {
     // Si no tiene moduleSlug/tabSlug, mostrar siempre (sin restricción)
     if (!tab.moduleSlug || !tab.tabSlug) {
-      return true;
+      return { tab, hasPermission: true };
     }
 
-    // Verificar permiso desde el Map (O(1) - instantáneo)
-    const key = `${String(tab.moduleSlug)}:${String(tab.tabSlug)}:view`;
-    return permissionsMap.get(key) === true;
+    // Para tabs que son subtabs directas (nivel 1), verificar explícitamente sin inferir
+    // Esto previene que se muestren subtabs que no tienen permiso explícito
+    // Solo usar canViewServer con inferencia para tabs padre que pueden necesitarla
+    const hasPermission = await checkPermissionServer(String(tab.moduleSlug), String(tab.tabSlug), 'view');
+    return { tab, hasPermission };
   });
+
+  const filteredTabsResults = await Promise.all(filteredTabsPromises);
+  const filteredTabs = filteredTabsResults.filter((result) => result.hasPermission).map((result) => result.tab);
 
   // Si no hay tabs visibles, mostrar mensaje
   if (filteredTabs.length === 0) {
