@@ -101,7 +101,7 @@ export async function getUserPermissionsMapServer(): Promise<Record<string, bool
     permissions.forEach((perm: any) => {
       if (perm && perm.module_slug && perm.tab_slug && perm.action_slug) {
         const key = `${perm.module_slug}:${perm.tab_slug}:${perm.action_slug}`;
-        permissionMap[key] = perm.is_granted !== false;
+        permissionMap[key] = perm.is_granted === true;
       }
     });
 

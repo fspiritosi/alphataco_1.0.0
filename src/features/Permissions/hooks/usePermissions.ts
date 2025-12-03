@@ -25,7 +25,7 @@ export function usePermissions() {
     const map = new Map<string, boolean>();
     permissions.forEach((perm: any) => {
       const key = `${perm.module_slug}:${perm.tab_slug}:${perm.action_slug}`;
-      map.set(key, perm.is_granted !== false);
+      map.set(key, perm.is_granted === true);
     });
     return map;
   }, [permissions]);
