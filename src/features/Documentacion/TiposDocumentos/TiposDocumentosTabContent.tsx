@@ -1,6 +1,6 @@
 import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
 import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
-import { PermissionGuardServer } from '@/features/Permissions';
+import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Truck, User } from 'lucide-react';
 import { Suspense } from 'react';
@@ -14,6 +14,9 @@ export default async function TiposDocumentosTabContent({
   showOnlyPersonas?: boolean;
   showOnlyEquipos?: boolean;
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   const allTabs = [];
 
   // Solo agregar tab de Personas si corresponde
@@ -66,7 +69,13 @@ export default async function TiposDocumentosTabContent({
           <TypesDocumentAction optionChildrenProp={showOnlyPersonas ? 'Persona' : showOnlyEquipos ? 'Equipo' : 'all'} />
         </div>
       </PermissionGuardServer>
-      <TabsManagerServer paramName="subtab" searchParams={searchParams} defaultTab={defaultTab} tabs={allTabs} />
+      <TabsManagerServer
+        paramName="subtab"
+        searchParams={searchParams}
+        defaultTab={defaultTab}
+        permissions={permissions}
+        tabs={allTabs}
+      />
     </div>
   );
 }

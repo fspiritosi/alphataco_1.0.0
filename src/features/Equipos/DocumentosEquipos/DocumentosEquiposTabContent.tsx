@@ -1,16 +1,19 @@
 import DocumentNav from '@/components/DocumentNav';
 import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
 import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
-import { PermissionGuardServer } from '@/features/Permissions';
+import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
-export default function DocumentosEquiposTabContent({
+export default async function DocumentosEquiposTabContent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
       <div className="flex gap-4 flex-wrap mb-4">
@@ -22,6 +25,7 @@ export default function DocumentosEquiposTabContent({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="docs-equipos-permanentes"
+        permissions={permissions}
         tabs={[
           {
             value: 'docs-equipos-permanentes',

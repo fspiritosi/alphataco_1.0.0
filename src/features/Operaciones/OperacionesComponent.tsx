@@ -1,20 +1,25 @@
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { ClipboardList, Package } from 'lucide-react';
 import { Suspense } from 'react';
 import PartesDiariosTabContent from './PartesDiarios/PartesDiariosTabContent';
 import PreparteTabContent from './Preparte/PreparteTabContent';
 
-export default function OperacionesComponent({
+export default async function OperacionesComponent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
       <TabsManagerServer
         paramName="tab"
         searchParams={searchParams}
         defaultTab="preparte"
+        permissions={permissions}
         tabs={[
           {
             value: 'preparte',

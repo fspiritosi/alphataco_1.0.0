@@ -1,3 +1,4 @@
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import { CompanyDocumentsType } from '@/store/loggedUser';
@@ -27,11 +28,15 @@ export default async function DocumentosEmpresaTabContent({
   const typedDataCompany: CompanyDocumentsType[] | null = documents_company as CompanyDocumentsType[] | null;
   const companyData = typedDataCompany;
 
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <TabsManagerServer
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="empresa-permanentes"
+      permissions={permissions}
       tabs={[
         {
           value: 'empresa-permanentes',

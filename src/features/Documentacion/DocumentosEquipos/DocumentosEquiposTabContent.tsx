@@ -1,16 +1,19 @@
 import DocumentNav from '@/components/DocumentNav';
 import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
 import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
-import { PermissionGuardServer } from '@/features/Permissions';
+import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
-export default function DocumentosEquiposTabContent({
+export default async function DocumentosEquiposTabContent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
       {/* Botón crear está en la tab principal, no en subtabs */}
@@ -23,6 +26,7 @@ export default function DocumentosEquiposTabContent({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="equipos-permanentes"
+        permissions={permissions}
         tabs={[
           {
             value: 'equipos-permanentes',

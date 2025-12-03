@@ -2,7 +2,7 @@ import { ColumnsMonthly } from '@/app/dashboard/columsMonthly';
 import { ExpiredDataTable } from '@/app/dashboard/data-table';
 import { ExpiredColums } from '@/app/dashboard/pedidos/colums';
 import { fetchMonthlyDocumentsByEquipmentId, fetchPermanentDocumentsByEquipmentId } from '@/app/server/GET/actions';
-import { PermissionGuardServer } from '@/features/Permissions';
+import { PermissionGuardServer, getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { formatVehiculesDocuments } from '@/lib/utils';
 import { Calendar, FileArchive } from 'lucide-react';
@@ -15,11 +15,15 @@ export default async function DocumentEquipmentComponent({ id, role, searchParam
   const monthlyDocuments = (await fetchMonthlyDocumentsByEquipmentId(id)).map(formatVehiculesDocuments);
   const permanentDocuments = (await fetchPermanentDocumentsByEquipmentId(id)).map(formatVehiculesDocuments);
 
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <TabsManagerServer
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="permanentes"
+      permissions={permissions}
       tabs={[
         {
           value: 'permanentes',

@@ -1,19 +1,22 @@
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { buttonVariants } from '@/components/ui/button';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
+import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { PermissionGuardServer } from '../Permissions';
 import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
 import EquiposTabContent from './Equipos/EquiposTabContent';
 
-export default function EquiposComponent({
+export default async function EquiposComponent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
       <TabsManagerServer
@@ -21,6 +24,7 @@ export default function EquiposComponent({
         searchParams={searchParams}
         defaultTab="equipos"
         dependentParams={['subtab']}
+        permissions={permissions}
         tabs={[
           {
             value: 'equipos',

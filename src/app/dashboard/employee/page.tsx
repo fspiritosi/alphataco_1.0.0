@@ -7,7 +7,7 @@ import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permane
 import EmployeeTable from '@/features/Employees/Empleados/EmpleadosTables/Activos/employee_table';
 import EmpleadosInactivosTable from '@/features/Employees/Empleados/EmpleadosTables/Inactivos/EmpleadosInactivosTable';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
-import { PermissionGuardServer } from '@/features/Permissions';
+import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
@@ -39,6 +39,9 @@ export default async function EmployeePage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
       <TabsManagerServer
@@ -46,6 +49,7 @@ export default async function EmployeePage({
         searchParams={searchParams}
         defaultTab="employees"
         dependentParams={['subtab']}
+        permissions={permissions}
         tabs={[
           {
             value: 'employees',
@@ -73,6 +77,7 @@ export default async function EmployeePage({
                   paramName="subtab"
                   searchParams={searchParams}
                   defaultTab="empleados-activos"
+                  permissions={permissions}
                   tabs={[
                     {
                       value: 'empleados-activos',
@@ -132,6 +137,7 @@ export default async function EmployeePage({
                   paramName="subtab"
                   searchParams={searchParams}
                   defaultTab="docs-empleados-permanentes"
+                  permissions={permissions}
                   tabs={[
                     {
                       value: 'docs-empleados-permanentes',

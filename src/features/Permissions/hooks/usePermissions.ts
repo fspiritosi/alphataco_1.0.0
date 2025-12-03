@@ -13,9 +13,11 @@ export function usePermissions() {
   } = useQuery({
     queryKey: ['permissions'],
     queryFn: getUserPermissions,
-    staleTime: 0, // Sin caché por ahora
-    gcTime: 0, // Sin caché por ahora
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000, // 5 minutos - datos se consideran frescos
+    gcTime: 30 * 60 * 1000, // 30 minutos - mantener en cache
+    refetchOnWindowFocus: false, // NO refetch automático al volver a la ventana
+    refetchOnMount: false, // Usar cache si existe (no refetch en cada mount)
+    refetchOnReconnect: true, // Solo refetch si se reconecta la red
   });
 
   // Create a Map for O(1) permission lookups

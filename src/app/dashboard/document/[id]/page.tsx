@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { checkPermissionServer } from '@/features/Permissions/actionsServer';
+import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
@@ -60,6 +60,9 @@ export default async function page({
   documentName = document?.[0]?.document_path;
   documentUrl = url.publicUrl;
   documents_employees = document;
+
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
 
   // Verificar permisos de view y update
   const canView = await checkPermissionServer('documentacion', 'detalle-de-documento', 'view');
@@ -598,7 +601,13 @@ export default async function page({
               </div>
             </div>
             <div className="w-full px-2">
-              <TabsManagerServer paramName="tab" searchParams={searchParamsObj} defaultTab="Documento" tabs={tabs} />
+              <TabsManagerServer
+                paramName="tab"
+                searchParams={searchParamsObj}
+                defaultTab="Documento"
+                permissions={permissions}
+                tabs={tabs}
+              />
             </div>
           </div>
           <Suspense fallback={<Skeleton className="w-full h-full mt-5" />}>

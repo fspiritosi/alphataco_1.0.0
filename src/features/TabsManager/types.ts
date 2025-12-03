@@ -123,6 +123,27 @@ export interface TabsManagerServerProps<M extends ModuleSlug = ModuleSlug> {
    * ```
    */
   dependentParams?: string[];
+  /**
+   * Map de permisos pre-cargados (opcional).
+   *
+   * Si se proporciona, se usa directamente sin hacer query adicional.
+   * Si no se proporciona, se obtiene del cache de React (pre-cargado en layout).
+   *
+   * Útil cuando quieres pasar permisos explícitamente desde el layout o página padre.
+   *
+   * @example
+   * ```tsx
+   * // En layout o página padre
+   * const permissions = await getUserPermissionsMapServer();
+   *
+   * <TabsManagerServer
+   *   permissions={permissions}  // ← Pasar como prop
+   *   tabs={tabs}
+   *   ...
+   * />
+   * ```
+   */
+  permissions?: Map<string, boolean>;
 }
 
 /**
