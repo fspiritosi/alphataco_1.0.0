@@ -111,7 +111,7 @@ export async function fetchAllRepairSolicitudesData(options: {
       sorting: [...options.sorting, { id: 'created_at', desc: true }],
       columnFilters: options.columnFilters,
       filters: options.filters,
-      server: false,
+      server: options.server ?? false,
     }
   );
 

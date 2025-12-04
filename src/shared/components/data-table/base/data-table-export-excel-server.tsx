@@ -42,25 +42,57 @@ export function DataTableExportExcelServer<TData>({
     // Intentar obtener el header de la columna
     const columnDef = col.columnDef as any;
 
-    // Si el header es una función, intentar extraer el título
+    // 1. Prioridad: exportHeader personalizado
+    if (columnDef.exportHeader) {
+      return columnDef.exportHeader;
+    }
+
+    // 2. Si el header es una función, intentar extraer el título
     if (typeof columnDef.header === 'function') {
       // Para headers que usan DataTableColumnHeader, intentar extraer el título
       try {
         const headerElement = columnDef.header({ column: col });
-        if (headerElement && headerElement.props && headerElement.props.title) {
-          return headerElement.props.title;
+        // Intentar múltiples formas de acceder al título
+        if (headerElement) {
+          // Forma 1: props directas
+          if (headerElement.props && headerElement.props.title) {
+            return headerElement.props.title;
+          }
+          // Forma 2: children con props
+          if (headerElement.props && headerElement.props.children) {
+            const children = headerElement.props.children;
+            if (typeof children === 'string') {
+              return children;
+            }
+            if (children && children.props && children.props.title) {
+              return children.props.title;
+            }
+          }
+          // Forma 3: buscar en el árbol de props recursivamente
+          const findTitleInProps = (obj: any): string | null => {
+            if (!obj) return null;
+            if (obj.props && obj.props.title) return obj.props.title;
+            if (obj.props && obj.props.children) {
+              const childTitle = findTitleInProps(obj.props.children);
+              if (childTitle) return childTitle;
+            }
+            return null;
+          };
+          const foundTitle = findTitleInProps(headerElement);
+          if (foundTitle) return foundTitle;
         }
       } catch (e) {
         // Si falla, continuar con la lógica de fallback
+        console.warn('Error al extraer header:', e);
       }
     }
 
-    // Si el header es un string, usarlo directamente
+    // 3. Si el header es un string, usarlo directamente
     if (typeof columnDef.header === 'string') {
       return columnDef.header;
     }
 
-    // Fallback al id o accessorKey
+    // 4. Fallback al id o accessorKey
     return col.id || columnDef.accessorKey || 'Columna';
   });
 
