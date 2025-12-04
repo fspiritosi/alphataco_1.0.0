@@ -112,7 +112,7 @@ export async function createRemitoClient(dailyReportRowId: string, remitNumber: 
     .select('id')
     .eq('daily_report_row_id', dailyReportRowId)
     .eq('remit_number', remitNumber)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     throw new Error(`Ya existe un remito con el número ${remitNumber}`);
