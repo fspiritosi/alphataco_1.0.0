@@ -36,7 +36,7 @@ import {
 import { transformDailyReports } from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTable';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Building, CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -214,6 +214,44 @@ export function DailyReportForm({
   const currentEmployeesWatch = form.watch('employees');
   const currentEquipmentWatch = form.watch('equipment');
   const currentStatus = form.watch('status');
+  const currentDate = form.watch('date');
+
+  // Obtener fecha del parte diario para mostrar en el header
+  const reportDate = useMemo(() => {
+    if (isCreating) {
+      return currentDate ? format(currentDate, 'dd/MM/yyyy', { locale: es }) : null;
+    } else {
+      // Función helper para parsear fecha en formato DD-MM-YYYY
+      const parseDate = (dateValue: string | Date): string | null => {
+        if (!dateValue) return null;
+
+        try {
+          // Si es string y tiene formato DD-MM-YYYY
+          if (typeof dateValue === 'string' && dateValue.includes('-')) {
+            const parts = dateValue.split('-');
+            // Verificar si es formato DD-MM-YYYY (primer parte tiene 2 dígitos)
+            if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2) {
+              const parsedDate = parse(dateValue, 'dd-MM-yyyy', new Date());
+              return format(parsedDate, 'dd/MM/yyyy', { locale: es });
+            }
+          }
+          // Si es Date o formato ISO, usar directamente
+          return format(new Date(dateValue), 'dd/MM/yyyy', { locale: es });
+        } catch (error) {
+          // Si falla el parseo, mostrar la fecha tal como viene
+          return typeof dateValue === 'string' ? dateValue : null;
+        }
+      };
+
+      // En modo edición, usar la fecha del selectedRow o del dailyReport
+      if (selectedRow?.date) {
+        return parseDate(selectedRow.date);
+      } else if (dailyReport && 'date' in dailyReport && dailyReport.date) {
+        return parseDate(dailyReport.date as string);
+      }
+      return null;
+    }
+  }, [isCreating, currentDate, selectedRow, dailyReport]);
 
   // Re-validar el formulario cuando cambie el status
   // useEffect(() => {
@@ -533,7 +571,14 @@ export function DailyReportForm({
         </SheetTrigger>
         <SheetContent className="sm:max-w-screen-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{isCreating ? 'Crear Línea de Parte Diario' : 'Editar Parte Diario'}</SheetTitle>
+            <div className="flex items-center justify-between">
+              <SheetTitle>{isCreating ? 'Crear Línea de Parte Diario' : 'Editar Parte Diario'}</SheetTitle>
+              {reportDate && (
+                <Badge variant="outline" className="text-sm font-normal">
+                  Fecha: {reportDate}
+                </Badge>
+              )}
+            </div>
             <SheetDescription>
               {isCreating
                 ? 'Complete los campos para crear una nueva línea. Estado inicial: En certificación.'

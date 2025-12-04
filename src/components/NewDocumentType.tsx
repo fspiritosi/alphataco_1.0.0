@@ -25,6 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { usePermissions } from '@/features/Permissions';
 import { RpcFilter, fetchEmployeesWithFilters, fetchVehiclesWithFilters } from '@/lib/documentFilters';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { cn } from '@/lib/utils';
@@ -264,6 +265,11 @@ export default function NewDocumentType({
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
   const fetchDocuments = useLoggedUserStore((state) => state.documetsFetch);
   const [items, setItems] = useState(defaultValues);
+
+  // Verificar permisos para cada tipo de documento basado en las subtabs de tipos-de-documentos
+  const { canCreate } = usePermissions();
+  const canCreatePersona = canCreate('documentacion', 'tipos-docs-personas');
+  const canCreateEquipos = canCreate('documentacion', 'tipos-docs-equipos');
 
   // Devuelve el valor de la propiedad del vehículo
 
@@ -955,9 +961,10 @@ export default function NewDocumentType({
                   </FormControl>
                   {optionChildrenProp === 'all' ? (
                     <SelectContent>
-                      <SelectItem value="Persona">Persona</SelectItem>
-                      <SelectItem value="Equipos">Equipos</SelectItem>
-                      <SelectItem value="Empresa">Empresa</SelectItem>
+                      {canCreatePersona && <SelectItem value="Persona">Persona</SelectItem>}
+                      {canCreateEquipos && <SelectItem value="Equipos">Equipos</SelectItem>}
+                      {/* Opción de Empresa oculta temporalmente - no hay tab de tipos de documentos de empresa */}
+                      {/* {canCreateEmpresa && <SelectItem value="Empresa">Empresa</SelectItem>} */}
                     </SelectContent>
                   ) : (
                     <SelectContent>

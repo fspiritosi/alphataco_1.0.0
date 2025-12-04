@@ -720,14 +720,14 @@ export const PERMISSIONS = {
             name: 'Personas',
             tabId: '60000000-0000-0000-0000-000000000006',
             parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update'], // view y update para editar
+            allowedActions: ['view', 'update', 'create'], // view, update y create para crear tipos de documentos de personas
           },
           'tipos-docs-equipos': {
             slug: 'tipos-docs-equipos',
             name: 'Equipos',
             tabId: '60000000-0000-0000-0000-000000000007',
             parent: 'tipos-de-documentos',
-            allowedActions: ['view', 'update'], // view y update para editar
+            allowedActions: ['view', 'update', 'create'], // view, update y create para crear tipos de documentos de equipos
           },
         },
       },
