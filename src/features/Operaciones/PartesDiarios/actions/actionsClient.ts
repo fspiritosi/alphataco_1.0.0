@@ -110,7 +110,7 @@ export async function createDailyReportEquipmentRelationsClient(dailyReportRowId
   const supabase = supabaseBrowser();
   const relations = equipmentIds.map((equipmentId) => ({
     daily_report_row_id: dailyReportRowId,
-    vehicle_id: equipmentId,
+    equipment_id: equipmentId,
   }));
 
   const { data, error } = await supabase.from('dailyreportequipmentrelations').insert(relations).select();
