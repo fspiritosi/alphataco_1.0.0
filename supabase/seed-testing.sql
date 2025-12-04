@@ -84,14 +84,12 @@ INSERT INTO share_company_users (
     id,
     profile_id,
     company_id,
-    role,
     modules,
     created_at
 ) VALUES (
     '88888888-8888-8888-8888-888888888888',
     '99999999-9999-9999-9999-999999999999',
     'be4119b0-12ca-4a8f-87ed-209239194dab',
-    'Administrador',
     '{empresa,empleados,equipos,documentación,mantenimiento,dashboard,ayuda,operaciones,formularios}',
     NOW()
 ) ON CONFLICT (id) DO NOTHING;
