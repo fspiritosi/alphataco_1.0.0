@@ -56,6 +56,7 @@ export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
   {
     accessorKey: 'state',
     id: 'Estado',
+    exportHeader: 'Estado',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const state = statuses.find((status) => status.value === row.original.state);
@@ -71,6 +72,10 @@ export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
         </div>
       );
     },
+    exportFormatter: (value: any, row: RepairSolicitudeData) => {
+      const state = statuses.find((status) => status.value === row.state);
+      return state?.label || value || '-';
+    },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
@@ -78,6 +83,7 @@ export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
   {
     accessorKey: 'priority',
     id: 'Criticidad',
+    exportHeader: 'Criticidad',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Criticidad" />,
     cell: ({ row }) => {
       const priority = criticidad.find((priority) => priority.value === row.original.types_of_repairs?.criticity);
@@ -96,6 +102,10 @@ export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
         </Badge>
       );
     },
+    exportFormatter: (value: any, row: RepairSolicitudeData) => {
+      const priority = criticidad.find((priority) => priority.value === row.types_of_repairs?.criticity);
+      return priority?.label || value || '-';
+    },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
@@ -112,10 +122,30 @@ export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
     },
   },
   {
-    accessorKey: 'fecha',
+    accessorKey: 'vehicles.intern_number',
+    id: 'Numero interno',
+    exportHeader: 'Numero interno',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Numero interno" />,
+    cell: ({ row }) => {
+      return <div className="flex items-center">{row.original.vehicles?.intern_number || '-'}</div>;
+    },
+    exportFormatter: (value: any, row: RepairSolicitudeData) => {
+      return row.vehicles?.intern_number || '-';
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: 'created_at',
+    id: 'Fecha',
+    exportHeader: 'Fecha',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
       return <div className="flex items-center">{moment(row.original.created_at).format('DD/MM/YYYY')}</div>;
+    },
+    exportFormatter: (value: any, row: RepairSolicitudeData) => {
+      return row.created_at ? moment(row.created_at).format('DD/MM/YYYY') : '-';
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -123,6 +153,8 @@ export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
   },
   {
     accessorKey: 'updated_at',
+    id: 'Fecha de modificacion',
+    exportHeader: 'Fecha de modificacion',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de modificacion" />,
     cell: ({ row }) => {
       return (
@@ -131,12 +163,16 @@ export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
         </div>
       );
     },
+    exportFormatter: (value: any, row: RepairSolicitudeData) => {
+      return row.updated_at ? moment(row.updated_at).format('DD/MM/YYYY HH:mm') : '-';
+    },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
   },
   {
     id: 'actions',
+    excludeFromExport: true,
     cell: ({ row }) => {
       return <RepairModal row={row} />;
     },

@@ -84,6 +84,10 @@ export async function AddCompany(formData: FormData, url: string) {
   };
 
   const { data, error: companyError } = await supabase.from('company').insert([formattedData]).select();
+
+  // Nota: El rol OWNER se asigna automáticamente mediante el trigger
+  // assign_owner_role_on_company_creation() en la base de datos
+
   revalidatePath('/dashboard', 'layout');
   revalidatePath('/dashboard');
   return { error: companyError, data };
