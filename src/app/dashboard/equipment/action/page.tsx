@@ -24,14 +24,15 @@ import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
 
 interface VehiclePageProps {
-  searchParams: { action?: 'new' | 'edit' | 'view'; id?: string };
+  searchParams: Promise<{ action?: 'new' | 'edit' | 'view'; id?: string }>;
 }
 
 export type VehicleById = Awaited<ReturnType<typeof getVehicleById>> | null;
 
 export default async function VehiclePage({ searchParams }: VehiclePageProps) {
-  const id = searchParams.id;
-  const mode = searchParams.action || 'view';
+  const resolvedSearchParams = await searchParams;
+  const id = resolvedSearchParams.id;
+  const mode = resolvedSearchParams.action || 'view';
   // const role = await getRole();
   const permissions = await getUserPermissionsMapServer();
 
@@ -76,11 +77,11 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
           hierarchicalPositionsPromise={getHierarchicalPositions()}
-          documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} searchParams={searchParams} />}
+          documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} searchParams={resolvedSearchParams} />}
           repairsComponent={
             <RepairTypes
-              searchParams={searchParams}
-              equipment_id={searchParams.id}
+              searchParams={resolvedSearchParams}
+              equipment_id={resolvedSearchParams.id}
               moduleSlug="equipos"
               permissions={permissions}
             />
@@ -93,8 +94,9 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
 }
 
 export async function generateMetadata({ searchParams }: VehiclePageProps) {
-  const id = searchParams.id;
-  const mode = searchParams.action || 'view';
+  const resolvedSearchParams = await searchParams;
+  const id = resolvedSearchParams.id;
+  const mode = resolvedSearchParams.action || 'view';
 
   if (mode === 'new') {
     return {

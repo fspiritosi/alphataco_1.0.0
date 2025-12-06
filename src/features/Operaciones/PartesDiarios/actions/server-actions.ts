@@ -130,7 +130,7 @@ export async function fetchAllDailyReportData({
 
 // Función optimizada para obtener solo status y date del daily report
 export async function getDailyReportStatusByIdOptimized(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data: dailyReports, error } = await supabase.from('dailyreport').select('status, date').eq('id', id).single();
 

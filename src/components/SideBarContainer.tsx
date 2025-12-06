@@ -17,7 +17,7 @@
 // import { verifyUserRoleInCompany } from '@/shared/actions/role.actions';
 
 // async function SideBarContainer() {
-//   const supabase = supabaseServer();
+//   const supabase = await supabaseServer();
 //   const user = await fetchCurrentUser();
 //   const company = await fetchCurrentCompany();
 //   const userData: any = await verifyUserRoleInCompany();
@@ -121,7 +121,7 @@
 
 //   let role: any;
 
-//   const cookiesStore = cookies();
+//   const cookiesStore = await cookies();
 //   const actualCompany = cookiesStore?.get('actualComp')?.value;
 
 //   if (actualCompany) {

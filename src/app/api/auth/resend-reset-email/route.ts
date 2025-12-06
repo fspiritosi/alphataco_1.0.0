@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email es requerido' }, { status: 400 });
     }
 
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
 
     // Buscar el usuario por email
     const { data: profile, error: profileError } = await supabase

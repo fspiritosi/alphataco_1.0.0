@@ -13,7 +13,7 @@ export type MaintenanceGroupRelationInsert =
 // Crear grupo y relaciones
 export const createMaintenanceGroupAction = async (groupData: MaintenanceGroupInsert, typeIds: string[]) => {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     // Crear grupo
     const { data: group, error: groupError } = await supabase
       .from('maintenance_request_groups')
@@ -45,7 +45,7 @@ export const updateMaintenanceGroupAction = async (
   newTypeIds: string[]
 ) => {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     // Actualizar grupo
     const { data: updatedGroup, error: groupError } = await supabase
       .from('maintenance_request_groups')
@@ -90,7 +90,7 @@ export type updateMaintenanceGroupActionType = Awaited<ReturnType<typeof updateM
 // Soft delete de grupo y relaciones
 export const deleteMaintenanceGroupAction = async (groupId: string) => {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     // Marcar grupo como inactivo
     const { data: deletedGroup, error: groupError } = await supabase
       .from('maintenance_request_groups')
@@ -116,7 +116,7 @@ export type deleteMaintenanceGroupActionType = Awaited<ReturnType<typeof deleteM
 // Obtener todos los grupos con relaciones
 export const fetchMaintenanceGroupsAction = async () => {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const { data, error } = await supabase
       .from('maintenance_request_groups')
       .select('*, maintenance_group_type_of_repairs(type_id)')
@@ -133,7 +133,7 @@ export type fetchMaintenanceGroupsActionType = Awaited<ReturnType<typeof fetchMa
 
 export const fetchTypesOfRepairAction = async () => {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const { data, error } = await supabase
       .from('types_of_repairs')
       .select('id,name')
@@ -150,7 +150,7 @@ export type fetchTypesOfRepairActionType = Awaited<ReturnType<typeof fetchTypesO
 // Obtener grupo por ID con relaciones
 export const fetchMaintenanceGroupByIdAction = async (groupId: string) => {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const { data, error } = await supabase
       .from('maintenance_request_groups')
       .select('*, maintenance_group_type_relations(type_id)')

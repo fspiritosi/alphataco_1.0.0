@@ -13,7 +13,7 @@ import EmployeeIndicatorCard from './EmployeeIndicatorCard';
 import { PositionFilterCard } from './PositionFilterCard';
 
 export default async function EmployeeDiagramsDataSection() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const cookieValue = cookiesStore.get('position-filter')?.value;
   const employeeIndicator: any = (await getEmployeeIndicator(company_id, cookieValue?.split(','))) || [

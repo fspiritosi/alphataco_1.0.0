@@ -41,7 +41,7 @@ import { PERMISSIONS, type ModuleSlug } from './permissions-map';
  * @throws Error si el usuario no está autenticado
  */
 const getCachedUserPermissions = cache(async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener usuario desde auth
   const {
@@ -140,7 +140,7 @@ export async function getUserPermissionsMapServer(): Promise<Record<string, bool
 export async function checkMultiplePermissionsServer(
   permissions: Array<{ moduleSlug: string; tabSlug: string; actionSlug: string }>
 ): Promise<Map<string, boolean>> {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener usuario UNA SOLA VEZ
   const {
@@ -201,7 +201,7 @@ export async function checkMultiplePermissionsServer(
  * ```
  */
 export async function checkPermissionServer(moduleSlug: string, tabSlug: string, actionSlug: string): Promise<boolean> {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener usuario desde auth
   const {
@@ -321,7 +321,7 @@ export async function requirePermissionServer(moduleSlug: string, tabSlug: strin
  * @returns Array de módulos a los que el usuario tiene acceso
  */
 export async function getUserAccessibleModulesServer() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener usuario desde auth
   const {

@@ -1079,7 +1079,7 @@ export function FormCustom({
         </Button>
       </div>
       <form>
-        <Reorder.Group axis="y" className="space-y-2 mb-4 " values={campos} onReorder={setCampos} as="ol">
+        <Reorder.Group axis="y" values={campos} onReorder={setCampos} as="ol">
           <AnimatePresence>
             {campos.map((campo, index) => (
               <Reorder.Item

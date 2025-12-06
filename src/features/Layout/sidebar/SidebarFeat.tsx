@@ -19,7 +19,7 @@ async function SidebarFeat() {
   // Fetch en servidor
   const initialPathname = await getCurrentPath();
   const accessibleModules = await getUserAccessibleModulesServer();
-  const isActive = cookies().get('sidebar_state')?.value;
+  const isActive = (await cookies()).get('sidebar_state')?.value;
 
   // Pasar pathname inicial y datos necesarios al cliente
   return <Sidebar initialPathname={initialPathname} accessibleModules={accessibleModules} isActive={isActive} />;

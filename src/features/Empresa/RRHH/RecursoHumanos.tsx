@@ -21,7 +21,7 @@
 
 // export default async function RecursoHumanos({ company_id, contractTypes = [] }: RecursoHumanosProps) {
 //   const allContractTypes = await fetchAllContractTypesIncludesInactive();
-//   const cookiesStore = cookies();
+//   const cookiesStore = await cookies();
 //   const savedVisibility = cookiesStore.get('contract-type-table')?.value;
 //   const savedFilter = cookiesStore.get('contract-type-table-filters')?.value;
 //   return (

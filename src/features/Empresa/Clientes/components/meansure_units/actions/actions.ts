@@ -26,8 +26,8 @@ const measureUnitSchema = z.object({
  * Obtiene todas las unidades de medida
  */
 export async function fetchMeasureUnits() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value || '';
 
   if (!actualCompany) {
@@ -54,8 +54,8 @@ export async function fetchMeasureUnits() {
  * Crea una nueva unidad de medida
  */
 export async function createMeasureUnit(values: z.infer<typeof measureUnitSchema>) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value || '';
 
   try {
@@ -106,7 +106,7 @@ export async function createMeasureUnit(values: z.infer<typeof measureUnitSchema
  * Actualiza una unidad de medida existente
  */
 export async function updateMeasureUnit(values: z.infer<typeof measureUnitSchema> & { id: number }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Validar datos con Zod
@@ -157,7 +157,7 @@ export async function updateMeasureUnit(values: z.infer<typeof measureUnitSchema
  * Elimina una unidad de medida
  */
 export async function deleteMeasureUnit(id: number) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Verificar si la unidad de medida está siendo utilizada

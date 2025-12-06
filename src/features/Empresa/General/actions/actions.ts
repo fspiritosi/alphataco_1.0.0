@@ -9,8 +9,8 @@ import { revalidatePath } from 'next/cache';
 
 export async function getCompany() {
   try {
-    const cookiesStore = cookies();
-    const supabase = supabaseServer();
+    const cookiesStore = await cookies();
+    const supabase = await supabaseServer();
     const company_id = cookiesStore.get('actualComp')?.value;
     if (!company_id) return null;
     const { data, error } = await supabase
@@ -39,8 +39,8 @@ export async function getCompany() {
 }
 export async function getCompanyName() {
   try {
-    const cookiesStore = cookies();
-    const supabase = supabaseServer();
+    const cookiesStore = await cookies();
+    const supabase = await supabaseServer();
     const company_id = cookiesStore.get('actualComp')?.value;
     if (!company_id) return null;
     const { data, error } = await supabase.from('company').select(`company_name`).eq('id', company_id);
@@ -56,7 +56,7 @@ export async function getCompanyName() {
 }
 
 export async function AddCompany(formData: FormData, url: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -95,7 +95,7 @@ export async function AddCompany(formData: FormData, url: string) {
 }
 
 export async function EditCompany(formData: FormData, url: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -142,10 +142,10 @@ export async function EditCompany(formData: FormData, url: string) {
 // Cost Center Actions
 
 export async function fetchAllCostCenters() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   // await new Promise((resolve) => setTimeout(resolve, 5000));
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -163,8 +163,8 @@ export async function fetchAllCostCenters() {
 }
 
 export const createCostCenter = async (costCenter: { name: string; is_active: boolean }) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -181,8 +181,8 @@ export const createCostCenter = async (costCenter: { name: string; is_active: bo
 };
 
 export const updateCostCenter = async (costCenter: { id: string; name: string; is_active: boolean }) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -202,8 +202,8 @@ export const updateCostCenter = async (costCenter: { id: string; name: string; i
 // Sector Actions
 
 export async function fetchAllSectors() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -217,8 +217,8 @@ export async function fetchAllSectors() {
 }
 
 export const createSector = async (sector: { name: string; is_active: boolean }) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -235,8 +235,8 @@ export const createSector = async (sector: { name: string; is_active: boolean })
 };
 
 export const updateSector = async (sector: { id: string; name: string; is_active: boolean }) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -254,8 +254,8 @@ export const updateSector = async (sector: { id: string; name: string; is_active
 };
 
 export const getRoles = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const { data: roles, error } = await supabase.from('roles').select('*').eq('intern', false).neq('name', 'Invitado');
   if (error) {
@@ -266,8 +266,8 @@ export const getRoles = async () => {
 };
 
 export const fetchCustomers = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const { data, error } = await supabase
     .from('customers')
@@ -281,8 +281,8 @@ export const fetchCustomers = async () => {
 };
 
 export const getProfile = async (email: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const { data: profile, error } = await supabase.from('profile').select('*').eq('email', email);
   if (error) {

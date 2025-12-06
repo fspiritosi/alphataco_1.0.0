@@ -3,7 +3,7 @@ import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const companyName = cookiesStore.get('actualCompName')?.value;
   if (companyName) {
     return {

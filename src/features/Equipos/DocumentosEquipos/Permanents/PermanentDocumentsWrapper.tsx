@@ -4,7 +4,7 @@ import PermanentEquipmentDocumentsTableServer from './components/PermanentEquipm
 import { fetchPermanentEquipmentDocumentsData } from './components/lib/actions/actions';
 
 async function PermanentEquipmentDocumentsWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // 🔑 IMPORTANTE: Gestión de cookies para persistencia
   const savedVisibilityPermanent = cookiesStore.get('permanent-documents-equipment')?.value;

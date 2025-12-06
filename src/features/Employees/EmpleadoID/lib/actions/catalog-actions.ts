@@ -4,8 +4,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function fetchAllCostCenters() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -21,8 +21,8 @@ export async function fetchAllCostCenters() {
 }
 
 export async function fetchContractorCompanies() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -38,8 +38,8 @@ export async function fetchContractorCompanies() {
 }
 
 export async function fetchCompanyPositions() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -55,8 +55,8 @@ export async function fetchCompanyPositions() {
 }
 
 export async function fetchHierarchicalPositions() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -72,7 +72,7 @@ export async function fetchHierarchicalPositions() {
 }
 
 export async function fetchGuilds() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('guild')
@@ -89,7 +89,7 @@ export async function fetchGuilds() {
 }
 
 export async function fetchCovenants() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('covenant')
@@ -106,7 +106,7 @@ export async function fetchCovenants() {
 }
 
 export async function fetchCategories() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('category')
@@ -123,7 +123,7 @@ export async function fetchCategories() {
 }
 
 export async function fetchCountries() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('countries').select('*').order('name', { ascending: true });
 
@@ -136,7 +136,7 @@ export async function fetchCountries() {
 }
 
 export async function fetchProvinces() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('provinces').select('id,name').order('name', { ascending: true });
 
@@ -148,7 +148,7 @@ export async function fetchProvinces() {
   return data;
 }
 export async function fetchCitiesByProvinceId(provinceId: number) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('cities')
     .select('id,name')
@@ -164,7 +164,7 @@ export async function fetchCitiesByProvinceId(provinceId: number) {
 }
 
 export async function fetchCities() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('cities').select('*').order('name', { ascending: true });
 
@@ -176,8 +176,8 @@ export async function fetchCities() {
   return data;
 }
 export async function fetchWorkflowDiagrams() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];

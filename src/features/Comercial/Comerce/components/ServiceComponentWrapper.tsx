@@ -12,7 +12,7 @@ import { fetchServices } from '../../../Empresa/Clientes/actions/service';
 import ServiceComponent from '../../../Empresa/Clientes/components/Services/ServiceComponent';
 
 export default async function ServiceComponentWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   // Fetch data

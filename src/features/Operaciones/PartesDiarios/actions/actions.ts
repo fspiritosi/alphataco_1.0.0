@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 
 // Función para actualizar el estado de múltiples partes diarios (bulk update)
 export async function updateMultipleDailyReportStatus(ids: string[], status: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('dailyreport')
     .update({
@@ -31,9 +31,9 @@ export async function fetchDailyReportsWithFilters({
   toDate?: string;
   status?: string[] | null;
 }) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -71,8 +71,8 @@ export async function fetchDailyReportsWithFilters({
   return data;
 }
 export async function getDailyReports() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -92,8 +92,8 @@ export async function getDailyReports() {
   return dailyReports || [];
 }
 export async function getDailyReportsForCurrentMonth() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -116,7 +116,7 @@ export async function getDailyReportsForCurrentMonth() {
 }
 
 export async function getDailyReportRowHistory(dailyReportId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data: history, error } = await supabase
     .rpc('get_dailyreportrow_history', { p_row_id: dailyReportId })
     .returns<DailyReportRowHistoryRecord[]>();
@@ -476,7 +476,7 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
   return sortedHistory || [];
 }
 export async function getDailyReportByIdOnlyDate(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   let { data: dailyReports, error } = await supabase
     .from('dailyreport')
@@ -496,7 +496,7 @@ export async function getDailyReportByIdOnlyDate(id: string) {
   return dailyReports;
 }
 export async function getDailyReportById(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   let { data: dailyReports, error } = await supabase
     .from('dailyreport')
@@ -564,7 +564,7 @@ export async function updateDailyReportStatusAndRemitNumber(
   id: string,
   data: { status: string; remit_number: string }
 ) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data: dato, error } = await supabase
     .from('dailyreportrows')
@@ -592,7 +592,7 @@ export async function updateDailyReportStatusAndRemitNumber(
   return data;
 }
 export async function getDailyReportStatusById(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   let { data: dailyReports, error } = await supabase.from('dailyreport').select('status,date').eq('id', id);
 
@@ -604,9 +604,9 @@ export async function getDailyReportStatusById(id: string) {
   return dailyReports || [];
 }
 export async function checkDailyReportExists(date: string[]) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -624,8 +624,8 @@ export async function checkDailyReportExists(date: string[]) {
   return data;
 }
 export async function createDailyReport(date: string[]) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -648,8 +648,8 @@ export async function createDailyReport(date: string[]) {
   return data;
 }
 export async function getCustomers() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -677,7 +677,7 @@ export async function getCustomers() {
 }
 
 export async function getCustomersServices() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.from('customer_services').select('*');
   if (error) {
     console.error(error);
@@ -685,8 +685,8 @@ export async function getCustomersServices() {
   return data;
 }
 export async function getServiceItems() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -702,7 +702,7 @@ export async function getServiceItems() {
 }
 
 export async function getActiveEmployeesForDailyReport() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener la fecha actual
   const today = new Date();
@@ -710,7 +710,7 @@ export async function getActiveEmployeesForDailyReport() {
   const month = today.getMonth() + 1; // Los meses en JS van de 0 a 11
   const year = today.getFullYear();
 
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -737,8 +737,8 @@ export async function getActiveEmployeesForDailyReport() {
   return data || [];
 }
 export async function getActiveEquipmentsForDailyReport() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -798,7 +798,7 @@ export interface DailyReportRowData {
   cancel_reason?: string | null;
 }
 export async function updateDailyReportStatus(id: string, newStatus: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data: updatedRow, error: updateError } = await supabase
     .from('dailyreportrows')
     .update({
@@ -836,7 +836,7 @@ export async function updateDailyReportRow(
     reassignmentReason = '',
   }: { equipmentHasChanged: boolean; employeeHasChanged: boolean; reassignmentReason: string }
 ) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Actualizar la fila principal
   await updateEmployeeRelations(id, employeeIds);
@@ -924,7 +924,7 @@ export async function updateDailyReportRow(
   return updatedRow;
 }
 export async function updateDailyReportRowBody(id: string, data: Partial<DailyReportRowData>) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data: updatedRow, error: updateError } = await supabase
     .from('dailyreportrows')
@@ -949,7 +949,7 @@ export async function updateDailyReportRowBody(id: string, data: Partial<DailyRe
 }
 
 export async function updateDailyReportRowStatus(id: string[], status: DailyReportRowStatus) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const updateData: any = { status };
 
@@ -964,7 +964,7 @@ export async function updateDailyReportRowStatus(id: string[], status: DailyRepo
 }
 
 export async function updateEmployeeRelations(rowId: string, employeeIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Obtener relaciones existentes
@@ -1008,7 +1008,7 @@ export async function updateEmployeeRelations(rowId: string, employeeIds: string
 }
 
 export async function updateEquipmentRelations(rowId: string, equipmentIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Obtener relaciones existentes
@@ -1052,7 +1052,7 @@ export async function updateEquipmentRelations(rowId: string, equipmentIds: stri
 }
 
 export async function updateEquiposClienteRelations(dailyReportRowId: string, equiposClienteIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // 1. Obtener relaciones existentes para este daily_report_row
@@ -1108,7 +1108,7 @@ export async function updateEquiposClienteRelations(dailyReportRowId: string, eq
   }
 }
 export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' | 'created_at' | 'updated_at'>[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Aumentar timeout para operaciones masivas
   if (data.length > 50) {
@@ -1167,7 +1167,7 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
 export async function createDailyReportEmployeeRelations(dailyReportRowId: string, employeeIds: string[]) {
   if (!employeeIds || employeeIds.length === 0) return [];
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const relations = employeeIds.map((employeeId) => ({
     daily_report_row_id: dailyReportRowId,
@@ -1185,7 +1185,7 @@ export async function createDailyReportEmployeeRelations(dailyReportRowId: strin
 }
 
 export async function deleteDailyReportRow(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Finalmente eliminamos la fila del reporte
@@ -1203,7 +1203,7 @@ export async function deleteDailyReportRow(id: string) {
 export async function createDailyReportEquipmentRelations(dailyReportRowId: string, equipmentIds: string[]) {
   if (!equipmentIds || equipmentIds.length === 0) return [];
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const relations = equipmentIds.map((equipmentId) => ({
     daily_report_row_id: dailyReportRowId,
@@ -1225,7 +1225,7 @@ export async function createDailyReportEquipmentRelations(dailyReportRowId: stri
 export async function createDailyReportCustomerEquipmentRelations(dailyReportRowId: string, equipmentIds: string[]) {
   if (!equipmentIds || equipmentIds.length === 0) return [];
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const relations = equipmentIds.map((equipmentId) => ({
     daily_report_row_id: dailyReportRowId,
@@ -1243,7 +1243,7 @@ export async function createDailyReportCustomerEquipmentRelations(dailyReportRow
 }
 
 export async function getCustomersAreas(customerIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('areas_cliente').select('*').in('customer_id', customerIds);
   if (error) {
@@ -1252,7 +1252,7 @@ export async function getCustomersAreas(customerIds: string[]) {
   return data;
 }
 export async function getCustomersSectors(customerIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('sector_customer')
@@ -1271,7 +1271,7 @@ export async function getCustomersSectors(customerIds: string[]) {
  * @returns Objeto con estado de la operación y mensaje
  */
 export async function deleteDailyReport(reportId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Primero verificar que no tenga filas asociadas
@@ -1330,9 +1330,9 @@ export interface DailyReportWithRows {
 }
 
 export async function getDailyReportsWithRows(): Promise<DailyReportWithRows[]> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const {
     data: { user },
@@ -1418,8 +1418,8 @@ export interface ServicesSummary {
 }
 
 export async function getDailyReportsLatest() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -1448,9 +1448,9 @@ export type getDailyReportsLatestType = Awaited<ReturnType<typeof getDailyReport
  * Llama a la función RPC get_services_summary_by_type
  */
 export async function getServicesSummaryByType(saveToHistory?: boolean) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -1488,7 +1488,7 @@ export async function getServicesSummaryByType(saveToHistory?: boolean) {
 // ): Promise<ServicesSummary[]> {
 //   const cookieStore = cookies();
 //   const company_id = cookieStore.get('actualComp')?.value;
-//   const supabase = supabaseServer();
+//   const supabase = await supabaseServer();
 //   const {
 //     data: { user },
 //   } = await supabase.auth.getUser();
@@ -1536,9 +1536,9 @@ export interface ServiceDetailByClient {
  * Incluye distribución de servicios mensuales, adicionales y estados
  */
 export async function getServicesDetailByClient(): Promise<ServiceDetailByClient[]> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

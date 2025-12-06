@@ -21,11 +21,11 @@ async function RepairEntryWrapper({
   searchParams: { [key: string]: string | string[] | undefined };
   permissions: Record<string, boolean>;
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const coockiesStore = cookies();
+  const coockiesStore = await cookies();
 
   // Fetch data
   const types_of_repairs = await fetchAllTypesOfRepairs();

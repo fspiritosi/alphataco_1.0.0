@@ -13,7 +13,7 @@ import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { revalidatePath } from 'next/cache';
 import CityInput from '../new/components/CityInput';
 export default async function companyRegister({ params }: { params: { id: string } }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { session },
   } = await supabase.auth.getSession();

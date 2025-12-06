@@ -4,8 +4,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function getEmployeesName() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -35,8 +35,8 @@ export async function getEmployeeDiagramByIdandDate(
   fromDate: { year: number; month: number; day: number },
   toDate: { year: number; month: number; day: number }
 ) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];

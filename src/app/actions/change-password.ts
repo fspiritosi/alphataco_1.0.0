@@ -3,7 +3,7 @@
 import { supabaseServer } from '@/lib/supabase/server';
 
 export async function changePassword(newPassword: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Actualizar la contraseña del usuario

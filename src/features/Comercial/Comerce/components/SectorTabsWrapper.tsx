@@ -8,7 +8,7 @@ import {
 import SectorTabs from '../../../Empresa/Clientes/components/sector_clientes/sectorTabs';
 
 export default async function SectorTabsWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   // Fetch data

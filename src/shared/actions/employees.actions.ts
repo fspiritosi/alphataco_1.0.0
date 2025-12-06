@@ -5,7 +5,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export const fetchCountrys = async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('countries').select('id,name').order('name', { ascending: true });
 
@@ -17,8 +17,8 @@ export const fetchCountrys = async () => {
 };
 
 export const fetchAllEmployees = async (role?: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
 
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
@@ -40,8 +40,8 @@ export const fetchAllEmployees = async (role?: string) => {
   return data;
 };
 export const fetchAllEmployees2 = async (contractor_id: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
 
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
@@ -63,8 +63,8 @@ export const fetchAllEmployees2 = async (contractor_id: string) => {
   return data;
 };
 export const fetchAllEmployeesOnlyName = async (role?: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
 
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
@@ -84,8 +84,8 @@ export const fetchAllEmployeesOnlyName = async (role?: string) => {
 };
 
 export const fetchSimpleDataEmployee = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -102,8 +102,8 @@ export const fetchSimpleDataEmployee = async () => {
 };
 
 export const fetchAllEmployeesCount = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return 0;
   const { count, error } = await supabase
@@ -117,8 +117,8 @@ export const fetchAllEmployeesCount = async () => {
   return count || 0;
 };
 export const fetchAllVehiclesCount = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return 0;
   const { count, error } = await supabase
@@ -133,8 +133,8 @@ export const fetchAllVehiclesCount = async () => {
 };
 
 export const fetchAllEmployeesInactives = async (role?: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const user = await fetchCurrentUser();
   if (!company_id) return [];

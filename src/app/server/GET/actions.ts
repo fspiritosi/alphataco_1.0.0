@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 // Employee-related actions
 
 export const setNewCompanyUserMetadata = async (company_id: string) => {
-  const supabase = adminSupabaseServer();
+  const supabase = await adminSupabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -28,8 +28,8 @@ export const setNewCompanyUserMetadata = async (company_id: string) => {
 };
 
 export const updateDocumentType = async (id: string, data: any) => {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return;
 
@@ -43,8 +43,8 @@ export const updateDocumentType = async (id: string, data: any) => {
 };
 
 export const fetchallResources = async (applies: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -74,8 +74,8 @@ export const fetchallResources = async (applies: string) => {
 };
 
 export const fettchExistingEntries = async (applies: string, id_document_types: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
   const tableNames = {
@@ -99,8 +99,8 @@ export const fettchExistingEntries = async (applies: string, id_document_types: 
 };
 
 export const fetchAllEmployeesWithRelations = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -142,8 +142,8 @@ export const fetchAllEmployeesWithRelations = async () => {
   return data ?? [];
 };
 export const fetchAllEmployeesWithRelationsById = async (id: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const user = await fetchCurrentUser();
   if (!company_id) return [];
@@ -183,8 +183,8 @@ export const fetchAllEmployeesWithRelationsById = async (id: string) => {
   return data ?? [];
 };
 export const fetchAllEquipmentWithRelations = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -202,8 +202,8 @@ export const fetchAllEquipmentWithRelations = async () => {
   return data;
 };
 export const fetchAllEquipmentWithRelationsById = async (id: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -222,8 +222,8 @@ export const fetchAllEquipmentWithRelationsById = async (id: string) => {
 };
 // Company-related actions
 export const fetchCurrentCompany = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -237,10 +237,10 @@ export const fetchCurrentCompany = async () => {
 };
 export const findEmployeeByFullName = async (fullName: string) => {
   try {
-    const cookiesStore = cookies();
+    const cookiesStore = await cookies();
     const company_id = cookiesStore.get('actualComp')?.value;
 
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const { data: employees, error } = await supabase
       .rpc('find_employee_by_full_name_v2', {
         p_full_name: fullName,
@@ -261,8 +261,8 @@ export const findEmployeeByFullName = async (fullName: string) => {
 };
 export const fetchSingEmployee = async (employeesId: string) => {
   //Traer el tipo de documento que se llame firma
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -292,8 +292,8 @@ export const fetchSingEmployee = async (employeesId: string) => {
   return data2.data.publicUrl || null;
 };
 export const fetchCompanyDocuments = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -311,8 +311,8 @@ export const fetchCompanyDocuments = async () => {
 };
 // Employee-related actions
 export const fetchAllEmployees = async (role?: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const user = await fetchCurrentUser();
   if (!company_id) return [];
@@ -348,8 +348,8 @@ export const fetchAllEmployees = async (role?: string) => {
   return data;
 };
 export const fetchAllActivesEmployees = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -366,8 +366,8 @@ export const fetchAllActivesEmployees = async () => {
   return data;
 };
 export const fetchAllEmployeesJUSTEXAMPLE = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -380,8 +380,8 @@ export const fetchAllEmployeesJUSTEXAMPLE = async () => {
   return data;
 };
 export const fetchAllEquipmentJUSTEXAMPLE = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -397,7 +397,7 @@ export const fetchAllEquipmentJUSTEXAMPLE = async () => {
   return data;
 };
 export const fetchAllRepairsJUSTEXAMPLE = async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('repair_solicitudes').select('*');
 
@@ -408,8 +408,8 @@ export const fetchAllRepairsJUSTEXAMPLE = async () => {
   return data;
 };
 export const fetchEmployeeMonthlyDocuments = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -431,8 +431,8 @@ export const fetchEmployeeMonthlyDocuments = async () => {
   return data;
 };
 export const fetchEmployeeMonthlyDocumentsByEmployeeId = async (employeeId: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -473,8 +473,8 @@ export const fetchEmployeeMonthlyDocumentsByEmployeeId = async (employeeId: stri
 };
 // };
 export const fetchEmployeePermanentDocumentsByEmployeeId = async (employeeId: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -515,8 +515,8 @@ export const fetchEmployeePermanentDocumentsByEmployeeId = async (employeeId: st
 };
 // };
 export const fetchEmployeePermanentDocuments = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -537,7 +537,7 @@ export const fetchEmployeePermanentDocuments = async () => {
   return data;
 };
 export const getDiagramEmployee = async ({ employee_id }: { employee_id: string }) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let { data: employees_diagram, error } = await supabase
     .from('employees_diagram')
     .select('*')
@@ -551,8 +551,8 @@ export const getDiagramEmployee = async ({ employee_id }: { employee_id: string 
 
 // Document-related actions
 export const fetchAllDocumentTypes = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -570,8 +570,8 @@ export const fetchAllDocumentTypes = async () => {
   return data || [];
 };
 export const fetchDocumentsByDocumentTypeId = async (documentTypeId: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -588,8 +588,8 @@ export const fetchDocumentsByDocumentTypeId = async (documentTypeId: string) => 
   return data;
 };
 export const getNextMonthExpiringDocumentsEmployees = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -617,8 +617,8 @@ export const getNextMonthExpiringDocumentsEmployees = async () => {
   return data;
 };
 export const getNextMonthExpiringDocumentsVehicles = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   const {
     data: { user },
@@ -647,7 +647,7 @@ export const getNextMonthExpiringDocumentsVehicles = async () => {
   return data;
 };
 export const getDocumentEmployeesById = async (id: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let { data: documents_employee } = await supabase
     .from('documents_employees')
     .select(
@@ -667,7 +667,7 @@ export const getDocumentEmployeesById = async (id: string) => {
   return documents_employee;
 };
 export const getDocumentEquipmentById = async (id: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let { data: documents_vehicle } = await supabase
     .from('documents_equipment')
     .select(
@@ -680,8 +680,8 @@ export const getDocumentEquipmentById = async (id: string) => {
   return documents_vehicle;
 };
 export const fetchTypeVehicles = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -698,8 +698,8 @@ export const fetchTypeVehicles = async () => {
   return data;
 };
 export const fetchCompanyPositions = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -712,7 +712,7 @@ export const fetchCompanyPositions = async () => {
   return data;
 };
 export const fetchProvinces = async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.from('provinces').select('id,name');
 
   if (error) {
@@ -722,8 +722,8 @@ export const fetchProvinces = async () => {
   return data;
 };
 export const fetchHierrarchicalPositions = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   const { data, error } = await supabase.from('hierarchy').select('*').eq('is_active', true);
@@ -736,8 +736,8 @@ export const fetchHierrarchicalPositions = async () => {
 };
 
 export const fetchAllCategories = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('category').select('*').eq('is_active', true);
 
@@ -749,8 +749,8 @@ export const fetchAllCategories = async () => {
 };
 
 export const fetchCovenants = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   const { data, error } = await supabase.from('covenant').select('*').eq('is_active', true);
@@ -807,8 +807,8 @@ export const setVehicleDataOptions = async () => {
 };
 
 export const fetchGuilds = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -822,8 +822,8 @@ export const fetchGuilds = async () => {
 };
 
 export const fetchWorkDiagrams = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -837,7 +837,7 @@ export const fetchWorkDiagrams = async () => {
 };
 
 export const fetchCustomers = async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('customers').select('id,name').eq('is_active', true);
 
@@ -849,8 +849,8 @@ export const fetchCustomers = async () => {
 };
 
 export const fetchTypesOfVehicles = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -863,8 +863,8 @@ export const fetchTypesOfVehicles = async () => {
   return data;
 };
 export const fetchVehicleModels = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -878,8 +878,8 @@ export const fetchVehicleModels = async () => {
 };
 // Equipment-related actions
 export const fetchVehicleBrands = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -893,8 +893,8 @@ export const fetchVehicleBrands = async () => {
 };
 
 export const fetchAllEquipmentWithBrand = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -916,8 +916,8 @@ export const fetchAllEquipmentWithBrand = async () => {
   return equipments || [];
 };
 export const fetchAllEquipmentBasicData = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -934,8 +934,8 @@ export const fetchAllEquipmentBasicData = async () => {
 };
 
 export const fetchAllEquipment = async (company_equipment_id?: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id && !company_equipment_id) return [];
   const {
@@ -972,8 +972,8 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
 };
 export const fetchMonthlyDocumentsByEquipmentId = async (equipmentId: string) => {
   if (!equipmentId) return [];
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1014,8 +1014,8 @@ export const fetchMonthlyDocumentsByEquipmentId = async (equipmentId: string) =>
   }
 };
 export const fetchMonthlyDocumentsEquipment = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1035,8 +1035,8 @@ export const fetchMonthlyDocumentsEquipment = async () => {
   return data;
 };
 export const fetchSimpleMonthlyDocumentsEquipment = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1057,8 +1057,8 @@ export const fetchSimpleMonthlyDocumentsEquipment = async () => {
   return data;
 };
 export const fetchPermanentDocumentsByEquipmentId = async (equipmentId: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
   const {
@@ -1100,8 +1100,8 @@ export const fetchPermanentDocumentsByEquipmentId = async (equipmentId: string) 
   }
 };
 export const fetchTypeOfContracts = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1114,8 +1114,8 @@ export const fetchTypeOfContracts = async () => {
   return data;
 };
 export const fetchPermanentDocumentsEquipment = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1135,8 +1135,8 @@ export const fetchPermanentDocumentsEquipment = async () => {
   return data;
 };
 export const fetchSimplePermanentDocumentsEquipment = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1157,8 +1157,8 @@ export const fetchSimplePermanentDocumentsEquipment = async () => {
   return data;
 };
 export const fetchEquipmentById = async (id: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1180,8 +1180,8 @@ export const fetchEquipmentById = async (id: string) => {
 };
 // Repair-related actions
 export const fetchAllOpenRepairRequests = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1201,8 +1201,8 @@ export const fetchAllOpenRepairRequests = async () => {
   return data;
 };
 export const fetchRepairRequestsByEquipmentId = async (equipmentId: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1224,8 +1224,8 @@ export const fetchRepairRequestsByEquipmentId = async (equipmentId: string) => {
 // Users-related actions
 
 export const getAllUsers = async () => {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
   const { data, error } = await supabase
@@ -1241,8 +1241,8 @@ export const getAllUsers = async () => {
   return data;
 };
 export const getUsersbyId = async ({ id }: { id: string }) => {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
   const { data, error } = await supabase
@@ -1258,7 +1258,7 @@ export const getUsersbyId = async ({ id }: { id: string }) => {
   return data;
 };
 export const getOwnerUser = async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const curretUser = await fetchCurrentCompany();
   if (!curretUser) return [];
 
@@ -1276,7 +1276,7 @@ export const getOwnerUser = async () => {
 
 // Miscellaneous actions
 export const fetchCurrentUser = async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -1284,8 +1284,8 @@ export const fetchCurrentUser = async () => {
   return user;
 };
 export const fetchCustomForms = async (id_company?: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id && !id_company) return [];
 
@@ -1333,7 +1333,7 @@ export const fetchCustomForms = async (id_company?: string) => {
   return data;
 };
 export const fetchCustomFormById = async (formId: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.from('custom_form').select('*').eq('id', formId);
 
   if (error) {
@@ -1343,8 +1343,8 @@ export const fetchCustomFormById = async (formId: string) => {
   return data;
 };
 export const fetchFormsAnswersByFormId = async (formId: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   const {
@@ -1391,7 +1391,7 @@ export const fetchFormsAnswersByFormId = async (formId: string) => {
   return data;
 };
 export const fetchAnswerById = async (answerId: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('form_answers')
     .select('*,form_id(*)')
@@ -1409,7 +1409,7 @@ export const getCurrentProfile = async () => {
   const user = await fetchCurrentUser();
 
   if (!user) return [];
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('profile')
     .select('*')
@@ -1423,8 +1423,8 @@ export const getCurrentProfile = async () => {
 };
 // ❌ DEPRECATED: Sistema viejo de roles - Usar getUserAccessibleModulesServer() del nuevo sistema
 // export const verifyUserRoleInCompany = async () => {
-//   const cookiesStore = cookies();
-//   const supabase = supabaseServer();
+//   const cookiesStore = await cookies();
+//   const supabase = await supabaseServer();
 //   const company_id = cookiesStore.get('actualComp')?.value;
 //   if (!company_id) return '';
 
@@ -1445,7 +1445,7 @@ export const getCurrentProfile = async () => {
 // };
 
 export const fetchDiagramsHistoryByEmployeeId = async (employeeId: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('diagrams_logs')
     .select('*,modified_by(*)')
@@ -1459,8 +1459,8 @@ export const fetchDiagramsHistoryByEmployeeId = async (employeeId: string) => {
   return data;
 };
 export const fetchDiagrams = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1477,8 +1477,8 @@ export const fetchDiagrams = async () => {
   return data;
 };
 export const fetchDiagramsByEmployeeId = async (employeeId: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -1497,8 +1497,8 @@ export const fetchDiagramsByEmployeeId = async (employeeId: string) => {
 };
 
 export const fetchDiagramsTypes = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
   const { data, error } = await supabase
@@ -1516,7 +1516,7 @@ export const fetchDiagramsTypes = async () => {
 
 export const fetchAllProvinces = async () => {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const { data, error } = await supabase.from('provinces').select('*');
 
     if (error) {
@@ -1531,7 +1531,7 @@ export const fetchAllProvinces = async () => {
 };
 
 export const fetchServiceItems = async (company_id: string, user_id: string, customer_service_id: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     if (!company_id || !customer_service_id) {
@@ -1574,8 +1574,8 @@ export const fetchServiceItems = async (company_id: string, user_id: string, cus
 
 export async function fetchEmployeesByCompany() {
   try {
-    const supabase = supabaseServer();
-    const cookiesStore = cookies();
+    const supabase = await supabaseServer();
+    const cookiesStore = await cookies();
     const company_id = cookiesStore.get('actualComp')?.value;
     const {
       data: { user },
@@ -1599,8 +1599,8 @@ export async function fetchEmployeesByCompany() {
 }
 export async function getEmployeesIds() {
   try {
-    const supabase = supabaseServer();
-    const cookiesStore = cookies();
+    const supabase = await supabaseServer();
+    const cookiesStore = await cookies();
     const company_id = cookiesStore.get('actualComp')?.value;
     const {
       data: { user },
@@ -1628,7 +1628,7 @@ export async function getEmployeesIds() {
 
 export async function fetchEmployeeDiagrams(employeeId?: string) {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const PAGE_SIZE = 1000; // Tamaño máximo de página de Supabase
     let allDiagrams: any[] = [];
     let page = 0;
@@ -1698,7 +1698,7 @@ export async function fetchEmployeeDiagrams(employeeId?: string) {
 }
 
 export async function getCompanyDetails(companyId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('company')
@@ -1719,7 +1719,7 @@ export async function getDiagramsDay() {
   const year = today.getFullYear();
   const month = today.getMonth() + 1;
   const day = today.getDate();
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let { data: diagrams_day, error } = await supabase
     .from('employees_diagram')
     .select('diagram_type(*)')
@@ -1738,7 +1738,8 @@ export async function getDiagramsDay() {
 }
 
 export async function getActiveEmployees() {
-  const { count, error } = await supabaseServer()
+  const supabase = await supabaseServer();
+  const { count, error } = await supabase
     .from('employees')
     .select('*', { count: 'exact', head: true })
     .eq('is_active', true);
@@ -1751,13 +1752,14 @@ export async function getActiveEmployees() {
 }
 
 export async function getUsegeEmployees() {
-  const { data, error } = await supabaseServer()
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase
     .from('dailyreport')
     .select('id')
     .eq('date', new Date().toISOString().split('T')[0]);
 
   if (data?.length !== 0) {
-    const { data: dailyreportrow, error } = await supabaseServer()
+    const { data: dailyreportrow, error } = await supabase
       .from('dailyreportrows')
       .select('id')
       .eq('dailyreport_id', data![0].id);
@@ -1774,7 +1776,8 @@ export async function getUsegeEmployees() {
 export async function getUniqueEmployeeCountByDate(date: string) {
   try {
     // Realizar la consulta con JOINs para obtener el conteo de empleados únicos
-    const { count, error } = await supabaseServer()
+    const supabase = await supabaseServer();
+    const { count, error } = await supabase
       .from('dailyreport')
       .select(
         `
@@ -1794,7 +1797,7 @@ export async function getUniqueEmployeeCountByDate(date: string) {
     }
 
     // Si necesitamos contar empleados únicos manualmente (alternativa)
-    const { data, error: dataError } = await supabaseServer()
+    const { data, error: dataError } = await supabase
       .from('dailyreport')
       .select(
         `
@@ -1840,7 +1843,7 @@ export async function getUniqueEmployeeCountByDate(date: string) {
 export async function getVehiclesDisponibleFilterType(type_row_id?: string[], company_id?: string) {
   // const type1 = '5dc2bc44-de86-4e1d-ae0c-87eafd60dccf';
   // const type2 = 'ea07ff34-13fb-4483-b5bc-8389e41c7d89';
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.rpc('get_vehicle_usage_indicator', {
     p_vehicle_type_ids: type_row_id || [],
     p_company_id: company_id || null,
@@ -1852,7 +1855,7 @@ export async function getVehiclesDisponibleFilterType(type_row_id?: string[], co
 }
 
 export async function getEmployeeIndicator(company_id?: string, p_row_id: string[] = []) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data, error } = await supabase.rpc('get_employee_usage_indicator', {
@@ -1897,7 +1900,7 @@ export async function getEmployeeIndicator(company_id?: string, p_row_id: string
 }
 
 export async function getEmployeesNotInDailyReport(company_id?: string, position_uuids?: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data, error } = await supabase.rpc('get_employees_not_in_daily_report', {
@@ -1920,7 +1923,7 @@ export async function getEmployeesNotInDailyReport(company_id?: string, position
 export type EmployeeNotInDailyReportType = Awaited<ReturnType<typeof getEmployeesNotInDailyReport>>;
 
 export async function getDiagramIndicator(p_company_position_ids?: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.rpc('get_employee_diagram_count_by_day', {
     p_day: new Date().getDate(),
     p_month: new Date().getMonth() + 1,
@@ -1933,8 +1936,8 @@ export async function getDiagramIndicator(p_company_position_ids?: string[]) {
   else return data;
 }
 export async function getEmployeeById(employeeId: string) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return null;
@@ -2006,8 +2009,8 @@ export async function getEmployeeById(employeeId: string) {
   };
 }
 export async function getEmployeeNameById(employeeId: string) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return null;
@@ -2033,7 +2036,7 @@ export async function getEmployeeNameById(employeeId: string) {
 }
 
 export async function getVehiclesNonOperative(company_id?: string, vehicle_type_ids?: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data, error } = await supabase.rpc('get_vehicles_non_operative', {
@@ -2054,7 +2057,7 @@ export async function getVehiclesNonOperative(company_id?: string, vehicle_type_
 }
 
 export async function getVehiclesNotInDailyReport(company_id?: string, vehicle_type_ids?: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data, error } = await supabase.rpc('get_vehicles_not_in_daily_report', {

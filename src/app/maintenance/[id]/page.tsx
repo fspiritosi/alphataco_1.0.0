@@ -13,8 +13,8 @@ export default async function Home({
     id: string;
   };
 }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const employee = cookiesStore.get('empleado_id')?.value;
   const empleado_name = cookiesStore.get('empleado_name')?.value;
   const URL = process.env.NEXT_PUBLIC_BASE_URL;

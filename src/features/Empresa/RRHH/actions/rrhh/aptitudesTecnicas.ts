@@ -60,8 +60,8 @@ interface PuestoResult {
  */
 export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
   try {
-    const cookiesStore = cookies();
-    const supabase = supabaseServer();
+    const cookiesStore = await cookies();
+    const supabase = await supabaseServer();
 
     if (!supabase) {
       console.error('No se pudo inicializar el cliente de Supabase');
@@ -154,8 +154,8 @@ export async function getAptitudesTecnicas(): Promise<AptitudTecnica[]> {
  */
 export async function getPositions(): Promise<Position[]> {
   try {
-    const cookiesStore = cookies();
-    const supabase = supabaseServer();
+    const cookiesStore = await cookies();
+    const supabase = await supabaseServer();
 
     // Verificar que tengamos una instancia de Supabase
     if (!supabase) {
@@ -215,8 +215,8 @@ export async function getAptitudesData() {
 }
 
 export async function createAptitudTecnica(aptitud: CreateAptitudTecnicaData): Promise<AptitudTecnica> {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -259,8 +259,8 @@ export async function createAptitudTecnica(aptitud: CreateAptitudTecnicaData): P
 }
 
 export async function updateAptitudTecnica(aptitud: UpdateAptitudTecnicaData): Promise<AptitudTecnica> {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -321,7 +321,7 @@ export async function updateAptitudTecnica(aptitud: UpdateAptitudTecnicaData): P
 
 // Función auxiliar para obtener una aptitud con sus puestos
 async function getAptitudTecnicaById(id: string | number): Promise<AptitudTecnica | null> {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Obtener la aptitud

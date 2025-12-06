@@ -5,8 +5,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function fetchAllContractTypes() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -24,8 +24,8 @@ export async function fetchAllContractTypes() {
   return data;
 }
 export async function fetchAllContractTypesIncludesInactive() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 

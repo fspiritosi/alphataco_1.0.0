@@ -20,7 +20,7 @@ export default async function GeneralTabContent({
   searchParams: { [key: string]: string | string[] | undefined };
   permissions: Record<string, boolean>;
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   return (

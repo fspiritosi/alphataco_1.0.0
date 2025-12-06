@@ -5,8 +5,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function fetchAllDiagramTypes() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   try {
@@ -28,8 +28,8 @@ export async function fetchAllDiagramTypes() {
 }
 
 export async function createDiagramType({ name, color, short_description, work_active, is_active }: NewDiagramType) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -60,8 +60,8 @@ export async function updateDiagramType({
   work_active,
   is_active,
 }: NewDiagramType) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];

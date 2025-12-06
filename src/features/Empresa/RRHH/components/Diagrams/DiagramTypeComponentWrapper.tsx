@@ -3,7 +3,7 @@ import DiagramTypeComponent from '@/components/Diagrams/DiagramTypeComponent';
 import { cookies } from 'next/headers';
 
 export default async function DiagramTypeComponentWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // Fetch data
   const diagrams_types = await fetchDiagramsTypes();

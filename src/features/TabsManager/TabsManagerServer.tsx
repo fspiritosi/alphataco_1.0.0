@@ -46,6 +46,9 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   dependentParams = [],
   permissions: providedPermissions,
 }: TabsManagerServerProps<M>) {
+  // En Next.js 16, searchParams es una Promise, necesitamos hacer await
+  const resolvedSearchParams = await searchParams;
+
   // Convertir el objeto plano de permisos a Map para acceso O(1)
   // Los permisos son obligatorios, no hay fallback
   const permissionMap = new Map<string, boolean>();
@@ -125,7 +128,7 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   }
 
   // Determinar el tab activo desde los searchParams
-  const paramValue = searchParams[paramName];
+  const paramValue = resolvedSearchParams[paramName];
   const activeTab = typeof paramValue === 'string' ? paramValue : defaultTab;
 
   // Verificar que el tab activo existe en la lista filtrada

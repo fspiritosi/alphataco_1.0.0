@@ -117,7 +117,7 @@ export const setEmployeesToShow = (employees: any) => {
   return employee;
 };
 export const getUser = async () => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
     error,

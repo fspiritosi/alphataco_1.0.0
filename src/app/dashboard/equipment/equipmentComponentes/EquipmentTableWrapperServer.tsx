@@ -8,7 +8,7 @@ type EquipmentTableWrapperProps = {
 };
 
 async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: EquipmentTableWrapperProps) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get(`equipmentServerTable-Vehículos`)?.value;
   const savedFilters = cookiesStore.get(`equipmentServerTable-Vehículos-filters`)?.value;
 

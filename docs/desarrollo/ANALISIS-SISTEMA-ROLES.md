@@ -624,7 +624,7 @@ export async function deleteEmployee(employeeId: string) {
   await requirePermissionServer('empleados', 'employees', 'delete');
 
   // Proceder con eliminación
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   await supabase.from('employees').delete().eq('id', employeeId);
 }
 ```

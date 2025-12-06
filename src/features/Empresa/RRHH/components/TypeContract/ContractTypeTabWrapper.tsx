@@ -3,7 +3,7 @@ import ContractTypesTab from './ContractTypeTab';
 import { fetchAllContractTypesIncludesInactive } from './actions/actions';
 
 export default async function ContractTypeTabWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // Fetch data
   const allContractTypes = await fetchAllContractTypesIncludesInactive();

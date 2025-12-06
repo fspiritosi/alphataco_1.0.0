@@ -19,7 +19,7 @@ async function TypesDocumentsViewWrapper({
   personas?: boolean;
   hideTabs?: boolean;
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get(`document_type_employees`)?.value;
   const savedFilters = cookiesStore.get(`document_type_employees-filters`)?.value;
 

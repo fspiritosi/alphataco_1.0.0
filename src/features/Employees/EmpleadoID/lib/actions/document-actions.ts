@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import moment from 'moment';
 
 export async function fetchDocumentTypes() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('document_types').select('*').order('name', { ascending: true });
 
@@ -21,7 +21,7 @@ export async function toggleEmployeeStatus(
   reason_for_termination?: any,
   termination_date?: Date
 ) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { error } = await supabase
     .from('employees')
@@ -52,7 +52,7 @@ export async function uploadEmployeeDocument(
     is_required: boolean;
   }
 ) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('documents_employees')
@@ -73,7 +73,7 @@ export async function uploadEmployeeDocument(
 }
 
 export async function deleteEmployeeDocument(documentId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { error } = await supabase.from('documents_employees').delete().eq('id', documentId);
 
@@ -86,7 +86,7 @@ export async function deleteEmployeeDocument(documentId: string) {
 }
 
 export async function updateDocumentStatus(documentId: string, status: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('documents_employees')

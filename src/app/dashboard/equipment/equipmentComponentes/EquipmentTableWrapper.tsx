@@ -13,8 +13,8 @@ async function EquipmentTableWrapper({ filterType = 'all' }: EquipmentTableWrapp
   // Fetch toda la data necesaria
   const equipments = await fetchAllEquipment();
 
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

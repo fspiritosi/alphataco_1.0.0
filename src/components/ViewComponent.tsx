@@ -25,7 +25,7 @@ export default async function ViewComponent({
   searchParams,
 }: {
   viewData: ViewDataObj;
-  searchParams?: { tab?: string };
+  searchParams?: Promise<{ tab?: string }> | { tab?: string };
 }) {
   const cookiesStore = await cookies();
   const role = cookiesStore.get('guestRole')?.value;
@@ -42,9 +42,16 @@ export default async function ViewComponent({
   // Determinar el valor por defecto
   let effectiveDefaultValue = viewData.defaultValue;
 
+  // En Next.js 16, searchParams puede ser una Promise
+  const resolvedSearchParams = searchParams
+    ? searchParams instanceof Promise
+      ? await searchParams
+      : searchParams
+    : undefined;
+
   // Prioridad: searchParams > cookie > defaultValue
-  if (searchParams?.tab) {
-    effectiveDefaultValue = searchParams.tab;
+  if (resolvedSearchParams?.tab) {
+    effectiveDefaultValue = resolvedSearchParams.tab;
   } else if (savedMainTab) {
     effectiveDefaultValue = savedMainTab;
   }

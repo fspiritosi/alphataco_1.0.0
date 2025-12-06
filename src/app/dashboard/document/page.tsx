@@ -5,10 +5,11 @@ export const metadata = {
   description: 'Gestión de documentos de empleados, equipos y empresa',
 };
 
-export default function DocumentosPage({
+export default async function DocumentosPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  return <DocumentacionComponent searchParams={searchParams} />;
+  const resolvedSearchParams = await searchParams;
+  return <DocumentacionComponent searchParams={resolvedSearchParams} />;
 }

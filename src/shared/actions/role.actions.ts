@@ -4,8 +4,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function verifyUserRoleInCompany() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const user = await getCurrentUser();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
@@ -30,7 +30,7 @@ export async function verifyUserRoleInCompany() {
 }
 
 async function getCurrentUser() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

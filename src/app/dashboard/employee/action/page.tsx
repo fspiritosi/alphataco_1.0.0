@@ -36,15 +36,16 @@ interface EmployeePageProps {
   params: {
     employee_id: string;
   };
-  searchParams: {
+  searchParams: Promise<{
     action?: 'view' | 'edit' | 'new';
     employee_id?: string;
-  };
+  }>;
 }
 
 export default async function EmployeePage({ searchParams }: EmployeePageProps) {
-  const mode = searchParams.action || 'view';
-  const employee_id = searchParams.employee_id || 'view';
+  const resolvedSearchParams = await searchParams;
+  const mode = resolvedSearchParams.action || 'view';
+  const employee_id = resolvedSearchParams.employee_id || 'view';
   const showEditButton = mode === 'view' || mode === 'new';
   const exitEditMode = mode === 'edit';
   if (!employee_id) {
@@ -118,14 +119,14 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             mode={mode}
             employee={employee}
             //Componentes
-            documentsComponent={<DocumentTable employee_id={employee_id} searchParams={searchParams} />}
+            documentsComponent={<DocumentTable employee_id={employee_id} searchParams={resolvedSearchParams} />}
             diagramsComponent={
               <DiagramDetailEmployeeView
                 historyData={historyData}
                 diagrams={diagrams2 as any}
                 diagrams_types={diagrams_types2}
                 activeEmploees={[employee]}
-                searchParams={searchParams}
+                searchParams={resolvedSearchParams}
               />
             }
             // Promises para las opciones
@@ -151,9 +152,10 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
 
 // Generate metadata for the page
 export async function generateMetadata({ searchParams }: EmployeePageProps) {
-  const { employee_id } = searchParams;
+  const resolvedSearchParams = await searchParams;
+  const { employee_id } = resolvedSearchParams;
   if (!employee_id) {
-    const cookiesStore = cookies();
+    const cookiesStore = await cookies();
     const companyName = cookiesStore.get('actualCompName')?.value;
     return {
       title: `Registrar Nuevo Empleado | ${companyName}`,

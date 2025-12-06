@@ -15,7 +15,7 @@ import { cookies } from 'next/headers';
 import ButtonTypeRefetch from './ButtonTypeRefetch';
 
 export default async function TypesDocumentAction({ optionChildrenProp }: { optionChildrenProp: string }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const role = cookiesStore.get('guestRole')?.value || '';
   return (
     <AlertDialog>

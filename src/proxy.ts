@@ -2,9 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseServer } from './lib/supabase/server';
 import { getUserProfile } from './shared/actions/middleware.actions';
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   // await updateSession(req)
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const response = NextResponse.next({
     request: {
       headers: req.headers,
@@ -121,7 +121,7 @@ export const config = {
 // import { getUserProfile } from './shared/actions/middleware.actions';
 
 // export async function middleware(req: NextRequest) {
-//   const supabase = supabaseServer();
+//   const supabase = await supabaseServer();
 //   const cookiesStore = await cookies();
 //   const actualCompany = cookiesStore.get('actualComp')?.value;
 //   const guestRole = cookiesStore.get('guestRole')?.value;

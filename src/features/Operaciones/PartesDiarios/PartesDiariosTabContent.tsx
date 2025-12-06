@@ -8,7 +8,7 @@ import DayliReportForm from './components/DayliReportForm';
 
 export default async function PartesDiariosTabContent() {
   // Fetching solo cuando este tab está activo
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const dailyReportTableSavedColumns = cookiesStore.get('dailyReportTable')?.value;
   const dailyReportTableSavedFilter = cookiesStore.get('dailyReportTable-filters')?.value;
   const dailyReports = await getDailyReportsForCurrentMonth();

@@ -10,7 +10,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "noErrorTruncation": true,
     "strict": true,
     "pretty": true,
@@ -25,6 +25,13 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/dashboard/employee/page.tsx1"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "src/app/dashboard/employee/page.tsx1",
+    ".next/dev/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

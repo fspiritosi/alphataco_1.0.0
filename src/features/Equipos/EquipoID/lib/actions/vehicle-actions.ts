@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
 export async function getVehicleById(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('vehicles')
     .select(
@@ -43,7 +43,7 @@ export async function toggleVehicleStatus(
   reason_for_termination?: any,
   termination_date?: Date
 ) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('vehicles')
     .update({
@@ -63,8 +63,8 @@ export async function toggleVehicleStatus(
 }
 
 export async function createVehicle(vehicleData: any) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -103,8 +103,8 @@ export async function createVehicle(vehicleData: any) {
 }
 
 export async function updateVehicle(id: string, vehicleData: any) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -144,8 +144,8 @@ export async function updateVehicle(id: string, vehicleData: any) {
 }
 
 export async function deleteVehicle(id: string) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -164,38 +164,38 @@ export async function deleteVehicle(id: string) {
 
 // Helper functions to get IDs by names
 async function getBrandIdByName(name: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data } = await supabase.from('brand_vehicles').select('id').eq('name', name).single();
   return data?.id;
 }
 
 async function getModelIdByName(name: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data } = await supabase.from('model_vehicles').select('id').eq('name', name).single();
   return data?.id;
 }
 
 async function getTypeIdByName(name: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data } = await supabase.from('type').select('id').eq('name', name).single();
   return data?.id;
 }
 
 async function getTypeOfVehicleIdByName(name: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data } = await supabase.from('types_of_vehicles').select('id').eq('name', name).single();
   return data?.id;
 }
 
 async function getSubTypeIdByName(name: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data } = await supabase.from('sub_type').select('id').eq('name', name).single();
   return data?.id;
 }
 
 // Smart contractor relationship management
 async function updateContractorRelationships(vehicleId: string, newContractorIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Get current relationships
   const { data: currentRelations } = await supabase

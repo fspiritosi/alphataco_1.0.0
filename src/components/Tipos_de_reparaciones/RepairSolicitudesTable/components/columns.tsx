@@ -7,7 +7,14 @@ import { RepairSolicitudeData } from '../RepairSolicitudes';
 import { criticidad, labels, statuses } from '../data';
 import RepairModal from './RepairModal';
 
-export const repairSolicitudesColums: ColumnDef<RepairSolicitudeData>[] = [
+// Tipo extendido para columnas con propiedades adicionales de exportación
+type ExtendedColumnDef<TData> = ColumnDef<TData> & {
+  exportFormatter?: (value: any, row: TData) => string;
+  excludeFromExport?: boolean;
+  exportHeader?: string;
+};
+
+export const repairSolicitudesColums: ExtendedColumnDef<RepairSolicitudeData>[] = [
   {
     accessorKey: 'vehicles.domain',
     id: 'vehicles.domain',

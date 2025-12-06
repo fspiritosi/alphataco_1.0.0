@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import DiagramTypeComponent from './DiagramTypeComponent';
 
 export default async function DiagramTypeComponentWrapper() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const diagrams_types = await fetchDiagramsTypes();
 
   const visibilityState = cookieStore.get('novelty-types-table-empresa')?.value;

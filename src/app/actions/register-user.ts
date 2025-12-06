@@ -4,9 +4,9 @@ import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function registerUserWithRole(values: any) {
-  const supabase = supabaseServer();
-  const adminSupabase = adminSupabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const adminSupabase = await adminSupabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) throw new Error('No hay compani id');

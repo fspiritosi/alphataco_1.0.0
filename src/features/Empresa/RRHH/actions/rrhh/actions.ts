@@ -5,8 +5,8 @@ import { cookies } from 'next/headers';
 
 export async function fetchAllWorkDiagrams() {
   try {
-    const cookiesStore = cookies();
-    const supabase = supabaseServer();
+    const cookiesStore = await cookies();
+    const supabase = await supabaseServer();
     const company_id = cookiesStore.get('actualComp')?.value;
     if (!company_id) return [];
 

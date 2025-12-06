@@ -18,12 +18,7 @@ export default function ThanksPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="text-center"
-          >
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.5 }}>
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Gracias por usar codeControl!</h2>
             <p className="text-gray-600 mb-4">Su acción ha sido registrada exitosamente en nuestro sistema.</p>

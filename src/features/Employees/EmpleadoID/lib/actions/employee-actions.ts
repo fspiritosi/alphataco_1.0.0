@@ -5,8 +5,8 @@ import type { Employee } from '@/types/types';
 import { cookies } from 'next/headers';
 
 export async function fetchEmployeeById(employeeId: string) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return null;
@@ -57,8 +57,8 @@ export async function fetchEmployeeById(employeeId: string) {
 }
 
 export async function fetchEmployeeBasicInfo(employeeId: string) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return null;
@@ -92,7 +92,7 @@ export async function fetchEmployeeBasicInfo(employeeId: string) {
 }
 
 export async function fetchEmployeeDocuments(employeeId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('documents_employees')
@@ -120,8 +120,8 @@ export async function fetchEmployeeDocuments(employeeId: string) {
 }
 
 export async function updateEmployeePersonalInfo(employeeId: string, personalData: Partial<Employee>) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) throw new Error('No company selected');
@@ -143,8 +143,8 @@ export async function updateEmployeePersonalInfo(employeeId: string, personalDat
 }
 
 export async function updateEmployeeWorkInfo(employeeId: string, workData: Partial<Employee>) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) throw new Error('No company selected');
@@ -185,8 +185,8 @@ export async function updateEmployeeWorkInfo(employeeId: string, workData: Parti
 }
 
 export async function createEmployee(employeeData: Partial<Employee>) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) throw new Error('No company selected');
@@ -220,8 +220,8 @@ export async function createEmployee(employeeData: Partial<Employee>) {
 }
 
 export async function updateEmployee(employeeId: string, employeeData: Partial<Employee>) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) throw new Error('No company selected');
@@ -254,7 +254,7 @@ export async function updateEmployee(employeeId: string, employeeData: Partial<E
 }
 
 async function updateContractorRelationships(employeeId: string, newContractorIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener relaciones actuales
   const { data: currentRelations, error: fetchError } = await supabase
@@ -303,7 +303,7 @@ async function updateContractorRelationships(employeeId: string, newContractorId
   }
 }
 async function updateAptitudeRelationships(employeeId: string, newAptitudeIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener relaciones actuales
   const { data: currentRelations, error: fetchError } = await supabase
@@ -352,8 +352,8 @@ async function updateAptitudeRelationships(employeeId: string, newAptitudeIds: s
   }
 }
 export async function getDiagramsByEmployee(employeeId: string) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];

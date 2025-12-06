@@ -15,9 +15,9 @@ export default async function DocumentosEmpresaTabContent({
   permissions: Record<string, boolean>;
 }) {
   // Fetch company documents data
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const user = await supabase.auth.getUser();
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   let { data: documents_company } = await supabase

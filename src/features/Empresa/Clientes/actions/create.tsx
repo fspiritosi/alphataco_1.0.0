@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 // Función para verificar si un área está siendo usada en contratos
 async function isAreaUsedInContracts(areaId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // 1. Buscar todos los servicios que usan esta área
@@ -87,7 +87,7 @@ async function isAreaUsedInContracts(areaId: string) {
   }
 }
 export async function createdCustomer(formData: FormData) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     const {
       data: { session },
@@ -158,7 +158,7 @@ export async function createdCustomer(formData: FormData) {
 }
 
 export async function updateCustomer(formData: FormData) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const {
     data: { session },
@@ -212,9 +212,7 @@ export async function updateCustomer(formData: FormData) {
 }
 
 export async function fechAllDataCustomersById(id: string) {
-  const supabase = supabaseServer();
-  const coockiesStore = cookies();
-  const actualCompany = coockiesStore.get('actualComp')?.value;
+  const supabase = await supabaseServer();
   try {
     const { data, error } = await supabase
       .from('customers')
@@ -238,8 +236,8 @@ export async function fechAllDataCustomersById(id: string) {
 }
 
 export async function fechAllCustomers() {
-  const supabase = supabaseServer();
-  const coockiesStore = cookies();
+  const supabase = await supabaseServer();
+  const coockiesStore = await cookies();
   const actualCompany = coockiesStore.get('actualComp')?.value;
   try {
     const { data, error } = await supabase
@@ -261,7 +259,7 @@ export async function fechAllCustomers() {
 }
 
 export async function createArea(values: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     const { data: area, error: areaError } = await supabase
       .from('areas_cliente' as any)
@@ -306,7 +304,7 @@ export async function createArea(values: any) {
 }
 
 export async function updateArea(values: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     // Primero obtenemos el área actual para comparar
     const { data: currentArea, error: fetchError } = await supabase
@@ -384,8 +382,8 @@ export async function updateArea(values: any) {
 }
 
 export async function fetchAreasWithProvinces() {
-  const supabase = supabaseServer();
-  const coockiesStore = cookies();
+  const supabase = await supabaseServer();
+  const coockiesStore = await cookies();
   const actualCompany = coockiesStore.get('actualComp')?.value;
 
   try {
@@ -423,7 +421,7 @@ export async function fetchAreasWithProvinces() {
 }
 
 export async function fetchEquipmentsCustomers() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     const { data: equipments, error } = await supabase
       .from('equipos_clientes')
@@ -441,7 +439,7 @@ export async function fetchEquipmentsCustomers() {
 }
 
 export async function createEquipmentCustomer(values: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     const { data: equipment, error: equipmentError } = await supabase
       .from('equipos_clientes' as any)
@@ -464,7 +462,7 @@ export async function createEquipmentCustomer(values: any) {
 }
 
 export async function updateEquipmentCustomer(values: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data: equipment, error } = await supabase
@@ -494,7 +492,7 @@ export async function updateEquipmentCustomer(values: any) {
 }
 
 export async function fetchAllSectors() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     const { data: sectors, error } = await supabase
       .from('sectors')
@@ -513,7 +511,7 @@ export async function fetchAllSectors() {
   }
 }
 export async function fetchAllContractorSectorBySectorIds(sectorIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     const { data: sectors, error } = await supabase
       .from('sector_customer')
@@ -534,7 +532,7 @@ export async function fetchAllContractorSectorBySectorIds(sectorIds: string[]) {
 }
 
 export async function createSector(values: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     const { data: sector, error: sectorError } = await supabase
       .from('sectors' as any)
@@ -575,7 +573,7 @@ export async function createSector(values: any) {
 }
 
 export async function updateSector(values: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data: sector, error: sectorError } = await supabase

@@ -3,7 +3,7 @@ import TablaPermanentDocumentServer from './components/TablaPermanentDocumentSer
 import { fetchInitialPermanentDocuments } from './lib/actions/actions';
 
 async function PermanentDocuments() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibilityPermanent = cookiesStore.get(`permanent-documents-employees`)?.value;
   const savedFiltersPermanent = cookiesStore.get(`permanent-documents-employees-filters`)?.value;
 

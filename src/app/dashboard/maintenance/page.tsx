@@ -4,7 +4,7 @@ import { getUserPermissionsMapServer } from '@/features/Permissions/actionsServe
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const companyName = cookiesStore.get('actualCompName')?.value;
   if (companyName) {
     return {
@@ -25,13 +25,14 @@ export async function generateMetadata() {
 export default async function MantenimientoPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const permissions = await getUserPermissionsMapServer();
+  const resolvedSearchParams = await searchParams;
 
   return (
     <div>
-      <RepairTypes mechanic searchParams={searchParams} moduleSlug="mantenimiento" permissions={permissions} />
+      <RepairTypes mechanic searchParams={resolvedSearchParams} moduleSlug="mantenimiento" permissions={permissions} />
     </div>
   );
 }

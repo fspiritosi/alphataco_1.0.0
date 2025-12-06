@@ -4,7 +4,7 @@ import RepairSolicitudes from './RepairSolicitudesTable/RepairSolicitudes';
 import { fetchRepairSolicitudes } from './actions/actions';
 
 async function RepairSolicitudesWrapper({ mechanic, equipment_id }: { mechanic?: boolean; equipment_id?: string }) {
-  const coockiesStore = cookies();
+  const coockiesStore = await cookies();
   const savedVisibility3 = coockiesStore.get('repair-solicitudes-table')?.value;
   const filters = coockiesStore.get('repair-solicitudes-table-filters')?.value;
 

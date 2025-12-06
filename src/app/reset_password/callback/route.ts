@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const type = searchParams.get('type');
   const email = searchParams.get('email');
   const next = searchParams.get('next') ?? '/reset_password/update-user';
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   if ((token_hash || token) && type) {
     const supabase = createServerClient(

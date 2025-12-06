@@ -4,7 +4,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 export async function resetPasswordAction(email: string) {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
@@ -26,7 +26,7 @@ export async function resetPasswordAction(email: string) {
 
 export async function updatePasswordAction(password: string) {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
 
     const { error } = await supabase.auth.updateUser({
       password: password,
@@ -48,7 +48,7 @@ export async function updatePasswordAction(password: string) {
 
 export async function verifyOtpAction(token_hash: string, type: string) {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
 
     const { error } = await supabase.auth.verifyOtp({
       token_hash: token_hash,

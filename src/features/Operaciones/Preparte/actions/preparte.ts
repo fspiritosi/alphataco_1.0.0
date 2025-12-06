@@ -33,7 +33,7 @@ export type Preparte = {
 export async function createPreparte(
   prepartesData: Omit<Preparte, 'id'> | Omit<Preparte, 'id'>[] | Omit<Preparte, 'id'>[][]
 ) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // SOLUCIÓN: Manejar explícitamente el array doble
@@ -170,7 +170,7 @@ export async function createPreparte(
 
 // Update an existing preparte
 export async function updatePreparte(id: string, preparteData: Partial<Preparte>) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   // Construir payload: solo tocar sector/área/equipos si vienen en el payload
   const payload: any = {
     ...preparteData,
@@ -300,7 +300,7 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
 
 // Delete a preparte
 export async function deletePreparte(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { error } = await supabase
     .from('preparte' as any)
     .delete()
@@ -316,7 +316,7 @@ export async function deletePreparte(id: string) {
 
 // Actualiza la imagen para todas las filas que comparten el mismo número de pedido
 export async function updatePreparteImageByOrderNumber(numero_pedido: string, imageUrl: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('preparte' as any)
     .update({ preparteImage: imageUrl, updated_at: new Date().toISOString() })
@@ -333,7 +333,7 @@ export async function updatePreparteImageByOrderNumber(numero_pedido: string, im
 
 // Get preparte by ID
 export async function getPreparteById(id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.from('preparte').select('*').eq('id', id).single();
 
   if (error) {
@@ -352,7 +352,7 @@ type ListPrepartesOptions = {
 };
 
 export async function listPrepartes(options?: ListPrepartesOptions) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let query = supabase.from('preparte').select('*').order('created_at', { ascending: false });
 
   if (options?.status) {
@@ -378,7 +378,7 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
 }
 
 export async function getLastOrderNumber() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Usar función RPC optimizada que calcula el máximo directamente en PostgreSQL
   const { data, error } = await supabase.rpc('get_max_order_number');
@@ -403,7 +403,7 @@ export async function fetchPrepartes({
   sorting: any[];
   columnFilters: any[];
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Construir la consulta base
@@ -487,7 +487,7 @@ export async function movePreparteFile(
   contratoName: string,
   numeroPedido: string
 ): Promise<string> {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Bucket configurable por env
   const DEFAULT_BUCKET = process.env.NEXT_PUBLIC_PREPARTE_BUCKET || 'preparte-img';
@@ -614,7 +614,7 @@ export async function updateMultiplePreparteStatus(
     confirmed_by?: string;
   }
 ) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('preparte')

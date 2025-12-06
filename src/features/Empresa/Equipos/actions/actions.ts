@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
 export async function FetchTypeOfVehicles() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   try {
     let { data: vehicle_type, error } = await supabase
@@ -31,8 +31,8 @@ export async function FetchTypeOfVehicles() {
 export type FetchTypeOfVehiclesType = Awaited<ReturnType<typeof FetchTypeOfVehicles>>[number];
 
 export async function createTypeOfVehicle({ name, is_active = false }: { name: string; is_active?: boolean }) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   try {
     let { data: vehicle_type, error } = await supabase
@@ -63,8 +63,8 @@ export async function FetchTypeOfVehiclesPagination(options: {
   sorting: Array<{ id: string; desc: boolean }>;
   columnFilters: Array<{ id: string; value: any }>;
 }) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
 
   const { pageIndex, pageSize, sorting, columnFilters } = options;
@@ -134,9 +134,7 @@ export async function FetchTypeOfVehiclesPagination(options: {
   }
 }
 export async function updateTypeOfVehicle({ id, name, is_active }: { id: string; name: string; is_active?: boolean }) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
-  const company_id = cookieStore.get('actualComp')?.value;
+  const supabase = await supabaseServer();
   try {
     // Preparamos los datos a actualizar
     const updateData: { name: string; is_active?: boolean } = { name };
@@ -178,7 +176,7 @@ export async function updateTypeOfVehicle({ id, name, is_active }: { id: string;
 }
 
 export async function FetchBrandOfVehicles() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     let { data: vehicle_type, error } = await supabase
@@ -209,7 +207,7 @@ export async function FetchBrandOfVehiclesPagination({
   sorting?: { id: string; desc: boolean }[];
   columnFilters?: { id: string; value: any }[];
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const from = pageIndex * pageSize;
   const to = from + pageSize - 1;
 
@@ -264,7 +262,7 @@ export async function FetchBrandOfVehiclesPagination({
   }
 }
 export async function createBrandOfVehicle({ name, is_active = false }: { name: string; is_active?: boolean }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     let { data: brand_of_vehicle, error } = await supabase
@@ -288,7 +286,7 @@ export async function createBrandOfVehicle({ name, is_active = false }: { name: 
   }
 }
 export async function updateBrandOfVehicle({ id, name, is_active }: { id: number; name: string; is_active?: boolean }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Preparamos los datos a actualizar
@@ -339,7 +337,7 @@ export async function updateBrandOfVehicle({ id, name, is_active }: { id: number
 }
 
 export async function FetchModelOfVehicles() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     let { data: model_of_vehicle, error } = await supabase
@@ -370,7 +368,7 @@ export async function FetchModelOfVehiclesPagination({
   sorting?: { id: string; desc: boolean }[];
   columnFilters?: { id: string; value: any }[];
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Construir la consulta base
@@ -482,7 +480,7 @@ export async function createModelOfVehicle({
   brand: number;
   is_active?: boolean;
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   try {
     let { data: model_of_vehicle, error } = await supabase
       .from('model_vehicles')
@@ -516,7 +514,7 @@ export async function updateModelOfVehicle({
   brand: number;
   is_active?: boolean;
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Preparamos los datos a actualizar
@@ -567,8 +565,8 @@ export async function updateModelOfVehicle({
 }
 
 export async function FetchSubTypeOfVehicles() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   try {
     let { data: vehicle_type, error } = await supabase
@@ -598,8 +596,8 @@ export async function createSubTypeOfVehicle({
   is_active?: boolean;
   type_id: string;
 }) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   try {
     let { data: vehicle_type, error } = await supabase
@@ -636,7 +634,7 @@ export async function updateSubTypeOfVehicle({
   type_id: string;
   is_active?: boolean;
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Preparamos los datos a actualizar

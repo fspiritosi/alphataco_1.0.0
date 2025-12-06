@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Datos recibidos del frontend

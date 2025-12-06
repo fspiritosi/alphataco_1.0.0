@@ -4,7 +4,7 @@ import MonthlyEquipmentDocumentsTableServer from './components/MonthlyEquipmentD
 import { fetchMonthlyEquipmentDocumentsData } from './components/lib/actions/actions';
 
 async function MonthlyEquipmentDocumentsWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // 🔑 IMPORTANTE: Gestión de cookies para persistencia
   const savedVisibilityMonthly = cookiesStore.get('monthly-documents-equipment')?.value;

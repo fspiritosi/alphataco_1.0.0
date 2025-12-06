@@ -1,10 +1,10 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { getActualRole } from '@/lib/utils';
-import { cookies } from 'next/dist/client/components/headers';
+import { cookies } from 'next/headers';
 
 export const fetchAllEquipment = async (company_equipment_id?: string) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id && !company_equipment_id) return [];
   const {
@@ -39,8 +39,8 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
   return data;
 };
 export const fetchSimpleDataEquipment = async () => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
