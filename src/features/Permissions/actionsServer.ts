@@ -1,13 +1,15 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
+import { cache } from 'react';
 import { PERMISSIONS, type ModuleSlug } from './permissions-map';
 
 /**
  * Server Actions para verificación de permisos
  *
- * Estas funciones se ejecutan en el servidor y NO usan caché.
- * Cada llamada consulta directamente la base de datos.
+ * OPTIMIZACIÓN: Estas funciones usan cache de React para evitar múltiples queries
+ * en el mismo request del servidor. Esto mejora significativamente el rendimiento
+ * cuando múltiples componentes verifican permisos en la misma página.
  *
  * OPTIMIZACIÓN: Usa checkMultiplePermissionsServer para verificar múltiples permisos
  * en una sola llamada, reduciendo significativamente la latencia.
@@ -31,10 +33,14 @@ import { PERMISSIONS, type ModuleSlug } from './permissions-map';
 /**
  * Obtiene todos los permisos del usuario actual (server-side)
  *
+ * OPTIMIZADO: Usa cache de React para memoizar el resultado durante el mismo request.
+ * Esto significa que si múltiples componentes llaman a esta función en el mismo render,
+ * solo se hará UNA query a la base de datos.
+ *
  * @returns Array de permisos del usuario
  * @throws Error si el usuario no está autenticado
  */
-export async function getUserPermissionsServer() {
+const getCachedUserPermissions = cache(async () => {
   const supabase = supabaseServer();
 
   // Obtener usuario desde auth
@@ -59,6 +65,52 @@ export async function getUserPermissionsServer() {
   }
 
   return data || [];
+});
+
+/**
+ * Obtiene todos los permisos del usuario actual (server-side)
+ *
+ * Esta es la función pública que usa el cache interno.
+ *
+ * @returns Array de permisos del usuario
+ */
+export async function getUserPermissionsServer() {
+  return await getCachedUserPermissions();
+}
+
+/**
+ * Obtiene todos los permisos del usuario como un objeto plano (serializable)
+ *
+ * Retorna un objeto plano (Record) en lugar de Map para que sea serializable
+ * cuando se pasa como prop entre componentes del servidor en Next.js.
+ *
+ * @returns Objeto plano con key = "module:tab:action", value = boolean
+ * Siempre retorna un objeto válido, incluso si está vacío o hay un error.
+ */
+export async function getUserPermissionsMapServer(): Promise<Record<string, boolean>> {
+  try {
+    const permissions = await getCachedUserPermissions();
+
+    // Asegurar que permissions sea un array válido
+    if (!Array.isArray(permissions)) {
+      console.warn('getUserPermissionsMapServer: permissions is not an array, returning empty object');
+      return {};
+    }
+
+    const permissionMap: Record<string, boolean> = {};
+    permissions.forEach((perm: any) => {
+      if (perm && perm.module_slug && perm.tab_slug && perm.action_slug) {
+        const key = `${perm.module_slug}:${perm.tab_slug}:${perm.action_slug}`;
+        permissionMap[key] = perm.is_granted === true;
+      }
+    });
+
+    return permissionMap;
+  } catch (error) {
+    console.error('Error in getUserPermissionsMapServer:', error);
+    // Siempre retornar un objeto válido, incluso si hay un error
+    return {};
+  }
 }
 
 /**

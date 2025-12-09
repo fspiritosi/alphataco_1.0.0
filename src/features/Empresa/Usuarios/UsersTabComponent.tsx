@@ -5,14 +5,17 @@ import UsersTable from './components/UsersTable';
 
 export default function UsersTabComponent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <TabsManagerServer
       paramName="usertab"
       searchParams={searchParams}
       defaultTab="usuarios-empleados"
+      permissions={permissions}
       tabs={[
         {
           value: 'usuarios-empleados',

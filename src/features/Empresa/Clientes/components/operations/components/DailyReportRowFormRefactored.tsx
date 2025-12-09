@@ -1,10 +1,13 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useDailyReportFormStore } from '@/stores/useDailyReportFormStore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { format, parse } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Loader2 } from 'lucide-react';
 import React from 'react';
 
@@ -196,7 +199,35 @@ export function DailyReportRowFormRefactored() {
   // 9. Manejar envío
   const { onSubmit } = useFormSubmit(isCreating, selectedRow, () => {}, reset, queryClient);
 
-  // 10. Manejar cancelación
+  // 10. Obtener fecha del parte diario
+  const formDate = form.watch('date');
+  const reportDate = React.useMemo(() => {
+    if (isCreating) {
+      return formDate ? format(formDate, 'dd/MM/yyyy', { locale: es }) : null;
+    } else {
+      if (!selectedRow?.date) return null;
+
+      // La fecha puede venir en formato "DD-MM-YYYY" o como Date
+      try {
+        // Intentar parsear si viene en formato "DD-MM-YYYY"
+        if (typeof selectedRow.date === 'string' && selectedRow.date.includes('-')) {
+          // Verificar si es formato DD-MM-YYYY
+          const parts = selectedRow.date.split('-');
+          if (parts.length === 3 && parts[0].length === 2) {
+            const parsedDate = parse(selectedRow.date, 'dd-MM-yyyy', new Date());
+            return format(parsedDate, 'dd/MM/yyyy', { locale: es });
+          }
+        }
+        // Si es Date o formato ISO, usar directamente
+        return format(new Date(selectedRow.date), 'dd/MM/yyyy', { locale: es });
+      } catch (error) {
+        // Si falla el parseo, mostrar la fecha tal como viene
+        return selectedRow.date;
+      }
+    }
+  }, [isCreating, selectedRow, formDate]);
+
+  // 11. Manejar cancelación
   const handleCancel = () => {
     form.reset(defaultValues);
     setSelectedCustomer(null);
@@ -209,7 +240,14 @@ export function DailyReportRowFormRefactored() {
     <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
       <SheetContent className="sm:max-w-screen-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{isCreating ? 'Crear Línea de Parte Diario' : 'Editar Parte Diario'}</SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle>{isCreating ? 'Crear Línea de Parte Diario' : 'Editar Parte Diario'}</SheetTitle>
+            {reportDate && (
+              <Badge variant="outline" className="text-sm font-normal">
+                Fecha: {reportDate}
+              </Badge>
+            )}
+          </div>
           <SheetDescription>
             {isCreating
               ? 'Complete los campos para crear una nueva línea. Estado inicial: En certificación.'

@@ -199,9 +199,9 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
           const equipment = row.original.customer_equipment || [];
           return (
             <div className="flex flex-wrap gap-1">
-              {equipment.map((eq, index) => (
+              {equipment.map((eq: any, index: number) => (
                 <Badge key={index} variant="secondary" className="rounded-sm">
-                  {eq.name}
+                  {typeof eq === 'object' && eq !== null && 'name' in eq ? eq.name : String(eq)}
                 </Badge>
               ))}
             </div>
@@ -209,8 +209,11 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
         },
         filterFn: (row, id, value) => {
           if (!value || value.length === 0) return true;
-          const equipment = row.original.customer_equipment.map((eq) => eq.name);
-          return equipment.some((eqName) => value.includes(eqName));
+          const equipment = row.original.customer_equipment || [];
+          const equipmentNames = equipment.map((eq: any) =>
+            typeof eq === 'object' && eq !== null && 'name' in eq ? eq.name : String(eq)
+          );
+          return equipmentNames.some((eqName) => value.includes(eqName));
         },
         exportFormatter: (value, row) => formatCustomerEquipmentForExport(row.customer_equipment),
       },
@@ -253,11 +256,103 @@ export const EnhancedComercialReportTable: React.FC<EnhancedComercialReportTable
       {
         id: 'remit_number',
         accessorKey: 'remit_number',
+        // Usar accessorFn para que getFacetedUniqueValues pueda contar cada remito individualmente
+        accessorFn: (row) => {
+          const remitNumbers = row.remit_numbers || [];
+          if (remitNumbers.length > 0) {
+            // Devolver una cadena separada por comas para que TanStack pueda procesarla
+            return remitNumbers.join(',');
+          }
+          return row.remit_number || '';
+        },
         header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="N° de Remito" />,
+        cell: ({ row }) => {
+          // Obtener remitos desde el array o desde el string concatenado
+          const remitNumbers = row.original.remit_numbers || [];
+          const remitNumberString = row.original.remit_number || '';
+
+          // Si hay array de remitos, usarlo (preferido)
+          if (remitNumbers && remitNumbers.length > 0) {
+            return (
+              <div className="flex flex-wrap gap-1">
+                {remitNumbers.map((remitNum: string, index: number) => (
+                  <Badge key={index} variant="outline" className="rounded-sm">
+                    {remitNum}
+                  </Badge>
+                ))}
+              </div>
+            );
+          }
+
+          // Si hay string concatenado, mostrarlo directamente
+          if (remitNumberString) {
+            // Si tiene comas, separar y mostrar como badges
+            if (remitNumberString.includes(',')) {
+              const remitos = remitNumberString
+                .split(',')
+                .map((r: string) => r.trim())
+                .filter(Boolean);
+              return (
+                <div className="flex flex-wrap gap-1">
+                  {remitos.map((remitNum: string, index: number) => (
+                    <Badge key={index} variant="outline" className="rounded-sm">
+                      {remitNum}
+                    </Badge>
+                  ))}
+                </div>
+              );
+            }
+            // Si es un solo remito, mostrarlo como badge
+            return (
+              <Badge variant="outline" className="rounded-sm">
+                {remitNumberString}
+              </Badge>
+            );
+          }
+
+          return <span>-</span>;
+        },
         filterFn: (row, id, value) => {
-          if (!value) return true;
+          if (!value || (Array.isArray(value) && value.length === 0)) return true;
+
+          // Si es un array (filtro select), buscar si alguno de los valores seleccionados coincide
+          if (Array.isArray(value)) {
+            const remitNumbers = row.original.remit_numbers || [];
+
+            // Si hay array de remitos, buscar coincidencias
+            if (remitNumbers.length > 0) {
+              return remitNumbers.some((remitNum: string) => value.includes(remitNum));
+            }
+
+            // Buscar en el string concatenado (fallback)
+            const remitNumberString = row.original.remit_number || '';
+            if (remitNumberString) {
+              const remitos = remitNumberString
+                .split(',')
+                .map((r: string) => r.trim())
+                .filter(Boolean);
+              return remitos.some((remitNum: string) => value.includes(remitNum));
+            }
+
+            return false;
+          }
+
+          // Compatibilidad con búsqueda de texto (por si acaso)
+          const searchTerm = String(value).toLowerCase().trim();
+          const remitNumbers = row.original.remit_numbers || [];
+          if (remitNumbers.length > 0) {
+            return remitNumbers.some((remitNum: string) => String(remitNum).toLowerCase().includes(searchTerm));
+          }
           const remit = row.original.remit_number || '';
-          return String(remit).toLowerCase().includes(String(value).toLowerCase());
+          return String(remit).toLowerCase().includes(searchTerm);
+        },
+        exportHeader: 'N° de Remito',
+        exportFormatter: (value, row) => {
+          const remitNumbers = row.remit_numbers || [];
+          if (remitNumbers.length > 0) {
+            return remitNumbers.join(', ');
+          }
+          return row.remit_number || '';
         },
       },
       {

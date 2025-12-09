@@ -112,7 +112,7 @@ export function ModulePermissions({ userId, permissions, disabled = false }: Mod
         const key = `${perm.tab_id}:${perm.action_id}`;
         map.set(key, {
           source: perm.source,
-          isGranted: perm.is_granted !== false,
+          isGranted: perm.is_granted === true,
           roleId: perm.role_id,
           roleName: perm.role_name,
           roleColor: perm.role_color,

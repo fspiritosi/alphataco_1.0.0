@@ -1,5 +1,4 @@
-import { checkPermissionServer } from '@/features/Permissions';
-import type { ModuleSlug } from '@/features/Permissions/permissions-map';
+import { PERMISSIONS, type ModuleSlug } from '@/features/Permissions/permissions-map';
 import { TabsManagerClient } from './TabsManagerClient';
 import type { TabsManagerServerProps } from './types';
 
@@ -7,10 +6,13 @@ import type { TabsManagerServerProps } from './types';
  * TabsManagerServer - Componente servidor para gestionar pestañas con tipado fuerte.
  *
  * Este componente se encarga de:
- * - Filtrar pestañas según permisos del usuario en la base de datos
- * - Verificar permisos usando canViewServer() con lógica de visibilidad inferida
+ * - Filtrar pestañas según permisos del usuario proporcionados como prop
+ * - Verificar permisos usando el objeto proporcionado directamente (sin caché)
  * - Determinar el valor por defecto basado en searchParams o defaultTab
  * - Renderizar el componente cliente con la configuración procesada
+ *
+ * IMPORTANTE: Los permisos deben obtenerse en cada página y pasarse como prop obligatoria.
+ * No hay fallback: si no hay permisos, no hay acceso.
  *
  * VISIBILIDAD INFERIDA: Si el usuario no tiene permiso explícito de 'view' en una tab,
  * pero tiene acceso a alguna de sus subtabs, la tab será visible automáticamente.
@@ -19,6 +21,9 @@ import type { TabsManagerServerProps } from './types';
  *
  * @example
  * ```tsx
+ * // En cada página
+ * const permissions = await getUserPermissionsMapServer();
+ *
  * const tabs = [
  *   { value: 'principal', label: 'Principal', moduleSlug: 'dashboard', tabSlug: 'principal', content: <Content /> },
  *   { value: 'documentacion', label: 'Documentación', moduleSlug: 'dashboard', tabSlug: 'documentacion', content: <Content /> },
@@ -28,7 +33,8 @@ import type { TabsManagerServerProps } from './types';
  *   paramName="tab"
  *   searchParams={searchParams}
  *   tabs={tabs}
- *   defaultTab="principal"  // ← Autocompletado: 'principal' | 'documentacion'
+ *   defaultTab="principal"
+ *   permissions={permissions}  // ← OBLIGATORIO
  * />
  * ```
  */
@@ -38,25 +44,73 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   defaultTab,
   searchParams,
   dependentParams = [],
+  permissions: providedPermissions,
 }: TabsManagerServerProps<M>) {
-  // Filtrar tabs basándose en permisos
-  // Para subtabs directas, usar verificación explícita (sin inferencia)
-  // Para tabs padre, usar canViewServer con visibilidad inferida
-  const filteredTabsPromises = tabs.map(async (tab) => {
+  // Convertir el objeto plano de permisos a Map para acceso O(1)
+  // Los permisos son obligatorios, no hay fallback
+  const permissionMap = new Map<string, boolean>();
+  if (providedPermissions && typeof providedPermissions === 'object' && !Array.isArray(providedPermissions)) {
+    const entries = Object.entries(providedPermissions);
+    entries.forEach(([key, value]) => {
+      permissionMap.set(key, value);
+    });
+  }
+
+  // Helper para verificar visibilidad inferida (si tiene acceso a alguna subtab)
+  const checkInferredVisibility = (moduleSlug: string, tabSlug: string): boolean => {
+    const moduleDef = PERMISSIONS[moduleSlug as ModuleSlug];
+    if (!moduleDef) return false;
+
+    // Helper para encontrar la definición del tab
+    const findTabDef = (tabs: any): any => {
+      if (tabs[tabSlug]) return tabs[tabSlug];
+      for (const key in tabs) {
+        if (tabs[key].subtabs) {
+          const found = findTabDef(tabs[key].subtabs);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const tabDef = findTabDef(moduleDef.tabs);
+    if (!tabDef || !tabDef.subtabs) return false;
+
+    // Helper para verificar si alguna subtab tiene permiso de 'view'
+    const hasAnySubtabPermission = (subtabs: any): boolean => {
+      for (const key in subtabs) {
+        const subtab = subtabs[key];
+        // Verificar si esta subtab tiene permiso de 'view'
+        const permissionKey = `${moduleSlug}:${subtab.slug}:view`;
+        if (permissionMap.get(permissionKey)) return true;
+
+        // Recursivamente verificar sus subtabs
+        if (subtab.subtabs && hasAnySubtabPermission(subtab.subtabs)) return true;
+      }
+      return false;
+    };
+
+    return hasAnySubtabPermission(tabDef.subtabs);
+  };
+
+  // Filtrar tabs basándose en permisos usando el Map cacheado
+  const filteredTabs = tabs.filter((tab) => {
     // Si no tiene moduleSlug/tabSlug, mostrar siempre (sin restricción)
     if (!tab.moduleSlug || !tab.tabSlug) {
-      return { tab, hasPermission: true };
+      return true;
     }
 
-    // Para tabs que son subtabs directas (nivel 1), verificar explícitamente sin inferir
-    // Esto previene que se muestren subtabs que no tienen permiso explícito
-    // Solo usar canViewServer con inferencia para tabs padre que pueden necesitarla
-    const hasPermission = await checkPermissionServer(String(tab.moduleSlug), String(tab.tabSlug), 'view');
-    return { tab, hasPermission };
-  });
+    const moduleSlug = String(tab.moduleSlug);
+    const tabSlug = String(tab.tabSlug);
 
-  const filteredTabsResults = await Promise.all(filteredTabsPromises);
-  const filteredTabs = filteredTabsResults.filter((result) => result.hasPermission).map((result) => result.tab);
+    // 1. Verificar permiso explícito de 'view' usando el Map (acceso O(1))
+    const key = `${moduleSlug}:${tabSlug}:view`;
+    if (permissionMap.get(key)) return true;
+
+    // 2. Verificar visibilidad inferida (si tiene acceso a alguna subtab)
+    // Esto permite que tabs padre sean visibles si el usuario tiene acceso a alguna de sus subtabs
+    return checkInferredVisibility(moduleSlug, tabSlug);
+  });
 
   // Si no hay tabs visibles, mostrar mensaje
   if (filteredTabs.length === 0) {

@@ -1,3 +1,4 @@
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, FileType, Truck, Users } from 'lucide-react';
 import { Suspense } from 'react';
@@ -6,11 +7,14 @@ import DocumentosEmpresaTabContent from './DocumentosEmpresa/DocumentosEmpresaTa
 import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
 import TiposDocumentosTabContent from './TiposDocumentos/TiposDocumentosTabContent';
 
-export default function DocumentacionComponent({
+export default async function DocumentacionComponent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div className="">
       <TabsManagerServer
@@ -18,6 +22,7 @@ export default function DocumentacionComponent({
         searchParams={searchParams}
         defaultTab="documentos-de-empleados"
         dependentParams={['subtab']}
+        permissions={permissions}
         tabs={[
           {
             value: 'documentos-de-empleados',
@@ -29,7 +34,7 @@ export default function DocumentacionComponent({
             ),
             moduleSlug: 'documentacion',
             tabSlug: 'documentos-de-empleados',
-            content: <DocumentosEmpleadosTabContent searchParams={searchParams} />,
+            content: <DocumentosEmpleadosTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'documentos-de-equipos',
@@ -41,7 +46,7 @@ export default function DocumentacionComponent({
             ),
             moduleSlug: 'documentacion',
             tabSlug: 'documentos-de-equipos',
-            content: <DocumentosEquiposTabContent searchParams={searchParams} />,
+            content: <DocumentosEquiposTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'documentos-de-empresa',
@@ -53,7 +58,7 @@ export default function DocumentacionComponent({
             ),
             moduleSlug: 'documentacion',
             tabSlug: 'documentos-de-empresa',
-            content: <DocumentosEmpresaTabContent searchParams={searchParams} />,
+            content: <DocumentosEmpresaTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'tipos-de-documentos',
@@ -67,7 +72,7 @@ export default function DocumentacionComponent({
             tabSlug: 'tipos-de-documentos',
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
-                <TiposDocumentosTabContent searchParams={searchParams} />
+                <TiposDocumentosTabContent searchParams={searchParams} permissions={permissions} />
               </Suspense>
             ),
           },

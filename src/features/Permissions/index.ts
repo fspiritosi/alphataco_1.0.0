@@ -39,6 +39,7 @@ export {
   checkMultiplePermissionsServer,
   checkPermissionServer,
   getUserAccessibleModulesServer,
+  getUserPermissionsMapServer,
   getUserPermissionsServer,
   requirePermissionServer,
 } from './actionsServer';

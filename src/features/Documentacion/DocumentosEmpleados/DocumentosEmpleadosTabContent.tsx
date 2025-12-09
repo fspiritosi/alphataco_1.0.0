@@ -6,10 +6,12 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
-export default function DocumentosEmpleadosTabContent({
+export default async function DocumentosEmpleadosTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <div>
@@ -23,6 +25,7 @@ export default function DocumentosEmpleadosTabContent({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="empleados-permanentes"
+        permissions={permissions}
         tabs={[
           {
             value: 'empleados-permanentes',

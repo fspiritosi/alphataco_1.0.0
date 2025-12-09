@@ -15,8 +15,10 @@ import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper'
 
 export default async function GeneralTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   const cookiesStore = cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
@@ -27,6 +29,7 @@ export default async function GeneralTabContent({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="company"
+        permissions={permissions}
         tabs={[
           {
             value: 'company',
@@ -120,7 +123,7 @@ export default async function GeneralTabContent({
                 <PermissionGuardServer module="empresa" tab="usuarios-empleados" action="create">
                   <CreateUserModal />
                 </PermissionGuardServer>
-                <UsersTabComponent searchParams={searchParams} />
+                <UsersTabComponent searchParams={searchParams} permissions={permissions} />
               </div>
             ),
           },

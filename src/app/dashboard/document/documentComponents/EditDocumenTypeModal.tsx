@@ -60,6 +60,7 @@ import {
 } from '@/components/ui/sheet';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { fetchGuilds } from '@/features/Employees/EmpleadoID/lib/actions/catalog-actions';
+import { usePermissions } from '@/features/Permissions';
 import { fetchEmployeesWithFilters, fetchVehiclesWithFilters, RpcFilter } from '@/lib/documentFilters';
 import { handleSupabaseError } from '@/lib/errorHandler';
 import { supabaseBrowser } from '@/lib/supabase/browser';
@@ -117,6 +118,12 @@ export function EditModal({ Equipo }: Props) {
   const router = useRouter();
   const fetchDocumentTypes = useCountriesStore((state) => state.documentTypes);
   const actualCompany = Cookies.get('actualComp');
+
+  // Verificar permisos para cada tipo de documento basado en las subtabs de tipos-de-documentos
+  const { canCreate } = usePermissions();
+  const canCreatePersona = canCreate('documentacion', 'tipos-docs-personas');
+  const canCreateEquipos = canCreate('documentacion', 'tipos-docs-equipos');
+
   const [showEmployeePreview, setShowEmployeePreview] = useState(false);
   const [showVehiclePreview, setShowVehiclePreview] = useState(false);
   const [showAlertsUpdateModal, setShowAlertsUpdateModal] = useState(false);
@@ -1264,9 +1271,10 @@ export function EditModal({ Equipo }: Props) {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Persona">Persona</SelectItem>
-                            <SelectItem value="Equipos">Equipos</SelectItem>
-                            <SelectItem value="Empresa">Empresa</SelectItem>
+                            {canCreatePersona && <SelectItem value="Persona">Persona</SelectItem>}
+                            {canCreateEquipos && <SelectItem value="Equipos">Equipos</SelectItem>}
+                            {/* Opción de Empresa oculta temporalmente - no hay tab de tipos de documentos de empresa */}
+                            {/* {canCreateEmpresa && <SelectItem value="Empresa">Empresa</SelectItem>} */}
                           </SelectContent>
                         </Select>
                       </div>

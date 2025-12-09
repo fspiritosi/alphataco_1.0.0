@@ -1,4 +1,5 @@
 import PrincipalSkeleton from '@/features/Dashboard/Principal/components/PrincipalSkeleton';
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { BarChart3, FileText, Home } from 'lucide-react';
 import { Suspense } from 'react';
@@ -6,11 +7,14 @@ import DocumentsTabContent from './Documentacion/DocumentsTabContent';
 import EstadisticasTabComponent from './Estadisticas/EstadisticasTabComponent';
 import PrincipalTabContent from './Principal/PrincipalTabContent';
 
-export default function DashboardComponent({
+export default async function DashboardComponent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
       {/* Main Tabs con TabsManagerServer */}
@@ -19,6 +23,7 @@ export default function DashboardComponent({
         searchParams={searchParams}
         defaultTab="principal"
         dependentParams={['subtab']} // Limpia 'subtab' al cambiar de tab principal
+        permissions={permissions} // ← Pasar permisos explícitamente como prop
         tabs={[
           {
             value: 'principal',
@@ -46,7 +51,7 @@ export default function DashboardComponent({
             ),
             moduleSlug: 'dashboard',
             tabSlug: 'documentacion',
-            content: <DocumentsTabContent searchParams={searchParams} />,
+            content: <DocumentsTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'estadisticas',
@@ -58,7 +63,7 @@ export default function DashboardComponent({
             ),
             moduleSlug: 'dashboard',
             tabSlug: 'estadisticas',
-            content: <EstadisticasTabComponent searchParams={searchParams} />,
+            content: <EstadisticasTabComponent searchParams={searchParams} permissions={permissions} />,
           },
         ]}
       />

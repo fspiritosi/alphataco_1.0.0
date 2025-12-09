@@ -1,20 +1,25 @@
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, Truck, Users } from 'lucide-react';
 import EquipmentsTabContent from './Equipos/EquipmentsTabContent';
 import GeneralTabContent from './General/GeneralTabContent';
 import RrhhTabContent from './RRHH/RrhhTabContent';
 
-export default function EmpresaComponent({
+export default async function EmpresaComponent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <TabsManagerServer
       paramName="tab"
       searchParams={searchParams}
       defaultTab="general"
       dependentParams={['subtab']}
+      permissions={permissions}
       tabs={[
         {
           value: 'general',
@@ -26,7 +31,7 @@ export default function EmpresaComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'general',
-          content: <GeneralTabContent searchParams={searchParams} />,
+          content: <GeneralTabContent searchParams={searchParams} permissions={permissions} />,
         },
         {
           value: 'rrhh',
@@ -38,7 +43,7 @@ export default function EmpresaComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'rrhh',
-          content: <RrhhTabContent searchParams={searchParams} />,
+          content: <RrhhTabContent searchParams={searchParams} permissions={permissions} />,
         },
         {
           value: 'vehicles',
@@ -50,7 +55,7 @@ export default function EmpresaComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'vehicles',
-          content: <EquipmentsTabContent searchParams={searchParams} />,
+          content: <EquipmentsTabContent searchParams={searchParams} permissions={permissions} />,
         },
       ]}
     />

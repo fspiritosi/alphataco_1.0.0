@@ -8,14 +8,17 @@ import EmployesDiagramWrapper from './EmployesDiagramWrapper';
 
 export default async function EmployesDiagram({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <TabsManagerServer
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="old"
+      permissions={permissions}
       tabs={[
         {
           value: 'old',

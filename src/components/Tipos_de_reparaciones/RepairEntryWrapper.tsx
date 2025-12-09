@@ -15,9 +15,11 @@ import { fetchMaintenanceGroupsAction } from './actions/maintenanceGroupActions'
 async function RepairEntryWrapper({
   equipment_id,
   searchParams,
+  permissions,
 }: {
   equipment_id?: string;
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   const supabase = supabaseServer();
   const {
@@ -43,6 +45,7 @@ async function RepairEntryWrapper({
       paramName="mode"
       searchParams={searchParams}
       defaultTab="carga-individual"
+      permissions={permissions}
       tabs={[
         {
           value: 'carga-individual',

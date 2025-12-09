@@ -8,4 +8,5 @@
 export { TabsManagerClient } from './TabsManagerClient';
 export { TabsManagerClientSide } from './TabsManagerClientSide';
 export { TabsManagerServer } from './TabsManagerServer';
+export { TabsManagerServerWithPermissions } from './TabsManagerServerWithPermissions';
 export type { TabDefinition, TabsManagerClientProps, TabsManagerServerProps } from './types';

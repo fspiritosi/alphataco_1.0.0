@@ -7,14 +7,17 @@ import OtrosEquipmentTableWrapperServer from './OnlyEquipmentTableWrapperServer'
 
 export default async function EquipmentListTabs({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <TabsManagerServer
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="vehicles"
+      permissions={permissions}
       tabs={[
         {
           value: 'vehicles',

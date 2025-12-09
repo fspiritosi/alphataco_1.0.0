@@ -1,19 +1,24 @@
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText } from 'lucide-react';
 import { Suspense } from 'react';
 import FormulariosTabContent from './Formularios/FormulariosTabContent';
 
-export default function FormulariosComponent({
+export default async function FormulariosComponent({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
       <TabsManagerServer
         paramName="tab"
         searchParams={searchParams}
         defaultTab="formularios"
+        permissions={permissions}
         tabs={[
           {
             value: 'formularios',

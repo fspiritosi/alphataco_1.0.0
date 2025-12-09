@@ -1,5 +1,6 @@
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import { getUserPermissionsMapServer } from '@/features/Permissions/actionsServer';
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {
@@ -21,14 +22,16 @@ export async function generateMetadata() {
   }
 }
 
-export default function MantenimientoPage({
+export default async function MantenimientoPage({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  const permissions = await getUserPermissionsMapServer();
+
   return (
     <div>
-      <RepairTypes mechanic searchParams={searchParams} moduleSlug="mantenimiento" />
+      <RepairTypes mechanic searchParams={searchParams} moduleSlug="mantenimiento" permissions={permissions} />
     </div>
   );
 }

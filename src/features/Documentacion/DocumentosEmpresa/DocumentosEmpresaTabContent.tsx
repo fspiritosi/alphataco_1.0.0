@@ -9,8 +9,10 @@ import EmpresaPermanentesWrapper from './components/EmpresaPermanentesWrapper';
 
 export default async function DocumentosEmpresaTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   // Fetch company documents data
   const supabase = supabaseServer();
@@ -32,6 +34,7 @@ export default async function DocumentosEmpresaTabContent({
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="empresa-permanentes"
+      permissions={permissions}
       tabs={[
         {
           value: 'empresa-permanentes',

@@ -1,6 +1,7 @@
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { getDailyReportByIdOnlyDate } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DayliReportDetailTableServerWrapper from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTableServerWrapper';
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText } from 'lucide-react';
 import moment from 'moment';
@@ -14,6 +15,9 @@ async function page({
 }) {
   // Usar la función optimizada para obtener solo status y date
   const dailyReportStatus = await getDailyReportByIdOnlyDate(params.uuid);
+
+  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  const permissions = await getUserPermissionsMapServer();
 
   return (
     <div className="mx-6 mt-4 space-y-6">
@@ -29,6 +33,7 @@ async function page({
           paramName="tab"
           searchParams={searchParams}
           defaultTab="detalle"
+          permissions={permissions}
           tabs={[
             {
               value: 'detalle',

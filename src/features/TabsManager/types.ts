@@ -123,6 +123,25 @@ export interface TabsManagerServerProps<M extends ModuleSlug = ModuleSlug> {
    * ```
    */
   dependentParams?: string[];
+  /**
+   * Objeto plano de permisos (OBLIGATORIO).
+   *
+   * Debe obtenerse en cada página usando getUserPermissionsMapServer() y pasarse como prop.
+   * No hay fallback: si no se proporciona, no habrá permisos.
+   *
+   * @example
+   * ```tsx
+   * // En cada página
+   * const permissions = await getUserPermissionsMapServer();
+   *
+   * <TabsManagerServer
+   *   permissions={permissions}  // ← OBLIGATORIO
+   *   tabs={tabs}
+   *   ...
+   * />
+   * ```
+   */
+  permissions: Record<string, boolean>;
 }
 
 /**

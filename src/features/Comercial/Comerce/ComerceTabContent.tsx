@@ -11,14 +11,17 @@ import { Suspense } from 'react';
 
 export default function ComerceTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <TabsManagerServer
       paramName="subtab"
       searchParams={searchParams}
       defaultTab="customers"
+      permissions={permissions}
       tabs={[
         {
           value: 'customers',

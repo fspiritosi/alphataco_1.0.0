@@ -33,7 +33,37 @@ export function DataTableFacetedFilter<TData, TValue>({
   title,
   options,
 }: DataTableFacetedFilterProps<TData, TValue>) {
-  const facets = column?.getFacetedUniqueValues();
+  let facets = column?.getFacetedUniqueValues();
+
+  // Normalizar facets para manejar valores múltiples separados por comas (para remitos, etc.)
+  if (facets && facets.size > 0) {
+    const normalizedFacets = Array.from(facets).reduce((acc, [key, value]) => {
+      const normalizedKey = typeof key === 'string' ? key.trim() : String(key);
+
+      // Si la clave contiene comas, dividir y contar cada valor individualmente
+      if (normalizedKey.includes(',')) {
+        const keys = normalizedKey
+          .split(',')
+          .map((k) => k.trim())
+          .filter(Boolean);
+        keys.forEach((singleKey) => {
+          if (acc.has(singleKey)) {
+            acc.set(singleKey, (acc.get(singleKey) || 0) + value);
+          } else {
+            acc.set(singleKey, value);
+          }
+        });
+      } else {
+        // Si no tiene comas, mantener el valor original
+        acc.set(normalizedKey, (acc.get(normalizedKey) || 0) + value);
+      }
+
+      return acc;
+    }, new Map<string, number>());
+
+    facets = normalizedFacets as typeof facets;
+  }
+
   const selectedValues = new Set(column?.getFilterValue() as string[]);
 
   return (

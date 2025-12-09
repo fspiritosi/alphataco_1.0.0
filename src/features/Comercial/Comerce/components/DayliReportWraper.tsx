@@ -67,54 +67,67 @@ export const transformDailyReports = (reports: getFilteredDailyReportRowsType) =
     ?.map((row) => ({
       id: row.id,
       date: row.date,
-      dailyReportStatus: row.dailyreport.status,
+      dailyReportStatus: row.dailyreport?.status || 'cerrado', // Acceder a dailyreport desde el objeto original
       created_at: row.created_at, // Agregar created_at para detectar filas post-cierre
       type_service: row.type_service,
       preparte: row.preparte,
       last_comercial_edit_at: row.last_comercial_edit_at,
-      customer: row.customers?.name,
+      customer: row.customer || row.customers?.name,
       cancel_reason: row.cancel_reason,
-      employees: row.dailyreportemployeerelations.map(
-        (rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname
-      ),
+      employees:
+        row.employees ||
+        row.dailyreportemployeerelations?.map((rel) => rel.employees?.firstname + ' ' + rel.employees?.lastname) ||
+        [],
       equipment:
-        row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
+        row.company_equipment ||
+        row.dailyreportequipmentrelations?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) ||
+        [],
       customer_equipment:
-        row.dailyreport_customer_equipment_relations.map((rel) => {
+        row.customer_equipment ||
+        row.dailyreport_customer_equipment_relations?.map((rel) => {
           return {
             name: rel.equipos_clientes?.name,
             type: rel.equipos_clientes?.type,
             id: rel.equipos_clientes?.id,
             relacion_id: rel.id,
           };
-        }) || [],
-      services: row.customer_services?.service_name,
-      item: row.service_items?.item_name,
+        }) ||
+        [],
+      services: row.services || row.customer_services?.service_name,
+      item: row.item || row.service_items?.item_name,
       item_description: row.service_items?.item_description || '',
       start_time: row.start_time,
       end_time: row.end_time,
       status: row.status,
       working_day: row.working_day,
       sector_customer_id: row.service_sectors?.id,
-      sector: row.service_sectors?.sectors?.name,
+      sector: row.sector || row.service_sectors?.sectors?.name,
       completed_night: row.completed_night as boolean,
       completed_day: row.completed_day as boolean,
       areas_customer_id: row.service_areas?.id,
-      area: row.service_areas?.areas_cliente?.descripcion_corta,
+      area: row.area || row.service_areas?.areas_cliente?.descripcion_corta,
       description: row.description || '',
       document_path: row.document_path,
-      remit_number: row.remit_number,
-      employees_references: row.dailyreportemployeerelations.map((rel) => ({
-        ...rel.employees,
-        name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
-        id: rel.employees?.id,
-      })),
-      equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
-        ...rel.vehicles,
-        name: rel.vehicles?.domain || rel.vehicles?.intern_number,
-        id: rel.vehicles?.id,
-        brand_vehicles: rel.vehicles?.brand_vehicles?.name,
-      })),
+      remit_number: row.remit_number || '', // Ya viene procesado con múltiples remitos separados por coma
+      remit_numbers: row.remit_numbers || [], // Array con todos los números de remito
+      remitos: row.remitos || [], // Array completo de objetos remito
+      employees_references:
+        row.employees_references ||
+        row.dailyreportemployeerelations?.map((rel) => ({
+          ...rel.employees,
+          name: rel.employees?.firstname + ' ' + rel.employees?.lastname,
+          id: rel.employees?.id,
+        })) ||
+        [],
+      equipment_references:
+        row.equipment_references ||
+        row.dailyreportequipmentrelations?.map((rel) => ({
+          ...rel.vehicles,
+          name: rel.vehicles?.domain || rel.vehicles?.intern_number,
+          id: rel.vehicles?.id,
+          brand_vehicles: rel.vehicles?.brand_vehicles?.name,
+        })) ||
+        [],
       data_to_clone: {
         customer_id: row.customers?.id,
         service_id: row.customer_services?.id,
@@ -565,8 +578,30 @@ export default function DailyReportWrapper() {
       {
         columnId: 'remit_number',
         title: 'N° de Remito',
-        type: 'text' as const,
-        placeholder: 'Buscar por remito',
+        type: 'select' as const,
+        options: Array.from(
+          new Set(
+            formattedData.flatMap((d) => {
+              // Obtener remitos del array remit_numbers si existe, o del string remit_number
+              if (d.remit_numbers && d.remit_numbers.length > 0) {
+                return d.remit_numbers.filter(Boolean);
+              }
+              if (d.remit_number) {
+                // Si es string, separar por comas
+                return d.remit_number
+                  .split(',')
+                  .map((r: string) => r.trim())
+                  .filter(Boolean);
+              }
+              return [];
+            })
+          )
+        )
+          .sort()
+          .map((remit) => ({
+            value: remit,
+            label: remit,
+          })),
       },
       {
         columnId: 'working_day',

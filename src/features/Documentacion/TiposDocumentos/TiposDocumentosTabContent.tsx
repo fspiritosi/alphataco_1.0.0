@@ -9,10 +9,12 @@ export default async function TiposDocumentosTabContent({
   searchParams,
   showOnlyPersonas = false,
   showOnlyEquipos = false,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
   showOnlyPersonas?: boolean;
   showOnlyEquipos?: boolean;
+  permissions: Record<string, boolean>;
 }) {
   const allTabs = [];
 
@@ -66,7 +68,13 @@ export default async function TiposDocumentosTabContent({
           <TypesDocumentAction optionChildrenProp={showOnlyPersonas ? 'Persona' : showOnlyEquipos ? 'Equipo' : 'all'} />
         </div>
       </PermissionGuardServer>
-      <TabsManagerServer paramName="subtab" searchParams={searchParams} defaultTab={defaultTab} tabs={allTabs} />
+      <TabsManagerServer
+        paramName="subtab"
+        searchParams={searchParams}
+        defaultTab={defaultTab}
+        permissions={permissions}
+        tabs={allTabs}
+      />
     </div>
   );
 }

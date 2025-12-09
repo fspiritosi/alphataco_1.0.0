@@ -20,7 +20,7 @@ import {
   getVehicleOwners,
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
-import { getRole } from '@/lib/utils/getRole';
+import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
 
 interface VehiclePageProps {
@@ -32,7 +32,8 @@ export type VehicleById = Awaited<ReturnType<typeof getVehicleById>> | null;
 export default async function VehiclePage({ searchParams }: VehiclePageProps) {
   const id = searchParams.id;
   const mode = searchParams.action || 'view';
-  const role = await getRole();
+  // const role = await getRole();
+  const permissions = await getUserPermissionsMapServer();
 
   let vehicle: null | VehicleById = null;
 
@@ -75,11 +76,14 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
           hierarchicalPositionsPromise={getHierarchicalPositions()}
-          documentsComponent={
-            <DocumentEquipmentComponent id={vehicle?.id || ''} role={role} searchParams={searchParams} />
-          }
+          documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} searchParams={searchParams} />}
           repairsComponent={
-            <RepairTypes searchParams={searchParams} equipment_id={searchParams.id} moduleSlug="equipos" />
+            <RepairTypes
+              searchParams={searchParams}
+              equipment_id={searchParams.id}
+              moduleSlug="equipos"
+              permissions={permissions}
+            />
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
         />

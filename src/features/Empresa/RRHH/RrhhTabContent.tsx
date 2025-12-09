@@ -10,8 +10,10 @@ import DiagramTypesTabWrapper from './components/DiagramTypes/DiagramTypesTabWra
 
 export default function RrhhTabContent({
   searchParams,
+  permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
+  permissions: Record<string, boolean>;
 }) {
   return (
     <div>
@@ -19,6 +21,7 @@ export default function RrhhTabContent({
         paramName="subtab"
         searchParams={searchParams}
         defaultTab="listado"
+        permissions={permissions}
         tabs={[
           {
             value: 'listado',
