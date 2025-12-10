@@ -1,8 +1,9 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { Building2, Truck, Users } from 'lucide-react';
+import { BarChart3, Building2, Truck, Users } from 'lucide-react';
 import EquipmentsTabContent from './Equipos/EquipmentsTabContent';
 import GeneralTabContent from './General/GeneralTabContent';
+import KpisTabContent from './KPIs/KpisTabContent';
 import RrhhTabContent from './RRHH/RrhhTabContent';
 
 export default async function EmpresaComponent({
@@ -56,6 +57,18 @@ export default async function EmpresaComponent({
           moduleSlug: 'empresa',
           tabSlug: 'vehicles',
           content: <EquipmentsTabContent searchParams={searchParams} permissions={permissions} />,
+        },
+        {
+          value: 'kpis',
+          label: (
+            <span className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              KPIs
+            </span>
+          ),
+          moduleSlug: 'empresa',
+          tabSlug: 'kpis',
+          content: <KpisTabContent searchParams={searchParams} permissions={permissions} />,
         },
       ]}
     />

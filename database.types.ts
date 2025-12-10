@@ -2212,6 +2212,109 @@ export type Database = {
         };
         Relationships: [];
       };
+      kpi_revisions: {
+        Row: {
+          change_reason: string | null;
+          changed_by: string;
+          created_at: string | null;
+          id: string;
+          is_active: boolean | null;
+          kpi_id: string;
+          new_number: string | null;
+          new_validity_date: string | null;
+          previous_number: string | null;
+          previous_validity_date: string | null;
+        };
+        Insert: {
+          change_reason?: string | null;
+          changed_by: string;
+          created_at?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          kpi_id: string;
+          new_number?: string | null;
+          new_validity_date?: string | null;
+          previous_number?: string | null;
+          previous_validity_date?: string | null;
+        };
+        Update: {
+          change_reason?: string | null;
+          changed_by?: string;
+          created_at?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          kpi_id?: string;
+          new_number?: string | null;
+          new_validity_date?: string | null;
+          previous_number?: string | null;
+          previous_validity_date?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'kpi_revisions_kpi_id_fkey';
+            columns: ['kpi_id'];
+            isOneToOne: false;
+            referencedRelation: 'kpis';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      kpis: {
+        Row: {
+          calculation_formula: string;
+          code: string;
+          company_id: string;
+          created_at: string | null;
+          filters: Json | null;
+          id: string;
+          improvement_opportunities: string | null;
+          is_active: boolean | null;
+          name: string;
+          number: string | null;
+          technical_support: boolean | null;
+          updated_at: string | null;
+          validity_date: string;
+        };
+        Insert: {
+          calculation_formula: string;
+          code: string;
+          company_id: string;
+          created_at?: string | null;
+          filters?: Json | null;
+          id?: string;
+          improvement_opportunities?: string | null;
+          is_active?: boolean | null;
+          name: string;
+          number?: string | null;
+          technical_support?: boolean | null;
+          updated_at?: string | null;
+          validity_date: string;
+        };
+        Update: {
+          calculation_formula?: string;
+          code?: string;
+          company_id?: string;
+          created_at?: string | null;
+          filters?: Json | null;
+          id?: string;
+          improvement_opportunities?: string | null;
+          is_active?: boolean | null;
+          name?: string;
+          number?: string | null;
+          technical_support?: boolean | null;
+          updated_at?: string | null;
+          validity_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'kpis_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       maintenance_group_type_of_repairs: {
         Row: {
           created_at: string;
@@ -3967,6 +4070,7 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      generate_kpi_code: { Args: { company_uuid: string }; Returns: string };
       get_company_counts_indicator: {
         Args: { p_company_id?: string; save_to_table?: boolean };
         Returns: {

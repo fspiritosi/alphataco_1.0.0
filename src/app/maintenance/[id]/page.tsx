@@ -9,10 +9,12 @@ import { redirect } from 'next/navigation';
 export default async function Home({
   params,
 }: {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }) {
+  // En Next.js 15+, params es una Promise, necesitamos hacer await
+  const resolvedParams = await params;
   const cookiesStore = await cookies();
   const supabase = await supabaseServer();
   const employee = cookiesStore.get('empleado_id')?.value;
@@ -28,7 +30,7 @@ export default async function Home({
   }
 
   let role: any;
-  // const { equipments } = await fetch(`${URL}/api/equipment/${params.id}`).then((e) => e.json());
+  // const { equipments } = await fetch(`${URL}/api/equipment/${resolvedParams.id}`).then((e) => e.json());
   const equipments = await fetchAllEquipmentBasicData();
 
   if (user?.id) {
@@ -47,7 +49,7 @@ export default async function Home({
     .select(
       '*,user_id(*),employee_id(*),equipment_id(*,type(*),brand(*),model(*)),reparation_type(*),repairlogs(*,modified_by_employee(*),modified_by_user(*))'
     )
-    .eq('equipment_id', params.id)
+    .eq('equipment_id', resolvedParams.id)
     .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion']);
 
   // const vehiclesFormatted = setVehiclesToShow(equipments || []) || [];
@@ -67,7 +69,7 @@ export default async function Home({
     intern_number: equipment.intern_number || '',
     vehicle_type: equipment.type.name,
   }));
-  const currentEquipment = equipmentsForComboBox.find((equipment) => equipment.value === params.id);
+  const currentEquipment = equipmentsForComboBox.find((equipment) => equipment.value === resolvedParams.id);
   const savedVisibility = cookiesStore.get('repair-entry-table')?.value;
   const savedFilters = cookiesStore.get('repair-entry-table-filters')?.value;
 
@@ -80,7 +82,7 @@ export default async function Home({
       employee_id={employee}
       equipment={equipments}
       tipo_de_mantenimiento={types_of_repairs as TypeOfRepair}
-      default_equipment_id={params.id}
+      default_equipment_id={resolvedParams.id}
       savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
       savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
       role={role}

@@ -276,6 +276,13 @@ export const PERMISSIONS = {
           },
         },
       },
+      kpis: {
+        slug: 'kpis',
+        name: 'KPIs',
+        tabId: '10000000-0000-0000-0000-000000000004',
+        parent: null,
+        allowedActions: ['view', 'create', 'update'],
+      },
     },
   },
 

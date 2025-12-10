@@ -12,7 +12,9 @@ import { cn } from '@/lib/utils';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { revalidatePath } from 'next/cache';
 import CityInput from '../new/components/CityInput';
-export default async function companyRegister({ params }: { params: { id: string } }) {
+export default async function companyRegister({ params }: { params: Promise<{ id: string }> }) {
+  // En Next.js 15+, params es una Promise, necesitamos hacer await
+  const resolvedParams = await params;
   const supabase = await supabaseServer();
   const {
     data: { session },
@@ -32,7 +34,7 @@ export default async function companyRegister({ params }: { params: { id: string
     .from('company')
     .select('*,city(*),province_id(*)')
     .eq('owner_id', data?.[0]?.id || '')
-    .eq('id', params.id)
+    .eq('id', resolvedParams.id)
     .single();
 
   let { data: share_company_users, error: sharedError } = await supabase

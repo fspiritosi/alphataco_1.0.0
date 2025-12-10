@@ -6,8 +6,10 @@ import {
 } from '@/app/server/GET/actions';
 import DynamicFormWrapper from '@/components/CheckList/DynamicFormWrapper';
 
-async function page({ params }: { params: { id: string } }) {
-  const answer = await fetchAnswerById(params.id);
+async function page({ params }: { params: Promise<{ id: string }> }) {
+  // En Next.js 15+, params es una Promise, necesitamos hacer await
+  const resolvedParams = await params;
+  const answer = await fetchAnswerById(resolvedParams.id);
   const equipments = (await fetchAllEquipment()).map((equipment) => ({
     label: equipment.domain
       ? `${equipment.domain} - ${equipment.intern_number}`
