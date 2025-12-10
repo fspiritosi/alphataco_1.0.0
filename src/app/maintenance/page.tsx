@@ -11,12 +11,12 @@ import cookies from 'js-cookie';
 import { ArrowLeft, Clipboard } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-export default function CodeControlLogin() {
+function CodeControlLoginContent() {
   const [step, setStep] = useState('selection');
   const [loginType, setLoginType] = useState<'empleado' | 'invitado' | ''>('');
   const supabase = supabaseBrowser();
@@ -232,5 +232,13 @@ export default function CodeControlLogin() {
         )}
       </Card>
     </div>
+  );
+}
+
+export default function CodeControlLogin() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Cargando...</div>}>
+      <CodeControlLoginContent />
+    </Suspense>
   );
 }

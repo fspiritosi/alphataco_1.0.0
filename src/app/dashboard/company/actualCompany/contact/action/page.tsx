@@ -1,6 +1,8 @@
 import { cn } from '@/lib/utils';
+import { Suspense } from 'react';
 import BackButton from '../../../../../../components/BackButton';
 import ContactComponent from '../../../../../../components/ContactComponent';
+
 export default async function CustomerFormAction({ searchParams, params }: { searchParams: any; params: any }) {
   // const { data } = await supabase
   //   .from('customers')
@@ -20,7 +22,9 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
           searchParams.action === 'new' && 'col-span-8'
         )}
       >
-        <ContactComponent id={searchParams.id} />
+        <Suspense fallback={<div>Cargando...</div>}>
+          <ContactComponent id={searchParams.id} />
+        </Suspense>
       </div>
     </section>
   );

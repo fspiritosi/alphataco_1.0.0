@@ -6,6 +6,7 @@ import {
 } from '@/app/server/GET/actions';
 import { cn } from '@/lib/utils';
 import { cookies } from 'next/headers';
+import { Suspense } from 'react';
 import BackButton from '../../../../../../components/BackButton';
 import CustomerComponent from '../../../../../../components/CustomerComponent';
 
@@ -38,15 +39,17 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
           searchParams.action === 'new' && 'col-span-8'
         )}
       >
-        <CustomerComponent
-          equipment={equipment}
-          id={searchParams.id}
-          items={items}
-          employees={employees}
-          services={filteredServices}
-          savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-          savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-        />
+        <Suspense fallback={<div>Cargando...</div>}>
+          <CustomerComponent
+            equipment={equipment}
+            id={searchParams.id}
+            items={items}
+            employees={employees}
+            services={filteredServices}
+            savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+            savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
+          />
+        </Suspense>
         <div></div>
       </div>
     </section>
