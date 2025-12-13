@@ -113,7 +113,7 @@ export function VehicleUsageChart() {
     }
     const diffTime = Math.abs(range.to.getTime() - range.from.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30;
+    return diffDays <= 15;
   }, [range, timeRange]);
 
   // Calcular totales para el footer
