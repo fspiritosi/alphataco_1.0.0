@@ -1,49 +1,6 @@
 Mostrar el historico luego del KPI (historico de KPI)
 Si el KPI vence no se muestra el grafico
 
-## COD-164: Implementación de KPIs
-
-### Queries de INSERT para tabs y permisos
-
-```sql
--- Insertar tab de KPIs en el módulo Empresa
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id)
-VALUES (
-  '10000000-0000-0000-0000-000000000004',
-  'e0478383-1287-4b5e-a727-985baf867173',
-  'kpis',
-  'KPIs',
-  'Indicadores clave de desempeño',
-  4,
-  NULL
-)
-ON CONFLICT (id) DO UPDATE SET
-  slug = EXCLUDED.slug,
-  name = EXCLUDED.name,
-  description = EXCLUDED.description,
-  order_index = EXCLUDED.order_index;
-
--- Insertar permisos para la tab de KPIs (view, create, update)
--- Asignar permisos a roles: owner, admin, super-admin
-INSERT INTO role_permissions (role_id, tab_id, action_id)
-SELECT
-  r.id as role_id,
-  '10000000-0000-0000-0000-000000000004'::uuid as tab_id,
-  a.id as action_id
-FROM roles r
-CROSS JOIN actions a
-WHERE a.slug IN ('view', 'create', 'update')
-  AND r.slug IN ('owner', 'admin', 'super-admin')
-ON CONFLICT DO NOTHING;
-```
-
-### Estructura de tablas creadas
-
-- **kpis**: Tabla principal de KPIs con campos para número, vigencia, fórmula, soporte técnico y oportunidades de mejora
-  - Campos: id, company_id, name, code, number, validity_date, calculation_formula, technical_support, improvement_opportunities, filters (jsonb), is_active, created_at, updated_at
-- **kpi_revisions**: Historial de revisiones cuando se modifica número o fecha de vigencia
-  - Campos: id, kpi_id, previous_number, new_number, previous_validity_date, new_validity_date, change_reason, changed_by, is_active, created_at
-
 -- =====================================================
 -- CREAR ROL OWNER Y ASIGNAR TODOS LOS PERMISOS
 -- =====================================================
@@ -148,3 +105,72 @@ RAISE NOTICE 'Proceso completado:';
 RAISE NOTICE ' - Roles asignados (nuevos): %', v_inserted_count;
 RAISE NOTICE ' - Roles ya existentes (omitidos): %', v_skipped_count;
 END $$;
+
+-- =====================================================
+-- INSERTAR SUBTABS DE KPIs
+-- =====================================================
+-- Este script agrega las subtabs de KPIs: indicadores y graficos
+-- Módulo: empresa (module_id: e0478383-1287-4b5e-a727-985baf867173)
+-- Tab padre: kpis (tab_id: 10000000-0000-0000-0000-000000000004)
+
+-- Insertar subtabs de KPIs
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('10000000-0000-0000-0000-000000000041', 'e0478383-1287-4b5e-a727-985baf867173', 'indicadores', 'Indicadores', 'CRUD de indicadores KPI', 1, '10000000-0000-0000-0000-000000000004'),
+('10000000-0000-0000-0000-000000000042', 'e0478383-1287-4b5e-a727-985baf867173', 'graficos', 'Gráficos', 'Gráficos de ejemplo de KPIs', 2, '10000000-0000-0000-0000-000000000004')
+ON CONFLICT (id) DO UPDATE
+SET
+slug = EXCLUDED.slug,
+name = EXCLUDED.name,
+description = EXCLUDED.description,
+order_index = EXCLUDED.order_index,
+parent_tab_id = EXCLUDED.parent_tab_id;
+
+-- =====================================================
+-- ASIGNAR PERMISOS A LAS SUBTABS DE KPIs PARA EL ROL OWNER
+-- =====================================================
+-- Asignar todos los permisos (view, create, update) a la subtab "indicadores"
+INSERT INTO role_permissions (role_id, tab_id, action_id)
+SELECT
+r.id as role_id,
+t.id as tab_id,
+a.id as action_id
+FROM roles r
+CROSS JOIN tabs t
+CROSS JOIN actions a
+WHERE r.slug = 'owner'
+AND t.slug = 'indicadores'
+AND t.parent_tab_id = '10000000-0000-0000-0000-000000000004'
+AND a.slug IN ('view', 'create', 'update')
+ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
+
+-- Asignar permiso de view a la subtab "graficos"
+INSERT INTO role_permissions (role_id, tab_id, action_id)
+SELECT
+r.id as role_id,
+t.id as tab_id,
+a.id as action_id
+FROM roles r
+CROSS JOIN tabs t
+CROSS JOIN actions a
+WHERE r.slug = 'owner'
+AND t.slug = 'graficos'
+AND t.parent_tab_id = '10000000-0000-0000-0000-000000000004'
+AND a.slug = 'view'
+ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
+
+-- =====================================================
+-- ELIMINAR SUBTABS DE KPIs (si es necesario)
+-- =====================================================
+-- Para eliminar las subtabs de KPIs, primero eliminar los permisos asociados
+-- DELETE FROM role_permissions
+-- WHERE tab_id IN (
+-- '10000000-0000-0000-0000-000000000041',
+-- '10000000-0000-0000-0000-000000000042'
+-- );
+
+-- Luego eliminar las tabs
+-- DELETE FROM tabs
+-- WHERE id IN (
+-- '10000000-0000-0000-0000-000000000041',
+-- '10000000-0000-0000-0000-000000000042'
+-- );

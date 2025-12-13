@@ -15,7 +15,6 @@ async function UsersTable() {
     columnFilters: [],
   });
 
-  console.log(initialData.rows, 'initialData');
   return (
     <Card className="p-4">
       <UsersTableServer
