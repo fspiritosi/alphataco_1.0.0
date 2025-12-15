@@ -174,3 +174,35 @@ ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
 -- '10000000-0000-0000-0000-000000000041',
 -- '10000000-0000-0000-0000-000000000042'
 -- );
+
+mover los KPIS al daslboard estadisticas
+Guardar en un cronjob el valor final del kpi
+CLONAR LA VISTA DE graficos en estadisticas
+
+-- =====================================================
+-- MOVER TABS DE KPIs DE EMPRESA A DASHBOARD ESTADISTICAS
+-- =====================================================
+-- Este script mueve las tabs de KPIs del módulo Empresa al módulo Dashboard,
+-- específicamente como subtabs de la tab "estadisticas"
+
+-- 1. Actualizar la tab principal "kpis" para que sea subtab de "estadisticas"
+-- y cambiar su módulo de empresa a dashboard
+UPDATE tabs
+SET
+module_id = '91ed9ae4-6713-41ac-a87e-6b156e079948', -- dashboard
+parent_tab_id = '90000000-0000-0000-0000-000000000003' -- estadisticas
+WHERE id = '10000000-0000-0000-0000-000000000004' -- kpis
+AND slug = 'kpis';
+
+-- 2. Actualizar las subtabs "indicadores" y "graficos" para que pertenezcan al módulo dashboard
+UPDATE tabs
+SET
+module_id = '91ed9ae4-6713-41ac-a87e-6b156e079948' -- dashboard
+WHERE id IN (
+'10000000-0000-0000-0000-000000000041', -- indicadores
+'10000000-0000-0000-0000-000000000042' -- graficos
+)
+AND slug IN ('indicadores', 'graficos');
+
+-- Nota: Las subtabs ya tienen el parent_tab_id correcto (10000000-0000-0000-0000-000000000004),
+-- así que solo necesitamos actualizar el module_id

@@ -21,7 +21,7 @@ export function KpiDetailModal({ kpi, isOpen, onClose }: KpiDetailModalProps) {
   const [revisions, setRevisions] = useState<KPIRevision[]>([]);
   const [loadingRevisions, setLoadingRevisions] = useState(false);
   const { hasPermission } = usePermissions();
-  const canUpdate = hasPermission('empresa', 'kpis', 'update');
+  const canUpdate = hasPermission('dashboard', 'kpis', 'update');
 
   useEffect(() => {
     if (isOpen && kpi) {

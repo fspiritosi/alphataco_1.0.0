@@ -252,6 +252,7 @@ export function getEquipmentDiagramColumns(
           'no operativo': 'destructive',
           'en reparacion': 'yellow',
           'operativo condicionado': 'info',
+          'en preparacion': 'secondary',
           default: 'default',
         };
 
@@ -260,6 +261,7 @@ export function getEquipmentDiagramColumns(
           operativo: { color: 'bg-green-500', icon: CheckCircle },
           'no operativo': { color: 'bg-red-500', icon: XCircle },
           'en reparacion': { color: 'bg-yellow-500', icon: RiToolsFill },
+          'en preparacion': { color: 'bg-gray-500', icon: AlertTriangle },
         };
 
         return (

@@ -78,11 +78,32 @@ export async function createVehicle(vehicleData: any) {
   // const typeOfVehicleId = await getTypeOfVehicleIdByName(vehicleData.type_of_vehicle);
   // const subTypeId = vehicleData.subType ? await getSubTypeIdByName(vehicleData.subType) : null;
 
+  // Determinar si el tipo de equipo es "Vehículos" para setear el estado inicial "en preparacion"
+  let condition: Database['public']['Enums']['condition_enum'] | undefined;
+  if (vehicleData.type_of_vehicle) {
+    const parsedTypeOfVehicleId = Number(vehicleData.type_of_vehicle);
+    if (!Number.isNaN(parsedTypeOfVehicleId)) {
+      const { data: typeOfVehicleRow, error: typeOfVehicleError } = await supabase
+        .from('types_of_vehicles')
+        .select('name')
+        .eq('id', parsedTypeOfVehicleId)
+        .single();
+
+      if (typeOfVehicleError) {
+        console.error('Error fetching type_of_vehicle for vehicle:', typeOfVehicleError);
+      } else if (typeOfVehicleRow?.name === 'Vehículos') {
+        condition = 'en preparacion';
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('vehicles')
     .insert({
       ...vehicleData,
       company_id,
+      // Solo los vehículos (no "Otros") nacen en "en preparacion"
+      condition,
       allocated_to: undefined, // Remove this as it's handled separately
     })
     .select()

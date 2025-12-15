@@ -28,6 +28,7 @@ export const NewDiagramType = z.object({
   id: z.string().optional(),
   work_active: z.boolean().optional(),
   is_active: z.boolean().optional(),
+  computes_absenteeism: z.boolean().optional(),
 });
 
 export type NewDiagramType = z.infer<typeof NewDiagramType>;
@@ -42,6 +43,7 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
       id: '',
       work_active: false,
       is_active: false,
+      computes_absenteeism: false,
     },
   });
 
@@ -93,6 +95,7 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
         id: selectedDiagram.id || '',
         work_active: selectedDiagram.work_active || false,
         is_active: selectedDiagram.is_active !== undefined ? selectedDiagram.is_active : true,
+        computes_absenteeism: selectedDiagram.computes_absenteeism ?? (!selectedDiagram.work_active ? true : false),
       });
       setDiagramToEdit(true);
     } else {
@@ -103,6 +106,7 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
         id: '',
         work_active: false,
         is_active: true, // Valor por defecto
+        computes_absenteeism: false,
       });
       setDiagramToEdit(false);
     }
@@ -146,24 +150,50 @@ export function DiagramNewTypeForm({ selectedDiagram, diagramToEdit, setDiagramT
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="work_active"
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="airplane-mode"
-                    defaultChecked={field.value}
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                  <Label htmlFor="airplane-mode">Laboralmente Activo</Label>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2">
+            <FormField
+              control={form.control}
+              name="work_active"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="work-active-switch"
+                      defaultChecked={field.value}
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                    <Label htmlFor="work-active-switch">Laboralmente Activo</Label>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Switch para ausentismo: solo aplica cuando NO es laboralmente activo */}
+            <FormField
+              control={form.control}
+              name="computes_absenteeism"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="computes-absenteeism-switch"
+                      checked={!form.watch('work_active') ? field.value : false}
+                      disabled={form.watch('work_active')}
+                      onCheckedChange={(checked) => {
+                        // Solo permitir cambios cuando NO es laboralmente activo
+                        if (!form.watch('work_active')) {
+                          field.onChange(checked);
+                        }
+                      }}
+                    />
+                    <Label htmlFor="computes-absenteeism-switch">Computa para ausentismo</Label>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         <FormField

@@ -11,7 +11,10 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { updateKPINumber } from '../actions/actions';
+import { useInvalidateKpiQueries } from '../hooks/useInvalidateKpiQueries';
 import { KPI } from '../types';
+
+type KpiCode = 'KPI-0001' | 'KPI-0002' | 'KPI-0003' | 'KPI-0004' | 'KPI-0005' | 'KPI-0006';
 
 const EditNumberSchema = z.object({
   new_number: z.string().min(1, { message: 'Debe ingresar el nuevo número' }),
@@ -25,6 +28,7 @@ interface KpiEditNumberFormProps {
 }
 
 export function KpiEditNumberForm({ kpi, onSuccess }: KpiEditNumberFormProps) {
+  const { invalidateKpiChart } = useInvalidateKpiQueries();
   const form = useForm<z.infer<typeof EditNumberSchema>>({
     resolver: zodResolver(EditNumberSchema),
     defaultValues: {
@@ -53,6 +57,10 @@ export function KpiEditNumberForm({ kpi, onSuccess }: KpiEditNumberFormProps) {
       {
         loading: 'Actualizando número y vigencia...',
         success: () => {
+          // Invalidar solo el gráfico del KPI que se actualizó
+          if (kpi.code) {
+            invalidateKpiChart(kpi.code as KpiCode);
+          }
           router.refresh();
           form.reset({
             new_number: form.getValues('new_number'),

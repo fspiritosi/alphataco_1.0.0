@@ -18,7 +18,8 @@ export function KpisTabClient({ kpis, savedVisibility, savedFilter }: KpisTabCli
   const { hasPermission } = usePermissions();
 
   // Verificar si tiene permisos de crear o editar
-  const canCreateOrUpdate = hasPermission('empresa', 'kpis', 'create') || hasPermission('empresa', 'kpis', 'update');
+  const canCreateOrUpdate =
+    hasPermission('dashboard', 'kpis', 'create') || hasPermission('dashboard', 'kpis', 'update');
 
   return (
     <Card className="w-full">

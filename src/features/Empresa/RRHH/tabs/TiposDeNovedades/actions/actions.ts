@@ -27,7 +27,14 @@ export async function fetchAllDiagramTypes() {
   }
 }
 
-export async function createDiagramType({ name, color, short_description, work_active, is_active }: NewDiagramType) {
+export async function createDiagramType({
+  name,
+  color,
+  short_description,
+  work_active,
+  is_active,
+  computes_absenteeism,
+}: NewDiagramType) {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
@@ -35,9 +42,15 @@ export async function createDiagramType({ name, color, short_description, work_a
   if (!company_id) return [];
 
   try {
-    const { data, error } = await supabase
-      .from('diagram_type')
-      .insert({ name, company_id, color, short_description, work_active, is_active });
+    const { data, error } = await supabase.from('diagram_type').insert({
+      name,
+      company_id,
+      color,
+      short_description,
+      work_active,
+      is_active,
+      computes_absenteeism: computes_absenteeism ?? (!work_active ? true : false),
+    });
 
     console.error(error, 'error');
 
@@ -59,6 +72,7 @@ export async function updateDiagramType({
   short_description,
   work_active,
   is_active,
+  computes_absenteeism,
 }: NewDiagramType) {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
@@ -69,7 +83,14 @@ export async function updateDiagramType({
   try {
     const { data, error } = await supabase
       .from('diagram_type')
-      .update({ name, color, short_description, work_active, is_active })
+      .update({
+        name,
+        color,
+        short_description,
+        work_active,
+        is_active,
+        computes_absenteeism: computes_absenteeism ?? (!work_active ? true : false),
+      })
       .eq('id', id || '');
 
     if (error) {

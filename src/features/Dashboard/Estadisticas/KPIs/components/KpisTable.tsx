@@ -120,7 +120,7 @@ export function KpisTable({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [filteredData, setFilteredData] = useState<KPI[]>(kpisData);
   const { hasPermission } = usePermissions();
-  const canEdit = hasPermission('empresa', 'kpis', 'update');
+  const canEdit = hasPermission('dashboard', 'kpis', 'update');
 
   const handleView = (kpi: KPI) => {
     setSelectedKpi(kpi);

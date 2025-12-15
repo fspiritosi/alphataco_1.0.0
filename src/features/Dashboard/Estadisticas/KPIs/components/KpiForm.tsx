@@ -12,11 +12,13 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { createKPI, updateKPI } from '../actions/actions';
+import { useInvalidateKpiQueries } from '../hooks/useInvalidateKpiQueries';
 import { useKpiStore } from '../store/kpi.store';
 
 const KpiSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: 'Debe ingresar el nombre del KPI' }),
+  number: z.string().optional(),
   validity_date: z.string().min(1, { message: 'Debe ingresar la fecha de vigencia' }),
   calculation_formula: z.string().min(1, { message: 'Debe ingresar la fórmula de cálculo' }),
   improvement_opportunities: z.string().optional(),
@@ -25,10 +27,12 @@ const KpiSchema = z.object({
 
 export function KpiForm() {
   const editingKpi = useKpiStore((state) => state.kpi);
+  const { invalidateKpiChart, invalidateAllKpiCharts } = useInvalidateKpiQueries();
   const form = useForm<z.infer<typeof KpiSchema>>({
     resolver: zodResolver(KpiSchema),
     defaultValues: {
       name: '',
+      number: '',
       validity_date: '',
       calculation_formula: '',
       improvement_opportunities: '',
@@ -45,6 +49,7 @@ export function KpiForm() {
       reset({
         id: editingKpi.id,
         name: editingKpi.name,
+        number: editingKpi.number || '',
         validity_date: editingKpi.validity_date,
         calculation_formula: editingKpi.calculation_formula,
         improvement_opportunities: editingKpi.improvement_opportunities || '',
@@ -55,6 +60,7 @@ export function KpiForm() {
       reset({
         id: '',
         name: '',
+        number: '',
         validity_date: '',
         calculation_formula: '',
         improvement_opportunities: '',
@@ -69,6 +75,7 @@ export function KpiForm() {
       async () => {
         const result = await createKPI({
           name: values.name,
+          number: values.number || undefined,
           validity_date: values.validity_date,
           calculation_formula: values.calculation_formula,
           is_active: values.is_active ?? true,
@@ -78,7 +85,14 @@ export function KpiForm() {
       },
       {
         loading: 'Creando KPI...',
-        success: () => {
+        success: (result) => {
+          // Si el KPI creado tiene código, invalidar solo ese gráfico
+          if (result?.data?.code) {
+            invalidateKpiChart(result.data.code as any);
+          } else {
+            // Si no hay código, invalidar todos
+            invalidateAllKpiCharts();
+          }
           router.refresh();
           resetForm();
           return 'KPI creado correctamente';
@@ -96,6 +110,7 @@ export function KpiForm() {
         const result = await updateKPI({
           id: values.id!,
           name: values.name,
+          number: values.number || undefined,
           calculation_formula: values.calculation_formula,
           improvement_opportunities: values.improvement_opportunities || undefined,
           is_active: values.is_active ?? true,
@@ -105,7 +120,15 @@ export function KpiForm() {
       },
       {
         loading: 'Actualizando KPI...',
-        success: () => {
+        success: (result) => {
+          // Invalidar solo el gráfico del KPI que se actualizó
+          if (editingKpi?.code) {
+            invalidateKpiChart(editingKpi.code as any);
+          } else if (result?.data?.code) {
+            invalidateKpiChart(result.data.code as any);
+          } else {
+            invalidateAllKpiCharts();
+          }
           router.refresh();
           resetForm();
           return 'KPI actualizado correctamente';
@@ -129,6 +152,7 @@ export function KpiForm() {
     reset({
       id: '',
       name: '',
+      number: '',
       validity_date: '',
       calculation_formula: '',
       improvement_opportunities: '',
@@ -155,6 +179,26 @@ export function KpiForm() {
               <FormLabel>Nombre del KPI</FormLabel>
               <FormControl>
                 <Input type="text" {...field} className="input w-full" placeholder="Nombre del KPI" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="number"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Número (Umbral)</FormLabel>
+              <FormControl>
+                <Input
+                  type="text"
+                  {...field}
+                  className="input w-full"
+                  placeholder="Ej: 85.5 (porcentaje objetivo)"
+                  value={field.value || ''}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

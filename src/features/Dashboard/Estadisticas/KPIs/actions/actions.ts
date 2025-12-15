@@ -138,7 +138,7 @@ export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | nu
     return { data: null, error };
   }
 
-  revalidatePath('/dashboard/empresa');
+  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
   return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
@@ -151,6 +151,7 @@ export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | nu
   // Lista de campos actualizables
   const updatableFields: Array<keyof UpdateKPIInput> = [
     'name',
+    'number',
     'calculation_formula',
     'technical_support',
     'improvement_opportunities',
@@ -172,7 +173,7 @@ export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | nu
     return { data: null, error };
   }
 
-  revalidatePath('/dashboard/empresa');
+  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
   return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
@@ -229,7 +230,7 @@ export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ da
     // No retornamos error aquí porque el KPI ya se actualizó
   }
 
-  revalidatePath('/dashboard/empresa');
+  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
   return { data: updatedKPI ? mapKPIRowToKPI(updatedKPI) : null, error: null };
 }
 
@@ -243,6 +244,6 @@ export async function deleteKPI(id: string): Promise<{ error: any }> {
     return { error };
   }
 
-  revalidatePath('/dashboard/empresa');
+  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
   return { error: null };
 }

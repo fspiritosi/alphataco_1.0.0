@@ -33,7 +33,7 @@ export default async function KpisTabContent({
               Indicadores
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'dashboard',
           tabSlug: 'indicadores',
           content: (
             <Suspense fallback={<div>Cargando indicadores...</div>}>
@@ -53,7 +53,7 @@ export default async function KpisTabContent({
               Gráficos
             </span>
           ),
-          moduleSlug: 'empresa',
+          moduleSlug: 'dashboard',
           tabSlug: 'graficos',
           content: (
             <Suspense fallback={<div>Cargando gráficos...</div>}>
