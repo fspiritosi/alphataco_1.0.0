@@ -1,17 +1,10 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
+import moment from 'moment';
 import { cookies } from 'next/headers';
 
 type KpiCode = 'KPI-0001' | 'KPI-0002' | 'KPI-0003' | 'KPI-0004' | 'KPI-0005' | 'KPI-0006';
-
-// Función helper para formatear fecha local sin problemas de timezone
-const formatDateLocal = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export async function getKpiChartData(kpiCode: KpiCode, fromDate: Date, toDate: Date) {
   const supabase = await supabaseServer();
@@ -22,8 +15,9 @@ export async function getKpiChartData(kpiCode: KpiCode, fromDate: Date, toDate: 
     return [];
   }
 
-  const fromDateStr = formatDateLocal(fromDate);
-  const toDateStr = formatDateLocal(toDate);
+  // Usar moment para formatear fechas (formato YYYY-MM-DD que espera PostgreSQL)
+  const fromDateStr = moment(fromDate).format('YYYY-MM-DD');
+  const toDateStr = moment(toDate).format('YYYY-MM-DD');
 
   // UNA SOLA LLAMADA RPC para todo el rango de fechas
   const { data, error } = await supabase.rpc('get_kpi_range', {

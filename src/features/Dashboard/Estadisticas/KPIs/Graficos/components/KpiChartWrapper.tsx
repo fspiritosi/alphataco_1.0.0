@@ -1,4 +1,4 @@
-import { getKpiChartData, getKpiDescription, getKpiName, getKpiNumber } from '../actions/getKpiChartData';
+import { getKpiDescription, getKpiName, getKpiNumber } from '../actions/getKpiChartData';
 import { KpiChart } from './KpiChart';
 
 type KpiCode = 'KPI-0001' | 'KPI-0002' | 'KPI-0003' | 'KPI-0004' | 'KPI-0005' | 'KPI-0006';
@@ -8,16 +8,11 @@ interface KpiChartWrapperProps {
 }
 
 export async function KpiChartWrapper({ kpiCode }: KpiChartWrapperProps) {
-  // Obtener datos iniciales del servidor
-  const today = new Date();
-  const fromDate = new Date();
-  fromDate.setDate(today.getDate() - 30); // Últimos 30 días por defecto
-
-  const [kpiName, kpiNumber, kpiDescription, initialData] = await Promise.all([
+  // Solo obtener metadatos del servidor, los datos se cargan en el cliente
+  const [kpiName, kpiNumber, kpiDescription] = await Promise.all([
     getKpiName(kpiCode),
     getKpiNumber(kpiCode),
     getKpiDescription(kpiCode),
-    getKpiChartData(kpiCode, fromDate, today),
   ]);
 
   return (
@@ -26,9 +21,6 @@ export async function KpiChartWrapper({ kpiCode }: KpiChartWrapperProps) {
       kpiName={kpiName || kpiCode}
       kpiDescription={kpiDescription}
       expectedPercentage={kpiNumber || 0}
-      initialData={initialData || []}
-      initialFromDate={fromDate}
-      initialToDate={today}
     />
   );
 }

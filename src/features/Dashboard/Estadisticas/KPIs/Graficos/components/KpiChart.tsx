@@ -1,9 +1,8 @@
 'use client';
 
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
 import moment from 'moment';
+import 'moment/locale/es';
 import * as React from 'react';
 import { type DateRange } from 'react-day-picker';
 import { CartesianGrid, LabelList, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
@@ -24,16 +23,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useKpiChartData } from '../hooks/useKpiChartData';
 
+// Configurar moment en español
+moment.locale('es');
+
 type KpiCode = 'KPI-0001' | 'KPI-0002' | 'KPI-0003' | 'KPI-0004' | 'KPI-0005' | 'KPI-0006';
+type TimeRange = '7d' | '30d' | '90d' | '1y';
 
 interface KpiChartProps {
   kpiCode: KpiCode;
   kpiName: string;
   kpiDescription: string;
   expectedPercentage: number;
-  initialData: any[];
-  initialFromDate: Date;
-  initialToDate: Date;
 }
 
 const chartConfig = {
@@ -43,196 +43,226 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function KpiChart({
-  kpiCode,
-  kpiName,
-  kpiDescription,
-  expectedPercentage,
-  initialData,
-  initialFromDate,
-  initialToDate,
-}: KpiChartProps) {
-  // DEBUG 1: Dato que llega como prop initialData
-  if (kpiCode === 'KPI-0006') {
-    const item25Nov = initialData?.find((i: any) => i.snapshot_date === '2025-11-25');
-    console.log(`[EOC TRACE 1] initialData prop:`, item25Nov?.metrics?.indicator);
+// Función para calcular el rango de fechas según el filtro seleccionado (usando moment)
+function calculateDateRange(timeRange: TimeRange): { from: Date; to: Date } {
+  const today = moment();
+
+  if (timeRange === '1y') {
+    // Año actual completo: 1 enero - 31 diciembre
+    return {
+      from: moment().startOf('year').toDate(),
+      to: moment().endOf('year').toDate(),
+    };
   }
 
-  const [timeRange, setTimeRange] = React.useState<'7d' | '30d' | '90d' | '1y'>('30d');
-  const [range, setRange] = React.useState<DateRange | undefined>({
-    from: initialFromDate,
-    to: initialToDate,
-  });
+  // Para otros filtros: calcular días hacia atrás
+  const daysMap: Record<TimeRange, number> = {
+    '7d': 7,
+    '30d': 30,
+    '90d': 90,
+    '1y': 365,
+  };
 
-  // Resetear range cuando cambia timeRange
-  React.useEffect(() => {
-    if (timeRange) {
-      const today = new Date();
+  return {
+    from: moment().subtract(daysMap[timeRange], 'days').toDate(),
+    to: today.toDate(),
+  };
+}
 
-      // Para "1y" mostrar el año actual completo (1 enero - 31 diciembre)
-      if (timeRange === '1y') {
-        const currentYear = today.getFullYear();
-        setRange({
-          from: new Date(currentYear, 0, 1), // 1 de enero
-          to: new Date(currentYear, 11, 31), // 31 de diciembre
-        });
-      } else {
-        const from = new Date();
-        const daysToSubtract = timeRange === '90d' ? 90 : timeRange === '7d' ? 7 : 30;
-        from.setDate(today.getDate() - daysToSubtract);
-        setRange({
-          from,
-          to: today,
-        });
-      }
+export function KpiChart({ kpiCode, kpiName, kpiDescription, expectedPercentage }: KpiChartProps) {
+  // Estado del filtro de tiempo
+  const [timeRange, setTimeRange] = React.useState<TimeRange>('30d');
+
+  // Estado del rango de fechas (calculado automáticamente o manual via calendario)
+  const [dateRange, setDateRange] = React.useState<DateRange>(() => calculateDateRange('30d'));
+
+  // Estado para saber si el usuario está usando el calendario manual
+  const [isCustomRange, setIsCustomRange] = React.useState(false);
+
+  // Cuando cambia el timeRange, recalcular las fechas
+  const handleTimeRangeChange = React.useCallback((value: TimeRange) => {
+    setTimeRange(value);
+    setIsCustomRange(false);
+    const newRange = calculateDateRange(value);
+    setDateRange(newRange);
+  }, []);
+
+  // Cuando el usuario selecciona un rango manual
+  const handleCalendarSelect = React.useCallback((range: DateRange | undefined) => {
+    if (range?.from && range?.to) {
+      setIsCustomRange(true);
+      setDateRange(range);
     }
-  }, [timeRange]);
+  }, []);
 
-  // Obtener datos del gráfico
-  const fromDate = range?.from || initialFromDate;
-  const toDate = range?.to || initialToDate;
-  const { data: rawData, loading } = useKpiChartData(kpiCode, fromDate, toDate, initialData);
+  // Obtener datos del hook - SIEMPRE usando las fechas del estado
+  const fromDate = dateRange.from || moment().subtract(30, 'days').toDate();
+  const toDate = dateRange.to || moment().toDate();
 
-  // DEBUG 2: Dato que devuelve el hook (rawData)
-  if (kpiCode === 'KPI-0006') {
-    const item25Nov = rawData?.find((i: any) => i.snapshot_date === '2025-11-25');
-    console.log(`[EOC TRACE 2] rawData del hook:`, item25Nov?.metrics?.indicator);
-  }
+  const { data: rawData, loading } = useKpiChartData(kpiCode, fromDate, toDate);
 
-  // Procesar datos
+  // Procesar datos para el gráfico
+  // snapshot_date viene de la BD en formato 'YYYY-MM-DD'
   const chartData = React.useMemo(() => {
     if (!rawData || rawData.length === 0) {
       return [];
     }
-    const processed = rawData.map((item) => {
-      const metrics = item.metrics as {
-        indicator?: number;
-      };
-      const result = {
-        date: item.snapshot_date,
-        indicator: metrics?.indicator ?? 0,
-      };
+    return rawData.map((item) => ({
+      date: item.snapshot_date, // Ya viene en formato 'YYYY-MM-DD' de la BD
+      indicator: item.metrics?.indicator ?? 0,
+    }));
+  }, [rawData]);
 
-      return result;
-    });
-
-    // DEBUG 3: Dato procesado en chartData
-    if (kpiCode === 'KPI-0006') {
-      const item25Nov = processed.find((p) => p.date === '2025-11-25');
-      console.log(`[EOC TRACE 3] chartData procesado:`, item25Nov?.indicator);
-    }
-
-    return processed;
-  }, [rawData, kpiCode]);
-
-  // Helper para formatear fecha local a string YYYY-MM-DD
-  const formatDateLocal = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  // Filtrar datos por rango de fechas (comparando strings para evitar problemas de timezone)
-  const filteredData = React.useMemo(() => {
-    let result;
-    if (!range?.from && !range?.to) {
-      result = chartData;
-    } else {
-      const fromStr = range.from ? formatDateLocal(range.from) : null;
-      const toStr = range.to ? formatDateLocal(range.to) : null;
-
-      result = chartData.filter((item) => {
-        // Comparar strings directamente para evitar problemas de timezone
-        if (fromStr && toStr) {
-          return item.date >= fromStr && item.date <= toStr;
-        }
-        if (fromStr) {
-          return item.date >= fromStr;
-        }
-        return true;
-      });
-    }
-
-    // DEBUG 4: Dato filtrado en filteredData
-    if (kpiCode === 'KPI-0006') {
-      const item25Nov = result.find((p) => p.date === '2025-11-25');
-      console.log(`[EOC TRACE 4] filteredData:`, item25Nov?.indicator, `(incluido: ${!!item25Nov})`);
-    }
-
-    return result;
-  }, [chartData, range, kpiCode]);
-
-  // Calcular si el rango supera un mes (30 días)
+  // Calcular si mostrar labels (solo para rangos pequeños)
   const showLabels = React.useMemo(() => {
-    if (!range?.from || !range?.to) {
-      return timeRange === '7d' || timeRange === '30d';
-    }
-    const diffTime = Math.abs(range.to.getTime() - range.from.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (!dateRange.from || !dateRange.to) return false;
+    const diffDays = moment(dateRange.to).diff(moment(dateRange.from), 'days');
     return diffDays <= 15;
-  }, [range, timeRange]);
+  }, [dateRange]);
 
-  // Calcular totales para el footer
-  const totals = React.useMemo(() => {
-    if (filteredData.length === 0) return { indicator: 0 };
+  // Calcular promedio para el footer
+  const averageIndicator = React.useMemo(() => {
+    if (chartData.length === 0) return '0';
+    const sum = chartData.reduce((acc, curr) => acc + curr.indicator, 0);
+    return (sum / chartData.length).toFixed(1);
+  }, [chartData]);
 
-    const sum = filteredData.reduce(
-      (acc, curr) => ({
-        indicator: acc.indicator + curr.indicator,
-      }),
-      { indicator: 0 }
-    );
+  // Renderizar contenido del gráfico
+  const renderChartContent = () => {
+    if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[250px] text-muted-foreground gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p>Cargando datos...</p>
+        </div>
+      );
+    }
 
-    return {
-      indicator: (sum.indicator / filteredData.length).toFixed(1),
-    };
-  }, [filteredData]);
+    if (chartData.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+          <p>No hay datos disponibles para el rango seleccionado</p>
+        </div>
+      );
+    }
 
-  if (loading) {
+    // Determinar si invertir colores (para KPI-0003 y KPI-0006)
+    const invertColors = kpiCode === 'KPI-0003' || kpiCode === 'KPI-0006';
+
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{kpiName || kpiCode}</CardTitle>
-          <CardDescription>Cargando datos del indicador...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <p>Cargando datos...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+      <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+        <LineChart accessibilityLayer data={chartData} margin={{ top: 20, left: 12, right: 12 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            minTickGap={20}
+            tickFormatter={(value) => {
+              // value viene en formato 'YYYY-MM-DD' de la BD
+              return moment(value, 'YYYY-MM-DD').format('DD/MM');
+            }}
+          />
+          <YAxis hide />
+          <ChartTooltip
+            cursor={false}
+            content={(props) => {
+              if (!props.active || !props.payload || !props.payload.length) return null;
+              const value = props.payload[0].value as number;
+              const isAboveExpected = value > expectedPercentage;
+              const indicatorColor = invertColors
+                ? isAboveExpected
+                  ? 'hsl(142.1 76.2% 36.3%)'
+                  : 'hsl(0 84.2% 60.2%)'
+                : isAboveExpected
+                  ? 'hsl(0 84.2% 60.2%)'
+                  : 'hsl(142.1 76.2% 36.3%)';
 
-  if (!chartData || chartData.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{kpiName || kpiCode}</CardTitle>
-          <CardDescription>Evolución del indicador</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <p>No hay datos disponibles</p>
-          </div>
-        </CardContent>
-      </Card>
+              return (
+                <div className="grid min-w-[10rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-3 py-1.5 text-xs shadow-xl">
+                  <div className="font-medium">
+                    {/* props.label viene en formato 'YYYY-MM-DD' */}
+                    {moment(props.label as string, 'YYYY-MM-DD').format('DD/MM/YYYY')}
+                  </div>
+                  <div className="flex w-full items-center gap-2">
+                    <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: indicatorColor }} />
+                    <div className="flex flex-1 justify-between leading-none items-center gap-3">
+                      <span className="text-muted-foreground">Indicador</span>
+                      <span className="font-mono font-medium tabular-nums text-foreground">
+                        {Number(value).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }}
+          />
+          {expectedPercentage > 0 && (
+            <ReferenceLine
+              y={expectedPercentage}
+              stroke="hsl(142.1 76.2% 36.3%)"
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              label={{
+                value: `${expectedPercentage}%`,
+                position: 'insideTopRight',
+                fill: 'hsl(142.1 76.2% 36.3%)',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            />
+          )}
+          <Line
+            dataKey="indicator"
+            type="monotone"
+            stroke="hsl(var(--muted-foreground) / 0.3)"
+            strokeWidth={2}
+            dot={(props: any) => {
+              const { cx, cy, payload } = props;
+              const isAboveExpected = payload.indicator > expectedPercentage;
+              const dotColor = invertColors
+                ? isAboveExpected
+                  ? 'hsl(142.1 76.2% 36.3%)'
+                  : 'hsl(0 84.2% 60.2%)'
+                : isAboveExpected
+                  ? 'hsl(0 84.2% 60.2%)'
+                  : 'hsl(142.1 76.2% 36.3%)';
+              return <circle cx={cx} cy={cy} r={5} fill={dotColor} stroke="white" strokeWidth={2} />;
+            }}
+            activeDot={{ r: 7 }}
+          >
+            {showLabels && (
+              <LabelList
+                position="top"
+                offset={12}
+                className="fill-foreground"
+                fontSize={12}
+                formatter={(value: number) => `${value}%`}
+              />
+            )}
+          </Line>
+        </LineChart>
+      </ChartContainer>
     );
-  }
+  };
 
   return (
     <Card className="@container/card w-full">
       <CardHeader className="border-b">
         <div className="grid gap-1">
-          <CardTitle>{kpiName || kpiCode}</CardTitle>
+          <CardTitle>{kpiName}</CardTitle>
           <CardDescription>{kpiDescription}</CardDescription>
         </div>
         <CardAction>
           <div className="flex items-center gap-2">
-            <Select value={timeRange} onValueChange={(v) => setTimeRange(v as '7d' | '30d' | '90d' | '1y')}>
+            <Select
+              value={isCustomRange ? undefined : timeRange}
+              onValueChange={(v) => handleTimeRangeChange(v as TimeRange)}
+              disabled={loading}
+            >
               <SelectTrigger className="w-[140px]">
-                <SelectValue />
+                <SelectValue placeholder={isCustomRange ? 'Personalizado' : undefined} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="7d">Últimos 7 días</SelectItem>
@@ -243,10 +273,10 @@ export function KpiChart({
             </Select>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[200px]">
+                <Button variant="outline" className="w-[200px]" disabled={loading}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {range?.from && range?.to
-                    ? `${format(range.from, 'dd/MM/yyyy', { locale: es })} - ${format(range.to, 'dd/MM/yyyy', { locale: es })}`
+                  {dateRange.from && dateRange.to
+                    ? `${moment(dateRange.from).format('DD/MM/YYYY')} - ${moment(dateRange.to).format('DD/MM/YYYY')}`
                     : 'Seleccionar rango'}
                 </Button>
               </PopoverTrigger>
@@ -254,160 +284,31 @@ export function KpiChart({
                 <Calendar
                   className="w-full"
                   mode="range"
-                  defaultMonth={range?.from}
-                  selected={range}
-                  onSelect={setRange}
+                  defaultMonth={dateRange.from}
+                  selected={dateRange}
+                  onSelect={handleCalendarSelect}
                   numberOfMonths={2}
-                  locale={es}
                 />
               </PopoverContent>
             </Popover>
           </div>
         </CardAction>
       </CardHeader>
-      <CardContent className="px-4">
-        {/* DEBUG 5: Dato justo antes del LineChart */}
-        {kpiCode === 'KPI-0006' &&
-          (() => {
-            console.log(
-              `[EOC TRACE 5] Datos al LineChart:`,
-              filteredData.find((p) => p.date === '2025-11-25')?.indicator
-            );
-            return null;
-          })()}
-        <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
-          <LineChart
-            accessibilityLayer
-            data={filteredData}
-            margin={{
-              top: 20,
-              left: 12,
-              right: 12,
-            }}
-          >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={20}
-              tickFormatter={(value) => {
-                // Usar moment para parsear la fecha sin problemas de timezone
-                return moment(value, 'YYYY-MM-DD').format('DD/MM');
-              }}
-            />
-            <YAxis hide />
-            <ChartTooltip
-              cursor={false}
-              content={(props) => {
-                if (!props.active || !props.payload || !props.payload.length) {
-                  return null;
-                }
-                const item = props.payload[0];
-                const value = item.value as number;
-
-                const isAboveExpected = value > expectedPercentage;
-                // Para KPI-0003 y KPI-0006 (objetivo 95%), invertir colores: verde si supera, rojo si no
-                const invertColors = kpiCode === 'KPI-0003' || kpiCode === 'KPI-0006';
-                const indicatorColor = invertColors
-                  ? isAboveExpected
-                    ? 'hsl(142.1 76.2% 36.3%)'
-                    : 'hsl(0 84.2% 60.2%)'
-                  : isAboveExpected
-                    ? 'hsl(0 84.2% 60.2%)'
-                    : 'hsl(142.1 76.2% 36.3%)';
-
-                return (
-                  <div className="grid min-w-[10rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-3 py-1.5 text-xs shadow-xl">
-                    <div className="font-medium">
-                      {/* Usar moment para parsear la fecha sin problemas de timezone */}
-                      {moment(props.label as string, 'YYYY-MM-DD').format('DD/MM/YYYY')}
-                    </div>
-                    <div className="flex w-full items-center gap-2">
-                      <div
-                        className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                        style={{
-                          backgroundColor: indicatorColor,
-                          borderColor: indicatorColor,
-                        }}
-                      />
-                      <div className="flex flex-1 justify-between leading-none items-center gap-3">
-                        <span className="text-muted-foreground">Indicador</span>
-                        <span className="font-mono font-medium tabular-nums text-foreground">
-                          {Number(value).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }}
-            />
-            {/* Línea de referencia del porcentaje esperado */}
-            {expectedPercentage > 0 && (
-              <ReferenceLine
-                y={expectedPercentage}
-                stroke="hsl(142.1 76.2% 36.3%)"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                label={{
-                  value: `${expectedPercentage}%`,
-                  position: 'insideTopRight',
-                  fill: 'hsl(142.1 76.2% 36.3%)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              />
-            )}
-            {/* Línea principal con stroke gris y puntos de colores */}
-            <Line
-              dataKey="indicator"
-              type="monotone"
-              stroke="hsl(var(--muted-foreground) / 0.3)"
-              strokeWidth={2}
-              dot={(props: any) => {
-                const { cx, cy, payload } = props;
-                const isAboveExpected = payload.indicator > expectedPercentage;
-                // Para KPI-0003 y KPI-0006 (objetivo 95%), invertir colores: verde si supera, rojo si no
-                const invertColors = kpiCode === 'KPI-0003' || kpiCode === 'KPI-0006';
-                const dotColor = invertColors
-                  ? isAboveExpected
-                    ? 'hsl(142.1 76.2% 36.3%)'
-                    : 'hsl(0 84.2% 60.2%)'
-                  : isAboveExpected
-                    ? 'hsl(0 84.2% 60.2%)'
-                    : 'hsl(142.1 76.2% 36.3%)';
-                return <circle cx={cx} cy={cy} r={5} fill={dotColor} stroke="white" strokeWidth={2} />;
-              }}
-              activeDot={{
-                r: 7,
-              }}
-            >
-              {showLabels && (
-                <LabelList
-                  position="top"
-                  offset={12}
-                  className="fill-foreground"
-                  fontSize={12}
-                  formatter={(value: number) => `${value}%`}
-                />
-              )}
-            </Line>
-          </LineChart>
-        </ChartContainer>
-      </CardContent>
-      <CardFooter className="border-t">
-        <div className="flex flex-col gap-1 text-sm">
-          <div>
-            Promedio del período: <span className="font-semibold">{totals.indicator}%</span>
-          </div>
-          {expectedPercentage > 0 && (
-            <div className="text-muted-foreground">
-              Umbral objetivo: <span className="font-semibold">{expectedPercentage}%</span>
+      <CardContent className="px-4">{renderChartContent()}</CardContent>
+      {!loading && chartData.length > 0 && (
+        <CardFooter className="border-t">
+          <div className="flex flex-col gap-1 text-sm">
+            <div>
+              Promedio del período: <span className="font-semibold">{averageIndicator}%</span>
             </div>
-          )}
-        </div>
-      </CardFooter>
+            {expectedPercentage > 0 && (
+              <div className="text-muted-foreground">
+                Umbral objetivo: <span className="font-semibold">{expectedPercentage}%</span>
+              </div>
+            )}
+          </div>
+        </CardFooter>
+      )}
     </Card>
   );
 }
