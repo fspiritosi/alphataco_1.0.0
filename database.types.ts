@@ -4177,6 +4177,19 @@ export type Database = {
           position_name: string;
         }[];
       };
+      get_kpi_range: {
+        Args: {
+          p_company_id: string;
+          p_from_date: string;
+          p_kpi_code: string;
+          p_to_date: string;
+        };
+        Returns: {
+          indicator: number;
+          raw_data: Json;
+          snapshot_date: string;
+        }[];
+      };
       get_max_order_number: { Args: never; Returns: string };
       get_services_summary_by_type: {
         Args: { p_company_id: string; save_to_history?: boolean };

@@ -68,13 +68,23 @@ export function KpiChart({
   React.useEffect(() => {
     if (timeRange) {
       const today = new Date();
-      const from = new Date();
-      const daysToSubtract = timeRange === '1y' ? 365 : timeRange === '90d' ? 90 : timeRange === '7d' ? 7 : 30;
-      from.setDate(today.getDate() - daysToSubtract);
-      setRange({
-        from,
-        to: today,
-      });
+
+      // Para "1y" mostrar el año actual completo (1 enero - 31 diciembre)
+      if (timeRange === '1y') {
+        const currentYear = today.getFullYear();
+        setRange({
+          from: new Date(currentYear, 0, 1), // 1 de enero
+          to: new Date(currentYear, 11, 31), // 31 de diciembre
+        });
+      } else {
+        const from = new Date();
+        const daysToSubtract = timeRange === '90d' ? 90 : timeRange === '7d' ? 7 : 30;
+        from.setDate(today.getDate() - daysToSubtract);
+        setRange({
+          from,
+          to: today,
+        });
+      }
     }
   }, [timeRange]);
 
@@ -298,7 +308,15 @@ export function KpiChart({
                 const value = item.value as number;
 
                 const isAboveExpected = value > expectedPercentage;
-                const indicatorColor = isAboveExpected ? 'hsl(0 84.2% 60.2%)' : 'hsl(142.1 76.2% 36.3%)';
+                // Para KPI-0003 y KPI-0006 (objetivo 95%), invertir colores: verde si supera, rojo si no
+                const invertColors = kpiCode === 'KPI-0003' || kpiCode === 'KPI-0006';
+                const indicatorColor = invertColors
+                  ? isAboveExpected
+                    ? 'hsl(142.1 76.2% 36.3%)'
+                    : 'hsl(0 84.2% 60.2%)'
+                  : isAboveExpected
+                    ? 'hsl(0 84.2% 60.2%)'
+                    : 'hsl(142.1 76.2% 36.3%)';
 
                 return (
                   <div className="grid min-w-[10rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-3 py-1.5 text-xs shadow-xl">
@@ -350,16 +368,16 @@ export function KpiChart({
               dot={(props: any) => {
                 const { cx, cy, payload } = props;
                 const isAboveExpected = payload.indicator > expectedPercentage;
-                return (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={5}
-                    fill={isAboveExpected ? 'hsl(0 84.2% 60.2%)' : 'hsl(142.1 76.2% 36.3%)'}
-                    stroke="white"
-                    strokeWidth={2}
-                  />
-                );
+                // Para KPI-0003 y KPI-0006 (objetivo 95%), invertir colores: verde si supera, rojo si no
+                const invertColors = kpiCode === 'KPI-0003' || kpiCode === 'KPI-0006';
+                const dotColor = invertColors
+                  ? isAboveExpected
+                    ? 'hsl(142.1 76.2% 36.3%)'
+                    : 'hsl(0 84.2% 60.2%)'
+                  : isAboveExpected
+                    ? 'hsl(0 84.2% 60.2%)'
+                    : 'hsl(142.1 76.2% 36.3%)';
+                return <circle cx={cx} cy={cy} r={5} fill={dotColor} stroke="white" strokeWidth={2} />;
               }}
               activeDot={{
                 r: 7,
