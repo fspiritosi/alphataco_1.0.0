@@ -4,7 +4,7 @@ import { fetchAllWorkDiagrams } from '../../actions/rrhh/actions';
 import DiagramTypesTab from '../diagramTypesTab';
 
 export default async function DiagramTypesTabWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // Fetch data
   const diagrams_types = await fetchDiagramsTypes();

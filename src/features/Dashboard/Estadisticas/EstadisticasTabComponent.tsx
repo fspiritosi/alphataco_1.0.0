@@ -2,8 +2,9 @@ import { Card } from '@/components/ui/card';
 import OperacionesTabContent from '@/features/Dashboard/Estadisticas/Operaciones/OperacionesTabContent';
 import { TabsManagerServer } from '@/features/TabsManager';
 import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
-import { Calendar, Users } from 'lucide-react';
+import { BarChart3, Calendar, Users } from 'lucide-react';
 import { Suspense } from 'react';
+import KpisTabContent from './KPIs/KpisTabContent';
 import { AbsenteeismDashboard } from './RecursosHumanos/absenteeism-dashboard';
 
 function EstadisticasTabComponent({
@@ -52,6 +53,22 @@ function EstadisticasTabComponent({
               <Card className="grid grid-cols-1 gap-3 mb-4 p-4">
                 <AbsenteeismDashboard />
               </Card>
+            ),
+          },
+          {
+            value: 'kpis',
+            label: (
+              <span className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                KPIs
+              </span>
+            ),
+            moduleSlug: 'dashboard',
+            tabSlug: 'kpis',
+            content: (
+              <Suspense fallback={<div>Cargando KPIs...</div>}>
+                <KpisTabContent searchParams={searchParams} permissions={permissions} />
+              </Suspense>
             ),
           },
           // {

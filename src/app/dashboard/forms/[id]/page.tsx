@@ -21,9 +21,11 @@ const renderForm = (activeFormType: string) => {
   }
 };
 
-export default async function FormDetailPage({ params }: { params: { id: string } }) {
-  const answers = await fetchFormsAnswersByFormId(params.id);
-  const formInfo = await fetchCustomFormById(params.id);
+export default async function FormDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // En Next.js 15+, params es una Promise, necesitamos hacer await
+  const resolvedParams = await params;
+  const answers = await fetchFormsAnswersByFormId(resolvedParams.id);
+  const formInfo = await fetchCustomFormById(resolvedParams.id);
   const formName = formInfo[0].name;
   const formDescription = (answers[0]?.form_id?.form as any)?.description ?? '';
 
@@ -34,7 +36,7 @@ export default async function FormDetailPage({ params }: { params: { id: string 
         <PDFPreviewDialog buttonText="Imprimir vacío" title={formName} description="Vista previa del formulario vacío">
           <div className="h-full w-full bg-white">{renderForm(formName)}</div>
         </PDFPreviewDialog>
-        <Link className={buttonVariants({ variant: 'default' })} href={`/dashboard/forms/${params.id}/new`}>
+        <Link className={buttonVariants({ variant: 'default' })} href={`/dashboard/forms/${resolvedParams.id}/new`}>
           Nueva respuesta
         </Link>
       </div>

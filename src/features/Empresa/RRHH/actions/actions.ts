@@ -6,8 +6,8 @@ import { WorkDiagram } from '@/types/types';
 import { cookies } from 'next/headers';
 
 export async function createContractType(contractType: { name: string; description: string | null }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -26,8 +26,8 @@ export async function updateContractType(contractType: {
   description: string | null;
   is_active: boolean;
 }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -47,8 +47,8 @@ export async function updateContractType(contractType: {
 }
 
 export async function deleteContractType(contractType: { id: string }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -73,8 +73,8 @@ export async function createWorkDiagram(workDiagram: {
   active_novelty: string[]; // Cambiado a array de strings
   inactive_novelty: string;
 }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -146,7 +146,7 @@ export async function updateWorkDiagram(workDiagram: {
   active_novelty: string[]; // Array de diagram_type_id
   inactive_novelty: string;
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // 1. Actualizar el work_diagram
   const { data: updatedWorkDiagram, error: updateError } = await supabase
@@ -219,8 +219,8 @@ export async function updateWorkDiagram(workDiagram: {
 }
 
 export async function deleteWorkDiagram(workDiagram: { id: string }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -238,8 +238,8 @@ export async function deleteWorkDiagram(workDiagram: { id: string }) {
 }
 
 export async function fetchAllPositions() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -258,8 +258,8 @@ export async function createPosition(position: {
   hierarchical_position_id: string[];
   aptitudes_tecnicas_id: string[];
 }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -316,8 +316,8 @@ export async function updatePosition(position: {
   hierarchical_position_id: string[];
   aptitudes_tecnicas_id: string[];
 }) {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) throw new Error('No company ID found');
 
@@ -372,8 +372,8 @@ export async function updatePosition(position: {
 }
 
 export async function fetchAllHierarchicalPositions() {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -391,7 +391,7 @@ export async function fetchAllHierarchicalPositions() {
 }
 
 export async function fetchAllAptitudesTecnicas() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('aptitudes_tecnicas')
     .select('*,aptitudes_tecnicas_puestos(puesto_id)')
@@ -405,7 +405,7 @@ export async function fetchAllAptitudesTecnicas() {
 }
 
 export async function fetchPositionAptitudes(positionId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('aptitudes_tecnicas_puestos')
     .select('aptitudes_tecnicas:aptitud_id(*)')

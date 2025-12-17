@@ -3,7 +3,7 @@ import { fetchEquipmentExpiringDocuments } from '../../../../app/dashboard/compo
 import DocumentsTableServer from './DocumentsTableServer';
 
 export default async function DocumentsTableServerWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // 🔑 IMPORTANTE: Gestión de cookies para persistencia
   const savedVisibility = cookiesStore.get('dashboard-vehicles-table-expiring-documents')?.value;

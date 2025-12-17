@@ -2,7 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { NextRequest } from 'next/server';
 
 export async function PUT(request: NextRequest, context: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { params } = context;
   const id = params.id;
   const body = await request.json();
@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest, context: any) {
 }
 
 export async function DELETE(request: NextRequest, context: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { params } = context;
   const id = params.id;
 

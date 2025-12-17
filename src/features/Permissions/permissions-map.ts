@@ -94,6 +94,29 @@ export const PERMISSIONS = {
             parent: 'estadisticas',
             allowedActions: ['view'],
           },
+          kpis: {
+            slug: 'kpis',
+            name: 'KPIs',
+            tabId: '10000000-0000-0000-0000-000000000004',
+            parent: 'estadisticas',
+            allowedActions: ['view', 'create', 'update'],
+            subtabs: {
+              indicadores: {
+                slug: 'indicadores',
+                name: 'Indicadores',
+                tabId: '10000000-0000-0000-0000-000000000041',
+                parent: 'kpis',
+                allowedActions: ['view', 'create', 'update'],
+              },
+              graficos: {
+                slug: 'graficos',
+                name: 'Gráficos',
+                tabId: '10000000-0000-0000-0000-000000000042',
+                parent: 'kpis',
+                allowedActions: ['view'],
+              },
+            },
+          },
           mantenimiento: {
             slug: 'mantenimiento',
             name: 'Mantenimiento',

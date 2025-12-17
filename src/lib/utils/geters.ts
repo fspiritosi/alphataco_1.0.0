@@ -5,13 +5,13 @@ import { cookies } from 'next/headers';
 
 export async function getTotalResourses() {
   const URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const coockiesStore = cookies();
+  const coockiesStore = await cookies();
   const company_id = coockiesStore.get('actualComp')?.value;
 
   async function getResources() {

@@ -4,7 +4,7 @@ import { fechAllCustomers, fetchEquipmentsCustomers } from '../../../Empresa/Cli
 import CustomerEquipmentTab from '../../../Empresa/Clientes/components/equipos/customerEquipmentTab';
 
 export default async function CustomerEquipmentTabWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   // Fetch data

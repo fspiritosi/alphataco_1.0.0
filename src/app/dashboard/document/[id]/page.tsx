@@ -22,9 +22,13 @@ export default async function page({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams: { resource: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ resource: string }>;
 }) {
+  // En Next.js 16, params y searchParams son Promises, necesitamos hacer await
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+
   let documents_employees: any[] | null = [];
   let resource = '';
   let documentName = '';
@@ -32,17 +36,17 @@ export default async function page({
   let document: any[] | null = [];
   let documentType: string | null = null;
   let resourceType: string | null = null;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
-  if (searchParams.resource === 'Persona') {
-    const documents_employee = await getDocumentEmployeesById(params.id);
+  if (resolvedSearchParams.resource === 'Persona') {
+    const documents_employee = await getDocumentEmployeesById(resolvedParams.id);
     document = documents_employee;
     resourceType = 'documentos-empleados';
     resource = 'employee';
   }
 
-  if (searchParams.resource === 'Equipos') {
-    const documents_equipment = await getDocumentEquipmentById(params.id);
+  if (resolvedSearchParams.resource === 'Equipos') {
+    const documents_equipment = await getDocumentEquipmentById(resolvedParams.id);
     document = documents_equipment;
     resourceType = 'documentos-equipos';
     resource = 'vehicle';
@@ -85,7 +89,7 @@ export default async function page({
   }
 
   // Preparar tabs para TabsManagerServer
-  const searchParamsObj = typeof searchParams === 'string' ? {} : searchParams || {};
+  const searchParamsObj = resolvedSearchParams;
 
   const tabs = [];
 
@@ -520,14 +524,14 @@ export default async function page({
             </CardDescription>
             <div className="w-full flex justify-evenly flex-wrap">
               <UpdateDocuments
-                id={params.id}
+                id={resolvedParams.id}
                 resource={resource}
                 documentName={documentName}
                 expires={documents_employees?.[0]?.document_types?.explired}
                 montly={documents_employees?.[0]?.document_types?.is_it_montlhy ?? false}
               />
               <ReplaceDocument
-                id={params.id}
+                id={resolvedParams.id}
                 resource={resource}
                 documentName={documentName}
                 expires={documents_employees?.[0]?.validity}
@@ -535,7 +539,7 @@ export default async function page({
                 appliesId={document?.[0]?.id}
               />
               <DeleteDocument
-                id={params.id}
+                id={resolvedParams.id}
                 resource={resource}
                 documentName={documentName}
                 expires={documents_employees?.[0]?.document_types?.explired}

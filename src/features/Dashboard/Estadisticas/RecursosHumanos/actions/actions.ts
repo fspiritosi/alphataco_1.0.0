@@ -4,14 +4,14 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 // Helper para obtener company_id desde cookies
-function getCompanyId() {
-  const cookiesStore = cookies();
+async function getCompanyId() {
+  const cookiesStore = await cookies();
   return cookiesStore.get('actualComp')?.value || '';
 }
 
 // Helper para obtener user_id
 async function getUserId() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -28,8 +28,8 @@ export async function getAbsenteeismSummary({
   toDate?: string;
   saveToTable?: boolean;
 }) {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return;
@@ -52,8 +52,8 @@ export async function getAbsenteeismSummary({
 
 // Obtener distribución de empleados por género y posición
 export async function getEmployeesByGenderAndPosition() {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return;
@@ -82,8 +82,8 @@ export type GetEmployeesByGenderAndPositionType = Awaited<ReturnType<typeof getE
 
 // Obtener distribución de empleados por tipo de contrato
 export async function getEmployeesByContractType() {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return;
@@ -119,8 +119,8 @@ export async function getAbsenteeismTrend({
   toDate?: string;
   saveToTable?: boolean;
 }) {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return [];
@@ -149,8 +149,8 @@ export async function getCurrentAbsentEmployees({
   date?: string;
   saveToTable?: boolean;
 }) {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return;
@@ -181,8 +181,8 @@ export async function getDailyAbsenceTimeseries({
   toDate?: string;
   saveToTable?: boolean;
 }) {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return;
@@ -212,8 +212,8 @@ export async function getDepartmentAbsenceReasons({
   date?: string;
   saveToTable?: boolean;
 }) {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return;
@@ -242,8 +242,8 @@ export async function getDepartmentAbsenceSummary({
   date?: string;
   saveToTable?: boolean;
 }) {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     return;
@@ -265,8 +265,8 @@ export async function getDepartmentAbsenceSummary({
 }
 
 export async function getDailyAbsenceDetail({ date, saveToTable = false }: { date?: string; saveToTable?: boolean }) {
-  const supabase = supabaseServer();
-  const companyId = getCompanyId();
+  const supabase = await supabaseServer();
+  const companyId = await getCompanyId();
 
   if (!companyId) {
     throw new Error('No se encontró el ID de la empresa');

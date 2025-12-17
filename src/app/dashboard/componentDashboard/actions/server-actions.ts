@@ -24,7 +24,7 @@ interface FetchEquipmentDataOptions {
 
 // 🔑 Función para obtener documentos de empleados a vencer (con paginación)
 export async function fetchEmployeeExpiringDocuments(options: FetchDataOptions) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -76,7 +76,7 @@ export async function fetchAllEmployeeExpiringDocuments(options: {
 
 // 🔑 Función para obtener documentos de vehículos a vencer (con paginación)
 export async function fetchEquipmentExpiringDocuments(options: FetchEquipmentDataOptions) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {

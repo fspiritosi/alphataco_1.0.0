@@ -3,7 +3,7 @@ import { fetchEmployeeExpiringDocuments } from '../../../../app/dashboard/compon
 import EmployeesTableServer from './EmployeesTableServer';
 
 export default async function EmployeesTableServerWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // 🔑 IMPORTANTE: Gestión de cookies para persistencia
   const savedVisibility = cookiesStore.get('dashboard-employees-table-expiring-documents')?.value;

@@ -12,7 +12,7 @@ import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 async function getProfileIdsByRoles(roleNames: string[]): Promise<string[] | undefined> {
   if (roleNames.length === 0) return undefined;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Obtener los IDs de roles por nombre
   const { data: roles, error: rolesError } = await supabase.from('roles').select('id').in('name', roleNames);
@@ -144,7 +144,7 @@ export async function fetchAllCompanyUsers(options: {
 }
 
 export async function fetchRoles() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.from('roles').select('*').eq('intern', false).neq('name', 'Invitado');
 
   if (error) {
@@ -155,7 +155,7 @@ export async function fetchRoles() {
 }
 
 export async function fetchOwner() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const currentCompany = await fetchCurrentCompany();
 
   if (!currentCompany || currentCompany.length === 0) return null;

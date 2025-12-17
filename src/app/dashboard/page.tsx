@@ -6,9 +6,10 @@ import { query } from '../server/GET/probando';
 export default async function Home({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  return <DashboardComponent searchParams={searchParams} />;
+  const resolvedSearchParams = await searchParams;
+  return <DashboardComponent searchParams={resolvedSearchParams} />;
 }
 
 // Exportar el tipo basado en una consulta de ejemplo
@@ -16,7 +17,7 @@ export type dataType = Awaited<ReturnType<typeof query<'employees', '*'>>>;
 
 // Generate metadata for the page
 export async function generateMetadata() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const companyName = cookiesStore.get('actualCompName')?.value;
   if (companyName) {
     return {

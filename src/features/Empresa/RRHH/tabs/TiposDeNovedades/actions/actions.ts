@@ -5,8 +5,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function fetchAllDiagramTypes() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   try {
@@ -27,17 +27,30 @@ export async function fetchAllDiagramTypes() {
   }
 }
 
-export async function createDiagramType({ name, color, short_description, work_active, is_active }: NewDiagramType) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+export async function createDiagramType({
+  name,
+  color,
+  short_description,
+  work_active,
+  is_active,
+  computes_absenteeism,
+}: NewDiagramType) {
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
 
   try {
-    const { data, error } = await supabase
-      .from('diagram_type')
-      .insert({ name, company_id, color, short_description, work_active, is_active });
+    const { data, error } = await supabase.from('diagram_type').insert({
+      name,
+      company_id,
+      color,
+      short_description,
+      work_active,
+      is_active,
+      computes_absenteeism: computes_absenteeism ?? (!work_active ? true : false),
+    });
 
     console.error(error, 'error');
 
@@ -59,9 +72,10 @@ export async function updateDiagramType({
   short_description,
   work_active,
   is_active,
+  computes_absenteeism,
 }: NewDiagramType) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -69,7 +83,14 @@ export async function updateDiagramType({
   try {
     const { data, error } = await supabase
       .from('diagram_type')
-      .update({ name, color, short_description, work_active, is_active })
+      .update({
+        name,
+        color,
+        short_description,
+        work_active,
+        is_active,
+        computes_absenteeism: computes_absenteeism ?? (!work_active ? true : false),
+      })
       .eq('id', id || '');
 
     if (error) {

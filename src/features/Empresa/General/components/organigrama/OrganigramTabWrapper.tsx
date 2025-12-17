@@ -3,7 +3,7 @@ import { fetchAllSectors } from '../../actions/actions';
 import OrganigramTab from './OrganigramTab';
 
 export default async function OrganigramTabWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const sectors = await fetchAllSectors();
 
   const savedVisibilityOrganigram = cookiesStore.get('organigram-table')?.value;

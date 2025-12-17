@@ -5,8 +5,8 @@ import { cookies } from 'next/headers';
 // Users-related actions
 
 export const CreateNewFormAnswer = async (formId: string, formAnswer: any) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   // if (!company_id) return [];
   const { data, error } = await supabase.from('form_answers').insert({
@@ -21,8 +21,8 @@ export const CreateNewFormAnswer = async (formId: string, formAnswer: any) => {
 };
 
 export const UpdateVehicle = async (vehicleId: string, vehicleData: any) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
   const { data, error } = await supabase.from('vehicles').update(vehicleData).eq('id', vehicleId);
@@ -32,7 +32,7 @@ export const UpdateVehicle = async (vehicleId: string, vehicleData: any) => {
   }
 };
 export const updateModulesSharedUser = async ({ id, modules }: { id: string; modules: ModulosEnum[] }) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase.from('share_company_users').update({ modules: modules }).eq('id', id).select();
 
   if (error) {
@@ -43,8 +43,8 @@ export const updateModulesSharedUser = async ({ id, modules }: { id: string; mod
 };
 
 export const UpdateDiagramsById = async (diagramData: { diagram_type: string; diagramId: string }[]) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 
@@ -61,8 +61,8 @@ export const UpdateDiagramsById = async (diagramData: { diagram_type: string; di
 };
 
 export const CreateDiagrams = async (diagramData: EmployeeDiagramInsert[]) => {
-  const cookiesStore = cookies();
-  const supabase = supabaseServer();
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id) return [];
 

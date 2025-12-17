@@ -3,8 +3,8 @@ import { cookies } from 'next/headers';
 import { SubmitCustomForm } from '../../components/SubmitCustomForm';
 
 async function page({ searchParams }: { searchParams: { formid: string } }) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp');
   const form = searchParams.formid;
   const { data, error } = await supabase

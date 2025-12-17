@@ -5,7 +5,7 @@ import { fechAllCustomers, fetchAreasWithProvinces } from '../../../Empresa/Clie
 import CustomerTab from '../../../Empresa/Clientes/components/customerTab';
 
 export default async function CustomerTabWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // Fetch data
   const customers = await fechAllCustomers();

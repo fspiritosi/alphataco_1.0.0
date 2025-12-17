@@ -31,7 +31,7 @@ Esto **NO debería ser posible** ya que el número de pedido debería ser único
 
 ```typescript
 export async function getLastOrderNumber() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('preparte' as any)
     .select('numero_pedido')
@@ -108,7 +108,7 @@ const generateOrderNumber = async () => {
 
 ```typescript
 export async function getLastOrderNumber(cliente_id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('preparte' as any)
     .select('numero_pedido')

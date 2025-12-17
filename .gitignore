@@ -8,7 +8,7 @@
 /dist/
 /out/
 cypress.env.json
-
+.cursor/
 # testing
 /coverage
 

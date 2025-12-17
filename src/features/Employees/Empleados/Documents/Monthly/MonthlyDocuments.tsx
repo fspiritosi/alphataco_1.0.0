@@ -5,7 +5,7 @@ import { fetchMonthlyDocumentsData } from './lib/actions/actions';
 
 // ✅ MIGRACIÓN CORRECTA: Server Component que mantiene la misma funcionalidad
 async function MonthlyDocuments({}) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // 🔑 IMPORTANTE: Gestión de cookies para persistencia (nueva funcionalidad)
   const savedVisibilityMonthly = cookiesStore.get(`monthly-documents-employees`)?.value;

@@ -2,7 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest, context: any) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { params } = context;
   //   const searchParams = request.nextUrl.searchParams;
   //   const company_id = searchParams.get('actual');

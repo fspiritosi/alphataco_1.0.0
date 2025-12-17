@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 export async function createdContact(formData: FormData) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const {
     data: { session },
@@ -71,7 +71,7 @@ export async function createdContact(formData: FormData) {
 }
 
 export async function updateContact(formData: FormData) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const {
     data: { session },

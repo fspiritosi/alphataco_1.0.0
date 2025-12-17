@@ -5,7 +5,7 @@ import { fetchDailyReportData } from '../actions/server-actions';
 import DayliReportDetailTableServer from './DayliReportDetailTableServer';
 
 export default async function DayliReportDetailTableServerWrapper({ params }: { params: { uuid: string } }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get('dailyReportServerTable')?.value;
   const savedFilter = cookiesStore.get('dailyReportServerTable-filters')?.value;
 

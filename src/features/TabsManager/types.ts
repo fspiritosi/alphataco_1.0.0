@@ -106,8 +106,10 @@ export interface TabsManagerServerProps<M extends ModuleSlug = ModuleSlug> {
    * Para tipado fuerte, usa `as const` en el array de tabs.
    */
   defaultTab: string;
-  /** Parámetros de búsqueda actuales (searchParams de la Page) */
-  searchParams: { [key: string]: string | string[] | undefined };
+  /** Parámetros de búsqueda actuales (searchParams de la Page) - En Next.js 16 es una Promise */
+  searchParams:
+    | Promise<{ [key: string]: string | string[] | undefined }>
+    | { [key: string]: string | string[] | undefined };
   /**
    * Lista de parámetros de URL que dependen de este tab y deben limpiarse al cambiar.
    *

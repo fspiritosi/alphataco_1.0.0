@@ -26,7 +26,7 @@ type Contact = {
 };
 
 export default async function Contact() {
-  const coockiesStore = cookies();
+  const coockiesStore = await cookies();
   const actualCompany = coockiesStore.get('actualComp')?.value;
   const saved = coockiesStore.get('contactTable')?.value;
   const savedVisibility = saved ? JSON.parse(saved) : {};

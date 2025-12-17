@@ -76,7 +76,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   onRowClick?: (row: TData) => void;
   toolbarOptions?: ToolbarOptions<TData>;
-  paginationComponent?: React.ReactNode;
+  paginationComponent?: React.ReactNode | ((props: { table: TableType<TData> }) => React.ReactNode);
   className?: string;
   tableId?: string; // ID para persistencia
   initialColumnVisibility?: VisibilityState; // Estado inicial de columnas
@@ -323,7 +323,13 @@ export const BaseDataTable = forwardRef<TableType<any>, DataTableProps<any, any>
             </Table>
           </div>
           {paginationComponent ? (
-            React.cloneElement(paginationComponent as React.ReactElement, { table })
+            typeof paginationComponent === 'function' ? (
+              (paginationComponent as (props: { table: TableType<TData> }) => React.ReactNode)({ table })
+            ) : React.isValidElement(paginationComponent) ? (
+              React.cloneElement(paginationComponent as React.ReactElement<{ table: TableType<TData> }>, { table })
+            ) : (
+              paginationComponent
+            )
           ) : (
             <DataTablePagination table={table} />
           )}

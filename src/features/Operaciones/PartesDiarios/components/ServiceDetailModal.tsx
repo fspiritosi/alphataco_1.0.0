@@ -60,7 +60,6 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
       day: 'numeric',
     });
   };
-  console.log(serviceData);
   return (
     <Dialog>
       <DialogTrigger asChild>

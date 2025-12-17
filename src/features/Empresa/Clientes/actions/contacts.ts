@@ -4,8 +4,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function fetchContacts() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const actualCompany = cookieStore.get('actualComp')?.value;
 
   if (!actualCompany) {

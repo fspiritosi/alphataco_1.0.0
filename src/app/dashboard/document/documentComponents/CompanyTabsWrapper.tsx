@@ -4,9 +4,9 @@ import { cookies } from 'next/headers';
 import CompanyTabs from './CompanyTabs';
 
 async function CompanyTabsWrapper({ subtab, tabValue, path }: { subtab?: string; tabValue: string; path: string }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const user = await supabase.auth.getUser();
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   // Fetch company documents data

@@ -15,8 +15,8 @@ export async function createEquipmentOwner({
   cuit: string;
   contract_types: ('Leasing' | 'Alquiler' | 'Prendado')[];
 }) {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('company_id')?.value;
 
   // Crear el titular (usamos el primer tipo de contrato para mantener compatibilidad con el campo legacy)
@@ -117,7 +117,7 @@ export async function updateEquipmentOwner({
 }
 
 export async function FetchEquipmentOwners() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('equipment_owners')
     .select('*, equipment_owner_contract_types(contract_type)');
@@ -132,7 +132,7 @@ export async function FetchEquipmentOwners() {
 export type FetchEquipmentOwnersType = Awaited<ReturnType<typeof FetchEquipmentOwners>>;
 
 export async function fetchEquipmentByOwnerId(owner_id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('vehicles')

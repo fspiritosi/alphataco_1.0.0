@@ -10,7 +10,7 @@ import IndicatorCardEquipment from './indicatorCard';
 import { TypeFilter } from './typeFilter';
 
 export default async function EquipmentChart() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const cookieValue = cookiesStore.get('type-filter')?.value;
 
   const active_vehicles: any = await getVehiclesDisponibleFilterType(

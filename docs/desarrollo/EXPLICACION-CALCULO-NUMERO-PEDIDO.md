@@ -16,7 +16,7 @@ Usuario crea pedido → generateOrderNumber() → getLastOrderNumber() → Incre
 
 ```typescript
 export async function getLastOrderNumber() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // 1. Busca en TODA la tabla preparte
   const { data, error } = await supabase
@@ -141,7 +141,7 @@ Cada cliente tiene su propia secuencia independiente.
 
 ```typescript
 export async function getLastOrderNumber(cliente_id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('preparte')
     .select('numero_pedido')

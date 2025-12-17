@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const token = searchParams.get('token');
   const type = searchParams.get('type');
   const next = searchParams.get('next') ?? '/reset_password/update-user';
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   // Crear redirect URL sin el token secreto
   const redirectTo = new URL(request.url);

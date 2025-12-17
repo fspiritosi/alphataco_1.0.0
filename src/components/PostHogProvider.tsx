@@ -3,33 +3,62 @@
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import posthog from 'posthog-js';
 import { PostHogProvider as PHProvider } from 'posthog-js/react';
-import React, { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface PostHogProviderProps {
   children: React.ReactNode;
 }
 
 export function PostHogProvider({ children }: PostHogProviderProps) {
-  if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    // Solo inicializar si hay key y no se ha inicializado
+    if (!process.env.NEXT_PUBLIC_POSTHOG_KEY || initialized.current) {
+      return;
+    }
+
+    // Inicializar PostHog
+    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
+      api_host: '/ingest',
+      ui_host: 'https://us.posthog.com',
+      loaded: (posthog) => {
+        if (process.env.NODE_ENV === 'development') {
+          posthog.debug();
+        }
+      },
+      capture_exceptions: true,
+      debug: false,
+    });
+
+    initialized.current = true;
+
+    // Configurar listener de Supabase con cleanup
     const supabase = supabaseBrowser();
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        const user = session.user;
-        posthog.identify(user.email, {
-          email: user.email,
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Usar user.id como distinctId (según documentación)
+        posthog.identify(session.user.id, {
+          email: session.user.email,
+          // Agregar más propiedades del usuario si es necesario
         });
+      } else if (event === 'SIGNED_OUT') {
+        // Resetear cuando el usuario cierra sesión
+        posthog.reset();
       }
     });
 
-    useEffect(() => {
-      posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-        api_host: '/ingest',
-        ui_host: 'https://us.posthog.com',
-        defaults: '2025-05-24',
-        capture_exceptions: true,
-        debug: false,
-      });
-    }, []);
+    // Cleanup importante para evitar memory leaks
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Solo renderizar provider si PostHog está configurado
+  if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+    return <>{children}</>;
   }
 
   return <PHProvider client={posthog}>{children}</PHProvider>;

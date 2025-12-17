@@ -5,7 +5,7 @@ import { Guild } from '@/types/types';
 
 export async function getGuildsWithCovenants() {
   try {
-    const supabase = supabaseServer();
+    const supabase = await supabaseServer();
     const { data: guilds, error } = await supabase.from('guild').select('*,covenant(*,category(*))');
 
     if (error) {

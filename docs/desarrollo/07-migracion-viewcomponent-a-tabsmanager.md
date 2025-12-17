@@ -378,8 +378,8 @@ import { DataTable } from '@/app/dashboard/company/actualCompany/components/data
 import { columnsDocuments } from '@/app/dashboard/company/actualCompany/components/document-colums';
 
 async function CompanyPermanentDocuments() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   const { data: documents_company } = await supabase
@@ -394,8 +394,8 @@ async function CompanyPermanentDocuments() {
 }
 
 async function CompanyMonthlyDocuments() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   const { data: documents_company } = await supabase

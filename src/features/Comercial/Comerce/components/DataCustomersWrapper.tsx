@@ -13,7 +13,7 @@ import { columnsCustomers } from '../../../Empresa/Clientes/components/columns';
 import { DataCustomers } from '../../../Empresa/Clientes/components/data-customer';
 
 export default async function DataCustomersWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const actualCompany = cookiesStore.get('actualComp')?.value;
 
   // Consultas que no dependen entre sí

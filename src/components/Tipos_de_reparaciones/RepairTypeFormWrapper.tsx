@@ -6,7 +6,7 @@ import { fetchAllTypesOfRepairs } from './actions/actions';
 async function RepairTypeFormWrapper() {
   // Fetch data
   const types_of_repairs = await fetchAllTypesOfRepairs();
-  const coockiesStore = cookies();
+  const coockiesStore = await cookies();
   const savedVisibility = coockiesStore.get('repair-type-table')?.value;
   const savedVisibilityFilters = coockiesStore.get('repair-type-table-filters')?.value;
 

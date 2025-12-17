@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { NotificationItemProps } from '../../types/navbar.types';
 
 export function _NotificationItem({ notification, formattedDate }: NotificationItemProps) {
-  const getNotificationIcon = (): JSX.Element | null => {
+  const getNotificationIcon = (): React.ReactNode | null => {
     switch (notification.category) {
       case 'rechazado':
       case 'advertencia':

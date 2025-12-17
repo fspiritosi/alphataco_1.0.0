@@ -1,10 +1,10 @@
 'use client';
 import { motion, useAnimation, useInView } from 'framer-motion';
-import { useEffect, useRef } from 'react';
+import { RefObject, useEffect, useRef } from 'react';
 
 export function Reveal({ children }: { children: React.ReactNode }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: false });
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref as RefObject<Element>, { once: false });
   const mainControls = useAnimation();
   const slideControls = useAnimation();
 

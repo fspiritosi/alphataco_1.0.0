@@ -2,7 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { PasswordChangeAlert } from './PasswordChangeAlert';
 
 export async function PasswordChangeAlertWrapper() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const {
     data: { user },

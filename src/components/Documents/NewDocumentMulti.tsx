@@ -22,7 +22,7 @@ async function NewDocumentMulti({
   onlyEmployees?: boolean;
   onlyEquipment?: boolean;
 }) {
-  // const cookiesStore = cookies();
+  // const cookiesStore = await cookies();
   const employees = (await fetchSimpleDataEmployee()).map((employee) => ({
     label: `${employee.firstname} ${employee.lastname}`,
     value: employee.id,

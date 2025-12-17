@@ -1,7 +1,7 @@
 import { supabaseServer } from '@/lib/supabase/server';
 
 export async function fetchCustomers(company_id: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data: customers, error } = await supabase

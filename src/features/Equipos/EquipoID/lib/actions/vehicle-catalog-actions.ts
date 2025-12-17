@@ -4,8 +4,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function getVehicleBrands() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -26,8 +26,8 @@ export async function getVehicleBrands() {
 }
 
 export async function getVehicleModels() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -48,8 +48,8 @@ export async function getVehicleModels() {
 }
 
 export async function getVehicleOwners() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -69,8 +69,8 @@ export async function getVehicleOwners() {
 }
 export type getVehicleOwnersType = Awaited<ReturnType<typeof getVehicleOwners>>;
 export async function getVehicleTypes() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -91,7 +91,7 @@ export async function getVehicleTypes() {
 }
 
 export async function getTypesOfVehicles() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('types_of_vehicles').select('*').order('name').eq('is_active', true);
 
@@ -104,8 +104,8 @@ export async function getTypesOfVehicles() {
 }
 
 export async function getVehicleSubTypes() {
-  const supabase = supabaseServer();
-  const cookiesStore = cookies();
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
@@ -127,7 +127,7 @@ export async function getVehicleSubTypes() {
 
 export async function getModelsByBrand(brandId: number) {
   if (!brandId) return [];
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('model_vehicles')
@@ -146,7 +146,7 @@ export async function getModelsByBrand(brandId: number) {
 
 export async function getSubTypesByType(typeId: string) {
   if (!typeId) return [];
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('sub_type')
@@ -164,7 +164,7 @@ export async function getSubTypesByType(typeId: string) {
 }
 
 export async function getHierarchicalPositions() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const { data, error } = await supabase.from('hierarchy').select('id, name').eq('is_active', true).order('name');
 

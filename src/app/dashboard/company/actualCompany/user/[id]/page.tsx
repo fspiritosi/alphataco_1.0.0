@@ -2,11 +2,13 @@ import { getUsersbyId } from '@/app/server/GET/actions';
 import { checkPermissionServer } from '@/features/Permissions/actionsServer';
 import { UserPermissionsManager } from '@/features/UserPermissionsManager/UserPermissionsManager';
 
-async function User({ params }: { params: { id: string } }) {
-  const data: any = await getUsersbyId({ id: params.id });
+async function User({ params }: { params: Promise<{ id: string }> }) {
+  // En Next.js 15+, params es una Promise, necesitamos hacer await
+  const resolvedParams = await params;
+  const data: any = await getUsersbyId({ id: resolvedParams.id });
 
   // El ID del usuario en auth.users es el credential_id del profile
-  const authUserId = data[0]?.profile_id?.credential_id || params.id;
+  const authUserId = data[0]?.profile_id?.credential_id || resolvedParams.id;
 
   // Verificar permisos de view y update
   const canView = await checkPermissionServer('empresa', 'detalle-usuario', 'view');

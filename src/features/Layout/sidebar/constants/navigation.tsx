@@ -10,6 +10,7 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
+import { JSX } from 'react';
 
 const sizeIcons = 24;
 

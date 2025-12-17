@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import TablaEmployeesInactiveServer from './components/EmployeesInactiveTableServer';
 
 async function EmpleadosInactivosTable() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get(`inactiveEmployeesServerTable`)?.value;
   const savedFilters = cookiesStore.get(`inactiveEmployeesServerTable-filters`)?.value;
   const company_id = cookiesStore.get(`actualComp`)?.value;

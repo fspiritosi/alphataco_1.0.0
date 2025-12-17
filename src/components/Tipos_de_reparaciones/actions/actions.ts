@@ -6,8 +6,8 @@ import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
 
 export async function fetchAllTypesOfRepairs() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -29,8 +29,8 @@ export async function fetchAllTypesOfRepairs() {
 }
 
 export async function createTypeOfRepair(body: any) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -50,8 +50,8 @@ export async function createTypeOfRepair(body: any) {
 }
 
 export async function updateTypeOfRepair(body: any, id: string) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -74,8 +74,8 @@ export async function updateTypeOfRepair(body: any, id: string) {
 }
 
 export async function deleteTypeOfRepair(id: string) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -141,8 +141,8 @@ export async function fetchRepairSolicitudes(options: {
 }
 
 export async function fetchAllRepairSolicitudes() {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -167,8 +167,8 @@ export async function fetchAllRepairSolicitudes() {
 }
 
 export async function createRepairSolicitud(data: any) {
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {

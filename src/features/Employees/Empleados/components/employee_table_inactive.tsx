@@ -4,7 +4,7 @@ import TablaEmployeesSupabase from '../EmpleadosTables/Activos/components/Employ
 
 async function EmployeeTableInactive() {
   // const employees = fetchAllEmployees();
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get(`actualComp`)?.value;
   const savedVisibility = cookiesStore.get(`activeEmployeesServerTable`)?.value;
   const savedFilters = cookiesStore.get(`activeEmployeesServerTable-filters`)?.value;

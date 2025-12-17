@@ -2,7 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { NextRequest } from 'next/server';
 
 // export async function PUT(request: NextRequest) {
-//   const supabase = supabaseServer();
+//   const supabase = await supabaseServer();
 //   const { rows, daily_report_id } = await request.json(); // Recibe las filas y el daily_report_id
 
 //   if (!rows || rows?.length === 0) {
@@ -118,7 +118,7 @@ import { NextRequest } from 'next/server';
 // }
 
 // export async function PUT(request: NextRequest) {
-//   const supabase = supabaseServer();
+//   const supabase = await supabaseServer();
 //   const { rows, daily_report_id } = await request.json(); // Nos aseguramos de recibir el daily_report_id
 
 //   if (!rows || rows?.length === 0) {
@@ -251,7 +251,7 @@ import { NextRequest } from 'next/server';
 // }
 
 export async function PUT(request: NextRequest) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let { rows, daily_report_id } = await request.json();
 
   if (!rows || rows?.length === 0) {

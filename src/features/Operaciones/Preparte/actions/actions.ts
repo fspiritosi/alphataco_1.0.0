@@ -3,9 +3,9 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function fetchServiceItems() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   if (!company_id) return [];
 
@@ -22,9 +22,9 @@ export async function fetchServiceItems() {
 }
 
 export async function fetchCustomersWithRelations() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   if (!company_id) return [];
 
   const { data, error } = await supabase
@@ -52,7 +52,7 @@ export async function fetchCustomersWithRelations() {
 }
 
 export async function fetchSectorsByContract(serviceId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   if (!serviceId) return [];
 
   // Get service_sectors with related sectors
@@ -86,7 +86,7 @@ export async function fetchSectorsByContract(serviceId: string) {
 }
 
 export async function fetchAreasByContract(serviceId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   if (!serviceId) return [];
 
   const { data, error } = await supabase
@@ -118,7 +118,7 @@ export async function fetchAreasByContract(serviceId: string) {
 }
 
 export async function fetchEquipmentsByCustomer(customerId: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   if (!customerId) return [];
   const { data, error } = await supabase
     .from('equipos_clientes')

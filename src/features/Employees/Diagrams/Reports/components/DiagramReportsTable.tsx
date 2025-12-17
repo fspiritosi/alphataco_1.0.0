@@ -3,7 +3,7 @@ import { fetchEmployeesDiagramData } from '../lib/actions/report-actions';
 import TableReportDiagram from './TableReportDiagram';
 
 async function DiagramReportsTableComponent() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const savedFilters = cookieStore.get('diagramReportsTable-filters')?.value;
   const savedVisibility = cookieStore.get('diagramReportsTable')?.value;
 

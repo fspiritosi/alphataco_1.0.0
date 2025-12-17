@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 export async function login(formData: FormData) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   const data = {
     email: formData.get('email') as string,
@@ -23,16 +23,16 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   await supabase.auth.signOut();
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   cookiesStore.delete('actualComp');
   revalidatePath('/', 'layout');
   redirect('/login');
 }
 
 export async function googleLogin(url: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   let { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -54,7 +54,7 @@ export async function googleLogin(url: string) {
 }
 
 export async function verifyResetToken(token: string, email: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Verificar que el token existe y es válido
@@ -100,7 +100,7 @@ export async function verifyResetToken(token: string, email: string) {
 }
 
 export async function markTokenAsUsed(token: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { error } = await supabase

@@ -16,7 +16,7 @@ import { Suspense } from 'react';
 import CovenantTreeFileWrapper from '../company/actualCompany/covenant/CovenantTreeFileWrapper';
 
 export async function generateMetadata() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const companyName = cookiesStore.get('actualCompName')?.value;
   if (companyName) {
     return {
@@ -37,16 +37,17 @@ export async function generateMetadata() {
 export default async function EmployeePage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
   const permissions = await getUserPermissionsMapServer();
+  const resolvedSearchParams = await searchParams;
 
   return (
     <div>
       <TabsManagerServer
         paramName="tab"
-        searchParams={searchParams}
+        searchParams={resolvedSearchParams}
         defaultTab="employees"
         dependentParams={['subtab']}
         permissions={permissions}
@@ -75,7 +76,7 @@ export default async function EmployeePage({
                 </div>
                 <TabsManagerServer
                   paramName="subtab"
-                  searchParams={searchParams}
+                  searchParams={resolvedSearchParams}
                   defaultTab="empleados-activos"
                   permissions={permissions}
                   tabs={[
@@ -135,7 +136,7 @@ export default async function EmployeePage({
                 </div>
                 <TabsManagerServer
                   paramName="subtab"
-                  searchParams={searchParams}
+                  searchParams={resolvedSearchParams}
                   defaultTab="docs-empleados-permanentes"
                   permissions={permissions}
                   tabs={[
@@ -186,7 +187,7 @@ export default async function EmployeePage({
             ),
             moduleSlug: 'empleados' as const,
             tabSlug: 'diagrams' as const,
-            content: <EmployesDiagram searchParams={searchParams} permissions={permissions} />,
+            content: <EmployesDiagram searchParams={resolvedSearchParams} permissions={permissions} />,
           },
           {
             value: 'tipos-de-documentos',
@@ -202,7 +203,7 @@ export default async function EmployeePage({
             content: (
               <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
                 <TiposDocumentosTabContent
-                  searchParams={searchParams}
+                  searchParams={resolvedSearchParams}
                   showOnlyPersonas={true}
                   permissions={permissions}
                 />

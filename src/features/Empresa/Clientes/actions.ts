@@ -3,7 +3,7 @@
 import { supabaseServer } from '@/lib/supabase/server';
 
 export async function assignEquipmentsToCustomer(customerId: string, equipmentIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Verificar que el cliente existe
@@ -117,7 +117,7 @@ export async function assignEquipmentsToCustomer(customerId: string, equipmentId
 }
 
 export async function assignEmployeesToCustomer(customerId: string, employeeIds: string[]) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     // Verificar que el cliente existe

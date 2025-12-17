@@ -1167,7 +1167,7 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
   return (
     <div className="mx-auto p-4">
       <div className="relative w-full h-full overflow-hidden">
-        <motion.div className="flex w-full" animate={{ height: 'auto' }} transition={{ duration: 0.3 }}>
+        <motion.div animate={{ height: 'auto' }} transition={{ duration: 0.3 }}>
           <AnimatePresence>
             {isEditing && (
               <motion.div
@@ -1175,7 +1175,6 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
                 animate={{ width: '23%', opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className="pr-4 overflow-hidden"
               >
                 <h1 className="text-2xl font-bold mb-4">{editingId ? 'Editar Fila' : 'Agregar Nueva Fila'}</h1>
                 <FormProvider {...formMethods}>
@@ -1509,11 +1508,7 @@ export default function DailyReport({ reportData, allReport }: DailyReportProps)
               </motion.div>
             )}
           </AnimatePresence>
-          <motion.div
-            animate={{ width: isEditing ? '77%' : '100%' }}
-            transition={{ duration: 0.3 }}
-            className="overflow-x-auto"
-          >
+          <motion.div animate={{ width: isEditing ? '77%' : '100%' }} transition={{ duration: 0.3 }}>
             {canEdit && (
               <div className="flex justify-end items-center mb-4">
                 <Button onClick={handleAddNewRow} className="items-end">

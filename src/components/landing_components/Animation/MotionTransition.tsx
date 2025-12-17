@@ -1,13 +1,13 @@
 import { fadeIn } from '@/lib/transitions';
 import { MotionTransitionProps } from '@/types/types';
 import { motion, useAnimation, useInView } from 'framer-motion';
-import { useEffect, useRef } from 'react';
+import { RefObject, useEffect, useRef } from 'react';
 
 function MotionTransition(props: MotionTransitionProps) {
   const { children, className } = props;
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
-  const isInView = useInView(ref, { once: false });
+  const isInView = useInView(ref as RefObject<Element>, { once: false });
   const mainControls = useAnimation();
   const sideControls = useAnimation();
 
@@ -24,7 +24,7 @@ function MotionTransition(props: MotionTransitionProps) {
 
   return (
     <div ref={ref}>
-      <motion.div variants={fadeIn()} initial="hidden" animate={mainControls} exit="hidden" className={className}>
+      <motion.div variants={fadeIn()} initial="hidden" animate={mainControls} exit="hidden">
         {children}
       </motion.div>
     </div>

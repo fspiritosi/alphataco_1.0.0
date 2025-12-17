@@ -14,7 +14,7 @@ export async function DayliReportDetailTableWrapper({
   // dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   params: { uuid: string };
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get('dailyReportTableDetail')?.value;
   const savedFilter = cookiesStore.get('dailyReportTableDetail-filters')?.value;
   const customers = await getCustomers();

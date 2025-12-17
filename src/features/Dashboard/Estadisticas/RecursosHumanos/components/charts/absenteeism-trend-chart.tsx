@@ -15,7 +15,7 @@ interface AbsenteeismTrendChartProps {
 }
 
 // Constante para el porcentaje esperado de ausentismo
-const EXPECTED_ABSENTEEISM_PERCENTAGE = 5;
+const EXPECTED_ABSENTEEISM_PERCENTAGE = 3;
 
 export function AbsenteeismTrendChartComponent({ chartConfig, data, showLabels }: AbsenteeismTrendChartProps) {
   return (

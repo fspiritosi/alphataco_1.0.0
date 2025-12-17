@@ -9,7 +9,7 @@ import {
 } from '../types/navbar.types';
 
 export async function updateProfileAvatar(userId: string, imageUrl: string) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { error } = await supabase.from('profile').update({ avatar: imageUrl }).eq('id', userId);
@@ -24,8 +24,8 @@ export async function updateProfileAvatar(userId: string, imageUrl: string) {
 }
 
 export async function deleteNotification(notificationId: string) {
-  const cookieStore = cookies();
-  const supabase = supabaseServer();
+  const cookieStore = await cookies();
+  const supabase = await supabaseServer();
   const userId = cookieStore.get('userId')?.value;
 
   if (!userId) {
@@ -45,8 +45,8 @@ export async function deleteNotification(notificationId: string) {
 }
 
 export async function deleteAllNotifications() {
-  const cookieStore = cookies();
-  const supabase = supabaseServer();
+  const cookieStore = await cookies();
+  const supabase = await supabaseServer();
   const userId = cookieStore.get('userId')?.value;
 
   if (!userId) {
@@ -66,8 +66,8 @@ export async function deleteAllNotifications() {
 }
 
 export async function getCurrentUserProfile() {
-  const cookieStore = cookies();
-  const supabase = supabaseServer();
+  const cookieStore = await cookies();
+  const supabase = await supabaseServer();
   const userId = cookieStore.get('userId')?.value;
 
   const { data: user, error } = await supabase.auth.getUser();
@@ -89,8 +89,8 @@ export async function getCurrentUserProfile() {
 }
 
 export async function getUserNotifications() {
-  const cookieStore = cookies();
-  const supabase = supabaseServer();
+  const cookieStore = await cookies();
+  const supabase = await supabaseServer();
   const company_id = cookieStore.get('actualComp')?.value;
 
   if (!company_id) {

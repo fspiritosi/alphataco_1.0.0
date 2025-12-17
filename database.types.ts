@@ -1197,6 +1197,7 @@ export type Database = {
         Row: {
           color: string;
           company_id: string;
+          computes_absenteeism: boolean;
           created_at: string;
           id: string;
           is_active: boolean;
@@ -1207,6 +1208,7 @@ export type Database = {
         Insert: {
           color: string;
           company_id?: string;
+          computes_absenteeism?: boolean;
           created_at?: string;
           id?: string;
           is_active?: boolean;
@@ -1217,6 +1219,7 @@ export type Database = {
         Update: {
           color?: string;
           company_id?: string;
+          computes_absenteeism?: boolean;
           created_at?: string;
           id?: string;
           is_active?: boolean;
@@ -2211,6 +2214,109 @@ export type Database = {
           name?: string | null;
         };
         Relationships: [];
+      };
+      kpi_revisions: {
+        Row: {
+          change_reason: string | null;
+          changed_by: string;
+          created_at: string | null;
+          id: string;
+          is_active: boolean | null;
+          kpi_id: string;
+          new_number: string | null;
+          new_validity_date: string | null;
+          previous_number: string | null;
+          previous_validity_date: string | null;
+        };
+        Insert: {
+          change_reason?: string | null;
+          changed_by: string;
+          created_at?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          kpi_id: string;
+          new_number?: string | null;
+          new_validity_date?: string | null;
+          previous_number?: string | null;
+          previous_validity_date?: string | null;
+        };
+        Update: {
+          change_reason?: string | null;
+          changed_by?: string;
+          created_at?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          kpi_id?: string;
+          new_number?: string | null;
+          new_validity_date?: string | null;
+          previous_number?: string | null;
+          previous_validity_date?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'kpi_revisions_kpi_id_fkey';
+            columns: ['kpi_id'];
+            isOneToOne: false;
+            referencedRelation: 'kpis';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      kpis: {
+        Row: {
+          calculation_formula: string;
+          code: string;
+          company_id: string;
+          created_at: string | null;
+          filters: Json | null;
+          id: string;
+          improvement_opportunities: string | null;
+          is_active: boolean | null;
+          name: string;
+          number: string | null;
+          technical_support: boolean | null;
+          updated_at: string | null;
+          validity_date: string;
+        };
+        Insert: {
+          calculation_formula: string;
+          code: string;
+          company_id: string;
+          created_at?: string | null;
+          filters?: Json | null;
+          id?: string;
+          improvement_opportunities?: string | null;
+          is_active?: boolean | null;
+          name: string;
+          number?: string | null;
+          technical_support?: boolean | null;
+          updated_at?: string | null;
+          validity_date: string;
+        };
+        Update: {
+          calculation_formula?: string;
+          code?: string;
+          company_id?: string;
+          created_at?: string | null;
+          filters?: Json | null;
+          id?: string;
+          improvement_opportunities?: string | null;
+          is_active?: boolean | null;
+          name?: string;
+          number?: string | null;
+          technical_support?: boolean | null;
+          updated_at?: string | null;
+          validity_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'kpis_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       maintenance_group_type_of_repairs: {
         Row: {
@@ -3776,6 +3882,10 @@ export type Database = {
     Functions: {
       actualizar_estado_daily_reports: { Args: never; Returns: undefined };
       actualizar_estado_documentos: { Args: never; Returns: undefined };
+      ad_ausentismo_diario: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: Json;
+      };
       build_employee_where: { Args: { _conditions: Json }; Returns: string };
       build_employee_where_alias: {
         Args: { _conditions: Json; table_alias: string };
@@ -3894,8 +4004,36 @@ export type Database = {
         Returns: Json;
       };
       delete_expired_subscriptions: { Args: never; Returns: undefined };
+      ea_total_equipos_aptos: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      eami_equipos_movimientos_internos: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      edo_disponibilidad_operacional_mantenimiento: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: Json;
+      };
+      emi_disponibilidad_operacional_mi: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: Json;
+      };
+      eno_total_equipos_no_operativos: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
       enviar_documentos_a_46_dias: { Args: never; Returns: undefined };
       enviar_documentos_vencidos: { Args: never; Returns: undefined };
+      eoa_total_equipos_operativos: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      eoc_disponibilidad_operacional_cliente: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: Json;
+      };
       filter_employees_by_conditions: {
         Args: { p_company_id: string; p_filters: Json };
         Returns: {
@@ -3967,6 +4105,7 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      generate_kpi_code: { Args: { company_uuid: string }; Returns: string };
       get_company_counts_indicator: {
         Args: { p_company_id?: string; save_to_table?: boolean };
         Returns: {
@@ -4036,6 +4175,19 @@ export type Database = {
           firstname: string;
           lastname: string;
           position_name: string;
+        }[];
+      };
+      get_kpi_range: {
+        Args: {
+          p_company_id: string;
+          p_from_date: string;
+          p_kpi_code: string;
+          p_to_date: string;
+        };
+        Returns: {
+          indicator: number;
+          raw_data: Json;
+          snapshot_date: string;
         }[];
       };
       get_max_order_number: { Args: never; Returns: string };
@@ -4206,6 +4358,14 @@ export type Database = {
           tipo_documento: string;
         }[];
       };
+      pmi_personal_mi: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: Json;
+      };
+      pp_productividad_personal: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: Json;
+      };
       process_massive_diagram_creation_v2: {
         Args: {
           p_active_novelty_id: string;
@@ -4236,6 +4396,34 @@ export type Database = {
         }[];
       };
       set_reassignment_reason: { Args: { reason: string }; Returns: undefined };
+      ta_total_ausentes: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      te_total_empleados: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      teoa_total_equipos_operativos_ajustado: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      teoc_equipos_operativos_en_clientes: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      tmi_total_personal_mi: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      tpa_total_personal_apto: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
+      tpc_total_personal_clientes: {
+        Args: { p_company_id: string; p_date: string };
+        Returns: number;
+      };
       update_employee_diagram_status: {
         Args: { p_employee_id: string; p_is_active: boolean };
         Returns: Json;
@@ -4253,7 +4441,7 @@ export type Database = {
     };
     Enums: {
       affiliate_status_enum: 'Dentro de convenio' | 'Fuera de convenio';
-      condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado';
+      condition_enum: 'operativo' | 'no operativo' | 'en reparacion' | 'operativo condicionado' | 'en preparacion';
       contract_type_enum: 'Leasing' | 'Alquiler' | 'Prendado';
       contract_type_vehicles_enum: 'Leasing' | 'Alquiler' | 'Propio' | 'Prendado';
       cost_type_enum: 'Directo' | 'Indirecto';
@@ -4443,7 +4631,7 @@ export const Constants = {
   public: {
     Enums: {
       affiliate_status_enum: ['Dentro de convenio', 'Fuera de convenio'],
-      condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado'],
+      condition_enum: ['operativo', 'no operativo', 'en reparacion', 'operativo condicionado', 'en preparacion'],
       contract_type_enum: ['Leasing', 'Alquiler', 'Prendado'],
       contract_type_vehicles_enum: ['Leasing', 'Alquiler', 'Propio', 'Prendado'],
       cost_type_enum: ['Directo', 'Indirecto'],

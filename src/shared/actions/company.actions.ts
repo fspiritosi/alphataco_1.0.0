@@ -6,8 +6,8 @@ import cookiesjs from 'js-cookie';
 import { cookies } from 'next/headers';
 export const fetchCurrentCompany = async () => {
   'use server';
-  const supabase = supabaseServer();
-  const cookieStore = cookies();
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
   let company_id = cookieStore.get('actualComp')?.value;
 
   // <<<<<<< Updated upstream
@@ -41,7 +41,7 @@ export const fetchCurrentCompany = async () => {
 };
 
 export const fetchUserCompanies = async (userId: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   if (!userId) {
     return { sharedCompanies: [], allCompanies: [] };
   }

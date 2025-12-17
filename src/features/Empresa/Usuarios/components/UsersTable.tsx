@@ -4,7 +4,7 @@ import { fetchCompanyUsers } from '../actions/server-actions';
 import UsersTableServer from './UsersTableServer';
 
 async function UsersTable() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get('users-employ-table')?.value;
   const savedFilter = cookiesStore.get('users-employ-table-filters')?.value;
 
@@ -15,7 +15,6 @@ async function UsersTable() {
     columnFilters: [],
   });
 
-  console.log(initialData.rows, 'initialData');
   return (
     <Card className="p-4">
       <UsersTableServer

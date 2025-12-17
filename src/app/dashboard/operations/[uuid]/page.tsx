@@ -10,11 +10,15 @@ async function page({
   params,
   searchParams,
 }: {
-  params: { uuid: string };
-  searchParams: { [key: string]: string | string[] | undefined };
+  params: Promise<{ uuid: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  // En Next.js 16, params es una Promise, necesitamos hacer await
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+
   // Usar la función optimizada para obtener solo status y date
-  const dailyReportStatus = await getDailyReportByIdOnlyDate(params.uuid);
+  const dailyReportStatus = await getDailyReportByIdOnlyDate(resolvedParams.uuid);
 
   // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
   const permissions = await getUserPermissionsMapServer();
@@ -31,7 +35,7 @@ async function page({
 
         <TabsManagerServer<'operaciones'>
           paramName="tab"
-          searchParams={searchParams}
+          searchParams={resolvedSearchParams}
           defaultTab="detalle"
           permissions={permissions}
           tabs={[
@@ -45,7 +49,7 @@ async function page({
               ),
               moduleSlug: 'operaciones',
               tabSlug: 'detalle-parte-diario',
-              content: <DayliReportDetailTableServerWrapper params={params} />,
+              content: <DayliReportDetailTableServerWrapper params={resolvedParams} />,
             },
           ]}
         />
@@ -57,8 +61,9 @@ async function page({
 export default page;
 
 // Generate metadata for the page
-export async function generateMetadata({ params }: { params: { uuid: string } }) {
-  const { uuid } = params;
+export async function generateMetadata({ params }: { params: Promise<{ uuid: string }> }) {
+  const resolvedParams = await params;
+  const { uuid } = resolvedParams;
 
   const dailyReport = await getDailyReportByIdOnlyDate(uuid);
   return {

@@ -1,7 +1,7 @@
 import { supabaseServer } from '@/lib/supabase/server';
 
 export async function fetchMeasureUnits() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data: measure_units, error } = await supabase.from('measure_units').select('*');

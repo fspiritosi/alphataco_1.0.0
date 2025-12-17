@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token, email y contraseña son requeridos' }, { status: 400 });
     }
 
-    const supabase = supabaseServer();
-    const adminSupabase = adminSupabaseServer();
+    const supabase = await supabaseServer();
+    const adminSupabase = await adminSupabaseServer();
 
     // Verificar el token
     const { data: tokenData, error: tokenError } = await supabase

@@ -5,7 +5,7 @@ import { fetchMeasureUnits } from '../../../Empresa/Clientes/components/meansure
 
 async function MensureUnitsWrapper() {
   const unitMeasurements = await fetchMeasureUnits();
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const savedFilters = cookieStore.get('meanureUnitsTable-filters')?.value;
   const savedVisibility = cookieStore.get('meanureUnitsTable')?.value;
   return (

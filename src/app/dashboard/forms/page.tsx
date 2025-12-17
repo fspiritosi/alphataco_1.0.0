@@ -3,7 +3,7 @@ import FormulariosComponent from '@/features/Formularios/FormulariosComponent';
 import { cookies } from 'next/headers';
 
 export async function generateMetadata() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const companyName = cookiesStore.get('actualCompName')?.value;
   if (companyName) {
     return {
@@ -21,10 +21,11 @@ export async function generateMetadata() {
   }
 }
 
-export default function FormulariosPage({
+export default async function FormulariosPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  return <FormulariosComponent searchParams={searchParams} />;
+  const resolvedSearchParams = await searchParams;
+  return <FormulariosComponent searchParams={resolvedSearchParams} />;
 }

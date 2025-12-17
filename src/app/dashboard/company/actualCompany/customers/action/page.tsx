@@ -6,6 +6,7 @@ import {
 } from '@/app/server/GET/actions';
 import { cn } from '@/lib/utils';
 import { cookies } from 'next/headers';
+import { Suspense } from 'react';
 import BackButton from '../../../../../../components/BackButton';
 import CustomerComponent from '../../../../../../components/CustomerComponent';
 
@@ -23,7 +24,7 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
       service_start: service.date_of_admission,
       service_validity: service.termination_date || '',
     }));
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get('equipment-table-equipment')?.value;
   const savedFilters = cookiesStore.get('equipment-table-equipment-filters')?.value;
   return (
@@ -38,15 +39,17 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
           searchParams.action === 'new' && 'col-span-8'
         )}
       >
-        <CustomerComponent
-          equipment={equipment}
-          id={searchParams.id}
-          items={items}
-          employees={employees}
-          services={filteredServices}
-          savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-          savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-        />
+        <Suspense fallback={<div>Cargando...</div>}>
+          <CustomerComponent
+            equipment={equipment}
+            id={searchParams.id}
+            items={items}
+            employees={employees}
+            services={filteredServices}
+            savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
+            savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
+          />
+        </Suspense>
         <div></div>
       </div>
     </section>

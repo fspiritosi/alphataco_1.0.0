@@ -302,7 +302,6 @@ export default function HistoryModal({
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
                           >
                             {item.actionType === 'CREATE' && item.changes[0]?.type === 'full_record' && (
                               <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">

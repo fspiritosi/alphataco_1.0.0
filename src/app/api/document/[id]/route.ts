@@ -53,7 +53,7 @@ export async function GET(request: NextRequest, context: any) {
 }
 
 const getEmployeeDocument = async (documentId: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let { data: documents_employee, error } = await supabase
     .from('documents_employees')
     .select(
@@ -82,7 +82,7 @@ const getEmployeeDocument = async (documentId: string) => {
 };
 
 const getEquipmentDocument = async (documentId: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   let { data: documents_vehicle, error } = await supabase
     .from('documents_equipment')
@@ -102,7 +102,7 @@ const getEquipmentDocument = async (documentId: string) => {
 };
 
 const getCompanyDocument = async (documentId: string) => {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   let { data: documents_company, error } = await supabase
     .from('documents_company')
     .select(`*,document_types:id_document_types(*)`)

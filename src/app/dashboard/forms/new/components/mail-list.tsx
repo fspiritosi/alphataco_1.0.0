@@ -430,7 +430,7 @@ export function FormularioPersonalizado({
         </CardDescription>
       </div>
       <form>
-        <Reorder.Group axis="y" className="space-y-2 mb-4 " values={campos} onReorder={setCampos}>
+        <Reorder.Group axis="y" values={campos} onReorder={setCampos}>
           {campos.map((campo, index) => (
             <Reorder.Item key={campo.id} value={campo}>
               <Card className="flex p-2">{renderizarCampo(campo, index)}</Card>

@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 export async function fetchServiceItems(customer_service_id: string) {
   if (!customer_service_id) return [];
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   try {
     const { data: items, error } = await supabase

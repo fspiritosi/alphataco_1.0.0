@@ -54,7 +54,7 @@ export function DeleteConfirmationModal({ dailyReportId, date, refetchData }: De
 
   return (
     <Dialog>
-      <DialogTrigger>
+      <DialogTrigger asChild>
         <Button
           size="icon"
           variant="ghost"

@@ -81,7 +81,7 @@ export default async function DayliReportDetailTableServerWrapper({
 }: {
   params: { uuid: string }
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // 🔑 IMPORTANTE: Gestión de cookies para persistencia
   const savedVisibility = cookiesStore.get('dailyReportServerTable')?.value;
@@ -784,7 +784,7 @@ export default function YourTableServer(props) {
 ```typescript
 // YourTableWrapper.tsx
 export default async function YourTableWrapper() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const initialData = await fetchYourData({
     pageIndex: 0,
     pageSize: 10,
@@ -921,7 +921,7 @@ export default async function DayliReportDetailTableServerWrapper({
 }: {
   params: { uuid: string }
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get('dailyReportServerTable')?.value;
   const savedFilter = cookiesStore.get('dailyReportServerTable-filters')?.value;
 
@@ -1165,7 +1165,7 @@ import TablaPermanentDocumentServer from './components/TablaPermanentDocumentSer
 import { fetchInitialPermanentDocuments } from './lib/actions/actions';
 
 async function PermanentDocuments() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibilityPermanent = cookiesStore.get(`permanent-documents-employees`)?.value;
   const savedFiltersPermanent = cookiesStore.get(`permanent-documents-employees-filters`)?.value;
 
@@ -1708,7 +1708,7 @@ import { fetchMonthlyDocumentsData } from './lib/actions/actions';
 import MonthlyDocumentsTableServer from './components/MonthlyDocumentsTableServer';
 
 async function MonthlyDocuments() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get('monthly-documents-employees')?.value;
   const savedFilters = cookiesStore.get('monthly-documents-employees-filters')?.value;
 
@@ -2360,7 +2360,7 @@ import { cookies } from 'next/headers';
 import TablaEmployeesInactiveServer from './components/EmployeesInactiveTableServer';
 
 async function EmpleadosInactivosTable() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get(`inactiveEmployeesServerTable`)?.value;
   const savedFilters = cookiesStore.get(`inactiveEmployeesServerTable-filters`)?.value;
 
@@ -2761,7 +2761,7 @@ import { createFilterOptions } from '../../components/utils/utils';
 async function MonthlyDocuments({}) {
   // ❌ PROBLEMA: Carga todos los documentos mensuales de una vez
   const monthlyDocuments = (await fetchEmployeeMonthlyDocuments()).map(formatEmployeeDocumentsSimple);
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibilityMonthly = cookiesStore.get(`monthly-documents-employees`)?.value;
   const savedFiltersMonthly = cookiesStore.get(`monthly-documents-employees-filters`)?.value;
 
@@ -3148,7 +3148,7 @@ import MonthlyDocumentsTableServer from './components/MonthlyDocumentsTableServe
 import { fetchMonthlyDocumentsData } from './lib/actions/actions';
 
 async function MonthlyDocuments({}) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
 
   // ✅ NUEVA FUNCIONALIDAD: Persistencia de estado
   const savedVisibilityMonthly = cookiesStore.get(`monthly-documents-employees`)?.value;
@@ -3285,7 +3285,7 @@ export async function fetchAllExpiringEmployeeDocuments(options: {
   columnFilters: ColumnFiltersState;
   filters?: Filter<'documents_employees'>[];
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -3319,7 +3319,7 @@ export async function fetchAllExpiringEmployeeDocuments(options: {
 
 // 🔑 PATRÓN: Documentos de vehículos próximos a vencer
 export async function fetchExpiringVehicleDocuments(options: FetchVehicleDataOptions) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -3360,7 +3360,7 @@ export async function fetchAllExpiringVehicleDocuments(options: {
   columnFilters: ColumnFiltersState;
   filters?: Filter<'documents_equipment'>[];
 }) {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {

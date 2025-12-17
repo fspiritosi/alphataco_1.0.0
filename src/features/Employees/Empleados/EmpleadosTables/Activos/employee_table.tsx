@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import TablaEmployeesSupabase from './components/EmployeesTableServer';
 
 async function EmployeeTable() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const savedVisibility = cookiesStore.get(`activeEmployeesServerTable`)?.value;
   const savedFilters = cookiesStore.get(`activeEmployeesServerTable-filters`)?.value;
 

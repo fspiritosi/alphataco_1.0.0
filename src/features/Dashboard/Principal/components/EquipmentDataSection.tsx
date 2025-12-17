@@ -7,7 +7,7 @@ import IndicatorCardChasisTractor from '../../../graficos/equipos/indicatorCard2
 import IndicatorCardChasisTractor3 from '../../../graficos/equipos/indicatorCard3';
 
 export default async function EquipmentDataSection() {
-  const cookiesStore = cookies();
+  const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
   const cookieValue = cookiesStore.get('type-filter')?.value;
   const active_vehicles: any = await getVehiclesDisponibleFilterType(cookieValue?.split(',') || [], company_id);

@@ -49,7 +49,7 @@ export async function queryWithPagination<
 ) {
   let supabase;
   if (options.server) {
-    supabase = supabaseServer();
+    supabase = await supabaseServer();
   } else {
     supabase = supabaseBrowser();
   }

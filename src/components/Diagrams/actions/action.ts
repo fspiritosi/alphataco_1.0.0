@@ -8,7 +8,7 @@ export async function fetchDiagramReportsData(options: {
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
 }) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   // Calcular rango para paginación
   const from = options.pageIndex * options.pageSize;

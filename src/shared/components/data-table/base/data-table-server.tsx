@@ -110,7 +110,9 @@ interface DataTableProps<
     pageCount: number;
     rowCount: number;
   };
-  paginationComponent?: React.ReactNode;
+  paginationComponent?:
+    | React.ReactNode
+    | ((props: { table: TableType<TData>; isLoading: boolean; totalRows?: number }) => React.ReactNode);
   className?: string;
   tableId?: string;
   initialColumnVisibility?: VisibilityState;
@@ -458,11 +460,34 @@ export function BaseDataTable<
             </Table>
           </div>
           {paginationComponent ? (
-            React.cloneElement(paginationComponent as React.ReactElement, {
-              table,
-              isLoading,
-              totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
-            })
+            typeof paginationComponent === 'function' ? (
+              (
+                paginationComponent as (props: {
+                  table: TableType<TData>;
+                  isLoading: boolean;
+                  totalRows?: number;
+                }) => React.ReactNode
+              )({
+                table,
+                isLoading,
+                totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
+              })
+            ) : React.isValidElement(paginationComponent) ? (
+              React.cloneElement(
+                paginationComponent as React.ReactElement<{
+                  table: TableType<TData>;
+                  isLoading: boolean;
+                  totalRows: number | undefined;
+                }>,
+                {
+                  table,
+                  isLoading,
+                  totalRows: serverSide ? dataQuery.data?.rowCount : undefined,
+                }
+              )
+            ) : (
+              paginationComponent
+            )
           ) : (
             <DataTablePagination
               table={table}
