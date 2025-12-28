@@ -14,7 +14,7 @@ export async function fetchInitialPermanentDocuments(options: {
     '*,document_types(*),employees(id,lastname,firstname,email,picture,document_number)',
     {
       ...options,
-      sorting: [],
+      sorting: options.sorting || [],
       filters: options.filters || [],
       permanent_filter: (query) => {
         return query
@@ -42,7 +42,7 @@ export async function fetchAllPermanentDocumentsData(options: {
     {
       pageIndex: 0,
       pageSize: 1000000, // Límite alto para obtener todos los datos
-      sorting: [],
+      sorting: options.sorting || [],
       columnFilters: options.columnFilters,
       filters: options.filters,
       server: false,
