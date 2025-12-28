@@ -126,7 +126,7 @@ export default function TablaPermanentDocumentServer({
               },
             },
             {
-              columnId: 'Vencimiento',
+              columnId: 'validity',
               title: 'Fecha de Vencimiento',
               type: 'date-range',
               showFrom: true,

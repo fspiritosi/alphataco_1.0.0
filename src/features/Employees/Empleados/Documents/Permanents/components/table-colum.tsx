@@ -155,7 +155,7 @@ export const columnsEmployeeDocumentServer: ColumnDef<EmployeeData>[] = [
   },
   {
     accessorKey: 'validity',
-    id: 'Vencimiento',
+    id: 'validity',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Vencimiento" />,
     cell: ({ row }) => {
       const hasEndDate = row.original.document_types?.explired;

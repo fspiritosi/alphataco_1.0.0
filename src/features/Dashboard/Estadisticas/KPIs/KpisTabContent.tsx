@@ -20,7 +20,7 @@ export default async function KpisTabContent({
 
   return (
     <TabsManagerServer
-      paramName="subtab"
+      paramName="kpiview"
       searchParams={searchParams}
       defaultTab="indicadores"
       permissions={permissions}
