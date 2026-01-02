@@ -820,13 +820,13 @@ export function DataCustomers<TData extends Customer, TValue>({
         <div>
           <div className="mb-4">
             <Dialog>
-              <DialogTrigger asChild>
-                <PermissionGuard module="comercial" tab="customers" action="create">
+              <PermissionGuard module="comercial" tab="customers" action="create">
+                <DialogTrigger asChild>
                   <Button id="" variant="gh_orange">
                     Registrar Cliente
                   </Button>
-                </PermissionGuard>
-              </DialogTrigger>
+                </DialogTrigger>
+              </PermissionGuard>
               <DialogContent className="max-w-4xl">
                 <CustomerForm
                   company_id={company_id}
