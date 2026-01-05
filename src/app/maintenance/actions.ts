@@ -98,21 +98,9 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
   }
 
   const admin = await adminSupabaseServer();
+  const cookieStore = await cookies();
 
-  // 1) Resolver company_id del equipo (para setear app_metadata.company y validar consistencia)
-  const { data: vehicle, error: vehicleError } = await admin
-    .from('vehicles')
-    .select('id, company_id')
-    .eq('id', equipmentId)
-    .single();
-
-  if (vehicleError || !vehicle?.company_id) {
-    return { ok: false, error: 'Equipo no encontrado o sin empresa asignada.' };
-  }
-
-  const companyId = vehicle.company_id as string;
-
-  // 2) Buscar empleado por CUIL (usando service role para evitar depender de RLS durante el login)
+  // 1) Buscar empleado por CUIL (usando service role para evitar depender de RLS durante el login)
   const normalized = normalizeCuil(cuil);
 
   const selectEmployee = async (value: string) => {
@@ -137,12 +125,33 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
     return { ok: false, error: 'Empleado no encontrado.' };
   }
 
-  if (employee.company_id && employee.company_id !== companyId) {
-    return { ok: false, error: 'El empleado no pertenece a la empresa del equipo.' };
-  }
-
   if (employee.is_active === false) {
     return { ok: false, error: 'El empleado no se encuentra activo.' };
+  }
+
+  // 2) Obtener company_id del empleado (prioridad) o del equipo (fallback)
+  let companyId: string | null = null;
+
+  // Prioridad 1: company_id del empleado
+  if (employee.company_id) {
+    companyId = employee.company_id as string;
+  } else {
+    // Prioridad 2: company_id del equipo (fallback)
+    const { data: vehicle, error: vehicleError } = await admin
+      .from('vehicles')
+      .select('id, company_id')
+      .eq('id', equipmentId)
+      .single();
+
+    if (vehicleError || !vehicle?.company_id) {
+      return { ok: false, error: 'El empleado no tiene empresa asignada y el equipo no tiene empresa asignada.' };
+    }
+
+    companyId = vehicle.company_id as string;
+  }
+
+  if (!companyId) {
+    return { ok: false, error: 'No se pudo determinar la empresa.' };
   }
 
   const employeeId = employee.id as string;
@@ -177,7 +186,21 @@ export async function completeMaintenanceEmployeeAnonymousSession(params: {
     return { ok: false, error: `No se pudo crear/actualizar el perfil: ${profileUpsertError.message}` };
   }
 
-  // 4) Completar metadata de Auth para sesiones/RLS y UI (nombre/email/etc)
+  // 4) Establecer cookie actualComp desde el servidor
+  try {
+    cookieStore.set('actualComp', companyId, {
+      path: '/',
+      maxAge: 60 * 60, // 1 hora (equivalente a expires: 1/24)
+      httpOnly: false, // Necesario para que el cliente también pueda leerla
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+  } catch (error) {
+    // Si falla establecer la cookie (puede pasar en algunos contextos), continuar
+    console.warn('No se pudo establecer la cookie actualComp desde el servidor:', error);
+  }
+
+  // 5) Completar metadata de Auth para sesiones/RLS y UI (nombre/email/etc)
   const nextAppMetadata = {
     ...(user.app_metadata ?? {}),
     company: companyId,

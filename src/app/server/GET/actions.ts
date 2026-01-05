@@ -224,8 +224,24 @@ export const fetchAllEquipmentWithRelationsById = async (id: string) => {
 export const fetchCurrentCompany = async () => {
   const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id) return [];
+  let company_id = cookiesStore.get('actualComp')?.value;
+
+  // Si no hay cookie, intentar obtener company_id desde app_metadata (contexto de maintenance)
+  if (!company_id) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // Si estamos en contexto de maintenance, el company_id está en app_metadata
+    if (user?.app_metadata?.company) {
+      company_id = user.app_metadata.company as string;
+    }
+  }
+
+  // Si aún no hay company_id, retornar array vacío sin hacer query (evitar error de UUID vacío)
+  if (!company_id || company_id.trim() === '') {
+    return [];
+  }
 
   const { data, error } = await supabase.from('company').select('*').eq('id', company_id);
 

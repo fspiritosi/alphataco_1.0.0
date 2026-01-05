@@ -2,7 +2,6 @@
 
 import { getCurrentUserProfile } from '@/features/Layout/navbar/actions/actions.navbar';
 import { supabaseServer } from '@/lib/supabase/server';
-import cookiesjs from 'js-cookie';
 import { cookies } from 'next/headers';
 export const fetchCurrentCompany = async () => {
   'use server';
@@ -10,28 +9,34 @@ export const fetchCurrentCompany = async () => {
   const cookieStore = await cookies();
   let company_id = cookieStore.get('actualComp')?.value;
 
-  // <<<<<<< Updated upstream
+  // Si no hay cookie, intentar obtener company_id desde app_metadata (contexto de maintenance)
   if (!company_id) {
-    const user = await getCurrentUserProfile();
-    const { allCompanies, sharedCompanies } = await fetchUserCompanies(user?.id || '');
-    const firstCompany = allCompanies[0] || sharedCompanies[0];
-    if (firstCompany?.id) {
-      // Establecer cookie desde el servidor
-      cookiesjs.set('actualComp', firstCompany.id);
-      company_id = firstCompany.id;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // Si estamos en contexto de maintenance, el company_id está en app_metadata
+    if (user?.app_metadata?.company) {
+      company_id = user.app_metadata.company as string;
+    } else {
+      // Intentar obtener desde el perfil del usuario (contexto normal)
+      const userProfile = await getCurrentUserProfile();
+      if (userProfile?.id) {
+        const { allCompanies, sharedCompanies } = await fetchUserCompanies(userProfile.id);
+        const firstCompany = allCompanies[0] || sharedCompanies[0];
+        if (firstCompany?.id) {
+          company_id = firstCompany.id;
+        }
+      }
     }
   }
 
-  //   const { data: company, error } = await supabase
-  //     .from('company')
-  //     .select('*')
-  //     .eq('id', company_id || '');
-  // =======
-  const { data: company, error } = await supabase
-    .from('company')
-    .select('*, city(id, name)')
-    .eq('id', company_id || '');
-  // >>>>>>> Stashed changes
+  // Si aún no hay company_id, retornar null sin hacer query (evitar error de UUID vacío)
+  if (!company_id || company_id.trim() === '') {
+    return null;
+  }
+
+  const { data: company, error } = await supabase.from('company').select('*, city(id, name)').eq('id', company_id);
 
   if (error) {
     console.error('Error fetching company:', error);
