@@ -2,7 +2,8 @@ import moment from 'moment';
 import Image from 'next/image';
 import { useState } from 'react';
 import { FiArrowLeft } from 'react-icons/fi';
-import DynamicFormWrapper from '../CheckList/DynamicFormWrapper';
+// ⚠️ IMPLEMENTACIÓN VIEJA COMENTADA - Migrar a nueva implementación de checklists normalizada
+// import DynamicFormWrapper from '../CheckList/DynamicFormWrapper';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -31,24 +32,37 @@ function CompletarChecklist({
 }) {
   const [activeFormType, setActiveFormType] = useState<string>('');
 
+  // TODO: Implementar nueva estructura de checklists normalizada
+  // Ver: docs/desarrollo/ANALISIS-CHECKLISTS-GH-ALE.md
   if (activeFormType) {
     return (
-      <DynamicFormWrapper
-        form_Info={[checkList.find((e) => e.name === activeFormType)] as CustomForm[]}
-        formType={activeFormType as any}
-        resetQrSelection={setActiveFormType}
-        equipments={equipmentsForComboBox}
-        default_equipment_id={default_equipment_id}
-        empleado_name={empleado_name}
-      />
+      <div className="p-4 border rounded-lg">
+        <p className="text-muted-foreground mb-4">
+          Nueva implementación de checklists en desarrollo. Ver: docs/desarrollo/ANALISIS-CHECKLISTS-GH-ALE.md
+        </p>
+        <Button onClick={() => setActiveFormType('')} variant="outline">
+          Volver
+        </Button>
+      </div>
     );
+    // ⚠️ IMPLEMENTACIÓN VIEJA COMENTADA
+    // return (
+    //   <DynamicFormWrapper
+    //     form_Info={[checkList.find((e) => e.name === activeFormType)] as CustomForm[]}
+    //     formType={activeFormType as any}
+    //     resetQrSelection={setActiveFormType}
+    //     equipments={equipmentsForComboBox}
+    //     default_equipment_id={default_equipment_id}
+    //     empleado_name={empleado_name}
+    //   />
+    // );
   }
 
   return (
     <Card className="space-y-4 p-4">
       <CardHeader className="flex justify-center">
         <div className="flex items-center justify-center mb-4">
-          <Image src="/gh_logo.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
+          <Image src="/gh_logo.png" alt="Logo de Grupo Horizonte" width={240} height={60} className="h-15" />
         </div>
         <CardDescription className="text-center text-gray-600">
           Sistema de Checklist y Mantenimiento de Equipos

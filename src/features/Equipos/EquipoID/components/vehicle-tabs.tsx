@@ -59,6 +59,7 @@ interface VehicleTabsProps {
   documentsComponent?: React.ReactNode;
   repairsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;
+  checklistsComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: Promise<getVehicleOwnersType>;
@@ -78,6 +79,7 @@ export function VehicleTabs({
   documentsComponent,
   qrComponent,
   repairsComponent,
+  checklistsComponent,
   typesPromise,
   subTypesPromise,
   ownersPromise,
@@ -85,6 +87,7 @@ export function VehicleTabs({
   const readOnly = mode === 'view';
   const showDocuments = vehicleId && mode !== 'new';
   const showRepairs = vehicleId && mode !== 'new';
+  const showChecklists = vehicleId && mode !== 'new';
 
   const [errors, setErrors] = useState<{
     basicData: boolean;
@@ -206,6 +209,14 @@ export function VehicleTabs({
       tabSlug: 'qr-equipo',
       content: <div className="space-y-4">{qrComponent}</div>,
     },
+    {
+      value: 'checklists',
+      label: 'Checklist',
+      moduleSlug: 'equipos',
+      tabSlug: 'checklist-equipo',
+      disabled: !showChecklists,
+      content: showChecklists ? <div className="space-y-4">{checklistsComponent}</div> : null,
+    },
   ] as const;
 
   return (
@@ -214,7 +225,7 @@ export function VehicleTabs({
         paramName="tab"
         defaultTab="basicData"
         tabs={tabs}
-        listClassName="grid w-full grid-cols-5"
+        listClassName="grid w-full grid-cols-6"
         triggerClassName="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
       />
     </div>

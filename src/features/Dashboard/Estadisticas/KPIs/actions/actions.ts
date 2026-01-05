@@ -138,7 +138,7 @@ export async function createKPI(input: CreateKPIInput): Promise<{ data: KPI | nu
     return { data: null, error };
   }
 
-  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
+  revalidatePath('/dashboard');
   return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
@@ -173,7 +173,7 @@ export async function updateKPI(input: UpdateKPIInput): Promise<{ data: KPI | nu
     return { data: null, error };
   }
 
-  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
+  revalidatePath('/dashboard');
   return { data: data ? mapKPIRowToKPI(data) : null, error: null };
 }
 
@@ -230,7 +230,7 @@ export async function updateKPINumber(input: UpdateKPINumberInput): Promise<{ da
     // No retornamos error aquí porque el KPI ya se actualizó
   }
 
-  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
+  revalidatePath('/dashboard');
   return { data: updatedKPI ? mapKPIRowToKPI(updatedKPI) : null, error: null };
 }
 
@@ -244,6 +244,6 @@ export async function deleteKPI(id: string): Promise<{ error: any }> {
     return { error };
   }
 
-  revalidatePath('/dashboard/company/actualCompany?tab=estadisticas&subtab=kpis');
+  revalidatePath('/dashboard');
   return { error: null };
 }

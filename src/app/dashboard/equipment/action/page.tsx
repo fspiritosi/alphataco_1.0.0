@@ -8,6 +8,7 @@ import DocumentEquipmentComponent from '@/components/DocumentEquipmentComponent'
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { VehicleChecklistsTabContent } from '@/features/Equipos/EquipoID/components/vehicle-checklists-tab-content';
 import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form';
 import { VehicleHeader } from '@/features/Equipos/EquipoID/components/vehicle-header';
 import VehicleQr from '@/features/Equipos/EquipoID/components/vehicle-qr';
@@ -87,6 +88,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
             />
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
+          checklistsComponent={<VehicleChecklistsTabContent equipmentId={vehicle?.id || ''} />}
         />
       </Card>
     </div>

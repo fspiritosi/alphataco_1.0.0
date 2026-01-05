@@ -564,6 +564,13 @@ export const PERMISSIONS = {
           },
         },
       },
+      'checklist-equipo': {
+        slug: 'checklist-equipo',
+        name: 'Checklist',
+        tabId: '30000000-0000-0000-0000-000000000056',
+        parent: 'detalle-equipo',
+        allowedActions: ['view'],
+      },
       'detalle-equipo': {
         slug: 'detalle-equipo',
         name: 'Detalle de Equipo',

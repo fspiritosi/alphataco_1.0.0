@@ -2078,3 +2078,345 @@ export async function getVehiclesNotInDailyReport(company_id?: string, vehicle_t
 }
 
 export type VehicleNotInDailyReportType = Awaited<ReturnType<typeof getVehiclesNotInDailyReport>>;
+
+// ============================================
+// NUEVAS FUNCIONES PARA CHECKLISTS NORMALIZADOS
+// ============================================
+
+/**
+ * Obtiene todos los templates de checklists disponibles con conteo de respuestas
+ */
+export const fetchChecklistTemplates = async () => {
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id) return [];
+
+  // Obtener templates con conteo de respuestas
+  const { data: templates, error: templatesError } = await supabase
+    .from('checklist_templates')
+    .select(
+      `
+      *,
+      checklist_template_sub_types(
+        sub_type_id,
+        sub_type:sub_type(id, name)
+      )
+    `
+    )
+    .order('name', { ascending: true });
+
+  if (templatesError) {
+    console.error('Error fetching checklist templates:', templatesError);
+    return [];
+  }
+
+  if (!templates || templates.length === 0) return [];
+
+  // Obtener conteo de respuestas para cada template
+  const templateIds = templates.map((t) => t.id);
+  const { data: answersCount, error: answersError } = await supabase
+    .from('checklist_answers')
+    .select('template_id')
+    .in('template_id', templateIds);
+
+  if (answersError) {
+    console.error('Error fetching answers count:', answersError);
+  }
+
+  // Contar respuestas por template
+  const answersCountMap = new Map<string, number>();
+  if (answersCount) {
+    answersCount.forEach((answer) => {
+      const count = answersCountMap.get(answer.template_id) || 0;
+      answersCountMap.set(answer.template_id, count + 1);
+    });
+  }
+
+  // Agregar conteo a cada template
+  return templates.map((template) => ({
+    ...template,
+    total_responses: answersCountMap.get(template.id) || 0,
+  }));
+};
+
+/**
+ * Obtiene un template de checklist completo con sus secciones e items
+ */
+export const fetchChecklistTemplateById = async (templateId: string) => {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('checklist_templates')
+    .select(
+      `
+      *,
+      checklist_template_sub_types(
+        sub_type_id,
+        sub_type:sub_type(id, name)
+      ),
+      checklist_template_sections(
+        *,
+        section:checklist_sections(*),
+        checklist_template_items(
+          *,
+          reusable_item:checklist_items(*)
+        )
+      )
+    `
+    )
+    .eq('id', templateId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching checklist template by ID:', error);
+    return null;
+  }
+
+  // Deduplicar items en cada sección (por si Supabase retorna duplicados por los JOINs)
+  if (data?.checklist_template_sections) {
+    data.checklist_template_sections = data.checklist_template_sections.map((section: any) => {
+      if (section.checklist_template_items && Array.isArray(section.checklist_template_items)) {
+        // Eliminar duplicados por ID
+        const uniqueItemsMap = new Map();
+        section.checklist_template_items.forEach((item: any) => {
+          if (!uniqueItemsMap.has(item.id)) {
+            uniqueItemsMap.set(item.id, item);
+          }
+        });
+        section.checklist_template_items = Array.from(uniqueItemsMap.values());
+
+        // Log para debug
+        const itemsCount = section.checklist_template_items.length;
+        console.log(`[SERVER DEBUG] Sección ${section.code || section.section?.code}: ${itemsCount} items únicos`);
+      }
+      return section;
+    });
+  }
+
+  return data;
+};
+
+/**
+ * Obtiene un template de checklist por su código
+ */
+export const fetchChecklistTemplateByCode = async (code: string) => {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('checklist_templates')
+    .select(
+      `
+      *,
+      checklist_template_sub_types(
+        sub_type_id,
+        sub_type:sub_type(id, name)
+      ),
+      checklist_template_sections(
+        *,
+        section:checklist_sections(*),
+        checklist_template_items(
+          *,
+          reusable_item:checklist_items(*)
+        )
+      )
+    `
+    )
+    .eq('code', code)
+    .single();
+
+  if (error) {
+    console.error('Error fetching checklist template by code:', error);
+    return null;
+  }
+
+  return data;
+};
+
+/**
+ * Obtiene todas las respuestas de un checklist template
+ */
+export const fetchChecklistAnswersByTemplateId = async (templateId: string) => {
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const role = await getActualRole(company_id as string, user?.id as string);
+
+  let query = supabase
+    .from('checklist_answers')
+    .select(
+      `
+      *,
+      equipment:equipment_id(
+        id,
+        domain,
+        serie,
+        intern_number,
+        brand:brand_vehicles(name),
+        model:model_vehicles(name)
+      ),
+      user:user_id(
+        id,
+        fullname
+      )
+    `
+    )
+    .eq('template_id', templateId)
+    .order('created_at', { ascending: false });
+
+  // Si es invitado, filtrar por equipos compartidos
+  if (role === 'Invitado') {
+    const { data: share_company_users } = await supabase
+      .from('share_company_users')
+      .select(`*,customer_id(*,contractor_equipment(*,equipment_id(id)))`)
+      .eq('profile_id', user?.id || '')
+      .eq('company_id', company_id || '');
+
+    const equipments_id =
+      share_company_users?.flatMap((uc: any) => {
+        const contractorEquipment = uc.customer_id?.contractor_equipment as any[] | undefined;
+        return contractorEquipment?.map((ce: any) => ce.equipment_id?.id).filter((id: any) => id) || [];
+      }) || [];
+
+    query = query.in('equipment_id', equipments_id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching checklist answers:', error);
+    return [];
+  }
+
+  return data || [];
+};
+
+/**
+ * Obtiene una respuesta específica de checklist por su ID
+ */
+export const fetchChecklistAnswerById = async (answerId: string) => {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('checklist_answers')
+    .select(
+      `
+      *,
+      template:template_id(
+        *,
+        checklist_template_sections(
+          *,
+          section:checklist_sections(*),
+          checklist_template_items(
+            *,
+            reusable_item:checklist_items(*)
+          )
+        )
+      ),
+      equipment:equipment_id(
+        id,
+        domain,
+        serie,
+        intern_number,
+        kilometer,
+        brand:brand_vehicles(name),
+        model:model_vehicles(name)
+      ),
+      user:user_id(
+        id,
+        fullname
+      )
+    `
+    )
+    .eq('id', answerId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching checklist answer by ID:', error);
+    return null;
+  }
+
+  return data;
+};
+
+/**
+ * Verifica si un template aplica a un sub_type específico
+ * Retorna true si el template no tiene restricciones de sub_type o si el sub_type está en la lista
+ */
+export const checkTemplateAppliesToSubType = async (templateId: string, subTypeId: string | null) => {
+  const supabase = await supabaseServer();
+
+  // Si no hay sub_type, el template aplica a todos
+  if (!subTypeId) return true;
+
+  // Verificar si el template tiene restricciones de sub_type
+  const { data, error } = await supabase.from('checklist_template_sub_types').select('*').eq('template_id', templateId);
+
+  if (error) {
+    console.error('Error checking template sub_types:', error);
+    return false;
+  }
+
+  // Si no hay restricciones, aplica a todos
+  if (!data || data.length === 0) return true;
+
+  // Si hay restricciones, verificar si el sub_type está incluido
+  return data.some((item) => item.sub_type_id === subTypeId);
+};
+
+/**
+ * Obtiene todas las respuestas de checklist para un equipo específico
+ */
+export async function getChecklistAnswersByEquipment(equipmentId: string) {
+  if (!equipmentId) {
+    return [];
+  }
+
+  const supabase = await supabaseServer();
+
+  const { data: answers, error } = await supabase
+    .from('checklist_answers')
+    .select(
+      `
+      id,
+      created_at,
+      result,
+      observations,
+      critical_items_failed,
+      template_id,
+      equipment_id,
+      user_id,
+      checklist_templates(
+        id,
+        name,
+        description,
+        code
+      ),
+      profile:user_id(
+        id,
+        fullname,
+        email
+      ),
+      checklist_deviations(
+        id,
+        item_code,
+        item_label,
+        section_code,
+        created_at
+      )
+    `
+    )
+    .eq('equipment_id', equipmentId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[GET] Error fetching checklist answers by equipment:', error);
+    return [];
+  }
+
+  return answers || [];
+}

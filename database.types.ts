@@ -304,6 +304,522 @@ export type Database = {
           },
         ];
       };
+      checklist_answer_repairs: {
+        Row: {
+          checklist_answer_id: string;
+          created_at: string | null;
+          id: string;
+          item_code: string;
+          repair_solicitud_id: string;
+        };
+        Insert: {
+          checklist_answer_id: string;
+          created_at?: string | null;
+          id?: string;
+          item_code: string;
+          repair_solicitud_id: string;
+        };
+        Update: {
+          checklist_answer_id?: string;
+          created_at?: string | null;
+          id?: string;
+          item_code?: string;
+          repair_solicitud_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_answer_repairs_checklist_answer_id_fkey';
+            columns: ['checklist_answer_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_answers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_answer_repairs_repair_solicitud_id_fkey';
+            columns: ['repair_solicitud_id'];
+            isOneToOne: false;
+            referencedRelation: 'repair_solicitudes';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_answers: {
+        Row: {
+          answer_data: Json;
+          created_at: string | null;
+          critical_items_failed: string[] | null;
+          employee_id: string | null;
+          equipment_id: string;
+          id: string;
+          observations: string | null;
+          result: string | null;
+          template_id: string;
+          updated_at: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          answer_data: Json;
+          created_at?: string | null;
+          critical_items_failed?: string[] | null;
+          employee_id?: string | null;
+          equipment_id: string;
+          id?: string;
+          observations?: string | null;
+          result?: string | null;
+          template_id: string;
+          updated_at?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          answer_data?: Json;
+          created_at?: string | null;
+          critical_items_failed?: string[] | null;
+          employee_id?: string | null;
+          equipment_id?: string;
+          id?: string;
+          observations?: string | null;
+          result?: string | null;
+          template_id?: string;
+          updated_at?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_answers_employee_id_fkey';
+            columns: ['employee_id'];
+            isOneToOne: false;
+            referencedRelation: 'employees';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_answers_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'vehicles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_answers_template_id_fkey';
+            columns: ['template_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_templates';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_answers_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_deviations: {
+        Row: {
+          checklist_answer_id: string;
+          created_at: string | null;
+          created_by_employee_id: string | null;
+          created_by_user_id: string | null;
+          equipment_id: string;
+          id: string;
+          item_code: string;
+          item_label: string;
+          section_code: string | null;
+        };
+        Insert: {
+          checklist_answer_id: string;
+          created_at?: string | null;
+          created_by_employee_id?: string | null;
+          created_by_user_id?: string | null;
+          equipment_id: string;
+          id?: string;
+          item_code: string;
+          item_label: string;
+          section_code?: string | null;
+        };
+        Update: {
+          checklist_answer_id?: string;
+          created_at?: string | null;
+          created_by_employee_id?: string | null;
+          created_by_user_id?: string | null;
+          equipment_id?: string;
+          id?: string;
+          item_code?: string;
+          item_label?: string;
+          section_code?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_deviations_checklist_answer_id_fkey';
+            columns: ['checklist_answer_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_answers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_deviations_created_by_employee_id_fkey';
+            columns: ['created_by_employee_id'];
+            isOneToOne: false;
+            referencedRelation: 'employees';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_deviations_created_by_user_id_fkey';
+            columns: ['created_by_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_deviations_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'vehicles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_items: {
+        Row: {
+          certification_validity_days: number | null;
+          code: string;
+          created_at: string | null;
+          default_value: string | null;
+          description: string | null;
+          id: string;
+          input_type: string;
+          is_critical: boolean | null;
+          label: string;
+          options: Json | null;
+          order_index: number | null;
+          requires_certification: boolean | null;
+          requires_side_validation: boolean | null;
+          section_id: string;
+          updated_at: string | null;
+          validation_rules: Json | null;
+        };
+        Insert: {
+          certification_validity_days?: number | null;
+          code: string;
+          created_at?: string | null;
+          default_value?: string | null;
+          description?: string | null;
+          id?: string;
+          input_type: string;
+          is_critical?: boolean | null;
+          label: string;
+          options?: Json | null;
+          order_index?: number | null;
+          requires_certification?: boolean | null;
+          requires_side_validation?: boolean | null;
+          section_id: string;
+          updated_at?: string | null;
+          validation_rules?: Json | null;
+        };
+        Update: {
+          certification_validity_days?: number | null;
+          code?: string;
+          created_at?: string | null;
+          default_value?: string | null;
+          description?: string | null;
+          id?: string;
+          input_type?: string;
+          is_critical?: boolean | null;
+          label?: string;
+          options?: Json | null;
+          order_index?: number | null;
+          requires_certification?: boolean | null;
+          requires_side_validation?: boolean | null;
+          section_id?: string;
+          updated_at?: string | null;
+          validation_rules?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_items_section_id_fkey';
+            columns: ['section_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_sections';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_sections: {
+        Row: {
+          code: string;
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          is_reusable: boolean | null;
+          name: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          code: string;
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_reusable?: boolean | null;
+          name: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          code?: string;
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_reusable?: boolean | null;
+          name?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      checklist_template_items: {
+        Row: {
+          certification_validity_days: number | null;
+          code: string;
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          input_type: string;
+          is_critical: boolean | null;
+          item_id: string | null;
+          label: string;
+          options: Json | null;
+          order_index: number;
+          requires_certification: boolean | null;
+          requires_side_validation: boolean | null;
+          section_id: string;
+          template_id: string;
+          updated_at: string | null;
+          validation_rules: Json | null;
+        };
+        Insert: {
+          certification_validity_days?: number | null;
+          code: string;
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          input_type: string;
+          is_critical?: boolean | null;
+          item_id?: string | null;
+          label: string;
+          options?: Json | null;
+          order_index: number;
+          requires_certification?: boolean | null;
+          requires_side_validation?: boolean | null;
+          section_id: string;
+          template_id: string;
+          updated_at?: string | null;
+          validation_rules?: Json | null;
+        };
+        Update: {
+          certification_validity_days?: number | null;
+          code?: string;
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          input_type?: string;
+          is_critical?: boolean | null;
+          item_id?: string | null;
+          label?: string;
+          options?: Json | null;
+          order_index?: number;
+          requires_certification?: boolean | null;
+          requires_side_validation?: boolean | null;
+          section_id?: string;
+          template_id?: string;
+          updated_at?: string | null;
+          validation_rules?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_template_items_item_id_fkey';
+            columns: ['item_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_items';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_template_items_section_id_fkey';
+            columns: ['section_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_template_sections';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_template_items_template_id_fkey';
+            columns: ['template_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_templates';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_template_sections: {
+        Row: {
+          code: string;
+          created_at: string | null;
+          id: string;
+          is_required: boolean | null;
+          is_specific: boolean | null;
+          name: string;
+          order_index: number;
+          section_id: string | null;
+          template_id: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string | null;
+          id?: string;
+          is_required?: boolean | null;
+          is_specific?: boolean | null;
+          name: string;
+          order_index: number;
+          section_id?: string | null;
+          template_id: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string | null;
+          id?: string;
+          is_required?: boolean | null;
+          is_specific?: boolean | null;
+          name?: string;
+          order_index?: number;
+          section_id?: string | null;
+          template_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_template_sections_section_id_fkey';
+            columns: ['section_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_sections';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_template_sections_template_id_fkey';
+            columns: ['template_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_templates';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_template_sub_types: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          sub_type_id: string | null;
+          template_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          sub_type_id?: string | null;
+          template_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          sub_type_id?: string | null;
+          template_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_template_sub_types_sub_type_id_fkey';
+            columns: ['sub_type_id'];
+            isOneToOne: false;
+            referencedRelation: 'sub_type';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_template_sub_types_template_id_fkey';
+            columns: ['template_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_templates';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_template_types: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          template_id: string;
+          type_id: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          template_id: string;
+          type_id?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          template_id?: string;
+          type_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_template_types_template_id_fkey';
+            columns: ['template_id'];
+            isOneToOne: false;
+            referencedRelation: 'checklist_templates';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_template_types_type_id_fkey';
+            columns: ['type_id'];
+            isOneToOne: false;
+            referencedRelation: 'type';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      checklist_templates: {
+        Row: {
+          code: string;
+          company_id: string;
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          code: string;
+          company_id: string;
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          code?: string;
+          company_id?: string;
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'checklist_templates_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       cities: {
         Row: {
           created_at: string;
@@ -4427,6 +4943,10 @@ export type Database = {
       update_employee_diagram_status: {
         Args: { p_employee_id: string; p_is_active: boolean };
         Returns: Json;
+      };
+      update_vehicle_kilometer_anonymous: {
+        Args: { p_kilometer: string; p_vehicle_id: string };
+        Returns: undefined;
       };
       user_has_permission: {
         Args: {

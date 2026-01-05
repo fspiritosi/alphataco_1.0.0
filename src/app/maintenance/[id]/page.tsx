@@ -17,13 +17,23 @@ export default async function Home({
   const resolvedParams = await params;
   const cookiesStore = await cookies();
   const supabase = await supabaseServer();
-  const employee = cookiesStore.get('empleado_id')?.value;
-  const empleado_name = cookiesStore.get('empleado_name')?.value;
   const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const employeeFromCookie = cookiesStore.get('empleado_id')?.value;
+  const employeeFromMetadata =
+    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as any)?.employee_id as string | undefined);
+  const employee = employeeFromCookie ?? employeeFromMetadata;
+
+  const empleadoNameFromCookie = cookiesStore.get('empleado_name')?.value;
+  const empleadoNameFromMetadata =
+    ((user?.user_metadata as any)?.fullname as string | undefined) ??
+    ((user?.user_metadata as any)?.employeeName as string | undefined);
+  const empleado_name = empleadoNameFromCookie ?? empleadoNameFromMetadata;
 
   if (!employee && !user?.id) {
     redirect('/maintenance');
@@ -32,6 +42,10 @@ export default async function Home({
   let role: any;
   // const { equipments } = await fetch(`${URL}/api/equipment/${resolvedParams.id}`).then((e) => e.json());
   const equipments = await fetchAllEquipmentBasicData();
+
+  if (!equipments || equipments.length === 0 || !equipments[0]?.company_id) {
+    redirect('/maintenance?error=no_equipment');
+  }
 
   if (user?.id) {
     const { shared_user } = await fetch(
@@ -56,7 +70,7 @@ export default async function Home({
 
   const checklists = await fetchCustomForms(equipments[0]?.company_id || '');
 
-  const equipmentsForComboBox = (await fetchAllEquipment(equipments[0].company_id || '')).map((equipment) => ({
+  const equipmentsForComboBox = (await fetchAllEquipment(equipments[0]?.company_id || '')).map((equipment) => ({
     label: equipment.domain
       ? `${equipment.domain} - ${equipment.intern_number}`
       : `${equipment.serie} - ${equipment.intern_number}`,
@@ -64,10 +78,10 @@ export default async function Home({
     domain: equipment.domain,
     serie: equipment.serie,
     kilometer: equipment.kilometer ?? '0',
-    model: equipment.model.name,
-    brand: equipment.brand.name,
+    model: equipment.model?.name || '',
+    brand: equipment.brand?.name || '',
     intern_number: equipment.intern_number || '',
-    vehicle_type: equipment.type.name,
+    vehicle_type: equipment.type?.name || '',
   }));
   const currentEquipment = equipmentsForComboBox.find((equipment) => equipment.value === resolvedParams.id);
   const savedVisibility = cookiesStore.get('repair-entry-table')?.value;

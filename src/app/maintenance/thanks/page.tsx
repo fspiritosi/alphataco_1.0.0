@@ -1,40 +1,73 @@
 'use client';
-import { buttonVariants } from '@/components/ui/button';
+
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from '@/components/ui/card';
-import { motion } from 'framer-motion';
-import { ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle, LogOut } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 export default function ThanksPage() {
+  const router = useRouter();
+
+  // Auto-redirigir después de 5 segundos
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.push('/maintenance');
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [router]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-2">
-      <Card className="w-full max-w-md space-y-4 rounded-xl bg-white p-6 shadow-lg">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            <Image src="/logoLetrasNegras.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md space-y-6 rounded-xl border shadow-lg">
+        <CardHeader className="space-y-4 text-center">
+          <div className="flex items-center justify-center">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <Image
+                src="/gh_logo.png"
+                alt="Logo de Grupo Horizonte"
+                width={48}
+                height={48}
+                className="h-12 w-12 object-contain p-1"
+              />
+            </div>
           </div>
-          <CardDescription className="text-center text-gray-600">
-            Sistema de Checklist y Mantenimiento de Equipos
-          </CardDescription>
+          <div className="space-y-2">
+            <CardDescription className="text-base text-muted-foreground">Sistema de Mantenimiento</CardDescription>
+          </div>
         </CardHeader>
-        <CardContent>
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.5 }}>
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Gracias por usar codeControl!</h2>
-            <p className="text-gray-600 mb-4">Su acción ha sido registrada exitosamente en nuestro sistema.</p>
-          </motion.div>
+
+        <CardContent className="space-y-6">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
+            </div>
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">¡Sesión cerrada exitosamente!</h2>
+              <p className="text-muted-foreground">
+                Gracias por usar nuestro sistema de mantenimiento. Tus acciones han sido registradas correctamente.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <LogOut className="h-4 w-4" />
+              <span>Serás redirigido automáticamente en unos segundos...</span>
+            </div>
+          </div>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <Link href={'/'} className={buttonVariants({ variant: 'default' })}>
-              Volver al inicio
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </motion.div>
+
+        <CardFooter className="flex flex-col gap-3">
+          <Button onClick={() => router.push('/maintenance')} className="w-full" size="lg">
+            Volver al inicio
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            Si no eres redirigido automáticamente, haz clic en el botón de arriba
+          </p>
         </CardFooter>
       </Card>
     </div>
