@@ -1,3 +1,4 @@
+import { supabaseServer } from '@/lib/supabase/server';
 import { updateSession } from '@/lib/utils/middleware';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -11,10 +12,17 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/maintenance/') && pathname !== '/maintenance' && pathname !== '/maintenance/thanks') {
     // Verificar si hay cookie de empleado
     // La cookie empleado_id se establece después del login en /maintenance
-    const empleadoId = request.cookies.get('empleado_id')?.value;
+    // const empleadoId = request.cookies.get('empleado_id')?.value;
+    const supabase = await supabaseServer();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    console.log('user desde middleware', user);
 
     // Si no hay empleado_id, redirigir al login de maintenance
-    if (!empleadoId) {
+    if (!user?.is_anonymous) {
       const url = new URL('/maintenance', request.url);
       // Preservar la ruta original para redirigir después del login si es necesario
       url.searchParams.set('redirect', pathname);
