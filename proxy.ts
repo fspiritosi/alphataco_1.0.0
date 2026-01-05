@@ -1,6 +1,6 @@
+import { supabaseServer } from '@/lib/supabase/server';
+import { getUserProfile } from '@/shared/actions/middleware.actions';
 import { NextResponse, type NextRequest } from 'next/server';
-import { supabaseServer } from './lib/supabase/server';
-import { getUserProfile } from './shared/actions/middleware.actions';
 
 export async function proxy(req: NextRequest) {
   // await updateSession(req)
