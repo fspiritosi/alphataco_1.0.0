@@ -532,6 +532,13 @@ export const PERMISSIONS = {
             parent: 'type_of_repairs',
             allowedActions: ['view', 'create', 'update'],
           },
+          equipments_with_deviations: {
+            slug: 'equipments_with_deviations',
+            name: 'Equipos con Desvíos',
+            tabId: '60000000-0000-0000-0000-000000000015',
+            parent: 'type_of_repairs',
+            allowedActions: ['view'],
+          },
           type_of_repair_new_entry: {
             slug: 'type_of_repair_new_entry',
             name: 'Nueva Solicitud',

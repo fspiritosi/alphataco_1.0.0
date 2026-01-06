@@ -511,6 +511,49 @@ export async function getPendingDeviations(equipmentId: string) {
 }
 
 /**
+ * Obtiene todos los equipos únicos que tienen desvíos pendientes
+ * Retorna una lista de equipos con información básica y cantidad de desvíos
+ * Utiliza la vista 'equipments_with_pending_deviations' que agrupa y filtra en la base de datos
+ */
+export async function getEquipmentsWithPendingDeviations() {
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  // Construir la query base
+  let query = supabase.from('equipments_with_pending_deviations').select('*');
+
+  // Si hay company_id, filtrar por él, si no, traer todos
+  if (company_id) {
+    query = query.eq('company_id', company_id);
+  }
+
+  // Ordenar por cantidad de desvíos (mayor a menor)
+  query = query.order('deviation_count', { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[MAINTENANCE] Error fetching equipments with pending deviations:', error);
+    return [];
+  }
+
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Mapear los datos al formato esperado
+  return data.map((equipment) => ({
+    id: equipment.id,
+    domain: equipment.domain,
+    serie: equipment.serie,
+    intern_number: equipment.intern_number,
+    type_name: equipment.type_name,
+    deviation_count: Number(equipment.deviation_count),
+  }));
+}
+
+/**
  * Crea solicitudes de reparación desde desvíos de checklist
  * @param equipmentId ID del equipo
  * @param repairRequests Array de objetos con repair_type_id, selected_deviations, description, images

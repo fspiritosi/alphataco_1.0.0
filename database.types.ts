@@ -199,6 +199,13 @@ export type Database = {
             foreignKeyName: 'public_assing_customer_equipment_id_fkey';
             columns: ['equipment_id'];
             isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'public_assing_customer_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
             referencedRelation: 'vehicles';
             referencedColumns: ['id'];
           },
@@ -395,6 +402,13 @@ export type Database = {
             foreignKeyName: 'checklist_answers_equipment_id_fkey';
             columns: ['equipment_id'];
             isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_answers_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
             referencedRelation: 'vehicles';
             referencedColumns: ['id'];
           },
@@ -468,6 +482,13 @@ export type Database = {
             columns: ['created_by_user_id'];
             isOneToOne: false;
             referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'checklist_deviations_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
             referencedColumns: ['id'];
           },
           {
@@ -1109,6 +1130,13 @@ export type Database = {
             foreignKeyName: 'contractor_equipment_equipment_id_fkey';
             columns: ['equipment_id'];
             isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contractor_equipment_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
             referencedRelation: 'vehicles';
             referencedColumns: ['id'];
           },
@@ -1523,6 +1551,13 @@ export type Database = {
             columns: ['daily_report_row_id'];
             isOneToOne: false;
             referencedRelation: 'dailyreportrows';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'dailyreportequipmentrelations_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
             referencedColumns: ['id'];
           },
           {
@@ -2107,6 +2142,13 @@ export type Database = {
           validity?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'documents_equipment_applies_fkey';
+            columns: ['applies'];
+            isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'documents_equipment_applies_fkey';
             columns: ['applies'];
@@ -3405,6 +3447,13 @@ export type Database = {
             foreignKeyName: 'repair_solicitudes_equipment_id_fkey';
             columns: ['equipment_id'];
             isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'repair_solicitudes_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
             referencedRelation: 'vehicles';
             referencedColumns: ['id'];
           },
@@ -4393,7 +4442,17 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      equipments_with_pending_deviations: {
+        Row: {
+          deviation_count: number | null;
+          domain: string | null;
+          id: string | null;
+          intern_number: string | null;
+          serie: string | null;
+          type_name: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       actualizar_estado_daily_reports: { Args: never; Returns: undefined };

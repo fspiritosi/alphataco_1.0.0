@@ -20,3 +20,10 @@ N/A
 Pasajeros
 Pick Up
 Tractor
+
+Vuelta 360 ()
+Luces Bajas
+Luces Giro
+Luces posicion trasera
+Luces posicion DELANTERA
+Luces FRENO

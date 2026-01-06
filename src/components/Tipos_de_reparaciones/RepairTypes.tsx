@@ -1,6 +1,7 @@
 import { TabsManagerServer } from '@/features/TabsManager';
-import { ClipboardList, Plus, Settings, Users } from 'lucide-react';
+import { AlertTriangle, ClipboardList, Plus, Settings, Users } from 'lucide-react';
 import { Suspense } from 'react';
+import EquipmentsWithDeviationsWrapper from './EquipmentsWithDeviationsWrapper';
 import MaintenanceGroupsWrapper from './MaintenanceGroupsWrapper';
 import RepairEntryWrapper from './RepairEntryWrapper';
 import RepairSolicitudesWrapper from './RepairSolicitudesWrapper';
@@ -35,6 +36,22 @@ export default async function RepairTypes({
       content: (
         <Suspense fallback={<div>Cargando solicitudes...</div>}>
           <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />
+        </Suspense>
+      ),
+    },
+    {
+      value: 'equipments_with_deviations',
+      label: (
+        <span className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" />
+          Equipos con Desvíos
+        </span>
+      ),
+      moduleSlug: moduleSlug,
+      tabSlug: 'equipments_with_deviations' as const,
+      content: (
+        <Suspense fallback={<div>Cargando equipos con desvíos...</div>}>
+          <EquipmentsWithDeviationsWrapper />
         </Suspense>
       ),
     },
