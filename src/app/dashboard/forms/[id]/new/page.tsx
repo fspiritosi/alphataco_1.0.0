@@ -38,7 +38,12 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
   if (checklistTemplate) {
     return (
       <div className="px-7 py-4">
-        <NormalizedChecklistForm template={checklistTemplate} equipments={equipments} currentUser={currentUser} />
+        <NormalizedChecklistForm
+          shouldDisabledInputs={false}
+          template={checklistTemplate}
+          equipments={equipments}
+          currentUser={currentUser}
+        />
       </div>
     );
   }

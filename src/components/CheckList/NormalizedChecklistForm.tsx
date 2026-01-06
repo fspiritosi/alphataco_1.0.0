@@ -49,6 +49,7 @@ type Equipment = {
 };
 
 type NormalizedChecklistFormProps = {
+  shouldDisabledInputs?: boolean;
   template: NonNullable<ChecklistTemplate>;
   equipments: Equipment[];
   currentUser: Awaited<ReturnType<typeof import('@/app/server/GET/actions').getCurrentProfile>>[number] | null;
@@ -722,6 +723,7 @@ const ChecklistItemField = ({
  * Componente principal del formulario de checklist normalizado
  */
 export function NormalizedChecklistForm({
+  shouldDisabledInputs = true,
   template,
   equipments,
   currentUser,
@@ -767,15 +769,6 @@ export function NormalizedChecklistForm({
   );
 
   const onSubmit = async (data: z.infer<typeof schema>) => {
-    console.log('[CHECKLIST_DEBUG] SUBMIT - Form data received:', data);
-    console.log('[CHECKLIST_DEBUG] SUBMIT - Form errors:', form.formState.errors);
-    console.log('[CHECKLIST_DEBUG] SUBMIT - Form values (from form.getValues()):', form.getValues());
-    console.log('[CHECKLIST_DEBUG] SUBMIT - Form state:', {
-      isValid: form.formState.isValid,
-      errors: form.formState.errors,
-      touchedFields: form.formState.touchedFields,
-      dirtyFields: form.formState.dirtyFields,
-    });
     setIsSubmitting(true);
     setCriticalItemsFailed([]);
 
@@ -968,7 +961,7 @@ export function NormalizedChecklistForm({
                       <FormItem>
                         <FormLabel>Equipo</FormLabel>
                         <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value} disabled={true}>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={shouldDisabledInputs}>
                             <SelectTrigger>
                               <SelectValue placeholder="Seleccionar equipo" />
                             </SelectTrigger>
@@ -994,7 +987,7 @@ export function NormalizedChecklistForm({
                         <FormItem>
                           <FormLabel>Chofer</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Nombre del chofer" disabled={true} />
+                            <Input {...field} placeholder="Nombre del chofer" disabled={shouldDisabledInputs} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

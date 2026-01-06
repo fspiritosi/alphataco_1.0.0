@@ -202,7 +202,9 @@ export function CriticalDeviationsRepairModal({
                       <div className="flex-1">
                         <p className="font-medium">{deviation.item_label}</p>
                         {deviation.section_code && (
-                          <p className="text-sm text-muted-foreground">Sección: {deviation.section_code}</p>
+                          <p className="text-sm text-muted-foreground capitalize">
+                            Sección: {deviation.section_code.replace('_', ' ')}
+                          </p>
                         )}
                       </div>
                       <Badge variant={isSelected ? 'default' : 'outline'}>
@@ -322,7 +324,9 @@ export function CriticalDeviationsRepairModal({
                             >
                               {deviation.item_label}
                               {deviation.section_code && (
-                                <span className="text-xs text-muted-foreground ml-2">({deviation.section_code})</span>
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  ({deviation.section_code.replace('_', ' ')})
+                                </span>
                               )}
                             </Label>
                           </div>
