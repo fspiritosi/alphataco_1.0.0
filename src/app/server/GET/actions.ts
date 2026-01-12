@@ -1,6 +1,6 @@
 'use server';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
-import { getActualRole } from '@/lib/utils';
+import { getActualRole, mapEquipmentToChecklistFormat } from '@/lib/utils';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 // Employee-related actions
@@ -954,23 +954,6 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
   const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
   if (!company_id && !company_equipment_id) return [];
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const role = await getActualRole(company_id as string, user?.id as string);
-
-  if (role === 'Invitado') {
-    const { data, error } = await supabase
-      .from('share_company_users')
-      .select(`*,customer_id(*,contractor_equipment(*,equipment_id(*,brand(*),model(*),type(*),types_of_vehicles(*))))`)
-      .eq('profile_id', user?.id || '')
-      .eq('company_id', (company_id ?? company_equipment_id) || '')
-      .returns<ShareCompanyUsersWithEquipment[]>();
-
-    const equipments = data?.[0].customer_id?.contractor_equipment;
-    const allEquipments = equipments?.map((equipment) => equipment.equipment_id);
-    return allEquipments || [];
-  }
 
   const { data, error } = await supabase
     .from('vehicles')
@@ -981,7 +964,6 @@ export const fetchAllEquipment = async (company_equipment_id?: string) => {
 
   if (error) {
     console.error('Error fetching equipment:', error);
-
     return [];
   }
   return data;
@@ -2171,6 +2153,10 @@ export const fetchChecklistTemplateById = async (templateId: string) => {
         sub_type_id,
         sub_type:sub_type(id, name)
       ),
+      checklist_template_types(
+        type_id,
+        type:type(id, name)
+      ),
       checklist_template_sections(
         *,
         section:checklist_sections(*),
@@ -2210,6 +2196,100 @@ export const fetchChecklistTemplateById = async (templateId: string) => {
     });
   }
 
+  return data;
+};
+
+/**
+ * Obtiene equipos filtrados optimizados para checklists.
+ * Filtra directamente en la base de datos por:
+ * - Solo unidades tractoras (is_tractor_unit = true)
+ * - Tipos y subtipos permitidos por el checklist (si existen)
+ * - Que tengan model y brand (no null)
+ */
+export const fetchFilteredEquipmentForChecklist = async (templateId: string, company_equipment_id?: string) => {
+  const cookiesStore = await cookies();
+  const supabase = await supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  if (!company_id && !company_equipment_id) return [];
+
+  // Obtener el template para saber qué tipos/subtipos están permitidos
+  const template = await fetchChecklistTemplateById(templateId);
+  if (!template) {
+    return [];
+  }
+
+  // Extraer tipos y subtipos permitidos
+  const allowedSubTypes =
+    template.checklist_template_sub_types?.filter((st) => st?.sub_type_id).map((st) => st.sub_type_id) || [];
+  const allowedTypes = template.checklist_template_types?.filter((t) => t?.type_id).map((t) => t.type_id) || [];
+
+  // Obtener IDs de tipos que son unidades tractoras
+  const { data: tractorTypes } = await supabase
+    .from('type')
+    .select('id')
+    .eq('company_id', company_id || company_equipment_id || '')
+    .eq('is_tractor_unit', true)
+    .eq('is_active', true);
+
+  const tractorTypeIds = tractorTypes?.map((t) => String(t.id)) || [];
+
+  if (tractorTypeIds.length === 0) {
+    return [];
+  }
+
+  // Determinar qué tipos de UT filtrar
+  let typesToFilter: string[] = [];
+  if (allowedTypes.length > 0) {
+    // Si hay tipos permitidos, hacer intersección con tipos UT
+    typesToFilter = tractorTypeIds.filter((id) => allowedTypes.includes(id));
+  } else {
+    // Si no hay tipos permitidos, usar todos los tipos UT
+    typesToFilter = tractorTypeIds;
+  }
+
+  if (typesToFilter.length === 0) {
+    return [];
+  }
+
+  // Construir query optimizada
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select(
+      'id, domain, serie, intern_number, kilometer, brand:brand(*), model:model(*), type:type(*), subType:subType(*)'
+    )
+    .eq('company_id', company_id || company_equipment_id || '')
+    .not('brand', 'is', null)
+    .not('model', 'is', null)
+    .in('type', typesToFilter)
+    .order('domain', { ascending: true })
+    .returns<VehicleWithBrand[]>();
+
+  if (error) {
+    console.error('Error fetching filtered equipment:', error);
+    return [];
+  }
+
+  if (!data) return [];
+
+  // Filtrar por subtipos si es necesario (ya que Supabase no soporta OR fácilmente entre type y subType)
+  if (allowedSubTypes.length > 0) {
+    const filtered = data.filter((equipment) => {
+      const equipmentSubTypeId = equipment.subType?.id || null;
+
+      // Si hay subtipos configurados, SOLO incluir equipos que coincidan en subtipo
+      // (ya que la query ya filtró por tipos UT)
+      if (!equipmentSubTypeId) return false;
+
+      // Comparar como strings para asegurar coincidencia
+      const equipmentSubTypeIdString = String(equipmentSubTypeId);
+      return allowedSubTypes.some((allowedId) => String(allowedId) === equipmentSubTypeIdString);
+    });
+
+    return filtered;
+  }
+
+  // Si no hay subtipos configurados pero hay tipos configurados, ya están filtrados por typesToFilter
+  // Si no hay ni tipos ni subtipos, retornar todos los UT
   return data;
 };
 
@@ -2356,9 +2436,39 @@ export const fetchChecklistAnswerById = async (answerId: string) => {
     return null;
   }
 
-  return data;
-};
+  if (!data) {
+    return null;
+  }
 
+  // Si este checklist es de enganche (tiene ut_checklist_answer_id), el equipment_id es el enganche
+  // Si este checklist es del UT, buscar si hay un checklist de enganche que apunte a este
+  let hitchEquipmentId: string | null = null;
+
+  const utChecklistAnswerId = (data as any).ut_checklist_answer_id;
+  const equipmentId = (data as any).equipment_id;
+  const currentAnswerId = (data as any).id;
+
+  if (utChecklistAnswerId) {
+    // Este es un checklist de enganche, el equipment_id es el enganche
+    hitchEquipmentId = equipmentId;
+  } else if (currentAnswerId) {
+    // Este es un checklist del UT, buscar si hay un checklist de enganche que apunte a este
+    const { data: hitchAnswer } = await supabase
+      .from('checklist_answers')
+      .select('equipment_id')
+      .eq('ut_checklist_answer_id', currentAnswerId)
+      .single();
+
+    if (hitchAnswer) {
+      hitchEquipmentId = (hitchAnswer as any).equipment_id;
+    }
+  }
+
+  return {
+    ...data,
+    hitch_equipment_id: hitchEquipmentId,
+  };
+};
 /**
  * Verifica si un template aplica a un sub_type específico
  * Retorna true si el template no tiene restricciones de sub_type o si el sub_type está en la lista
@@ -2423,6 +2533,16 @@ export async function getChecklistAnswersByEquipment(equipmentId: string) {
         item_label,
         section_code,
         created_at
+      ),
+      ut_checklist_answer:ut_checklist_answer_id(
+        id,
+        equipment_id,
+        equipment:equipment_id(
+          id,
+          domain,
+          serie,
+          intern_number
+        )
       )
     `
     )
@@ -2436,3 +2556,383 @@ export async function getChecklistAnswersByEquipment(equipmentId: string) {
 
   return answers || [];
 }
+
+/**
+ * Obtiene los equipos compatibles para enganche según el tipo del equipo UT
+ * Esta función obtiene los equipos filtrados por tipo/subtipo compatibles desde type_hitch_types
+ */
+export const getCompatibleEquipmentForHitch = async (utEquipmentId: string) => {
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id || !utEquipmentId) {
+    return [];
+  }
+
+  try {
+    // Obtener el equipo UT y su tipo
+    const { data: utEquipment, error: utError } = await supabase
+      .from('vehicles')
+      .select('type:type(id, name, is_tractor_unit, has_hitch), subType:subType(id, name)')
+      .eq('id', utEquipmentId)
+      .single();
+
+    if (utError || !utEquipment || !utEquipment.type) {
+      console.error('Error fetching UT equipment:', utError);
+      return [];
+    }
+
+    const utType = utEquipment.type as any;
+
+    // Verificar que sea UT y tenga enganche
+    if (!utType.is_tractor_unit || !utType.has_hitch) {
+      return [];
+    }
+
+    // Obtener los tipos compatibles para enganche
+    const { data: hitchTypes, error: hitchError } = await supabase
+      .from('type_hitch_types')
+      .select('compatible_type_id')
+      .eq('type_id', utType.id);
+
+    if (hitchError || !hitchTypes || hitchTypes.length === 0) {
+      console.error('Error fetching hitch types:', hitchError);
+      return [];
+    }
+
+    const compatibleTypeIds = hitchTypes.map((ht) => ht.compatible_type_id);
+
+    if (compatibleTypeIds.length === 0) {
+      return [];
+    }
+
+    // Obtener los subtipos compatibles que pertenecen a esos tipos
+    const { data: compatibleSubTypes, error: subTypesError } = await supabase
+      .from('sub_type')
+      .select('id, name, type')
+      .in('type', compatibleTypeIds)
+      .eq('company_id', company_id)
+      .eq('is_active', true);
+
+    if (subTypesError) {
+      console.error('Error fetching compatible sub types:', subTypesError);
+    }
+
+    const compatibleSubTypeIds = compatibleSubTypes?.map((st) => st.id) || [];
+    const typesWithSubTypes = [...new Set(compatibleSubTypes?.map((st) => st.type) || [])];
+    const typesWithoutSubTypes = compatibleTypeIds.filter((id: string) => !typesWithSubTypes.includes(id));
+
+    // Construir la consulta de equipos compatibles
+    // Primero obtener todos los equipos que coincidan con tipos/subtipos compatibles
+    let compatibleEquipment: any[] = [];
+
+    if (compatibleSubTypeIds.length > 0) {
+      // Si hay subtipos compatibles, buscar equipos con esos subtipos
+      const { data: subTypeEquipment, error: subTypeError } = await supabase
+        .from('vehicles')
+        .select(
+          'id, domain, serie, intern_number, type:type(id, name), subType:subType(id, name), brand:brand(*), model:model(*)'
+        )
+        .eq('company_id', company_id)
+        .eq('is_active', true)
+        .neq('id', utEquipmentId)
+        .in('subType', compatibleSubTypeIds)
+        .order('domain', { ascending: true });
+
+      if (!subTypeError && subTypeEquipment) {
+        compatibleEquipment.push(...subTypeEquipment);
+      }
+    }
+
+    // Si hay tipos sin subtipos, agregar también equipos de esos tipos
+    if (typesWithoutSubTypes.length > 0) {
+      const { data: typeEquipment, error: typeError } = await supabase
+        .from('vehicles')
+        .select(
+          'id, domain, serie, intern_number, type:type(id, name), subType:subType(id, name), brand:brand(*), model:model(*)'
+        )
+        .eq('company_id', company_id)
+        .eq('is_active', true)
+        .neq('id', utEquipmentId)
+        .in('type', typesWithoutSubTypes)
+        .is('subType', null) // Solo equipos sin subtipo
+        .order('domain', { ascending: true });
+
+      if (!typeError && typeEquipment) {
+        // Evitar duplicados
+        const existingIds = new Set(compatibleEquipment.map((eq) => eq.id));
+        compatibleEquipment.push(...typeEquipment.filter((eq) => !existingIds.has(eq.id)));
+      }
+    }
+
+    // Si no hay subtipos ni tipos sin subtipos, buscar por tipos compatibles directamente
+    if (compatibleSubTypeIds.length === 0 && typesWithoutSubTypes.length === 0) {
+      const { data: allTypeEquipment, error: allTypeError } = await supabase
+        .from('vehicles')
+        .select(
+          'id, domain, serie, intern_number, type:type(id, name), subType:subType(id, name), brand:brand(*), model:model(*)'
+        )
+        .eq('company_id', company_id)
+        .eq('is_active', true)
+        .neq('id', utEquipmentId)
+        .in('type', compatibleTypeIds)
+        .order('domain', { ascending: true });
+
+      if (!allTypeError && allTypeEquipment) {
+        compatibleEquipment = allTypeEquipment;
+      }
+    }
+
+    // Obtener los equipos completos con todas las relaciones para mapearlos correctamente
+    const equipmentIds =
+      compatibleEquipment
+        ?.filter((eq) => eq.model && eq.brand)
+        .map((eq) => eq.id)
+        .filter((id): id is string => id !== null && id !== undefined) || [];
+
+    if (equipmentIds.length === 0) {
+      return [];
+    }
+
+    // Obtener equipos completos con todas las relaciones necesarias
+    const { data: fullEquipment, error: fullError } = await supabase
+      .from('vehicles')
+      .select(
+        'id, domain, serie, intern_number, kilometer, brand:brand(*), model:model(*), type:type(*), subType:subType(*)'
+      )
+      .in('id', equipmentIds)
+      .order('domain', { ascending: true })
+      .returns<VehicleWithBrand[]>();
+
+    if (fullError || !fullEquipment) {
+      console.error('Error fetching full equipment:', fullError);
+      return [];
+    }
+
+    // Mapear al formato esperado usando la función helper
+    return fullEquipment.map(mapEquipmentToChecklistFormat);
+  } catch (error) {
+    console.error('Error in getCompatibleEquipmentForHitch:', error);
+    return [];
+  }
+};
+
+/**
+ * Encuentra el checklist_answer relacionado del equipo enganchado
+ * Basado en: mismo template_id, misma fecha, misma hora, mismo chofer
+ * Esto permite relacionar checklists de UT y enganche que fueron guardados juntos
+ */
+export const findRelatedHitchChecklistAnswer = async (
+  utChecklistAnswerId: string,
+  hitchEquipmentId: string
+): Promise<string | null> => {
+  const supabase = await supabaseServer();
+
+  try {
+    // Obtener el checklist_answer del UT para obtener template_id, fecha, hora, chofer
+    const { data: utAnswer, error: utError } = await supabase
+      .from('checklist_answers')
+      .select('id, template_id, answer_data, created_at')
+      .eq('id', utChecklistAnswerId)
+      .single();
+
+    if (utError || !utAnswer) {
+      console.error('Error fetching UT checklist answer:', utError);
+      return null;
+    }
+
+    const answerData = utAnswer.answer_data as any;
+    const fecha = answerData?.fecha;
+    const hora = answerData?.hora;
+    const chofer = answerData?.chofer;
+
+    if (!fecha || !hora || !chofer) {
+      console.log('[HITCH] UT checklist answer missing fecha/hora/chofer, cannot find related hitch answer');
+      return null;
+    }
+
+    // Buscar checklist_answer relacionado en el equipo enganchado
+    // Mismo template, misma fecha, misma hora, mismo chofer
+    const { data: hitchAnswers, error: hitchError } = await supabase
+      .from('checklist_answers')
+      .select('id, answer_data')
+      .eq('template_id', utAnswer.template_id)
+      .eq('equipment_id', hitchEquipmentId)
+      .limit(10); // Limitar resultados para mejorar rendimiento
+
+    if (hitchError || !hitchAnswers || hitchAnswers.length === 0) {
+      console.log('[HITCH] No hitch checklist answers found for equipment:', hitchEquipmentId);
+      return null;
+    }
+
+    // Buscar el que coincida en fecha, hora y chofer (dentro de un margen de tiempo razonable)
+    const matchingAnswer = hitchAnswers.find((answer) => {
+      const hitchAnswerData = answer.answer_data as any;
+      const hitchFecha = hitchAnswerData?.fecha;
+      const hitchHora = hitchAnswerData?.hora;
+      const hitchChofer = hitchAnswerData?.chofer;
+
+      // Comparar fecha exacta y hora (permitir pequeña diferencia de minutos por posibles retrasos)
+      const fechaMatch = hitchFecha === fecha;
+      const choferMatch = hitchChofer?.toUpperCase() === chofer?.toUpperCase();
+
+      // Comparar hora permitiendo diferencia de hasta 5 minutos
+      let horaMatch = false;
+      if (hitchHora && hora) {
+        try {
+          const utTimeParts = hora.split(':');
+          const hitchTimeParts = hitchHora.split(':');
+          const utMinutes = parseInt(utTimeParts[0]) * 60 + parseInt(utTimeParts[1] || '0');
+          const hitchMinutes = parseInt(hitchTimeParts[0]) * 60 + parseInt(hitchTimeParts[1] || '0');
+          const diffMinutes = Math.abs(utMinutes - hitchMinutes);
+          horaMatch = diffMinutes <= 5; // Permitir hasta 5 minutos de diferencia
+        } catch {
+          horaMatch = hora === hitchHora; // Fallback a comparación exacta
+        }
+      }
+
+      return fechaMatch && horaMatch && choferMatch;
+    });
+
+    if (matchingAnswer) {
+      console.log('[HITCH] Found related hitch checklist answer:', matchingAnswer.id);
+      return matchingAnswer.id;
+    }
+
+    console.log('[HITCH] No matching hitch checklist answer found');
+    return null;
+  } catch (error) {
+    console.error('Error in findRelatedHitchChecklistAnswer:', error);
+    return null;
+  }
+};
+
+/**
+ * Encuentra el equipo enganchado relacionado a partir de un checklist_answer_id del UT
+ * Busca otro checklist_answer con el mismo template_id, fecha, hora y chofer pero diferente equipment_id
+ */
+export const findRelatedHitchEquipmentId = async (
+  utChecklistAnswerId: string
+): Promise<{ hitchEquipmentId: string; hitchChecklistAnswerId: string } | null> => {
+  const supabase = await supabaseServer();
+
+  try {
+    // Obtener el checklist_answer del UT
+    const { data: utAnswer, error: utError } = await supabase
+      .from('checklist_answers')
+      .select('id, template_id, equipment_id, answer_data, created_at')
+      .eq('id', utChecklistAnswerId)
+      .single();
+
+    if (utError || !utAnswer) {
+      console.error('[HITCH] Error fetching UT checklist answer:', utError);
+      return null;
+    }
+
+    const answerData = utAnswer.answer_data as any;
+    const fecha = answerData?.fecha;
+    const hora = answerData?.hora;
+    const chofer = answerData?.chofer;
+
+    if (!fecha || !hora || !chofer) {
+      console.log('[HITCH] UT checklist answer missing fecha/hora/chofer, cannot find related hitch equipment');
+      return null;
+    }
+
+    // Buscar checklists con el mismo template, fecha, hora y chofer pero diferente equipment_id
+    // Limitamos a los últimos 10 para mejorar rendimiento (checklists recientes)
+    const { data: relatedAnswers, error: relatedError } = await supabase
+      .from('checklist_answers')
+      .select('id, equipment_id, answer_data')
+      .eq('template_id', utAnswer.template_id)
+      .neq('equipment_id', utAnswer.equipment_id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (relatedError || !relatedAnswers || relatedAnswers.length === 0) {
+      console.log('[HITCH] No related checklist answers found');
+      return null;
+    }
+
+    // Buscar el que coincida en fecha, hora y chofer
+    const matchingAnswer = relatedAnswers.find((answer) => {
+      const hitchAnswerData = answer.answer_data as any;
+      const hitchFecha = hitchAnswerData?.fecha;
+      const hitchHora = hitchAnswerData?.hora;
+      const hitchChofer = hitchAnswerData?.chofer;
+
+      const fechaMatch = hitchFecha === fecha;
+      const choferMatch = hitchChofer?.toUpperCase() === chofer?.toUpperCase();
+
+      // Comparar hora permitiendo diferencia de hasta 5 minutos
+      let horaMatch = false;
+      if (hitchHora && hora) {
+        try {
+          const utTimeParts = hora.split(':');
+          const hitchTimeParts = hitchHora.split(':');
+          const utMinutes = parseInt(utTimeParts[0]) * 60 + parseInt(utTimeParts[1] || '0');
+          const hitchMinutes = parseInt(hitchTimeParts[0]) * 60 + parseInt(hitchTimeParts[1] || '0');
+          const diffMinutes = Math.abs(utMinutes - hitchMinutes);
+          horaMatch = diffMinutes <= 5; // Permitir hasta 5 minutos de diferencia
+        } catch {
+          horaMatch = hora === hitchHora; // Fallback a comparación exacta
+        }
+      }
+
+      return fechaMatch && horaMatch && choferMatch;
+    });
+
+    if (matchingAnswer) {
+      console.log('[HITCH] Found related hitch equipment:', matchingAnswer.equipment_id);
+      return {
+        hitchEquipmentId: matchingAnswer.equipment_id as string,
+        hitchChecklistAnswerId: matchingAnswer.id,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error in findRelatedHitchEquipmentId:', error);
+    return null;
+  }
+};
+
+/**
+ * Obtiene la información del tipo de un equipo para verificar si tiene enganche
+ * Función server-side que puede ser llamada desde el cliente
+ */
+export const getEquipmentTypeInfo = async (equipmentId: string) => {
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+
+  if (!company_id || !equipmentId) {
+    return null;
+  }
+
+  try {
+    const { data: equipmentData, error } = await supabase
+      .from('vehicles')
+      .select('type:type(id, name, is_tractor_unit, has_hitch)')
+      .eq('id', equipmentId)
+      .eq('company_id', company_id)
+      .single();
+
+    if (error || !equipmentData?.type) {
+      console.error('Error fetching equipment type info:', error);
+      return null;
+    }
+
+    const equipmentType = equipmentData.type as any;
+    return {
+      id: equipmentType.id,
+      name: equipmentType.name,
+      has_hitch: equipmentType.has_hitch || false,
+      is_tractor_unit: equipmentType.is_tractor_unit || false,
+    };
+  } catch (error) {
+    console.error('Error in getEquipmentTypeInfo:', error);
+    return null;
+  }
+};

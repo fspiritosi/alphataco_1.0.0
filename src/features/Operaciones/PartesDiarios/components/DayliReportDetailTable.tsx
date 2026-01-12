@@ -810,25 +810,20 @@ export function DayliReportDetailTable({
         isOpen={isBulkEditModalOpen}
         onClose={() => setIsBulkEditModalOpen(false)}
         selectedRows={selectedRows}
+        dailyReportId={dailyReport[0].id}
         onSuccess={(updatedRowIds?: string[]) => {
-          // Recargar datos primero para asegurar que estén actualizados
-          refetchDailyReport();
+          // Los datos se actualizan automáticamente via invalidateQueries en el mutation hook
+          // Solo necesitamos limpiar la selección local
+          if (updatedRowIds && updatedRowIds.length > 0) {
+            setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
+          } else {
+            setSelectedRows([]);
+          }
 
-          // Después de recargar, limpiar la selección local
-          setTimeout(() => {
-            // Actualizar el estado local - esto actualizará la lista de filas seleccionadas
-            if (updatedRowIds && updatedRowIds.length > 0) {
-              setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
-            } else {
-              // Si no hay IDs específicos, limpiar toda la selección
-              setSelectedRows([]);
-            }
-
-            // Usar el método clearRowSelection del BaseDataTable para limpiar la selección interna
-            if (tableRef.current && updatedRowIds && tableRef.current.clearRowSelection) {
-              tableRef.current.clearRowSelection(updatedRowIds);
-            }
-          }, 300); // Esperar a que se actualicen los datos
+          // Usar el método clearRowSelection del BaseDataTable para limpiar la selección interna
+          if (tableRef.current?.clearRowSelection) {
+            tableRef.current.clearRowSelection(updatedRowIds);
+          }
         }}
       />
     </>

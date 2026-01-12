@@ -69,6 +69,7 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
     equipment_id: answerData.equipment_id,
     employee_id: finalEmployeeId,
     user_id: user?.id || null,
+    ut_checklist_answer_id: answerData.ut_checklist_answer_id || null, // ID del checklist UT si este es de enganche
     answer_data: {
       // Respuestas estructuradas por sección
       answers: sanitizedAnswers,
@@ -91,7 +92,14 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
   }
 
   // Si hay items críticos fallidos, crear registros en checklist_deviations
-  if (answerData.critical_items_failed && answerData.critical_items_failed.length > 0 && data) {
+  // IMPORTANTE: NO crear desvíos si este checklist es de enganche (ut_checklist_answer_id existe)
+  // Los desvíos solo se crean en la unidad tractora
+  if (
+    answerData.critical_items_failed &&
+    answerData.critical_items_failed.length > 0 &&
+    data &&
+    !answerData.ut_checklist_answer_id
+  ) {
     // Obtener employee_id del cookie o metadata
     const employeeId = cookiesStore.get('empleado_id')?.value;
     const employeeIdFromMetadata =

@@ -4,10 +4,12 @@ import { getPendingDeviations } from '@/app/maintenance/actions';
 import { getChecklistAnswersByEquipment } from '@/app/server/GET/actions';
 import { PendingDeviationsAlert } from '@/components/maintenance/pending-deviations-alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar, CheckCircle, ClipboardList, User, XCircle } from 'lucide-react';
+import { Calendar, CheckCircle, ClipboardList, Link as LinkIcon, User, XCircle } from 'lucide-react';
 import moment from 'moment';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 interface VehicleChecklistsTabContentProps {
@@ -20,6 +22,7 @@ type ChecklistAnswer = {
   result: 'B' | 'M' | null;
   observations: string | null;
   critical_items_failed: string[] | string | object | null;
+  ut_checklist_answer_id: string | null;
   checklist_templates?: {
     id: string;
     name: string;
@@ -37,6 +40,16 @@ type ChecklistAnswer = {
     section_code: string | null;
     created_at: string;
   }>;
+  ut_checklist_answer?: {
+    id: string;
+    equipment_id: string;
+    equipment?: {
+      id: string;
+      domain: string | null;
+      serie: string | null;
+      intern_number: string | null;
+    } | null;
+  } | null;
 };
 
 export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTabContentProps) {
@@ -105,6 +118,7 @@ export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTa
                     <TableHead>Checklist</TableHead>
                     <TableHead>Resultado</TableHead>
                     <TableHead>Items Críticos Fallidos</TableHead>
+                    <TableHead>Unidad Tractor</TableHead>
                     <TableHead>Realizado por</TableHead>
                     <TableHead>Observaciones</TableHead>
                   </TableRow>
@@ -242,6 +256,22 @@ export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTa
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">Ninguno</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {answer.ut_checklist_answer && answer.ut_checklist_answer.equipment ? (
+                          <Link
+                            href={`/dashboard/equipment/action?id=${answer.ut_checklist_answer.equipment_id}&action=view`}
+                          >
+                            <Button variant="outline" size="sm" className="gap-2">
+                              <LinkIcon className="h-3 w-3" />
+                              {answer.ut_checklist_answer.equipment.domain
+                                ? `${answer.ut_checklist_answer.equipment.domain} - ${answer.ut_checklist_answer.equipment.intern_number || ''}`
+                                : `${answer.ut_checklist_answer.equipment.serie || ''} - ${answer.ut_checklist_answer.equipment.intern_number || ''}`}
+                            </Button>
+                          </Link>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>

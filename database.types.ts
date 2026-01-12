@@ -3901,6 +3901,38 @@ export type Database = {
           },
         ];
       };
+      sub_type_compatible_items: {
+        Row: {
+          compatible_item_id: string;
+          created_at: string;
+          id: string;
+          item_type: string;
+          sub_type_id: string;
+        };
+        Insert: {
+          compatible_item_id: string;
+          created_at?: string;
+          id?: string;
+          item_type: string;
+          sub_type_id: string;
+        };
+        Update: {
+          compatible_item_id?: string;
+          created_at?: string;
+          id?: string;
+          item_type?: string;
+          sub_type_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sub_type_compatible_items_sub_type_id_fkey';
+            columns: ['sub_type_id'];
+            isOneToOne: false;
+            referencedRelation: 'sub_type';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       tabs: {
         Row: {
           created_at: string | null;
@@ -3959,22 +3991,28 @@ export type Database = {
         Row: {
           company_id: string | null;
           created_at: string;
+          has_hitch: boolean;
           id: string;
           is_active: boolean | null;
+          is_tractor_unit: boolean;
           name: string;
         };
         Insert: {
           company_id?: string | null;
           created_at?: string;
+          has_hitch?: boolean;
           id?: string;
           is_active?: boolean | null;
+          is_tractor_unit?: boolean;
           name: string;
         };
         Update: {
           company_id?: string | null;
           created_at?: string;
+          has_hitch?: boolean;
           id?: string;
           is_active?: boolean | null;
+          is_tractor_unit?: boolean;
           name?: string;
         };
         Relationships: [
@@ -3983,6 +4021,42 @@ export type Database = {
             columns: ['company_id'];
             isOneToOne: false;
             referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      type_hitch_types: {
+        Row: {
+          compatible_type_id: string;
+          created_at: string;
+          id: string;
+          type_id: string;
+        };
+        Insert: {
+          compatible_type_id: string;
+          created_at?: string;
+          id?: string;
+          type_id: string;
+        };
+        Update: {
+          compatible_type_id?: string;
+          created_at?: string;
+          id?: string;
+          type_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'type_hitch_types_compatible_type_id_fkey';
+            columns: ['compatible_type_id'];
+            isOneToOne: false;
+            referencedRelation: 'type';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'type_hitch_types_type_id_fkey';
+            columns: ['type_id'];
+            isOneToOne: false;
+            referencedRelation: 'type';
             referencedColumns: ['id'];
           },
         ];
@@ -4444,6 +4518,7 @@ export type Database = {
     Views: {
       equipments_with_pending_deviations: {
         Row: {
+          company_id: string | null;
           deviation_count: number | null;
           domain: string | null;
           id: string | null;
@@ -4451,7 +4526,15 @@ export type Database = {
           serie: string | null;
           type_name: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'vehicles_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Functions: {

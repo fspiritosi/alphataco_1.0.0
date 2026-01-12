@@ -23,6 +23,7 @@ import {
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
+import { TestErrorButtons } from './test-error-buttons';
 
 interface VehiclePageProps {
   searchParams: Promise<{ action?: 'new' | 'edit' | 'view'; id?: string }>;
@@ -52,6 +53,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
 
   return (
     <div className="p-6 space-y-6">
+      <TestErrorButtons />
       <Card className="p-4">
         {/* Vehicle Header */}
         {mode !== 'new' ? (

@@ -5,6 +5,7 @@ import {
   fetchFormsAnswersByFormId,
 } from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
+import { ChecklistPDFButton } from '@/components/ChecklistPDFButton';
 import { PDFPreviewDialog } from '@/components/pdf-preview-dialog';
 import { TransporteSPANAYCHKHYS01 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS01';
 import { TransporteSPANAYCHKHYS03 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS03';
@@ -40,11 +41,25 @@ export default async function FormDetailPage({ params }: { params: Promise<{ id:
     const formName = checklistTemplate.name;
     const formDescription = checklistTemplate.description || '';
     const answers = await fetchChecklistAnswersByTemplateId(resolvedParams.id);
+    const sections = (checklistTemplate.checklist_template_sections || []).map((section: any) => ({
+      id: section.id,
+      code: section.code,
+      name: section.name,
+      order_index: section.order_index,
+      checklist_template_items: (section.checklist_template_items || []).map((item: any) => ({
+        id: item.id,
+        code: item.code,
+        label: item.label,
+        order_index: item.order_index,
+        is_critical: item.is_critical || false,
+      })),
+    }));
 
     return (
       <Card className="px-6">
         <div className="flex gap-4 mb-6">
           <BackButton />
+          <ChecklistPDFButton templateName={formName} templateCode={checklistTemplate.code} sections={sections} />
           <Link className={buttonVariants({ variant: 'default' })} href={`/dashboard/forms/${resolvedParams.id}/new`}>
             Nueva respuesta
           </Link>

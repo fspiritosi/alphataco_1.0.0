@@ -18,17 +18,11 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
       return;
     }
 
-    // Inicializar PostHog
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-      api_host: '/ingest',
-      ui_host: 'https://us.posthog.com',
-      loaded: (posthog) => {
-        if (process.env.NODE_ENV === 'development') {
-          posthog.debug();
-        }
-      },
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       capture_exceptions: true,
-      debug: false,
+      defaults: '2025-11-30',
+      debug: true,
     });
 
     initialized.current = true;

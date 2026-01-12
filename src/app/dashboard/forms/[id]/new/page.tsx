@@ -1,29 +1,15 @@
 import {
-  fetchAllEquipment,
   fetchChecklistTemplateById,
   fetchCustomFormById,
+  fetchFilteredEquipmentForChecklist,
   getCurrentProfile,
 } from '@/app/server/GET/actions';
 import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
+import { mapEquipmentToChecklistFormat } from '@/lib/utils';
 
 async function page({ params }: { params: Promise<{ id: string }> }) {
   // En Next.js 15+, params es una Promise, necesitamos hacer await
   const resolvedParams = await params;
-  const equipments = (await fetchAllEquipment())
-    .filter((equipment) => equipment.model && equipment.brand) // Filtrar equipos sin model o brand
-    .map((equipment) => ({
-      label: equipment.domain
-        ? `${equipment.domain} - ${equipment.intern_number}`
-        : `${equipment.serie} - ${equipment.intern_number}`,
-      value: equipment.id,
-      domain: equipment.domain,
-      serie: equipment.serie,
-      kilometer: equipment.kilometer ?? '0',
-      model: equipment.model?.name || 'N/A',
-      brand: equipment.brand?.name || 'N/A',
-      intern_number: equipment.intern_number || '',
-      sub_type_id: equipment.subType?.id || null,
-    }));
 
   const currentUserProfile = await getCurrentProfile();
   const currentUser = currentUserProfile && currentUserProfile.length > 0 ? currentUserProfile[0] : null;
@@ -33,6 +19,15 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
 
   // Si no existe en la nueva estructura, intentar con la antigua
   const formInfo = checklistTemplate ? null : await fetchCustomFormById(resolvedParams.id);
+
+  // Obtener equipos filtrados optimizados (solo si es checklist normalizado)
+  let equipments: Awaited<ReturnType<typeof mapEquipmentToChecklistFormat>>[] = [];
+
+  if (checklistTemplate) {
+    // Usar función optimizada que filtra directamente en la base de datos
+    const filteredEquipments = await fetchFilteredEquipmentForChecklist(resolvedParams.id);
+    equipments = filteredEquipments.map(mapEquipmentToChecklistFormat);
+  }
 
   // Si es un checklist de la nueva estructura
   if (checklistTemplate) {

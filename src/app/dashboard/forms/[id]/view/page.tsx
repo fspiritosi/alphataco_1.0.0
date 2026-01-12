@@ -36,8 +36,8 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
       .filter((equipment) => equipment.model && equipment.brand)
       .map((equipment) => ({
         label: equipment.domain
-          ? `${equipment.domain} - ${equipment.intern_number}`
-          : `${equipment.serie} - ${equipment.intern_number}`,
+          ? `${equipment.domain} - ${equipment.intern_number || '(Sin información)'}`
+          : `${equipment.serie} - ${equipment.intern_number || '(Sin información)'}`,
         value: equipment.id,
         domain: equipment.domain,
         serie: equipment.serie,
@@ -46,6 +46,8 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
         brand: equipment.brand?.name || 'N/A',
         intern_number: equipment.intern_number || '',
         sub_type_id: equipment.subType?.id || null,
+        type_name: equipment.type?.name || 'N/A',
+        sub_type_name: equipment.subType?.name || 'N/A',
       }));
 
     const currentUserProfile = await getCurrentProfile();

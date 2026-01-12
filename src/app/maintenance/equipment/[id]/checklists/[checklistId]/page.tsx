@@ -66,8 +66,8 @@ export default async function ChecklistFormPage({
   const equipments = await fetchAllEquipment(equipmentData.company_id);
   const equipmentsForComboBox = equipments.map((equipment) => ({
     label: equipment.domain
-      ? `${equipment.domain} - ${equipment.intern_number}`
-      : `${equipment.serie} - ${equipment.intern_number}`,
+      ? `${equipment.domain} - ${equipment.intern_number || '(Sin información)'}`
+      : `${equipment.serie} - ${equipment.intern_number || '(Sin información)'}`,
     value: equipment.id,
     domain: equipment.domain,
     serie: equipment.serie,
@@ -76,6 +76,8 @@ export default async function ChecklistFormPage({
     brand: equipment.brand?.name || '',
     intern_number: equipment.intern_number || '',
     sub_type_id: (equipment as any).subType?.id || (equipment as any).sub_type_id || null,
+    type_name: equipment.type?.name || 'N/A',
+    sub_type_name: equipment.subType?.name || 'N/A',
   }));
 
   // Obtener el equipo seleccionado para el kilometraje

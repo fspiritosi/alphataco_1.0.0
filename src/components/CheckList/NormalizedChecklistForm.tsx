@@ -1,6 +1,7 @@
 'use client';
 
 import { getPendingDeviations } from '@/app/maintenance/actions';
+import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/app/server/GET/actions';
 import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
 import { CriticalDeviationsRepairModal } from '@/components/maintenance/critical-deviations-repair-modal';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -8,19 +9,23 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import type { TypeOfRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Calendar } from 'lucide-react';
+import { AlertCircle, Calendar, Check, Link as LinkIcon, X } from 'lucide-react';
 import moment from 'moment';
-import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { DevAutoFillButton } from './DevAutoFillButton';
 // Tipos basados en la estructura de la base de datos
 type ChecklistTemplate = Awaited<ReturnType<typeof import('@/app/server/GET/actions').fetchChecklistTemplateById>>;
 
@@ -46,6 +51,9 @@ type Equipment = {
   brand: string | null;
   intern_number: string;
   sub_type_id: string | null;
+  type_id?: string | null;
+  type_name?: string | null;
+  sub_type_name?: string | null;
 };
 
 type NormalizedChecklistFormProps = {
@@ -59,6 +67,7 @@ type NormalizedChecklistFormProps = {
   defaultEmployeeId?: string;
   defaultEmployeeName?: string;
   defaultKilometer?: string;
+  defaultHitchEquipmentId?: string | null; // ID del enganche cuando está en modo view
 };
 
 /**
@@ -733,14 +742,27 @@ export function NormalizedChecklistForm({
   defaultEmployeeId,
   defaultEmployeeName,
   defaultKilometer,
+  defaultHitchEquipmentId,
 }: NormalizedChecklistFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [criticalItemsFailed, setCriticalItemsFailed] = useState<string[]>([]);
   const [showDeviationsModal, setShowDeviationsModal] = useState(false);
   const [pendingDeviations, setPendingDeviations] = useState<any[]>([]);
   const [repairTypes, setRepairTypes] = useState<TypeOfRepair>([]);
   const [currentEquipmentId, setCurrentEquipmentId] = useState<string | undefined>(defaultEquipmentId);
+
+  // Estado para manejo de enganche (COD-290)
+  const [selectedHitchEquipment, setSelectedHitchEquipment] = useState<string | null>(defaultHitchEquipmentId || null);
+  const [showHitchSelector, setShowHitchSelector] = useState(false);
+  const [compatibleHitchEquipment, setCompatibleHitchEquipment] = useState<Equipment[]>([]);
+  const [isLoadingHitchEquipment, setIsLoadingHitchEquipment] = useState(false);
+  const [selectedEquipmentType, setSelectedEquipmentType] = useState<{
+    id: string;
+    has_hitch: boolean;
+    is_tractor_unit: boolean;
+  } | null>(null);
 
   // Generar schema y valores por defecto
   const schema = useMemo(() => generateChecklistSchema(template), [template]);
@@ -767,6 +789,109 @@ export function NormalizedChecklistForm({
   const sortedSections = [...(template.checklist_template_sections || [])].sort(
     (a, b) => (a.order_index || 0) - (b.order_index || 0)
   );
+
+  // Detectar si el equipo seleccionado tiene enganche (COD-290)
+  const selectedEquipmentId = form.watch('equipment_id');
+  const selectedEquipment = useMemo(
+    () => equipments.find((eq) => eq.value === selectedEquipmentId),
+    [equipments, selectedEquipmentId]
+  );
+
+  // Obtener información del tipo del equipo seleccionado para verificar si tiene enganche
+  useEffect(() => {
+    async function checkEquipmentHitch() {
+      if (!selectedEquipmentId) {
+        setSelectedEquipmentType(null);
+        // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
+        if (!readOnly || !defaultHitchEquipmentId) {
+          setSelectedHitchEquipment(null);
+        }
+        setCompatibleHitchEquipment([]);
+        return;
+      }
+
+      try {
+        const typeInfo = await getEquipmentTypeInfo(selectedEquipmentId);
+        if (!typeInfo) {
+          setSelectedEquipmentType(null);
+          // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
+          if (!readOnly || !defaultHitchEquipmentId) {
+            setSelectedHitchEquipment(null);
+          }
+          setCompatibleHitchEquipment([]);
+          return;
+        }
+
+        setSelectedEquipmentType({
+          id: typeInfo.id,
+          has_hitch: typeInfo.has_hitch,
+          is_tractor_unit: typeInfo.is_tractor_unit,
+        });
+
+        // Si no tiene enganche o no es UT, limpiar el enganche seleccionado y equipos compatibles
+        if (!typeInfo.has_hitch || !typeInfo.is_tractor_unit) {
+          // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
+          if (!readOnly || !defaultHitchEquipmentId) {
+            setSelectedHitchEquipment(null);
+          }
+          setCompatibleHitchEquipment([]);
+          setShowHitchSelector(false); // Cerrar modal si estaba abierto
+        } else {
+          // Si el equipo tiene enganche pero cambió el equipo, limpiar la selección previa de enganche
+          // para que el usuario seleccione nuevamente el enganche correcto
+          // Pero en modo readOnly, mantener el enganche si viene de defaultHitchEquipmentId
+          if (!readOnly || !defaultHitchEquipmentId) {
+            setSelectedHitchEquipment(null);
+          }
+          setCompatibleHitchEquipment([]);
+        }
+      } catch (error) {
+        console.error('Error checking equipment hitch:', error);
+        setSelectedEquipmentType(null);
+        // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
+        if (!readOnly || !defaultHitchEquipmentId) {
+          setSelectedHitchEquipment(null);
+        }
+        setCompatibleHitchEquipment([]);
+      }
+    }
+
+    checkEquipmentHitch();
+  }, [selectedEquipmentId, readOnly, defaultHitchEquipmentId]);
+
+  // Función para abrir el selector de enganche y cargar equipos compatibles
+  const handleOpenHitchSelector = async () => {
+    if (!selectedEquipmentId) {
+      const { toast } = await import('sonner');
+      toast.error('Debes seleccionar un equipo primero');
+      return;
+    }
+
+    setIsLoadingHitchEquipment(true);
+    setShowHitchSelector(true);
+
+    try {
+      const compatibleEquipment = await getCompatibleEquipmentForHitch(selectedEquipmentId);
+      setCompatibleHitchEquipment(compatibleEquipment);
+
+      if (compatibleEquipment.length === 0) {
+        const { toast } = await import('sonner');
+        toast.warning('No se encontraron equipos compatibles para enganche');
+      }
+    } catch (error) {
+      console.error('Error loading compatible equipment:', error);
+      const { toast } = await import('sonner');
+      toast.error('Error al cargar equipos compatibles');
+    } finally {
+      setIsLoadingHitchEquipment(false);
+    }
+  };
+
+  // Determinar si debe mostrar el botón de enganche (COD-290 - Condición 3)
+  // En modo readOnly, mostrar si hay un enganche seleccionado
+  const shouldShowHitchButton =
+    (selectedEquipmentType?.is_tractor_unit === true && selectedEquipmentType?.has_hitch === true && !readOnly) ||
+    (readOnly && selectedHitchEquipment !== null);
 
   const onSubmit = async (data: z.infer<typeof schema>) => {
     setIsSubmitting(true);
@@ -845,6 +970,7 @@ export function NormalizedChecklistForm({
         }
       }
 
+      // Guardar checklist para el equipo UT
       const checklistAnswer = await CreateChecklistAnswer(template.id, {
         equipment_id: data.equipment_id,
         employee_id: defaultEmployeeId,
@@ -858,6 +984,34 @@ export function NormalizedChecklistForm({
       });
 
       setCurrentEquipmentId(data.equipment_id);
+
+      // Si hay enganche seleccionado, guardar el mismo checklist para el equipo enganchado (COD-290)
+      // IMPORTANTE: Los desvíos SOLO se crean en la unidad tractora, NO en el enganche
+      if (selectedHitchEquipment) {
+        try {
+          const hitchChecklistAnswer = await CreateChecklistAnswer(template.id, {
+            equipment_id: selectedHitchEquipment,
+            employee_id: defaultEmployeeId,
+            chofer: data.chofer,
+            fecha: data.fecha,
+            hora: data.hora,
+            kilometraje: data.kilometraje,
+            observaciones: data.observaciones,
+            answers: answersBySection, // Mismo resultado para ambos equipos
+            critical_items_failed: [], // NO crear desvíos para el enganche
+            ut_checklist_answer_id: checklistAnswer.id, // Vincular con el checklist del UT
+          });
+
+          console.log(
+            `[CHECKLIST] Created duplicate checklist answer for hitched equipment: ${selectedHitchEquipment} (linked to UT: ${checklistAnswer.id})`
+          );
+        } catch (error) {
+          console.error('Error creating checklist answer for hitched equipment:', error);
+          const { toast } = await import('sonner');
+          toast.error('Error al guardar el checklist para el equipo enganchado');
+          // No fallar completamente, pero loguear el error
+        }
+      }
 
       if (failedCriticalItems.length > 0) {
         setCriticalItemsFailed(failedCriticalItems.map((item) => item.item_label));
@@ -887,7 +1041,19 @@ export function NormalizedChecklistForm({
 
           // Si no se puede cargar el modal, redirigir normalmente
           setTimeout(() => {
-            router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
+            // Detectar si venimos de /dashboard/forms o /maintenance
+            if (pathname?.includes('/dashboard/forms/')) {
+              // Extraer el ID del formulario de la ruta actual
+              const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+              if (formIdMatch && formIdMatch[1]) {
+                router.push(`/dashboard/forms/${formIdMatch[1]}`);
+              } else {
+                router.push('/dashboard/forms');
+              }
+            } else {
+              // Si venimos de /maintenance, redirigir a la página de checklists del equipo
+              router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
+            }
             router.refresh();
           }, 1500);
         }
@@ -895,9 +1061,21 @@ export function NormalizedChecklistForm({
         const { toast } = await import('sonner');
         toast.success('Checklist guardado correctamente');
 
-        // Redirigir a la página de checklists del equipo
+        // Redirigir según la ruta de origen
         setTimeout(() => {
-          router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
+          // Detectar si venimos de /dashboard/forms o /maintenance
+          if (pathname?.includes('/dashboard/forms/')) {
+            // Extraer el ID del formulario de la ruta actual
+            const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+            if (formIdMatch && formIdMatch[1]) {
+              router.push(`/dashboard/forms/${formIdMatch[1]}`);
+            } else {
+              router.push('/dashboard/forms');
+            }
+          } else {
+            // Si venimos de /maintenance, redirigir a la página de checklists del equipo
+            router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
+          }
           router.refresh();
         }, 1500);
       }
@@ -954,30 +1132,102 @@ export function NormalizedChecklistForm({
               </AccordionTrigger>
               <AccordionContent className="flex flex-col gap-4 text-balance">
                 <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="equipment_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Equipo</FormLabel>
-                        <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value} disabled={shouldDisabledInputs}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar equipo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {equipments.map((equipment) => (
-                                <SelectItem key={equipment.value} value={equipment.value}>
-                                  {equipment.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="equipment_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Equipo</FormLabel>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={shouldDisabledInputs}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar equipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {equipments.map((equipment) => (
+                                  <SelectItem key={equipment.value} value={equipment.value}>
+                                    <div className="flex flex-col items-start">
+                                      <span>
+                                        {equipment.label}
+                                        {equipment.sub_type_name && (
+                                          <span className="ml-2 inline-flex gap-1">
+                                            {equipment.sub_type_name && equipment.sub_type_name !== 'N/A' && (
+                                              <span className="rounded bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5">
+                                                {equipment.sub_type_name}
+                                              </span>
+                                            )}
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Botón para agregar enganche (COD-290 - Condición 3) */}
+                    {shouldShowHitchButton && (
+                      <div className="space-y-2">
+                        <FormLabel>Enganche</FormLabel>
+                        <div className="flex items-center gap-2">
+                          {readOnly ? (
+                            // En modo readOnly, mostrar solo el texto del enganche
+                            <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted">
+                              <LinkIcon className="h-4 w-4" />
+                              <span>
+                                {selectedHitchEquipment
+                                  ? equipments.find((eq) => eq.value === selectedHitchEquipment)?.label ||
+                                    compatibleHitchEquipment.find((eq) => eq.value === selectedHitchEquipment)?.label ||
+                                    'Enganche seleccionado'
+                                  : 'Sin enganche'}
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <Button
+                                type="button"
+                                variant={selectedHitchEquipment ? 'outline' : 'default'}
+                                onClick={handleOpenHitchSelector}
+                                disabled={!selectedEquipmentId}
+                                className="flex items-center gap-2"
+                              >
+                                <LinkIcon className="h-4 w-4" />
+                                {selectedHitchEquipment
+                                  ? compatibleHitchEquipment.find((eq) => eq.value === selectedHitchEquipment)?.label ||
+                                    'Cambiar enganche'
+                                  : 'Agregar enganche'}
+                              </Button>
+                              {selectedHitchEquipment && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedHitchEquipment(null);
+                                  }}
+                                  disabled={shouldDisabledInputs}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {selectedHitchEquipment && !readOnly && (
+                          <p className="text-sm text-muted-foreground">
+                            Enganche seleccionado:{' '}
+                            {compatibleHitchEquipment.find((eq) => eq.value === selectedHitchEquipment)?.label}
+                          </p>
+                        )}
+                      </div>
                     )}
-                  />
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
@@ -1145,20 +1395,120 @@ export function NormalizedChecklistForm({
         )}
       </form>
 
+      {/* Modal para seleccionar equipo enganchado (COD-290) */}
+      <Dialog open={showHitchSelector} onOpenChange={setShowHitchSelector}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Seleccionar Equipo Enganchado</DialogTitle>
+            <DialogDescription>
+              Seleccione el equipo que está enganchado al equipo UT seleccionado. El checklist se guardará para ambos
+              equipos.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingHitchEquipment ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Cargando equipos compatibles...</div>
+            </div>
+          ) : compatibleHitchEquipment.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+              <AlertCircle className="h-12 w-12 text-muted-foreground" />
+              <div className="text-center space-y-2">
+                <p className="font-medium">No se encontraron equipos compatibles</p>
+                <p className="text-sm text-muted-foreground">
+                  El tipo de este equipo UT no tiene equipos compatibles configurados para enganche.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Command className="rounded-lg border">
+                <CommandInput placeholder="Buscar equipo enganchado..." />
+                <CommandList>
+                  <CommandEmpty>No se encontraron equipos compatibles.</CommandEmpty>
+                  <CommandGroup>
+                    {compatibleHitchEquipment.map((equipment) => {
+                      const isSelected = selectedHitchEquipment === equipment.value;
+                      return (
+                        <CommandItem
+                          key={equipment.value}
+                          value={equipment.label}
+                          onSelect={() => {
+                            setSelectedHitchEquipment(equipment.value);
+                            setShowHitchSelector(false);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')} />
+                          <div className="flex-1">
+                            <div className="font-medium">{equipment.label}</div>
+                            {equipment.domain && (
+                              <div className="text-sm text-muted-foreground">Dominio: {equipment.domain}</div>
+                            )}
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowHitchSelector(false);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                {selectedHitchEquipment && (
+                  <Button
+                    onClick={() => {
+                      setShowHitchSelector(false);
+                    }}
+                  >
+                    Confirmar
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Modal para generar solicitudes de reparación desde desvíos */}
       {currentEquipmentId && (
         <CriticalDeviationsRepairModal
           isOpen={showDeviationsModal}
           onClose={() => {
             setShowDeviationsModal(false);
-            // Redirigir hacia atrás después de cancelar (mostrará el mensaje de desvíos pendientes)
-            router.back();
+            // Redirigir según la ruta de origen
+            if (pathname?.includes('/dashboard/forms/')) {
+              const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+              if (formIdMatch && formIdMatch[1]) {
+                router.push(`/dashboard/forms/${formIdMatch[1]}`);
+              } else {
+                router.push('/dashboard/forms');
+              }
+            } else {
+              router.push(`/maintenance/equipment/${currentEquipmentId}/checklists`);
+            }
             router.refresh();
           }}
           onComplete={() => {
             setShowDeviationsModal(false);
-            // Redirigir hacia atrás después de completar (NO mostrará el mensaje de desvíos pendientes porque se generaron las solicitudes)
-            router.back();
+            // Redirigir según la ruta de origen
+            if (pathname?.includes('/dashboard/forms/')) {
+              const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+              if (formIdMatch && formIdMatch[1]) {
+                router.push(`/dashboard/forms/${formIdMatch[1]}`);
+              } else {
+                router.push('/dashboard/forms');
+              }
+            } else {
+              router.push(`/maintenance/equipment/${currentEquipmentId}/checklists`);
+            }
             router.refresh();
           }}
           deviations={pendingDeviations.map((d) => ({
@@ -1172,6 +1522,9 @@ export function NormalizedChecklistForm({
           repairTypes={repairTypes}
         />
       )}
+
+      {/* Botón de autocompletado para desarrollo */}
+      <DevAutoFillButton form={form} template={template} />
     </Form>
   );
 }

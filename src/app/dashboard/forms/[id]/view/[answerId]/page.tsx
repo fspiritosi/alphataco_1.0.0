@@ -1,6 +1,7 @@
 import { fetchAllEquipment, fetchChecklistAnswerById, getCurrentProfile } from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
 import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
+import { Button } from '@/components/ui/button';
 import { notFound } from 'next/navigation';
 
 export default async function ChecklistAnswerViewPage({
@@ -42,8 +43,8 @@ export default async function ChecklistAnswerViewPage({
     .filter((equipment) => equipment.model && equipment.brand)
     .map((equipment) => ({
       label: equipment.domain
-        ? `${equipment.domain} - ${equipment.intern_number}`
-        : `${equipment.serie} - ${equipment.intern_number}`,
+        ? `${equipment.domain} - ${equipment.intern_number || '(Sin información)'}`
+        : `${equipment.serie} - ${equipment.intern_number || '(Sin información)'}`,
       value: equipment.id,
       domain: equipment.domain,
       serie: equipment.serie,
@@ -52,6 +53,8 @@ export default async function ChecklistAnswerViewPage({
       brand: equipment.brand?.name || 'N/A',
       intern_number: equipment.intern_number || '',
       sub_type_id: equipment.subType?.id || null,
+      type_name: equipment.type?.name || 'N/A',
+      sub_type_name: equipment.subType?.name || 'N/A',
     }));
 
   const currentUserProfile = await getCurrentProfile();
@@ -68,20 +71,27 @@ export default async function ChecklistAnswerViewPage({
     ...answerData?.answers, // Respuestas por sección
   };
 
+  // Obtener el ID del enganche si existe (puede venir de hitch_equipment_id o de la relación)
+  const hitchEquipmentId = (normalizedAnswer as any).hitch_equipment_id || null;
+
   return (
     <div className="px-7 py-4">
       <div className="flex items-center gap-4 mb-6">
         <BackButton />
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">{template.name}</h1>
           {template.description && <p className="text-muted-foreground">{template.description}</p>}
         </div>
+        <Button variant="outline" disabled>
+          Descargar PDF
+        </Button>
       </div>
       <NormalizedChecklistForm
         template={template as any}
         equipments={equipments}
         currentUser={currentUser}
         defaultAnswers={defaultAnswers}
+        defaultHitchEquipmentId={hitchEquipmentId}
         readOnly
       />
     </div>

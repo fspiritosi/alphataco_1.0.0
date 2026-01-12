@@ -30,17 +30,32 @@ export async function FetchTypeOfVehicles() {
 }
 export type FetchTypeOfVehiclesType = Awaited<ReturnType<typeof FetchTypeOfVehicles>>[number];
 
-export async function createTypeOfVehicle({ name, is_active = false }: { name: string; is_active?: boolean }) {
+export async function createTypeOfVehicle({
+  name,
+  is_active = false,
+  is_tractor_unit = false,
+  has_hitch = false,
+  hitch_type_ids = [],
+}: {
+  name: string;
+  is_active?: boolean;
+  is_tractor_unit?: boolean;
+  has_hitch?: boolean;
+  hitch_type_ids?: string[];
+}) {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   try {
-    let { data: vehicle_type, error } = await supabase
+    // Crear el tipo
+    const { data: vehicle_type, error } = await supabase
       .from('type')
       .insert({
         name,
         is_active,
         company_id,
+        is_tractor_unit,
+        has_hitch: is_tractor_unit ? has_hitch : false, // Solo puede tener enganche si es unidad tractora
       })
       .select()
       .single();
@@ -48,6 +63,21 @@ export async function createTypeOfVehicle({ name, is_active = false }: { name: s
     if (error) {
       console.error('Error creating vehicle type:', error);
       throw error;
+    }
+
+    // Si tiene enganche y hay tipos compatibles seleccionados, insertarlos en la tabla pivote
+    if (vehicle_type && is_tractor_unit && has_hitch && hitch_type_ids.length > 0) {
+      const hitchRelations = hitch_type_ids.map((compatible_type_id) => ({
+        type_id: vehicle_type.id,
+        compatible_type_id,
+      }));
+
+      const { error: hitchError } = await supabase.from('type_hitch_types').insert(hitchRelations);
+
+      if (hitchError) {
+        console.error('Error creating hitch type relations:', hitchError);
+        // No lanzamos error para no afectar la creación del tipo
+      }
     }
 
     return vehicle_type;
@@ -133,15 +163,41 @@ export async function FetchTypeOfVehiclesPagination(options: {
     };
   }
 }
-export async function updateTypeOfVehicle({ id, name, is_active }: { id: string; name: string; is_active?: boolean }) {
+export async function updateTypeOfVehicle({
+  id,
+  name,
+  is_active,
+  is_tractor_unit,
+  has_hitch,
+  hitch_type_ids,
+}: {
+  id: string;
+  name: string;
+  is_active?: boolean;
+  is_tractor_unit?: boolean;
+  has_hitch?: boolean;
+  hitch_type_ids?: string[];
+}) {
   const supabase = await supabaseServer();
   try {
     // Preparamos los datos a actualizar
-    const updateData: { name: string; is_active?: boolean } = { name };
+    const updateData: {
+      name: string;
+      is_active?: boolean;
+      is_tractor_unit?: boolean;
+      has_hitch?: boolean;
+    } = { name };
 
-    // Solo incluimos is_active si se proporciona explícitamente
+    // Solo incluimos campos si se proporcionan explícitamente
     if (is_active !== undefined) {
       updateData.is_active = is_active;
+    }
+    if (is_tractor_unit !== undefined) {
+      updateData.is_tractor_unit = is_tractor_unit;
+    }
+    if (has_hitch !== undefined) {
+      // Solo puede tener enganche si es unidad tractora
+      updateData.has_hitch = is_tractor_unit ? has_hitch : false;
     }
 
     // Primero verificamos si el registro existe
@@ -158,6 +214,30 @@ export async function updateTypeOfVehicle({ id, name, is_active }: { id: string;
     if (updateError) {
       console.error('Error en la actualización:', updateError);
       throw updateError;
+    }
+
+    // Actualizar las relaciones de tipos de enganche si se proporcionan
+    if (hitch_type_ids !== undefined) {
+      // Primero eliminamos las relaciones existentes
+      const { error: deleteError } = await supabase.from('type_hitch_types').delete().eq('type_id', id);
+
+      if (deleteError) {
+        console.error('Error eliminando relaciones de enganche:', deleteError);
+      }
+
+      // Si tiene enganche y hay tipos compatibles, insertamos las nuevas relaciones
+      if (is_tractor_unit && has_hitch && hitch_type_ids.length > 0) {
+        const hitchRelations = hitch_type_ids.map((compatible_type_id) => ({
+          type_id: id,
+          compatible_type_id,
+        }));
+
+        const { error: insertError } = await supabase.from('type_hitch_types').insert(hitchRelations);
+
+        if (insertError) {
+          console.error('Error insertando relaciones de enganche:', insertError);
+        }
+      }
     }
 
     // Obtenemos el registro actualizado
@@ -591,16 +671,18 @@ export async function createSubTypeOfVehicle({
   name,
   is_active = false,
   type_id,
+  compatible_item_ids = [],
 }: {
   name: string;
   is_active?: boolean;
   type_id: string;
+  compatible_item_ids?: { id: string; type: 'sub_type' | 'type' }[];
 }) {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   try {
-    let { data: vehicle_type, error } = await supabase
+    const { data: vehicle_type, error } = await supabase
       .from('sub_type')
       .insert({
         name,
@@ -612,8 +694,24 @@ export async function createSubTypeOfVehicle({
       .single();
 
     if (error) {
-      console.error('Error creating vehicle type:', error);
+      console.error('Error creating vehicle subtype:', error);
       throw error;
+    }
+
+    // Si hay items compatibles seleccionados, insertarlos en la tabla pivote
+    if (vehicle_type && compatible_item_ids.length > 0) {
+      const compatibleRelations = compatible_item_ids.map((item) => ({
+        sub_type_id: vehicle_type.id,
+        compatible_item_id: item.id,
+        item_type: item.type,
+      }));
+
+      const { error: compatibleError } = await supabase.from('sub_type_compatible_items').insert(compatibleRelations);
+
+      if (compatibleError) {
+        console.error('Error creating compatible item relations:', compatibleError);
+        // No lanzamos error para no afectar la creación del subtipo
+      }
     }
 
     return vehicle_type;
@@ -628,11 +726,13 @@ export async function updateSubTypeOfVehicle({
   name,
   type_id,
   is_active,
+  compatible_item_ids,
 }: {
   id: string;
   name: string;
   type_id: string;
   is_active?: boolean;
+  compatible_item_ids?: { id: string; type: 'sub_type' | 'type' }[];
 }) {
   const supabase = await supabaseServer();
 
@@ -656,6 +756,31 @@ export async function updateSubTypeOfVehicle({
       throw updateError;
     }
 
+    // Actualizar las relaciones de items compatibles si se proporcionan
+    if (compatible_item_ids !== undefined) {
+      // Primero eliminamos las relaciones existentes
+      const { error: deleteError } = await supabase.from('sub_type_compatible_items').delete().eq('sub_type_id', id);
+
+      if (deleteError) {
+        console.error('Error eliminando relaciones de items compatibles:', deleteError);
+      }
+
+      // Si hay items compatibles, insertamos las nuevas relaciones
+      if (compatible_item_ids.length > 0) {
+        const compatibleRelations = compatible_item_ids.map((item) => ({
+          sub_type_id: id,
+          compatible_item_id: item.id,
+          item_type: item.type,
+        }));
+
+        const { error: insertError } = await supabase.from('sub_type_compatible_items').insert(compatibleRelations);
+
+        if (insertError) {
+          console.error('Error insertando relaciones de items compatibles:', insertError);
+        }
+      }
+    }
+
     // Obtenemos el registro actualizado
     const { data: updated, error: fetchError } = await supabase.from('sub_type').select('*').eq('id', id).single();
 
@@ -666,7 +791,172 @@ export async function updateSubTypeOfVehicle({
 
     return updated;
   } catch (error) {
-    console.error('Error en updateTypeOfVehicle:', error);
+    console.error('Error en updateSubTypeOfVehicle:', error);
     throw error;
+  }
+}
+
+// Obtener tipos de enganche compatibles para un tipo específico
+export async function getHitchTypesForType(typeId: string) {
+  const supabase = await supabaseServer();
+
+  try {
+    const { data, error } = await supabase
+      .from('type_hitch_types')
+      .select(
+        `
+        id,
+        compatible_type_id,
+        type:compatible_type_id (
+          id,
+          name,
+          is_active
+        )
+      `
+      )
+      .eq('type_id', typeId);
+
+    if (error) {
+      console.error('Error fetching hitch types:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getHitchTypesForType:', error);
+    return [];
+  }
+}
+
+// Obtener tipos que NO son unidad tractora (para seleccionar como tipos de enganche)
+export async function getNonTractorTypes() {
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+
+  try {
+    const { data, error } = await supabase
+      .from('type')
+      .select('*')
+      .eq('company_id', company_id ?? '')
+      .eq('is_tractor_unit', false)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching non-tractor types:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getNonTractorTypes:', error);
+    return [];
+  }
+}
+
+// Obtener items compatibles para un subtipo específico
+export async function getCompatibleItemsForSubType(subTypeId: string) {
+  const supabase = await supabaseServer();
+
+  try {
+    const { data, error } = await supabase.from('sub_type_compatible_items').select('*').eq('sub_type_id', subTypeId);
+
+    if (error) {
+      console.error('Error fetching compatible items:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getCompatibleItemsForSubType:', error);
+    return [];
+  }
+}
+
+// Obtener subtipos y tipos disponibles para selección en un subtipo
+// basado en los tipos de enganche del tipo padre
+export async function getAvailableCompatibleItems(parentTypeId: string) {
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+
+  try {
+    // Primero obtenemos el tipo padre para verificar si tiene enganche
+    const { data: parentType, error: parentError } = await supabase
+      .from('type')
+      .select('*')
+      .eq('id', parentTypeId)
+      .eq('company_id', company_id ?? '')
+      .single();
+
+    if (parentError || !parentType) {
+      console.error('Error fetching parent type:', parentError);
+      return { subTypes: [], types: [] };
+    }
+
+    // Si no es unidad tractora o no tiene enganche, no hay items disponibles
+    if (!parentType.is_tractor_unit || !parentType.has_hitch) {
+      return { subTypes: [], types: [] };
+    }
+
+    // Obtener los tipos compatibles para enganche (consulta separada para evitar ambigüedad)
+    const { data: hitchTypes, error: hitchError } = await supabase
+      .from('type_hitch_types')
+      .select('compatible_type_id')
+      .eq('type_id', parentTypeId);
+
+    if (hitchError) {
+      console.error('Error fetching hitch types:', hitchError);
+      return { subTypes: [], types: [] };
+    }
+
+    const compatibleTypeIds = hitchTypes?.map((ht) => ht.compatible_type_id) || [];
+
+    if (compatibleTypeIds.length === 0) {
+      return { subTypes: [], types: [] };
+    }
+
+    // Obtener subtipos de los tipos compatibles (filtrando por company_id)
+    const { data: subTypes, error: subTypesError } = await supabase
+      .from('sub_type')
+      .select('*')
+      .in('type', compatibleTypeIds)
+      .eq('company_id', company_id ?? '')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (subTypesError) {
+      console.error('Error fetching sub types:', subTypesError);
+    }
+
+    // Obtener los tipos que no tienen subtipos (para mostrarlos como opción)
+    const typesWithSubTypes = [...new Set((subTypes || []).map((st) => st.type))];
+    const typesWithoutSubTypes = compatibleTypeIds.filter((id: string) => !typesWithSubTypes.includes(id));
+
+    let types: any[] = [];
+    if (typesWithoutSubTypes.length > 0) {
+      const { data: typesData, error: typesError } = await supabase
+        .from('type')
+        .select('*')
+        .in('id', typesWithoutSubTypes)
+        .eq('company_id', company_id ?? '')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (typesError) {
+        console.error('Error fetching types without subtypes:', typesError);
+      } else {
+        types = typesData || [];
+      }
+    }
+
+    return {
+      subTypes: subTypes || [],
+      types,
+    };
+  } catch (error) {
+    console.error('Error in getAvailableCompatibleItems:', error);
+    return { subTypes: [], types: [] };
   }
 }

@@ -1192,17 +1192,15 @@ export default function DayliReportDetailTableServer({
         isOpen={isBulkEditModalOpen}
         onClose={() => setIsBulkEditModalOpen(false)}
         selectedRows={selectedRows as any}
+        dailyReportId={dailyReportId}
         onSuccess={(updatedRowIds?: string[]) => {
-          // Limpiar la selección después de la edición exitosa
-          setTimeout(() => {
-            if (updatedRowIds && updatedRowIds.length > 0) {
-              setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
-            } else {
-              setSelectedRows([]);
-            }
-
-            // La selección se limpiará automáticamente al actualizar selectedRows
-          }, 300);
+          // Los datos se actualizan automáticamente via invalidateQueries en el mutation hook
+          // Solo necesitamos limpiar la selección local
+          if (updatedRowIds && updatedRowIds.length > 0) {
+            setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
+          } else {
+            setSelectedRows([]);
+          }
         }}
       />
     </>
