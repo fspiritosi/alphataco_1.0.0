@@ -2210,7 +2210,7 @@ export const fetchFilteredEquipmentForChecklist = async (templateId: string, com
   const cookiesStore = await cookies();
   const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
-  if (!company_id && !company_equipment_id) return [];
+  // if (!company_id && !company_equipment_id) return [];
 
   // Obtener el template para saber qué tipos/subtipos están permitidos
   const template = await fetchChecklistTemplateById(templateId);
@@ -2227,11 +2227,13 @@ export const fetchFilteredEquipmentForChecklist = async (templateId: string, com
   const { data: tractorTypes } = await supabase
     .from('type')
     .select('id')
-    .eq('company_id', company_id || company_equipment_id || '')
+    // .eq('company_id', company_id || company_equipment_id || '')
     .eq('is_tractor_unit', true)
     .eq('is_active', true);
 
   const tractorTypeIds = tractorTypes?.map((t) => String(t.id)) || [];
+
+  console.log('tractorTypeIds', tractorTypeIds);
 
   if (tractorTypeIds.length === 0) {
     return [];
@@ -2251,15 +2253,17 @@ export const fetchFilteredEquipmentForChecklist = async (templateId: string, com
     return [];
   }
 
+  console.log('typesToFilter', typesToFilter);
+
   // Construir query optimizada
   const { data, error } = await supabase
     .from('vehicles')
     .select(
       'id, domain, serie, intern_number, kilometer, brand:brand(*), model:model(*), type:type(*), subType:subType(*)'
     )
-    .eq('company_id', company_id || company_equipment_id || '')
-    .not('brand', 'is', null)
-    .not('model', 'is', null)
+    // .eq('company_id', company_id || company_equipment_id || '')
+    // .not('brand', 'is', null)
+    // .not('model', 'is', null)
     .in('type', typesToFilter)
     .order('domain', { ascending: true })
     .returns<VehicleWithBrand[]>();

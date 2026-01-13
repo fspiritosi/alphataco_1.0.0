@@ -95,16 +95,6 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
       // Nuestro schema de Zod valida por claves literales, no por rutas. Para evitar desalineación, usamos nombres planos.
       const fieldName = `${sectionCode}__${itemCode}`;
 
-      console.log('[CHECKLIST_DEBUG] SCHEMA GENERATION - Item:', {
-        label: item.label,
-        itemId: item.id,
-        itemCode,
-        sectionCode,
-        fieldName,
-        input_type: item.input_type,
-        requires_side_validation: item.requires_side_validation,
-      });
-
       if (item.input_type === 'date') {
         // Campo de fecha con validación de certificación
         if (item.requires_certification) {
@@ -131,11 +121,6 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
         // Item doble (izquierda/derecha)
         const leftFieldName = `${fieldName}_left`;
         const rightFieldName = `${fieldName}_right`;
-        console.log('[CHECKLIST_DEBUG] SCHEMA GENERATION - Creating double_side fields:', {
-          leftFieldName,
-          rightFieldName,
-          label: item.label,
-        });
         // Siguiendo el patrón recomendado (shadcn + RHF): valor string "" como no-seleccionado.
         // Validamos "requerido" con min(1) y además restringimos a valores válidos.
         schema[leftFieldName] = z
@@ -154,12 +139,6 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
         // Campo select con opciones
         const options = Array.isArray(item.options) ? item.options : JSON.parse(item.options as string);
         if (options.length > 0 && typeof options[0] === 'string') {
-          console.log('[CHECKLIST_DEBUG] SCHEMA GENERATION - Creating select field:', {
-            fieldName,
-            label: item.label,
-            options,
-            optionsType: typeof options[0],
-          });
           schema[fieldName] = z
             .string({ required_error: `${item.label || 'Este campo'} es requerido` })
             .min(1, `${item.label || 'Este campo'} es requerido`)
@@ -167,11 +146,6 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
               message: `${item.label || 'Este campo'} debe ser una opción válida`,
             });
         } else {
-          console.log('[CHECKLIST_DEBUG] SCHEMA GENERATION - Creating text field (fallback for select):', {
-            fieldName,
-            label: item.label,
-            reason: 'options not valid string array',
-          });
           schema[fieldName] = z
             .string({ required_error: `${item.label || 'Este campo'} es requerido` })
             .min(1, `${item.label || 'Este campo'} es requerido`);
@@ -266,20 +240,8 @@ const generateDefaultValues = (
         if (isSideValidationItem(item)) {
           defaults[`${fieldName}_left`] = '';
           defaults[`${fieldName}_right`] = '';
-          console.log('[CHECKLIST_DEBUG] DEFAULT VALUES - Setting double_side defaults:', {
-            fieldName,
-            left: `${fieldName}_left`,
-            right: `${fieldName}_right`,
-            label: item.label,
-          });
         } else {
           defaults[fieldName] = '';
-          console.log('[CHECKLIST_DEBUG] DEFAULT VALUES - Setting field default:', {
-            fieldName,
-            value: '',
-            label: item.label,
-            input_type: item.input_type,
-          });
         }
       });
     });
@@ -395,17 +357,6 @@ const ChecklistItemField = ({
   const isCritical = item.is_critical || false;
   const requiresSideValidation = isSideValidationItem(item);
 
-  console.log('[CHECKLIST_DEBUG] COMPONENT RENDER - ChecklistItemField:', {
-    label,
-    itemId: item.id,
-    itemCode,
-    sectionCode,
-    fieldName,
-    input_type: item.input_type,
-    requires_side_validation: item.requires_side_validation,
-    requiresSideValidation,
-  });
-
   // Parsear opciones si es un select
   let options: string[] = ['B', 'M']; // Por defecto
   if (item.input_type === 'select' && item.options) {
@@ -475,23 +426,12 @@ const ChecklistItemField = ({
             control={form.control}
             name={`${fieldName}_left`}
             render={({ field }) => {
-              console.log('[CHECKLIST_DEBUG] FIELD RENDER - Left field:', {
-                fieldName: `${fieldName}_left`,
-                fieldValue: field.value,
-                label,
-              });
               return (
                 <FormItem>
                   <FormLabel className="text-sm font-medium text-muted-foreground">Izquierda</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={(value) => {
-                        console.log('[CHECKLIST_DEBUG] SELECT CHANGE - Left field onChange:', {
-                          fieldName: `${fieldName}_left`,
-                          oldValue: field.value,
-                          newValue: value,
-                          label,
-                        });
                         field.onChange(value);
                       }}
                       value={field.value}
@@ -518,23 +458,12 @@ const ChecklistItemField = ({
             control={form.control}
             name={`${fieldName}_right`}
             render={({ field }) => {
-              console.log('[CHECKLIST_DEBUG] FIELD RENDER - Right field:', {
-                fieldName: `${fieldName}_right`,
-                fieldValue: field.value,
-                label,
-              });
               return (
                 <FormItem>
                   <FormLabel className="text-sm font-medium text-muted-foreground">Derecha</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={(value) => {
-                        console.log('[CHECKLIST_DEBUG] SELECT CHANGE - Right field onChange:', {
-                          fieldName: `${fieldName}_right`,
-                          oldValue: field.value,
-                          newValue: value,
-                          label,
-                        });
                         field.onChange(value);
                       }}
                       value={field.value}
@@ -570,12 +499,6 @@ const ChecklistItemField = ({
           control={form.control}
           name={fieldName}
           render={({ field }) => {
-            console.log('[CHECKLIST_DEBUG] FIELD RENDER - Select field:', {
-              fieldName,
-              fieldValue: field.value,
-              fieldValueType: typeof field.value,
-              label,
-            });
             return (
               <FormItem>
                 <FormLabel className="text-base font-semibold mb-3 block">
@@ -591,14 +514,6 @@ const ChecklistItemField = ({
                 <FormControl>
                   <Select
                     onValueChange={(value) => {
-                      console.log('[CHECKLIST_DEBUG] SELECT CHANGE - Select field onChange:', {
-                        fieldName,
-                        oldValue: field.value,
-                        oldValueType: typeof field.value,
-                        newValue: value,
-                        newValueType: typeof value,
-                        label,
-                      });
                       field.onChange(value);
                     }}
                     value={field.value}
@@ -778,13 +693,6 @@ export function NormalizedChecklistForm({
     reValidateMode: 'onBlur', // Re-validar solo el campo específico cuando el usuario sale de él
   });
 
-  console.log('[CHECKLIST_DEBUG] FORM INIT - Schema keys:', Object.keys(schema.shape || {}));
-  console.log('[CHECKLIST_DEBUG] FORM INIT - Default values keys:', Object.keys(defaultValues));
-  console.log(
-    '[CHECKLIST_DEBUG] FORM INIT - Default values sample (first 10):',
-    Object.fromEntries(Object.entries(defaultValues).slice(0, 10))
-  );
-
   // Ordenar secciones por order_index
   const sortedSections = [...(template.checklist_template_sections || [])].sort(
     (a, b) => (a.order_index || 0) - (b.order_index || 0)
@@ -792,10 +700,12 @@ export function NormalizedChecklistForm({
 
   // Detectar si el equipo seleccionado tiene enganche (COD-290)
   const selectedEquipmentId = form.watch('equipment_id');
-  const selectedEquipment = useMemo(
-    () => equipments.find((eq) => eq.value === selectedEquipmentId),
-    [equipments, selectedEquipmentId]
-  );
+  // const selectedEquipment = useMemo(
+  //   () => equipments.find((eq) => eq.value === selectedEquipmentId),
+  //   [equipments, selectedEquipmentId]
+  // );
+
+  console.log('equipments', equipments);
 
   // Obtener información del tipo del equipo seleccionado para verificar si tiene enganche
   useEffect(() => {
@@ -1089,13 +999,7 @@ export function NormalizedChecklistForm({
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit, (errors) => {
-          console.log('[CHECKLIST_DEBUG] SUBMIT - Invalid submission errors:', errors);
-          console.log('[CHECKLIST_DEBUG] SUBMIT - Invalid submission values:', form.getValues());
-        })}
-        className="space-y-6"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit, (errors) => {})} className="space-y-6">
         {/* Información del checklist */}
         <Card>
           <CardHeader>
@@ -1320,36 +1224,12 @@ export function NormalizedChecklistForm({
             const sectionName = section.name || section.section?.name || 'Sin nombre';
             const sectionDescription = section.section?.description || null;
 
-            // Log para debug
-            console.log(`[CHECKLIST_DEBUG] Sección: ${sectionName}`, {
-              sectionId: section.id,
-              sectionCode,
-              totalItems: section.checklist_template_items?.length || 0,
-              items: section.checklist_template_items?.map((item) => ({
-                id: item.id,
-                code: item.code,
-                label: item.label,
-                order_index: item.order_index,
-              })),
-            });
-
             // Ordenar items por order_index y eliminar duplicados por ID
             const allItems = section.checklist_template_items || [];
-            console.log(`[CHECKLIST_DEBUG] Items antes de eliminar duplicados:`, allItems.length);
 
             const uniqueItems = Array.from(new Map(allItems.map((item) => [item.id, item])).values());
-            console.log(`[CHECKLIST_DEBUG] Items después de eliminar duplicados:`, uniqueItems.length);
 
             const sortedItems = uniqueItems.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
-
-            console.log(
-              `[CHECKLIST_DEBUG] Items ordenados:`,
-              sortedItems.map((item) => ({
-                code: item.code,
-                label: item.label,
-                order_index: item.order_index,
-              }))
-            );
 
             return (
               <Card key={section.id}>

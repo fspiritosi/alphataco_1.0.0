@@ -22,7 +22,7 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
       api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       capture_exceptions: true,
       defaults: '2025-11-30',
-      debug: true,
+      debug: false,
     });
 
     initialized.current = true;
