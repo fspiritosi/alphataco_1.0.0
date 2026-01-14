@@ -1054,15 +1054,18 @@ export function NormalizedChecklistForm({
                                     <div className="flex flex-col items-start">
                                       <span>
                                         {equipment.label}
-                                        {equipment.sub_type_name && (
-                                          <span className="ml-2 inline-flex gap-1">
-                                            {equipment.sub_type_name && equipment.sub_type_name !== 'N/A' && (
-                                              <span className="rounded bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5">
-                                                {equipment.sub_type_name}
-                                              </span>
-                                            )}
-                                          </span>
-                                        )}
+                                        <span className="ml-2 inline-flex gap-1">
+                                          {equipment.type_name && equipment.type_name !== 'N/A' && (
+                                            <span className="rounded bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5">
+                                              {equipment.type_name}
+                                            </span>
+                                          )}
+                                          {equipment.sub_type_name && equipment.sub_type_name !== 'N/A' && (
+                                            <span className="rounded bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5">
+                                              {equipment.sub_type_name}
+                                            </span>
+                                          )}
+                                        </span>
                                       </span>
                                     </div>
                                   </SelectItem>

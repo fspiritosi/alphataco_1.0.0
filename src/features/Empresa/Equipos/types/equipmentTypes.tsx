@@ -7,12 +7,28 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FetchTypeOfVehicles } from '../actions/actions';
 import EquipmentTypesForm from './equipmentTypesForm';
 import EquipmentTypesTable from './equipmentTypesTable';
+import { useTypeChecklists } from './hooks/useTypeChecklists';
 
 function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typeof FetchTypeOfVehicles>> }) {
   // Estado para el tipo de equipo que se está editando
-  const [editingType, setEditingType] = useState<any | null>(null);
+  const [editingType, setEditingType] = useState<Awaited<ReturnType<typeof FetchTypeOfVehicles>>[0] | null>(null);
   const [hitchTypeIds, setHitchTypeIds] = useState<string[]>([]);
   const queryClient = React.useMemo(() => new QueryClient(), []);
+
+  // Hook para obtener checklists asignados al type
+  const { data: checklistIds = [], isLoading: isLoadingChecklists } = useTypeChecklists(editingType?.id || null);
+
+  // Handler para editar que convierte el tipo de EquipmentType a FetchTypeOfVehicles[0]
+  const handleEdit = React.useCallback(
+    (equipmentType: { id: string; name: string; is_active: boolean; created_at?: string; updated_at?: string }) => {
+      // Buscar el tipo completo en vehicleTypes
+      const fullType = vehicleTypes.find((type) => type.id === equipmentType.id);
+      if (fullType) {
+        setEditingType(fullType);
+      }
+    },
+    [vehicleTypes]
+  );
 
   // Cargar los tipos de enganche cuando se edita un tipo
   const loadHitchTypes = useCallback(async (typeId: string) => {
@@ -63,18 +79,19 @@ function EquipmentTypes({ vehicleTypes }: { vehicleTypes: Awaited<ReturnType<typ
               onSuccess={handleSuccess}
               allTypes={vehicleTypes}
               initialHitchTypeIds={hitchTypeIds}
+              initialChecklistIds={checklistIds}
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={65} className="ml-4">
             <QueryClientProvider client={queryClient}>
-              <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={setEditingType} canEdit={canUpdate} />
+              <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={handleEdit} canEdit={canUpdate} />
             </QueryClientProvider>
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
         <QueryClientProvider client={queryClient}>
-          <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={setEditingType} canEdit={canUpdate} />
+          <EquipmentTypesTable vehicleTypes={vehicleTypes} onEdit={handleEdit} canEdit={canUpdate} />
         </QueryClientProvider>
       )}
     </div>

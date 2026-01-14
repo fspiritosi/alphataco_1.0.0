@@ -9,12 +9,14 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Database } from '../../../../../database.types';
 import { FetchTypeOfVehicles, createTypeOfVehicle, updateTypeOfVehicle } from '../actions/actions';
+import { useActiveChecklists } from '../sub_types/hooks/useActiveChecklists';
 
 type VehicleType = Database['public']['Tables']['type']['Row'];
 
@@ -25,6 +27,7 @@ interface EquipmentTypesFormProps {
   onSuccess?: () => void;
   allTypes?: VehicleType[];
   initialHitchTypeIds?: string[];
+  initialChecklistIds?: string[];
 }
 
 // Esquema de validación con Zod
@@ -35,6 +38,7 @@ const formSchema = z.object({
   is_tractor_unit: z.boolean().default(false),
   has_hitch: z.boolean().default(false),
   hitch_type_ids: z.array(z.string()).default([]),
+  checklist_ids: z.array(z.string()).default([]),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -46,8 +50,15 @@ function EquipmentTypesForm({
   onSuccess,
   allTypes = [],
   initialHitchTypeIds = [],
+  initialChecklistIds = [],
 }: EquipmentTypesFormProps) {
   const [showDependencyModal, setShowDependencyModal] = useState(false);
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
+  // Hook para obtener checklists activos
+  const { data: checklists = [], isLoading: isLoadingChecklists, error: checklistsError } = useActiveChecklists();
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -56,10 +67,9 @@ function EquipmentTypesForm({
       is_tractor_unit: false,
       has_hitch: false,
       hitch_type_ids: [],
+      checklist_ids: [],
     },
   });
-
-  const router = useRouter();
   const {
     handleSubmit,
     reset,
@@ -86,6 +96,7 @@ function EquipmentTypesForm({
         is_tractor_unit: initialData.is_tractor_unit ?? false,
         has_hitch: initialData.has_hitch ?? false,
         hitch_type_ids: initialHitchTypeIds,
+        checklist_ids: initialChecklistIds,
       });
     } else {
       reset({
@@ -94,9 +105,10 @@ function EquipmentTypesForm({
         is_tractor_unit: false,
         has_hitch: false,
         hitch_type_ids: [],
+        checklist_ids: [],
       });
     }
-  }, [initialData, initialHitchTypeIds, reset]);
+  }, [initialData, initialHitchTypeIds, initialChecklistIds, reset]);
 
   // Si se desactiva is_tractor_unit, resetear has_hitch y hitch_type_ids
   useEffect(() => {
@@ -136,16 +148,26 @@ function EquipmentTypesForm({
           is_tractor_unit: data.is_tractor_unit,
           has_hitch: data.has_hitch,
           hitch_type_ids: data.hitch_type_ids,
+          checklist_ids: data.checklist_ids,
         });
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['type-checklists', data.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
         router.refresh();
       } else {
-        await createTypeOfVehicle({
+        const createdType = await createTypeOfVehicle({
           name: data.name,
           is_active: data.is_active,
           is_tractor_unit: data.is_tractor_unit,
           has_hitch: data.has_hitch,
           hitch_type_ids: data.hitch_type_ids,
+          checklist_ids: data.checklist_ids,
         });
+        // Invalidar queries de React Query para refrescar los datos
+        if (createdType && 'id' in createdType) {
+          queryClient.invalidateQueries({ queryKey: ['type-checklists', createdType.id] });
+        }
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
         router.refresh();
       }
 
@@ -258,7 +280,12 @@ function EquipmentTypesForm({
           is_tractor_unit: values.is_tractor_unit,
           has_hitch: values.has_hitch,
           hitch_type_ids: values.hitch_type_ids,
+          checklist_ids: values.checklist_ids,
         });
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['type-checklists', values.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
+        router.refresh();
         if (onSuccess) onSuccess();
       } catch (err) {
         console.error('Error al reemplazar referencias:', err);
@@ -381,6 +408,40 @@ function EquipmentTypesForm({
               )}
             />
           )}
+
+          {/* Multi-select de checklists */}
+          <FormField
+            control={form.control}
+            name="checklist_ids"
+            render={({ field }) => {
+              const checklistOptions = checklists.map((checklist) => ({
+                value: checklist.id,
+                label: checklist.name || checklist.code || 'Sin nombre',
+              }));
+
+              return (
+                <FormItem>
+                  <FormLabel>Checklists aplicables</FormLabel>
+                  <FormControl>
+                    <MultiSelectCombobox
+                      options={checklistOptions}
+                      selectedValues={field.value}
+                      onChange={field.onChange}
+                      placeholder={
+                        isLoadingChecklists
+                          ? 'Cargando checklists...'
+                          : 'Seleccione los checklists que aplican a este tipo'
+                      }
+                      emptyMessage="No hay checklists disponibles"
+                      disabled={isLoadingChecklists}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+
           <div className="flex gap-2">
             <Button type="submit" disabled={isSubmitting} className="min-w-[100px]">
               {isEditing ? (isSubmitting ? 'Guardando...' : 'Guardar') : isSubmitting ? 'Creando...' : 'Crear'}

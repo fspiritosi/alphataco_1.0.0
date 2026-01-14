@@ -1,4 +1,5 @@
-import { fetchAllEquipment, fetchAllEquipmentBasicData, fetchCustomForms } from '@/app/server/GET/actions';
+import { fetchMaintenanceChecklists } from '@/app/maintenance/actions';
+import { fetchAllEquipment, fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import QrActionSelector from '@/components/QR/AcctionSelector';
 import { fetchMaintenanceGroupsAction } from '@/components/Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -66,9 +67,46 @@ export default async function Home({
     .eq('equipment_id', resolvedParams.id)
     .in('state', ['Pendiente', 'Esperando repuestos', 'En reparacion']);
 
-  // const vehiclesFormatted = setVehiclesToShow(equipments || []) || [];
+  // Obtener información del equipo actual (tipo y subtipo)
+  const { data: currentEquipmentData } = await supabase
+    .from('vehicles')
+    .select('type:type(id, name), subType:subType(id, name)')
+    .eq('id', resolvedParams.id)
+    .single();
 
-  const checklists = await fetchCustomForms(equipments[0]?.company_id || '');
+  // Obtener employee_id y CUIL del empleado desde la sesión
+  const employeeIdFromMetadata =
+    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as any)?.employee_id as string | undefined);
+
+  const cuilFromMetadata =
+    ((user?.user_metadata as any)?.cuil as string | undefined) ??
+    ((user?.app_metadata as any)?.cuil as string | undefined);
+
+  // Obtener checklists usando función específica para mantenimiento (usa company_id del empleado)
+  // Pasar tipo y subtipo del equipo para filtrar
+  const equipmentTypeId = (currentEquipmentData?.type as any)?.id;
+  const equipmentSubTypeId = (currentEquipmentData?.subType as any)?.id;
+
+  const checklistsRaw =
+    employeeIdFromMetadata || cuilFromMetadata
+      ? await fetchMaintenanceChecklists(employeeIdFromMetadata, cuilFromMetadata, equipmentTypeId, equipmentSubTypeId)
+      : [];
+
+  // Mapear checklists al formato esperado (CheckListWithAnswer)
+  const checklists: CheckListWithAnswer[] = checklistsRaw.map((checklist) => ({
+    id: checklist.id,
+    name: checklist.name,
+    form: checklist.form as {
+      description?: string;
+      frequency?: string;
+      title?: string;
+      vehicle_type?: string[];
+    } | null,
+    created_at: checklist.created_at || new Date().toISOString(),
+    company_id: equipments[0]?.company_id || '',
+    form_answers: [], // Los checklists nuevos no tienen respuestas aún
+  }));
 
   const equipmentsForComboBox = (await fetchAllEquipment(equipments[0]?.company_id || '')).map((equipment) => ({
     label: equipment.domain
@@ -102,23 +140,19 @@ export default async function Home({
       role={role}
       pendingRequests={data as any}
       checkList={
-        checklists
-          .filter(
-            (checklist) =>
-              (checklist.form as { vehicle_type: string[] }).vehicle_type.includes(
-                currentEquipment?.vehicle_type || ''
-              ) || (checklist.form as { vehicle_type: string[] }).vehicle_type.includes('all')
-          )
-          .filter((checklist) => {
-            if (
-              (role === 'Invitado' || employee) &&
-              (checklist?.form as any)?.title === 'Transporte SP-ANAY - CHK - HYS - 03'
-            ) {
-              return false;
-            } else {
-              return true;
-            }
-          }) || []
+        checklists.filter((checklist) => {
+          // Excluir algunos checklists según rol
+          if (
+            (role === 'Invitado' || employee) &&
+            checklist.form &&
+            typeof checklist.form === 'object' &&
+            'title' in checklist.form &&
+            (checklist.form as any).title === 'Transporte SP-ANAY - CHK - HYS - 03'
+          ) {
+            return false;
+          }
+          return true;
+        }) || []
       }
       equipmentsForComboBox={equipmentsForComboBox}
       empleado_name={empleado_name}

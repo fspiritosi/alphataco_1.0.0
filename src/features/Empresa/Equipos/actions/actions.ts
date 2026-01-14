@@ -36,12 +36,14 @@ export async function createTypeOfVehicle({
   is_tractor_unit = false,
   has_hitch = false,
   hitch_type_ids = [],
+  checklist_ids = [],
 }: {
   name: string;
   is_active?: boolean;
   is_tractor_unit?: boolean;
   has_hitch?: boolean;
   hitch_type_ids?: string[];
+  checklist_ids?: string[];
 }) {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
@@ -80,6 +82,22 @@ export async function createTypeOfVehicle({
       }
     }
 
+    // Si hay checklists seleccionados, insertarlos en la tabla pivote
+    if (vehicle_type && checklist_ids.length > 0) {
+      const checklistRelations = checklist_ids.map((checklistId) => ({
+        template_id: checklistId,
+        type_id: vehicle_type.id,
+      }));
+
+      const { error: checklistError } = await supabase.from('checklist_template_types').insert(checklistRelations);
+
+      if (checklistError) {
+        console.error('Error creating checklist relations:', checklistError);
+        // No lanzamos error para no afectar la creación del tipo
+      }
+    }
+
+    revalidatePath('/dashboard/company/actualCompany');
     return vehicle_type;
   } catch (error) {
     console.error(error);
@@ -170,6 +188,7 @@ export async function updateTypeOfVehicle({
   is_tractor_unit,
   has_hitch,
   hitch_type_ids,
+  checklist_ids,
 }: {
   id: string;
   name: string;
@@ -177,6 +196,7 @@ export async function updateTypeOfVehicle({
   is_tractor_unit?: boolean;
   has_hitch?: boolean;
   hitch_type_ids?: string[];
+  checklist_ids?: string[];
 }) {
   const supabase = await supabaseServer();
   try {
@@ -236,6 +256,35 @@ export async function updateTypeOfVehicle({
 
         if (insertError) {
           console.error('Error insertando relaciones de enganche:', insertError);
+        }
+      }
+    }
+
+    // Actualizar las relaciones de checklists si se proporcionan
+    if (checklist_ids !== undefined) {
+      // Primero eliminamos las relaciones existentes
+      const { error: deleteChecklistError } = await supabase
+        .from('checklist_template_types')
+        .delete()
+        .eq('type_id', id);
+
+      if (deleteChecklistError) {
+        console.error('Error eliminando relaciones de checklists:', deleteChecklistError);
+      }
+
+      // Si hay checklists, insertamos las nuevas relaciones
+      if (checklist_ids.length > 0) {
+        const checklistRelations = checklist_ids.map((checklistId) => ({
+          template_id: checklistId,
+          type_id: id,
+        }));
+
+        const { error: insertChecklistError } = await supabase
+          .from('checklist_template_types')
+          .insert(checklistRelations);
+
+        if (insertChecklistError) {
+          console.error('Error insertando relaciones de checklists:', insertChecklistError);
         }
       }
     }

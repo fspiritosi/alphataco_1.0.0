@@ -2223,78 +2223,74 @@ export const fetchFilteredEquipmentForChecklist = async (templateId: string, com
     template.checklist_template_sub_types?.filter((st) => st?.sub_type_id).map((st) => st.sub_type_id) || [];
   const allowedTypes = template.checklist_template_types?.filter((t) => t?.type_id).map((t) => t.type_id) || [];
 
-  // Obtener IDs de tipos que son unidades tractoras
-  const { data: tractorTypes } = await supabase
-    .from('type')
-    .select('id')
-    // .eq('company_id', company_id || company_equipment_id || '')
-    .eq('is_tractor_unit', true)
-    .eq('is_active', true);
+  // Si no hay tipos ni subtipos configurados, retornar todos los equipos activos
+  if (allowedTypes.length === 0 && allowedSubTypes.length === 0) {
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select(
+        'id, domain, serie, intern_number, kilometer, brand:brand(*), model:model(*), type:type(*), subType:subType(*)'
+      )
+      .eq('is_active', true)
+      .order('domain', { ascending: true })
+      .returns<VehicleWithBrand[]>();
 
-  const tractorTypeIds = tractorTypes?.map((t) => String(t.id)) || [];
+    if (error) {
+      console.error('Error fetching all equipment:', error);
+      return [];
+    }
 
-  console.log('tractorTypeIds', tractorTypeIds);
-
-  if (tractorTypeIds.length === 0) {
-    return [];
+    return data || [];
   }
 
-  // Determinar qué tipos de UT filtrar
-  let typesToFilter: string[] = [];
+  // Construir queries separadas para tipos y subtipos
+  // Necesitamos hacer un OR entre type y subType, así que haremos dos queries y combinaremos los resultados
+
+  let equipmentByType: VehicleWithBrand[] = [];
+  let equipmentBySubType: VehicleWithBrand[] = [];
+
+  // Query 1: Equipos que coinciden en tipo
   if (allowedTypes.length > 0) {
-    // Si hay tipos permitidos, hacer intersección con tipos UT
-    typesToFilter = tractorTypeIds.filter((id) => allowedTypes.includes(id));
-  } else {
-    // Si no hay tipos permitidos, usar todos los tipos UT
-    typesToFilter = tractorTypeIds;
+    const { data: typeData, error: typeError } = await supabase
+      .from('vehicles')
+      .select(
+        'id, domain, serie, intern_number, kilometer, brand:brand(*), model:model(*), type:type(*), subType:subType(*)'
+      )
+      .eq('is_active', true)
+      .in('type', allowedTypes)
+      .order('domain', { ascending: true })
+      .returns<VehicleWithBrand[]>();
+
+    if (typeError) {
+      console.error('Error fetching equipment by type:', typeError);
+    } else {
+      equipmentByType = typeData || [];
+    }
   }
 
-  if (typesToFilter.length === 0) {
-    return [];
-  }
-
-  console.log('typesToFilter', typesToFilter);
-
-  // Construir query optimizada
-  const { data, error } = await supabase
-    .from('vehicles')
-    .select(
-      'id, domain, serie, intern_number, kilometer, brand:brand(*), model:model(*), type:type(*), subType:subType(*)'
-    )
-    // .eq('company_id', company_id || company_equipment_id || '')
-    // .not('brand', 'is', null)
-    // .not('model', 'is', null)
-    .in('type', typesToFilter)
-    .order('domain', { ascending: true })
-    .returns<VehicleWithBrand[]>();
-
-  if (error) {
-    console.error('Error fetching filtered equipment:', error);
-    return [];
-  }
-
-  if (!data) return [];
-
-  // Filtrar por subtipos si es necesario (ya que Supabase no soporta OR fácilmente entre type y subType)
+  // Query 2: Equipos que coinciden en subtipo
   if (allowedSubTypes.length > 0) {
-    const filtered = data.filter((equipment) => {
-      const equipmentSubTypeId = equipment.subType?.id || null;
+    const { data: subTypeData, error: subTypeError } = await supabase
+      .from('vehicles')
+      .select(
+        'id, domain, serie, intern_number, kilometer, brand:brand(*), model:model(*), type:type(*), subType:subType(*)'
+      )
+      .eq('is_active', true)
+      .in('subType', allowedSubTypes)
+      .order('domain', { ascending: true })
+      .returns<VehicleWithBrand[]>();
 
-      // Si hay subtipos configurados, SOLO incluir equipos que coincidan en subtipo
-      // (ya que la query ya filtró por tipos UT)
-      if (!equipmentSubTypeId) return false;
-
-      // Comparar como strings para asegurar coincidencia
-      const equipmentSubTypeIdString = String(equipmentSubTypeId);
-      return allowedSubTypes.some((allowedId) => String(allowedId) === equipmentSubTypeIdString);
-    });
-
-    return filtered;
+    if (subTypeError) {
+      console.error('Error fetching equipment by subtype:', subTypeError);
+    } else {
+      equipmentBySubType = subTypeData || [];
+    }
   }
 
-  // Si no hay subtipos configurados pero hay tipos configurados, ya están filtrados por typesToFilter
-  // Si no hay ni tipos ni subtipos, retornar todos los UT
-  return data;
+  // Combinar resultados y eliminar duplicados (un equipo puede coincidir en tipo y subtipo)
+  const allEquipment = [...equipmentByType, ...equipmentBySubType];
+  const uniqueEquipment = Array.from(new Map(allEquipment.map((equipment) => [equipment.id, equipment])).values());
+
+  return uniqueEquipment;
 };
 
 /**

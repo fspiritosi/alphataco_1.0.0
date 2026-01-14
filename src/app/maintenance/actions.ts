@@ -364,14 +364,18 @@ export async function fetchMaintenanceChecklists(
   // 1. No tiene subtipos ni tipos específicos (arrays vacíos, null, o undefined) -> aplica a todos
   // 2. Tiene subtipos específicos y el subtipo del equipo está incluido, O
   // 3. Tiene tipos específicos y el tipo del equipo está incluido
-  let filteredNewChecklists = (newChecklists || []).filter((checklist: any) => {
+  const filteredNewChecklists = (newChecklists || []).filter((checklist) => {
     // Manejar diferentes formas en que Supabase puede devolver relaciones vacías
     const subTypes = checklist.checklist_template_sub_types;
     const types = checklist.checklist_template_types;
 
     // Filtrar subTypes y types válidos (que tengan id no nulo)
-    const validSubTypes = subTypes && Array.isArray(subTypes) ? subTypes.filter((st: any) => st && st.sub_type_id) : [];
-    const validTypes = types && Array.isArray(types) ? types.filter((t: any) => t && t.type_id) : [];
+    const validSubTypes =
+      subTypes && Array.isArray(subTypes)
+        ? subTypes.filter((st) => st && st.sub_type_id !== null && st.sub_type_id !== undefined)
+        : [];
+    const validTypes =
+      types && Array.isArray(types) ? types.filter((t) => t && t.type_id !== null && t.type_id !== undefined) : [];
 
     // Si no tiene subtipos ni tipos específicos válidos, aplica a todos
     if (validSubTypes.length === 0 && validTypes.length === 0) {
@@ -379,21 +383,23 @@ export async function fetchMaintenanceChecklists(
     }
 
     // Verificar si coincide en subtipo
+    // Comparar con los registros de checklist_template_sub_types
     const matchesSubType =
       equipmentSubTypeId && validSubTypes.length > 0
-        ? validSubTypes.some((st: any) => st.sub_type_id === equipmentSubTypeId)
+        ? validSubTypes.some((st) => st.sub_type_id === equipmentSubTypeId)
         : false;
 
     // Verificar si coincide en tipo
+    // Comparar con los registros de checklist_template_types
     const matchesType =
-      equipmentTypeId && validTypes.length > 0 ? validTypes.some((t: any) => t.type_id === equipmentTypeId) : false;
+      equipmentTypeId && validTypes.length > 0 ? validTypes.some((t) => t.type_id === equipmentTypeId) : false;
 
     // El checklist aplica si coincide en subtipo O en tipo
     return matchesSubType || matchesType;
   });
 
   // Mapear nuevos checklists al formato esperado (similar a custom_form)
-  const mappedNewChecklists = filteredNewChecklists.map((checklist: any) => ({
+  const mappedNewChecklists = filteredNewChecklists.map((checklist) => ({
     id: checklist.id,
     name: checklist.name,
     form: {
@@ -409,6 +415,9 @@ export async function fetchMaintenanceChecklists(
 
   return allChecklists;
 }
+
+// Exportar el tipo inferido del retorno de la función
+export type MaintenanceChecklist = Awaited<ReturnType<typeof fetchMaintenanceChecklists>>[number];
 
 /**
  * Obtiene los desvíos pendientes (sin resolver) para un equipo
