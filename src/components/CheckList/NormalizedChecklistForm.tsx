@@ -1055,11 +1055,11 @@ export function NormalizedChecklistForm({
                                       <span>
                                         {equipment.label}
                                         <span className="ml-2 inline-flex gap-1">
-                                          {equipment.type_name && equipment.type_name !== 'N/A' && (
+                                          {/* {equipment.type_name && equipment.type_name !== 'N/A' && (
                                             <span className="rounded bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5">
                                               {equipment.type_name}
                                             </span>
-                                          )}
+                                          )} */}
                                           {equipment.sub_type_name && equipment.sub_type_name !== 'N/A' && (
                                             <span className="rounded bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5">
                                               {equipment.sub_type_name}
@@ -1325,9 +1325,16 @@ export function NormalizedChecklistForm({
                           <Check className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')} />
                           <div className="flex-1">
                             <div className="font-medium">{equipment.label}</div>
-                            {equipment.domain && (
-                              <div className="text-sm text-muted-foreground">Dominio: {equipment.domain}</div>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              {equipment.domain && (
+                                <div className="text-sm text-muted-foreground">Dominio: {equipment.domain}</div>
+                              )}
+                              {equipment.sub_type_name && equipment.sub_type_name !== 'N/A' && (
+                                <span className="rounded bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5">
+                                  {equipment.sub_type_name}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </CommandItem>
                       );

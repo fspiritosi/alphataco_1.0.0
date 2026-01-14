@@ -107,7 +107,7 @@ export function DevAutoFillButton({ form, template }: DevAutoFillButtonProps) {
       type="button"
       variant="outline"
       onClick={handleAutoFill}
-      className="fixed bottom-4 right-4 z-50 bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600"
+      className="fixed bottom-16 right-4 z-50 bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600"
       title="Autocompletar checklist con valores positivos (solo desarrollo)"
     >
       <Zap className="h-4 w-4 mr-2" />

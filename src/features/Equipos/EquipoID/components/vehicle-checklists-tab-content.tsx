@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar, CheckCircle, ClipboardList, Link as LinkIcon, User, XCircle } from 'lucide-react';
 import moment from 'moment';
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 interface VehicleChecklistsTabContentProps {
@@ -297,12 +296,17 @@ export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTa
                         )}
                       </TableCell>
                       <TableCell>
-                        <Link href={`/dashboard/forms/${answer.id}/view`} target="_blank" rel="noopener noreferrer">
-                          <Button variant="outline" size="sm" className="gap-2">
-                            <LinkIcon className="h-4 w-4" />
-                            Ver
-                          </Button>
-                        </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => {
+                            window.open(`/dashboard/forms/${answer.id}/view`, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
+                          <LinkIcon className="h-4 w-4" />
+                          Ver
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
