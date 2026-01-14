@@ -672,11 +672,13 @@ export async function createSubTypeOfVehicle({
   is_active = false,
   type_id,
   compatible_item_ids = [],
+  checklist_ids = [],
 }: {
   name: string;
   is_active?: boolean;
   type_id: string;
   compatible_item_ids?: { id: string; type: 'sub_type' | 'type' }[];
+  checklist_ids?: string[];
 }) {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
@@ -714,6 +716,22 @@ export async function createSubTypeOfVehicle({
       }
     }
 
+    // Si hay checklists seleccionados, insertarlos en la tabla pivote
+    if (vehicle_type && checklist_ids.length > 0) {
+      const checklistRelations = checklist_ids.map((checklistId) => ({
+        template_id: checklistId,
+        sub_type_id: vehicle_type.id,
+      }));
+
+      const { error: checklistError } = await supabase.from('checklist_template_sub_types').insert(checklistRelations);
+
+      if (checklistError) {
+        console.error('Error creating checklist relations:', checklistError);
+        // No lanzamos error para no afectar la creación del subtipo
+      }
+    }
+
+    revalidatePath('/dashboard/company/actualCompany');
     return vehicle_type;
   } catch (error) {
     console.error(error);
@@ -727,12 +745,14 @@ export async function updateSubTypeOfVehicle({
   type_id,
   is_active,
   compatible_item_ids,
+  checklist_ids,
 }: {
   id: string;
   name: string;
   type_id: string;
   is_active?: boolean;
   compatible_item_ids?: { id: string; type: 'sub_type' | 'type' }[];
+  checklist_ids?: string[];
 }) {
   const supabase = await supabaseServer();
 
@@ -781,6 +801,35 @@ export async function updateSubTypeOfVehicle({
       }
     }
 
+    // Actualizar las relaciones de checklists si se proporcionan
+    if (checklist_ids !== undefined) {
+      // Primero eliminamos las relaciones existentes
+      const { error: deleteChecklistError } = await supabase
+        .from('checklist_template_sub_types')
+        .delete()
+        .eq('sub_type_id', id);
+
+      if (deleteChecklistError) {
+        console.error('Error eliminando relaciones de checklists:', deleteChecklistError);
+      }
+
+      // Si hay checklists, insertamos las nuevas relaciones
+      if (checklist_ids.length > 0) {
+        const checklistRelations = checklist_ids.map((checklistId) => ({
+          template_id: checklistId,
+          sub_type_id: id,
+        }));
+
+        const { error: insertChecklistError } = await supabase
+          .from('checklist_template_sub_types')
+          .insert(checklistRelations);
+
+        if (insertChecklistError) {
+          console.error('Error insertando relaciones de checklists:', insertChecklistError);
+        }
+      }
+    }
+
     // Obtenemos el registro actualizado
     const { data: updated, error: fetchError } = await supabase.from('sub_type').select('*').eq('id', id).single();
 
@@ -789,6 +838,7 @@ export async function updateSubTypeOfVehicle({
       throw new Error('No se pudo verificar la actualización');
     }
 
+    revalidatePath('/dashboard/company/actualCompany');
     return updated;
   } catch (error) {
     console.error('Error en updateSubTypeOfVehicle:', error);
@@ -958,5 +1008,53 @@ export async function getAvailableCompatibleItems(parentTypeId: string) {
   } catch (error) {
     console.error('Error in getAvailableCompatibleItems:', error);
     return { subTypes: [], types: [] };
+  }
+}
+
+// Obtener checklists activos de la empresa
+export async function getActiveChecklists() {
+  const supabase = await supabaseServer();
+  const cookieStore = await cookies();
+  const company_id = cookieStore.get('actualComp')?.value;
+
+  try {
+    const { data, error } = await supabase
+      .from('checklist_templates')
+      .select('id, name, code, description')
+      .eq('company_id', company_id ?? '')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching active checklists:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getActiveChecklists:', error);
+    return [];
+  }
+}
+
+// Obtener checklists asignados a un subtipo
+export async function getChecklistsForSubType(subTypeId: string) {
+  const supabase = await supabaseServer();
+
+  try {
+    const { data, error } = await supabase
+      .from('checklist_template_sub_types')
+      .select('template_id')
+      .eq('sub_type_id', subTypeId);
+
+    if (error) {
+      console.error('Error fetching checklists for subtype:', error);
+      return [];
+    }
+
+    return (data || []).map((item) => item.template_id);
+  } catch (error) {
+    console.error('Error in getChecklistsForSubType:', error);
+    return [];
   }
 }

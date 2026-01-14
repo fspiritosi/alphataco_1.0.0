@@ -121,6 +121,7 @@ export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTa
                     <TableHead>Unidad Tractor</TableHead>
                     <TableHead>Realizado por</TableHead>
                     <TableHead>Observaciones</TableHead>
+                    <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -294,6 +295,14 @@ export function VehicleChecklistsTabContent({ equipmentId }: VehicleChecklistsTa
                         ) : (
                           <span className="text-sm text-muted-foreground">-</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/dashboard/forms/${answer.id}/view`} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" size="sm" className="gap-2">
+                            <LinkIcon className="h-4 w-4" />
+                            Ver
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   ))}

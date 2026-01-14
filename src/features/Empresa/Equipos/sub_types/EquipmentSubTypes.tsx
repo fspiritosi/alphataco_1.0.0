@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Database } from '../../../../../database.types';
 import EquipmentSubTypesForm from './equipmentSubTypesForm';
 import EquipmentSubTypesTable from './equipmentSubTypesTable';
+import { useSubTypeChecklists } from './hooks/useSubTypeChecklists';
 
 type VehicleType = Database['public']['Tables']['type']['Row'];
 type VehicleSubType = Database['public']['Tables']['sub_type']['Row'];
@@ -24,6 +25,9 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
   // Estado para el tipo de equipo que se está editando
   const [editingType, setEditingType] = useState<VehicleSubType | null>(null);
   const [compatibleItems, setCompatibleItems] = useState<CompatibleItem[]>([]);
+
+  // Hook para obtener checklists asignados al subtipo
+  const { data: checklistIds = [], isLoading: isLoadingChecklists } = useSubTypeChecklists(editingType?.id || null);
 
   // Cargar los items compatibles cuando se edita un subtipo
   const loadCompatibleItems = useCallback(async (subTypeId: string) => {
@@ -83,6 +87,7 @@ function EquipmentSubTypes({ vehicleTypes, vehicleSubTypes }: EquipmentSubTypesP
               types={vehicleTypes}
               allSubTypes={vehicleSubTypes}
               initialCompatibleItems={compatibleItems}
+              initialChecklistIds={checklistIds}
             />
           </ResizablePanel>
           <ResizableHandle withHandle />

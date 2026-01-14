@@ -9,12 +9,14 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Database } from '../../../../../database.types';
 import { createSubTypeOfVehicle, getAvailableCompatibleItems, updateSubTypeOfVehicle } from '../actions/actions';
+import { useActiveChecklists } from './hooks/useActiveChecklists';
 
 type VehicleType = Database['public']['Tables']['type']['Row'];
 type VehicleSubType = Database['public']['Tables']['sub_type']['Row'];
@@ -32,6 +34,7 @@ interface EquipmentSubTypesFormProps {
   types: VehicleType[];
   allSubTypes?: VehicleSubType[];
   initialCompatibleItems?: CompatibleItem[];
+  initialChecklistIds?: string[];
 }
 
 // Esquema de validación con Zod
@@ -41,6 +44,7 @@ const formSchema = z.object({
   type_id: z.string().min(1, 'El tipo es requerido'),
   is_active: z.boolean().default(true),
   compatible_item_ids: z.array(z.string()).default([]),
+  checklist_ids: z.array(z.string()).default([]),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -53,6 +57,7 @@ function EquipmentSubTypesForm({
   types,
   allSubTypes = [],
   initialCompatibleItems = [],
+  initialChecklistIds = [],
 }: EquipmentSubTypesFormProps) {
   const [showDependencyModal, setShowDependencyModal] = useState(false);
   const [availableItems, setAvailableItems] = useState<{ subTypes: VehicleSubType[]; types: VehicleType[] }>({
@@ -61,6 +66,9 @@ function EquipmentSubTypesForm({
   });
   const [isLoadingItems, setIsLoadingItems] = useState(false);
 
+  // Hook para obtener checklists activos
+  const { data: checklists = [], isLoading: isLoadingChecklists, error: checklistsError } = useActiveChecklists();
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -68,10 +76,12 @@ function EquipmentSubTypesForm({
       is_active: true,
       type_id: '',
       compatible_item_ids: [],
+      checklist_ids: [],
     },
   });
 
   const router = useRouter();
+  const queryClient = useQueryClient();
   const {
     handleSubmit,
     reset,
@@ -118,6 +128,21 @@ function EquipmentSubTypesForm({
     }
   }, [selectedTypeId, showCompatibleItems, loadAvailableItems]);
 
+  // Opciones para el multi-select de checklists
+  const checklistOptions = useMemo(() => {
+    return checklists.map((checklist) => ({
+      value: checklist.id,
+      label: checklist.name,
+    }));
+  }, [checklists]);
+
+  // Mostrar error si hay problema cargando checklists
+  useEffect(() => {
+    if (checklistsError) {
+      console.error('Error loading checklists:', checklistsError);
+    }
+  }, [checklistsError]);
+
   // Opciones para el multi-select combinando subtipos y tipos
   const compatibleItemOptions = useMemo(() => {
     const options: { value: string; label: string }[] = [];
@@ -152,6 +177,7 @@ function EquipmentSubTypesForm({
         is_active: initialData.is_active,
         type_id: initialData.type,
         compatible_item_ids: compatibleIds,
+        checklist_ids: initialChecklistIds,
       });
     } else {
       reset({
@@ -159,9 +185,10 @@ function EquipmentSubTypesForm({
         is_active: true,
         type_id: '',
         compatible_item_ids: [],
+        checklist_ids: [],
       });
     }
-  }, [initialData, initialCompatibleItems, reset]);
+  }, [initialData, initialCompatibleItems, initialChecklistIds, reset]);
 
   // Resetear compatible_item_ids cuando cambia el tipo
   useEffect(() => {
@@ -202,7 +229,13 @@ function EquipmentSubTypesForm({
           is_active: data.is_active,
           type_id: data.type_id,
           compatible_item_ids: compatibleItems,
+          checklist_ids: data.checklist_ids,
         });
+
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['subtype-checklists', data.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
+
         router.refresh();
       } else {
         await createSubTypeOfVehicle({
@@ -210,7 +243,13 @@ function EquipmentSubTypesForm({
           is_active: data.is_active,
           type_id: data.type_id,
           compatible_item_ids: compatibleItems,
+          checklist_ids: data.checklist_ids,
         });
+
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
+
+        router.refresh();
       }
 
       if (onSuccess) onSuccess();
@@ -221,7 +260,6 @@ function EquipmentSubTypesForm({
       });
 
       onReset();
-      router.refresh();
     } catch (error: unknown) {
       console.error('Error al guardar el subtipo de equipo:', error);
 
@@ -320,7 +358,14 @@ function EquipmentSubTypesForm({
           is_active: values.is_active,
           type_id: values.type_id,
           compatible_item_ids: compatibleItems,
+          checklist_ids: values.checklist_ids,
         });
+
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['subtype-checklists', values.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
+
+        router.refresh();
         if (onSuccess) onSuccess();
       } catch (err) {
         console.error('Error al reemplazar referencias:', err);
@@ -431,6 +476,32 @@ function EquipmentSubTypesForm({
               )}
             />
           )}
+
+          {/* Multi-select de checklists */}
+          <FormField
+            control={form.control}
+            name="checklist_ids"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Checklists aplicables</FormLabel>
+                <FormControl>
+                  <MultiSelectCombobox
+                    options={checklistOptions}
+                    selectedValues={field.value}
+                    onChange={field.onChange}
+                    placeholder={
+                      isLoadingChecklists
+                        ? 'Cargando checklists...'
+                        : 'Seleccione los checklists que aplican a este subtipo'
+                    }
+                    emptyMessage="No hay checklists disponibles"
+                    disabled={isLoadingChecklists}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <div className="flex gap-2">
             <Button type="submit" disabled={isSubmitting} className="min-w-[100px]">
               {isEditing ? (isSubmitting ? 'Guardando...' : 'Guardar') : isSubmitting ? 'Creando...' : 'Crear'}
