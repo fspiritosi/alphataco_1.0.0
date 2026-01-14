@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar, CheckCircle, ClipboardList, Link as LinkIcon, User, XCircle } from 'lucide-react';
 import moment from 'moment';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 interface VehicleChecklistsTabContentProps {
