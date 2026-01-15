@@ -16,6 +16,8 @@ interface ChecklistPDFButtonProps {
       label: string;
       order_index: number;
       is_critical?: boolean;
+      requires_side_validation?: boolean;
+      input_type?: string;
     }>;
   }>;
   date?: string;

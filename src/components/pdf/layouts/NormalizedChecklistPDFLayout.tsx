@@ -1,244 +1,821 @@
 'use client';
 
-import { Document, Image, Page, Rect, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
-import { format } from 'date-fns';
+import { logger } from '@/lib/logger';
+import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 
-interface ChecklistSection {
+// Estructura de datos que viene del sistema (desde checklist_template_sections + checklist_template_items)
+interface ChecklistTemplateItem {
+  id: string;
+  code: string;
+  label: string;
+  order_index: number;
+  is_critical?: boolean;
+  requires_side_validation?: boolean;
+  input_type?: string;
+}
+
+/**
+ * Determina si un item debe tratarse como "doble lado" (izquierda/derecha).
+ * Importante: un `input_type === 'date'` NUNCA debe mapearse como double_side,
+ * aunque por error venga con `requires_side_validation = true` desde la BD.
+ * Esta lógica debe ser idéntica a la usada en NormalizedChecklistForm.tsx
+ */
+const isSideValidationItem = (item: ChecklistTemplateItem): boolean => {
+  return item.input_type !== 'date' && (item.input_type === 'double_side' || Boolean(item.requires_side_validation));
+};
+
+interface ChecklistTemplateSection {
   id: string;
   code: string;
   name: string;
   order_index: number;
-  checklist_template_items: Array<{
-    id: string;
-    code: string;
-    label: string;
-    order_index: number;
-    is_critical?: boolean;
-  }>;
+  checklist_template_items: ChecklistTemplateItem[];
 }
 
 interface NormalizedChecklistPDFLayoutProps {
   templateName: string;
   templateCode: string;
   logoUrl?: string;
-  sections: ChecklistSection[];
   date?: string;
   revision?: string;
+  // Datos dinámicos del checklist (estructura del sistema)
+  sections?: ChecklistTemplateSection[];
+  // Datos del equipo/inspección
+  dominio?: string;
+  tipoEquipo?: string;
+  fluidoTransportable?: string;
+  observaciones?: string;
+  fechaInspeccion?: string;
+  // Nombre del chofer (TODO: reemplazar por imagen de firma cuando esté disponible)
+  chofer?: string;
+  // Flag para indicar si es un PDF vacío (sin respuestas)
   isEmpty?: boolean;
+  // Respuestas del checklist (para PDFs con datos)
+  answers?: Record<string, string>;
 }
+
+// Colores
+const colors = {
+  black: '#000000',
+  white: '#FFFFFF',
+  headerBg: '#E8E8E8',
+  sectionHeaderBg: '#D9D9D9',
+};
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 12.5,
-    paddingBottom: 12.5,
-    paddingLeft: 25,
-    paddingRight: 25,
-    fontSize: 9,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingLeft: 15,
+    paddingRight: 15,
+    fontSize: 7,
     fontFamily: 'Helvetica',
-    position: 'relative',
   },
-  border: {
-    position: 'absolute',
-    top: 12.5,
-    left: 25,
-    right: 25,
-    bottom: 12.5,
-    border: '2pt solid black',
+  // Header principal
+  headerContainer: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.black,
   },
-  contentWrapper: {
-    position: 'relative',
-    height: '100%',
-    padding: 0,
+  logoContainer: {
+    width: '15%',
+    padding: 2,
+    borderRightWidth: 1,
+    borderRightColor: colors.black,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
+    width: '100%',
+    height: 28,
+    objectFit: 'contain',
+  },
+  titleContainer: {
+    width: '55%',
+    borderRightWidth: 1,
+    borderRightColor: colors.black,
+  },
+  titleMain: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.black,
+  },
+  titleSubRow: {
+    flexDirection: 'row',
+    minHeight: 16,
+  },
+  titleSubCell: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: colors.black,
+    paddingVertical: 1,
+    paddingHorizontal: 2,
+  },
+  titleSubCellLast: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 1,
+    paddingHorizontal: 2,
+  },
+  titleSubLabel: {
+    fontSize: 5.5,
+    fontFamily: 'Helvetica-Bold',
+  },
+  titleSubValue: {
+    fontSize: 5.5,
+    marginTop: 1,
+  },
+  headerInfoContainer: {
+    width: '30%',
+    flexDirection: 'row',
+  },
+  headerInfoCell: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: colors.black,
+  },
+  headerInfoCellLast: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerInfoText: {
+    fontSize: 6.5,
+    fontFamily: 'Helvetica-Bold',
+  },
+  // Referencias
+  referencesRow: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.black,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    backgroundColor: colors.headerBg,
+  },
+  referencesText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+    flex: 1,
+  },
+  // Tabla principal
+  mainTable: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.black,
+  },
+  mainTableSingleColumn: {
+    flexDirection: 'column',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.black,
+  },
+  column: {
+    flex: 1,
+  },
+  columnLeft: {
+    flex: 1,
+    borderRightWidth: 1,
+    borderRightColor: colors.black,
+  },
+  columnFull: {
+    width: '100%',
+  },
+  // Header de sección
+  sectionHeader: {
+    flexDirection: 'row',
+    backgroundColor: colors.sectionHeaderBg,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+  },
+  sectionHeaderNumber: {
+    width: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 0.5,
+    borderRightColor: colors.black,
+    paddingVertical: 1,
+  },
+  sectionHeaderTitle: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingLeft: 3,
+    paddingVertical: 1,
+  },
+  sectionHeaderTitleText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+  },
+  sectionHeaderEstado: {
+    width: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderLeftWidth: 0.5,
+    borderLeftColor: colors.black,
+    paddingVertical: 1,
+  },
+  sectionHeaderEstadoText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+  },
+  // Header de estado dividido (IZQ/DER)
+  sectionHeaderEstadoSplit: {
+    width: 28,
+    borderLeftWidth: 0.5,
+    borderLeftColor: colors.black,
+  },
+  sectionHeaderEstadoSplitTop: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+    paddingVertical: 0.5,
+  },
+  sectionHeaderEstadoSplitBottom: {
+    flexDirection: 'row',
+  },
+  sectionHeaderEstadoSplitCell: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 0.5,
+  },
+  sectionHeaderEstadoSplitCellLeft: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 0.5,
+    borderRightWidth: 0.5,
+    borderRightColor: colors.black,
+  },
+  sectionHeaderEstadoSplitText: {
+    fontSize: 5,
+    fontFamily: 'Helvetica-Bold',
+  },
+  // Filas de items
+  itemRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+    minHeight: 10,
+  },
+  itemNumber: {
+    width: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 0.5,
+    borderRightColor: colors.black,
+    fontSize: 5,
+  },
+  itemLabel: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingLeft: 2,
+    paddingVertical: 0.5,
+  },
+  itemLabelText: {
+    fontSize: 5.5,
+  },
+  itemEstado: {
+    width: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderLeftWidth: 0.5,
+    borderLeftColor: colors.black,
+  },
+  itemEstadoText: {
+    fontSize: 5.5,
+    fontFamily: 'Helvetica-Bold',
+  },
+  // Celda de estado dividida (IZQ/DER)
+  itemEstadoSplit: {
+    width: 28,
+    flexDirection: 'row',
+    borderLeftWidth: 0.5,
+    borderLeftColor: colors.black,
+  },
+  itemEstadoSplitCell: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemEstadoSplitCellLeft: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 0.5,
+    borderRightColor: colors.black,
+  },
+  // Observaciones
+  observacionesContainer: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.black,
+  },
+  observacionesHeader: {
+    backgroundColor: colors.sectionHeaderBg,
+    paddingVertical: 2,
+    paddingHorizontal: 3,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+  },
+  observacionesHeaderText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+  },
+  observacionesContent: {
+    minHeight: 25,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+  },
+  observacionesText: {
+    fontSize: 6,
+  },
+  // Nota de elementos críticos
+  criticalNote: {
+    paddingVertical: 2,
+    paddingHorizontal: 3,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+  },
+  criticalNoteText: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+  },
+  // Fecha
+  fechaRow: {
+    flexDirection: 'row',
+    paddingVertical: 3,
+    paddingHorizontal: 3,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+  },
+  fechaLabel: {
+    fontSize: 6,
+    fontFamily: 'Helvetica-Bold',
+    marginRight: 4,
+  },
+  fechaValue: {
+    fontSize: 6,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+    minWidth: 60,
+    paddingLeft: 3,
+  },
+  // Firmas
+  firmasContainer: {
+    flexDirection: 'row',
+    paddingTop: 15,
+    paddingBottom: 5,
+    paddingHorizontal: 15,
+  },
+  firmaSection: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  firmaLine: {
+    borderTopWidth: 0.5,
+    borderTopColor: colors.black,
+    width: '80%',
+    marginBottom: 2,
+  },
+  firmaText: {
+    fontSize: 6,
+    textAlign: 'center',
+  },
+  // Nombre del chofer (TODO: reemplazar por imagen de firma cuando esté disponible)
+  firmaChoferName: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+    marginBottom: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.black,
+    paddingBottom: 2,
+    width: '80%',
   },
 });
 
-export const NormalizedChecklistPDFLayout = ({
-  templateName,
-  templateCode,
-  logoUrl,
-  sections,
-  date,
-  revision = 'Rev.:3',
-  isEmpty = true,
-}: NormalizedChecklistPDFLayoutProps) => {
-  const currentDate = date || format(new Date(), 'dd/MM/yyyy');
-  const formattedCode = `RO ${templateCode}`;
+// Interfaz interna para secciones procesadas
+interface ProcessedSection {
+  name: string;
+  items: Array<{
+    number: number;
+    label: string;
+    code: string;
+    isCritical: boolean;
+    requiresSideValidation: boolean;
+  }>;
+}
 
-  // Ordenar secciones por order_index - COMENTADO (no se usa por ahora)
-  // const sortedSections = [...sections].sort((a, b) => a.order_index - b.order_index);
+// Componente para renderizar una sección con sus items
+const ChecklistSectionComponent = ({
+  section,
+  answers,
+  isEmpty,
+}: {
+  section: ProcessedSection;
+  answers?: Record<string, string>;
+  isEmpty?: boolean;
+}) => {
+  // Verificar si algún item de la sección requiere validación izq/der
+  const hasSideValidation = section.items.some((item) => item.requiresSideValidation);
 
-  // Obtener todos los items críticos - COMENTADO (no se usa por ahora)
-  // const criticalItems: Array<{ section: string; item: string; isCritical: boolean }> = [];
-  // sortedSections.forEach((section) => {
-  //   const sortedItems = [...(section.checklist_template_items || [])].sort(
-  //     (a, b) => a.order_index - b.order_index
-  //   );
-  //   sortedItems.forEach((item) => {
-  //     if (item.is_critical) {
-  //       criticalItems.push({
-  //         section: section.name,
-  //         item: item.label,
-  //         isCritical: true,
-  //       });
-  //     }
-  //   });
-  // });
+  logger.info('section', { data: { section } });
+  logger.info('section.items', { data: { items: section.items } });
 
   return (
-    <Document>
+    <>
+      {/* Header de la sección */}
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeaderNumber}>
+          <Text style={{ fontSize: 5.5, fontFamily: 'Helvetica-Bold' }}>#</Text>
+        </View>
+        <View style={styles.sectionHeaderTitle}>
+          <Text style={styles.sectionHeaderTitleText}>{section.name}</Text>
+        </View>
+        {hasSideValidation ? (
+          // Header dividido con Estado / IZQ | DER
+          <View style={styles.sectionHeaderEstadoSplit}>
+            <View style={styles.sectionHeaderEstadoSplitTop}>
+              <Text style={styles.sectionHeaderEstadoText}>Estado</Text>
+            </View>
+            <View style={styles.sectionHeaderEstadoSplitBottom}>
+              <View style={styles.sectionHeaderEstadoSplitCellLeft}>
+                <Text style={styles.sectionHeaderEstadoSplitText}>IZQ</Text>
+              </View>
+              <View style={styles.sectionHeaderEstadoSplitCell}>
+                <Text style={styles.sectionHeaderEstadoSplitText}>DER</Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          // Header normal
+          <View style={styles.sectionHeaderEstado}>
+            <Text style={styles.sectionHeaderEstadoText}>Estado</Text>
+          </View>
+        )}
+      </View>
+      {/* Items de la sección */}
+      {section.items.map((item, index) => {
+        // Obtener la respuesta si existe
+        const answer = answers?.[item.code];
+        const answerLeft = answers?.[`${item.code}_left`];
+        const answerRight = answers?.[`${item.code}_right`];
+        // Formatear la respuesta para mostrar
+        const displayAnswer = isEmpty ? '' : formatAnswer(answer);
+        const displayAnswerLeft = isEmpty ? '' : formatAnswer(answerLeft);
+        const displayAnswerRight = isEmpty ? '' : formatAnswer(answerRight);
+
+        return (
+          <View key={index} style={styles.itemRow}>
+            <View style={styles.itemNumber}>
+              <Text>{item.number}</Text>
+            </View>
+            <View style={styles.itemLabel}>
+              <Text style={styles.itemLabelText}>
+                {item.label}
+                {item.isCritical ? ' (*)' : ''}
+              </Text>
+            </View>
+            {hasSideValidation ? (
+              // Celda dividida o normal según el item
+              item.requiresSideValidation ? (
+                // Celda dividida para items con IZQ/DER
+                <View style={styles.itemEstadoSplit}>
+                  <View style={styles.itemEstadoSplitCellLeft}>
+                    <Text style={styles.itemEstadoText}>{displayAnswerLeft}</Text>
+                  </View>
+                  <View style={styles.itemEstadoSplitCell}>
+                    <Text style={styles.itemEstadoText}>{displayAnswerRight}</Text>
+                  </View>
+                </View>
+              ) : (
+                // Celda normal pero con el ancho de la dividida (para alineación)
+                <View style={styles.itemEstado}>
+                  <Text style={styles.itemEstadoText}>{displayAnswer}</Text>
+                </View>
+              )
+            ) : (
+              // Celda normal
+              <View style={styles.itemEstado}>
+                <Text style={styles.itemEstadoText}>{displayAnswer}</Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </>
+  );
+};
+
+// Función para formatear las respuestas
+function formatAnswer(answer?: string): string {
+  if (!answer) return '';
+
+  // Detectar si es una fecha en formato ISO (YYYY-MM-DD)
+  const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (isoDateRegex.test(answer)) {
+    // Convertir de YYYY-MM-DD a DD/MM/YYYY
+    const [year, month, day] = answer.split('-');
+    return `${day}/${month}/${year}`;
+  }
+
+  // Mapear valores comunes a B/M/NC
+  const lowerAnswer = answer.toLowerCase();
+  if (lowerAnswer === 'bien' || lowerAnswer === 'b' || lowerAnswer === 'ok' || lowerAnswer === 'si') {
+    return 'B';
+  }
+  if (lowerAnswer === 'mal' || lowerAnswer === 'm' || lowerAnswer === 'no') {
+    return 'M';
+  }
+  if (lowerAnswer === 'nc' || lowerAnswer === 'no corresponde' || lowerAnswer === 'n/a') {
+    return 'NC';
+  }
+
+  // Si es otro valor, mostrar las primeras 3 letras
+  return answer.substring(0, 3).toUpperCase();
+}
+
+// Función para procesar las secciones del sistema al formato interno
+function processSections(sections: ChecklistTemplateSection[]): ProcessedSection[] {
+  // Ordenar secciones por order_index
+  const sortedSections = [...sections].sort((a, b) => a.order_index - b.order_index);
+
+  let globalItemNumber = 1;
+
+  return sortedSections.map((section) => {
+    // Ordenar items por order_index
+    const sortedItems = [...section.checklist_template_items].sort((a, b) => a.order_index - b.order_index);
+
+    const processedItems = sortedItems.map((item) => ({
+      number: globalItemNumber++,
+      label: item.label,
+      code: item.code,
+      isCritical: item.is_critical ?? false,
+      requiresSideValidation: isSideValidationItem(item),
+    }));
+
+    return {
+      name: section.name,
+      items: processedItems,
+    };
+  });
+}
+
+// Cantidad máxima de filas por columna (items + headers de sección)
+// Con el diseño compacto, podemos poner más filas por columna
+const MAX_ROWS_PER_COLUMN = 65;
+
+// Función para calcular el total de filas (items + headers de sección)
+function getTotalRowCount(sections: ProcessedSection[]): number {
+  return sections.reduce((total, section) => total + 1 + section.items.length, 0);
+}
+
+// Función para distribuir secciones en dos columnas de forma balanceada
+// Si una sección es muy grande, se divide entre las dos columnas
+// Si el total de filas es menor a MAX_ROWS_PER_COLUMN, usa una sola columna
+function distributeSectionsIntoColumns(sections: ProcessedSection[]): {
+  leftSections: ProcessedSection[];
+  rightSections: ProcessedSection[];
+  useSingleColumn: boolean;
+} {
+  if (sections.length === 0) {
+    return { leftSections: [], rightSections: [], useSingleColumn: true };
+  }
+
+  // Calcular el total de filas
+  const totalRows = getTotalRowCount(sections);
+
+  // Si todo cabe en una sola columna, usar layout de columna única
+  if (totalRows <= MAX_ROWS_PER_COLUMN) {
+    return { leftSections: sections, rightSections: [], useSingleColumn: true };
+  }
+
+  // Necesitamos dos columnas
+  const leftSections: ProcessedSection[] = [];
+  const rightSections: ProcessedSection[] = [];
+  let leftRowCount = 0;
+
+  for (const section of sections) {
+    const sectionHeaderRows = 1; // El header de la sección cuenta como 1 fila
+    const sectionItems = section.items;
+
+    // Si la columna izquierda ya está llena, todo va a la derecha
+    if (leftRowCount >= MAX_ROWS_PER_COLUMN) {
+      rightSections.push(section);
+      continue;
+    }
+
+    // Calcular cuántas filas quedan disponibles en la columna izquierda
+    const remainingLeftRows = MAX_ROWS_PER_COLUMN - leftRowCount;
+
+    // Si la sección completa cabe en la izquierda
+    if (sectionHeaderRows + sectionItems.length <= remainingLeftRows) {
+      leftSections.push(section);
+      leftRowCount += sectionHeaderRows + sectionItems.length;
+    } else {
+      // La sección no cabe completa, hay que dividirla
+      // Cuántos items caben en la izquierda (restando el header)
+      const itemsForLeft = Math.max(0, remainingLeftRows - sectionHeaderRows);
+
+      if (itemsForLeft > 0) {
+        // Crear sección parcial para la izquierda
+        const leftPartialSection: ProcessedSection = {
+          name: section.name,
+          items: sectionItems.slice(0, itemsForLeft),
+        };
+        leftSections.push(leftPartialSection);
+        leftRowCount += sectionHeaderRows + itemsForLeft;
+
+        // Crear sección parcial para la derecha (con el resto de items)
+        const remainingItems = sectionItems.slice(itemsForLeft);
+        if (remainingItems.length > 0) {
+          const rightPartialSection: ProcessedSection = {
+            name: section.name + ' (cont.)', // Indicar que es continuación
+            items: remainingItems,
+          };
+          rightSections.push(rightPartialSection);
+        }
+      } else {
+        // No caben items en la izquierda, toda la sección va a la derecha
+        rightSections.push(section);
+      }
+    }
+  }
+
+  return { leftSections, rightSections, useSingleColumn: false };
+}
+
+// Función para verificar si hay items críticos
+function hasCriticalItems(sections: ProcessedSection[]): boolean {
+  return sections.some((section) => section.items.some((item) => item.isCritical));
+}
+
+export const NormalizedChecklistPDFLayout = ({
+  templateName = 'Check list',
+  templateCode = '',
+  logoUrl,
+  date,
+  revision,
+  sections = [],
+  dominio = '',
+  tipoEquipo = '',
+  fluidoTransportable = '',
+  observaciones = '',
+  fechaInspeccion = '',
+  // TODO: reemplazar por imagen de firma cuando esté disponible
+  chofer = '',
+  isEmpty = true,
+  answers = {},
+}: NormalizedChecklistPDFLayoutProps) => {
+  logger.info('PDF sections', { data: { sectionsCount: sections.length } });
+  // Procesar secciones del formato del sistema al formato interno
+  const processedSections = processSections(sections);
+
+  // Distribuir secciones en columnas (una o dos según la cantidad de items)
+  const { leftSections, rightSections, useSingleColumn } = distributeSectionsIntoColumns(processedSections);
+
+  // Verificar si hay items críticos para mostrar la nota
+  const showCriticalNote = hasCriticalItems(processedSections);
+
+  // Formatear el código
+  const formattedCode = templateCode ? `RO ${templateCode}` : '';
+
+  // Fecha actual formateada si no se proporciona
+  const displayDate =
+    date ||
+    new Date().toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+  // Nombre del archivo PDF (para el visor nativo)
+  const sanitizedName = templateName.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s-]/g, '').replace(/\s+/g, '_');
+  const pdfFileName = `Checklist_${sanitizedName}_${new Date().toISOString().split('T')[0]}`;
+
+  return (
+    <Document title={pdfFileName}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.border} fixed />
-        <View
-          style={{ height: 50, width: '100%', display: 'flex', flexDirection: 'row', borderBottom: '2pt solid black' }}
-        >
-          {/* Primera columna */}
-          <View style={{ height: '100%', width: '25%', padding: 2 }}>
-            <Image style={{ width: '100%', height: '100%', objectFit: 'contain' }} src={logoUrl} />
-          </View>
-          {/* Segunda columna */}
-          <View style={{ height: '100%', width: '50%', border: '2pt solid black', borderBottom: 0 }}>
-            <View style={{ height: '100%', width: '100%' }}>
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  paddingTop: 3,
-                }}
-              >
-                {templateName}
-              </Text>
-            </View>
-            <View
-              style={{
-                borderTop: '2pt solid black',
-                height: '100%',
-                width: '100%',
-                display: 'flex',
-                flexDirection: 'row',
-              }}
-            >
-              <View style={{ borderRight: '1pt solid black', height: '100%', width: '100%' }}>
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingTop: 3,
-                  }}
-                >
-                  Dominio:
-                </Text>
+        {/* Header principal */}
+        <View style={styles.headerContainer}>
+          {/* Logo */}
+          <View style={styles.logoContainer}>{logoUrl && <Image style={styles.logo} src={logoUrl} />}</View>
+
+          {/* Título central */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.titleMain}>{templateName}</Text>
+            <View style={styles.titleSubRow}>
+              <View style={styles.titleSubCell}>
+                <Text style={styles.titleSubLabel}>Dominio:</Text>
+                <Text style={styles.titleSubValue}>{dominio}</Text>
               </View>
-              <View
-                style={{
-                  borderLeft: '1pt solid black',
-                  display: 'flex',
-                  flexDirection: 'row',
-                  height: '100%',
-                  width: '100%',
-                }}
-              >
-                <View style={{ height: '100%', width: '100%' }}>
-                  <View style={{ flexDirection: 'row', paddingTop: 3, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 10, fontWeight: 'bold', paddingLeft: 4, marginRight: 4 }}>Simple</Text>
-                    <Svg viewBox="0 0 100 100" width="16" height="16">
-                      <Rect x="1" y="1" width="98" height="98" fill="none" stroke="black" strokeWidth="3" />
-                    </Svg>
-                  </View>
-                </View>
-                <View style={{ height: '100%', width: '100%' }}>
-                  <View style={{ flexDirection: 'row', paddingTop: 3, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 10, fontWeight: 'bold', paddingLeft: 4, marginRight: 4 }}>Doble</Text>
-                    <Svg viewBox="0 0 100 100" width="16" height="16">
-                      <Rect x="1" y="1" width="98" height="98" fill="none" stroke="black" strokeWidth="3" />
-                    </Svg>
-                  </View>
-                </View>
+              <View style={styles.titleSubCell}>
+                <Text style={styles.titleSubLabel}>Tipo de Equipo:</Text>
+                <Text style={styles.titleSubValue}>{tipoEquipo}</Text>
+              </View>
+              <View style={styles.titleSubCellLast}>
+                <Text style={styles.titleSubLabel}>Fluido Transportable:</Text>
+                <Text style={styles.titleSubValue}>{fluidoTransportable}</Text>
               </View>
             </View>
           </View>
-          {/* Tercera columna */}
-          <View style={{ height: '100%', width: '25%', borderTop: '2pt solid black', borderRight: '2pt solid black' }}>
-            <View style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'row' }}>
-              <View style={{ borderRight: '1pt solid black', paddingTop: 3, height: '100%', width: '33.5%' }}>
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingTop: 3,
-                  }}
-                >
-                  RO 01-10
-                </Text>
-              </View>
-              <View style={{ paddingTop: 3, borderRight: '1pt solid black', height: '100%', width: '43.5%' }}>
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingTop: 3,
-                  }}
-                >
-                  {`${new Date().toLocaleDateString()}`}
-                </Text>
-              </View>
-              <View style={{ height: '100%', width: '25%', paddingTop: 3 }}>
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingTop: 3,
-                  }}
-                >
-                  Rev.:3
-                </Text>
-              </View>
+
+          {/* Código, fecha y revisión */}
+          <View style={styles.headerInfoContainer}>
+            <View style={styles.headerInfoCell}>
+              <Text style={styles.headerInfoText}>{formattedCode}</Text>
             </View>
-            <View style={{ borderTop: '2pt solid black', height: '100%', width: '100%' }}>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  paddingTop: 3,
-                }}
-              >
-                Fluido / material Transportable:
-              </Text>
+            <View style={styles.headerInfoCell}>
+              <Text style={styles.headerInfoText}>{displayDate}</Text>
+            </View>
+            <View style={styles.headerInfoCellLast}>
+              <Text style={styles.headerInfoText}>{revision || 'Rev.:1'}</Text>
             </View>
           </View>
         </View>
-        {/* Seccion de KM  */}
-        <View
-          style={{ height: 28, borderBottom: '2pt solid black', width: '100%', display: 'flex', flexDirection: 'row' }}
-        >
-          <View style={{ height: '100%', width: '50%', borderRight: '1pt solid black' }}>
-            <Text style={{ fontSize: 10, fontWeight: 'bold', paddingTop: 6, paddingLeft: 4 }}>KM ACTUAL:</Text>
+
+        {/* Línea de referencias */}
+        <View style={styles.referencesRow}>
+          <Text style={styles.referencesText}>
+            REFERENCIAS ESTADO TERMINOLOGIA A UTILIZAR: B (Bien) - M (Mal) - NC (No Corresponde)
+          </Text>
+        </View>
+
+        {/* Tabla principal - una o dos columnas según la cantidad de items */}
+        {useSingleColumn ? (
+          // Layout de columna única (cuando hay pocos items)
+          <View style={styles.mainTableSingleColumn}>
+            <View style={styles.columnFull}>
+              {leftSections.map((section, index) => (
+                <ChecklistSectionComponent key={index} section={section} answers={answers} isEmpty={isEmpty} />
+              ))}
+            </View>
           </View>
-          <View style={{ height: '100%', width: '50%', borderLeft: '1pt solid black' }}>
-            <Text style={{ fontSize: 10, fontWeight: 'bold', paddingTop: 6, paddingLeft: 4 }}>KM PROXIMO SERVICE:</Text>
+        ) : (
+          // Layout de dos columnas (cuando hay muchos items)
+          <View style={styles.mainTable}>
+            {/* Columna izquierda */}
+            <View style={styles.columnLeft}>
+              {leftSections.map((section, index) => (
+                <ChecklistSectionComponent key={index} section={section} answers={answers} isEmpty={isEmpty} />
+              ))}
+            </View>
+
+            {/* Columna derecha */}
+            <View style={styles.column}>
+              {rightSections.map((section, index) => (
+                <ChecklistSectionComponent key={index} section={section} answers={answers} isEmpty={isEmpty} />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Sección de Observaciones */}
+        <View style={styles.observacionesContainer}>
+          <View style={styles.observacionesHeader}>
+            <Text style={styles.observacionesHeaderText}>Observaciones:</Text>
+          </View>
+          <View style={styles.observacionesContent}>
+            <Text style={styles.observacionesText}>{observaciones}</Text>
+          </View>
+
+          {/* Nota de elementos críticos (solo si hay items críticos) */}
+          {showCriticalNote && (
+            <View style={styles.criticalNote}>
+              <Text style={styles.criticalNoteText}>(*) ELEMENTOS CRITICOS A INSPECCIONAR</Text>
+            </View>
+          )}
+
+          {/* Fecha */}
+          <View style={styles.fechaRow}>
+            <Text style={styles.fechaLabel}>Fecha:</Text>
+            <Text style={styles.fechaValue}>{fechaInspeccion}</Text>
+          </View>
+
+          {/* Firmas */}
+          <View style={styles.firmasContainer}>
+            <View style={styles.firmaSection}>
+              {/* TODO: reemplazar por imagen de firma cuando esté disponible */}
+              {chofer ? <Text style={styles.firmaChoferName}>{chofer}</Text> : <View style={styles.firmaLine}></View>}
+              <Text style={styles.firmaText}>Firma y Aclaracion del Chofer</Text>
+            </View>
+            <View style={styles.firmaSection}>
+              <View style={styles.firmaLine}></View>
+              <Text style={styles.firmaText}>Firma y Aclaracion del Supervisor</Text>
+            </View>
           </View>
         </View>
       </Page>

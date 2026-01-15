@@ -1,7 +1,7 @@
 import { fetchAllEquipment, fetchChecklistAnswerById, getCurrentProfile } from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
 import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
-import { Button } from '@/components/ui/button';
+import { ChecklistPDFDownloadButton } from '@/components/ChecklistPDFDownloadButton';
 import { notFound } from 'next/navigation';
 
 export default async function ChecklistAnswerViewPage({
@@ -74,6 +74,28 @@ export default async function ChecklistAnswerViewPage({
   // Obtener el ID del enganche si existe (puede venir de hitch_equipment_id o de la relación)
   const hitchEquipmentId = (normalizedAnswer as any).hitch_equipment_id || null;
 
+  // Obtener datos del equipo para el PDF
+  const selectedEquipment = equipments.find((eq) => eq.value === normalizedAnswer.equipment_id);
+  const dominio = selectedEquipment?.domain || selectedEquipment?.serie || '';
+  const tipoEquipo = selectedEquipment?.sub_type_name || selectedEquipment?.type_name || '';
+
+  // Preparar secciones con los campos necesarios para el PDF
+  const sections = (template.checklist_template_sections || []).map((section: any) => ({
+    id: section.id,
+    code: section.code || section.section?.code || `section_${section.id}`,
+    name: section.name || section.section?.name || 'Sin nombre',
+    order_index: section.order_index,
+    checklist_template_items: (section.checklist_template_items || []).map((item: any) => ({
+      id: item.id,
+      code: item.code || `item_${item.id}`,
+      label: item.label,
+      order_index: item.order_index,
+      is_critical: item.is_critical || false,
+      requires_side_validation: item.requires_side_validation || false,
+      input_type: item.input_type || null,
+    })),
+  }));
+
   return (
     <div className="px-7 py-4">
       <div className="flex items-center gap-4 mb-6">
@@ -82,9 +104,17 @@ export default async function ChecklistAnswerViewPage({
           <h1 className="text-2xl font-bold">{template.name}</h1>
           {template.description && <p className="text-muted-foreground">{template.description}</p>}
         </div>
-        <Button variant="outline" disabled>
-          Descargar PDF
-        </Button>
+        <ChecklistPDFDownloadButton
+          templateName={template.name}
+          templateCode={template.code}
+          sections={sections}
+          dominio={dominio}
+          tipoEquipo={tipoEquipo}
+          observaciones={normalizedAnswer.observations || answerData?.observaciones || ''}
+          fechaInspeccion={answerData?.fecha || ''}
+          chofer={answerData?.chofer || ''}
+          answers={answerData?.answers || {}}
+        />
       </div>
       <NormalizedChecklistForm
         template={template as any}

@@ -52,6 +52,8 @@ export default async function FormDetailPage({ params }: { params: Promise<{ id:
         label: item.label,
         order_index: item.order_index,
         is_critical: item.is_critical || false,
+        requires_side_validation: item.requires_side_validation || false,
+        input_type: item.input_type || null,
       })),
     }));
 

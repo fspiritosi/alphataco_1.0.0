@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import type { TypeOfRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -363,7 +364,7 @@ const ChecklistItemField = ({
     try {
       options = Array.isArray(item.options) ? item.options : JSON.parse(item.options as string);
     } catch (e) {
-      console.error('Error parsing options:', e);
+      logger.error('Error parsing options', { data: { error: e } });
     }
   }
 
@@ -705,7 +706,7 @@ export function NormalizedChecklistForm({
   //   [equipments, selectedEquipmentId]
   // );
 
-  console.log('equipments', equipments);
+  logger.debug('equipments loaded', { data: { count: equipments.length } });
 
   // Obtener información del tipo del equipo seleccionado para verificar si tiene enganche
   useEffect(() => {
@@ -756,7 +757,7 @@ export function NormalizedChecklistForm({
           setCompatibleHitchEquipment([]);
         }
       } catch (error) {
-        console.error('Error checking equipment hitch:', error);
+        logger.error('Error checking equipment hitch', { data: { error } });
         setSelectedEquipmentType(null);
         // No limpiar selectedHitchEquipment si estamos en modo readOnly y ya tiene un valor
         if (!readOnly || !defaultHitchEquipmentId) {
@@ -789,7 +790,7 @@ export function NormalizedChecklistForm({
         toast.warning('No se encontraron equipos compatibles para enganche');
       }
     } catch (error) {
-      console.error('Error loading compatible equipment:', error);
+      logger.error('Error loading compatible equipment', { data: { error } });
       const { toast } = await import('sonner');
       toast.error('Error al cargar equipos compatibles');
     } finally {
@@ -875,7 +876,7 @@ export function NormalizedChecklistForm({
         try {
           await UpdateVehicleKilometerAnonymous(data.equipment_id, newKilometer);
         } catch (error) {
-          console.error('Error updating vehicle kilometer:', error);
+          logger.error('Error updating vehicle kilometer', { data: { error } });
           // No bloqueamos el guardado del checklist si falla la actualización del kilometraje
         }
       }
@@ -912,11 +913,11 @@ export function NormalizedChecklistForm({
             ut_checklist_answer_id: checklistAnswer.id, // Vincular con el checklist del UT
           });
 
-          console.log(
-            `[CHECKLIST] Created duplicate checklist answer for hitched equipment: ${selectedHitchEquipment} (linked to UT: ${checklistAnswer.id})`
-          );
+          logger.info('[CHECKLIST] Created duplicate checklist answer for hitched equipment', {
+            data: { hitchEquipmentId: selectedHitchEquipment, utAnswerId: checklistAnswer.id },
+          });
         } catch (error) {
-          console.error('Error creating checklist answer for hitched equipment:', error);
+          logger.error('Error creating checklist answer for hitched equipment', { data: { error } });
           const { toast } = await import('sonner');
           toast.error('Error al guardar el checklist para el equipo enganchado');
           // No fallar completamente, pero loguear el error
@@ -943,7 +944,7 @@ export function NormalizedChecklistForm({
             description: `Se detectaron ${failedCriticalItems.length} items críticos con fallos. Por favor, genera las solicitudes de reparación.`,
           });
         } catch (error) {
-          console.error('Error fetching deviations or repair types:', error);
+          logger.error('Error fetching deviations or repair types', { data: { error } });
           const { toast } = await import('sonner');
           toast.success('Checklist guardado', {
             description: `Se detectaron ${failedCriticalItems.length} items críticos con fallos`,
@@ -990,7 +991,7 @@ export function NormalizedChecklistForm({
         }, 1500);
       }
     } catch (error) {
-      console.error('Error al guardar el checklist:', error);
+      logger.error('Error al guardar el checklist', { data: { error } });
       // TODO: Mostrar toast de error
     } finally {
       setIsSubmitting(false);
@@ -1084,17 +1085,27 @@ export function NormalizedChecklistForm({
                         <FormLabel>Enganche</FormLabel>
                         <div className="flex items-center gap-2">
                           {readOnly ? (
-                            // En modo readOnly, mostrar solo el texto del enganche
-                            <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted">
-                              <LinkIcon className="h-4 w-4" />
-                              <span>
-                                {selectedHitchEquipment
-                                  ? equipments.find((eq) => eq.value === selectedHitchEquipment)?.label ||
-                                    compatibleHitchEquipment.find((eq) => eq.value === selectedHitchEquipment)?.label ||
-                                    'Enganche seleccionado'
-                                  : 'Sin enganche'}
-                              </span>
-                            </div>
+                            // En modo readOnly, mostrar el texto del enganche con badge de subtipo
+                            (() => {
+                              const hitchEquipmentData =
+                                equipments.find((eq) => eq.value === selectedHitchEquipment) ||
+                                compatibleHitchEquipment.find((eq) => eq.value === selectedHitchEquipment);
+                              return (
+                                <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted">
+                                  <LinkIcon className="h-4 w-4" />
+                                  <span>
+                                    {selectedHitchEquipment
+                                      ? hitchEquipmentData?.label || 'Enganche seleccionado'
+                                      : 'Sin enganche'}
+                                  </span>
+                                  {hitchEquipmentData?.sub_type_name && hitchEquipmentData.sub_type_name !== 'N/A' && (
+                                    <span className="rounded bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5">
+                                      {hitchEquipmentData.sub_type_name}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()
                           ) : (
                             <>
                               <Button
