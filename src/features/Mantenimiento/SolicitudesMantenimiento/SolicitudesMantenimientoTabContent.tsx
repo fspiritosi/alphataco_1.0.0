@@ -1,7 +1,9 @@
-'use client';
+import { getMaintenanceRequests } from './actions/actionsServer';
+import { SolicitudesTableClient } from './components/SolicitudesTableClient';
 
-import { SolicitudesTable } from './components/SolicitudesTable';
+export async function SolicitudesMantenimientoTabContent() {
+  // Fetching en el servidor
+  const initialData = await getMaintenanceRequests();
 
-export function SolicitudesMantenimientoTabContent() {
-  return <SolicitudesTable />;
+  return <SolicitudesTableClient initialData={initialData} />;
 }

@@ -1,7 +1,9 @@
-'use client';
+import { getMaintenanceOrders } from './actions/actionsServer';
+import { PedidosTableClient } from './components/PedidosTableClient';
 
-import { PedidosTable } from './components/PedidosTable';
+export async function PedidosMantenimientoTabContent() {
+  // Fetching en el servidor
+  const initialData = await getMaintenanceOrders();
 
-export function PedidosMantenimientoTabContent() {
-  return <PedidosTable />;
+  return <PedidosTableClient initialData={initialData} />;
 }

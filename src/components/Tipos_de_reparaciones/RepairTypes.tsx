@@ -1,13 +1,15 @@
 import { OperacionesTabContent } from '@/features/Mantenimiento/Operaciones';
+import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/fallback';
 import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
+import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
+import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { AlertTriangle, Calendar, ClipboardCheck, ClipboardList, Plus, Settings, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardCheck, Plus, Settings, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
 import EquipmentsWithDeviationsWrapper from './EquipmentsWithDeviationsWrapper';
 import MaintenanceGroupsWrapper from './MaintenanceGroupsWrapper';
 import RepairEntryWrapper from './RepairEntryWrapper';
-import RepairSolicitudesWrapper from './RepairSolicitudesWrapper';
 import RepairTypeFormWrapper from './RepairTypeFormWrapper';
 
 export default async function RepairTypes({
@@ -26,22 +28,22 @@ export default async function RepairTypes({
   permissions: Record<string, boolean>;
 }) {
   const allTabs = [
-    {
-      value: 'created_solicitudes',
-      label: (
-        <span className="flex items-center gap-2">
-          <ClipboardList className="h-4 w-4" />
-          {mechanic ? 'Solicitudes Activas' : 'Solicitudes'}
-        </span>
-      ),
-      moduleSlug: moduleSlug,
-      tabSlug: 'created_solicitudes' as const,
-      content: (
-        <Suspense fallback={<div>Cargando solicitudes...</div>}>
-          <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />
-        </Suspense>
-      ),
-    },
+    // {
+    //   value: 'created_solicitudes',
+    //   label: (
+    //     <span className="flex items-center gap-2">
+    //       <ClipboardList className="h-4 w-4" />
+    //       {mechanic ? 'Solicitudes Activas' : 'Solicitudes'}
+    //     </span>
+    //   ),
+    //   moduleSlug: moduleSlug,
+    //   tabSlug: 'created_solicitudes' as const,
+    //   content: (
+    //     <Suspense fallback={<div>Cargando solicitudes...</div>}>
+    //       <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />
+    //     </Suspense>
+    //   ),
+    // },
     {
       value: 'equipments_with_deviations',
       label: (
@@ -118,7 +120,7 @@ export default async function RepairTypes({
       moduleSlug: 'mantenimiento' as const,
       tabSlug: 'maintenance_requests' as const,
       content: (
-        <Suspense fallback={<div>Cargando solicitudes de mantenimiento...</div>}>
+        <Suspense fallback={<SolicitudesTableSkeleton />}>
           <SolicitudesMantenimientoTabContent />
         </Suspense>
       ),
@@ -134,7 +136,7 @@ export default async function RepairTypes({
       moduleSlug: 'mantenimiento' as const,
       tabSlug: 'maintenance_orders' as const,
       content: (
-        <Suspense fallback={<div>Cargando pedidos de mantenimiento...</div>}>
+        <Suspense fallback={<PedidosTableSkeleton />}>
           <PedidosMantenimientoTabContent />
         </Suspense>
       ),
@@ -150,7 +152,7 @@ export default async function RepairTypes({
       moduleSlug: 'mantenimiento' as const,
       tabSlug: 'maintenance_operations' as const,
       content: (
-        <Suspense fallback={<div>Cargando operaciones...</div>}>
+        <Suspense fallback={<OperacionesTableSkeleton />}>
           <OperacionesTabContent searchParams={searchParams} permissions={permissions} />
         </Suspense>
       ),

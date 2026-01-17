@@ -40,7 +40,13 @@ npm run test:e2e:open    # Open Cypress test runner
 
 Los siguientes MCPs estan a tu disposicion:
 
-1. **MCP de Supabase**: Para correr queries de verificacion o modificaciones en la base de datos
+1. **MCP de Supabase (DEV y PROD)**:
+
+   - **supabase-DEV**: Base de datos de DESARROLLO. Tiene permisos de lectura y escritura (ejecutar queries, aplicar migraciones, modificar datos).
+   - **supabase-PROD**: Base de datos de PRODUCCION. Solo tiene permisos de LECTURA (consultas, verificaciones).
+
+   **REGLA CRITICA**: SIEMPRE usar `supabase-DEV` por defecto para cualquier operacion. Solo usar `supabase-PROD` cuando el usuario explicitamente indique que necesita revisar o consultar datos en produccion (ej: "revisa en produccion", "consulta en prod", "verifica en la base de produccion").
+
 2. **MCP de chrome-devtools**: Para revisar logs de debug y verificaciones generales de la aplicacion
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados
 4. **MCP de Context7**: SIEMPRE usar como PRIMERA OPCION para consultar documentacion actualizada de librerias, frameworks o herramientas. Si Context7 no tiene la documentacion necesaria, entonces buscar en internet
@@ -1026,6 +1032,157 @@ export function EmployeesTableWrapper({ initialData, searchParams }) {
 
 ---
 
+## TabContent y Componentes de Tabs
+
+### Principio Fundamental
+
+**Los componentes `TabContent` NO deben tener `'use client'` si solo sirven como wrapper. El `'use client'` debe estar en el componente interno que realmente necesita interactividad.**
+
+### Reglas de TabContent
+
+#### 1. TabContent como Server Component
+
+```typescript
+// ✅ CORRECTO - TabContent es Server Component
+// SolicitudesMantenimientoTabContent.tsx
+import { getMaintenanceRequests } from './actions/actionsServer';
+import { SolicitudesTableClient } from './components/SolicitudesTableClient';
+
+export async function SolicitudesMantenimientoTabContent() {
+  // ✅ Fetching en el servidor
+  const initialData = await getMaintenanceRequests();
+
+  return <SolicitudesTableClient initialData={initialData} />;
+}
+
+// ❌ INCORRECTO - TabContent con 'use client' innecesario
+'use client';
+
+export function SolicitudesMantenimientoTabContent() {
+  return <SolicitudesTable />; // ❌ Solo es un wrapper, no necesita 'use client'
+}
+```
+
+#### 2. Fetching SIEMPRE en el Server (cuando sea posible)
+
+**REGLA CRITICA**: Si el fetching de datos NO depende de interaccion del usuario (clicks, filtros dinamicos), DEBE hacerse en el servidor.
+
+```typescript
+// ✅ CORRECTO - Datos cargados en Server Component
+export async function MyTabContent() {
+  const data = await getMyData(); // Server-side fetch
+  return <MyTableClient initialData={data} />;
+}
+
+// ❌ INCORRECTO - Fetching en cliente sin necesidad
+'use client';
+
+export function MyTabContent() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['my-data'],
+    queryFn: getMyData, // ❌ Esto podria estar en el servidor
+  });
+
+  if (isLoading) return <Skeleton />;
+  return <MyTable data={data} />;
+}
+```
+
+#### 3. Cliente Solo para Interactividad
+
+El Client Component interno debe:
+
+- Recibir `initialData` del servidor
+- Usar `useQuery` con `initialData` para refetching/invalidacion
+- Manejar estado local (seleccion, dialogos, etc.)
+
+```typescript
+// ✅ Client Component que recibe datos iniciales
+'use client';
+
+export function MyTableClient({ initialData }: { initialData: MyData[] }) {
+  const [selectedItem, setSelectedItem] = useState<MyData | null>(null);
+
+  // ✅ useQuery con initialData para refetching
+  const { data } = useQuery({
+    queryKey: ['my-data'],
+    queryFn: getMyData,
+    initialData, // ✅ Datos del servidor
+  });
+
+  return (
+    <>
+      <DataTable data={data || []} onSelect={setSelectedItem} />
+      {selectedItem && <DetailDialog item={selectedItem} />}
+    </>
+  );
+}
+```
+
+### Componentes Fallback para Suspense
+
+#### Regla: Crear Componentes Fallback Dedicados
+
+**NUNCA** usar `<div>Cargando...</div>` como fallback en `Suspense`. SIEMPRE crear un componente Skeleton dedicado.
+
+```typescript
+// ❌ INCORRECTO - Fallback generico
+<Suspense fallback={<div>Cargando solicitudes...</div>}>
+  <SolicitudesTabContent />
+</Suspense>
+
+// ✅ CORRECTO - Componente Skeleton dedicado
+<Suspense fallback={<SolicitudesTableSkeleton />}>
+  <SolicitudesTabContent />
+</Suspense>
+```
+
+#### Ubicacion de Fallbacks
+
+Los componentes Skeleton/Fallback deben ubicarse en:
+
+```
+src/features/{Feature}/
+├── fallback/
+│   ├── {ComponentName}Skeleton.tsx
+│
+```
+
+#### Ejemplo de Componente Skeleton
+
+```typescript
+// src/features/Mantenimiento/SolicitudesMantenimiento/fallback/SolicitudesTableSkeleton.tsx
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+
+export function SolicitudesTableSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Solicitudes de Mantenimiento</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+### Checklist: Crear Nueva Tab
+
+- [ ] Crear `{Tab}TabContent.tsx` como **Server Component** (sin `'use client'`)
+- [ ] Hacer fetching de datos iniciales en el Server Component
+- [ ] Crear `{Component}Client.tsx` con `'use client'` para interactividad
+- [ ] Pasar `initialData` como prop al componente cliente
+- [ ] Crear `fallback/{Component}Skeleton.tsx` para el Suspense
+- [ ] Usar el Skeleton en el `Suspense fallback` donde se renderiza la tab
+
+---
+
 ## Sistema de Permisos y Tabs
 
 ### Principio Fundamental
@@ -1200,19 +1357,6 @@ const MODULE_IDS = {
   comercial: '92bfac14-dc5b-41be-b366-740bfbeaea13',
 };
 ```
-
-### Patron UUID para Tabs
-
-Seguir el patron existente para generar UUIDs de tabs:
-
-- Dashboard: `90000000-0000-0000-0000-0000000000XX`
-- Empresa: `10000000-0000-0000-0000-0000000000XX`
-- Empleados: `20000000-0000-0000-0000-0000000000XX`
-- Equipos: `30000000-0000-0000-0000-0000000000XX`
-- Comercial: `40000000-0000-0000-0000-0000000000XX`
-- Documentacion: `50000000-0000-0000-0000-0000000000XX` / `60000000-...`
-- Operaciones: `70000000-0000-0000-0000-0000000000XX`
-- Formularios: `80000000-0000-0000-0000-0000000000XX`
 
 ---
 

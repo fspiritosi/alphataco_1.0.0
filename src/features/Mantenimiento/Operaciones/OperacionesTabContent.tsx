@@ -1,16 +1,20 @@
-'use client';
-
-import { TabsManagerClient } from '@/features/TabsManager';
+import { TabsManagerServer } from '@/features/TabsManager';
 import { Clock, Eye } from 'lucide-react';
-import { OperacionesPlanificadasTable } from './components/OperacionesPlanificadasTable';
-import { OperacionesTable } from './components/OperacionesTable';
+import { Suspense } from 'react';
+import { getMaintenanceOperations } from './actions/actionsServer';
+import { OperacionesPlanificadasTableClient } from './components/OperacionesPlanificadasTableClient';
+import { OperacionesTableClient } from './components/OperacionesTableClient';
+import { OperacionesTableSkeleton } from './fallback';
 
 interface OperacionesTabContentProps {
   searchParams?: { [key: string]: string | string[] | undefined };
   permissions?: Record<string, boolean>;
 }
 
-export function OperacionesTabContent({}: OperacionesTabContentProps) {
+export async function OperacionesTabContent({ searchParams, permissions }: OperacionesTabContentProps) {
+  // Fetching en el servidor - ambas tablas usan los mismos datos
+  const initialData = await getMaintenanceOperations();
+
   const tabs = [
     {
       value: 'operations_pending',
@@ -22,7 +26,11 @@ export function OperacionesTabContent({}: OperacionesTabContentProps) {
       ),
       moduleSlug: 'mantenimiento' as const,
       tabSlug: 'operations_pending' as const,
-      content: <OperacionesTable />,
+      content: (
+        <Suspense fallback={<OperacionesTableSkeleton />}>
+          <OperacionesTableClient initialData={initialData} />
+        </Suspense>
+      ),
     },
     {
       value: 'operations_planned',
@@ -34,9 +42,21 @@ export function OperacionesTabContent({}: OperacionesTabContentProps) {
       ),
       moduleSlug: 'mantenimiento' as const,
       tabSlug: 'operations_planned' as const,
-      content: <OperacionesPlanificadasTable />,
+      content: (
+        <Suspense fallback={<OperacionesTableSkeleton />}>
+          <OperacionesPlanificadasTableClient initialData={initialData} />
+        </Suspense>
+      ),
     },
   ];
 
-  return <TabsManagerClient paramName="operations_tab" tabs={tabs} defaultTab="operations_pending" />;
+  return (
+    <TabsManagerServer
+      paramName="operations_tab"
+      searchParams={searchParams || {}}
+      defaultTab="operations_pending"
+      permissions={permissions || {}}
+      tabs={tabs}
+    />
+  );
 }

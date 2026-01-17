@@ -11,7 +11,9 @@
       "Bash(dir /b /ad \"C:\\\\Users\\\\Yorda\\\\Desktop\\\\Workspace\\\\CodeControl\\\\gh_gestion\\\\src\\\\features\")",
       "Bash(npx tsc:*)",
       "mcp__supabase__search_docs",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "mcp__supabase-DEV__execute_sql",
+      "mcp__supabase-PROD__execute_sql"
     ]
   }
 }
