@@ -42,6 +42,7 @@ interface ChecklistPDFDownloadButtonProps {
   dominio?: string;
   tipoEquipo?: string;
   fluidoTransportable?: string;
+  cliente?: string;
   // Datos de la inspección
   observaciones?: string;
   fechaInspeccion?: string;
@@ -61,6 +62,7 @@ export function ChecklistPDFDownloadButton({
   dominio = '',
   tipoEquipo = '',
   fluidoTransportable = '',
+  cliente = '',
   observaciones = '',
   fechaInspeccion = '',
   chofer = '',
@@ -100,6 +102,7 @@ export function ChecklistPDFDownloadButton({
           dominio={dominio}
           tipoEquipo={tipoEquipo}
           fluidoTransportable={fluidoTransportable}
+          cliente={cliente}
           observaciones={observaciones}
           fechaInspeccion={fechaInspeccion}
           chofer={chofer}
@@ -155,6 +158,7 @@ export function ChecklistPDFDownloadButton({
                 dominio={dominio}
                 tipoEquipo={tipoEquipo}
                 fluidoTransportable={fluidoTransportable}
+                cliente={cliente}
                 observaciones={observaciones}
                 fechaInspeccion={fechaInspeccion}
                 chofer={chofer}

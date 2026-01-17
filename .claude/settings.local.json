@@ -1,5 +1,17 @@
 {
   "permissions": {
-    "allow": ["Bash(grep:*)", "mcp__supabase__list_tables", "mcp__supabase__execute_sql"]
+    "allow": [
+      "Bash(grep:*)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql",
+      "Bash(tree:*)",
+      "mcp__supabase__get_advisors",
+      "Bash(npm run check-types:*)",
+      "Read(//c/Users/Yorda/**)",
+      "Bash(dir /b /ad \"C:\\\\Users\\\\Yorda\\\\Desktop\\\\Workspace\\\\CodeControl\\\\gh_gestion\\\\src\\\\features\")",
+      "Bash(npx tsc:*)",
+      "mcp__supabase__search_docs",
+      "Bash(npm run lint:*)"
+    ]
   }
 }

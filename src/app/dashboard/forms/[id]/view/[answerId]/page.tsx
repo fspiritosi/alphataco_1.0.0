@@ -2,6 +2,7 @@ import { fetchAllEquipment, fetchChecklistAnswerById, getCurrentProfile } from '
 import BackButton from '@/components/BackButton';
 import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
 import { ChecklistPDFDownloadButton } from '@/components/ChecklistPDFDownloadButton';
+import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklist';
 import { notFound } from 'next/navigation';
 
 export default async function ChecklistAnswerViewPage({
@@ -39,7 +40,14 @@ export default async function ChecklistAnswerViewPage({
   }
 
   // Para poder renderizar el Select de equipo (aunque sea readOnly), necesitamos opciones.
-  const equipments = (await fetchAllEquipment())
+  const [allEquipment, customers, employees, currentUserProfile] = await Promise.all([
+    fetchAllEquipment(),
+    fetchActiveCustomersForChecklist(),
+    fetchActiveEmployeesForChecklist(),
+    getCurrentProfile(),
+  ]);
+
+  const equipments = allEquipment
     .filter((equipment) => equipment.model && equipment.brand)
     .map((equipment) => ({
       label: equipment.domain
@@ -57,12 +65,12 @@ export default async function ChecklistAnswerViewPage({
       sub_type_name: equipment.subType?.name || 'N/A',
     }));
 
-  const currentUserProfile = await getCurrentProfile();
   const currentUser = currentUserProfile && currentUserProfile.length > 0 ? currentUserProfile[0] : null;
 
   const answerData = normalizedAnswer.answer_data as any;
   const defaultAnswers = {
     equipment_id: normalizedAnswer.equipment_id,
+    customer_id: answerData?.customer_id || '',
     chofer: answerData?.chofer || '',
     fecha: answerData?.fecha || '',
     hora: answerData?.hora || '',
@@ -78,6 +86,10 @@ export default async function ChecklistAnswerViewPage({
   const selectedEquipment = equipments.find((eq) => eq.value === normalizedAnswer.equipment_id);
   const dominio = selectedEquipment?.domain || selectedEquipment?.serie || '';
   const tipoEquipo = selectedEquipment?.sub_type_name || selectedEquipment?.type_name || '';
+
+  // Obtener nombre del cliente para el PDF
+  const selectedCustomer = customers.find((c) => c.id === answerData?.customer_id);
+  const clienteName = selectedCustomer?.name || '';
 
   // Preparar secciones con los campos necesarios para el PDF
   const sections = (template.checklist_template_sections || []).map((section: any) => ({
@@ -110,6 +122,7 @@ export default async function ChecklistAnswerViewPage({
           sections={sections}
           dominio={dominio}
           tipoEquipo={tipoEquipo}
+          cliente={clienteName}
           observaciones={normalizedAnswer.observations || answerData?.observaciones || ''}
           fechaInspeccion={answerData?.fecha || ''}
           chofer={answerData?.chofer || ''}
@@ -119,9 +132,12 @@ export default async function ChecklistAnswerViewPage({
       <NormalizedChecklistForm
         template={template as any}
         equipments={equipments}
+        customers={customers}
+        employees={employees}
         currentUser={currentUser}
         defaultAnswers={defaultAnswers}
         defaultHitchEquipmentId={hitchEquipmentId}
+        defaultCustomerId={answerData?.customer_id || null}
         readOnly
       />
     </div>

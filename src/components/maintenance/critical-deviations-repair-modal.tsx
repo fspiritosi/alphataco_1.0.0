@@ -1,6 +1,5 @@
 'use client';
 
-import { createRepairRequestsFromDeviations } from '@/app/maintenance/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { assignRepairTypesToDeviations } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
 import { cn } from '@/lib/utils';
 import type { TypeOfRepair } from '@/types/types';
 import { AlertCircle, Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react';
@@ -129,26 +129,33 @@ export function CriticalDeviationsRepairModal({
     }
 
     try {
-      const result = await createRepairRequestsFromDeviations(
+      // Construir las asignaciones: cada desvío con su tipo de reparación
+      const assignments: Array<{ deviationId: string; repairTypeId: string }> = [];
+
+      for (const request of repairRequests) {
+        for (const deviationId of request.selected_deviations) {
+          assignments.push({
+            deviationId,
+            repairTypeId: request.repair_type_id,
+          });
+        }
+      }
+
+      const result = await assignRepairTypesToDeviations({
         equipmentId,
-        repairRequests.map((r) => ({
-          repair_type_id: r.repair_type_id,
-          selected_deviations: r.selected_deviations,
-          description: r.description || undefined,
-          images: r.images,
-        }))
-      );
+        assignments,
+      });
 
       if (result.ok) {
-        toast.success('Solicitudes de reparación creadas exitosamente');
+        toast.success('Tipos de reparación asignados exitosamente');
         onComplete();
         handleClose();
       } else {
-        toast.error(result.error || 'Error al crear las solicitudes de reparación');
+        toast.error(result.error || 'Error al asignar los tipos de reparación');
       }
     } catch (error) {
-      console.error('Error creating repair requests:', error);
-      toast.error('Ocurrió un error al crear las solicitudes de reparación');
+      console.error('Error assigning repair types:', error);
+      toast.error('Ocurrió un error al asignar los tipos de reparación');
     }
   };
 

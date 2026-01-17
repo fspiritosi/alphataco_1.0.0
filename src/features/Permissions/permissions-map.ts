@@ -844,6 +844,44 @@ export const PERMISSIONS = {
             parent: 'type_of_repairs',
             allowedActions: ['view'],
           },
+          // Nuevas tabs del flujo de mantenimiento con aprobaciones
+          maintenance_requests: {
+            slug: 'maintenance_requests',
+            name: 'Solicitudes de Mantenimiento',
+            tabId: '60000000-0000-0000-0000-000000000020',
+            parent: 'type_of_repairs',
+            allowedActions: ['view', 'update'], // update = aprobar/denegar
+          },
+          maintenance_orders: {
+            slug: 'maintenance_orders',
+            name: 'Pedidos de Mantenimiento',
+            tabId: '60000000-0000-0000-0000-000000000021',
+            parent: 'type_of_repairs',
+            allowedActions: ['view', 'update'], // update = planificar
+          },
+          maintenance_operations: {
+            slug: 'maintenance_operations',
+            name: 'Operaciones',
+            tabId: '60000000-0000-0000-0000-000000000022',
+            parent: 'type_of_repairs',
+            allowedActions: ['view', 'update'], // update = aprobar entrada/rechazar
+            subtabs: {
+              operations_pending: {
+                slug: 'operations_pending',
+                name: 'Pendientes de Ejecutar',
+                tabId: '60000000-0000-0000-0000-000000000023',
+                parent: 'maintenance_operations',
+                allowedActions: ['view', 'update'],
+              },
+              operations_planned: {
+                slug: 'operations_planned',
+                name: 'Planificadas (Vista)',
+                tabId: '60000000-0000-0000-0000-000000000024',
+                parent: 'maintenance_operations',
+                allowedActions: ['view'],
+              },
+            },
+          },
         },
       },
     },

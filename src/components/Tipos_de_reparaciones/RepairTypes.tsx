@@ -1,5 +1,8 @@
+import { OperacionesTabContent } from '@/features/Mantenimiento/Operaciones';
+import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
+import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { AlertTriangle, ClipboardList, Plus, Settings, Users } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardCheck, ClipboardList, Plus, Settings, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
 import EquipmentsWithDeviationsWrapper from './EquipmentsWithDeviationsWrapper';
 import MaintenanceGroupsWrapper from './MaintenanceGroupsWrapper';
@@ -100,6 +103,55 @@ export default async function RepairTypes({
       content: (
         <Suspense fallback={<div>Cargando grupos...</div>}>
           <MaintenanceGroupsWrapper />
+        </Suspense>
+      ),
+    },
+    // Nuevas tabs del flujo de mantenimiento con aprobaciones
+    {
+      value: 'maintenance_requests',
+      label: (
+        <span className="flex items-center gap-2">
+          <ClipboardCheck className="h-4 w-4" />
+          Solicitudes de Mantenimiento
+        </span>
+      ),
+      moduleSlug: 'mantenimiento' as const,
+      tabSlug: 'maintenance_requests' as const,
+      content: (
+        <Suspense fallback={<div>Cargando solicitudes de mantenimiento...</div>}>
+          <SolicitudesMantenimientoTabContent />
+        </Suspense>
+      ),
+    },
+    {
+      value: 'maintenance_orders',
+      label: (
+        <span className="flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          Pedidos de Mantenimiento
+        </span>
+      ),
+      moduleSlug: 'mantenimiento' as const,
+      tabSlug: 'maintenance_orders' as const,
+      content: (
+        <Suspense fallback={<div>Cargando pedidos de mantenimiento...</div>}>
+          <PedidosMantenimientoTabContent />
+        </Suspense>
+      ),
+    },
+    {
+      value: 'maintenance_operations',
+      label: (
+        <span className="flex items-center gap-2">
+          <Wrench className="h-4 w-4" />
+          Operaciones
+        </span>
+      ),
+      moduleSlug: 'mantenimiento' as const,
+      tabSlug: 'maintenance_operations' as const,
+      content: (
+        <Suspense fallback={<div>Cargando operaciones...</div>}>
+          <OperacionesTabContent searchParams={searchParams} permissions={permissions} />
         </Suspense>
       ),
     },

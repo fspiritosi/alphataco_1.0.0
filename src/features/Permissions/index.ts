@@ -27,7 +27,6 @@ export {
   getUserRoles,
   removeRoleFromUser,
   removeUserPermission,
-  requirePermission,
   setRolePermissions,
   setUserPermission,
   updateRole,
@@ -41,7 +40,6 @@ export {
   getUserAccessibleModulesServer,
   getUserPermissionsMapServer,
   getUserPermissionsServer,
-  requirePermissionServer,
 } from './actionsServer';
 
 // Mapa de permisos y tipos

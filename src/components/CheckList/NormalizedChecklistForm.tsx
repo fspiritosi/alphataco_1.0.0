@@ -13,14 +13,16 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { CreateChecklistAnswer } from '@/features/Checklist';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import type { TypeOfRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Calendar, Check, Link as LinkIcon, X } from 'lucide-react';
+import { AlertCircle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } from 'lucide-react';
 import moment from 'moment';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -57,10 +59,23 @@ type Equipment = {
   sub_type_name?: string | null;
 };
 
+type Customer = {
+  id: string;
+  name: string;
+};
+
+type Employee = {
+  id: string;
+  fullName: string;
+  document?: string | null;
+};
+
 type NormalizedChecklistFormProps = {
   shouldDisabledInputs?: boolean;
   template: NonNullable<ChecklistTemplate>;
   equipments: Equipment[];
+  customers?: Customer[];
+  employees?: Employee[];
   currentUser: Awaited<ReturnType<typeof import('@/app/server/GET/actions').getCurrentProfile>>[number] | null;
   defaultEquipmentId?: string;
   defaultAnswers?: any;
@@ -69,6 +84,7 @@ type NormalizedChecklistFormProps = {
   defaultEmployeeName?: string;
   defaultKilometer?: string;
   defaultHitchEquipmentId?: string | null; // ID del enganche cuando está en modo view
+  defaultCustomerId?: string | null; // ID del cliente cuando está en modo view
 };
 
 /**
@@ -77,6 +93,7 @@ type NormalizedChecklistFormProps = {
 const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
   const schema: Record<string, z.ZodTypeAny> = {
     equipment_id: z.string().min(1, 'Debe seleccionar un equipo'),
+    customer_id: z.string().optional(), // Cliente opcional
     chofer: z.string().min(1, 'Debe ingresar el nombre del chofer'),
     fecha: z.string().min(1, 'Debe ingresar la fecha'),
     hora: z.string().min(1, 'Debe ingresar la hora'),
@@ -185,10 +202,12 @@ const generateDefaultValues = (
   defaultAnswers?: any,
   defaultEquipmentId?: string,
   defaultEmployeeName?: string,
-  defaultKilometer?: string
+  defaultKilometer?: string,
+  defaultCustomerId?: string | null
 ) => {
   const defaults: Record<string, any> = {
     equipment_id: defaultEquipmentId || '',
+    customer_id: defaultCustomerId || '',
     chofer: defaultEmployeeName || '',
     fecha: moment().format('YYYY-MM-DD'),
     hora: moment().format('HH:mm'),
@@ -199,6 +218,7 @@ const generateDefaultValues = (
   // Si hay respuestas por defecto, cargarlas
   if (defaultAnswers) {
     if (defaultAnswers.equipment_id) defaults.equipment_id = defaultAnswers.equipment_id;
+    if (defaultAnswers.customer_id) defaults.customer_id = defaultAnswers.customer_id;
     if (defaultAnswers.chofer) defaults.chofer = defaultAnswers.chofer;
     if (defaultAnswers.fecha) defaults.fecha = defaultAnswers.fecha;
     if (defaultAnswers.hora) defaults.hora = defaultAnswers.hora;
@@ -651,6 +671,8 @@ export function NormalizedChecklistForm({
   shouldDisabledInputs = true,
   template,
   equipments,
+  customers = [],
+  employees = [],
   currentUser,
   defaultEquipmentId,
   defaultAnswers,
@@ -659,6 +681,7 @@ export function NormalizedChecklistForm({
   defaultEmployeeName,
   defaultKilometer,
   defaultHitchEquipmentId,
+  defaultCustomerId,
 }: NormalizedChecklistFormProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -668,6 +691,7 @@ export function NormalizedChecklistForm({
   const [pendingDeviations, setPendingDeviations] = useState<any[]>([]);
   const [repairTypes, setRepairTypes] = useState<TypeOfRepair>([]);
   const [currentEquipmentId, setCurrentEquipmentId] = useState<string | undefined>(defaultEquipmentId);
+  const [createdAnswerId, setCreatedAnswerId] = useState<string | null>(null);
 
   // Estado para manejo de enganche (COD-290)
   const [selectedHitchEquipment, setSelectedHitchEquipment] = useState<string | null>(defaultHitchEquipmentId || null);
@@ -683,8 +707,16 @@ export function NormalizedChecklistForm({
   // Generar schema y valores por defecto
   const schema = useMemo(() => generateChecklistSchema(template), [template]);
   const defaultValues = useMemo(
-    () => generateDefaultValues(template, defaultAnswers, defaultEquipmentId, defaultEmployeeName, defaultKilometer),
-    [template, defaultAnswers, defaultEquipmentId, defaultEmployeeName, defaultKilometer]
+    () =>
+      generateDefaultValues(
+        template,
+        defaultAnswers,
+        defaultEquipmentId,
+        defaultEmployeeName,
+        defaultKilometer,
+        defaultCustomerId
+      ),
+    [template, defaultAnswers, defaultEquipmentId, defaultEmployeeName, defaultKilometer, defaultCustomerId]
   );
 
   const form = useForm({
@@ -864,26 +896,13 @@ export function NormalizedChecklistForm({
       });
 
       // Guardar en checklist_answers
-      const { CreateChecklistAnswer, UpdateVehicleKilometerAnonymous } = await import('@/app/server/UPDATE/actions');
-
-      // Obtener el kilometraje original del equipo
-      const selectedEquipment = equipments.find((eq) => eq.value === data.equipment_id);
-      const originalKilometer = selectedEquipment?.kilometer ?? '0';
-      const newKilometer = data.kilometraje || originalKilometer;
-
-      // Si el kilometraje cambió, actualizarlo en el equipo
-      if (newKilometer !== originalKilometer && data.equipment_id) {
-        try {
-          await UpdateVehicleKilometerAnonymous(data.equipment_id, newKilometer);
-        } catch (error) {
-          logger.error('Error updating vehicle kilometer', { data: { error } });
-          // No bloqueamos el guardado del checklist si falla la actualización del kilometraje
-        }
-      }
+      // NOTA: El kilometraje ya NO se actualiza directamente aquí.
+      // Se actualizará cuando se apruebe la entrada a taller en el nuevo flujo de mantenimiento.
 
       // Guardar checklist para el equipo UT
       const checklistAnswer = await CreateChecklistAnswer(template.id, {
         equipment_id: data.equipment_id,
+        customer_id: data.customer_id || null,
         employee_id: defaultEmployeeId,
         chofer: data.chofer,
         fecha: data.fecha,
@@ -895,6 +914,7 @@ export function NormalizedChecklistForm({
       });
 
       setCurrentEquipmentId(data.equipment_id);
+      setCreatedAnswerId(checklistAnswer.id);
 
       // Si hay enganche seleccionado, guardar el mismo checklist para el equipo enganchado (COD-290)
       // IMPORTANTE: Los desvíos SOLO se crean en la unidad tractora, NO en el enganche
@@ -902,6 +922,7 @@ export function NormalizedChecklistForm({
         try {
           const hitchChecklistAnswer = await CreateChecklistAnswer(template.id, {
             equipment_id: selectedHitchEquipment,
+            customer_id: data.customer_id || null,
             employee_id: defaultEmployeeId,
             chofer: data.chofer,
             fecha: data.fecha,
@@ -941,7 +962,7 @@ export function NormalizedChecklistForm({
 
           const { toast } = await import('sonner');
           toast.success('Checklist guardado', {
-            description: `Se detectaron ${failedCriticalItems.length} items críticos con fallos. Por favor, genera las solicitudes de reparación.`,
+            description: `Se detectaron ${failedCriticalItems.length} items críticos con fallos. Por favor, asigna los desvíos a solicitudes de reparación.`,
           });
         } catch (error) {
           logger.error('Error fetching deviations or repair types', { data: { error } });
@@ -950,19 +971,18 @@ export function NormalizedChecklistForm({
             description: `Se detectaron ${failedCriticalItems.length} items críticos con fallos`,
           });
 
-          // Si no se puede cargar el modal, redirigir normalmente
+          // Si no se puede cargar el modal, redirigir a la página de la respuesta creada
           setTimeout(() => {
-            // Detectar si venimos de /dashboard/forms o /maintenance
             if (pathname?.includes('/dashboard/forms/')) {
-              // Extraer el ID del formulario de la ruta actual
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1]) {
+              if (formIdMatch && formIdMatch[1] && checklistAnswer.id) {
+                router.push(`/dashboard/forms/${formIdMatch[1]}/view/${checklistAnswer.id}`);
+              } else if (formIdMatch && formIdMatch[1]) {
                 router.push(`/dashboard/forms/${formIdMatch[1]}`);
               } else {
                 router.push('/dashboard/forms');
               }
             } else {
-              // Si venimos de /maintenance, redirigir a la página de checklists del equipo
               router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
             }
             router.refresh();
@@ -972,13 +992,14 @@ export function NormalizedChecklistForm({
         const { toast } = await import('sonner');
         toast.success('Checklist guardado correctamente');
 
-        // Redirigir según la ruta de origen
+        // Redirigir según la ruta de origen - a la página de la respuesta creada
         setTimeout(() => {
-          // Detectar si venimos de /dashboard/forms o /maintenance
           if (pathname?.includes('/dashboard/forms/')) {
-            // Extraer el ID del formulario de la ruta actual
             const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-            if (formIdMatch && formIdMatch[1]) {
+            if (formIdMatch && formIdMatch[1] && checklistAnswer.id) {
+              // Navegar a la página de visualización de la respuesta creada
+              router.push(`/dashboard/forms/${formIdMatch[1]}/view/${checklistAnswer.id}`);
+            } else if (formIdMatch && formIdMatch[1]) {
               router.push(`/dashboard/forms/${formIdMatch[1]}`);
             } else {
               router.push('/dashboard/forms');
@@ -1145,6 +1166,34 @@ export function NormalizedChecklistForm({
                         )}
                       </div>
                     )}
+
+                    {/* Campo de cliente */}
+                    {customers.length > 0 && (
+                      <FormField
+                        control={form.control}
+                        name="customer_id"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cliente</FormLabel>
+                            <FormControl>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={readOnly}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar cliente (opcional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {customers.map((customer) => (
+                                    <SelectItem key={customer.id} value={customer.id}>
+                                      {customer.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1152,11 +1201,61 @@ export function NormalizedChecklistForm({
                       control={form.control}
                       name="chofer"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="flex flex-col">
                           <FormLabel>Chofer</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="Nombre del chofer" disabled={shouldDisabledInputs} />
-                          </FormControl>
+                          {employees.length > 0 ? (
+                            <Popover>
+                              <PopoverTrigger asChild disabled={readOnly}>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                                    disabled={readOnly}
+                                  >
+                                    {field.value || 'Buscar chofer...'}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[400px] p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="Buscar por nombre o documento..." />
+                                  <CommandList>
+                                    <CommandEmpty>No se encontraron empleados.</CommandEmpty>
+                                    <CommandGroup>
+                                      {employees.map((employee) => (
+                                        <CommandItem
+                                          key={employee.id}
+                                          value={`${employee.fullName} ${employee.document || ''}`}
+                                          onSelect={() => {
+                                            field.onChange(employee.fullName);
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              'mr-2 h-4 w-4',
+                                              field.value === employee.fullName ? 'opacity-100' : 'opacity-0'
+                                            )}
+                                          />
+                                          <div className="flex flex-col">
+                                            <span>{employee.fullName}</span>
+                                            {employee.document && (
+                                              <span className="text-xs text-muted-foreground">{employee.document}</span>
+                                            )}
+                                          </div>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          ) : (
+                            <FormControl>
+                              <Input {...field} placeholder="Nombre del chofer" disabled={shouldDisabledInputs} />
+                            </FormControl>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1384,10 +1483,12 @@ export function NormalizedChecklistForm({
           isOpen={showDeviationsModal}
           onClose={() => {
             setShowDeviationsModal(false);
-            // Redirigir según la ruta de origen
+            // Redirigir a la página de la respuesta creada
             if (pathname?.includes('/dashboard/forms/')) {
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1]) {
+              if (formIdMatch && formIdMatch[1] && createdAnswerId) {
+                router.push(`/dashboard/forms/${formIdMatch[1]}/view/${createdAnswerId}`);
+              } else if (formIdMatch && formIdMatch[1]) {
                 router.push(`/dashboard/forms/${formIdMatch[1]}`);
               } else {
                 router.push('/dashboard/forms');
@@ -1399,10 +1500,12 @@ export function NormalizedChecklistForm({
           }}
           onComplete={() => {
             setShowDeviationsModal(false);
-            // Redirigir según la ruta de origen
+            // Redirigir a la página de la respuesta creada
             if (pathname?.includes('/dashboard/forms/')) {
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1]) {
+              if (formIdMatch && formIdMatch[1] && createdAnswerId) {
+                router.push(`/dashboard/forms/${formIdMatch[1]}/view/${createdAnswerId}`);
+              } else if (formIdMatch && formIdMatch[1]) {
                 router.push(`/dashboard/forms/${formIdMatch[1]}`);
               } else {
                 router.push('/dashboard/forms');

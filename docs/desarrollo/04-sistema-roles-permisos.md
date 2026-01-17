@@ -529,23 +529,7 @@ async function handleAction() {
 }
 ```
 
-### 3. Requerir Permiso (lanza error si no tiene)
-
-```typescript
-import { requirePermission } from '@/features/Permissions/actions';
-
-async function serverAction() {
-  'use server';
-
-  // Lanza error si el usuario no tiene el permiso
-  await requirePermission('empresa', 'clientes', 'delete');
-
-  // Proceder con la acción
-  await deleteClient(clientId);
-}
-```
-
-### 4. Obtener Módulos Accesibles (para Sidebar)
+### 3. Obtener Módulos Accesibles (para Sidebar)
 
 ```typescript
 import { getUserAccessibleModules } from '@/features/Permissions/actions';

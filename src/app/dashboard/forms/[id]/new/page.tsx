@@ -4,7 +4,9 @@ import {
   fetchFilteredEquipmentForChecklist,
   getCurrentProfile,
 } from '@/app/server/GET/actions';
+import BackButton from '@/components/BackButton';
 import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
+import { fetchActiveCustomersForChecklist, fetchActiveEmployeesForChecklist } from '@/features/Checklist';
 import { mapEquipmentToChecklistFormat } from '@/lib/utils';
 
 async function page({ params }: { params: Promise<{ id: string }> }) {
@@ -22,21 +24,38 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
 
   // Obtener equipos filtrados optimizados (solo si es checklist normalizado)
   let equipments: Awaited<ReturnType<typeof mapEquipmentToChecklistFormat>>[] = [];
+  let customers: { id: string; name: string }[] = [];
+  let employees: { id: string; fullName: string; document: string | null }[] = [];
 
   if (checklistTemplate) {
     // Usar función optimizada que filtra directamente en la base de datos
-    const filteredEquipments = await fetchFilteredEquipmentForChecklist(resolvedParams.id);
+    const [filteredEquipments, activeCustomers, activeEmployees] = await Promise.all([
+      fetchFilteredEquipmentForChecklist(resolvedParams.id),
+      fetchActiveCustomersForChecklist(),
+      fetchActiveEmployeesForChecklist(),
+    ]);
     equipments = filteredEquipments.map(mapEquipmentToChecklistFormat);
+    customers = activeCustomers;
+    employees = activeEmployees;
   }
 
   // Si es un checklist de la nueva estructura
   if (checklistTemplate) {
     return (
       <div className="px-7 py-4">
+        <div className="flex items-center gap-4 mb-6">
+          <BackButton />
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">{checklistTemplate.name}</h1>
+            {checklistTemplate.description && <p className="text-muted-foreground">{checklistTemplate.description}</p>}
+          </div>
+        </div>
         <NormalizedChecklistForm
           shouldDisabledInputs={false}
           template={checklistTemplate}
           equipments={equipments}
+          customers={customers}
+          employees={employees}
           currentUser={currentUser}
         />
       </div>

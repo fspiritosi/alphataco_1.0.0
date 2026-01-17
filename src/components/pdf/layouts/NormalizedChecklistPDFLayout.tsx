@@ -44,6 +44,7 @@ interface NormalizedChecklistPDFLayoutProps {
   dominio?: string;
   tipoEquipo?: string;
   fluidoTransportable?: string;
+  cliente?: string;
   observaciones?: string;
   fechaInspeccion?: string;
   // Nombre del chofer (TODO: reemplazar por imagen de firma cuando esté disponible)
@@ -60,6 +61,13 @@ const colors = {
   white: '#FFFFFF',
   headerBg: '#E8E8E8',
   sectionHeaderBg: '#D9D9D9',
+  // Colores para estados B/M (sutiles)
+  goodBg: '#d4edda', // Verde claro para B (Bien)
+  badBg: '#f8d7da', // Rojo claro para M (Mal)
+  // Colores para fechas según vencimiento
+  expiredBg: '#f8d7da', // Rojo claro - fecha vencida
+  warningBg: '#fff3cd', // Amarillo claro - próxima a vencer (≤30 días)
+  validBg: '#d4edda', // Verde claro - vigente (>30 días)
 };
 
 const styles = StyleSheet.create({
@@ -110,18 +118,18 @@ const styles = StyleSheet.create({
   titleSubCell: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Alineado a la izquierda (centrado vertical)
     borderRightWidth: 1,
     borderRightColor: colors.black,
     paddingVertical: 1,
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
   },
   titleSubCellLast: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Alineado a la izquierda (centrado vertical)
     paddingVertical: 1,
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
   },
   titleSubLabel: {
     fontSize: 5.5,
@@ -419,6 +427,66 @@ interface ProcessedSection {
   }>;
 }
 
+// Interfaz para respuesta formateada con color
+interface FormattedAnswer {
+  text: string;
+  backgroundColor?: string;
+}
+
+// Función para obtener el color de fondo según el estado de la fecha
+function getDateBackgroundColor(dateStr: string): string | undefined {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Calcular diferencia en días
+  const diffTime = date.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    // Fecha vencida
+    return colors.expiredBg;
+  } else if (diffDays <= 30) {
+    // Próxima a vencer (≤30 días)
+    return colors.warningBg;
+  } else {
+    // Vigente (>30 días)
+    return colors.validBg;
+  }
+}
+
+// Función para formatear las respuestas con color de fondo
+function formatAnswer(answer?: string): FormattedAnswer {
+  if (!answer) return { text: '' };
+
+  // Detectar si es una fecha en formato ISO (YYYY-MM-DD)
+  const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (isoDateRegex.test(answer)) {
+    // Convertir de YYYY-MM-DD a DD/MM/YYYY
+    const [year, month, day] = answer.split('-');
+    return {
+      text: `${day}/${month}/${year}`,
+      backgroundColor: getDateBackgroundColor(answer),
+    };
+  }
+
+  // Mapear valores comunes a B/M/NC
+  const lowerAnswer = answer.toLowerCase();
+  if (lowerAnswer === 'bien' || lowerAnswer === 'b' || lowerAnswer === 'ok' || lowerAnswer === 'si') {
+    return { text: 'B', backgroundColor: colors.goodBg };
+  }
+  if (lowerAnswer === 'mal' || lowerAnswer === 'm' || lowerAnswer === 'no') {
+    return { text: 'M', backgroundColor: colors.badBg };
+  }
+  if (lowerAnswer === 'nc' || lowerAnswer === 'no corresponde' || lowerAnswer === 'n/a') {
+    return { text: 'NC' };
+  }
+
+  // Si es otro valor, mostrar las primeras 3 letras
+  return { text: answer.substring(0, 3).toUpperCase() };
+}
+
 // Componente para renderizar una sección con sus items
 const ChecklistSectionComponent = ({
   section,
@@ -473,10 +541,11 @@ const ChecklistSectionComponent = ({
         const answer = answers?.[item.code];
         const answerLeft = answers?.[`${item.code}_left`];
         const answerRight = answers?.[`${item.code}_right`];
-        // Formatear la respuesta para mostrar
-        const displayAnswer = isEmpty ? '' : formatAnswer(answer);
-        const displayAnswerLeft = isEmpty ? '' : formatAnswer(answerLeft);
-        const displayAnswerRight = isEmpty ? '' : formatAnswer(answerRight);
+        // Formatear la respuesta para mostrar (con colores de fondo)
+        const emptyAnswer: FormattedAnswer = { text: '' };
+        const displayAnswer = isEmpty ? emptyAnswer : formatAnswer(answer);
+        const displayAnswerLeft = isEmpty ? emptyAnswer : formatAnswer(answerLeft);
+        const displayAnswerRight = isEmpty ? emptyAnswer : formatAnswer(answerRight);
 
         return (
           <View key={index} style={styles.itemRow}>
@@ -494,23 +563,43 @@ const ChecklistSectionComponent = ({
               item.requiresSideValidation ? (
                 // Celda dividida para items con IZQ/DER
                 <View style={styles.itemEstadoSplit}>
-                  <View style={styles.itemEstadoSplitCellLeft}>
-                    <Text style={styles.itemEstadoText}>{displayAnswerLeft}</Text>
+                  <View
+                    style={[
+                      styles.itemEstadoSplitCellLeft,
+                      displayAnswerLeft.backgroundColor ? { backgroundColor: displayAnswerLeft.backgroundColor } : {},
+                    ]}
+                  >
+                    <Text style={styles.itemEstadoText}>{displayAnswerLeft.text}</Text>
                   </View>
-                  <View style={styles.itemEstadoSplitCell}>
-                    <Text style={styles.itemEstadoText}>{displayAnswerRight}</Text>
+                  <View
+                    style={[
+                      styles.itemEstadoSplitCell,
+                      displayAnswerRight.backgroundColor ? { backgroundColor: displayAnswerRight.backgroundColor } : {},
+                    ]}
+                  >
+                    <Text style={styles.itemEstadoText}>{displayAnswerRight.text}</Text>
                   </View>
                 </View>
               ) : (
                 // Celda normal pero con el ancho de la dividida (para alineación)
-                <View style={styles.itemEstado}>
-                  <Text style={styles.itemEstadoText}>{displayAnswer}</Text>
+                <View
+                  style={[
+                    styles.itemEstado,
+                    displayAnswer.backgroundColor ? { backgroundColor: displayAnswer.backgroundColor } : {},
+                  ]}
+                >
+                  <Text style={styles.itemEstadoText}>{displayAnswer.text}</Text>
                 </View>
               )
             ) : (
               // Celda normal
-              <View style={styles.itemEstado}>
-                <Text style={styles.itemEstadoText}>{displayAnswer}</Text>
+              <View
+                style={[
+                  styles.itemEstado,
+                  displayAnswer.backgroundColor ? { backgroundColor: displayAnswer.backgroundColor } : {},
+                ]}
+              >
+                <Text style={styles.itemEstadoText}>{displayAnswer.text}</Text>
               </View>
             )}
           </View>
@@ -519,34 +608,6 @@ const ChecklistSectionComponent = ({
     </>
   );
 };
-
-// Función para formatear las respuestas
-function formatAnswer(answer?: string): string {
-  if (!answer) return '';
-
-  // Detectar si es una fecha en formato ISO (YYYY-MM-DD)
-  const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (isoDateRegex.test(answer)) {
-    // Convertir de YYYY-MM-DD a DD/MM/YYYY
-    const [year, month, day] = answer.split('-');
-    return `${day}/${month}/${year}`;
-  }
-
-  // Mapear valores comunes a B/M/NC
-  const lowerAnswer = answer.toLowerCase();
-  if (lowerAnswer === 'bien' || lowerAnswer === 'b' || lowerAnswer === 'ok' || lowerAnswer === 'si') {
-    return 'B';
-  }
-  if (lowerAnswer === 'mal' || lowerAnswer === 'm' || lowerAnswer === 'no') {
-    return 'M';
-  }
-  if (lowerAnswer === 'nc' || lowerAnswer === 'no corresponde' || lowerAnswer === 'n/a') {
-    return 'NC';
-  }
-
-  // Si es otro valor, mostrar las primeras 3 letras
-  return answer.substring(0, 3).toUpperCase();
-}
 
 // Función para procesar las secciones del sistema al formato interno
 function processSections(sections: ChecklistTemplateSection[]): ProcessedSection[] {
@@ -673,6 +734,7 @@ export const NormalizedChecklistPDFLayout = ({
   dominio = '',
   tipoEquipo = '',
   fluidoTransportable = '',
+  cliente = '',
   observaciones = '',
   fechaInspeccion = '',
   // TODO: reemplazar por imagen de firma cuando esté disponible
@@ -725,6 +787,10 @@ export const NormalizedChecklistPDFLayout = ({
               <View style={styles.titleSubCell}>
                 <Text style={styles.titleSubLabel}>Tipo de Equipo:</Text>
                 <Text style={styles.titleSubValue}>{tipoEquipo}</Text>
+              </View>
+              <View style={styles.titleSubCell}>
+                <Text style={styles.titleSubLabel}>Cliente:</Text>
+                <Text style={styles.titleSubValue}>{cliente}</Text>
               </View>
               <View style={styles.titleSubCellLast}>
                 <Text style={styles.titleSubLabel}>Fluido Transportable:</Text>
