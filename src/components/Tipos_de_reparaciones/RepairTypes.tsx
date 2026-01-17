@@ -1,3 +1,5 @@
+import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
+import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
 import { OperacionesTabContent } from '@/features/Mantenimiento/Operaciones';
 import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/fallback';
 import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
@@ -7,7 +9,6 @@ import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMa
 import { TabsManagerServer } from '@/features/TabsManager';
 import { AlertTriangle, Calendar, ClipboardCheck, Plus, Settings, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
-import EquipmentsWithDeviationsWrapper from './EquipmentsWithDeviationsWrapper';
 import MaintenanceGroupsWrapper from './MaintenanceGroupsWrapper';
 import RepairEntryWrapper from './RepairEntryWrapper';
 import RepairTypeFormWrapper from './RepairTypeFormWrapper';
@@ -55,8 +56,8 @@ export default async function RepairTypes({
       moduleSlug: moduleSlug,
       tabSlug: 'equipments_with_deviations' as const,
       content: (
-        <Suspense fallback={<div>Cargando equipos con desvíos...</div>}>
-          <EquipmentsWithDeviationsWrapper />
+        <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
+          <EquiposConDesviosTabContent />
         </Suspense>
       ),
     },
