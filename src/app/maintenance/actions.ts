@@ -421,10 +421,16 @@ export type MaintenanceChecklist = Awaited<ReturnType<typeof fetchMaintenanceChe
 
 /**
  * Obtiene los desvíos pendientes (sin resolver) para un equipo
- * Solo retorna los desvíos que NO tienen solicitudes de reparación asociadas
+ * Solo retorna los desvíos que NO tienen:
+ * - Solicitudes de reparación asociadas (checklist_answer_repairs - sistema antiguo)
+ * - Solicitudes de mantenimiento asociadas (maintenance_request_items - sistema nuevo)
  */
 export async function getPendingDeviations(equipmentId: string) {
+  console.log('[getPendingDeviations] === INICIO ===');
+  console.log('[getPendingDeviations] equipmentId:', equipmentId);
+
   if (!equipmentId) {
+    console.log('[getPendingDeviations] No equipmentId, retornando []');
     return [];
   }
 
@@ -469,16 +475,31 @@ export async function getPendingDeviations(equipmentId: string) {
     .order('created_at', { ascending: false });
 
   if (deviationsError) {
-    console.error('[MAINTENANCE] Error fetching deviations:', deviationsError);
+    console.error('[getPendingDeviations] Error fetching deviations:', deviationsError);
     return [];
+  }
+
+  console.log('[getPendingDeviations] allDeviations encontrados:', allDeviations?.length || 0);
+  if (allDeviations && allDeviations.length > 0) {
+    console.log(
+      '[getPendingDeviations] Desvíos IDs:',
+      allDeviations.map((d) => d.id)
+    );
+    console.log(
+      '[getPendingDeviations] Desvíos item_labels:',
+      allDeviations.map((d) => d.item_label)
+    );
   }
 
   if (!allDeviations || allDeviations.length === 0) {
+    console.log('[getPendingDeviations] No hay desvíos, retornando []');
     return [];
   }
 
-  // Obtener los IDs de los desvíos que tienen solicitudes asociadas
+  // Obtener los IDs de los desvíos
   const deviationIds = allDeviations.map((d) => d.id);
+
+  // 1. Obtener desvíos resueltos en checklist_answer_repairs (sistema antiguo)
   const { data: resolvedDeviations, error: resolvedError } = await supabase
     .from('checklist_answer_repairs')
     .select('item_code, checklist_answer_id')
@@ -488,12 +509,40 @@ export async function getPendingDeviations(equipmentId: string) {
     );
 
   if (resolvedError) {
-    console.error('[MAINTENANCE] Error fetching resolved deviations:', resolvedError);
-    // Si hay error, retornar todos los desvíos como pendientes
-    return allDeviations;
+    console.error('[getPendingDeviations] Error fetching resolved deviations:', resolvedError);
   }
 
-  // Crear un set de los item_codes que están resueltos para cada checklist_answer_id
+  console.log('[getPendingDeviations] resolvedDeviations (sistema antiguo):', resolvedDeviations?.length || 0);
+  if (resolvedDeviations && resolvedDeviations.length > 0) {
+    console.log('[getPendingDeviations] Desvíos resueltos (antiguo):', JSON.stringify(resolvedDeviations));
+  }
+
+  // 2. Obtener desvíos que ya tienen solicitud de mantenimiento (sistema nuevo)
+  // IMPORTANTE: Incluir el estado de la maintenance_request para no filtrar los que están en pending_approval
+  const { data: maintenanceRequestItems, error: maintenanceError } = await supabase
+    .from('maintenance_request_items')
+    .select(
+      `
+      checklist_deviation_id,
+      maintenance_request_id,
+      maintenance_requests!inner(
+        id,
+        status
+      )
+    `
+    )
+    .in('checklist_deviation_id', deviationIds);
+
+  if (maintenanceError) {
+    console.error('[getPendingDeviations] Error fetching maintenance request items:', maintenanceError);
+  }
+
+  console.log('[getPendingDeviations] maintenanceRequestItems encontrados:', maintenanceRequestItems?.length || 0);
+  if (maintenanceRequestItems && maintenanceRequestItems.length > 0) {
+    console.log('[getPendingDeviations] Items con sus estados:', JSON.stringify(maintenanceRequestItems, null, 2));
+  }
+
+  // Crear un set de los item_codes que están resueltos para cada checklist_answer_id (sistema antiguo)
   const resolvedMap = new Map<string, Set<string>>();
   if (resolvedDeviations) {
     resolvedDeviations.forEach((resolved) => {
@@ -505,16 +554,72 @@ export async function getPendingDeviations(equipmentId: string) {
     });
   }
 
-  // Filtrar los desvíos: solo incluir aquellos que NO tienen una solicitud asociada
+  console.log('[getPendingDeviations] resolvedMap size:', resolvedMap.size);
+
+  // Crear un set de los IDs de desvíos que ya tienen solicitud de mantenimiento PROCESADA (sistema nuevo)
+  // Los desvíos con solicitudes en estado 'pending_approval' o 'rejected' NO se consideran "resueltos"
+  // porque aún necesitan ser procesados (asignar tipos de reparación, etc.)
+  const deviationsWithProcessedMaintenanceRequest = new Set<string>();
+  if (maintenanceRequestItems) {
+    maintenanceRequestItems.forEach((item) => {
+      if (item.checklist_deviation_id) {
+        // Solo marcar como "resuelto" si la solicitud ya fue aprobada (no está pending ni rechazada)
+        const requestStatus = (item.maintenance_requests as any)?.status;
+        console.log(`[getPendingDeviations] Item ${item.checklist_deviation_id} tiene status: ${requestStatus}`);
+        // Estados que indican que el desvío ya fue procesado y no debe aparecer en "pendientes"
+        const processedStatuses = [
+          'approved',
+          'pending_scheduling',
+          'scheduled',
+          'date_confirmed',
+          'in_workshop',
+          'completed',
+        ];
+        if (processedStatuses.includes(requestStatus)) {
+          console.log(
+            `[getPendingDeviations] Marcando ${item.checklist_deviation_id} como PROCESADO (status: ${requestStatus})`
+          );
+          deviationsWithProcessedMaintenanceRequest.add(item.checklist_deviation_id);
+        } else {
+          console.log(
+            `[getPendingDeviations] Item ${item.checklist_deviation_id} NO procesado (status: ${requestStatus}) - SE INCLUIRÁ`
+          );
+        }
+      }
+    });
+  }
+
+  console.log(
+    '[getPendingDeviations] deviationsWithProcessedMaintenanceRequest size:',
+    deviationsWithProcessedMaintenanceRequest.size
+  );
+  console.log('[getPendingDeviations] IDs procesados:', Array.from(deviationsWithProcessedMaintenanceRequest));
+
+  // Filtrar los desvíos: solo incluir aquellos que NO tienen una solicitud procesada en ninguno de los dos sistemas
   const pendingDeviations = allDeviations.filter((deviation) => {
-    const resolvedSet = resolvedMap.get(deviation.checklist_answer_id);
-    // Si no hay ningún desvío resuelto para este checklist_answer_id, el desvío está pendiente
-    if (!resolvedSet || resolvedSet.size === 0) {
-      return true;
+    // Verificar si tiene solicitud de mantenimiento ya procesada (sistema nuevo)
+    if (deviationsWithProcessedMaintenanceRequest.has(deviation.id)) {
+      console.log(`[getPendingDeviations] FILTRANDO ${deviation.id} - tiene maintenance request procesada`);
+      return false;
     }
-    // Si el item_code de este desvío NO está en los resueltos, está pendiente
-    return !resolvedSet.has(deviation.item_code);
+
+    // Verificar si tiene solicitud de reparación (sistema antiguo)
+    const resolvedSet = resolvedMap.get(deviation.checklist_answer_id);
+    if (resolvedSet && resolvedSet.has(deviation.item_code)) {
+      console.log(`[getPendingDeviations] FILTRANDO ${deviation.id} - tiene checklist_answer_repairs`);
+      return false;
+    }
+
+    console.log(`[getPendingDeviations] INCLUYENDO ${deviation.id} (${deviation.item_label})`);
+    return true;
   });
+
+  console.log('[getPendingDeviations] === RESULTADO FINAL ===');
+  console.log('[getPendingDeviations] pendingDeviations count:', pendingDeviations.length);
+  console.log(
+    '[getPendingDeviations] pendingDeviations IDs:',
+    pendingDeviations.map((d) => d.id)
+  );
 
   return pendingDeviations;
 }

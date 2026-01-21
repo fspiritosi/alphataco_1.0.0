@@ -13,6 +13,15 @@ interface SolicitudDetailDialogProps {
   onClose: () => void;
 }
 
+// Función para formatear el código de sección (sistema_electrico -> Sistema Electrico)
+const formatSectionCode = (code: string | null | undefined): string => {
+  if (!code) return '-';
+  return code
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetailDialogProps) {
   const statusConfig: Record<string, { label: string; variant: 'warning' | 'success' | 'destructive' }> = {
     pending_approval: { label: 'Pendiente de Aprobación', variant: 'warning' },
@@ -60,12 +69,17 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                   </div>
                 </div>
                 <div>
-                  <span className="text-sm text-muted-foreground">Creado por:</span>
+                  <span className="text-sm text-muted-foreground">Chofer:</span>
                   <p className="font-medium">
-                    {request.employees
-                      ? `${request.employees.firstname} ${request.employees.lastname}`
-                      : 'No especificado'}
+                    {(request.checklist_answers?.answer_data as { chofer?: string } | null)?.chofer ||
+                      (request.employees
+                        ? `${request.employees.firstname} ${request.employees.lastname}`
+                        : 'No especificado')}
                   </p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Creado por:</span>
+                  <p className="font-medium">{request.profile?.fullname || 'No especificado'}</p>
                 </div>
                 {request.kilometer && (
                   <div>
@@ -99,7 +113,7 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                       <div>
                         <p className="font-medium">{item.checklist_deviations?.item_label || 'Sin título'}</p>
                         <p className="text-sm text-muted-foreground">
-                          Sección: {item.checklist_deviations?.section_code || '-'}
+                          Sección: {formatSectionCode(item.checklist_deviations?.section_code)}
                         </p>
                       </div>
                       <Badge variant={itemStatusConfig[item.status]?.variant || 'secondary'}>

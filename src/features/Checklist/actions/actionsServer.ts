@@ -147,7 +147,15 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
         try {
           const deviationIds = deviationsData.map((d) => d.id);
 
-          await createMaintenanceRequest({
+          console.log('[CreateChecklistAnswer] === CREANDO MAINTENANCE REQUEST ===');
+          console.log('[CreateChecklistAnswer] checklistAnswerId:', data.id);
+          console.log('[CreateChecklistAnswer] equipmentId:', answerData.equipment_id);
+          console.log('[CreateChecklistAnswer] employeeId:', finalEmployeeId);
+          console.log('[CreateChecklistAnswer] userId:', user?.id);
+          console.log('[CreateChecklistAnswer] kilometer:', answerData.kilometraje);
+          console.log('[CreateChecklistAnswer] deviationIds:', deviationIds);
+
+          const maintenanceResult = await createMaintenanceRequest({
             checklistAnswerId: data.id,
             equipmentId: answerData.equipment_id,
             employeeId: finalEmployeeId || undefined,
@@ -156,19 +164,27 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
             deviationIds,
           });
 
+          console.log('[CreateChecklistAnswer] Maintenance request creada:', maintenanceResult);
+
           serverLogger.info('Solicitud de mantenimiento creada desde checklist', {
             data: {
               answerId: data.id,
               equipmentId: answerData.equipment_id,
               deviationsCount: deviationIds.length,
+              maintenanceRequestId: maintenanceResult?.id,
             },
           });
         } catch (maintenanceError) {
+          console.error('[CreateChecklistAnswer] ERROR creando maintenance request:', maintenanceError);
           serverLogger.error('Error creating maintenance request from checklist', {
             data: { error: maintenanceError },
           });
           // No lanzamos error para no fallar el guardado del checklist
         }
+      } else {
+        console.log('[CreateChecklistAnswer] NO se crea maintenance request porque:');
+        console.log('[CreateChecklistAnswer] - equipment_id:', answerData.equipment_id);
+        console.log('[CreateChecklistAnswer] - deviationsData:', deviationsData?.length || 0);
       }
     }
   }

@@ -1,0 +1,281 @@
+'use client';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { CalendarIcon, Loader2 } from 'lucide-react';
+import moment from 'moment';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { PLANIFICACION_QUERY_KEY } from '../hooks/usePlanificacion';
+import type { DesvioRowData } from './columns';
+
+const logger = new Logger('AsignarTallerDialog');
+
+interface Workshop {
+  id: string;
+  name: string;
+  workshop_type: string;
+}
+
+interface Sector {
+  id: string;
+  name: string;
+  workshop_id: string;
+}
+
+interface AsignarTallerDialogProps {
+  desvio: DesvioRowData;
+  open: boolean;
+  onClose: () => void;
+  workshops: Workshop[];
+  sectors: Sector[];
+}
+
+// Función para formatear el código de sección
+const formatSectionCode = (code: string | null | undefined): string => {
+  if (!code) return '-';
+  return code
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors }: AsignarTallerDialogProps) {
+  const queryClient = useQueryClient();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Estado del formulario
+  const [workshopId, setWorkshopId] = useState<string>(desvio.workshopId || '');
+  const [sectorId, setSectorId] = useState<string>(desvio.sectorId || '');
+  const [startDate, setStartDate] = useState<Date | undefined>(
+    desvio.startDate ? new Date(desvio.startDate) : undefined
+  );
+  const [endDate, setEndDate] = useState<Date | undefined>(desvio.endDate ? new Date(desvio.endDate) : undefined);
+
+  // Sectores filtrados por taller seleccionado
+  const availableSectors = workshopId ? sectors.filter((s) => s.workshop_id === workshopId) : [];
+
+  const handleWorkshopChange = (value: string) => {
+    setWorkshopId(value);
+    setSectorId(''); // Reset sector al cambiar taller
+  };
+
+  const handleSubmit = async () => {
+    // Validaciones
+    if (!workshopId) {
+      toast.error('Debe seleccionar un taller');
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      toast.error('Debe seleccionar el período de fechas');
+      return;
+    }
+
+    if (moment(startDate).isAfter(endDate)) {
+      toast.error('La fecha de inicio debe ser anterior a la fecha de fin');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // TODO: Implementar la actualización de asignación en el servidor
+      logger.info('Guardando asignación de desvío', {
+        data: {
+          desvioId: desvio.id,
+          orderId: desvio.orderId,
+          workshopId,
+          sectorId: sectorId || null,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      });
+
+      // Simulación - aquí iría la llamada al servidor
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      toast.success('Asignación guardada correctamente');
+      queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
+      onClose();
+    } catch (error) {
+      logger.error('Error al guardar asignación', { data: { error } });
+      toast.error('Error al guardar la asignación');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Asignar Taller y Período</DialogTitle>
+          <DialogDescription>Configure la asignación para este desvío</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Info del desvío */}
+          <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <p className="font-medium">{desvio.itemLabel}</p>
+                <p className="text-xs text-muted-foreground">
+                  Sección: {formatSectionCode(desvio.sectionCode)}
+                  {desvio.itemCode && ` | Código: ${desvio.itemCode}`}
+                </p>
+              </div>
+              {desvio.repairTypeName && <Badge variant="outline">{desvio.repairTypeName}</Badge>}
+            </div>
+            <Separator />
+            <div className="flex gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Equipo: </span>
+                <span className="font-medium">
+                  {desvio.vehicleDomain || desvio.vehicleSerie || 'Sin identificar'}
+                  {desvio.vehicleInternNumber && ` (#${desvio.vehicleInternNumber})`}
+                </span>
+              </div>
+              {desvio.workshopEntryDate && (
+                <div>
+                  <span className="text-muted-foreground">Entrada: </span>
+                  <span className="font-medium">{moment(desvio.workshopEntryDate).format('DD/MM/YYYY')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Formulario de asignación */}
+          <div className="space-y-4">
+            {/* Taller */}
+            <div className="space-y-2">
+              <Label htmlFor="workshop">Taller *</Label>
+              <Select value={workshopId} onValueChange={handleWorkshopChange}>
+                <SelectTrigger id="workshop">
+                  <SelectValue placeholder="Seleccionar taller" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workshops.map((workshop) => (
+                    <SelectItem key={workshop.id} value={workshop.id}>
+                      {workshop.name}
+                      <span className="text-muted-foreground text-xs ml-2">
+                        ({workshop.workshop_type === 'interno' ? 'Interno' : 'Externo'})
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sector */}
+            <div className="space-y-2">
+              <Label htmlFor="sector">Sector</Label>
+              <Select
+                value={sectorId}
+                onValueChange={setSectorId}
+                disabled={!workshopId || availableSectors.length === 0}
+              >
+                <SelectTrigger id="sector">
+                  <SelectValue
+                    placeholder={
+                      !workshopId
+                        ? 'Seleccione taller primero'
+                        : availableSectors.length === 0
+                          ? 'Sin sectores disponibles'
+                          : 'Seleccionar sector (opcional)'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSectors.map((sector) => (
+                    <SelectItem key={sector.id} value={sector.id}>
+                      {sector.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Período de fechas */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Fecha Inicio *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !startDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus locale={es} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Fecha Fin *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn('w-full justify-start text-left font-normal', !endDate && 'text-muted-foreground')}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      initialFocus
+                      locale={es}
+                      disabled={(date) => (startDate ? date < startDate : false)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Guardar Asignación
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

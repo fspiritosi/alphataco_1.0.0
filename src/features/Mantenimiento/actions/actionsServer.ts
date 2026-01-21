@@ -1,0 +1,189 @@
+'use server';
+
+import { Logger } from '@/lib/logger';
+import { supabaseServer } from '@/lib/supabase/server';
+
+const serverLogger = new Logger('Mantenimiento/actions');
+
+/**
+ * Obtiene los pedidos de mantenimiento que están en el taller (in_workshop)
+ * Para la vista de Planificación
+ */
+export async function getMaintenanceOrdersInWorkshop() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .select(
+      `
+      *,
+      vehicles(id, domain, serie, intern_number, condition, vehicle_type:type(id, name)),
+      maintenance_requests(id, kilometer, created_at),
+      maintenance_order_items(
+        *,
+        maintenance_request_items(
+          *,
+          checklist_deviations(id, item_code, item_label, section_code)
+        ),
+        types_of_repairs(id, name)
+      )
+    `
+    )
+    .eq('status', 'in_workshop')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    serverLogger.error('Error al obtener pedidos en taller', { data: { error } });
+    throw error;
+  }
+
+  return data || [];
+}
+
+export type MaintenanceOrdersInWorkshopData = Awaited<ReturnType<typeof getMaintenanceOrdersInWorkshop>>;
+export type MaintenanceOrderInWorkshopData = MaintenanceOrdersInWorkshopData[number];
+
+/**
+ * Obtiene los pedidos de mantenimiento pendientes de aprobación de fecha
+ * Para la vista de Pendientes de Ejecutar
+ */
+export async function getMaintenanceOrdersPendingApproval() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .select(
+      `
+      *,
+      vehicles(id, domain, serie, intern_number, condition, vehicle_type:type(id, name)),
+      maintenance_requests(id, kilometer, created_at),
+      maintenance_order_items(
+        *,
+        maintenance_request_items(
+          *,
+          checklist_deviations(id, item_code, item_label, section_code)
+        ),
+        types_of_repairs(id, name)
+      )
+    `
+    )
+    .eq('status', 'scheduled')
+    .order('scheduled_date', { ascending: true });
+
+  if (error) {
+    serverLogger.error('Error al obtener pedidos pendientes de aprobación', { data: { error } });
+    throw error;
+  }
+
+  return data || [];
+}
+
+export type MaintenanceOrdersPendingApprovalData = Awaited<ReturnType<typeof getMaintenanceOrdersPendingApproval>>;
+export type MaintenanceOrderPendingApprovalData = MaintenanceOrdersPendingApprovalData[number];
+
+/**
+ * Aprueba la fecha planificada de un pedido de mantenimiento
+ * Cambia el estado a 'date_confirmed' para permitir la entrada al taller
+ */
+export async function approveMaintenanceOrderDate(orderId: string) {
+  const supabase = await supabaseServer();
+
+  serverLogger.info('Aprobando fecha de pedido', { data: { orderId } });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .update({
+      status: 'date_confirmed',
+      date_approved_by: user?.id || null,
+      date_approved_at: new Date().toISOString(),
+    })
+    .eq('id', orderId)
+    .select()
+    .single();
+
+  if (error) {
+    serverLogger.error('Error al aprobar fecha', { data: { error, orderId } });
+    throw error;
+  }
+
+  serverLogger.info('Fecha aprobada exitosamente', { data: { orderId } });
+  return data;
+}
+
+/**
+ * Rechaza la fecha planificada de un pedido de mantenimiento
+ * Cambia el estado a 'pending_scheduling' y guarda el motivo
+ */
+export async function rejectMaintenanceOrderDate(orderId: string, rejectionReason: string) {
+  const supabase = await supabaseServer();
+
+  serverLogger.info('Rechazando fecha de pedido', { data: { orderId, rejectionReason } });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .update({
+      status: 'pending_scheduling',
+      scheduled_date: null,
+      scheduled_by: null,
+      scheduled_at: null,
+      date_rejection_reason: rejectionReason,
+      date_rejected_by: user?.id || null,
+      date_rejected_at: new Date().toISOString(),
+    })
+    .eq('id', orderId)
+    .select()
+    .single();
+
+  if (error) {
+    serverLogger.error('Error al rechazar fecha', { data: { error, orderId } });
+    throw error;
+  }
+
+  serverLogger.info('Fecha rechazada exitosamente', { data: { orderId } });
+  return data;
+}
+
+/**
+ * Obtiene los pedidos de mantenimiento con fecha confirmada
+ * Listos para aprobar entrada al taller
+ */
+export async function getMaintenanceOrdersDateConfirmed() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .select(
+      `
+      *,
+      vehicles(id, domain, serie, intern_number, type, condition, kilometer),
+      maintenance_requests(id, kilometer, created_at),
+      maintenance_order_items(
+        *,
+        maintenance_request_items(
+          *,
+          checklist_deviations(id, item_code, item_label, section_code)
+        ),
+        types_of_repairs(id, name)
+      )
+    `
+    )
+    .eq('status', 'date_confirmed')
+    .order('scheduled_date', { ascending: true });
+
+  if (error) {
+    serverLogger.error('Error al obtener pedidos con fecha confirmada', { data: { error } });
+    throw error;
+  }
+
+  return data || [];
+}
+
+export type MaintenanceOrdersDateConfirmedData = Awaited<ReturnType<typeof getMaintenanceOrdersDateConfirmed>>;

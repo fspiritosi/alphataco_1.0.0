@@ -151,7 +151,7 @@ export default async function RepairTypes({
         </span>
       ),
       moduleSlug: 'mantenimiento' as const,
-      tabSlug: 'maintenance_operations' as const,
+      tabSlug: 'maint_operaciones' as const,
       content: (
         <Suspense fallback={<OperacionesTableSkeleton />}>
           <OperacionesTabContent searchParams={searchParams} permissions={permissions} />

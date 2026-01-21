@@ -2,7 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import type { MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
+import type { ApproveWorkshopEntryInput, MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
 
 const serverLogger = new Logger('PedidosMantenimiento/actions');
 
@@ -17,7 +17,7 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number),
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
       maintenance_requests(id, kilometer, created_at),
       maintenance_order_items(
         *,
@@ -29,7 +29,7 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
       )
     `
     )
-    .in('status', ['pending_scheduling', 'scheduled'])
+    .in('status', ['pending_scheduling', 'date_confirmed'])
     .order('created_at', { ascending: false });
 
   // Aplicar filtros
@@ -70,7 +70,7 @@ export async function getMaintenanceOrderById(orderId: string) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number),
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
       maintenance_requests(id, kilometer, created_at),
       maintenance_order_items(
         *,
@@ -128,4 +128,69 @@ export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
   serverLogger.info('Pedido planificado exitosamente', { data: { orderId: input.orderId } });
 
   return data;
+}
+
+/**
+ * Aprueba la entrada a taller de un pedido de mantenimiento
+ * - Actualiza el estado del pedido a 'in_workshop'
+ * - Actualiza el kilometraje y condición del vehículo a 'no_operativo'
+ */
+export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryInput) {
+  const supabase = await supabaseServer();
+
+  serverLogger.info('Aprobando entrada a taller', {
+    data: { orderId: input.orderId, kilometer: input.kilometer },
+  });
+
+  // Obtener el pedido para saber el equipment_id
+  const { data: order, error: orderError } = await supabase
+    .from('maintenance_orders')
+    .select('equipment_id')
+    .eq('id', input.orderId)
+    .single();
+
+  if (orderError || !order) {
+    serverLogger.error('Error al obtener pedido', { data: { orderError, orderId: input.orderId } });
+    throw orderError || new Error('Pedido no encontrado');
+  }
+
+  // Obtener el usuario actual
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Actualizar el pedido a 'in_workshop'
+  const { error: updateOrderError } = await supabase
+    .from('maintenance_orders')
+    .update({
+      status: 'in_workshop',
+      workshop_entry_date: new Date().toISOString(),
+      workshop_approved_by: user?.id || null,
+    })
+    .eq('id', input.orderId);
+
+  if (updateOrderError) {
+    serverLogger.error('Error al actualizar pedido', { data: { updateOrderError, orderId: input.orderId } });
+    throw updateOrderError;
+  }
+
+  // Actualizar el vehículo: kilometraje y condición
+  const { error: updateVehicleError } = await supabase
+    .from('vehicles')
+    .update({
+      kilometer: input.kilometer,
+      condition: 'no operativo',
+    })
+    .eq('id', order.equipment_id);
+
+  if (updateVehicleError) {
+    serverLogger.error('Error al actualizar vehículo', {
+      data: { updateVehicleError, equipmentId: order.equipment_id },
+    });
+    throw updateVehicleError;
+  }
+
+  serverLogger.info('Entrada a taller aprobada exitosamente', { data: { orderId: input.orderId } });
+
+  return { success: true };
 }

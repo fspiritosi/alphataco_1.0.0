@@ -6,13 +6,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { getMaintenanceOrders, type MaintenanceOrderData, type MaintenanceOrdersData } from '../actions/actionsServer';
 import { MAINTENANCE_ORDERS_QUERY_KEY } from '../hooks/useMaintenanceOrders';
+import { EntradaTallerDialog } from './EntradaTallerDialog';
 import { PedidoDetailDialog } from './PedidoDetailDialog';
 import { PlanificarPedidoDialog } from './PlanificarPedidoDialog';
 import { getColumns } from './columns';
 
 const STATUS_OPTIONS = [
   { label: 'Pendiente Planificar', value: 'pending_scheduling' },
-  { label: 'Planificado', value: 'scheduled' },
+  { label: 'Fecha Confirmada', value: 'date_confirmed' },
 ];
 
 interface PedidosTableClientProps {
@@ -21,7 +22,7 @@ interface PedidosTableClientProps {
 
 export function PedidosTableClient({ initialData }: PedidosTableClientProps) {
   const [selectedOrder, setSelectedOrder] = useState<MaintenanceOrderData | null>(null);
-  const [dialogType, setDialogType] = useState<'view' | 'schedule' | null>(null);
+  const [dialogType, setDialogType] = useState<'view' | 'schedule' | 'workshop_entry' | null>(null);
 
   // useQuery con initialData para refetching/invalidacion
   const { data: orders } = useQuery({
@@ -55,6 +56,11 @@ export function PedidosTableClient({ initialData }: PedidosTableClientProps) {
     setDialogType('schedule');
   };
 
+  const handleApproveWorkshopEntry = (order: MaintenanceOrderData) => {
+    setSelectedOrder(order);
+    setDialogType('workshop_entry');
+  };
+
   const handleCloseDialog = () => {
     setSelectedOrder(null);
     setDialogType(null);
@@ -65,6 +71,7 @@ export function PedidosTableClient({ initialData }: PedidosTableClientProps) {
       getColumns({
         onView: handleView,
         onSchedule: handleSchedule,
+        onApproveWorkshopEntry: handleApproveWorkshopEntry,
       }),
     []
   );
@@ -107,6 +114,10 @@ export function PedidosTableClient({ initialData }: PedidosTableClientProps) {
 
       {selectedOrder && dialogType === 'schedule' && (
         <PlanificarPedidoDialog order={selectedOrder} open={true} onClose={handleCloseDialog} />
+      )}
+
+      {selectedOrder && dialogType === 'workshop_entry' && (
+        <EntradaTallerDialog order={selectedOrder} open={true} onClose={handleCloseDialog} />
       )}
     </>
   );

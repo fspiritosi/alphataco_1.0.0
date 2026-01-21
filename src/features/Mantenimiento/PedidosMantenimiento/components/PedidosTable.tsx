@@ -6,18 +6,19 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useMemo, useState } from 'react';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 import { useMaintenanceOrders } from '../hooks/useMaintenanceOrders';
+import { EntradaTallerDialog } from './EntradaTallerDialog';
 import { PedidoDetailDialog } from './PedidoDetailDialog';
 import { PlanificarPedidoDialog } from './PlanificarPedidoDialog';
 import { getColumns } from './columns';
 
 const STATUS_OPTIONS = [
   { label: 'Pendiente Planificar', value: 'pending_scheduling' },
-  { label: 'Planificado', value: 'scheduled' },
+  { label: 'Fecha Confirmada', value: 'date_confirmed' },
 ];
 
 export function PedidosTable() {
   const [selectedOrder, setSelectedOrder] = useState<MaintenanceOrderData | null>(null);
-  const [dialogType, setDialogType] = useState<'view' | 'schedule' | null>(null);
+  const [dialogType, setDialogType] = useState<'view' | 'schedule' | 'workshop_entry' | null>(null);
 
   const { data: orders, isLoading, error } = useMaintenanceOrders();
 
@@ -46,6 +47,11 @@ export function PedidosTable() {
     setDialogType('schedule');
   };
 
+  const handleApproveWorkshopEntry = (order: MaintenanceOrderData) => {
+    setSelectedOrder(order);
+    setDialogType('workshop_entry');
+  };
+
   const handleCloseDialog = () => {
     setSelectedOrder(null);
     setDialogType(null);
@@ -56,6 +62,7 @@ export function PedidosTable() {
       getColumns({
         onView: handleView,
         onSchedule: handleSchedule,
+        onApproveWorkshopEntry: handleApproveWorkshopEntry,
       }),
     []
   );
@@ -127,6 +134,10 @@ export function PedidosTable() {
 
       {selectedOrder && dialogType === 'schedule' && (
         <PlanificarPedidoDialog order={selectedOrder} open={true} onClose={handleCloseDialog} />
+      )}
+
+      {selectedOrder && dialogType === 'workshop_entry' && (
+        <EntradaTallerDialog order={selectedOrder} open={true} onClose={handleCloseDialog} />
       )}
     </>
   );

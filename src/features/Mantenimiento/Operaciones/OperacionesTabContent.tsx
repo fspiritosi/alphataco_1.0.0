@@ -25,7 +25,7 @@ export async function OperacionesTabContent({ searchParams, permissions }: Opera
         </span>
       ),
       moduleSlug: 'mantenimiento' as const,
-      tabSlug: 'operations_pending' as const,
+      tabSlug: 'pendientes_ejecutar' as const,
       content: (
         <Suspense fallback={<OperacionesTableSkeleton />}>
           <OperacionesTableClient initialData={initialData} />
@@ -41,7 +41,7 @@ export async function OperacionesTabContent({ searchParams, permissions }: Opera
         </span>
       ),
       moduleSlug: 'mantenimiento' as const,
-      tabSlug: 'operations_planned' as const,
+      tabSlug: 'maintenance_orders' as const,
       content: (
         <Suspense fallback={<OperacionesTableSkeleton />}>
           <OperacionesPlanificadasTableClient initialData={initialData} />

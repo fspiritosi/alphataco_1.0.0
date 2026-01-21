@@ -202,6 +202,29 @@ export const PERMISSIONS = {
             parent: 'general',
             allowedActions: ['view', 'create'],
           },
+          'empresa-mantenimiento': {
+            slug: 'empresa_mantenimiento',
+            name: 'Mantenimiento',
+            tabId: '10000000-0000-0000-0000-000000000016',
+            parent: 'general',
+            allowedActions: ['view'],
+            subtabs: {
+              talleres: {
+                slug: 'talleres',
+                name: 'Talleres',
+                tabId: '10000000-0000-0000-0000-000000000161',
+                parent: 'empresa-mantenimiento',
+                allowedActions: ['view', 'create', 'update', 'delete'],
+              },
+              'sectores-taller': {
+                slug: 'sectores_taller',
+                name: 'Sectores',
+                tabId: '10000000-0000-0000-0000-000000000162',
+                parent: 'empresa-mantenimiento',
+                allowedActions: ['view', 'create', 'update', 'delete'],
+              },
+            },
+          },
         },
       },
       rrhh: {
@@ -809,78 +832,99 @@ export const PERMISSIONS = {
     name: 'Mantenimiento',
     moduleId: '421e96da-5235-4857-bf81-e63336447f13',
     tabs: {
-      type_of_repairs: {
-        slug: 'type_of_repairs',
-        name: 'Mantenimiento',
-        tabId: '60000000-0000-0000-0000-000000000001',
+      // Tab 1: Operaciones
+      maint_operaciones: {
+        slug: 'maint_operaciones',
+        name: 'Operaciones',
+        tabId: '60000000-0000-0000-0000-000000000030',
         parent: null,
         allowedActions: ['view'],
         subtabs: {
-          created_solicitudes: {
-            slug: 'created_solicitudes',
-            name: 'Solicitudes',
-            tabId: '60000000-0000-0000-0000-000000000011',
-            parent: 'type_of_repairs',
+          equipments_with_deviations: {
+            slug: 'equipments_with_deviations',
+            name: 'Equipos con Desvíos',
+            tabId: '60000000-0000-0000-0000-000000000015',
+            parent: 'maint_operaciones',
             allowedActions: ['view'],
           },
+          maintenance_requests: {
+            slug: 'maintenance_requests',
+            name: 'Solicitudes de Mantenimiento',
+            tabId: '60000000-0000-0000-0000-000000000020',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'update'], // update = aprobar/denegar
+          },
+          pendientes_ejecutar: {
+            slug: 'pendientes_ejecutar',
+            name: 'Pendientes de Ejecutar',
+            tabId: '60000000-0000-0000-0000-000000000023',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'update'], // update = aprobar/rechazar fecha
+          },
+        },
+      },
+      // Tab 2: Taller
+      maint_taller: {
+        slug: 'maint_taller',
+        name: 'Taller',
+        tabId: '60000000-0000-0000-0000-000000000040',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {
+          maintenance_orders: {
+            slug: 'maintenance_orders',
+            name: 'Pedidos de Mantenimiento',
+            tabId: '60000000-0000-0000-0000-000000000021',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'update'], // update = planificar fecha, aprobar entrada
+          },
+          planificacion: {
+            slug: 'planificacion',
+            name: 'Planificación',
+            tabId: '60000000-0000-0000-0000-000000000041',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'update'], // update = asignar talleres/sectores a desvíos
+          },
+        },
+      },
+      // Tab 3: Configuración
+      maint_configuracion: {
+        slug: 'maint_configuracion',
+        name: 'Configuración',
+        tabId: '60000000-0000-0000-0000-000000000050',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {
           type_of_repair: {
             slug: 'type_of_repair',
             name: 'Tipos de Reparación',
             tabId: '60000000-0000-0000-0000-000000000012',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
-          },
-          type_of_repair_new_entry: {
-            slug: 'type_of_repair_new_entry',
-            name: 'Nueva Solicitud',
-            tabId: '60000000-0000-0000-0000-000000000013',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
+            parent: 'maint_configuracion',
+            allowedActions: ['view', 'create', 'update'],
           },
           maintenance_groups: {
             slug: 'maintenance_groups',
             name: 'Grupos',
             tabId: '60000000-0000-0000-0000-000000000014',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
+            parent: 'maint_configuracion',
+            allowedActions: ['view', 'create', 'update'],
           },
-          // Nuevas tabs del flujo de mantenimiento con aprobaciones
-          maintenance_requests: {
-            slug: 'maintenance_requests',
-            name: 'Solicitudes de Mantenimiento',
-            tabId: '60000000-0000-0000-0000-000000000020',
-            parent: 'type_of_repairs',
-            allowedActions: ['view', 'update'], // update = aprobar/denegar
-          },
-          maintenance_orders: {
-            slug: 'maintenance_orders',
-            name: 'Pedidos de Mantenimiento',
-            tabId: '60000000-0000-0000-0000-000000000021',
-            parent: 'type_of_repairs',
-            allowedActions: ['view', 'update'], // update = planificar
-          },
-          maintenance_operations: {
-            slug: 'maintenance_operations',
-            name: 'Operaciones',
-            tabId: '60000000-0000-0000-0000-000000000022',
-            parent: 'type_of_repairs',
-            allowedActions: ['view', 'update'], // update = aprobar entrada/rechazar
-            subtabs: {
-              operations_pending: {
-                slug: 'operations_pending',
-                name: 'Pendientes de Ejecutar',
-                tabId: '60000000-0000-0000-0000-000000000023',
-                parent: 'maintenance_operations',
-                allowedActions: ['view', 'update'],
-              },
-              operations_planned: {
-                slug: 'operations_planned',
-                name: 'Planificadas (Vista)',
-                tabId: '60000000-0000-0000-0000-000000000024',
-                parent: 'maintenance_operations',
-                allowedActions: ['view'],
-              },
-            },
+        },
+      },
+      // Tab 4: Nueva Solicitud
+      maint_nueva_solicitud: {
+        slug: 'maint_nueva_solicitud',
+        name: 'Nueva Solicitud',
+        tabId: '60000000-0000-0000-0000-000000000001',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {
+          type_of_repair_new_entry: {
+            slug: 'type_of_repair_new_entry',
+            name: 'Nueva Solicitud',
+            tabId: '60000000-0000-0000-0000-000000000013',
+            parent: 'maint_nueva_solicitud',
+            allowedActions: ['view', 'create'],
           },
         },
       },

@@ -13,7 +13,19 @@
       "mcp__supabase__search_docs",
       "Bash(npm run lint:*)",
       "mcp__supabase-DEV__execute_sql",
-      "mcp__supabase-PROD__execute_sql"
+      "mcp__supabase-PROD__execute_sql",
+      "Bash(unzip:*)",
+      "mcp__supabase-PROD__list_tables",
+      "mcp__acp__Write",
+      "mcp__supabase-dev__list_tables",
+      "mcp__acp__Bash",
+      "mcp__supabase-dev__execute_sql",
+      "mcp__acp__Edit",
+      "mcp__shadcn__search_items_in_registries",
+      "mcp__shadcn__list_items_in_registries",
+      "mcp__shadcn__get_item_examples_from_registries",
+      "mcp__shadcn__view_items_in_registries",
+      "mcp__supabase-DEV__apply_migration"
     ]
   }
 }

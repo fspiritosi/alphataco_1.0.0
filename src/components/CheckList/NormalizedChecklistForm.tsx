@@ -950,10 +950,15 @@ export function NormalizedChecklistForm({
 
         // Obtener los desvíos creados y los tipos de reparación para el modal
         try {
+          console.log('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id:', data.equipment_id);
           const [deviations, types] = await Promise.all([
             getPendingDeviations(data.equipment_id),
             fetchAllTypesOfRepairs(),
           ]);
+
+          console.log('[NormalizedChecklistForm] Desvíos obtenidos:', deviations?.length || 0);
+          console.log('[NormalizedChecklistForm] Desvíos detalle:', JSON.stringify(deviations, null, 2));
+          console.log('[NormalizedChecklistForm] Tipos de reparación:', types?.length || 0);
 
           setPendingDeviations(deviations);
           setRepairTypes(types as TypeOfRepair);

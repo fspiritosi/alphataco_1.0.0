@@ -114,7 +114,7 @@ export function getColumns({ onView, onApprove, onReject }: ColumnsProps): Colum
             <Button variant="ghost" size="icon" onClick={() => onView(operation)} title="Ver detalle">
               <Eye className="h-4 w-4" />
             </Button>
-            <PermissionGuard module="mantenimiento" tab="maintenance_operations" action="update">
+            <PermissionGuard module="mantenimiento" tab="maintenance_orders" action="update">
               <Button
                 variant="ghost"
                 size="icon"

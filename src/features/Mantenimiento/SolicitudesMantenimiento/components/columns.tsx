@@ -61,18 +61,18 @@ export function getColumns({ onView, onApprove, onReject }: ColumnsProps): Colum
     },
     {
       accessorKey: 'checklist_answers',
-      id: 'Creador',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Creado por" />,
+      id: 'Chofer',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Chofer" />,
       cell: ({ row }) => {
-        // Primero intentar obtener del empleado vinculado
-        const employee = row.original.employees;
-        if (employee) {
-          return `${employee.firstname} ${employee.lastname}`;
-        }
-        // Si no hay empleado, obtener el nombre del chofer desde el checklist
+        // Obtener el nombre del chofer desde el checklist
         const answerData = row.original.checklist_answers?.answer_data as { chofer?: string } | null;
         if (answerData?.chofer) {
           return answerData.chofer;
+        }
+        // Fallback al empleado vinculado
+        const employee = row.original.employees;
+        if (employee) {
+          return `${employee.firstname} ${employee.lastname}`;
         }
         return <span className="text-muted-foreground">-</span>;
       },
@@ -84,6 +84,28 @@ export function getColumns({ onView, onApprove, onReject }: ColumnsProps): Colum
       header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
       cell: ({ row }) => {
         const status = row.original.status;
+        const maintenanceOrder = row.original.maintenance_orders?.[0];
+        const orderStatus = maintenanceOrder?.status;
+
+        // Si la solicitud está aprobada, mostrar el estado del pedido de mantenimiento
+        if (status === 'approved' && orderStatus) {
+          const orderStatusConfig: Record<
+            string,
+            { label: string; variant: 'warning' | 'success' | 'destructive' | 'secondary' | 'default' }
+          > = {
+            pending_scheduling: { label: 'Pend. Programación', variant: 'secondary' },
+            scheduled: { label: 'Programada', variant: 'warning' },
+            date_confirmed: { label: 'Fecha Confirmada', variant: 'success' },
+            date_rejected: { label: 'Fecha Rechazada', variant: 'destructive' },
+            in_workshop: { label: 'En Taller', variant: 'default' },
+            completed: { label: 'Completada', variant: 'success' },
+            rejected: { label: 'Rechazada', variant: 'destructive' },
+          };
+          const orderConfig = orderStatusConfig[orderStatus] || { label: orderStatus, variant: 'secondary' as const };
+          return <Badge variant={orderConfig.variant}>{orderConfig.label}</Badge>;
+        }
+
+        // Mostrar estado de la solicitud
         const statusConfig: Record<
           string,
           { label: string; variant: 'warning' | 'success' | 'destructive' | 'secondary' }

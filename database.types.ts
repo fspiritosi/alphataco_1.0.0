@@ -2977,6 +2977,11 @@ export type Database = {
       maintenance_orders: {
         Row: {
           created_at: string | null;
+          date_approved_at: string | null;
+          date_approved_by: string | null;
+          date_rejected_at: string | null;
+          date_rejected_by: string | null;
+          date_rejection_reason: string | null;
           equipment_id: string;
           id: string;
           kilometer_at_entry: string | null;
@@ -2994,6 +2999,11 @@ export type Database = {
         };
         Insert: {
           created_at?: string | null;
+          date_approved_at?: string | null;
+          date_approved_by?: string | null;
+          date_rejected_at?: string | null;
+          date_rejected_by?: string | null;
+          date_rejection_reason?: string | null;
           equipment_id: string;
           id?: string;
           kilometer_at_entry?: string | null;
@@ -3011,6 +3021,11 @@ export type Database = {
         };
         Update: {
           created_at?: string | null;
+          date_approved_at?: string | null;
+          date_approved_by?: string | null;
+          date_rejected_at?: string | null;
+          date_rejected_by?: string | null;
+          date_rejection_reason?: string | null;
           equipment_id?: string;
           id?: string;
           kilometer_at_entry?: string | null;
@@ -3027,6 +3042,20 @@ export type Database = {
           workshop_entry_date?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'maintenance_orders_date_approved_by_fkey';
+            columns: ['date_approved_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_orders_date_rejected_by_fkey';
+            columns: ['date_rejected_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'maintenance_orders_equipment_id_fkey';
             columns: ['equipment_id'];
@@ -4826,6 +4855,120 @@ export type Database = {
           },
         ];
       };
+      workshop_sectors: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+          updated_at: string;
+          workshop_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          updated_at?: string;
+          workshop_id: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          updated_at?: string;
+          workshop_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'workshop_sectors_workshop_id_fkey';
+            columns: ['workshop_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      workshops: {
+        Row: {
+          address: string | null;
+          city: number | null;
+          company_id: string;
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          latitude: number | null;
+          longitude: number | null;
+          name: string;
+          provider_email: string | null;
+          provider_name: string | null;
+          provider_phone: string | null;
+          province: number | null;
+          type: Database['public']['Enums']['workshop_type'];
+          updated_at: string;
+        };
+        Insert: {
+          address?: string | null;
+          city?: number | null;
+          company_id: string;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          latitude?: number | null;
+          longitude?: number | null;
+          name: string;
+          provider_email?: string | null;
+          provider_name?: string | null;
+          provider_phone?: string | null;
+          province?: number | null;
+          type?: Database['public']['Enums']['workshop_type'];
+          updated_at?: string;
+        };
+        Update: {
+          address?: string | null;
+          city?: number | null;
+          company_id?: string;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          latitude?: number | null;
+          longitude?: number | null;
+          name?: string;
+          provider_email?: string | null;
+          provider_name?: string | null;
+          provider_phone?: string | null;
+          province?: number | null;
+          type?: Database['public']['Enums']['workshop_type'];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'workshops_city_fkey';
+            columns: ['city'];
+            isOneToOne: false;
+            referencedRelation: 'cities';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'workshops_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'workshops_province_fkey';
+            columns: ['province'];
+            isOneToOne: false;
+            referencedRelation: 'provinces';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       equipments_with_pending_deviations: {
@@ -5482,6 +5625,7 @@ export type Database = {
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
       type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
+      workshop_type: 'interno' | 'externo';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -5677,6 +5821,7 @@ export const Constants = {
       type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
       type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
       type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
+      workshop_type: ['interno', 'externo'],
     },
   },
 } as const;

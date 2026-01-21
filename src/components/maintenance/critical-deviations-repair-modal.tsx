@@ -50,6 +50,14 @@ export function CriticalDeviationsRepairModal({
   equipmentId,
   repairTypes,
 }: CriticalDeviationsRepairModalProps) {
+  // Log para debug
+  console.log('[CriticalDeviationsRepairModal] === RENDER ===');
+  console.log('[CriticalDeviationsRepairModal] isOpen:', isOpen);
+  console.log('[CriticalDeviationsRepairModal] equipmentId:', equipmentId);
+  console.log('[CriticalDeviationsRepairModal] deviations recibidos:', deviations?.length || 0);
+  console.log('[CriticalDeviationsRepairModal] deviations detalle:', JSON.stringify(deviations, null, 2));
+  console.log('[CriticalDeviationsRepairModal] repairTypes:', repairTypes?.length || 0);
+
   const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
   const [selectedDeviationIds, setSelectedDeviationIds] = useState<Set<string>>(new Set());
   const [openRepairSelects, setOpenRepairSelects] = useState<Record<string, boolean>>({});
@@ -110,6 +118,11 @@ export function CriticalDeviationsRepairModal({
   };
 
   const handleSubmit = async () => {
+    console.log('[CriticalDeviationsRepairModal] === handleSubmit INICIO ===');
+    console.log('[CriticalDeviationsRepairModal] repairRequests:', JSON.stringify(repairRequests, null, 2));
+    console.log('[CriticalDeviationsRepairModal] deviations disponibles:', deviations?.length || 0);
+    console.log('[CriticalDeviationsRepairModal] selectedDeviationIds:', Array.from(selectedDeviationIds));
+
     // Validaciones
     if (repairRequests.length === 0) {
       toast.error('Debes agregar al menos una solicitud de reparación');
@@ -141,10 +154,16 @@ export function CriticalDeviationsRepairModal({
         }
       }
 
+      console.log('[CriticalDeviationsRepairModal] Llamando assignRepairTypesToDeviations con:');
+      console.log('[CriticalDeviationsRepairModal] equipmentId:', equipmentId);
+      console.log('[CriticalDeviationsRepairModal] assignments:', JSON.stringify(assignments, null, 2));
+
       const result = await assignRepairTypesToDeviations({
         equipmentId,
         assignments,
       });
+
+      console.log('[CriticalDeviationsRepairModal] Resultado:', JSON.stringify(result, null, 2));
 
       if (result.ok) {
         toast.success('Tipos de reparación asignados exitosamente');
@@ -154,7 +173,7 @@ export function CriticalDeviationsRepairModal({
         toast.error(result.error || 'Error al asignar los tipos de reparación');
       }
     } catch (error) {
-      console.error('Error assigning repair types:', error);
+      console.error('[CriticalDeviationsRepairModal] Error assigning repair types:', error);
       toast.error('Ocurrió un error al asignar los tipos de reparación');
     }
   };

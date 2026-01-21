@@ -8,6 +8,7 @@ const serverLogger = new Logger('SolicitudesMantenimiento/actions');
 
 /**
  * Obtiene las solicitudes de mantenimiento con filtros opcionales
+ * Incluye información de maintenance_orders para saber el estado del pedido
  */
 export async function getMaintenanceRequests(filters?: MaintenanceRequestFilters) {
   const supabase = await supabaseServer();
@@ -17,16 +18,26 @@ export async function getMaintenanceRequests(filters?: MaintenanceRequestFilters
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number),
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
       employees(id, firstname, lastname),
+      profile!maintenance_requests_user_id_fkey(id, fullname),
       checklist_answers(id, created_at, answer_data),
       maintenance_request_items(
         *,
         checklist_deviations(id, item_code, item_label, section_code),
         types_of_repairs(id, name)
+      ),
+      maintenance_orders(
+        id,
+        status,
+        scheduled_date,
+        date_approved_at,
+        date_approved_by
       )
     `
     )
+    // Solo mostrar solicitudes pendientes de aprobación y rechazadas
+    .in('status', ['pending_approval', 'rejected'])
     .order('created_at', { ascending: false });
 
   // Aplicar filtros
@@ -110,9 +121,13 @@ export async function createMaintenanceRequest(input: {
 }) {
   const supabase = await supabaseServer();
 
+  console.log('[createMaintenanceRequest] === INICIO ===');
+  console.log('[createMaintenanceRequest] Input:', JSON.stringify(input, null, 2));
+
   serverLogger.info('Creando solicitud de mantenimiento', { data: input });
 
   // Crear la solicitud
+  console.log('[createMaintenanceRequest] Insertando en maintenance_requests...');
   const { data: request, error: requestError } = await supabase
     .from('maintenance_requests')
     .insert({
@@ -126,10 +141,15 @@ export async function createMaintenanceRequest(input: {
     .select()
     .single();
 
+  console.log('[createMaintenanceRequest] Resultado insert maintenance_requests:', { request, requestError });
+
   if (requestError) {
+    console.error('[createMaintenanceRequest] ERROR al crear maintenance_request:', requestError);
     serverLogger.error('Error al crear solicitud de mantenimiento', { data: { error: requestError } });
     throw requestError;
   }
+
+  console.log('[createMaintenanceRequest] maintenance_request creada con id:', request.id);
 
   // Crear los items de la solicitud
   // Soporta tanto el formato antiguo (deviationIds) como el nuevo (deviationItems con repairTypeId)
@@ -141,6 +161,7 @@ export async function createMaintenanceRequest(input: {
   }>;
 
   if (input.deviationItems && input.deviationItems.length > 0) {
+    console.log('[createMaintenanceRequest] Usando formato NUEVO (deviationItems)');
     // Nuevo formato: con tipos de reparación asignados por el chofer
     items = input.deviationItems.map((item) => ({
       maintenance_request_id: request.id,
@@ -149,6 +170,7 @@ export async function createMaintenanceRequest(input: {
       status: 'pending' as const,
     }));
   } else if (input.deviationIds && input.deviationIds.length > 0) {
+    console.log('[createMaintenanceRequest] Usando formato ANTIGUO (deviationIds)');
     // Formato antiguo: solo IDs de desvíos, sin tipos de reparación
     items = input.deviationIds.map((deviationId) => ({
       maintenance_request_id: request.id,
@@ -157,21 +179,28 @@ export async function createMaintenanceRequest(input: {
       status: 'pending' as const,
     }));
   } else {
+    console.error('[createMaintenanceRequest] NO hay deviationIds ni deviationItems!');
     serverLogger.error('No se proporcionaron desvíos para la solicitud');
     // Rollback: eliminar la solicitud creada
     await supabase.from('maintenance_requests').delete().eq('id', request.id);
     throw new Error('Debe proporcionar al menos un desvío');
   }
 
+  console.log('[createMaintenanceRequest] Items a insertar:', JSON.stringify(items, null, 2));
+
   const { error: itemsError } = await supabase.from('maintenance_request_items').insert(items);
 
+  console.log('[createMaintenanceRequest] Resultado insert maintenance_request_items:', { itemsError });
+
   if (itemsError) {
+    console.error('[createMaintenanceRequest] ERROR al crear items:', itemsError);
     serverLogger.error('Error al crear items de solicitud', { data: { error: itemsError } });
     // Rollback: eliminar la solicitud creada
     await supabase.from('maintenance_requests').delete().eq('id', request.id);
     throw itemsError;
   }
 
+  console.log('[createMaintenanceRequest] === ÉXITO === Request ID:', request.id);
   serverLogger.info('Solicitud de mantenimiento creada exitosamente', { data: { requestId: request.id } });
 
   return request;
@@ -322,22 +351,34 @@ export async function assignRepairTypesToDeviations(input: {
 }): Promise<{ ok: true; success: true } | { ok: false; error: string }> {
   const supabase = await supabaseServer();
 
+  console.log('[assignRepairTypesToDeviations] === INICIO ===');
+  console.log('[assignRepairTypesToDeviations] equipmentId:', input.equipmentId);
+  console.log('[assignRepairTypesToDeviations] assignments:', JSON.stringify(input.assignments, null, 2));
+
   serverLogger.info('Asignando tipos de reparación a desvíos', {
     data: { equipmentId: input.equipmentId, assignmentsCount: input.assignments.length },
   });
 
   if (!input.equipmentId || !input.assignments || input.assignments.length === 0) {
+    console.log('[assignRepairTypesToDeviations] Datos inválidos - retornando error');
     return { ok: false, error: 'Datos inválidos para asignar tipos de reparación' };
   }
 
   try {
     // Buscar los maintenance_request_items que corresponden a estos desvíos
     const deviationIds = input.assignments.map((a) => a.deviationId);
+    console.log('[assignRepairTypesToDeviations] Buscando items para deviationIds:', deviationIds);
 
     const { data: items, error: fetchError } = await supabase
       .from('maintenance_request_items')
       .select('id, checklist_deviation_id, maintenance_request_id')
       .in('checklist_deviation_id', deviationIds);
+
+    console.log('[assignRepairTypesToDeviations] Query result - items:', items?.length || 0);
+    console.log('[assignRepairTypesToDeviations] Query result - error:', fetchError);
+    if (items && items.length > 0) {
+      console.log('[assignRepairTypesToDeviations] Items encontrados:', JSON.stringify(items, null, 2));
+    }
 
     if (fetchError) {
       serverLogger.error('Error al buscar items de solicitud', { data: { error: fetchError } });
@@ -345,6 +386,26 @@ export async function assignRepairTypesToDeviations(input: {
     }
 
     if (!items || items.length === 0) {
+      console.log('[assignRepairTypesToDeviations] NO SE ENCONTRARON ITEMS - Este es el error que ve el usuario');
+      // Vamos a hacer una búsqueda adicional para diagnosticar
+      const { data: allItems, error: allItemsError } = await supabase
+        .from('maintenance_request_items')
+        .select('id, checklist_deviation_id, maintenance_request_id')
+        .limit(10);
+      console.log('[assignRepairTypesToDeviations] Últimos 10 items en la tabla:', JSON.stringify(allItems, null, 2));
+      console.log('[assignRepairTypesToDeviations] Error en búsqueda diagnóstica:', allItemsError);
+
+      // Buscar si existen los desvíos en checklist_deviations
+      const { data: deviationsExist, error: devError } = await supabase
+        .from('checklist_deviations')
+        .select('id, item_label, equipment_id')
+        .in('id', deviationIds);
+      console.log(
+        '[assignRepairTypesToDeviations] Desvíos que existen en checklist_deviations:',
+        JSON.stringify(deviationsExist, null, 2)
+      );
+      console.log('[assignRepairTypesToDeviations] Error buscando desvíos:', devError);
+
       serverLogger.warn('No se encontraron items para los desvíos proporcionados');
       return { ok: false, error: 'No se encontraron items de solicitud para los desvíos' };
     }

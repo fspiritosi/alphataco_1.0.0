@@ -1,7 +1,9 @@
 'use client';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -12,8 +14,9 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { AlertCircle, CalendarIcon, Loader2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -48,9 +51,22 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
     }
   };
 
+  // Agrupar items por tipo de reparación
+  const itemsByRepairType = (order.maintenance_order_items || []).reduce(
+    (acc, item) => {
+      const repairTypeName = item.types_of_repairs?.name || 'Sin tipo asignado';
+      if (!acc[repairTypeName]) {
+        acc[repairTypeName] = [];
+      }
+      acc[repairTypeName].push(item);
+      return acc;
+    },
+    {} as Record<string, typeof order.maintenance_order_items>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Planificar Pedido de Mantenimiento</DialogTitle>
           <DialogDescription>
@@ -61,10 +77,68 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
         </DialogHeader>
 
         <div className="py-4 space-y-4">
-          {/* Resumen de items */}
-          <div className="p-3 bg-muted rounded-lg">
-            <span className="text-sm text-muted-foreground">Items a reparar: </span>
-            <span className="font-medium">{order.maintenance_order_items?.length || 0}</span>
+          {/* Información del equipo */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Equipo:</span>
+                  <p className="font-medium">
+                    {order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar'}
+                    {order.vehicles?.intern_number && ` (Nº ${order.vehicles.intern_number})`}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Kilometraje:</span>
+                  <p className="font-medium">
+                    {order.maintenance_requests?.kilometer || order.vehicles?.kilometer || '-'} km
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista de items a reparar */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Wrench className="h-4 w-4" />
+              Items a reparar ({order.maintenance_order_items?.length || 0})
+            </Label>
+            <ScrollArea className="h-[200px] rounded-md border p-3">
+              <div className="space-y-4">
+                {Object.entries(itemsByRepairType).map(([repairType, items]) => (
+                  <div key={repairType} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-medium">
+                        {repairType}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">({items?.length || 0} items)</span>
+                    </div>
+                    <div className="ml-4 space-y-1">
+                      {items?.map((item) => {
+                        const deviation = item.maintenance_request_items?.checklist_deviations;
+                        return (
+                          <div key={item.id} className="flex items-start gap-2 text-sm">
+                            <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-medium">{deviation?.item_label || 'Item sin descripción'}</span>
+                              {deviation?.section_code && (
+                                <span className="text-muted-foreground ml-2 text-xs">
+                                  (Sección: {deviation.section_code.replace('_', ' ')})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {(!order.maintenance_order_items || order.maintenance_order_items.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No hay items registrados</p>
+                )}
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Selector de fecha */}

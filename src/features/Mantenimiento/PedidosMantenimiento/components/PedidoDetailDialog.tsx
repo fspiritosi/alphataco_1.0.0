@@ -19,10 +19,20 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
     { label: string; variant: 'warning' | 'success' | 'default' | 'secondary' | 'destructive' }
   > = {
     pending_scheduling: { label: 'Pendiente Planificar', variant: 'warning' },
-    scheduled: { label: 'Planificado', variant: 'success' },
+    scheduled: { label: 'Planificado', variant: 'secondary' },
+    date_confirmed: { label: 'Fecha Confirmada', variant: 'success' },
     in_workshop: { label: 'En Taller', variant: 'default' },
     completed: { label: 'Completado', variant: 'secondary' },
     rejected: { label: 'Rechazado', variant: 'destructive' },
+  };
+
+  // Función para formatear el código de sección (sistema_electrico -> Sistema Eléctrico)
+  const formatSectionCode = (code: string | null | undefined): string => {
+    if (!code) return '-';
+    return code
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   return (
@@ -69,6 +79,20 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                   </div>
                 )}
               </div>
+
+              {order.date_rejection_reason && (
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Motivo de reprogramación:
+                  </span>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{order.date_rejection_reason}</p>
+                  {order.date_rejected_at && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                      Rechazado el {moment(order.date_rejected_at).format('DD/MM/YYYY HH:mm')}
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -89,7 +113,8 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                           {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
+                          Sección:{' '}
+                          {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
                         </p>
                       </div>
                       {item.types_of_repairs && <Badge variant="secondary">{item.types_of_repairs.name}</Badge>}
