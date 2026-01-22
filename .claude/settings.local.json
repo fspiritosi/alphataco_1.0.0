@@ -25,7 +25,8 @@
       "mcp__shadcn__list_items_in_registries",
       "mcp__shadcn__get_item_examples_from_registries",
       "mcp__shadcn__view_items_in_registries",
-      "mcp__supabase-DEV__apply_migration"
+      "mcp__supabase-DEV__apply_migration",
+      "mcp__supabase-PROD__list_branches"
     ]
   }
 }

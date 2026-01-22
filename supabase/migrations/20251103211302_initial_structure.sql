@@ -157,7 +157,7 @@ create table "public"."companies_employees" (
 alter table "public"."companies_employees" enable row level security;
 
 create table "public"."company" (
-    "id" uuid not null default uuid_generate_v4(),
+    "id" uuid not null default gen_random_uuid(),
     "company_name" character varying(255) not null,
     "description" text not null,
     "website" character varying(255),
@@ -476,7 +476,7 @@ create table "public"."documents_company" (
 alter table "public"."documents_company" enable row level security;
 
 create table "public"."documents_contracts" (
-    "id" uuid not null default uuid_generate_v4(),
+    "id" uuid not null default gen_random_uuid(),
     "name" text not null,
     "type" text not null,
     "date" timestamp with time zone default now(),
@@ -614,7 +614,7 @@ create table "public"."employees_diagram" (
 alter table "public"."employees_diagram" enable row level security;
 
 create table "public"."equipment_owners" (
-    "id" uuid not null default uuid_generate_v4(),
+    "id" uuid not null default gen_random_uuid(),
     "name" text not null,
     "cuit" text not null,
     "contract_type" contract_type_enum not null,
@@ -11867,13 +11867,13 @@ using (true)
 with check (true);
 
 
-create policy "Enable acces for users serviceRole"
-on "public"."profile"
-as permissive
-for all
-to pgsodium_keyiduser, pgsodium_keyholder, pgsodium_keymaker, authenticated, anon, service_role, supabase_replication_admin, supabase_read_only_user
-using (true)
-with check (true);
+-- create policy "Enable acces for users serviceRole"
+-- on "public"."profile"
+-- as permissive
+-- for all
+-- to pgsodium_keyiduser, pgsodium_keyholder, pgsodium_keymaker, authenticated, anon, service_role, supabase_replication_admin, supabase_read_only_user
+-- using (true)
+-- with check (true);
 
 
 create policy "Enable read access for all users"
@@ -12126,7 +12126,7 @@ CREATE TRIGGER format_employee_names_trigger BEFORE INSERT OR UPDATE ON public.e
 
 CREATE TRIGGER trg_employees_diagram_changes AFTER INSERT OR UPDATE ON public.employees_diagram FOR EACH ROW EXECUTE FUNCTION handle_employees_diagram_changes();
 
-CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.repair_solicitudes FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+-- CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.repair_solicitudes FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
 
 CREATE TRIGGER trigger_log_repair_changes AFTER INSERT OR UPDATE ON public.repair_solicitudes FOR EACH ROW EXECUTE FUNCTION log_repair_changes();
 

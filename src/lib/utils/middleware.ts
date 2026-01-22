@@ -59,6 +59,8 @@ export async function updateSession(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  console.log(user, 'user');
+
   // Si hay usuario autenticado (no anónimo), asegurar que exista la cookie actualComp
   if (user && !user.is_anonymous) {
     const actualComp = req.cookies.get('actualComp')?.value;

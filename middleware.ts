@@ -19,6 +19,8 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
+    console.log(user, 'user');
+
     // Si no hay empleado_id, redirigir al login de maintenance
     if (!user?.is_anonymous) {
       const url = new URL('/maintenance', request.url);

@@ -21,8 +21,29 @@ asignar a talleres y sectores varios registros seleccionados
 
 revisar los items al generarlos, no se estan detectando o generando
 
-revisar
-Propietario
-Seleccionar propietario
-Selecciona el propietario del equipo
-En el equipo,no esta trayendo las opciones, en leasing y alquiler debe mostrar le campo, pero en prendado no debe pedir prpiertario pero si las fechas y en propio el campo no debe star
+<!----------------------------------------------------->
+
+no navega luego de generar los devios en el form
+EN EL detalle del equipo no desaparece el Desvíos de Checklist Pendientes luego de generar el desvio
+La soicitud de desvio no aparece en desvios, las realizadas desde el checklist
+revisar modo oscuro
+Mostrar los comentarios de los items en los modales
+
+en la tab Pendientes de Ejecutar se deben mostrar las solicitudes confirmadas y las pendientes de planificar
+
+tabla Pedidos de Mantenimiento
+
+lo pendiente de planificar primero, y ordenadas de la mas vieja a mas reciente
+agregar en Pedidos de Mantenimiento 2 subtabs pendiente (mostrar los pendientes de planificar y pendientes de aprobacion (los que se muestran en Pendientes de Ejecutar)) y confirmados
+
+ingresar la tab nueva slicutud a operaciones/ Nuevo pedido, refactorizar la tab Carga individual para generar directamente un Pedidos de Mantenimiento (Salteandose la aprobacion)
+
+CONTINUANDO EL FLUJO
+nueva tab Ordenes de trabajo en Taller/Ordenes de trabajo
+
+nomentclaura de las ordenes de trabajo (OT-{patente}-{sector}-{numero})
+
+OT
+Numero, Dominio, Taller, Sector, Items asignados, rango de fechas (vienen de la solicitud)
+
+en Planificación de Mantenimiento la seleccion de los datos

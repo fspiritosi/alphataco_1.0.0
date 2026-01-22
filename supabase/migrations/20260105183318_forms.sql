@@ -1,4 +1,4 @@
-drop policy "Enable acces for users serviceRole" on "public"."profile";
+-- drop policy "Enable acces for users serviceRole" on "public"."profile";
 
 drop policy "Enable read access for all users" on "public"."profile";
 
