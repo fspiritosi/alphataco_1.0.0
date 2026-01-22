@@ -36,7 +36,7 @@ yarn-error.log*
 # vercel
 .vercel
 # SQL
-supabase/seed.sql
+# supabase/seed.sql  -- Comentado para permitir seed en branches
 
 # typescript
 *.tsbuildinfo
