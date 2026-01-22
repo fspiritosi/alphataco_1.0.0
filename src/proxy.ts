@@ -109,3 +109,7 @@ export async function proxy(req: NextRequest) {
 
   return response;
 }
+
+export const config = {
+  matcher: ['/dashboard/:path*'],
+};
