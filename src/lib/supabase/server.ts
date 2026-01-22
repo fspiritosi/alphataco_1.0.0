@@ -43,7 +43,7 @@ export const supabaseServer = async () => {
           timestamp: new Date().toISOString(),
         };
 
-        supabaseLogger.error('Supabase Server Error', { data: errorData });
+        // supabaseLogger.error('Supabase Server Error', { data: errorData });
 
         // Enviar error a PostHog
         const posthog = getPostHogServer();
