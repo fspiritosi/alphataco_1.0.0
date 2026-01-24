@@ -1,8 +1,9 @@
 import MaintenanceGroupsWrapper from '@/components/Tipos_de_reparaciones/MaintenanceGroupsWrapper';
-import RepairEntryWrapper from '@/components/Tipos_de_reparaciones/RepairEntryWrapper';
 import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairTypeFormWrapper';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
+import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
+import { OrdenesTrabajoSkeleton, OrdenesTrabajoTabContent } from '@/features/Mantenimiento/OrdenesTrabajo';
 import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
 import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
@@ -13,6 +14,7 @@ import {
   Calendar,
   ClipboardCheck,
   ClipboardList,
+  FileText,
   Plus,
   Settings,
   Users,
@@ -37,16 +39,16 @@ interface MantenimientoComponentProps {
  *   - Equipos con Desvíos
  *   - Solicitudes de Mantenimiento
  *   - Pendientes de Ejecutar
+ *   - Nuevo Pedido
  *
  * - Taller (maint_taller)
  *   - Pedidos de Mantenimiento
  *   - Planificación
+ *   - Órdenes de Trabajo
  *
  * - Configuración (maint_configuracion)
  *   - Tipos de Reparación
  *   - Grupos
- *
- * - Nueva Solicitud (maint_nueva_solicitud)
  */
 export default async function MantenimientoComponent({ searchParams, permissions }: MantenimientoComponentProps) {
   return (
@@ -98,7 +100,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   label: (
                     <span className="flex items-center gap-2">
                       <ClipboardCheck className="h-4 w-4" />
-                      Solicitudes de Mantenimiento
+                      Pendientes de Validar
                     </span>
                   ),
                   moduleSlug: 'mantenimiento',
@@ -114,7 +116,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   label: (
                     <span className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      Pendientes de Ejecutar
+                      Aprobación de Fecha
                     </span>
                   ),
                   moduleSlug: 'mantenimiento',
@@ -122,6 +124,22 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   content: (
                     <Suspense fallback={<PendientesEjecutarSkeleton />}>
                       <PendientesEjecutarTabContent />
+                    </Suspense>
+                  ),
+                },
+                {
+                  value: 'nuevo_pedido',
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Nuevo Pedido
+                    </span>
+                  ),
+                  moduleSlug: 'mantenimiento',
+                  tabSlug: 'nuevo_pedido',
+                  content: (
+                    <Suspense fallback={<NuevoPedidoSkeleton />}>
+                      <NuevoPedidoTabContent />
                     </Suspense>
                   ),
                 },
@@ -162,7 +180,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   tabSlug: 'maintenance_orders',
                   content: (
                     <Suspense fallback={<PedidosTableSkeleton />}>
-                      <PedidosMantenimientoTabContent />
+                      <PedidosMantenimientoTabContent searchParams={searchParams} permissions={permissions} />
                     </Suspense>
                   ),
                 },
@@ -179,6 +197,22 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   content: (
                     <Suspense fallback={<PlanificacionTableSkeleton />}>
                       <PlanificacionTabContent />
+                    </Suspense>
+                  ),
+                },
+                {
+                  value: 'ordenes_trabajo',
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Órdenes de Trabajo
+                    </span>
+                  ),
+                  moduleSlug: 'mantenimiento',
+                  tabSlug: 'ordenes_trabajo',
+                  content: (
+                    <Suspense fallback={<OrdenesTrabajoSkeleton />}>
+                      <OrdenesTrabajoTabContent />
                     </Suspense>
                   ),
                 },
@@ -241,25 +275,6 @@ export default async function MantenimientoComponent({ searchParams, permissions
                 },
               ]}
             />
-          ),
-        },
-        // ============================================
-        // TAB 4: NUEVA SOLICITUD
-        // ============================================
-        {
-          value: 'maint_nueva_solicitud',
-          label: (
-            <span className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Nueva Solicitud
-            </span>
-          ),
-          moduleSlug: 'mantenimiento',
-          tabSlug: 'maint_nueva_solicitud',
-          content: (
-            <Suspense fallback={<div>Cargando formulario...</div>}>
-              <RepairEntryWrapper searchParams={searchParams} permissions={permissions} />
-            </Suspense>
           ),
         },
       ]}

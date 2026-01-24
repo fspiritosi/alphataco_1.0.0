@@ -121,10 +121,26 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                       </Badge>
                     </div>
 
+                    {(item.driver_comment || item.checklist_deviations?.driver_comment) && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Comentario del chofer: </span>
+                        <span className="italic">
+                          {item.driver_comment || item.checklist_deviations?.driver_comment}
+                        </span>
+                      </div>
+                    )}
+
                     {item.types_of_repairs && (
                       <div className="text-sm">
                         <span className="text-muted-foreground">Tipo de reparación: </span>
                         <Badge variant="secondary">{item.types_of_repairs.name}</Badge>
+                      </div>
+                    )}
+
+                    {item.description && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Descripción: </span>
+                        <span>{item.description}</span>
                       </div>
                     )}
 

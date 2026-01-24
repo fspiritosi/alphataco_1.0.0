@@ -109,7 +109,15 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
               <div className="space-y-2">
                 {items.map((item, index) => {
                   const deviation = item.maintenance_request_items?.checklist_deviations;
-                  const repairType = item.types_of_repairs;
+
+                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const repairTypeNames: string[] =
+                    pivotRepairTypes.length > 0
+                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      : item.types_of_repairs?.name
+                        ? [item.types_of_repairs.name]
+                        : [];
 
                   return (
                     <div key={item.id || index} className="p-3 border rounded-lg">
@@ -121,10 +129,22 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
                               Sección: {formatSectionCode(deviation.section_code)}
                             </p>
                           )}
-                          {repairType && (
-                            <Badge variant="outline" className="mt-1">
-                              {repairType.name}
-                            </Badge>
+                          {repairTypeNames.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {repairTypeNames.map((name, idx) => (
+                                <Badge key={idx} variant="outline">
+                                  {name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          {((item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment) && (
+                            <div className="text-sm mt-1">
+                              <span className="text-muted-foreground">Comentario del chofer: </span>
+                              <span className="italic">
+                                {(item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment}
+                              </span>
+                            </div>
                           )}
                         </div>
                         <div className="text-right">

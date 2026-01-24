@@ -1,7 +1,8 @@
 import { TabsManagerServer } from '@/features/TabsManager';
-import { Clock, Eye } from 'lucide-react';
+import { Clock, Eye, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
-import { getMaintenanceOperations } from './actions/actionsServer';
+import { ParaTallerTableClient } from './ParaTaller/components/ParaTallerTableClient';
+import { getMaintenanceOperations, getOrdersForWorkshop } from './actions/actionsServer';
 import { OperacionesPlanificadasTableClient } from './components/OperacionesPlanificadasTableClient';
 import { OperacionesTableClient } from './components/OperacionesTableClient';
 import { OperacionesTableSkeleton } from './fallback';
@@ -12,8 +13,8 @@ interface OperacionesTabContentProps {
 }
 
 export async function OperacionesTabContent({ searchParams, permissions }: OperacionesTabContentProps) {
-  // Fetching en el servidor - ambas tablas usan los mismos datos
-  const initialData = await getMaintenanceOperations();
+  // Fetching en el servidor
+  const [initialData, ordersForWorkshop] = await Promise.all([getMaintenanceOperations(), getOrdersForWorkshop()]);
 
   const tabs = [
     {
@@ -45,6 +46,22 @@ export async function OperacionesTabContent({ searchParams, permissions }: Opera
       content: (
         <Suspense fallback={<OperacionesTableSkeleton />}>
           <OperacionesPlanificadasTableClient initialData={initialData} />
+        </Suspense>
+      ),
+    },
+    {
+      value: 'operations_for_workshop',
+      label: (
+        <span className="flex items-center gap-2">
+          <Warehouse className="h-4 w-4" />
+          Para Taller
+        </span>
+      ),
+      moduleSlug: 'mantenimiento' as const,
+      tabSlug: 'para_taller' as const,
+      content: (
+        <Suspense fallback={<OperacionesTableSkeleton />}>
+          <ParaTallerTableClient initialData={ordersForWorkshop} />
         </Suspense>
       ),
     },

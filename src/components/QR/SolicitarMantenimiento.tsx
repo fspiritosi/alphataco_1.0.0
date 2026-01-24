@@ -1,11 +1,10 @@
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { NuevoPedidoForm } from '@/features/Mantenimiento/NuevoPedido/components/NuevoPedidoForm';
 import { TypeOfRepair } from '@/types/types';
 import { User } from '@supabase/supabase-js';
-import { VisibilityState } from '@tanstack/react-table';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { FiArrowLeft } from 'react-icons/fi';
-import RepairNewEntry from '../Tipos_de_reparaciones/RepairEntry';
 import { fetchMaintenanceGroupsActionType } from '../Tipos_de_reparaciones/actions/maintenanceGroupActions';
 import { Button } from '../ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -17,8 +16,6 @@ function SolicitarMantenimiento({
   default_equipment_id,
   employee_id,
   user,
-  savedVisibility,
-  savedFilters,
   maintenance_groups,
 }: {
   onReturn: () => void;
@@ -27,9 +24,10 @@ function SolicitarMantenimiento({
   maintenance_groups: NonNullable<fetchMaintenanceGroupsActionType['groups']>;
   default_equipment_id?: string;
   employee_id: string | undefined;
-  savedVisibility: VisibilityState;
-  savedFilters: string[];
   user: User | null;
+  // Props legacy que ya no se usan pero mantenemos para compatibilidad
+  savedVisibility?: unknown;
+  savedFilters?: unknown;
 }) {
   const router = useRouter();
   if (!employee_id && !user?.id) {
@@ -45,23 +43,19 @@ function SolicitarMantenimiento({
           Sistema de Checklist y Mantenimiento de Equipos
         </CardDescription>
       </CardHeader>
-      <div className="flex justify-between items-center">
-        <CardTitle>Solicitar Mantenimiento</CardTitle>
+      <div className="flex justify-between items-center mb-4">
+        <CardTitle>Crear Pedido de Mantenimiento</CardTitle>
         <Button onClick={onReturn} variant={'ghost'}>
           <FiArrowLeft className="mr-2 h-6 w-6" />
           Regresar
         </Button>
       </div>
-      <RepairNewEntry
-        savedFilters={savedFilters}
-        maintenance_groups={maintenance_groups}
-        onReturn={onReturn}
-        user_id={user?.id}
-        employee_id={employee_id}
+      <NuevoPedidoForm
         equipment={equipment}
-        tipo_de_mantenimiento={tipo_de_mantenimiento}
+        types_of_repairs={tipo_de_mantenimiento}
+        maintenance_groups={maintenance_groups}
         default_equipment_id={default_equipment_id}
-        savedVisibility={savedVisibility}
+        onSuccess={onReturn}
       />
     </Card>
   );

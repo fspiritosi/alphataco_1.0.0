@@ -2,7 +2,6 @@
 
 import { getPendingDeviations } from '@/app/maintenance/actions';
 import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/app/server/GET/actions';
-import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
 import { CriticalDeviationsRepairModal } from '@/components/maintenance/critical-deviations-repair-modal';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -18,9 +17,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { CreateChecklistAnswer } from '@/features/Checklist';
+import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import type { TypeOfRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } from 'lucide-react';
 import moment from 'moment';
@@ -689,7 +688,7 @@ export function NormalizedChecklistForm({
   const [criticalItemsFailed, setCriticalItemsFailed] = useState<string[]>([]);
   const [showDeviationsModal, setShowDeviationsModal] = useState(false);
   const [pendingDeviations, setPendingDeviations] = useState<any[]>([]);
-  const [repairTypes, setRepairTypes] = useState<TypeOfRepair>([]);
+  const [supervisors, setSupervisors] = useState<Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>>([]);
   const [currentEquipmentId, setCurrentEquipmentId] = useState<string | undefined>(defaultEquipmentId);
   const [createdAnswerId, setCreatedAnswerId] = useState<string | null>(null);
 
@@ -841,38 +840,52 @@ export function NormalizedChecklistForm({
     setCriticalItemsFailed([]);
 
     try {
-      // Validar items críticos - estructura más detallada para crear desvíos
-      const failedCriticalItems: Array<{ item_code: string; item_label: string; section_code: string }> = [];
+      // NUEVO FLUJO: Detectar TODOS los items con valor "M" (no solo los críticos)
+      // Cada item incluye is_critical para diferenciar visualmente y en prioridad
+      const failedItems: Array<{
+        item_code: string;
+        item_label: string;
+        section_code: string;
+        is_critical: boolean;
+      }> = [];
+
       sortedSections.forEach((section) => {
         const sectionCode = section.code || section.section?.code || `section_${section.id}`;
         section.checklist_template_items?.forEach((item) => {
-          if (item.is_critical) {
-            const itemCode = item.code || `item_${item.id}`;
-            const fieldName = `${sectionCode}__${itemCode}`;
+          const itemCode = item.code || `item_${item.id}`;
+          const fieldName = `${sectionCode}__${itemCode}`;
+          const isCritical = item.is_critical || false;
 
-            if (isSideValidationItem(item)) {
-              const leftValue = data[`${fieldName}_left`];
-              const rightValue = data[`${fieldName}_right`];
-              if (leftValue === 'M' || rightValue === 'M') {
-                failedCriticalItems.push({
-                  item_code: itemCode,
-                  item_label: item.label || itemCode,
-                  section_code: sectionCode,
-                });
-              }
-            } else {
-              const value = data[fieldName];
-              if (value === 'M' || value === false || value === 'false') {
-                failedCriticalItems.push({
-                  item_code: itemCode,
-                  item_label: item.label || itemCode,
-                  section_code: sectionCode,
-                });
-              }
+          // Verificar si el item tiene valor "M" (malo)
+          let hasFailed = false;
+
+          if (isSideValidationItem(item)) {
+            const leftValue = data[`${fieldName}_left`];
+            const rightValue = data[`${fieldName}_right`];
+            if (leftValue === 'M' || rightValue === 'M') {
+              hasFailed = true;
             }
+          } else {
+            const value = data[fieldName];
+            if (value === 'M' || value === false || value === 'false') {
+              hasFailed = true;
+            }
+          }
+
+          // Si falló, agregarlo a la lista (crítico o no)
+          if (hasFailed) {
+            failedItems.push({
+              item_code: itemCode,
+              item_label: item.label || itemCode,
+              section_code: sectionCode,
+              is_critical: isCritical,
+            });
           }
         });
       });
+
+      // Para compatibilidad con el código existente, mantener la referencia a failedCriticalItems
+      const failedCriticalItems = failedItems;
 
       // Estructurar las respuestas por sección
       const answersBySection: Record<string, Record<string, any>> = {};
@@ -900,6 +913,7 @@ export function NormalizedChecklistForm({
       // Se actualizará cuando se apruebe la entrada a taller en el nuevo flujo de mantenimiento.
 
       // Guardar checklist para el equipo UT
+      // NUEVO FLUJO: Usar failed_items que incluye TODOS los items con "M" (no solo críticos)
       const checklistAnswer = await CreateChecklistAnswer(template.id, {
         equipment_id: data.equipment_id,
         customer_id: data.customer_id || null,
@@ -910,7 +924,8 @@ export function NormalizedChecklistForm({
         kilometraje: data.kilometraje,
         observaciones: data.observaciones,
         answers: answersBySection,
-        critical_items_failed: failedCriticalItems,
+        failed_items: failedItems, // Nuevo formato con is_critical
+        critical_items_failed: failedCriticalItems, // Mantener por compatibilidad
       });
 
       setCurrentEquipmentId(data.equipment_id);
@@ -945,35 +960,40 @@ export function NormalizedChecklistForm({
         }
       }
 
-      if (failedCriticalItems.length > 0) {
-        setCriticalItemsFailed(failedCriticalItems.map((item) => item.item_label));
+      // NUEVO FLUJO: Mostrar modal si hay CUALQUIER item fallido (crítico o no)
+      if (failedItems.length > 0) {
+        setCriticalItemsFailed(failedItems.map((item) => item.item_label));
 
-        // Obtener los desvíos creados y los tipos de reparación para el modal
+        // Obtener los desvíos creados y los supervisores disponibles para el modal
         try {
           console.log('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id:', data.equipment_id);
-          const [deviations, types] = await Promise.all([
+          const [deviations, supervisorsList] = await Promise.all([
             getPendingDeviations(data.equipment_id),
-            fetchAllTypesOfRepairs(),
+            fetchSupervisorsForChecklist(),
           ]);
 
           console.log('[NormalizedChecklistForm] Desvíos obtenidos:', deviations?.length || 0);
           console.log('[NormalizedChecklistForm] Desvíos detalle:', JSON.stringify(deviations, null, 2));
-          console.log('[NormalizedChecklistForm] Tipos de reparación:', types?.length || 0);
+          console.log('[NormalizedChecklistForm] Supervisores:', supervisorsList?.length || 0);
 
           setPendingDeviations(deviations);
-          setRepairTypes(types as TypeOfRepair);
+          setSupervisors(supervisorsList);
           setShowDeviationsModal(true);
           // NO redirigir aquí, esperar a que el modal se cierre
 
+          // Contar críticos vs no críticos para el mensaje
+          const criticalCount = failedItems.filter((item) => item.is_critical).length;
+          const nonCriticalCount = failedItems.length - criticalCount;
+
           const { toast } = await import('sonner');
           toast.success('Checklist guardado', {
-            description: `Se detectaron ${failedCriticalItems.length} items críticos con fallos. Por favor, asigna los desvíos a solicitudes de reparación.`,
+            description: `Se detectaron ${failedItems.length} item(s) con fallos${criticalCount > 0 ? ` (${criticalCount} crítico(s))` : ''}. Por favor, registra los desvíos.`,
           });
         } catch (error) {
-          logger.error('Error fetching deviations or repair types', { data: { error } });
+          logger.error('Error fetching deviations or supervisors', { data: { error } });
           const { toast } = await import('sonner');
           toast.success('Checklist guardado', {
-            description: `Se detectaron ${failedCriticalItems.length} items críticos con fallos`,
+            description: `Se detectaron ${failedItems.length} item(s) con fallos`,
           });
 
           // Si no se puede cargar el modal, redirigir a la página de la respuesta creada
@@ -1489,6 +1509,7 @@ export function NormalizedChecklistForm({
           onClose={() => {
             setShowDeviationsModal(false);
             // Redirigir a la página de la respuesta creada
+            // NOTA: No llamar router.refresh() después de router.push() porque interfiere con la navegación
             if (pathname?.includes('/dashboard/forms/')) {
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
               if (formIdMatch && formIdMatch[1] && createdAnswerId) {
@@ -1501,11 +1522,11 @@ export function NormalizedChecklistForm({
             } else {
               router.push(`/maintenance/equipment/${currentEquipmentId}/checklists`);
             }
-            router.refresh();
           }}
           onComplete={() => {
             setShowDeviationsModal(false);
             // Redirigir a la página de la respuesta creada
+            // NOTA: No llamar router.refresh() después de router.push() porque interfiere con la navegación
             if (pathname?.includes('/dashboard/forms/')) {
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
               if (formIdMatch && formIdMatch[1] && createdAnswerId) {
@@ -1518,17 +1539,16 @@ export function NormalizedChecklistForm({
             } else {
               router.push(`/maintenance/equipment/${currentEquipmentId}/checklists`);
             }
-            router.refresh();
           }}
           deviations={pendingDeviations.map((d) => ({
             id: d.id,
             item_code: d.item_code,
             item_label: d.item_label,
             section_code: d.section_code,
+            is_critical: d.is_critical || false,
             created_at: d.created_at,
           }))}
           equipmentId={currentEquipmentId}
-          repairTypes={repairTypes}
         />
       )}
 

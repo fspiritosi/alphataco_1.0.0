@@ -86,6 +86,27 @@ export function getColumns({
       enableSorting: false,
     },
     {
+      accessorKey: 'status',
+      id: 'Estado',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      cell: ({ row }) => {
+        const status = row.original.status;
+        const statusConfig: Record<string, { label: string; variant: 'warning' | 'success' | 'secondary' }> = {
+          scheduled: { label: 'Pendiente Aprobación', variant: 'warning' },
+          date_confirmed: { label: 'Fecha Confirmada', variant: 'success' },
+        };
+        const config = statusConfig[status || ''] || {
+          label: status || 'Desconocido',
+          variant: 'secondary' as const,
+        };
+        return <Badge variant={config.variant}>{config.label}</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.original.status);
+      },
+      enableSorting: false,
+    },
+    {
       accessorKey: 'vehicles.condition',
       id: 'Condicion',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Condición Actual" />,
@@ -118,32 +139,35 @@ export function getColumns({
       header: 'Acciones',
       cell: ({ row }) => {
         const order = row.original;
+        const isPendingApproval = order.status === 'scheduled';
 
         return (
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => onView(order)} title="Ver detalle">
               <Eye className="h-4 w-4" />
             </Button>
-            <PermissionGuard module="mantenimiento" tab="pendientes_ejecutar" action="update">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onApprove(order)}
-                title="Aprobar fecha"
-                className="text-green-600 hover:text-green-700"
-              >
-                <CheckCircle className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onReject(order)}
-                title="Rechazar fecha"
-                className="text-red-600 hover:text-red-700"
-              >
-                <XCircle className="h-4 w-4" />
-              </Button>
-            </PermissionGuard>
+            {isPendingApproval && (
+              <PermissionGuard module="mantenimiento" tab="pendientes_ejecutar" action="update">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onApprove(order)}
+                  title="Aprobar fecha"
+                  className="text-green-600 hover:text-green-700"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onReject(order)}
+                  title="Rechazar fecha"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </PermissionGuard>
+            )}
           </div>
         );
       },

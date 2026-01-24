@@ -8,6 +8,7 @@ const serverLogger = new Logger('PedidosMantenimiento/actions');
 
 /**
  * Obtiene los pedidos de mantenimiento con filtros opcionales
+ * @deprecated Usar getMaintenanceOrdersPending o getMaintenanceOrdersConfirmed
  */
 export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
   const supabase = await supabaseServer();
@@ -23,9 +24,13 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code)
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
-        types_of_repairs(id, name)
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
       )
     `
     )
@@ -60,6 +65,94 @@ export type MaintenanceOrdersData = Awaited<ReturnType<typeof getMaintenanceOrde
 export type MaintenanceOrderData = MaintenanceOrdersData[number];
 
 /**
+ * Obtiene los pedidos de mantenimiento pendientes
+ * - pending_scheduling: Pendientes de planificar fecha
+ * - scheduled: Pendientes de aprobación de fecha (ya planificados)
+ *
+ * Ordenamiento: pending_scheduling primero, luego scheduled, ambos de más viejo a más reciente
+ */
+export async function getMaintenanceOrdersPending() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .select(
+      `
+      *,
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
+      maintenance_requests(id, kilometer, created_at),
+      maintenance_order_items(
+        *,
+        maintenance_request_items(
+          *,
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+        ),
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
+      )
+    `
+    )
+    .in('status', ['pending_scheduling', 'scheduled'])
+    .order('status', { ascending: false }) // pending_scheduling (p) antes que scheduled (s) - desc porque p > s alfabéticamente
+    .order('created_at', { ascending: true }); // De más viejo a más reciente
+
+  if (error) {
+    serverLogger.error('Error al obtener pedidos pendientes', { data: { error } });
+    throw error;
+  }
+
+  return data || [];
+}
+
+export type MaintenanceOrdersPendingData = Awaited<ReturnType<typeof getMaintenanceOrdersPending>>;
+
+/**
+ * Obtiene los pedidos de mantenimiento con fecha confirmada
+ * - date_confirmed: Listos para entrada a taller
+ *
+ * Ordenamiento: de más viejo a más reciente
+ */
+export async function getMaintenanceOrdersConfirmed() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .select(
+      `
+      *,
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
+      maintenance_requests(id, kilometer, created_at),
+      maintenance_order_items(
+        *,
+        maintenance_request_items(
+          *,
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+        ),
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
+      )
+    `
+    )
+    .eq('status', 'date_confirmed')
+    .order('created_at', { ascending: true }); // De más viejo a más reciente
+
+  if (error) {
+    serverLogger.error('Error al obtener pedidos confirmados', { data: { error } });
+    throw error;
+  }
+
+  return data || [];
+}
+
+export type MaintenanceOrdersConfirmedData = Awaited<ReturnType<typeof getMaintenanceOrdersConfirmed>>;
+
+/**
  * Obtiene un pedido de mantenimiento por ID
  */
 export async function getMaintenanceOrderById(orderId: string) {
@@ -76,9 +169,13 @@ export async function getMaintenanceOrderById(orderId: string) {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code)
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
-        types_of_repairs(id, name)
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
       )
     `
     )

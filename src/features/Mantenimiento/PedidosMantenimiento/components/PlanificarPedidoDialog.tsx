@@ -51,14 +51,25 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
     }
   };
 
-  // Agrupar items por tipo de reparación
+  // Agrupar items por tipo de reparación (soporta múltiples tipos)
   const itemsByRepairType = (order.maintenance_order_items || []).reduce(
     (acc, item) => {
-      const repairTypeName = item.types_of_repairs?.name || 'Sin tipo asignado';
-      if (!acc[repairTypeName]) {
-        acc[repairTypeName] = [];
-      }
-      acc[repairTypeName].push(item);
+      // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+      const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+      const repairTypeNames: string[] =
+        pivotRepairTypes.length > 0
+          ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+          : item.types_of_repairs?.name
+            ? [item.types_of_repairs.name]
+            : ['Sin tipo asignado'];
+
+      // Si hay múltiples tipos, el item aparecerá en cada grupo
+      repairTypeNames.forEach((typeName) => {
+        if (!acc[typeName]) {
+          acc[typeName] = [];
+        }
+        acc[typeName].push(item);
+      });
       return acc;
     },
     {} as Record<string, typeof order.maintenance_order_items>
@@ -126,6 +137,16 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                                 <span className="text-muted-foreground ml-2 text-xs">
                                   (Sección: {deviation.section_code.replace('_', ' ')})
                                 </span>
+                              )}
+                              {((item.maintenance_request_items as any)?.driver_comment ||
+                                deviation?.driver_comment) && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  <span>Chofer: </span>
+                                  <span className="italic">
+                                    {(item.maintenance_request_items as any)?.driver_comment ||
+                                      deviation?.driver_comment}
+                                  </span>
+                                </p>
                               )}
                             </div>
                           </div>

@@ -1,11 +1,8 @@
 'use client';
 
-import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
   Dialog,
   DialogContent,
@@ -15,13 +12,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Check, ChevronsUpDown, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { AlertCircle, AlertTriangle, Check, Loader2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 import { useApproveMaintenanceRequestItems } from '../hooks/useMaintenanceRequests';
@@ -32,445 +27,238 @@ interface SolicitudApprovalDialogProps {
   onClose: () => void;
 }
 
-type Deviation = {
-  id: string;
+type DeviationItem = {
+  id: string; // checklist_deviation_id
   itemId: string; // maintenance_request_item.id
   item_code: string;
   item_label: string;
   section_code: string | null;
-  repair_type_id: string | null;
-  repair_type_name: string | null;
+  driver_comment: string | null;
+  is_critical: boolean;
 };
 
-type RepairGroup = {
-  id: string;
-  repair_type_id: string;
-  selected_deviations: string[]; // deviation.id (checklist_deviation_id)
+// Estado simplificado: solo aprobado o rechazado con motivo
+type ItemDecision = {
+  status: 'approved' | 'rejected' | 'pending';
+  rejectionReason: string;
 };
 
 export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApprovalDialogProps) {
-  // Extraer los desvíos con sus asignaciones de tipo de reparación
-  const deviations: Deviation[] = useMemo(() => {
+  // Extraer los desvíos pendientes de la solicitud
+  const pendingItems: DeviationItem[] = useMemo(() => {
     return (
-      request.maintenance_request_items?.map((item) => ({
-        id: item.checklist_deviation_id,
-        itemId: item.id,
-        item_code: item.checklist_deviations?.item_code || '',
-        item_label: item.checklist_deviations?.item_label || 'Sin título',
-        section_code: item.checklist_deviations?.section_code || null,
-        repair_type_id: item.repair_type_id || null,
-        repair_type_name: item.types_of_repairs?.name || null,
-      })) || []
+      request.maintenance_request_items
+        ?.filter((item) => item.status === 'pending')
+        .map((item) => ({
+          id: item.checklist_deviation_id,
+          itemId: item.id,
+          item_code: item.checklist_deviations?.item_code || '',
+          item_label: item.checklist_deviations?.item_label || 'Sin título',
+          section_code: item.checklist_deviations?.section_code || null,
+          driver_comment: item.driver_comment || item.checklist_deviations?.driver_comment || null,
+          is_critical: item.checklist_deviations?.is_critical ?? false,
+        })) || []
     );
   }, [request.maintenance_request_items]);
 
-  // Determinar si el chofer ya asignó tipos de reparación
-  const hasDriverAssignments = useMemo(() => {
-    return deviations.some((d) => d.repair_type_id !== null);
-  }, [deviations]);
+  // Estado de decisiones por item
+  const [decisions, setDecisions] = useState<Record<string, ItemDecision>>({});
 
-  // Estado de edición
-  const [isEditing, setIsEditing] = useState(!hasDriverAssignments);
-
-  // Agrupar desvíos por tipo de reparación (para modo precargado)
-  const initialRepairGroups: RepairGroup[] = useMemo(() => {
-    if (!hasDriverAssignments) return [];
-
-    const groupMap = new Map<string, RepairGroup>();
-
-    deviations.forEach((deviation) => {
-      if (deviation.repair_type_id) {
-        const existing = groupMap.get(deviation.repair_type_id);
-        if (existing) {
-          existing.selected_deviations.push(deviation.id);
-        } else {
-          groupMap.set(deviation.repair_type_id, {
-            id: crypto.randomUUID(),
-            repair_type_id: deviation.repair_type_id,
-            selected_deviations: [deviation.id],
-          });
-        }
-      }
-    });
-
-    return Array.from(groupMap.values());
-  }, [deviations, hasDriverAssignments]);
-
-  // Estado de los grupos de reparación (editables)
-  const [repairGroups, setRepairGroups] = useState<RepairGroup[]>(initialRepairGroups);
-  const [selectedDeviationIds, setSelectedDeviationIds] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    initialRepairGroups.forEach((group) => {
-      group.selected_deviations.forEach((id) => initial.add(id));
-    });
-    return initial;
-  });
-  const [openRepairSelects, setOpenRepairSelects] = useState<Record<string, boolean>>({});
-
-  // Estado para items rechazados
-  const [rejectedItems, setRejectedItems] = useState<Record<string, string>>({});
-
-  const { data: repairTypes } = useQuery({
-    queryKey: ['types-of-repairs'],
-    queryFn: fetchAllTypesOfRepairs,
-  });
+  // Inicializar decisiones cuando se abre el dialog
+  useEffect(() => {
+    if (open) {
+      const initialDecisions: Record<string, ItemDecision> = {};
+      pendingItems.forEach((item) => {
+        initialDecisions[item.itemId] = {
+          status: 'pending',
+          rejectionReason: '',
+        };
+      });
+      setDecisions(initialDecisions);
+    }
+  }, [open, pendingItems]);
 
   const approveMutation = useApproveMaintenanceRequestItems();
 
-  // Handlers para edición de grupos
-  const handleAddRepairGroup = () => {
-    const newGroup: RepairGroup = {
-      id: crypto.randomUUID(),
-      repair_type_id: '',
-      selected_deviations: [],
-    };
-    setRepairGroups([...repairGroups, newGroup]);
-  };
-
-  const handleRemoveRepairGroup = (groupId: string) => {
-    const group = repairGroups.find((g) => g.id === groupId);
-    if (group) {
-      const newSelected = new Set(selectedDeviationIds);
-      group.selected_deviations.forEach((id) => newSelected.delete(id));
-      setSelectedDeviationIds(newSelected);
-    }
-    setRepairGroups(repairGroups.filter((g) => g.id !== groupId));
-    const newOpenSelects = { ...openRepairSelects };
-    delete newOpenSelects[groupId];
-    setOpenRepairSelects(newOpenSelects);
-  };
-
-  const handleSelectRepairType = (groupId: string, repairTypeId: string) => {
-    setRepairGroups(repairGroups.map((g) => (g.id === groupId ? { ...g, repair_type_id: repairTypeId } : g)));
-    setOpenRepairSelects({ ...openRepairSelects, [groupId]: false });
-  };
-
-  const handleToggleDeviation = (groupId: string, deviationId: string) => {
-    const group = repairGroups.find((g) => g.id === groupId);
-    if (!group) return;
-
-    const newSelectedDeviations = group.selected_deviations.includes(deviationId)
-      ? group.selected_deviations.filter((id) => id !== deviationId)
-      : [...group.selected_deviations, deviationId];
-
-    setRepairGroups(
-      repairGroups.map((g) => (g.id === groupId ? { ...g, selected_deviations: newSelectedDeviations } : g))
-    );
-
-    const newSelected = new Set(selectedDeviationIds);
-    if (newSelectedDeviations.includes(deviationId)) {
-      newSelected.add(deviationId);
-    } else {
-      newSelected.delete(deviationId);
-    }
-    setSelectedDeviationIds(newSelected);
-  };
-
-  const handleRejectionReasonChange = (deviationId: string, reason: string) => {
-    setRejectedItems((prev) => ({
+  // Handlers
+  const handleApproveItem = (itemId: string) => {
+    setDecisions((prev) => ({
       ...prev,
-      [deviationId]: reason,
+      [itemId]: {
+        status: 'approved',
+        rejectionReason: '',
+      },
     }));
   };
 
-  const getRepairTypeName = (repairTypeId: string) => {
-    return repairTypes?.find((t) => t.id === repairTypeId)?.name || '';
+  const handleRejectItem = (itemId: string) => {
+    setDecisions((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        status: 'rejected',
+      },
+    }));
   };
 
-  // Items no asignados
-  const unassignedDeviations = deviations.filter((d) => !selectedDeviationIds.has(d.id));
+  const handleResetItem = (itemId: string) => {
+    setDecisions((prev) => ({
+      ...prev,
+      [itemId]: {
+        status: 'pending',
+        rejectionReason: '',
+      },
+    }));
+  };
+
+  const handleRejectionReasonChange = (itemId: string, reason: string) => {
+    setDecisions((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        rejectionReason: reason,
+      },
+    }));
+  };
 
   const handleSubmit = async () => {
-    // Construir items aprobados y rechazados
-    const approvedItems: { itemId: string; repairTypeId?: string }[] = [];
-    const rejectedItemsList: { itemId: string; reason: string }[] = [];
-
-    // Items aprobados: los que están en algún grupo de reparación
-    repairGroups.forEach((group) => {
-      group.selected_deviations.forEach((deviationId) => {
-        const deviation = deviations.find((d) => d.id === deviationId);
-        if (deviation) {
-          approvedItems.push({
-            itemId: deviation.itemId,
-            repairTypeId: group.repair_type_id || undefined,
-          });
-        }
-      });
-    });
-
-    // Items rechazados: los que no están en ningún grupo
-    unassignedDeviations.forEach((deviation) => {
-      const reason = rejectedItems[deviation.id];
-      if (!reason?.trim()) {
-        toast.error(`Debe indicar un motivo de rechazo para: ${deviation.item_label}`);
-        return;
-      }
-      rejectedItemsList.push({
-        itemId: deviation.itemId,
-        reason,
-      });
-    });
-
-    // Validar que todos los items no asignados tengan motivo de rechazo
-    const missingReasons = unassignedDeviations.filter((d) => !rejectedItems[d.id]?.trim());
-    if (missingReasons.length > 0) {
-      toast.error('Debe indicar un motivo de rechazo para todos los items no asignados');
+    // Validar que todos los items tengan una decisión
+    const pendingDecisions = Object.entries(decisions).filter(([_, d]) => d.status === 'pending');
+    if (pendingDecisions.length > 0) {
+      toast.error('Todos los items deben ser aprobados o rechazados');
       return;
     }
 
-    // Validar que todos los grupos tengan tipo de reparación
-    const invalidGroups = repairGroups.filter((g) => g.selected_deviations.length > 0 && !g.repair_type_id);
-    if (invalidGroups.length > 0) {
-      toast.error('Todos los grupos de reparación deben tener un tipo de reparación asignado');
+    // Validar que los rechazados tengan motivo
+    const rejectedWithoutReason = Object.entries(decisions).filter(
+      ([_, d]) => d.status === 'rejected' && !d.rejectionReason.trim()
+    );
+    if (rejectedWithoutReason.length > 0) {
+      toast.error('Los items rechazados deben tener un motivo');
       return;
     }
+
+    // Construir payload (sin tipos de reparación)
+    const approvedItems = Object.entries(decisions)
+      .filter(([_, d]) => d.status === 'approved')
+      .map(([itemId]) => ({
+        itemId,
+      }));
+
+    const rejectedItems = Object.entries(decisions)
+      .filter(([_, d]) => d.status === 'rejected')
+      .map(([itemId, d]) => ({
+        itemId,
+        reason: d.rejectionReason,
+      }));
 
     try {
       await approveMutation.mutateAsync({
         requestId: request.id,
         approvedItems,
-        rejectedItems: rejectedItemsList,
+        rejectedItems,
       });
-      toast.success('Solicitud procesada exitosamente');
+
+      const approvedCount = approvedItems.length;
+      const rejectedCount = rejectedItems.length;
+
+      toast.success('Solicitud procesada', {
+        description: `${approvedCount} aprobado(s), ${rejectedCount} rechazado(s)`,
+      });
       onClose();
     } catch {
       toast.error('Error al procesar la solicitud');
     }
   };
 
-  const selectedCount = selectedDeviationIds.size;
-  const totalCount = deviations.length;
+  // Separar items críticos y no críticos
+  const criticalItems = pendingItems.filter((i) => i.is_critical);
+  const nonCriticalItems = pendingItems.filter((i) => !i.is_critical);
+
+  // Contadores
+  const approvedCount = Object.values(decisions).filter((d) => d.status === 'approved').length;
+  const rejectedCount = Object.values(decisions).filter((d) => d.status === 'rejected').length;
+  const pendingCount = Object.values(decisions).filter((d) => d.status === 'pending').length;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Aprobar Solicitud de Mantenimiento</DialogTitle>
+          <DialogTitle>Validar Solicitud de Mantenimiento</DialogTitle>
           <DialogDescription>
-            {hasDriverAssignments
-              ? 'El chofer ya asignó los desvíos a tipos de reparación. Puede aprobar o editar las asignaciones.'
-              : 'Asigne los desvíos a tipos de reparación para aprobar la solicitud.'}
+            Revisa cada item y aprueba o rechaza con un motivo. Los tipos de reparación se asignarán en la etapa de
+            Planificación.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Información del equipo */}
-          <div className="p-3 bg-muted rounded-lg flex justify-between items-center">
-            <div>
-              <span className="text-sm text-muted-foreground">Equipo: </span>
-              <span className="font-medium">
-                {request.vehicles?.domain || request.vehicles?.serie || 'Sin identificar'}
-              </span>
-            </div>
-            {hasDriverAssignments && !isEditing && (
-              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Editar asignaciones
-              </Button>
-            )}
-          </div>
-
-          {/* Lista de items críticos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Items Críticos ({deviations.length})</CardTitle>
-              <CardDescription>
-                {unassignedDeviations.length > 0
-                  ? `${unassignedDeviations.length} item(s) sin asignar (serán rechazados)`
-                  : 'Todos los items están asignados a una reparación'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {deviations.map((deviation) => {
-                  const isSelected = selectedDeviationIds.has(deviation.id);
-                  return (
-                    <div
-                      key={deviation.id}
-                      className={cn(
-                        'flex items-center gap-3 p-3 rounded-lg border',
-                        isSelected ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-                      )}
-                    >
-                      <AlertCircle
-                        className={cn('h-5 w-5 shrink-0', isSelected ? 'text-green-600' : 'text-destructive')}
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium">{deviation.item_label}</p>
-                        {deviation.section_code && (
-                          <p className="text-sm text-muted-foreground capitalize">
-                            Sección: {deviation.section_code.replace('_', ' ')}
-                          </p>
-                        )}
-                      </div>
-                      <Badge variant={isSelected ? 'default' : 'destructive'}>
-                        {isSelected ? 'Asignado' : 'Sin asignar'}
-                      </Badge>
-                    </div>
-                  );
-                })}
+          {/* Información del equipo y supervisor */}
+          <div className="p-3 bg-muted rounded-lg space-y-1">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-sm text-muted-foreground">Equipo: </span>
+                <span className="font-medium">
+                  {request.vehicles?.domain || request.vehicles?.serie || 'Sin identificar'}
+                </span>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Grupos de reparación (editables o readonly) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Tipos de Reparación</h3>
-              {isEditing && (
-                <Button onClick={handleAddRepairGroup} size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Tipo
-                </Button>
+              {request.supervisor && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Supervisor: </span>
+                  <span className="font-medium">
+                    {(request.supervisor as { fullname?: string })?.fullname || 'Sin nombre'}
+                  </span>
+                </div>
               )}
             </div>
-
-            {repairGroups.length === 0 && (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  No hay tipos de reparación asignados. {isEditing && 'Agrega uno para comenzar.'}
-                </CardContent>
-              </Card>
-            )}
-
-            {repairGroups.map((group) => (
-              <Card key={group.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">
-                      {getRepairTypeName(group.repair_type_id) || 'Tipo de reparación sin asignar'}
-                    </CardTitle>
-                    {isEditing && (
-                      <Button
-                        onClick={() => handleRemoveRepairGroup(group.id)}
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Select de tipo de reparación */}
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <Label>Tipo de Reparación *</Label>
-                      <Popover
-                        open={openRepairSelects[group.id] || false}
-                        onOpenChange={(open) => setOpenRepairSelects({ ...openRepairSelects, [group.id]: open })}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className={cn('w-full justify-between', !group.repair_type_id && 'text-muted-foreground')}
-                          >
-                            {group.repair_type_id ? getRepairTypeName(group.repair_type_id) : 'Seleccionar tipo...'}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Buscar tipo de reparación..." />
-                            <CommandList>
-                              <CommandEmpty>No se encontró ningún tipo de reparación.</CommandEmpty>
-                              <CommandGroup>
-                                {repairTypes?.map((repairType) => (
-                                  <CommandItem
-                                    key={repairType.id}
-                                    value={repairType.name}
-                                    onSelect={() => handleSelectRepairType(group.id, repairType.id)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        'mr-2 h-4 w-4',
-                                        group.repair_type_id === repairType.id ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                    {repairType.name}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">Tipo asignado por el chofer</div>
-                  )}
-
-                  {/* Checkboxes de items asignados */}
-                  <div className="space-y-2">
-                    <Label>Items asignados a esta reparación</Label>
-                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-                      {deviations.map((deviation) => {
-                        const isChecked = group.selected_deviations.includes(deviation.id);
-                        const isDisabledByOther =
-                          !isChecked &&
-                          selectedDeviationIds.has(deviation.id) &&
-                          !group.selected_deviations.includes(deviation.id);
-
-                        return (
-                          <div key={deviation.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${group.id}-${deviation.id}`}
-                              checked={isChecked}
-                              disabled={!isEditing || isDisabledByOther}
-                              onCheckedChange={() => handleToggleDeviation(group.id, deviation.id)}
-                            />
-                            <Label
-                              htmlFor={`${group.id}-${deviation.id}`}
-                              className={cn(
-                                'text-sm font-normal cursor-pointer flex-1',
-                                (!isEditing || isDisabledByOther) && 'text-muted-foreground cursor-not-allowed'
-                              )}
-                            >
-                              {deviation.item_label}
-                              {deviation.section_code && (
-                                <span className="text-xs text-muted-foreground ml-2">
-                                  ({deviation.section_code.replace('_', ' ')})
-                                </span>
-                              )}
-                            </Label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
           </div>
 
-          {/* Items sin asignar (serán rechazados) */}
-          {unassignedDeviations.length > 0 && (
-            <Card className="border-red-200">
-              <CardHeader>
-                <CardTitle className="text-lg text-red-700">
-                  Items que serán rechazados ({unassignedDeviations.length})
+          {/* Items Críticos */}
+          {criticalItems.length > 0 && (
+            <Card className="border-destructive/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                  <AlertCircle className="h-5 w-5" />
+                  Items Críticos ({criticalItems.length})
                 </CardTitle>
-                <CardDescription>
-                  Estos items no están asignados a ningún tipo de reparación. Debe indicar un motivo de rechazo.
-                </CardDescription>
+                <CardDescription>Estos items requieren atención inmediata</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {unassignedDeviations.map((deviation) => (
-                  <div key={deviation.id} className="space-y-2 p-3 border border-red-200 rounded-lg bg-red-50/50">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-destructive" />
-                      <span className="font-medium">{deviation.item_label}</span>
-                    </div>
-                    <Textarea
-                      value={rejectedItems[deviation.id] || ''}
-                      onChange={(e) => handleRejectionReasonChange(deviation.id, e.target.value)}
-                      placeholder="Motivo del rechazo (requerido)..."
-                      className="mt-1"
-                      rows={2}
-                    />
-                  </div>
+                {criticalItems.map((item) => (
+                  <ItemCard
+                    key={item.itemId}
+                    item={item}
+                    decision={decisions[item.itemId]}
+                    onApprove={() => handleApproveItem(item.itemId)}
+                    onReject={() => handleRejectItem(item.itemId)}
+                    onReset={() => handleResetItem(item.itemId)}
+                    onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Items No Críticos */}
+          {nonCriticalItems.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  Otros Items ({nonCriticalItems.length})
+                </CardTitle>
+                <CardDescription>Items que requieren mantenimiento pero no son críticos</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {nonCriticalItems.map((item) => (
+                  <ItemCard
+                    key={item.itemId}
+                    item={item}
+                    decision={decisions[item.itemId]}
+                    onApprove={() => handleApproveItem(item.itemId)}
+                    onReject={() => handleRejectItem(item.itemId)}
+                    onReset={() => handleResetItem(item.itemId)}
+                    onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
+                  />
                 ))}
               </CardContent>
             </Card>
@@ -480,30 +268,146 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
 
           {/* Resumen */}
           <div className="p-3 bg-muted rounded-lg flex justify-between items-center">
-            <span className="text-sm">
-              <span className="text-green-600 font-medium">{selectedCount}</span> aprobados,{' '}
-              <span className="text-red-600 font-medium">{totalCount - selectedCount}</span> rechazados
-            </span>
+            <div className="flex gap-4 text-sm">
+              <span>
+                <span className="text-green-600 dark:text-green-400 font-medium">{approvedCount}</span> aprobados
+              </span>
+              <span>
+                <span className="text-red-600 dark:text-red-400 font-medium">{rejectedCount}</span> rechazados
+              </span>
+              {pendingCount > 0 && (
+                <span>
+                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">{pendingCount}</span> pendientes
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={approveMutation.isPending}>
             Cancelar
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={
-              approveMutation.isPending ||
-              (repairGroups.length > 0 &&
-                repairGroups.some((g) => !g.repair_type_id && g.selected_deviations.length > 0))
-            }
-          >
+          <Button onClick={handleSubmit} disabled={approveMutation.isPending || pendingCount > 0}>
             {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Aprobar Solicitud
+            Procesar Solicitud
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Componente simplificado para renderizar cada item con botones de aprobar/rechazar
+ */
+function ItemCard({
+  item,
+  decision,
+  onApprove,
+  onReject,
+  onReset,
+  onReasonChange,
+}: {
+  item: DeviationItem;
+  decision: ItemDecision | undefined;
+  onApprove: () => void;
+  onReject: () => void;
+  onReset: () => void;
+  onReasonChange: (reason: string) => void;
+}) {
+  if (!decision) return null;
+
+  const isRejected = decision.status === 'rejected';
+  const isApproved = decision.status === 'approved';
+  const isPending = decision.status === 'pending';
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg border p-4 space-y-3',
+        isRejected && 'border-destructive/50 bg-destructive/5',
+        isApproved && 'border-green-500/50 bg-green-50/50 dark:bg-green-950/20',
+        isPending && 'border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20'
+      )}
+    >
+      {/* Header del item */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            {item.is_critical ? (
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
+            )}
+            <span className="font-medium">{item.item_label}</span>
+            {item.is_critical && (
+              <Badge variant="destructive" className="text-xs">
+                CRÍTICO
+              </Badge>
+            )}
+          </div>
+          {item.section_code && (
+            <p className="text-sm text-muted-foreground capitalize mt-1">
+              Sección: {item.section_code.replace('_', ' ')}
+            </p>
+          )}
+          {item.driver_comment && (
+            <p className="text-sm text-muted-foreground mt-1 italic">Comentario: {item.driver_comment}</p>
+          )}
+        </div>
+
+        {/* Botones de acción */}
+        <div className="flex gap-2">
+          {isPending && (
+            <>
+              <Button variant="outline" size="sm" className="text-green-600 hover:bg-green-50" onClick={onApprove}>
+                <Check className="h-4 w-4 mr-1" />
+                Aprobar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={onReject}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Rechazar
+              </Button>
+            </>
+          )}
+          {(isApproved || isRejected) && (
+            <Button variant="ghost" size="sm" onClick={onReset}>
+              Cambiar
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Motivo de rechazo (solo si está rechazado) */}
+      {isRejected && (
+        <div className="space-y-2">
+          <Label htmlFor={`reason-${item.itemId}`}>Motivo del rechazo *</Label>
+          <Textarea
+            id={`reason-${item.itemId}`}
+            value={decision.rejectionReason}
+            onChange={(e) => onReasonChange(e.target.value)}
+            placeholder="Indique el motivo del rechazo..."
+            rows={2}
+            className={cn(!decision.rejectionReason.trim() && 'border-destructive')}
+          />
+        </div>
+      )}
+
+      {/* Estado visual */}
+      <div className="flex justify-end">
+        <Badge
+          variant={isApproved ? 'default' : isRejected ? 'destructive' : 'secondary'}
+          className={cn(isApproved && 'bg-green-600')}
+        >
+          {isApproved ? 'Aprobado' : isRejected ? 'Rechazado' : 'Pendiente de decisión'}
+        </Badge>
+      </div>
+    </div>
   );
 }

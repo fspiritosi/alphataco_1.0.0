@@ -82,8 +82,16 @@ export function PendientesEjecutarTableClient({ initialData }: PendientesEjecuta
         tableId="pendientes-ejecutar-table"
         savedVisibility={{}}
         toolbarOptions={{
-          initialVisibleFilters: ['Equipo'],
+          initialVisibleFilters: ['Estado', 'Equipo'],
           filterableColumns: [
+            {
+              columnId: 'Estado',
+              title: 'Estado',
+              options: [
+                { label: 'Pendiente Aprobación', value: 'scheduled' },
+                { label: 'Fecha Confirmada', value: 'date_confirmed' },
+              ],
+            },
             {
               columnId: 'Equipo',
               title: 'Equipo',

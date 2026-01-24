@@ -445,6 +445,8 @@ export async function getPendingDeviations(equipmentId: string) {
       item_code,
       item_label,
       section_code,
+      is_critical,
+      driver_comment,
       created_at,
       checklist_answer_id,
       created_by_user_id,
@@ -518,13 +520,14 @@ export async function getPendingDeviations(equipmentId: string) {
   }
 
   // 2. Obtener desvíos que ya tienen solicitud de mantenimiento (sistema nuevo)
-  // IMPORTANTE: Incluir el estado de la maintenance_request para no filtrar los que están en pending_approval
+  // IMPORTANTE: Un desvío se considera "resuelto" si tiene repair_type_id asignado
   const { data: maintenanceRequestItems, error: maintenanceError } = await supabase
     .from('maintenance_request_items')
     .select(
       `
       checklist_deviation_id,
       maintenance_request_id,
+      repair_type_id,
       maintenance_requests!inner(
         id,
         status
@@ -556,50 +559,33 @@ export async function getPendingDeviations(equipmentId: string) {
 
   console.log('[getPendingDeviations] resolvedMap size:', resolvedMap.size);
 
-  // Crear un set de los IDs de desvíos que ya tienen solicitud de mantenimiento PROCESADA (sistema nuevo)
-  // Los desvíos con solicitudes en estado 'pending_approval' o 'rejected' NO se consideran "resueltos"
-  // porque aún necesitan ser procesados (asignar tipos de reparación, etc.)
-  const deviationsWithProcessedMaintenanceRequest = new Set<string>();
+  // Crear un set de los IDs de desvíos que ya tienen repair_type_id asignado (sistema nuevo)
+  // Un desvío se considera "resuelto" cuando tiene repair_type_id asignado, independiente del status de la solicitud
+  const deviationsWithRepairTypeAssigned = new Set<string>();
   if (maintenanceRequestItems) {
     maintenanceRequestItems.forEach((item) => {
-      if (item.checklist_deviation_id) {
-        // Solo marcar como "resuelto" si la solicitud ya fue aprobada (no está pending ni rechazada)
-        const requestStatus = (item.maintenance_requests as any)?.status;
-        console.log(`[getPendingDeviations] Item ${item.checklist_deviation_id} tiene status: ${requestStatus}`);
-        // Estados que indican que el desvío ya fue procesado y no debe aparecer en "pendientes"
-        const processedStatuses = [
-          'approved',
-          'pending_scheduling',
-          'scheduled',
-          'date_confirmed',
-          'in_workshop',
-          'completed',
-        ];
-        if (processedStatuses.includes(requestStatus)) {
-          console.log(
-            `[getPendingDeviations] Marcando ${item.checklist_deviation_id} como PROCESADO (status: ${requestStatus})`
-          );
-          deviationsWithProcessedMaintenanceRequest.add(item.checklist_deviation_id);
-        } else {
-          console.log(
-            `[getPendingDeviations] Item ${item.checklist_deviation_id} NO procesado (status: ${requestStatus}) - SE INCLUIRÁ`
-          );
-        }
+      if (item.checklist_deviation_id && item.repair_type_id) {
+        // Solo marcar como "resuelto" si tiene repair_type_id asignado
+        console.log(
+          `[getPendingDeviations] Marcando ${item.checklist_deviation_id} como RESUELTO (tiene repair_type_id: ${item.repair_type_id})`
+        );
+        deviationsWithRepairTypeAssigned.add(item.checklist_deviation_id);
+      } else if (item.checklist_deviation_id) {
+        console.log(
+          `[getPendingDeviations] Item ${item.checklist_deviation_id} SIN repair_type_id - SE INCLUIRÁ como pendiente`
+        );
       }
     });
   }
 
-  console.log(
-    '[getPendingDeviations] deviationsWithProcessedMaintenanceRequest size:',
-    deviationsWithProcessedMaintenanceRequest.size
-  );
-  console.log('[getPendingDeviations] IDs procesados:', Array.from(deviationsWithProcessedMaintenanceRequest));
+  console.log('[getPendingDeviations] deviationsWithRepairTypeAssigned size:', deviationsWithRepairTypeAssigned.size);
+  console.log('[getPendingDeviations] IDs con repair_type asignado:', Array.from(deviationsWithRepairTypeAssigned));
 
-  // Filtrar los desvíos: solo incluir aquellos que NO tienen una solicitud procesada en ninguno de los dos sistemas
+  // Filtrar los desvíos: solo incluir aquellos que NO tienen repair_type_id asignado
   const pendingDeviations = allDeviations.filter((deviation) => {
-    // Verificar si tiene solicitud de mantenimiento ya procesada (sistema nuevo)
-    if (deviationsWithProcessedMaintenanceRequest.has(deviation.id)) {
-      console.log(`[getPendingDeviations] FILTRANDO ${deviation.id} - tiene maintenance request procesada`);
+    // Verificar si tiene repair_type_id asignado (sistema nuevo)
+    if (deviationsWithRepairTypeAssigned.has(deviation.id)) {
+      console.log(`[getPendingDeviations] FILTRANDO ${deviation.id} - tiene repair_type_id asignado`);
       return false;
     }
 

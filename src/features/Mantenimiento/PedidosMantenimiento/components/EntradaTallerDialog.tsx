@@ -18,6 +18,9 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PLANIFICACION_QUERY_KEY } from '../../Planificacion/hooks/usePlanificacion';
+import { PEDIDOS_CONFIRMADOS_QUERY_KEY } from '../Confirmados/components/ConfirmadosTableClient';
+import { PEDIDOS_PENDIENTES_QUERY_KEY } from '../Pendientes/components/PendientesTableClient';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
 import { MAINTENANCE_ORDERS_QUERY_KEY } from '../hooks/useMaintenanceOrders';
 
@@ -36,7 +39,15 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   const approveMutation = useMutation({
     mutationFn: approveWorkshopEntryFromOrder,
     onSuccess: () => {
+      // Invalidar todas las vistas relacionadas con pedidos de mantenimiento
       queryClient.invalidateQueries({ queryKey: MAINTENANCE_ORDERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PEDIDOS_CONFIRMADOS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PEDIDOS_PENDIENTES_QUERY_KEY });
+      // Invalidar Planificación ya que el equipo ahora está en taller
+      queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
+      // Invalidar queries de vehículos (se actualiza condición y km)
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment'] });
     },
   });
 
@@ -122,19 +133,37 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                 <div className="space-y-2 pr-2">
                   {items.map((item, index) => {
                     const deviation = item.maintenance_request_items?.checklist_deviations;
-                    const repairType = item.types_of_repairs;
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
+
+                    // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                    const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                    const repairTypeNames: string[] =
+                      pivotRepairTypes.length > 0
+                        ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                        : item.types_of_repairs?.name
+                          ? [item.types_of_repairs.name]
+                          : [];
+
                     return (
                       <div key={item.id || index} className="p-2 bg-muted rounded text-sm">
                         <div className="font-medium">{deviation?.item_label || 'Sin etiqueta'}</div>
                         <div className="text-xs text-muted-foreground">
                           Código: {formattedCode}
-                          {repairType && (
+                          {repairTypeNames.length > 0 && (
                             <span className="ml-2">
-                              | Tipo: <span className="font-medium">{repairType.name}</span>
+                              | Tipo{repairTypeNames.length > 1 ? 's' : ''}:{' '}
+                              <span className="font-medium">{repairTypeNames.join(', ')}</span>
                             </span>
                           )}
                         </div>
+                        {((item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment) && (
+                          <div className="text-xs mt-1">
+                            <span className="text-muted-foreground">Chofer: </span>
+                            <span className="italic">
+                              {(item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

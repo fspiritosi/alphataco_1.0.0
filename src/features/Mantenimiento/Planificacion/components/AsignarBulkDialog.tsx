@@ -1,8 +1,10 @@
 'use client';
 
+import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -16,15 +18,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { assignWorkshopToItemsBulk } from '../actions/actionsServer';
 import { PLANIFICACION_QUERY_KEY } from '../hooks/usePlanificacion';
 import type { DesvioRowData } from './columns';
 
@@ -64,14 +68,31 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Query para obtener todos los tipos de reparación
+  const { data: repairTypes = [], isLoading: isLoadingRepairTypes } = useQuery({
+    queryKey: ['types-of-repairs'],
+    queryFn: fetchAllTypesOfRepairs,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+
   // Estado del formulario
   const [workshopId, setWorkshopId] = useState<string>('');
   const [sectorId, setSectorId] = useState<string>('');
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
+  // Tipos de reparación seleccionados (se aplican a todos los items)
+  const [selectedRepairTypeIds, setSelectedRepairTypeIds] = useState<string[]>([]);
+
   // Sectores filtrados por taller seleccionado
   const availableSectors = workshopId ? sectors.filter((s) => s.workshop_id === workshopId) : [];
+
+  // Handler para togglear tipo de reparación
+  const handleToggleRepairType = (repairTypeId: string) => {
+    setSelectedRepairTypeIds((prev) =>
+      prev.includes(repairTypeId) ? prev.filter((id) => id !== repairTypeId) : [...prev, repairTypeId]
+    );
+  };
 
   const handleWorkshopChange = (value: string) => {
     setWorkshopId(value);
@@ -82,6 +103,11 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
     // Validaciones
     if (!workshopId) {
       toast.error('Debe seleccionar un taller');
+      return;
+    }
+
+    if (selectedRepairTypeIds.length === 0) {
+      toast.error('Debe seleccionar al menos un tipo de reparación');
       return;
     }
 
@@ -97,19 +123,17 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
 
     setIsLoading(true);
     try {
-      // TODO: Implementar la actualización de asignación en bulk en el servidor
-      logger.info('Guardando asignación en bulk', {
-        data: {
-          desviosIds: desvios.map((d) => d.id),
-          workshopId,
-          sectorId: sectorId || null,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        },
-      });
+      const plannedStartDate = moment(startDate).format('YYYY-MM-DD');
+      const plannedEndDate = moment(endDate).format('YYYY-MM-DD');
 
-      // Simulación - aquí iría la llamada al servidor
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await assignWorkshopToItemsBulk({
+        itemIds: desvios.map((d) => d.id),
+        workshopId,
+        sectorId: sectorId || null,
+        plannedStartDate,
+        plannedEndDate,
+        repairTypeIds: selectedRepairTypeIds,
+      });
 
       toast.success(`${desvios.length} desvíos asignados correctamente`);
       queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
@@ -117,7 +141,7 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
       onClose();
     } catch (error) {
       logger.error('Error al guardar asignación en bulk', { data: { error } });
-      toast.error('Error al guardar las asignaciones');
+      toast.error(error instanceof Error ? error.message : 'Error al guardar las asignaciones');
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +149,7 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Asignar Taller y Período en Bulk</DialogTitle>
           <DialogDescription>
@@ -134,138 +158,215 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Lista de desvíos seleccionados */}
-          <div className="space-y-2">
-            <Label>Desvíos seleccionados</Label>
-            <ScrollArea className="h-[150px] border rounded-md p-2">
-              <div className="space-y-2">
-                {desvios.map((desvio) => (
-                  <div key={desvio.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{desvio.itemLabel}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {desvio.vehicleDomain || desvio.vehicleSerie || 'Sin identificar'}
-                        {' | '}
-                        {formatSectionCode(desvio.sectionCode)}
-                      </p>
-                    </div>
-                    {desvio.repairTypeName && (
-                      <Badge variant="outline" className="ml-2 shrink-0">
-                        {desvio.repairTypeName}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-
-          <Separator />
-
-          {/* Formulario de asignación */}
+        <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
-            {/* Taller */}
+            {/* Lista de desvíos seleccionados */}
             <div className="space-y-2">
-              <Label htmlFor="workshop-bulk">Taller *</Label>
-              <Select value={workshopId} onValueChange={handleWorkshopChange}>
-                <SelectTrigger id="workshop-bulk">
-                  <SelectValue placeholder="Seleccionar taller" />
-                </SelectTrigger>
-                <SelectContent>
-                  {workshops.map((workshop) => (
-                    <SelectItem key={workshop.id} value={workshop.id}>
-                      {workshop.name}
-                      <span className="text-muted-foreground text-xs ml-2">
-                        ({workshop.workshop_type === 'interno' ? 'Interno' : 'Externo'})
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Desvíos seleccionados</Label>
+              <ScrollArea className="h-[150px] border rounded-md p-2">
+                <div className="space-y-2">
+                  {desvios.map((desvio) => {
+                    // Usar repairTypeNames (pivot) o repairTypeName (legacy)
+                    const repairTypes =
+                      desvio.repairTypeNames?.length > 0
+                        ? desvio.repairTypeNames
+                        : desvio.repairTypeName
+                          ? [desvio.repairTypeName]
+                          : [];
+
+                    return (
+                      <div
+                        key={desvio.id}
+                        className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{desvio.itemLabel}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {desvio.vehicleDomain || desvio.vehicleSerie || 'Sin identificar'}
+                            {' | '}
+                            {formatSectionCode(desvio.sectionCode)}
+                          </p>
+                        </div>
+                        {repairTypes.length > 0 && (
+                          <div className="flex flex-wrap gap-1 ml-2 shrink-0 max-w-[120px] justify-end">
+                            {repairTypes.map((name, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
             </div>
 
-            {/* Sector */}
-            <div className="space-y-2">
-              <Label htmlFor="sector-bulk">Sector</Label>
-              <Select
-                value={sectorId}
-                onValueChange={setSectorId}
-                disabled={!workshopId || availableSectors.length === 0}
-              >
-                <SelectTrigger id="sector-bulk">
-                  <SelectValue
-                    placeholder={
-                      !workshopId
-                        ? 'Seleccione taller primero'
-                        : availableSectors.length === 0
-                          ? 'Sin sectores disponibles'
-                          : 'Seleccionar sector (opcional)'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSectors.map((sector) => (
-                    <SelectItem key={sector.id} value={sector.id}>
-                      {sector.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Separator />
 
-            {/* Período de fechas */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Formulario de asignación */}
+            <div className="space-y-4">
+              {/* Taller */}
               <div className="space-y-2">
-                <Label>Fecha Inicio *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !startDate && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus locale={es} />
-                  </PopoverContent>
-                </Popover>
+                <Label htmlFor="workshop-bulk">Taller *</Label>
+                <Select value={workshopId} onValueChange={handleWorkshopChange}>
+                  <SelectTrigger id="workshop-bulk">
+                    <SelectValue placeholder="Seleccionar taller" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workshops.map((workshop) => (
+                      <SelectItem key={workshop.id} value={workshop.id}>
+                        {workshop.name}
+                        <span className="text-muted-foreground text-xs ml-2">
+                          ({workshop.workshop_type === 'interno' ? 'Interno' : 'Externo'})
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
+              {/* Sector */}
               <div className="space-y-2">
-                <Label>Fecha Fin *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn('w-full justify-start text-left font-normal', !endDate && 'text-muted-foreground')}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={endDate}
-                      onSelect={setEndDate}
-                      initialFocus
-                      locale={es}
-                      disabled={(date) => (startDate ? date < startDate : false)}
+                <Label htmlFor="sector-bulk">Sector</Label>
+                <Select
+                  value={sectorId}
+                  onValueChange={setSectorId}
+                  disabled={!workshopId || availableSectors.length === 0}
+                >
+                  <SelectTrigger id="sector-bulk">
+                    <SelectValue
+                      placeholder={
+                        !workshopId
+                          ? 'Seleccione taller primero'
+                          : availableSectors.length === 0
+                            ? 'Sin sectores disponibles'
+                            : 'Seleccionar sector (opcional)'
+                      }
                     />
-                  </PopoverContent>
-                </Popover>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSectors.map((sector) => (
+                      <SelectItem key={sector.id} value={sector.id}>
+                        {sector.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Tipos de Reparación */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4" />
+                  Tipos de Reparación *
+                </Label>
+                <div className="text-xs text-muted-foreground mb-2">
+                  Se aplicarán los mismos tipos de reparación a todos los desvíos seleccionados
+                </div>
+                {isLoadingRepairTypes ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+                ) : repairTypes.length === 0 ? (
+                  <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground text-center">
+                    No hay tipos de reparación disponibles
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[160px] border rounded-md p-2">
+                    <div className="space-y-2">
+                      {repairTypes.map((repairType) => (
+                        <div
+                          key={repairType.id}
+                          className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-md cursor-pointer"
+                          onClick={() => handleToggleRepairType(repairType.id)}
+                        >
+                          <Checkbox
+                            id={`repair-bulk-${repairType.id}`}
+                            checked={selectedRepairTypeIds.includes(repairType.id)}
+                            onCheckedChange={() => handleToggleRepairType(repairType.id)}
+                          />
+                          <label htmlFor={`repair-bulk-${repairType.id}`} className="text-sm cursor-pointer flex-1">
+                            {repairType.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+                {selectedRepairTypeIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedRepairTypeIds.map((id) => {
+                      const repairType = repairTypes.find((rt) => rt.id === id);
+                      return repairType ? (
+                        <Badge key={id} variant="secondary" className="text-xs">
+                          {repairType.name}
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Período de fechas */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Fecha Inicio *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal',
+                          !startDate && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus locale={es} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Fecha Fin *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal',
+                          !endDate && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {endDate ? format(endDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        initialFocus
+                        locale={es}
+                        disabled={(date) => (startDate ? date < startDate : false)}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="pt-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>

@@ -98,22 +98,38 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
               <div className="space-y-2 pr-2">
                 {items.map((item, index) => {
                   const deviation = item.maintenance_request_items?.checklist_deviations;
-                  const repairType = item.types_of_repairs;
                   const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
+
+                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const repairTypeNames: string[] =
+                    pivotRepairTypes.length > 0
+                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      : item.types_of_repairs?.name
+                        ? [item.types_of_repairs.name]
+                        : [];
 
                   return (
                     <div key={item.id || index} className="p-2 border rounded-md bg-background">
                       <p className="text-sm font-medium">{deviation?.item_label || 'Desvío sin descripción'}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {formattedCode && (
                           <span className="text-xs text-muted-foreground">Código: {formattedCode}</span>
                         )}
-                        {repairType && (
-                          <Badge variant="outline" className="text-xs">
-                            {repairType.name}
+                        {repairTypeNames.map((name, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {name}
                           </Badge>
-                        )}
+                        ))}
                       </div>
+                      {((item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment) && (
+                        <p className="text-xs mt-1">
+                          <span className="text-muted-foreground">Chofer: </span>
+                          <span className="italic">
+                            {(item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment}
+                          </span>
+                        </p>
+                      )}
                     </div>
                   );
                 })}

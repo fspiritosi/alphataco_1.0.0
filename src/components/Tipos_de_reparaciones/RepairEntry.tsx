@@ -1,3 +1,17 @@
+/**
+ * @deprecated Este componente está DEPRECADO.
+ * Fue reemplazado por NuevoPedidoForm que crea maintenance_orders directamente
+ * sin pasar por el flujo de repair_solicitudes.
+ *
+ * El nuevo componente se encuentra en:
+ * src/features/Mantenimiento/NuevoPedido/components/NuevoPedidoForm.tsx
+ *
+ * Este archivo se mantiene temporalmente por compatibilidad con:
+ * - RepairEntryWrapper.tsx (también deprecado)
+ * - RepairTypes.tsx (tab "Nueva Solicitud" - usar NuevoPedidoTabContent en su lugar)
+ *
+ * TODO: Eliminar este archivo cuando se complete la migración de todos los lugares que lo usan.
+ */
 'use client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';

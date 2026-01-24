@@ -70,21 +70,50 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {operation.maintenance_order_items?.map((item) => (
-                  <div key={item.id} className="p-3 border rounded-lg space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">
-                          {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
-                        </p>
+                {operation.maintenance_order_items?.map((item) => {
+                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const repairTypeNames: string[] =
+                    pivotRepairTypes.length > 0
+                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      : item.types_of_repairs?.name
+                        ? [item.types_of_repairs.name]
+                        : [];
+
+                  return (
+                    <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
+                          </p>
+                          {((item.maintenance_request_items as any)?.driver_comment ||
+                            item.maintenance_request_items?.checklist_deviations?.driver_comment) && (
+                            <p className="text-sm mt-1">
+                              <span className="text-muted-foreground">Comentario del chofer: </span>
+                              <span className="italic">
+                                {(item.maintenance_request_items as any)?.driver_comment ||
+                                  item.maintenance_request_items?.checklist_deviations?.driver_comment}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                        {repairTypeNames.length > 0 && (
+                          <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                            {repairTypeNames.map((name, idx) => (
+                              <Badge key={idx} variant="secondary">
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      {item.types_of_repairs && <Badge variant="secondary">{item.types_of_repairs.name}</Badge>}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {(!operation.maintenance_order_items || operation.maintenance_order_items.length === 0) && (
                   <p className="text-muted-foreground text-center py-4">No hay items registrados</p>

@@ -105,29 +105,66 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {order.maintenance_order_items?.map((item) => (
-                  <div key={item.id} className="p-3 border rounded-lg space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">
-                          {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Sección:{' '}
-                          {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
-                        </p>
-                      </div>
-                      {item.types_of_repairs && <Badge variant="secondary">{item.types_of_repairs.name}</Badge>}
-                    </div>
+                {order.maintenance_order_items?.map((item) => {
+                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const repairTypeNames: string[] =
+                    pivotRepairTypes.length > 0
+                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      : item.types_of_repairs?.name
+                        ? [item.types_of_repairs.name]
+                        : [];
 
-                    {item.description && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Descripción adicional: </span>
-                        {item.description}
+                  return (
+                    <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Sección:{' '}
+                            {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
+                          </p>
+                        </div>
+                        {repairTypeNames.length > 0 && (
+                          <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                            {repairTypeNames.map((name, idx) => (
+                              <Badge key={idx} variant="secondary">
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {(item.maintenance_request_items?.driver_comment ||
+                        item.maintenance_request_items?.checklist_deviations?.driver_comment) && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Comentario del chofer: </span>
+                          <span className="italic">
+                            {item.maintenance_request_items?.driver_comment ||
+                              item.maintenance_request_items?.checklist_deviations?.driver_comment}
+                          </span>
+                        </div>
+                      )}
+
+                      {item.maintenance_request_items?.description && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Descripción del desvío: </span>
+                          {item.maintenance_request_items.description}
+                        </div>
+                      )}
+
+                      {item.description && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Descripción adicional: </span>
+                          {item.description}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {(!order.maintenance_order_items || order.maintenance_order_items.length === 0) && (
                   <p className="text-muted-foreground text-center py-4">No hay items registrados</p>

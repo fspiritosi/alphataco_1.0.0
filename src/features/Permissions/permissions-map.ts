@@ -861,6 +861,20 @@ export const PERMISSIONS = {
             parent: 'maint_operaciones',
             allowedActions: ['view', 'update'], // update = aprobar/rechazar fecha
           },
+          nuevo_pedido: {
+            slug: 'nuevo_pedido',
+            name: 'Nuevo Pedido',
+            tabId: '60000000-0000-0000-0000-000000000024',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'create'], // create = crear pedidos de mantenimiento
+          },
+          para_taller: {
+            slug: 'para_taller',
+            name: 'Para Taller',
+            tabId: '60000000-0000-0000-0000-000000000025',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'update'], // update = aprobar entrada a taller
+          },
         },
       },
       // Tab 2: Taller
@@ -877,6 +891,22 @@ export const PERMISSIONS = {
             tabId: '60000000-0000-0000-0000-000000000021',
             parent: 'maint_taller',
             allowedActions: ['view', 'update'], // update = planificar fecha, aprobar entrada
+            subtabs: {
+              pedidos_pendientes: {
+                slug: 'pedidos_pendientes',
+                name: 'Pendientes',
+                tabId: '60000000-0000-0000-0000-000000000211',
+                parent: 'maintenance_orders',
+                allowedActions: ['view', 'update'], // update = planificar fecha
+              },
+              pedidos_confirmados: {
+                slug: 'pedidos_confirmados',
+                name: 'Confirmados',
+                tabId: '60000000-0000-0000-0000-000000000212',
+                parent: 'maintenance_orders',
+                allowedActions: ['view', 'update'], // update = aprobar entrada a taller
+              },
+            },
           },
           planificacion: {
             slug: 'planificacion',
@@ -884,6 +914,13 @@ export const PERMISSIONS = {
             tabId: '60000000-0000-0000-0000-000000000041',
             parent: 'maint_taller',
             allowedActions: ['view', 'update'], // update = asignar talleres/sectores a desvíos
+          },
+          ordenes_trabajo: {
+            slug: 'ordenes_trabajo',
+            name: 'Órdenes de Trabajo',
+            tabId: '60000000-0000-0000-0000-000000000042',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'create', 'update', 'delete'], // CRUD completo para órdenes de trabajo
           },
         },
       },
@@ -908,23 +945,6 @@ export const PERMISSIONS = {
             tabId: '60000000-0000-0000-0000-000000000014',
             parent: 'maint_configuracion',
             allowedActions: ['view', 'create', 'update'],
-          },
-        },
-      },
-      // Tab 4: Nueva Solicitud
-      maint_nueva_solicitud: {
-        slug: 'maint_nueva_solicitud',
-        name: 'Nueva Solicitud',
-        tabId: '60000000-0000-0000-0000-000000000001',
-        parent: null,
-        allowedActions: ['view'],
-        subtabs: {
-          type_of_repair_new_entry: {
-            slug: 'type_of_repair_new_entry',
-            name: 'Nueva Solicitud',
-            tabId: '60000000-0000-0000-0000-000000000013',
-            parent: 'maint_nueva_solicitud',
-            allowedActions: ['view', 'create'],
           },
         },
       },

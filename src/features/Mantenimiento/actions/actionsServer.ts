@@ -8,6 +8,7 @@ const serverLogger = new Logger('Mantenimiento/actions');
 /**
  * Obtiene los pedidos de mantenimiento que están en el taller (in_workshop)
  * Para la vista de Planificación
+ * Incluye información de órdenes de trabajo asociadas
  */
 export async function getMaintenanceOrdersInWorkshop() {
   const supabase = await supabaseServer();
@@ -23,9 +24,14 @@ export async function getMaintenanceOrdersInWorkshop() {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code)
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
-        types_of_repairs(id, name)
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        ),
+        work_orders(id, order_number, status)
       )
     `
     )
@@ -45,7 +51,13 @@ export type MaintenanceOrderInWorkshopData = MaintenanceOrdersInWorkshopData[num
 
 /**
  * Obtiene los pedidos de mantenimiento pendientes de aprobación de fecha
- * Para la vista de Pendientes de Ejecutar
+ * y los ya confirmados para la vista de Pendientes de Ejecutar
+ *
+ * Estados incluidos:
+ * - 'scheduled': Pendientes de aprobación (pueden aprobar/rechazar)
+ * - 'date_confirmed': Ya confirmados (solo visualización)
+ *
+ * Ordenamiento: scheduled primero, luego date_confirmed, ambos por fecha ascendente
  */
 export async function getMaintenanceOrdersPendingApproval() {
   const supabase = await supabaseServer();
@@ -61,13 +73,18 @@ export async function getMaintenanceOrdersPendingApproval() {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code)
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
-        types_of_repairs(id, name)
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
       )
     `
     )
-    .eq('status', 'scheduled')
+    .in('status', ['scheduled', 'date_confirmed'])
+    .order('status', { ascending: false }) // scheduled (s) antes que date_confirmed (d) - desc porque s > d alfabéticamente
     .order('scheduled_date', { ascending: true });
 
   if (error) {
@@ -169,9 +186,13 @@ export async function getMaintenanceOrdersDateConfirmed() {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code)
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
-        types_of_repairs(id, name)
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
       )
     `
     )

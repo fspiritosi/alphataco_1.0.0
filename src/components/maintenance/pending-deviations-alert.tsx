@@ -159,7 +159,6 @@ export function PendingDeviationsAlert({ equipmentId }: PendingDeviationsAlertPr
             created_at: d.created_at,
           }))}
           equipmentId={equipmentId}
-          repairTypes={repairTypes}
         />
       )}
     </>

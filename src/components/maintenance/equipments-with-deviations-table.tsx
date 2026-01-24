@@ -179,7 +179,6 @@ export function EquipmentsWithDeviationsTable() {
           onComplete={handleCloseModal}
           deviations={deviations}
           equipmentId={selectedEquipmentId}
-          repairTypes={repairTypes}
         />
       )}
     </>

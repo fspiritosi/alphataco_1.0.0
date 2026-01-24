@@ -240,6 +240,7 @@ export async function createWorkshopSector(sector: {
   description?: string | null;
   workshop_id: string;
   is_active: boolean;
+  max_capacity?: number | null;
 }) {
   const supabase = await supabaseServer();
 
@@ -260,6 +261,7 @@ export async function updateWorkshopSector(sector: {
   description?: string | null;
   workshop_id: string;
   is_active: boolean;
+  max_capacity?: number | null;
 }) {
   const supabase = await supabaseServer();
 

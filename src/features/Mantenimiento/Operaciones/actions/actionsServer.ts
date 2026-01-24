@@ -23,9 +23,13 @@ export async function getMaintenanceOperations() {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code)
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
-        types_of_repairs(id, name)
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
       )
     `
     )
@@ -42,6 +46,48 @@ export async function getMaintenanceOperations() {
 
 export type MaintenanceOperationsData = Awaited<ReturnType<typeof getMaintenanceOperations>>;
 export type MaintenanceOperationData = MaintenanceOperationsData[number];
+
+/**
+ * Obtiene los pedidos con fecha confirmada (date_confirmed)
+ * Listos para ser enviados a planificación (cambiar a in_workshop)
+ */
+export async function getOrdersForWorkshop() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .select(
+      `
+      *,
+      vehicles(id, domain, serie, intern_number, condition, kilometer),
+      maintenance_requests(id, kilometer, created_at),
+      maintenance_order_items(
+        *,
+        maintenance_request_items(
+          *,
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+        ),
+        types_of_repairs(id, name),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name)
+        )
+      )
+    `
+    )
+    .eq('status', 'date_confirmed')
+    .order('scheduled_date', { ascending: true }); // Ordenar por fecha planificada
+
+  if (error) {
+    serverLogger.error('Error al obtener pedidos para taller', { data: { error } });
+    throw error;
+  }
+
+  return data || [];
+}
+
+export type OrdersForWorkshopData = Awaited<ReturnType<typeof getOrdersForWorkshop>>;
+export type OrderForWorkshopData = OrdersForWorkshopData[number];
 
 /**
  * Rechaza una operación y la devuelve al estado de pedido pendiente

@@ -48,10 +48,9 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
   };
 
   const sanitizedAnswers = sanitize(answerData.answers || {});
-  const computedResult: 'B' | 'M' =
-    hasMValue(sanitizedAnswers) || (answerData.critical_items_failed && answerData.critical_items_failed.length > 0)
-      ? 'M'
-      : 'B';
+  // Soportar tanto el nuevo formato (failed_items) como el antiguo (critical_items_failed)
+  const failedItems = answerData.failed_items || answerData.critical_items_failed || [];
+  const computedResult: 'B' | 'M' = hasMValue(sanitizedAnswers) || failedItems.length > 0 ? 'M' : 'B';
 
   // Obtener employee_id del cookie o metadata si no viene en answerData
   const employeeId = answerData.employee_id || cookiesStore.get('empleado_id')?.value;
@@ -79,7 +78,8 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
     } as any, // answer_data es Json type, pero TypeScript necesita ayuda con el tipado dinámico
     observations: answerData.observaciones || null,
     result: computedResult,
-    critical_items_failed: answerData.critical_items_failed || null,
+    // Guardar los items fallidos (nuevo formato incluye is_critical)
+    critical_items_failed: failedItems.length > 0 ? failedItems : null,
   };
 
   const { data, error } = await supabase.from('checklist_answers').insert(answerPayload).select().single();
@@ -91,17 +91,13 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
 
   serverLogger.info('Checklist answer creado', { data: { answerId: data.id, result: computedResult } });
 
-  // Si hay items críticos fallidos, crear registros en checklist_deviations
+  // Si hay items fallidos, crear registros en checklist_deviations
   // IMPORTANTE: NO crear desvíos si este checklist es de enganche (ut_checklist_answer_id existe)
   // Los desvíos solo se crean en la unidad tractora
-  if (
-    answerData.critical_items_failed &&
-    answerData.critical_items_failed.length > 0 &&
-    data &&
-    !answerData.ut_checklist_answer_id
-  ) {
-    // Crear registros de desvíos para cada item crítico fallido
-    const deviationsToInsert = answerData.critical_items_failed.map((item: any) => {
+  // NUEVO FLUJO: Ahora se detectan TODOS los items con valor "M", no solo los críticos
+  if (failedItems.length > 0 && data && !answerData.ut_checklist_answer_id) {
+    // Crear registros de desvíos para cada item fallido (crítico o no)
+    const deviationsToInsert = failedItems.map((item: any) => {
       // Soporta tanto formato antiguo (string) como nuevo (objeto)
       if (typeof item === 'string') {
         // Formato antiguo: solo label, necesitamos buscar el código en el template
@@ -111,17 +107,21 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
           item_code: item, // Como fallback, usamos el label como código
           item_label: item,
           section_code: null,
+          is_critical: false, // Formato antiguo no tiene esta info
+          driver_comment: null,
           created_by_user_id: user?.id || null,
           created_by_employee_id: finalEmployeeId,
         };
       } else {
-        // Formato nuevo: objeto con item_code, item_label, section_code
+        // Formato nuevo: objeto con item_code, item_label, section_code, is_critical, driver_comment
         return {
           checklist_answer_id: data.id,
           equipment_id: answerData.equipment_id,
           item_code: item.item_code || item.item_label || '',
           item_label: item.item_label || item.item_code || '',
           section_code: item.section_code || null,
+          is_critical: item.is_critical || false,
+          driver_comment: item.driver_comment || null,
           created_by_user_id: user?.id || null,
           created_by_employee_id: finalEmployeeId,
         };
@@ -252,3 +252,59 @@ export async function fetchActiveEmployeesForChecklist() {
 }
 
 export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployeesForChecklist>>[number];
+
+/**
+ * Obtiene la lista de supervisores de turno (usuarios con rol "Administrador Operaciones")
+ * Estos son los usuarios que el chofer puede seleccionar al registrar desvíos
+ * Retorna todos los usuarios con el rol, sin filtrar por compañía
+ */
+export async function fetchSupervisorsForChecklist() {
+  const supabase = await supabaseServer();
+
+  // El rol "Administrador Operaciones" tiene id = 17
+  const ADMIN_OPERACIONES_ROLE_ID = 17;
+
+  // Paso 1: Obtener los user_ids que tienen el rol de Administrador Operaciones
+  const { data: userRolesData, error: userRolesError } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role_id', ADMIN_OPERACIONES_ROLE_ID);
+
+  if (userRolesError) {
+    serverLogger.error('Error fetching user_roles for supervisors', { data: { error: userRolesError } });
+    return [];
+  }
+
+  if (!userRolesData || userRolesData.length === 0) {
+    serverLogger.warn('No hay usuarios con rol Administrador Operaciones');
+    return [];
+  }
+
+  const userIds = userRolesData.map((ur) => ur.user_id);
+
+  // Paso 2: Obtener los datos de profile para esos user_ids
+  // profile.id es igual a users.id (FK directa)
+  const { data: profilesData, error: profilesError } = await supabase
+    .from('profile')
+    .select('id, fullname, email')
+    .in('id', userIds);
+
+  if (profilesError) {
+    serverLogger.error('Error fetching profiles for supervisors', { data: { error: profilesError } });
+    return [];
+  }
+
+  if (!profilesData || profilesData.length === 0) {
+    serverLogger.warn('No se encontraron perfiles para los supervisores');
+    return [];
+  }
+
+  // Formatear los resultados
+  return profilesData.map((profile) => ({
+    id: profile.id,
+    fullName: profile.fullname || profile.email || 'Sin nombre',
+    email: profile.email,
+  }));
+}
+
+export type SupervisorForChecklist = Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>[number];

@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
@@ -25,9 +26,14 @@ export interface DesvioRowData {
   itemLabel: string;
   itemCode: string | null;
   sectionCode: string | null;
-  // Tipo de reparación
+  description: string | null;
+  driverComment: string | null;
+  // Tipo de reparación (legacy, campo único)
   repairTypeId: string | null;
   repairTypeName: string | null;
+  // Múltiples tipos de reparación (tabla pivot)
+  repairTypeIds: string[];
+  repairTypeNames: string[];
   // Info de la orden
   workshopEntryDate: string | null;
   kilometer: number | string | null;
@@ -36,6 +42,9 @@ export interface DesvioRowData {
   sectorId: string | null;
   startDate: string | null;
   endDate: string | null;
+  // Orden de trabajo asociada
+  workOrderId: string | null;
+  workOrderNumber: string | null;
 }
 
 interface ColumnsProps {
@@ -128,12 +137,54 @@ export function getColumns({ onAssign }: ColumnsProps): ColumnDef<DesvioRowData>
       id: 'TipoReparacion',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo Reparación" />,
       cell: ({ row }) => {
-        const repairType = row.original.repairTypeName;
-        if (!repairType) return <span className="text-muted-foreground">-</span>;
-        return <Badge variant="outline">{repairType}</Badge>;
+        // Usar repairTypeNames (pivot) primero, si está vacío usar repairTypeName (legacy)
+        const repairTypes =
+          row.original.repairTypeNames?.length > 0
+            ? row.original.repairTypeNames
+            : row.original.repairTypeName
+              ? [row.original.repairTypeName]
+              : [];
+
+        if (repairTypes.length === 0) {
+          return <span className="text-muted-foreground italic">Sin asignar</span>;
+        }
+
+        if (repairTypes.length === 1) {
+          return <Badge variant="outline">{repairTypes[0]}</Badge>;
+        }
+
+        // Múltiples tipos: mostrar el primero con tooltip
+        return (
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline">{repairTypes[0]}</Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    +{repairTypes.length - 1}
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="bg-black text-white p-2 rounded-lg">
+                <div className="flex flex-col gap-1">
+                  {repairTypes.map((name, index) => (
+                    <span key={index}>{name}</span>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
       },
       filterFn: (row, id, value) => {
-        return value.includes(row.original.repairTypeName);
+        // Filtrar por cualquiera de los tipos de reparación
+        const repairTypes =
+          row.original.repairTypeNames?.length > 0
+            ? row.original.repairTypeNames
+            : row.original.repairTypeName
+              ? [row.original.repairTypeName]
+              : [];
+        return repairTypes.some((type) => value.includes(type));
       },
       enableSorting: true,
     },
@@ -151,11 +202,31 @@ export function getColumns({ onAssign }: ColumnsProps): ColumnDef<DesvioRowData>
     {
       accessorKey: 'workshopId',
       id: 'Estado',
-      header: 'Estado Asignación',
+      header: 'Estado',
       cell: ({ row }) => {
+        const hasWorkOrder = row.original.workOrderId;
+        const workOrderNumber = row.original.workOrderNumber;
         const hasWorkshop = row.original.workshopId;
         const hasSector = row.original.sectorId;
         const hasDateRange = row.original.startDate && row.original.endDate;
+
+        // Si tiene OT asignada, mostrar badge especial
+        if (hasWorkOrder) {
+          return (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">
+                    Con OT
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black text-white p-2 rounded-lg">
+                  <span>Orden: {workOrderNumber || 'Pendiente'}</span>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        }
 
         if (hasWorkshop && hasSector && hasDateRange) {
           return <Badge variant="success">Asignado</Badge>;
@@ -163,6 +234,13 @@ export function getColumns({ onAssign }: ColumnsProps): ColumnDef<DesvioRowData>
           return <Badge variant="warning">Parcial</Badge>;
         }
         return <Badge variant="secondary">Pendiente</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        const hasWorkOrder = row.original.workOrderId;
+        if (hasWorkOrder && value.includes('Con OT')) return true;
+        if (!hasWorkOrder && value.includes('Pendiente') && !row.original.workshopId) return true;
+        if (!hasWorkOrder && value.includes('Asignado') && row.original.workshopId) return true;
+        return false;
       },
       enableSorting: false,
     },

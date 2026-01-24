@@ -6,7 +6,6 @@ import { CriticalDeviationsRepairModal } from '@/components/maintenance/critical
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
-import type { TypeOfRepair } from '@/types/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Wrench } from 'lucide-react';
@@ -187,7 +186,6 @@ export function EquipmentsWithDeviationsTableClient({
           onComplete={handleCloseModal}
           deviations={deviations}
           equipmentId={selectedEquipmentId}
-          repairTypes={repairTypes as TypeOfRepair}
         />
       )}
     </>

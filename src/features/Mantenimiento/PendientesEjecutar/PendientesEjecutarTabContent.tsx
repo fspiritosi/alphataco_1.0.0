@@ -5,16 +5,17 @@ import { PendientesEjecutarTableClient } from './components/PendientesEjecutarTa
 /**
  * Tab de Pendientes de Ejecutar
  *
- * Muestra los pedidos de mantenimiento que tienen fecha planificada
- * y están pendientes de aprobación por parte de Operaciones.
+ * Muestra los pedidos de mantenimiento que tienen fecha planificada:
+ * - Pendientes de aprobación por parte de Operaciones (scheduled)
+ * - Ya confirmados y listos para ejecución (date_confirmed)
  *
  * Desde aquí se puede:
- * - Aprobar la fecha: El pedido pasa a 'date_confirmed' y queda listo
- *   para que el taller apruebe la entrada del equipo.
- * - Rechazar la fecha: El pedido vuelve a 'pending_scheduling' para
- *   que se planifique una nueva fecha.
+ * - Ver detalle de cualquier pedido
+ * - Aprobar la fecha (solo scheduled): El pedido pasa a 'date_confirmed'
+ * - Rechazar la fecha (solo scheduled): El pedido vuelve a 'pending_scheduling'
  *
- * Estados que se muestran: 'scheduled'
+ * Estados que se muestran: 'scheduled', 'date_confirmed'
+ * Ordenamiento: scheduled primero (pendientes), luego date_confirmed (confirmados)
  */
 export async function PendientesEjecutarTabContent() {
   const initialData = await getMaintenanceOrdersPendingApproval();
@@ -23,7 +24,7 @@ export async function PendientesEjecutarTabContent() {
     <Card>
       <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
         <CardTitle>Pendientes de Ejecutar</CardTitle>
-        <CardDescription>Pedidos de mantenimiento con fecha planificada pendientes de aprobación</CardDescription>
+        <CardDescription>Pedidos de mantenimiento pendientes de aprobación y confirmados</CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         <PendientesEjecutarTableClient initialData={initialData} />

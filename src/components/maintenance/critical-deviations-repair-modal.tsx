@@ -3,34 +3,37 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { assignRepairTypesToDeviations } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
+import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { updateDeviationCommentsAndSupervisor } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
+import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import type { TypeOfRepair } from '@/types/types';
-import { AlertCircle, Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+
+const logger = new Logger('CriticalDeviationsRepairModal');
 
 type Deviation = {
   id: string;
   item_code: string;
   item_label: string;
   section_code: string | null;
+  is_critical?: boolean;
   created_at: string;
 };
 
-type RepairRequest = {
+type Supervisor = {
   id: string;
-  repair_type_id: string;
-  selected_deviations: string[];
-  description: string;
-  images?: (string | null)[];
+  fullName: string;
+  email: string;
 };
 
 interface CriticalDeviationsRepairModalProps {
@@ -39,7 +42,14 @@ interface CriticalDeviationsRepairModalProps {
   onComplete: () => void;
   deviations: Deviation[];
   equipmentId: string;
-  repairTypes: TypeOfRepair;
+  /** ID del checklist answer para crear la solicitud */
+  checklistAnswerId?: string;
+  /** ID del empleado que completó el checklist */
+  employeeId?: string;
+  /** ID del usuario que completó el checklist */
+  userId?: string;
+  /** Kilometraje del equipo */
+  kilometer?: string;
 }
 
 export function CriticalDeviationsRepairModal({
@@ -48,357 +58,392 @@ export function CriticalDeviationsRepairModal({
   onComplete,
   deviations,
   equipmentId,
-  repairTypes,
+  checklistAnswerId,
+  employeeId,
+  userId,
+  kilometer,
 }: CriticalDeviationsRepairModalProps) {
+  // Fetch de supervisores internamente usando useQuery
+  const {
+    data: supervisors = [],
+    isLoading: isLoadingSupervisors,
+    error: supervisorsError,
+  } = useQuery({
+    queryKey: ['supervisors-for-checklist'],
+    queryFn: fetchSupervisorsForChecklist,
+    enabled: isOpen, // Solo cargar cuando el modal está abierto
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+
   // Log para debug
-  console.log('[CriticalDeviationsRepairModal] === RENDER ===');
-  console.log('[CriticalDeviationsRepairModal] isOpen:', isOpen);
-  console.log('[CriticalDeviationsRepairModal] equipmentId:', equipmentId);
-  console.log('[CriticalDeviationsRepairModal] deviations recibidos:', deviations?.length || 0);
-  console.log('[CriticalDeviationsRepairModal] deviations detalle:', JSON.stringify(deviations, null, 2));
-  console.log('[CriticalDeviationsRepairModal] repairTypes:', repairTypes?.length || 0);
+  logger.debug('Render', {
+    data: {
+      isOpen,
+      equipmentId,
+      deviationsCount: deviations?.length || 0,
+      supervisorsCount: supervisors?.length || 0,
+      isLoadingSupervisors,
+    },
+  });
 
-  const [repairRequests, setRepairRequests] = useState<RepairRequest[]>([]);
-  const [selectedDeviationIds, setSelectedDeviationIds] = useState<Set<string>>(new Set());
-  const [openRepairSelects, setOpenRepairSelects] = useState<Record<string, boolean>>({});
+  // Estado del supervisor seleccionado
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
+  const [openSupervisorSelect, setOpenSupervisorSelect] = useState(false);
 
-  const handleAddRepairRequest = () => {
-    const newRequest: RepairRequest = {
-      id: crypto.randomUUID(),
-      repair_type_id: '',
-      selected_deviations: [],
-      description: '',
-    };
-    setRepairRequests([...repairRequests, newRequest]);
-  };
+  // Comentarios por desvío (key: deviationId, value: comment)
+  const [deviationComments, setDeviationComments] = useState<Record<string, string>>({});
 
-  const handleRemoveRepairRequest = (requestId: string) => {
-    const request = repairRequests.find((r) => r.id === requestId);
-    if (request) {
-      // Liberar los desvíos seleccionados
-      const newSelected = new Set(selectedDeviationIds);
-      request.selected_deviations.forEach((id) => newSelected.delete(id));
-      setSelectedDeviationIds(newSelected);
+  // Flag para evitar que onOpenChange dispare onClose después de un submit exitoso
+  const submitSuccessRef = useRef(false);
+
+  // Estado de envío
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Limpiar estado cuando se abre el modal
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedSupervisorId('');
+      setDeviationComments({});
+      setIsSubmitting(false);
+      submitSuccessRef.current = false;
     }
-    setRepairRequests(repairRequests.filter((r) => r.id !== requestId));
-    const newOpenSelects = { ...openRepairSelects };
-    delete newOpenSelects[requestId];
-    setOpenRepairSelects(newOpenSelects);
-  };
+  }, [isOpen]);
 
-  const handleSelectRepairType = (requestId: string, repairTypeId: string) => {
-    setRepairRequests(repairRequests.map((r) => (r.id === requestId ? { ...r, repair_type_id: repairTypeId } : r)));
-    setOpenRepairSelects({ ...openRepairSelects, [requestId]: false });
-  };
-
-  const handleToggleDeviation = (requestId: string, deviationId: string) => {
-    const request = repairRequests.find((r) => r.id === requestId);
-    if (!request) return;
-
-    const newSelectedDeviations = request.selected_deviations.includes(deviationId)
-      ? request.selected_deviations.filter((id) => id !== deviationId)
-      : [...request.selected_deviations, deviationId];
-
-    setRepairRequests(
-      repairRequests.map((r) => (r.id === requestId ? { ...r, selected_deviations: newSelectedDeviations } : r))
-    );
-
-    // Actualizar el set global de desvíos seleccionados
-    const newSelected = new Set(selectedDeviationIds);
-    if (newSelectedDeviations.includes(deviationId)) {
-      newSelected.add(deviationId);
-    } else {
-      newSelected.delete(deviationId);
-    }
-    setSelectedDeviationIds(newSelected);
-  };
-
-  const handleUpdateDescription = (requestId: string, description: string) => {
-    setRepairRequests(repairRequests.map((r) => (r.id === requestId ? { ...r, description } : r)));
+  const handleUpdateDeviationComment = (deviationId: string, comment: string) => {
+    setDeviationComments((prev) => ({ ...prev, [deviationId]: comment }));
   };
 
   const handleSubmit = async () => {
-    console.log('[CriticalDeviationsRepairModal] === handleSubmit INICIO ===');
-    console.log('[CriticalDeviationsRepairModal] repairRequests:', JSON.stringify(repairRequests, null, 2));
-    console.log('[CriticalDeviationsRepairModal] deviations disponibles:', deviations?.length || 0);
-    console.log('[CriticalDeviationsRepairModal] selectedDeviationIds:', Array.from(selectedDeviationIds));
+    logger.debug('handleSubmit inicio', {
+      data: {
+        deviationsCount: deviations?.length || 0,
+        selectedSupervisorId,
+        commentsCount: Object.keys(deviationComments).length,
+      },
+    });
 
     // Validaciones
-    if (repairRequests.length === 0) {
-      toast.error('Debes agregar al menos una solicitud de reparación');
+    if (!selectedSupervisorId) {
+      toast.error('Debes seleccionar un supervisor de turno');
       return;
     }
 
-    const allDeviationsSelected = deviations.every((d) => selectedDeviationIds.has(d.id));
-    if (!allDeviationsSelected) {
-      toast.error('Todos los items críticos deben estar asignados a una solicitud de reparación');
+    // Verificar que todos los desvíos tengan comentario
+    const missingComments = deviations.filter((d) => !deviationComments[d.id]?.trim());
+    if (missingComments.length > 0) {
+      toast.error(`Faltan comentarios en ${missingComments.length} desvío(s)`);
       return;
     }
 
-    const allRequestsValid = repairRequests.every((r) => r.repair_type_id && r.selected_deviations.length > 0);
-    if (!allRequestsValid) {
-      toast.error('Todas las solicitudes deben tener un tipo de reparación y al menos un item asignado');
-      return;
-    }
+    setIsSubmitting(true);
 
     try {
-      // Construir las asignaciones: cada desvío con su tipo de reparación
-      const assignments: Array<{ deviationId: string; repairTypeId: string }> = [];
+      // Construir los comentarios para actualizar
+      const comments = deviations.map((d) => ({
+        deviationId: d.id,
+        comment: deviationComments[d.id]?.trim() || '',
+      }));
 
-      for (const request of repairRequests) {
-        for (const deviationId of request.selected_deviations) {
-          assignments.push({
-            deviationId,
-            repairTypeId: request.repair_type_id,
-          });
-        }
-      }
-
-      console.log('[CriticalDeviationsRepairModal] Llamando assignRepairTypesToDeviations con:');
-      console.log('[CriticalDeviationsRepairModal] equipmentId:', equipmentId);
-      console.log('[CriticalDeviationsRepairModal] assignments:', JSON.stringify(assignments, null, 2));
-
-      const result = await assignRepairTypesToDeviations({
-        equipmentId,
-        assignments,
+      logger.debug('Actualizando comentarios y supervisor', {
+        data: {
+          equipmentId,
+          supervisorId: selectedSupervisorId,
+          commentsCount: comments.length,
+        },
       });
 
-      console.log('[CriticalDeviationsRepairModal] Resultado:', JSON.stringify(result, null, 2));
+      // Actualizar los comentarios de los desvíos y el supervisor de la solicitud
+      const result = await updateDeviationCommentsAndSupervisor({
+        equipmentId,
+        supervisorId: selectedSupervisorId,
+        comments,
+      });
 
-      if (result.ok) {
-        toast.success('Tipos de reparación asignados exitosamente');
-        onComplete();
-        handleClose();
-      } else {
-        toast.error(result.error || 'Error al asignar los tipos de reparación');
+      if (!result.ok) {
+        toast.error(result.error || 'Error al registrar los desvíos');
+        setIsSubmitting(false);
+        return;
       }
+
+      toast.success('Desvíos registrados correctamente', {
+        description: `Se registraron ${deviations.length} desvío(s) para revisión del supervisor.`,
+      });
+
+      // Marcar que el submit fue exitoso para evitar que onOpenChange dispare onClose
+      submitSuccessRef.current = true;
+
+      // Limpiar estado local antes de llamar onComplete
+      setSelectedSupervisorId('');
+      setDeviationComments({});
+      setIsSubmitting(false);
+
+      // Solo llamar onComplete, NO handleClose (evita doble redirección)
+      onComplete();
     } catch (error) {
-      console.error('[CriticalDeviationsRepairModal] Error assigning repair types:', error);
-      toast.error('Ocurrió un error al asignar los tipos de reparación');
+      logger.error('Error registrando desvíos', { data: { error } });
+      toast.error('Ocurrió un error al registrar los desvíos');
+      setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    setRepairRequests([]);
-    setSelectedDeviationIds(new Set());
-    setOpenRepairSelects({});
+    // Si el submit fue exitoso, no ejecutar onClose (ya se manejó con onComplete)
+    if (submitSuccessRef.current) {
+      submitSuccessRef.current = false;
+      return;
+    }
+    setSelectedSupervisorId('');
+    setDeviationComments({});
+    setIsSubmitting(false);
     onClose();
   };
 
-  const getRepairTypeName = (repairTypeId: string) => {
-    return repairTypes.find((t) => t.id === repairTypeId)?.name || '';
+  const getSupervisorName = (supervisorId: string) => {
+    return supervisors.find((s) => s.id === supervisorId)?.fullName || '';
   };
 
-  const unselectedDeviations = deviations.filter((d) => !selectedDeviationIds.has(d.id));
+  // Separar desvíos críticos y no críticos para mostrarlos ordenados
+  const criticalDeviations = deviations.filter((d) => d.is_critical);
+  const nonCriticalDeviations = deviations.filter((d) => !d.is_critical);
+
+  // Verificar si todos los comentarios están completos
+  const allCommentsComplete = deviations.every((d) => deviationComments[d.id]?.trim());
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Generar Solicitudes de Reparación</DialogTitle>
+          <DialogTitle>Registrar Desvíos</DialogTitle>
           <DialogDescription>
-            Asigna los items críticos fallidos a solicitudes de reparación. Todos los items deben estar asignados.
+            Se detectaron {deviations.length} item(s) con problemas. Agrega un comentario describiendo cada desvío y
+            selecciona el supervisor de turno.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Lista de items críticos fallidos */}
+          {/* Selector de Supervisor de Turno */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Items Críticos Fallidos ({deviations.length})</CardTitle>
-              <CardDescription>
-                {unselectedDeviations.length > 0
-                  ? `${unselectedDeviations.length} item(s) sin asignar`
-                  : 'Todos los items están asignados'}
-              </CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Supervisor de Turno *</CardTitle>
+              <CardDescription>Selecciona el supervisor que revisará estos desvíos</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {deviations.map((deviation) => {
-                  const isSelected = selectedDeviationIds.has(deviation.id);
-                  return (
-                    <div
-                      key={deviation.id}
-                      className={cn(
-                        'flex items-center gap-3 p-3 rounded-lg border',
-                        isSelected ? 'bg-muted border-primary' : 'bg-background'
-                      )}
-                    >
-                      <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-                      <div className="flex-1">
-                        <p className="font-medium">{deviation.item_label}</p>
-                        {deviation.section_code && (
-                          <p className="text-sm text-muted-foreground capitalize">
-                            Sección: {deviation.section_code.replace('_', ' ')}
-                          </p>
-                        )}
-                      </div>
-                      <Badge variant={isSelected ? 'default' : 'outline'}>
-                        {isSelected ? 'Asignado' : 'Pendiente'}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
+              {isLoadingSupervisors ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando supervisores...
+                  </div>
+                </div>
+              ) : supervisorsError ? (
+                <p className="text-sm text-destructive">Error al cargar supervisores. Por favor, intenta de nuevo.</p>
+              ) : (
+                <>
+                  <Popover open={openSupervisorSelect} onOpenChange={setOpenSupervisorSelect}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn('w-full justify-between', !selectedSupervisorId && 'text-muted-foreground')}
+                        disabled={isSubmitting}
+                      >
+                        {selectedSupervisorId ? getSupervisorName(selectedSupervisorId) : 'Seleccionar supervisor...'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar supervisor..." />
+                        <CommandList>
+                          <CommandEmpty>No se encontraron supervisores.</CommandEmpty>
+                          <CommandGroup>
+                            {supervisors.map((supervisor) => (
+                              <CommandItem
+                                key={supervisor.id}
+                                value={supervisor.fullName}
+                                onSelect={() => {
+                                  setSelectedSupervisorId(supervisor.id);
+                                  setOpenSupervisorSelect(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    'mr-2 h-4 w-4',
+                                    selectedSupervisorId === supervisor.id ? 'opacity-100' : 'opacity-0'
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{supervisor.fullName}</span>
+                                  <span className="text-xs text-muted-foreground">{supervisor.email}</span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {supervisors.length === 0 && !isLoadingSupervisors && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      No hay supervisores disponibles. Contacta al administrador.
+                    </p>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 
-          {/* Solicitudes de reparación */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Solicitudes de Reparación</h3>
-              <Button onClick={handleAddRepairRequest} size="sm" variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Solicitud
-              </Button>
-            </div>
-
-            {repairRequests.length === 0 && (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  No hay solicitudes de reparación. Agrega una para comenzar.
-                </CardContent>
-              </Card>
-            )}
-
-            {repairRequests.map((request) => (
-              <Card key={request.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Solicitud {repairRequests.indexOf(request) + 1}</CardTitle>
-                    <Button
-                      onClick={() => handleRemoveRepairRequest(request.id)}
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Select de tipo de reparación */}
-                  <div className="space-y-2">
-                    <Label>Tipo de Reparación *</Label>
-                    <Popover
-                      open={openRepairSelects[request.id] || false}
-                      onOpenChange={(open) => setOpenRepairSelects({ ...openRepairSelects, [request.id]: open })}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className={cn('w-full justify-between', !request.repair_type_id && 'text-muted-foreground')}
-                        >
-                          {request.repair_type_id ? getRepairTypeName(request.repair_type_id) : 'Seleccionar tipo...'}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="Buscar tipo de reparación..." />
-                          <CommandList>
-                            <CommandEmpty>No se encontró ningún tipo de reparación.</CommandEmpty>
-                            <CommandGroup>
-                              {repairTypes.map((repairType) => (
-                                <CommandItem
-                                  key={repairType.id}
-                                  value={repairType.name}
-                                  onSelect={() => handleSelectRepairType(request.id, repairType.id)}
-                                >
-                                  <Check
-                                    className={cn(
-                                      'mr-2 h-4 w-4',
-                                      request.repair_type_id === repairType.id ? 'opacity-100' : 'opacity-0'
-                                    )}
-                                  />
-                                  {repairType.name}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Checkboxes de items a resolver */}
-                  <div className="space-y-2">
-                    <Label>Items que se resolverán con esta reparación *</Label>
-                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-                      {deviations.map((deviation) => {
-                        const isChecked = request.selected_deviations.includes(deviation.id);
-                        const isDisabled =
-                          !isChecked &&
-                          selectedDeviationIds.has(deviation.id) &&
-                          !request.selected_deviations.includes(deviation.id);
-
-                        return (
-                          <div key={deviation.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${request.id}-${deviation.id}`}
-                              checked={isChecked}
-                              disabled={isDisabled}
-                              onCheckedChange={() => handleToggleDeviation(request.id, deviation.id)}
-                            />
-                            <Label
-                              htmlFor={`${request.id}-${deviation.id}`}
-                              className={cn(
-                                'text-sm font-normal cursor-pointer flex-1',
-                                isDisabled && 'text-muted-foreground cursor-not-allowed'
-                              )}
-                            >
-                              {deviation.item_label}
-                              {deviation.section_code && (
-                                <span className="text-xs text-muted-foreground ml-2">
-                                  ({deviation.section_code.replace('_', ' ')})
-                                </span>
-                              )}
-                            </Label>
-                          </div>
-                        );
-                      })}
+          {/* Lista de Desvíos - Críticos primero */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                Desvíos Detectados ({deviations.length})
+                {criticalDeviations.length > 0 && (
+                  <Badge variant="destructive" className="text-xs">
+                    {criticalDeviations.length} crítico(s)
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Describe cada problema encontrado con un comentario</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Desvíos Críticos */}
+                {criticalDeviations.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      Items Críticos
                     </div>
-                    {request.selected_deviations.length === 0 && (
-                      <p className="text-sm text-destructive">Debes seleccionar al menos un item</p>
-                    )}
+                    {criticalDeviations.map((deviation) => (
+                      <DeviationItem
+                        key={deviation.id}
+                        deviation={deviation}
+                        comment={deviationComments[deviation.id] || ''}
+                        onCommentChange={(comment) => handleUpdateDeviationComment(deviation.id, comment)}
+                        disabled={isSubmitting}
+                        isCritical
+                      />
+                    ))}
                   </div>
+                )}
 
-                  {/* Descripción opcional */}
-                  <div className="space-y-2">
-                    <Label>Descripción (opcional)</Label>
-                    <Textarea
-                      placeholder="Describe el problema o detalles adicionales..."
-                      value={request.description}
-                      onChange={(e) => handleUpdateDescription(request.id, e.target.value)}
-                      rows={3}
-                    />
+                {/* Separador si hay ambos tipos */}
+                {criticalDeviations.length > 0 && nonCriticalDeviations.length > 0 && <Separator />}
+
+                {/* Desvíos No Críticos */}
+                {nonCriticalDeviations.length > 0 && (
+                  <div className="space-y-3">
+                    {criticalDeviations.length > 0 && (
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <AlertTriangle className="h-4 w-4" />
+                        Otros Items
+                      </div>
+                    )}
+                    {nonCriticalDeviations.map((deviation) => (
+                      <DeviationItem
+                        key={deviation.id}
+                        deviation={deviation}
+                        comment={deviationComments[deviation.id] || ''}
+                        onCommentChange={(comment) => handleUpdateDeviationComment(deviation.id, comment)}
+                        disabled={isSubmitting}
+                        isCritical={false}
+                      />
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           <Separator />
 
           {/* Botones de acción */}
           <div className="flex justify-end gap-3">
-            <Button onClick={handleClose} variant="outline">
+            <Button onClick={handleClose} variant="outline" disabled={isSubmitting}>
               Cancelar
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={
-                repairRequests.length === 0 ||
-                unselectedDeviations.length > 0 ||
-                repairRequests.some((r) => !r.repair_type_id || r.selected_deviations.length === 0)
+                isSubmitting ||
+                isLoadingSupervisors ||
+                !selectedSupervisorId ||
+                !allCommentsComplete ||
+                supervisors.length === 0
               }
             >
-              Generar Solicitudes
+              {isSubmitting ? 'Registrando...' : 'Registrar Desvíos'}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Componente para mostrar un desvío individual con su campo de comentario
+ */
+function DeviationItem({
+  deviation,
+  comment,
+  onCommentChange,
+  disabled,
+  isCritical,
+}: {
+  deviation: Deviation;
+  comment: string;
+  onCommentChange: (comment: string) => void;
+  disabled: boolean;
+  isCritical: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-lg border p-4 space-y-3',
+        isCritical ? 'border-destructive/50 bg-destructive/5' : 'bg-muted/20'
+      )}
+    >
+      <div className="flex items-start gap-3">
+        {isCritical ? (
+          <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+        ) : (
+          <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+        )}
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-medium">{deviation.item_label}</p>
+            {isCritical && (
+              <Badge variant="destructive" className="text-xs">
+                CRÍTICO
+              </Badge>
+            )}
+          </div>
+          {deviation.section_code && (
+            <p className="text-sm text-muted-foreground capitalize">
+              Sección: {deviation.section_code.replace('_', ' ')}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`comment-${deviation.id}`} className="text-sm">
+          Comentario *
+        </Label>
+        <Textarea
+          id={`comment-${deviation.id}`}
+          placeholder="Describe el problema encontrado..."
+          value={comment}
+          onChange={(e) => onCommentChange(e.target.value)}
+          rows={2}
+          disabled={disabled}
+          className={cn(!comment?.trim() && 'border-destructive/50')}
+        />
+        {!comment?.trim() && <p className="text-xs text-destructive">Este campo es obligatorio</p>}
+      </div>
+    </div>
   );
 }

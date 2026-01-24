@@ -444,8 +444,10 @@ export type Database = {
           created_at: string | null;
           created_by_employee_id: string | null;
           created_by_user_id: string | null;
+          driver_comment: string | null;
           equipment_id: string;
           id: string;
+          is_critical: boolean | null;
           item_code: string;
           item_label: string;
           section_code: string | null;
@@ -455,8 +457,10 @@ export type Database = {
           created_at?: string | null;
           created_by_employee_id?: string | null;
           created_by_user_id?: string | null;
+          driver_comment?: string | null;
           equipment_id: string;
           id?: string;
+          is_critical?: boolean | null;
           item_code: string;
           item_label: string;
           section_code?: string | null;
@@ -466,8 +470,10 @@ export type Database = {
           created_at?: string | null;
           created_by_employee_id?: string | null;
           created_by_user_id?: string | null;
+          driver_comment?: string | null;
           equipment_id?: string;
           id?: string;
+          is_critical?: boolean | null;
           item_code?: string;
           item_label?: string;
           section_code?: string | null;
@@ -2922,35 +2928,116 @@ export type Database = {
           },
         ];
       };
+      maintenance_order_item_repair_types: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          maintenance_order_item_id: string;
+          repair_type_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          maintenance_order_item_id: string;
+          repair_type_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          maintenance_order_item_id?: string;
+          repair_type_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'maintenance_order_item_repair_ty_maintenance_order_item_id_fkey';
+            columns: ['maintenance_order_item_id'];
+            isOneToOne: false;
+            referencedRelation: 'maintenance_order_items';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_order_item_repair_types_repair_type_id_fkey';
+            columns: ['repair_type_id'];
+            isOneToOne: false;
+            referencedRelation: 'types_of_repairs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       maintenance_order_items: {
         Row: {
+          assigned_at: string | null;
+          assigned_by: string | null;
+          assigned_sector_id: string | null;
+          assigned_workshop_id: string | null;
           created_at: string | null;
           description: string | null;
           id: string;
           images: string[] | null;
+          is_critical: boolean | null;
           maintenance_order_id: string;
-          maintenance_request_item_id: string;
+          maintenance_request_item_id: string | null;
+          planned_end_date: string | null;
+          planned_start_date: string | null;
           repair_type_id: string | null;
+          work_order_id: string | null;
         };
         Insert: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          assigned_sector_id?: string | null;
+          assigned_workshop_id?: string | null;
           created_at?: string | null;
           description?: string | null;
           id?: string;
           images?: string[] | null;
+          is_critical?: boolean | null;
           maintenance_order_id: string;
-          maintenance_request_item_id: string;
+          maintenance_request_item_id?: string | null;
+          planned_end_date?: string | null;
+          planned_start_date?: string | null;
           repair_type_id?: string | null;
+          work_order_id?: string | null;
         };
         Update: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          assigned_sector_id?: string | null;
+          assigned_workshop_id?: string | null;
           created_at?: string | null;
           description?: string | null;
           id?: string;
           images?: string[] | null;
+          is_critical?: boolean | null;
           maintenance_order_id?: string;
-          maintenance_request_item_id?: string;
+          maintenance_request_item_id?: string | null;
+          planned_end_date?: string | null;
+          planned_start_date?: string | null;
           repair_type_id?: string | null;
+          work_order_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'maintenance_order_items_assigned_by_fkey';
+            columns: ['assigned_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_order_items_assigned_sector_id_fkey';
+            columns: ['assigned_sector_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshop_sectors';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_order_items_assigned_workshop_id_fkey';
+            columns: ['assigned_workshop_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshops';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'maintenance_order_items_maintenance_order_id_fkey';
             columns: ['maintenance_order_id'];
@@ -2970,6 +3057,64 @@ export type Database = {
             columns: ['repair_type_id'];
             isOneToOne: false;
             referencedRelation: 'types_of_repairs';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_order_items_work_order_id_fkey';
+            columns: ['work_order_id'];
+            isOneToOne: false;
+            referencedRelation: 'work_orders';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      maintenance_order_status_history: {
+        Row: {
+          changed_at: string;
+          changed_by: string | null;
+          id: string;
+          maintenance_order_id: string;
+          new_status: string;
+          notes: string | null;
+          previous_status: string | null;
+          rejection_reason: string | null;
+          scheduled_date: string | null;
+        };
+        Insert: {
+          changed_at?: string;
+          changed_by?: string | null;
+          id?: string;
+          maintenance_order_id: string;
+          new_status: string;
+          notes?: string | null;
+          previous_status?: string | null;
+          rejection_reason?: string | null;
+          scheduled_date?: string | null;
+        };
+        Update: {
+          changed_at?: string;
+          changed_by?: string | null;
+          id?: string;
+          maintenance_order_id?: string;
+          new_status?: string;
+          notes?: string | null;
+          previous_status?: string | null;
+          rejection_reason?: string | null;
+          scheduled_date?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'maintenance_order_status_history_changed_by_fkey';
+            columns: ['changed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_order_status_history_maintenance_order_id_fkey';
+            columns: ['maintenance_order_id'];
+            isOneToOne: false;
+            referencedRelation: 'maintenance_orders';
             referencedColumns: ['id'];
           },
         ];
@@ -3128,6 +3273,8 @@ export type Database = {
         Row: {
           checklist_deviation_id: string;
           created_at: string | null;
+          description: string | null;
+          driver_comment: string | null;
           id: string;
           maintenance_request_id: string;
           rejection_reason: string | null;
@@ -3137,6 +3284,8 @@ export type Database = {
         Insert: {
           checklist_deviation_id: string;
           created_at?: string | null;
+          description?: string | null;
+          driver_comment?: string | null;
           id?: string;
           maintenance_request_id: string;
           rejection_reason?: string | null;
@@ -3146,6 +3295,8 @@ export type Database = {
         Update: {
           checklist_deviation_id?: string;
           created_at?: string | null;
+          description?: string | null;
+          driver_comment?: string | null;
           id?: string;
           maintenance_request_id?: string;
           rejection_reason?: string | null;
@@ -3190,6 +3341,7 @@ export type Database = {
           rejected_by: string | null;
           rejection_reason: string | null;
           status: string;
+          supervisor_id: string | null;
           updated_at: string | null;
           user_id: string | null;
         };
@@ -3206,6 +3358,7 @@ export type Database = {
           rejected_by?: string | null;
           rejection_reason?: string | null;
           status?: string;
+          supervisor_id?: string | null;
           updated_at?: string | null;
           user_id?: string | null;
         };
@@ -3222,6 +3375,7 @@ export type Database = {
           rejected_by?: string | null;
           rejection_reason?: string | null;
           status?: string;
+          supervisor_id?: string | null;
           updated_at?: string | null;
           user_id?: string | null;
         };
@@ -3264,6 +3418,13 @@ export type Database = {
           {
             foreignKeyName: 'maintenance_requests_rejected_by_fkey';
             columns: ['rejected_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_requests_supervisor_id_fkey';
+            columns: ['supervisor_id'];
             isOneToOne: false;
             referencedRelation: 'profile';
             referencedColumns: ['id'];
@@ -4855,12 +5016,213 @@ export type Database = {
           },
         ];
       };
+      work_order_items: {
+        Row: {
+          completed_at: string | null;
+          completed_by: string | null;
+          created_at: string | null;
+          id: string;
+          maintenance_order_item_id: string;
+          status: Database['public']['Enums']['work_order_item_status'];
+          technician_notes: string | null;
+          updated_at: string | null;
+          work_order_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          maintenance_order_item_id: string;
+          status?: Database['public']['Enums']['work_order_item_status'];
+          technician_notes?: string | null;
+          updated_at?: string | null;
+          work_order_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          maintenance_order_item_id?: string;
+          status?: Database['public']['Enums']['work_order_item_status'];
+          technician_notes?: string | null;
+          updated_at?: string | null;
+          work_order_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'work_order_items_completed_by_fkey';
+            columns: ['completed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_order_items_maintenance_order_item_id_fkey';
+            columns: ['maintenance_order_item_id'];
+            isOneToOne: false;
+            referencedRelation: 'maintenance_order_items';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_order_items_work_order_id_fkey';
+            columns: ['work_order_id'];
+            isOneToOne: false;
+            referencedRelation: 'work_orders';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      work_orders: {
+        Row: {
+          actual_end_date: string | null;
+          actual_start_date: string | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          company_id: string;
+          completed_at: string | null;
+          completed_by: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          equipment_id: string;
+          id: string;
+          notes: string | null;
+          order_number: string;
+          planned_end_date: string;
+          planned_start_date: string;
+          sector_id: string | null;
+          sequence_number: number;
+          started_at: string | null;
+          started_by: string | null;
+          status: Database['public']['Enums']['work_order_status'];
+          updated_at: string | null;
+          workshop_id: string;
+        };
+        Insert: {
+          actual_end_date?: string | null;
+          actual_start_date?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          company_id: string;
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          equipment_id: string;
+          id?: string;
+          notes?: string | null;
+          order_number: string;
+          planned_end_date: string;
+          planned_start_date: string;
+          sector_id?: string | null;
+          sequence_number: number;
+          started_at?: string | null;
+          started_by?: string | null;
+          status?: Database['public']['Enums']['work_order_status'];
+          updated_at?: string | null;
+          workshop_id: string;
+        };
+        Update: {
+          actual_end_date?: string | null;
+          actual_start_date?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          company_id?: string;
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          equipment_id?: string;
+          id?: string;
+          notes?: string | null;
+          order_number?: string;
+          planned_end_date?: string;
+          planned_start_date?: string;
+          sector_id?: string | null;
+          sequence_number?: number;
+          started_at?: string | null;
+          started_by?: string | null;
+          status?: Database['public']['Enums']['work_order_status'];
+          updated_at?: string | null;
+          workshop_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'work_orders_cancelled_by_fkey';
+            columns: ['cancelled_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_company_id_fkey';
+            columns: ['company_id'];
+            isOneToOne: false;
+            referencedRelation: 'company';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_completed_by_fkey';
+            columns: ['completed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'equipments_with_pending_deviations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_equipment_id_fkey';
+            columns: ['equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'vehicles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_sector_id_fkey';
+            columns: ['sector_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshop_sectors';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_started_by_fkey';
+            columns: ['started_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_workshop_id_fkey';
+            columns: ['workshop_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshops';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       workshop_sectors: {
         Row: {
           created_at: string;
           description: string | null;
           id: string;
           is_active: boolean;
+          max_capacity: number | null;
           name: string;
           updated_at: string;
           workshop_id: string;
@@ -4870,6 +5232,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           is_active?: boolean;
+          max_capacity?: number | null;
           name: string;
           updated_at?: string;
           workshop_id: string;
@@ -4879,6 +5242,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           is_active?: boolean;
+          max_capacity?: number | null;
           name?: string;
           updated_at?: string;
           workshop_id?: string;
@@ -5014,25 +5378,6 @@ export type Database = {
             Args: {
               p_date_from: string;
               p_date_to: string;
-              p_diagram_type_id: string;
-              p_employee_ids: string[];
-            };
-            Returns: {
-              conflict_type: string;
-              current_diagram_color: string;
-              current_diagram_id: string;
-              current_diagram_name: string;
-              date_formatted: string;
-              date_value: string;
-              employee_id: string;
-              employee_name: string;
-              operation_details: string;
-            }[];
-          }
-        | {
-            Args: {
-              p_date_from: string;
-              p_date_to: string;
               p_employee_ids: string[];
             };
             Returns: {
@@ -5049,6 +5394,25 @@ export type Database = {
               month: number;
               operation_details: string;
               year: number;
+            }[];
+          }
+        | {
+            Args: {
+              p_date_from: string;
+              p_date_to: string;
+              p_diagram_type_id: string;
+              p_employee_ids: string[];
+            };
+            Returns: {
+              conflict_type: string;
+              current_diagram_color: string;
+              current_diagram_id: string;
+              current_diagram_name: string;
+              date_formatted: string;
+              date_value: string;
+              employee_id: string;
+              employee_name: string;
+              operation_details: string;
             }[];
           };
       check_diagram_conflicts_with_operations_v2:
@@ -5625,6 +5989,8 @@ export type Database = {
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
       type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
+      work_order_item_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+      work_order_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
       workshop_type: 'interno' | 'externo';
     };
     CompositeTypes: {
@@ -5821,6 +6187,8 @@ export const Constants = {
       type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
       type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
       type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
+      work_order_item_status: ['pending', 'in_progress', 'completed', 'cancelled'],
+      work_order_status: ['pending', 'in_progress', 'completed', 'cancelled'],
       workshop_type: ['interno', 'externo'],
     },
   },

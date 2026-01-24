@@ -23,168 +23,338 @@ revisar los items al generarlos, no se estan detectando o generando
 
 <!----------------------------------------------------->
 
-no navega luego de generar los devios en el form
-EN EL detalle del equipo no desaparece el Desvíos de Checklist Pendientes luego de generar el desvio
-La soicitud de desvio no aparece en desvios, las realizadas desde el checklist
-revisar modo oscuro
-Mostrar los comentarios de los items en los modales
+✅no navega luego de generar los devios en el form
+✅EN EL detalle del equipo no desaparece el Desvíos de Checklist Pendientes luego de generar el desvio
+AB093KHLa soicitud de desvio no aparece en desvios, las realizadas desde el checklist
+✅revisar modo oscuro
+✅Mostrar los comentarios de los items en los modales
+✅en la tab Pendientes de Ejecutar se deben mostrar las solicitudes confirmadas y las pendientes de planificar
 
-en la tab Pendientes de Ejecutar se deben mostrar las solicitudes confirmadas y las pendientes de planificar
+✅tabla Pedidos de Mantenimiento
 
-tabla Pedidos de Mantenimiento
+✅lo pendiente de planificar primero, y ordenadas de la mas vieja a mas reciente
+✅agregar en Pedidos de Mantenimiento 2 subtabs pendiente (mostrar los pendientes de planificar y pendientes de aprobacion (los que se muestran en Pendientes de Ejecutar)) y confirmados
 
-lo pendiente de planificar primero, y ordenadas de la mas vieja a mas reciente
-agregar en Pedidos de Mantenimiento 2 subtabs pendiente (mostrar los pendientes de planificar y pendientes de aprobacion (los que se muestran en Pendientes de Ejecutar)) y confirmados
+## [2026-01-22] - Subtabs: Pedidos de Mantenimiento
 
-ingresar la tab nueva slicutud a operaciones/ Nuevo pedido, refactorizar la tab Carga individual para generar directamente un Pedidos de Mantenimiento (Salteandose la aprobacion)
-
-CONTINUANDO EL FLUJO
-nueva tab Ordenes de trabajo en Taller/Ordenes de trabajo
-
-nomentclaura de las ordenes de trabajo (OT-{patente}-{sector}-{numero})
-
-OT
-Numero, Dominio, Taller, Sector, Items asignados, rango de fechas (vienen de la solicitud)
-
-en Planificación de Mantenimiento la seleccion de los datos
-
-<!----------------------------------------------------->
-
-## [2026-01-22] Sincronización de Tabs: LOCAL → PRODUCCIÓN
-
-### SQL para ejecutar en PRODUCCIÓN
-
-Este script sincroniza la tabla `tabs` de producción con la estructura de local.
-Afecta los módulos: **Empresa** y **Mantenimiento**.
+### SQL para replicar en producción:
 
 ```sql
--- ============================================
--- SINCRONIZACIÓN DE TABS: LOCAL → PROD
--- Fecha: 2026-01-22
--- ============================================
-
-BEGIN;
-
--- ============================================
--- PASO 1: Eliminar tabs que existen en PROD pero no en LOCAL
--- ============================================
-
--- Eliminar tabs de Mantenimiento que ya no existen en local
-DELETE FROM tabs WHERE id = '60000000-0000-0000-0000-000000000011'; -- created_solicitudes (no existe en local)
-DELETE FROM tabs WHERE id = '60000000-0000-0000-0000-000000000022'; -- maintenance_operations (reemplazada por maint_operaciones)
-DELETE FROM tabs WHERE id = '60000000-0000-0000-0000-000000000024'; -- operations_planned (no existe en local)
-
--- ============================================
--- PASO 2: Insertar tabs nuevas que existen en LOCAL pero no en PROD
--- ============================================
-
--- Módulo Empresa: Nueva sección de Mantenimiento dentro de Empresa
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id, created_at, updated_at)
-VALUES
-  ('10000000-0000-0000-0000-000000000016', 'e0478383-1287-4b5e-a727-985baf867173', 'empresa_mantenimiento', 'Mantenimiento', 'Configuración de mantenimiento en empresa', 6, '10000000-0000-0000-0000-000000000001', NOW(), NOW())
+-- Insertar subtabs para Pedidos de Mantenimiento
+-- Subtab 1: Pendientes (pending_scheduling + scheduled)
+INSERT INTO tabs (id, slug, name, description, order_index, parent_tab_id, module_id)
+VALUES (
+  '60000000-0000-0000-0000-000000000211',
+  'pedidos_pendientes',
+  'Pendientes',
+  'Pedidos pendientes de planificar y pendientes de aprobación',
+  1,
+  '60000000-0000-0000-0000-000000000021',
+  '421e96da-5235-4857-bf81-e63336447f13'
+)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id, created_at, updated_at)
-VALUES
-  ('10000000-0000-0000-0000-000000000161', 'e0478383-1287-4b5e-a727-985baf867173', 'talleres', 'Talleres', 'Gestión de talleres', 1, '10000000-0000-0000-0000-000000000016', NOW(), NOW())
+-- Subtab 2: Confirmados (date_confirmed)
+INSERT INTO tabs (id, slug, name, description, order_index, parent_tab_id, module_id)
+VALUES (
+  '60000000-0000-0000-0000-000000000212',
+  'pedidos_confirmados',
+  'Confirmados',
+  'Pedidos con fecha confirmada listos para entrada a taller',
+  2,
+  '60000000-0000-0000-0000-000000000021',
+  '421e96da-5235-4857-bf81-e63336447f13'
+)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id, created_at, updated_at)
+-- Permisos para admin (role_id = 2)
+-- action view = 'e2128d70-7a60-46c0-bf6f-23ec5d44c89c'
+-- action update = '8b70189a-cea5-4e3b-98f4-a76d6447003f'
+INSERT INTO role_permissions (role_id, tab_id, action_id)
 VALUES
-  ('10000000-0000-0000-0000-000000000162', 'e0478383-1287-4b5e-a727-985baf867173', 'sectores_taller', 'Sectores', 'Sectores de talleres', 2, '10000000-0000-0000-0000-000000000016', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-
--- Módulo Mantenimiento: Nuevas tabs padre
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id, created_at, updated_at)
-VALUES
-  ('60000000-0000-0000-0000-000000000030', '421e96da-5235-4857-bf81-e63336447f13', 'maint_operaciones', 'Operaciones', 'Operaciones de mantenimiento', 1, NULL, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id, created_at, updated_at)
-VALUES
-  ('60000000-0000-0000-0000-000000000040', '421e96da-5235-4857-bf81-e63336447f13', 'maint_taller', 'Taller', 'Gestión de taller', 2, NULL, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id, created_at, updated_at)
-VALUES
-  ('60000000-0000-0000-0000-000000000050', '421e96da-5235-4857-bf81-e63336447f13', 'maint_configuracion', 'Configuración', 'Configuración de mantenimiento', 3, NULL, NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id, created_at, updated_at)
-VALUES
-  ('60000000-0000-0000-0000-000000000041', '421e96da-5235-4857-bf81-e63336447f13', 'planificacion', 'Planificación', 'Planificación de mantenimiento', 2, '60000000-0000-0000-0000-000000000040', NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
-
--- ============================================
--- PASO 3: Actualizar tabs existentes con cambios de slug, name, parent o order
--- ============================================
-
--- Tab 60000000-0000-0000-0000-000000000001: Cambiar de type_of_repairs a maint_nueva_solicitud
-UPDATE tabs SET
-  slug = 'maint_nueva_solicitud',
-  name = 'Nueva Solicitud',
-  order_index = 4,
-  parent_tab_id = NULL
-WHERE id = '60000000-0000-0000-0000-000000000001';
-
--- Tab 60000000-0000-0000-0000-000000000012: Cambiar parent a maint_configuracion
-UPDATE tabs SET
-  order_index = 1,
-  parent_tab_id = '60000000-0000-0000-0000-000000000050'
-WHERE id = '60000000-0000-0000-0000-000000000012';
-
--- Tab 60000000-0000-0000-0000-000000000013: Cambiar parent a maint_nueva_solicitud
-UPDATE tabs SET
-  order_index = 1,
-  parent_tab_id = '60000000-0000-0000-0000-000000000001'
-WHERE id = '60000000-0000-0000-0000-000000000013';
-
--- Tab 60000000-0000-0000-0000-000000000014: Cambiar parent a maint_configuracion
-UPDATE tabs SET
-  order_index = 2,
-  parent_tab_id = '60000000-0000-0000-0000-000000000050'
-WHERE id = '60000000-0000-0000-0000-000000000014';
-
--- Tab 60000000-0000-0000-0000-000000000015: Cambiar parent a maint_operaciones
-UPDATE tabs SET
-  order_index = 1,
-  parent_tab_id = '60000000-0000-0000-0000-000000000030'
-WHERE id = '60000000-0000-0000-0000-000000000015';
-
--- Tab 60000000-0000-0000-0000-000000000020: Cambiar parent a maint_operaciones
-UPDATE tabs SET
-  order_index = 2,
-  parent_tab_id = '60000000-0000-0000-0000-000000000030'
-WHERE id = '60000000-0000-0000-0000-000000000020';
-
--- Tab 60000000-0000-0000-0000-000000000021: Cambiar parent a maint_taller
-UPDATE tabs SET
-  order_index = 1,
-  parent_tab_id = '60000000-0000-0000-0000-000000000040'
-WHERE id = '60000000-0000-0000-0000-000000000021';
-
--- Tab 60000000-0000-0000-0000-000000000023: Cambiar slug y parent a maint_operaciones
-UPDATE tabs SET
-  slug = 'pendientes_ejecutar',
-  name = 'Pendientes de Ejecutar',
-  order_index = 3,
-  parent_tab_id = '60000000-0000-0000-0000-000000000030'
-WHERE id = '60000000-0000-0000-0000-000000000023';
-
-COMMIT;
-
--- ============================================
--- VERIFICACIÓN: Ejecutar después para confirmar
--- ============================================
--- SELECT t.id, t.slug, t.name, t.order_index, t.parent_tab_id, m.name as module_name
--- FROM tabs t
--- JOIN modules m ON t.module_id = m.id
--- WHERE m.name IN ('Empresa', 'Mantenimiento')
--- ORDER BY m.name, t.order_index, t.name;
+  -- Admin - pedidos_pendientes
+  (2, '60000000-0000-0000-0000-000000000211', 'e2128d70-7a60-46c0-bf6f-23ec5d44c89c'), -- view
+  (2, '60000000-0000-0000-0000-000000000211', '8b70189a-cea5-4e3b-98f4-a76d6447003f'), -- update
+  -- Admin - pedidos_confirmados
+  (2, '60000000-0000-0000-0000-000000000212', 'e2128d70-7a60-46c0-bf6f-23ec5d44c89c'), -- view
+  (2, '60000000-0000-0000-0000-000000000212', '8b70189a-cea5-4e3b-98f4-a76d6447003f')  -- update
+ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
 ```
 
-### Notas importantes:
+✅ingresar la tab nueva solicitud a operaciones/ Nuevo pedido, refactorizar la tab Carga individual para generar directamente un Pedidos de Mantenimiento (Salteandose la aprobacion)
 
-- Este script usa `BEGIN/COMMIT` para ejecutar todo en una transacción
-- Los `ON CONFLICT (id) DO NOTHING` previenen errores si se ejecuta múltiples veces
-- Verificar con la query de verificación después de ejecutar
+## [2026-01-22] - Tab: Nuevo Pedido (dentro de Operaciones)
+
+### Cambios realizados:
+
+- Se movió la funcionalidad de "Nueva Solicitud" dentro de la tab "Operaciones" como subtab "Nuevo Pedido"
+- Se deshabilitó la subtab "Carga Múltiple" temporalmente
+- Se creó un nuevo componente `NuevoPedidoForm` que crea `maintenance_orders` directamente con estado `pending_scheduling` (saltándose la aprobación)
+- La funcionalidad original de `RepairEntry` sigue funcionando en `equipment/[id]/request` para crear solicitudes de mantenimiento (`repair_solicitudes`)
+
+### SQL para replicar en producción:
+
+```sql
+-- Permitir que maintenance_order_items pueda existir sin maintenance_request_item_id
+-- Esto es para crear pedidos de mantenimiento directamente sin pasar por solicitud
+ALTER TABLE maintenance_order_items
+ALTER COLUMN maintenance_request_item_id DROP NOT NULL;
+
+COMMENT ON COLUMN maintenance_order_items.maintenance_request_item_id IS
+'Nullable: Si es NULL indica que el item fue creado directamente sin pasar por solicitud de mantenimiento';
+
+-- Agregar nueva subtab "Nuevo Pedido" dentro de maint_operaciones
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('60000000-0000-0000-0000-000000000024', '421e96da-5235-4857-bf81-e63336447f13', 'nuevo_pedido', 'Nuevo Pedido', 'Crear pedidos de mantenimiento directamente', 4, '60000000-0000-0000-0000-000000000030')
+ON CONFLICT (id) DO NOTHING;
+
+-- Agregar permisos para el rol admin
+INSERT INTO role_permissions (role_id, tab_id, action_id)
+SELECT r.id, '60000000-0000-0000-0000-000000000024', a.id
+FROM roles r, actions a
+WHERE r.slug = 'Administrador' AND a.slug IN ('view', 'create')
+ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
+```
+
+### Archivos creados/modificados:
+
+- `src/features/Mantenimiento/NuevoPedido/` - Nueva feature completa
+  - `NuevoPedidoTabContent.tsx` - Server Component
+  - `components/NuevoPedidoForm.tsx` - Client Component (formulario)
+  - `actions/actionsServer.ts` - Server actions para crear maintenance_orders
+  - `fallback/NuevoPedidoSkeleton.tsx` - Skeleton para Suspense
+  - `index.ts` - Exports
+- `src/features/Mantenimiento/MantenimientoComponent.tsx` - Actualizado para incluir "Nuevo Pedido" en Operaciones
+- `src/features/Permissions/permissions-map.ts` - Agregada subtab `nuevo_pedido`
+- `src/components/Tipos_de_reparaciones/RepairEntryWrapper.tsx` - Deshabilitada tab "Carga Múltiple"
+
+## [2026-01-22] - Refactor: NuevoPedido reemplaza RepairEntry completamente
+
+### Cambios realizados:
+
+- `NuevoPedidoForm` ahora crea `maintenance_orders` directamente (NO `repair_solicitudes`)
+- La página `equipment/[id]/request` ahora usa `NuevoPedidoForm` en lugar de `RepairEntry`
+- `SolicitarMantenimiento` (usado desde QR) ahora usa `NuevoPedidoForm`
+- Los pedidos creados aparecen en "Pedidos de Mantenimiento" → "Pendientes" con estado `pending_scheduling`
+
+### Componentes deprecados (marcados con @deprecated):
+
+- `src/components/Tipos_de_reparaciones/RepairEntry.tsx` - DEPRECADO
+- `src/components/Tipos_de_reparaciones/RepairEntryMultiple.tsx` - DEPRECADO
+- `src/components/Tipos_de_reparaciones/RepairEntryWrapper.tsx` - DEPRECADO
+- `src/app/maintenance/equipment/[id]/request/repair-entry-with-router.tsx` - DEPRECADO (código comentado)
+- `src/app/maintenance/equipment/[id]/request/repair-entry-mobile-wrapper.tsx` - DEPRECADO (código comentado)
+
+### Flujo nuevo:
+
+1. Usuario selecciona equipo (o viene preseleccionado desde detalle del equipo)
+2. Usuario selecciona tipos de reparación (individual o por grupo)
+3. Se crea `maintenance_order` con status `pending_scheduling`
+4. Se crean `maintenance_order_items` con `maintenance_request_item_id = NULL`
+5. El pedido aparece en "Pedidos de Mantenimiento" → "Pendientes" para asignarle fecha
+
+### Nota:
+
+El flujo de `repair_solicitudes` queda completamente deprecado. Todos los nuevos pedidos
+de mantenimiento se crean directamente como `maintenance_orders`.
+
+## [2026-01-22] - Feature: Órdenes de Trabajo (OT)
+
+### Descripción:
+
+Nueva funcionalidad para gestionar Órdenes de Trabajo que se generan desde la Planificación.
+Las OT agrupan items de mantenimiento asignados a un taller/sector específico con un rango de fechas.
+
+### Nomenclatura:
+
+`OT-{PATENTE/SERIE}-{SECTOR}-{NUMERO}`
+
+- Ejemplo: `OT-AB123CD-MECANICA-000001`
+- El número es autoincremental global (no por empresa)
+- El número se obtiene con `MAX(sequence_number) + 1`
+
+### Migraciones aplicadas en DEV:
+
+```sql
+-- 1. Crear tipos ENUM para estados
+CREATE TYPE work_order_status AS ENUM ('pending', 'in_progress', 'completed', 'cancelled');
+CREATE TYPE work_order_item_status AS ENUM ('pending', 'in_progress', 'completed', 'skipped');
+
+-- 2. Tabla principal de órdenes de trabajo
+CREATE TABLE IF NOT EXISTS work_orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_number TEXT NOT NULL UNIQUE,
+    sequence_number INTEGER NOT NULL,
+    company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+    equipment_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    workshop_id UUID NOT NULL REFERENCES workshops(id) ON DELETE RESTRICT,
+    sector_id UUID REFERENCES workshop_sectors(id) ON DELETE SET NULL,
+    status work_order_status NOT NULL DEFAULT 'pending',
+    planned_start_date DATE NOT NULL,
+    planned_end_date DATE NOT NULL,
+    actual_start_date TIMESTAMPTZ,
+    actual_end_date TIMESTAMPTZ,
+    notes TEXT,
+    created_by UUID REFERENCES profile(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    started_by UUID REFERENCES profile(id) ON DELETE SET NULL,
+    completed_at TIMESTAMPTZ,
+    completed_by UUID REFERENCES profile(id) ON DELETE SET NULL,
+    cancelled_at TIMESTAMPTZ,
+    cancelled_by UUID REFERENCES profile(id) ON DELETE SET NULL,
+    cancellation_reason TEXT
+);
+
+-- 3. Tabla de items de órdenes de trabajo
+CREATE TABLE IF NOT EXISTS work_order_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    work_order_id UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+    maintenance_order_item_id UUID NOT NULL REFERENCES maintenance_order_items(id) ON DELETE CASCADE,
+    status work_order_item_status NOT NULL DEFAULT 'pending',
+    notes TEXT,
+    completed_at TIMESTAMPTZ,
+    completed_by UUID REFERENCES profile(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(work_order_id, maintenance_order_item_id)
+);
+
+-- 4. Índices
+CREATE INDEX IF NOT EXISTS idx_work_orders_company ON work_orders(company_id);
+CREATE INDEX IF NOT EXISTS idx_work_orders_equipment ON work_orders(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_work_orders_workshop ON work_orders(workshop_id);
+CREATE INDEX IF NOT EXISTS idx_work_orders_status ON work_orders(status);
+CREATE INDEX IF NOT EXISTS idx_work_orders_dates ON work_orders(planned_start_date, planned_end_date);
+CREATE INDEX IF NOT EXISTS idx_work_order_items_work_order ON work_order_items(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_work_order_items_moi ON work_order_items(maintenance_order_item_id);
+
+-- 5. Triggers para updated_at
+CREATE OR REPLACE FUNCTION update_work_orders_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_work_orders_updated_at
+    BEFORE UPDATE ON work_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION update_work_orders_updated_at();
+
+CREATE TRIGGER trigger_work_order_items_updated_at
+    BEFORE UPDATE ON work_order_items
+    FOR EACH ROW
+    EXECUTE FUNCTION update_work_orders_updated_at();
+
+-- 6. Campos de asignación en maintenance_order_items (para tracking antes de crear OT)
+ALTER TABLE maintenance_order_items
+ADD COLUMN IF NOT EXISTS assigned_workshop_id UUID REFERENCES workshops(id) ON DELETE SET NULL;
+
+ALTER TABLE maintenance_order_items
+ADD COLUMN IF NOT EXISTS assigned_sector_id UUID REFERENCES workshop_sectors(id) ON DELETE SET NULL;
+
+ALTER TABLE maintenance_order_items
+ADD COLUMN IF NOT EXISTS planned_start_date DATE;
+
+ALTER TABLE maintenance_order_items
+ADD COLUMN IF NOT EXISTS planned_end_date DATE;
+
+ALTER TABLE maintenance_order_items
+ADD COLUMN IF NOT EXISTS assigned_by UUID REFERENCES profile(id) ON DELETE SET NULL;
+
+ALTER TABLE maintenance_order_items
+ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMPTZ;
+
+ALTER TABLE maintenance_order_items
+ADD COLUMN IF NOT EXISTS work_order_id UUID REFERENCES work_orders(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_moi_assigned_workshop ON maintenance_order_items(assigned_workshop_id);
+CREATE INDEX IF NOT EXISTS idx_moi_work_order ON maintenance_order_items(work_order_id);
+```
+
+### SQL para tab y permisos:
+
+```sql
+-- Insertar la nueva tab "Órdenes de Trabajo" bajo "Taller"
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id)
+VALUES (
+  '60000000-0000-0000-0000-000000000042',
+  '421e96da-5235-4857-bf81-e63336447f13',
+  'ordenes_trabajo',
+  'Órdenes de Trabajo',
+  'Gestión de órdenes de trabajo para taller',
+  3,
+  '60000000-0000-0000-0000-000000000040'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Permisos para los roles admin (1=super-admin, 2=admin, 9=administrador)
+INSERT INTO role_permissions (role_id, tab_id, action_id)
+SELECT r.id, '60000000-0000-0000-0000-000000000042'::uuid, a.id
+FROM (VALUES (1), (2), (9)) AS r(id)
+CROSS JOIN actions a
+WHERE a.slug IN ('view', 'create', 'update', 'delete')
+ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
+```
+
+### Archivos creados:
+
+- `src/features/Mantenimiento/Planificacion/actions/actionsServer.ts` - Server actions para asignar taller y crear OT
+- `src/features/Mantenimiento/OrdenesTrabajo/` - Feature completa:
+  - `types/index.ts` - Tipos y constantes
+  - `actions/actionsServer.ts` - Server actions CRUD
+  - `hooks/useOrdenesTrabajo.ts` - React Query hooks
+  - `components/columns.tsx` - Columnas de tabla
+  - `components/OrdenDetalleDialog.tsx` - Modal de detalle
+  - `components/OrdenesTrabajoTableClient.tsx` - Tabla principal con subtabs
+  - `fallback/OrdenesTrabajoSkeleton.tsx` - Skeleton
+  - `OrdenesTrabajoTabContent.tsx` - Server Component
+  - `index.ts` - Exports
+
+### Archivos modificados:
+
+- `src/features/Mantenimiento/Planificacion/components/AsignarTallerDialog.tsx` - Ahora usa server actions reales
+- `src/features/Mantenimiento/MantenimientoComponent.tsx` - Agregada tab "Órdenes de Trabajo"
+- `src/features/Permissions/permissions-map.ts` - Agregada subtab `ordenes_trabajo`
+
+## [2026-01-24] - Subtab: Para Taller (dentro de Operaciones)
+
+### Descripción:
+
+Nueva subtab en Operaciones que muestra los pedidos con fecha confirmada (`date_confirmed`)
+listos para ser enviados a taller (cambiar status a `in_workshop`).
+
+### SQL para replicar en producción:
+
+```sql
+-- Insertar la nueva tab 'Para Taller' en el módulo de Mantenimiento (dentro de maint_operaciones)
+INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_tab_id) VALUES
+('60000000-0000-0000-0000-000000000025', '421e96da-5235-4857-bf81-e63336447f13', 'para_taller', 'Para Taller', 'Pedidos con fecha confirmada listos para entrada a taller', 5, '60000000-0000-0000-0000-000000000030')
+ON CONFLICT (id) DO NOTHING;
+
+-- Agregar permisos para el rol admin (view y update)
+INSERT INTO role_permissions (role_id, tab_id, action_id)
+SELECT r.id, '60000000-0000-0000-0000-000000000025', a.id
+FROM roles r, actions a
+WHERE r.slug = 'admin' AND a.slug IN ('view', 'update')
+ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
+```
+
+### Archivos creados:
+
+- `src/features/Mantenimiento/Operaciones/ParaTaller/` - Feature completa:
+  - `ParaTallerTabContent.tsx` - Server Component
+  - `components/ParaTallerTableClient.tsx` - Client Component (tabla)
+  - `components/columns.tsx` - Columnas de tabla
+  - `components/ParaTallerDetailDialog.tsx` - Modal de detalle
+  - `components/ParaTallerEntradaDialog.tsx` - Modal para aprobar entrada a taller
+  - `index.ts` - Exports
+
+### Archivos modificados:
+
+- `src/features/Mantenimiento/Operaciones/OperacionesTabContent.tsx` - Agregada subtab "Para Taller"
+- `src/features/Mantenimiento/Operaciones/actions/actionsServer.ts` - Agregada función `getOrdersForWorkshop`
+- `src/features/Permissions/permissions-map.ts` - Agregada subtab `para_taller`

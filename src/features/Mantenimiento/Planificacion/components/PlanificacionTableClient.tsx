@@ -45,6 +45,24 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
         const deviation = item.maintenance_request_items?.checklist_deviations;
         const repairType = item.types_of_repairs;
 
+        // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
+        const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+        const repairTypeIds: string[] =
+          pivotRepairTypes.length > 0
+            ? pivotRepairTypes.map((rt: any) => rt.repair_type_id).filter(Boolean)
+            : repairType?.id
+              ? [repairType.id]
+              : [];
+        const repairTypeNames: string[] =
+          pivotRepairTypes.length > 0
+            ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+            : repairType?.name
+              ? [repairType.name]
+              : [];
+
+        // Extraer información de la orden de trabajo asociada
+        const workOrder = (item as any).work_orders;
+
         desvios.push({
           id: item.id,
           orderId: order.id,
@@ -60,17 +78,25 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
           itemLabel: deviation?.item_label || 'Sin descripción',
           itemCode: deviation?.item_code || null,
           sectionCode: deviation?.section_code || null,
-          // Tipo de reparación
+          description: item.maintenance_request_items?.description || null,
+          driverComment: (item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment || null,
+          // Tipo de reparación (legacy)
           repairTypeId: repairType?.id || null,
           repairTypeName: repairType?.name || null,
+          // Múltiples tipos de reparación (pivot)
+          repairTypeIds,
+          repairTypeNames,
           // Info de la orden
           workshopEntryDate: order.workshop_entry_date,
           kilometer: order.maintenance_requests?.kilometer || null,
-          // Asignaciones (TODO: agregar campos reales cuando existan en DB)
-          workshopId: (item as typeof item & { workshop_id?: string }).workshop_id || null,
-          sectorId: (item as typeof item & { sector_id?: string }).sector_id || null,
-          startDate: (item as typeof item & { start_date?: string }).start_date || null,
-          endDate: (item as typeof item & { end_date?: string }).end_date || null,
+          // Asignaciones
+          workshopId: (item as any).assigned_workshop_id || null,
+          sectorId: (item as any).assigned_sector_id || null,
+          startDate: (item as any).planned_start_date || null,
+          endDate: (item as any).planned_end_date || null,
+          // Orden de trabajo asociada
+          workOrderId: workOrder?.id || (item as any).work_order_id || null,
+          workOrderNumber: workOrder?.order_number || null,
         });
       });
     });
@@ -108,15 +134,22 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
     return Array.from(uniqueSections.values());
   }, [desviosData]);
 
-  // Generar opciones de tipos de reparación
+  // Generar opciones de tipos de reparación (considera pivot y legacy)
   const repairTypeOptions = useMemo(() => {
     const uniqueTypes = new Map<string, { label: string; value: string }>();
     desviosData.forEach((desvio) => {
-      if (desvio.repairTypeName) {
-        if (!uniqueTypes.has(desvio.repairTypeName)) {
-          uniqueTypes.set(desvio.repairTypeName, { label: desvio.repairTypeName, value: desvio.repairTypeName });
+      // Usar repairTypeNames (pivot) primero, si está vacío usar repairTypeName (legacy)
+      const repairTypes =
+        desvio.repairTypeNames?.length > 0
+          ? desvio.repairTypeNames
+          : desvio.repairTypeName
+            ? [desvio.repairTypeName]
+            : [];
+      repairTypes.forEach((typeName) => {
+        if (typeName && !uniqueTypes.has(typeName)) {
+          uniqueTypes.set(typeName, { label: typeName, value: typeName });
         }
-      }
+      });
     });
     return Array.from(uniqueTypes.values());
   }, [desviosData]);
@@ -197,6 +230,15 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
               columnId: 'TipoReparacion',
               title: 'Tipo Reparación',
               options: repairTypeOptions,
+            },
+            {
+              columnId: 'Estado',
+              title: 'Estado',
+              options: [
+                { label: 'Pendiente', value: 'Pendiente' },
+                { label: 'Asignado', value: 'Asignado' },
+                { label: 'Con OT', value: 'Con OT' },
+              ],
             },
           ],
           showViewOptions: true,

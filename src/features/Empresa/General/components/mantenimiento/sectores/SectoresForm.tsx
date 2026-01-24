@@ -21,6 +21,7 @@ const SectoresSchema = z.object({
   description: z.string().optional().nullable(),
   workshop_id: z.string().min(1, { message: 'Debe seleccionar un taller' }),
   is_active: z.boolean().optional(),
+  max_capacity: z.number().int().min(1, { message: 'El cupo debe ser al menos 1' }).optional().nullable(),
 });
 
 type SectoresFormValues = z.infer<typeof SectoresSchema>;
@@ -44,6 +45,7 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
       description: '',
       workshop_id: '',
       is_active: true,
+      max_capacity: null,
     },
   });
 
@@ -58,6 +60,7 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
         description: editingSector.description || '',
         workshop_id: editingSector.workshop_id,
         is_active: editingSector.is_active ?? true,
+        max_capacity: editingSector.max_capacity ?? null,
       });
       setIsEditing(true);
     } else {
@@ -73,6 +76,7 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
           description: values.description || null,
           workshop_id: values.workshop_id,
           is_active: values.is_active!,
+          max_capacity: values.max_capacity || null,
         });
       },
       {
@@ -98,6 +102,7 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
           description: values.description || null,
           workshop_id: values.workshop_id,
           is_active: values.is_active!,
+          max_capacity: values.max_capacity || null,
         });
       },
       {
@@ -129,6 +134,7 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
       description: '',
       workshop_id: '',
       is_active: true,
+      max_capacity: null,
     });
     setIsEditing(false);
     setSector(null);
@@ -200,6 +206,32 @@ function SectoresForm({ internalWorkshops }: SectoresFormProps) {
                 />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Cupo Máximo */}
+        <FormField
+          control={form.control}
+          name="max_capacity"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cupo Máximo (opcional)</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  {...field}
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
+                  className="input w-full"
+                  placeholder="Cantidad máxima de equipos"
+                  min={1}
+                />
+              </FormControl>
+              <FormMessage />
+              <p className="text-xs text-muted-foreground">
+                Cantidad máxima de equipos/dominios que puede atender el sector simultáneamente
+              </p>
             </FormItem>
           )}
         />

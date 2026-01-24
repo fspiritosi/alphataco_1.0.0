@@ -33,9 +33,9 @@ export interface MaintenanceOrderFilters {
 // Tipos para acciones
 export interface ApproveRequestItemsInput {
   requestId: string;
+  /** Items aprobados - Los tipos de reparación se asignan en la etapa de Planificación */
   approvedItems: {
     itemId: string;
-    repairTypeId?: string;
   }[];
   rejectedItems: {
     itemId: string;
