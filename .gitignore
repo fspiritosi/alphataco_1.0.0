@@ -35,6 +35,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+NotasAle.md
+nul
+03-notas-desarrollo.md
 # SQL
 # supabase/seed.sql  -- Comentado para permitir seed en branches
 

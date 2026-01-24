@@ -335,11 +335,23 @@ INSERT INTO tabs (id, module_id, slug, name, description, order_index, parent_ta
 ('60000000-0000-0000-0000-000000000025', '421e96da-5235-4857-bf81-e63336447f13', 'para_taller', 'Para Taller', 'Pedidos con fecha confirmada listos para entrada a taller', 5, '60000000-0000-0000-0000-000000000030')
 ON CONFLICT (id) DO NOTHING;
 
--- Agregar permisos para el rol admin (view y update)
+-- Agregar permisos para para_taller (view y update) a roles relevantes
+-- Roles: Super Admin (1), Admin (2), Administrador (9), Admin Mantenimiento (16), Usuario Mantenimiento (18)
 INSERT INTO role_permissions (role_id, tab_id, action_id)
-SELECT r.id, '60000000-0000-0000-0000-000000000025', a.id
-FROM roles r, actions a
-WHERE r.slug = 'admin' AND a.slug IN ('view', 'update')
+SELECT r.id, '60000000-0000-0000-0000-000000000025'::uuid, a.id
+FROM roles r
+CROSS JOIN actions a
+WHERE r.id IN (1, 2, 9, 16, 18)
+AND a.slug IN ('view', 'update')
+ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
+
+-- Agregar permisos de maint_operaciones (tab padre) para los mismos roles
+INSERT INTO role_permissions (role_id, tab_id, action_id)
+SELECT r.id, '60000000-0000-0000-0000-000000000030'::uuid, a.id
+FROM roles r
+CROSS JOIN actions a
+WHERE r.id IN (1, 2, 9, 16, 18)
+AND a.slug = 'view'
 ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
 ```
 

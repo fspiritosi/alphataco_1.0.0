@@ -28,7 +28,18 @@
       "mcp__supabase-DEV__apply_migration",
       "mcp__supabase-PROD__list_branches",
       "mcp__supabase-PROD__search_docs",
-      "mcp__supabase-DEV__search_docs"
+      "mcp__supabase-DEV__search_docs",
+      "mcp__supabase-PROD__list_migrations",
+      "mcp__supabase-PROD__get_logs",
+      "mcp__mcp-server-context7__resolve-library-id",
+      "mcp__mcp-server-context7__query-docs",
+      "mcp__supabase-DEV__list_tables",
+      "mcp__supabase-PROD__apply_migration",
+      "Bash(npm run create-migration:*)",
+      "Bash(findstr:*)",
+      "Bash(find:*)",
+      "Bash(ls -la \"C:\\\\Users\\\\Yorda\\\\Desktop\\\\Workspace\\\\CodeControl\\\\gh_gestion\\\\src\\\\features\"\" | grep -i \"pedido|preparte|nuevo \")",
+      "Bash(git add:*)"
     ]
   }
 }
