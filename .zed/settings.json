@@ -11,6 +11,13 @@
         "SUPABASE_ACCESS_TOKEN": "sbp_03686651549e9b26d2e6c2cafd497ab0f20df14f"
       }
     },
+    "supabase-dev": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--project-ref", "oqoeijyxugxzsqzzefnt"],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_03686651549e9b26d2e6c2cafd497ab0f20df14f"
+      }
+    },
     "supabase-local": {
       "command": "npx",
       "args": ["-y", "mcp-remote", "http://127.0.0.1:54321/mcp"]

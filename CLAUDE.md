@@ -40,19 +40,25 @@ npm run test:e2e:open    # Open Cypress test runner
 
 Los siguientes MCPs estan a tu disposicion:
 
-1. **MCP de Supabase (DEV y PROD)**:
+1. **MCP de Supabase (LOCAL, DEV y PROD)**:
 
-   - **supabase-DEV**: Base de datos de DESARROLLO. Tiene permisos de lectura y escritura (ejecutar queries, aplicar migraciones, modificar datos).
+   - **supabase-LOCAL**: Base de datos LOCAL (desarrollo local con Docker). Tiene permisos completos de lectura y escritura.
+   - **supabase-DEV**: Base de datos de DESARROLLO remoto. Tiene permisos de lectura y escritura (ejecutar queries, aplicar migraciones, modificar datos).
    - **supabase-PROD**: Base de datos de PRODUCCION. Solo tiene permisos de LECTURA (consultas, verificaciones).
 
-   **REGLA CRITICA**: SIEMPRE usar `supabase-DEV` por defecto para cualquier operacion. Solo usar `supabase-PROD` cuando el usuario explicitamente indique que necesita revisar o consultar datos en produccion (ej: "revisa en produccion", "consulta en prod", "verifica en la base de produccion").
+   **REGLA CRITICA - USAR LOCAL POR DEFECTO**: SIEMPRE usar `supabase-LOCAL` por defecto para cualquier operacion (queries, migraciones, modificaciones de datos). Solo usar otro MCP cuando el usuario explicitamente lo indique:
+
+   - Usar `supabase-DEV` cuando el usuario diga: "usa dev", "en desarrollo", "en DEV", etc.
+   - Usar `supabase-PROD` cuando el usuario diga: "revisa en produccion", "consulta en prod", "verifica en la base de produccion", etc.
+
+   **Si tienes dudas sobre cual usar, PREGUNTA al usuario antes de ejecutar.**
 
    **REGLA DE MIGRACIONES**: Los cambios en la base de datos (crear tablas, modificar columnas, etc.) se deben aplicar **DIRECTAMENTE usando el MCP de Supabase** con `apply_migration`. **NO crear archivos SQL manualmente en `/supabase/migrations/`**. Supabase tiene comandos para generar migraciones diferenciando bases de datos, por lo que no es necesario crear archivos locales.
 
    **REGLA DE TIPOS**: Después de aplicar una migración con el MCP:
 
-   - Usar `npm run genlocaltypes` para regenerar tipos (ya que el cambio se aplicó en DEV/local)
-   - `npm run gentypes` es para obtener tipos de PRODUCCIÓN (no reflejará cambios recientes en DEV)
+   - Usar `npm run genlocaltypes` para regenerar tipos (ya que el cambio se aplicó en LOCAL)
+   - `npm run gentypes` es para obtener tipos de PRODUCCIÓN (no reflejará cambios recientes en LOCAL/DEV)
 
 2. **MCP de chrome-devtools**: Para revisar logs de debug y verificaciones generales de la aplicacion
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados
