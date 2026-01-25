@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import {
-  getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
+  getAllActiveEmployeesForDailyReport,
   getCustomers,
   getDailyReportById,
 } from '../actions/actions';
@@ -18,9 +18,11 @@ export async function DayliReportDetailTableWrapper({
   const savedVisibility = cookiesStore.get('dailyReportTableDetail')?.value;
   const savedFilter = cookiesStore.get('dailyReportTableDetail-filters')?.value;
   const customers = await getCustomers();
-  const employees = getActiveEmployeesForDailyReport();
-  const equipments = getActiveEquipmentsForDailyReport();
   const dailyReport = await getDailyReportById(params.uuid);
+  // Obtener la fecha del parte para pasar a la función de empleados
+  const reportDate = dailyReport?.[0]?.date;
+  const employees = getAllActiveEmployeesForDailyReport(reportDate);
+  const equipments = getActiveEquipmentsForDailyReport();
 
   return (
     <DayliReportDetailTable

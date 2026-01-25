@@ -1512,18 +1512,21 @@ export type Database = {
           daily_report_row_id: string | null;
           employee_id: string | null;
           id: string;
+          role: Database['public']['Enums']['employee_daily_report_role'] | null;
         };
         Insert: {
           created_at?: string | null;
           daily_report_row_id?: string | null;
           employee_id?: string | null;
           id?: string;
+          role?: Database['public']['Enums']['employee_daily_report_role'] | null;
         };
         Update: {
           created_at?: string | null;
           daily_report_row_id?: string | null;
           employee_id?: string | null;
           id?: string;
+          role?: Database['public']['Enums']['employee_daily_report_role'] | null;
         };
         Relationships: [
           {
@@ -3617,7 +3620,7 @@ export type Database = {
           created_at: string | null;
           end_time: string | null;
           equipos_cliente: string | null;
-          executionDate: string;
+          executionDate: string | null;
           id: string;
           item: string | null;
           jornada: string;
@@ -3633,6 +3636,7 @@ export type Database = {
           solicitante: string;
           start_time: string | null;
           status: Database['public']['Enums']['preparte_status'] | null;
+          subject_to_availability: boolean | null;
           tipo: string;
           updated_at: string | null;
         };
@@ -3646,7 +3650,7 @@ export type Database = {
           created_at?: string | null;
           end_time?: string | null;
           equipos_cliente?: string | null;
-          executionDate: string;
+          executionDate?: string | null;
           id?: string;
           item?: string | null;
           jornada: string;
@@ -3662,6 +3666,7 @@ export type Database = {
           solicitante: string;
           start_time?: string | null;
           status?: Database['public']['Enums']['preparte_status'] | null;
+          subject_to_availability?: boolean | null;
           tipo: string;
           updated_at?: string | null;
         };
@@ -3675,7 +3680,7 @@ export type Database = {
           created_at?: string | null;
           end_time?: string | null;
           equipos_cliente?: string | null;
-          executionDate?: string;
+          executionDate?: string | null;
           id?: string;
           item?: string | null;
           jornada?: string;
@@ -3691,6 +3696,7 @@ export type Database = {
           solicitante?: string;
           start_time?: string | null;
           status?: Database['public']['Enums']['preparte_status'] | null;
+          subject_to_availability?: boolean | null;
           tipo?: string;
           updated_at?: string | null;
         };
@@ -3749,6 +3755,50 @@ export type Database = {
             columns: ['sector_service_id'];
             isOneToOne: false;
             referencedRelation: 'service_sectors';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      preparte_change_logs: {
+        Row: {
+          changed_at: string;
+          changed_by: string | null;
+          field_name: string;
+          id: string;
+          metadata: Json | null;
+          new_value: string | null;
+          old_value: string | null;
+          preparte_id: string;
+          reason: string;
+        };
+        Insert: {
+          changed_at?: string;
+          changed_by?: string | null;
+          field_name: string;
+          id?: string;
+          metadata?: Json | null;
+          new_value?: string | null;
+          old_value?: string | null;
+          preparte_id: string;
+          reason: string;
+        };
+        Update: {
+          changed_at?: string;
+          changed_by?: string | null;
+          field_name?: string;
+          id?: string;
+          metadata?: Json | null;
+          new_value?: string | null;
+          old_value?: string | null;
+          preparte_id?: string;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'preparte_change_logs_preparte_id_fkey';
+            columns: ['preparte_id'];
+            isOneToOne: false;
+            referencedRelation: 'preparte';
             referencedColumns: ['id'];
           },
         ];
@@ -5592,6 +5642,10 @@ export type Database = {
         }[];
       };
       get_company_for_user: { Args: { user_id: string }; Returns: string };
+      get_daily_report_deviations: {
+        Args: { p_daily_report_id: string };
+        Returns: Json;
+      };
       get_dailyreportrow_history: {
         Args: { p_row_id: string };
         Returns: {
@@ -5940,6 +5994,7 @@ export type Database = {
       daily_report_type_enum: 'mensual' | 'adicional' | 'adicional_permanente';
       document_applies: 'Persona' | 'Equipos' | 'Empresa';
       document_type_enum: 'DNI' | 'LE' | 'LC' | 'PASAPORTE';
+      employee_daily_report_role: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche';
       gender_enum: 'Masculino' | 'Femenino' | 'No Declarado';
       indicator_function:
         | 'get_vehicle_usage_indicator'
@@ -6134,6 +6189,7 @@ export const Constants = {
       daily_report_type_enum: ['mensual', 'adicional', 'adicional_permanente'],
       document_applies: ['Persona', 'Equipos', 'Empresa'],
       document_type_enum: ['DNI', 'LE', 'LC', 'PASAPORTE'],
+      employee_daily_report_role: ['chofer_dia', 'chofer_noche', 'ayudante_dia', 'ayudante_noche'],
       gender_enum: ['Masculino', 'Femenino', 'No Declarado'],
       indicator_function: [
         'get_vehicle_usage_indicator',

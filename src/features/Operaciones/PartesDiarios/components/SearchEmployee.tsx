@@ -23,14 +23,14 @@ import { BadgeCheck, Briefcase, Building, ClipboardSignature, CreditCard, FileTe
 import moment from 'moment';
 import { useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
-import { getActiveEmployeesForDailyReport } from '../actions/actions';
+import { getAllActiveEmployeesForDailyReport } from '../actions/actions';
 
 export function SearchEmployee({
   employees,
   field,
   selectedCustomerId,
 }: {
-  employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
+  employees: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>;
   selectedCustomerId?: string | null;
   field: ControllerRenderProps<
     {
@@ -75,7 +75,7 @@ export function SearchEmployee({
     document.getElementById('close-dialog')?.click();
   };
 
-  const columns: ColumnDef<Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>[0]>[] = [
+  const columns: ColumnDef<Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>[0]>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -113,15 +113,48 @@ export function SearchEmployee({
           ? row.original.contractor_employee?.some((ce) => ce.customers?.id === selectedCustomerId)
           : true;
 
+        // Verificar desvíos de diagrama
+        const hasNoDiagram = row.original.deviation_no_diagram;
+        const hasNonWorkDay = row.original.deviation_non_work_day;
+        const diagramType = row.original.current_diagram?.diagram_type;
+
         return (
-          <div className={cn('flex items-center gap-2 w-[200px]', !isAssigned && 'text-orange-700')}>
+          <div className={cn('flex items-center gap-2 w-[250px]', !isAssigned && 'text-orange-700')}>
             <User className={cn('h-4 w-4', isAssigned ? 'text-muted-foreground' : 'text-orange-500')} />
-            <div className="font-medium flex items-center gap-2">
+            <div className="font-medium flex items-center gap-2 flex-wrap">
               {row.original.lastname} {row.original.firstname}
               {!isAssigned && (
                 <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
                   No asignado
                 </Badge>
+              )}
+              {hasNoDiagram && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 text-[10px]">
+                        Sin diagrama
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-white bg-black rounded-lg p-2">
+                      <span>Este empleado no tiene diagrama cargado para este día</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {hasNonWorkDay && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">
+                        {diagramType?.name || 'No laboral'}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-white bg-black rounded-lg p-2">
+                      <span>Este empleado tiene un día no laboral según su diagrama</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>

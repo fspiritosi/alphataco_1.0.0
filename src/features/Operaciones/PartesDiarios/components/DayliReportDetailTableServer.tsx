@@ -16,8 +16,8 @@ import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
+  getAllActiveEmployeesForDailyReport,
   getCustomers,
   getDailyReportById,
 } from '../actions/actions';
@@ -67,7 +67,7 @@ export default function DayliReportDetailTableServer({
 
   // Estado para empleados, equipos y clientes (carga asíncrona)
   const [employees, setEmployees] = useState<
-    Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>> | undefined
+    Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>> | undefined
   >();
   const [equipments, setEquipments] = useState<
     Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>> | undefined
@@ -109,7 +109,7 @@ export default function DayliReportDetailTableServer({
     const loadValidationData = async () => {
       try {
         const [employeesData, equipmentsData, customersData] = await Promise.all([
-          getActiveEmployeesForDailyReport(),
+          getAllActiveEmployeesForDailyReport(reportDate), // Pasar fecha del reporte para verificar diagrama
           getActiveEquipmentsForDailyReport(),
           getCustomers(),
         ]);
@@ -124,7 +124,7 @@ export default function DayliReportDetailTableServer({
     };
 
     loadValidationData();
-  }, []);
+  }, [reportDate]);
 
   // Transformar datos del servidor al formato esperado por DailyReportForm y ClonarRegistrosButton
   useEffect(() => {
@@ -263,7 +263,7 @@ export default function DayliReportDetailTableServer({
   // Función auxiliar para detectar empleados no asignados al cliente
   const getUnassignedEmployees = (
     data: DailyReportServerData[],
-    employees?: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>
+    employees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>
   ): Map<string, string> => {
     const unassignedMap = new Map<string, string>();
 
@@ -276,7 +276,7 @@ export default function DayliReportDetailTableServer({
       row.dailyreportemployeerelations?.forEach((rel) => {
         if (!rel.employees?.id) return;
 
-        const employee = employees.find((emp) => emp.id === rel.employees!.id);
+        const employee = employees.find((emp: { id: string }) => emp.id === rel.employees!.id);
         if (!employee) return;
 
         const isAssigned = employee.contractor_employee?.some((ce) => ce.customers?.id === customerId);

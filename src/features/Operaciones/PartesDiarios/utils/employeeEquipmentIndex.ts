@@ -1,7 +1,7 @@
-import { getActiveEmployeesForDailyReport, getActiveEquipmentsForDailyReport } from '../actions/actions';
+import { getActiveEquipmentsForDailyReport, getAllActiveEmployeesForDailyReport } from '../actions/actions';
 
 // Tipos
-type Employees = Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
+type Employees = Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>;
 type Equipments = Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
 
 /**
@@ -15,9 +15,8 @@ export function buildEmployeeIndex(employees: Employees | undefined) {
   if (!employees) return index;
 
   employees.forEach((employee) => {
-    // Solo incluir empleados activos con diagrama
+    // Solo incluir empleados activos (ya no requerimos diagrama)
     if (!employee.is_active) return;
-    if (!employee.workflow_diagram && !employee.employees_diagram?.length) return;
 
     // Agregar a cada cliente al que está asignado
     employee.contractor_employee?.forEach((ce) => {
@@ -91,15 +90,9 @@ export function filterEmployeesByCustomer(
   // Lookup instantáneo O(1)
   const assigned = employeeIndex.get(customerId) || [];
 
-  // Empleados no asignados: todos los activos que NO están en assigned
+  // Empleados no asignados: todos los activos que NO están en assigned (ya no requerimos diagrama)
   const assignedIds = new Set(assigned.map((e) => e.id));
-  const unassigned =
-    allEmployees?.filter(
-      (employee) =>
-        employee.is_active &&
-        !assignedIds.has(employee.id) &&
-        (employee.workflow_diagram || employee.employees_diagram?.length > 0)
-    ) || [];
+  const unassigned = allEmployees?.filter((employee) => employee.is_active && !assignedIds.has(employee.id)) || [];
 
   const all = [...assigned, ...unassigned];
 

@@ -525,6 +525,7 @@ export async function getDailyReportById(id: string) {
         description,
         document_path,
         dailyreportemployeerelations(
+          role,
           employees(
             id,
             firstname,
@@ -736,6 +737,88 @@ export async function getActiveEmployeesForDailyReport() {
   }
 
   return data || [];
+}
+
+/**
+ * Obtiene TODOS los empleados activos SIN restricción de diagrama.
+ * Incluye información del diagrama para detectar desvíos visualmente.
+ * @param reportDate Fecha del parte diario (formato YYYY-MM-DD) para verificar el diagrama
+ */
+export async function getAllActiveEmployeesForDailyReport(reportDate?: string) {
+  const supabase = await supabaseServer();
+
+  // Usar la fecha proporcionada o la fecha actual
+  const dateToCheck = reportDate ? new Date(reportDate) : new Date();
+  const day = dateToCheck.getDate();
+  const month = dateToCheck.getMonth() + 1;
+  const year = dateToCheck.getFullYear();
+
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Obtener TODOS los empleados activos (sin filtro de diagrama)
+  const { data: employees, error } = await supabase
+    .from('employees')
+    .select(
+      'contractor_employee(customers(id,name)),*,hierarchy(id,name),cities(id,name),provinces(id,name),empleado_aptitudes(aptitudes_tecnicas(nombre)),company_positions(*),work_diagram(id,name),cost_center(id,name)'
+    )
+    .eq('is_active', true)
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
+
+  if (error) {
+    logger.error('Error al obtener todos los empleados activos', { data: { error } });
+    return [];
+  }
+
+  if (!employees || employees.length === 0) {
+    return [];
+  }
+
+  // Obtener los diagramas de todos los empleados para el día especificado
+  const employeeIds = employees.map((e) => e.id);
+  const { data: diagrams, error: diagramError } = await supabase
+    .from('employees_diagram')
+    .select('*, diagram_type(*)')
+    .in('employee_id', employeeIds)
+    .eq('day', day)
+    .eq('month', month)
+    .eq('year', year)
+    .eq('is_active', true);
+
+  if (diagramError) {
+    logger.error('Error al obtener diagramas de empleados', { data: { error: diagramError } });
+  }
+
+  // Crear un mapa de diagramas por empleado
+  type DiagramType = NonNullable<typeof diagrams>[number];
+  const diagramMap = new Map<string, DiagramType>();
+  diagrams?.forEach((d) => {
+    if (d.employee_id) {
+      diagramMap.set(d.employee_id, d);
+    }
+  });
+
+  // Agregar información de desvío a cada empleado
+  const employeesWithDeviations = employees.map((employee) => {
+    const diagram = diagramMap.get(employee.id);
+    const hasDiagram = !!diagram;
+    const isWorkDay = diagram?.diagram_type?.work_active === true;
+
+    return {
+      ...employee,
+      // Información del diagrama para este día
+      current_diagram: diagram || null,
+      // Flags de desvío
+      deviation_no_diagram: !hasDiagram,
+      deviation_non_work_day: hasDiagram && !isWorkDay,
+      deviation_type: !hasDiagram ? 'sin_diagrama' : !isWorkDay ? 'dia_no_laboral' : null,
+    };
+  });
+
+  return employeesWithDeviations;
 }
 export async function getActiveEquipmentsForDailyReport() {
   const supabase = await supabaseServer();
@@ -1183,6 +1266,60 @@ export async function createDailyReportEmployeeRelations(dailyReportRowId: strin
   }
 
   return data || [];
+}
+
+// Tipo para empleados con rol
+export type EmployeeWithRole = {
+  employeeId: string;
+  role: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche';
+};
+
+// Crear relaciones de empleados con roles (para jornadas 12/24 hrs)
+export async function createDailyReportEmployeeRelationsWithRoles(
+  dailyReportRowId: string,
+  employeesWithRoles: EmployeeWithRole[]
+) {
+  if (!employeesWithRoles || employeesWithRoles.length === 0) return [];
+
+  const supabase = await supabaseServer();
+
+  const relations = employeesWithRoles.map((emp) => ({
+    daily_report_row_id: dailyReportRowId,
+    employee_id: emp.employeeId,
+    role: emp.role,
+  }));
+
+  const { data, error } = await supabase.from('dailyreportemployeerelations').insert(relations).select();
+
+  if (error) {
+    logger.error('Error creating employee relations with roles', { data: { error } });
+    throw new Error(error.message);
+  }
+
+  return data || [];
+}
+
+// Actualizar relaciones de empleados con roles
+export async function updateEmployeeRelationsWithRoles(rowId: string, employeesWithRoles: EmployeeWithRole[]) {
+  const supabase = await supabaseServer();
+
+  try {
+    // Eliminar todas las relaciones existentes
+    const { error: deleteError } = await supabase
+      .from('dailyreportemployeerelations')
+      .delete()
+      .eq('daily_report_row_id', rowId);
+
+    if (deleteError) throw deleteError;
+
+    // Crear nuevas relaciones con roles
+    if (employeesWithRoles.length > 0) {
+      await createDailyReportEmployeeRelationsWithRoles(rowId, employeesWithRoles);
+    }
+  } catch (error) {
+    logger.error('Error en updateEmployeeRelationsWithRoles', { data: { error } });
+    throw error;
+  }
 }
 
 export async function deleteDailyReportRow(id: string) {
@@ -1639,3 +1776,6 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
     return [];
   }
 }
+
+// Tipos exportados
+export type EmployeeWithDeviations = Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>[number];
