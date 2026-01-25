@@ -52,5 +52,6 @@ cypress/videos
 cypress/screenshots
 cypress/downloads
 cypress.env.json
-
+.mcp.json
+settings.local.json
 .kiro
