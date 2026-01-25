@@ -38,19 +38,19 @@ BEGIN
   SELECT date INTO v_report_date
   FROM dailyreport
   WHERE id = p_daily_report_id;
-  
+
   IF v_report_date IS NULL THEN
     RETURN json_build_object('error', 'Parte diario no encontrado');
   END IF;
-  
+
   v_report_day := EXTRACT(DAY FROM v_report_date);
   v_report_month := EXTRACT(MONTH FROM v_report_date);
   v_report_year := EXTRACT(YEAR FROM v_report_date);
-  
-  WITH 
+
+  WITH
   -- Datos base: filas del parte con sus relaciones
   report_rows AS (
-    SELECT 
+    SELECT
       dr.id as row_id,
       dr.customer_id,
       c.name as customer_name,
@@ -65,10 +65,10 @@ BEGIN
     LEFT JOIN service_items si ON si.id = dr.item_id
     WHERE dr.daily_report_id = p_daily_report_id
   ),
-  
+
   -- Empleados asignados a cada fila
   row_employees AS (
-    SELECT 
+    SELECT
       drer.dailyreportrow_id as daily_report_row_id,
       drer.employee_id,
       e.firstname,
@@ -78,10 +78,10 @@ BEGIN
     JOIN employees e ON e.id = drer.employee_id
     WHERE drer.dailyreportrow_id IN (SELECT row_id FROM report_rows)
   ),
-  
+
   -- Desvío 1: Empleados no afectados al cliente
   employees_not_assigned AS (
-    SELECT 
+    SELECT
       rr.row_id,
       rr.customer_name,
       rr.service_name,
@@ -96,10 +96,10 @@ BEGIN
     LEFT JOIN contractor_employee ce ON ce.employee_id = re.employee_id AND ce.contractor_id = rr.customer_id
     WHERE ce.id IS NULL
   ),
-  
+
   -- Desvío 2: Empleados sin diagrama o con diagrama no laboral
   employees_no_valid_diagram AS (
-    SELECT 
+    SELECT
       rr.row_id,
       rr.customer_name,
       rr.service_name,
@@ -108,25 +108,25 @@ BEGIN
       re.firstname,
       re.lastname,
       re.cuil,
-      CASE 
+      CASE
         WHEN ed.id IS NULL THEN 'Empleado sin diagrama para este día'
         WHEN dt.work_active = false THEN 'Empleado con diagrama no laboral (' || dt.name || ')'
         ELSE 'Diagrama inválido'
       END as deviation_type
     FROM report_rows rr
     JOIN row_employees re ON re.daily_report_row_id = rr.row_id
-    LEFT JOIN employees_diagram ed ON ed.employee_id = re.employee_id 
-      AND ed.day = v_report_day 
-      AND ed.month = v_report_month 
+    LEFT JOIN employees_diagram ed ON ed.employee_id = re.employee_id
+      AND ed.day = v_report_day
+      AND ed.month = v_report_month
       AND ed.year = v_report_year
       AND ed.is_active = true
     LEFT JOIN diagram_type dt ON dt.id = ed.diagram_type
     WHERE ed.id IS NULL OR dt.work_active = false
   ),
-  
+
   -- Desvío 3: Filas sin recursos (sin empleados ni equipos)
   rows_without_resources AS (
-    SELECT 
+    SELECT
       rr.row_id,
       rr.customer_name,
       rr.service_name,
@@ -141,10 +141,10 @@ BEGIN
     LEFT JOIN dailyreportequipmentrelations dreq ON dreq.dailyreportrow_id = rr.row_id
     WHERE drer.id IS NULL AND dreq.id IS NULL
   ),
-  
+
   -- Desvío 4: Empleados duplicados en el mismo parte
   duplicate_employees AS (
-    SELECT 
+    SELECT
       re.employee_id,
       re.firstname,
       re.lastname,
@@ -156,7 +156,7 @@ BEGIN
     GROUP BY re.employee_id, re.firstname, re.lastname, re.cuil
     HAVING COUNT(*) > 1
   ),
-  
+
   -- Combinar todos los desvíos
   all_deviations AS (
     SELECT row_id, customer_name, service_name, item_name, employee_id, firstname, lastname, cuil, deviation_type
@@ -168,7 +168,7 @@ BEGIN
     SELECT row_id, customer_name, service_name, item_name, employee_id, firstname, lastname, cuil, deviation_type
     FROM rows_without_resources
   )
-  
+
   SELECT json_build_object(
     'daily_report_id', p_daily_report_id,
     'report_date', v_report_date,
@@ -203,7 +203,7 @@ BEGIN
       'rows_without_resources', (SELECT COUNT(*) FROM rows_without_resources)
     )
   ) INTO v_result;
-  
+
   RETURN v_result;
 END;
 $function$
@@ -277,3 +277,4 @@ grant truncate on table "public"."work_orders" to "postgres";
 grant update on table "public"."work_orders" to "postgres";
 
 
+-- COMENTARIO PARA GENERAR UN REDEPLOY
