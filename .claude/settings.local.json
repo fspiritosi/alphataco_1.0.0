@@ -39,7 +39,11 @@
       "Bash(findstr:*)",
       "Bash(find:*)",
       "Bash(ls -la \"C:\\\\Users\\\\Yorda\\\\Desktop\\\\Workspace\\\\CodeControl\\\\gh_gestion\\\\src\\\\features\"\" | grep -i \"pedido|preparte|nuevo \")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git branch:*)",
+      "Bash(npm run genlocaltypes:*)",
+      "mcp__supabase-PROD__list_edge_functions",
+      "mcp__supabase-PROD__deploy_edge_function"
     ]
   }
 }

@@ -47,6 +47,13 @@ Los siguientes MCPs estan a tu disposicion:
 
    **REGLA CRITICA**: SIEMPRE usar `supabase-DEV` por defecto para cualquier operacion. Solo usar `supabase-PROD` cuando el usuario explicitamente indique que necesita revisar o consultar datos en produccion (ej: "revisa en produccion", "consulta en prod", "verifica en la base de produccion").
 
+   **REGLA DE MIGRACIONES**: Los cambios en la base de datos (crear tablas, modificar columnas, etc.) se deben aplicar **DIRECTAMENTE usando el MCP de Supabase** con `apply_migration`. **NO crear archivos SQL manualmente en `/supabase/migrations/`**. Supabase tiene comandos para generar migraciones diferenciando bases de datos, por lo que no es necesario crear archivos locales.
+
+   **REGLA DE TIPOS**: Después de aplicar una migración con el MCP:
+
+   - Usar `npm run genlocaltypes` para regenerar tipos (ya que el cambio se aplicó en DEV/local)
+   - `npm run gentypes` es para obtener tipos de PRODUCCIÓN (no reflejará cambios recientes en DEV)
+
 2. **MCP de chrome-devtools**: Para revisar logs de debug y verificaciones generales de la aplicacion
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados
 4. **MCP de Context7**: SIEMPRE usar como PRIMERA OPCION para consultar documentacion actualizada de librerias, frameworks o herramientas. Si Context7 no tiene la documentacion necesaria, entonces buscar en internet
