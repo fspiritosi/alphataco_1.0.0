@@ -21,7 +21,8 @@ export function OrdenesTrabajoTableClient() {
 
   // Queries por estado
   const { data: pendingOrders, isLoading: loadingPending } = useOrdenesTrabajo('pending');
-  const { data: inProgressOrders, isLoading: loadingInProgress } = useOrdenesTrabajo('in_progress');
+  // En Proceso incluye también las pausadas
+  const { data: inProgressOrders, isLoading: loadingInProgress } = useOrdenesTrabajo(['in_progress', 'paused']);
   const { data: completedOrders, isLoading: loadingCompleted } = useOrdenesTrabajo('completed');
 
   const handleViewDetail = (workOrder: WorkOrderRowData) => {

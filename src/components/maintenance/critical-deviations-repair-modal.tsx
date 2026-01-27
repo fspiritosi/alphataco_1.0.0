@@ -15,7 +15,7 @@ import { updateDeviationCommentsAndSupervisor } from '@/features/Mantenimiento/S
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, Loader2, MessageSquarePlus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -93,6 +93,9 @@ export function CriticalDeviationsRepairModal({
   // Comentarios por desvío (key: deviationId, value: comment)
   const [deviationComments, setDeviationComments] = useState<Record<string, string>>({});
 
+  // Control de visibilidad de campos de comentario (key: deviationId, value: boolean)
+  const [showCommentField, setShowCommentField] = useState<Record<string, boolean>>({});
+
   // Flag para evitar que onOpenChange dispare onClose después de un submit exitoso
   const submitSuccessRef = useRef(false);
 
@@ -104,6 +107,7 @@ export function CriticalDeviationsRepairModal({
     if (isOpen) {
       setSelectedSupervisorId('');
       setDeviationComments({});
+      setShowCommentField({});
       setIsSubmitting(false);
       submitSuccessRef.current = false;
     }
@@ -111,6 +115,10 @@ export function CriticalDeviationsRepairModal({
 
   const handleUpdateDeviationComment = (deviationId: string, comment: string) => {
     setDeviationComments((prev) => ({ ...prev, [deviationId]: comment }));
+  };
+
+  const handleToggleCommentField = (deviationId: string) => {
+    setShowCommentField((prev) => ({ ...prev, [deviationId]: !prev[deviationId] }));
   };
 
   const handleSubmit = async () => {
@@ -125,13 +133,6 @@ export function CriticalDeviationsRepairModal({
     // Validaciones
     if (!selectedSupervisorId) {
       toast.error('Debes seleccionar un supervisor de turno');
-      return;
-    }
-
-    // Verificar que todos los desvíos tengan comentario
-    const missingComments = deviations.filter((d) => !deviationComments[d.id]?.trim());
-    if (missingComments.length > 0) {
-      toast.error(`Faltan comentarios en ${missingComments.length} desvío(s)`);
       return;
     }
 
@@ -206,17 +207,14 @@ export function CriticalDeviationsRepairModal({
   const criticalDeviations = deviations.filter((d) => d.is_critical);
   const nonCriticalDeviations = deviations.filter((d) => !d.is_critical);
 
-  // Verificar si todos los comentarios están completos
-  const allCommentsComplete = deviations.every((d) => deviationComments[d.id]?.trim());
-
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Desvíos</DialogTitle>
           <DialogDescription>
-            Se detectaron {deviations.length} item(s) con problemas. Agrega un comentario describiendo cada desvío y
-            selecciona el supervisor de turno.
+            Se detectaron {deviations.length} item(s) con problemas. Selecciona el supervisor de turno y opcionalmente
+            agrega comentarios describiendo cada desvío.
           </DialogDescription>
         </DialogHeader>
 
@@ -305,7 +303,7 @@ export function CriticalDeviationsRepairModal({
                   </Badge>
                 )}
               </CardTitle>
-              <CardDescription>Describe cada problema encontrado con un comentario</CardDescription>
+              <CardDescription>Opcionalmente puedes agregar comentarios a cada desvío</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -322,6 +320,8 @@ export function CriticalDeviationsRepairModal({
                         deviation={deviation}
                         comment={deviationComments[deviation.id] || ''}
                         onCommentChange={(comment) => handleUpdateDeviationComment(deviation.id, comment)}
+                        showComment={showCommentField[deviation.id] || false}
+                        onToggleComment={() => handleToggleCommentField(deviation.id)}
                         disabled={isSubmitting}
                         isCritical
                       />
@@ -347,6 +347,8 @@ export function CriticalDeviationsRepairModal({
                         deviation={deviation}
                         comment={deviationComments[deviation.id] || ''}
                         onCommentChange={(comment) => handleUpdateDeviationComment(deviation.id, comment)}
+                        showComment={showCommentField[deviation.id] || false}
+                        onToggleComment={() => handleToggleCommentField(deviation.id)}
                         disabled={isSubmitting}
                         isCritical={false}
                       />
@@ -366,13 +368,7 @@ export function CriticalDeviationsRepairModal({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={
-                isSubmitting ||
-                isLoadingSupervisors ||
-                !selectedSupervisorId ||
-                !allCommentsComplete ||
-                supervisors.length === 0
-              }
+              disabled={isSubmitting || isLoadingSupervisors || !selectedSupervisorId || supervisors.length === 0}
             >
               {isSubmitting ? 'Registrando...' : 'Registrar Desvíos'}
             </Button>
@@ -384,21 +380,30 @@ export function CriticalDeviationsRepairModal({
 }
 
 /**
- * Componente para mostrar un desvío individual con su campo de comentario
+ * Componente para mostrar un desvío individual con su campo de comentario opcional
  */
 function DeviationItem({
   deviation,
   comment,
   onCommentChange,
+  showComment,
+  onToggleComment,
   disabled,
   isCritical,
 }: {
   deviation: Deviation;
   comment: string;
   onCommentChange: (comment: string) => void;
+  showComment: boolean;
+  onToggleComment: () => void;
   disabled: boolean;
   isCritical: boolean;
 }) {
+  const handleCloseComment = () => {
+    onCommentChange(''); // Limpiar el comentario al cerrar
+    onToggleComment();
+  };
+
   return (
     <div
       className={cn(
@@ -429,21 +434,47 @@ function DeviationItem({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor={`comment-${deviation.id}`} className="text-sm">
-          Comentario *
-        </Label>
-        <Textarea
-          id={`comment-${deviation.id}`}
-          placeholder="Describe el problema encontrado..."
-          value={comment}
-          onChange={(e) => onCommentChange(e.target.value)}
-          rows={2}
+      {/* Botón para mostrar campo de comentario o el campo en sí */}
+      {!showComment ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onToggleComment}
           disabled={disabled}
-          className={cn(!comment?.trim() && 'border-destructive/50')}
-        />
-        {!comment?.trim() && <p className="text-xs text-destructive">Este campo es obligatorio</p>}
-      </div>
+          className="gap-2"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+          Dejar comentario
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor={`comment-${deviation.id}`} className="text-sm">
+              Comentario (opcional)
+            </Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCloseComment}
+              disabled={disabled}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <Textarea
+            id={`comment-${deviation.id}`}
+            placeholder="Describe el problema encontrado..."
+            value={comment}
+            onChange={(e) => onCommentChange(e.target.value)}
+            rows={2}
+            disabled={disabled}
+            autoFocus
+          />
+        </div>
+      )}
     </div>
   );
 }

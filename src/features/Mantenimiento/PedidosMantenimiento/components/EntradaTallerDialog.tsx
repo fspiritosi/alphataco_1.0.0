@@ -20,9 +20,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PLANIFICACION_QUERY_KEY } from '../../Planificacion/hooks/usePlanificacion';
 import { PEDIDOS_CONFIRMADOS_QUERY_KEY } from '../Confirmados/components/ConfirmadosTableClient';
-import { PEDIDOS_PENDIENTES_QUERY_KEY } from '../Pendientes/components/PendientesTableClient';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
-import { MAINTENANCE_ORDERS_QUERY_KEY } from '../hooks/useMaintenanceOrders';
+import { MAINTENANCE_ORDERS_QUERY_KEY, PEDIDOS_PENDIENTES_QUERY_KEY } from '../hooks/useMaintenanceOrders';
 
 moment.locale('es');
 

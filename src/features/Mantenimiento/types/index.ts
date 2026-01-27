@@ -36,10 +36,14 @@ export interface ApproveRequestItemsInput {
   /** Items aprobados - Los tipos de reparación se asignan en la etapa de Planificación */
   approvedItems: {
     itemId: string;
+    /** Comentario del validador (opcional) */
+    validatorComment?: string;
   }[];
   rejectedItems: {
     itemId: string;
     reason: string;
+    /** Comentario del validador (opcional) */
+    validatorComment?: string;
   }[];
 }
 

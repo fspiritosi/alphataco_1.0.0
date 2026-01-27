@@ -100,6 +100,16 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                               </span>
                             </p>
                           )}
+                          {(item.maintenance_request_items as any)?.validator_comment && (
+                            <div className="text-sm mt-1 p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
+                              <span className="text-blue-800 dark:text-blue-200 font-medium">
+                                Comentario del validador:{' '}
+                              </span>
+                              <span className="text-blue-700 dark:text-blue-300">
+                                {(item.maintenance_request_items as any).validator_comment}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         {repairTypeNames.length > 0 && (
                           <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">

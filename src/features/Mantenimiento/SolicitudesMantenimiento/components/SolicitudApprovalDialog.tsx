@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, Check, Loader2, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, Loader2, MessageSquarePlus, Pencil, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
@@ -41,6 +41,8 @@ type DeviationItem = {
 type ItemDecision = {
   status: 'approved' | 'rejected' | 'pending';
   rejectionReason: string;
+  validatorComment: string;
+  showCommentField: boolean;
 };
 
 export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApprovalDialogProps) {
@@ -72,6 +74,8 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
         initialDecisions[item.itemId] = {
           status: 'pending',
           rejectionReason: '',
+          validatorComment: '',
+          showCommentField: false,
         };
       });
       setDecisions(initialDecisions);
@@ -85,6 +89,7 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     setDecisions((prev) => ({
       ...prev,
       [itemId]: {
+        ...prev[itemId],
         status: 'approved',
         rejectionReason: '',
       },
@@ -105,6 +110,7 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     setDecisions((prev) => ({
       ...prev,
       [itemId]: {
+        ...prev[itemId],
         status: 'pending',
         rejectionReason: '',
       },
@@ -117,6 +123,37 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
       [itemId]: {
         ...prev[itemId],
         rejectionReason: reason,
+      },
+    }));
+  };
+
+  const handleValidatorCommentChange = (itemId: string, comment: string) => {
+    setDecisions((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        validatorComment: comment,
+      },
+    }));
+  };
+
+  const handleToggleCommentField = (itemId: string) => {
+    setDecisions((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        showCommentField: !prev[itemId].showCommentField,
+      },
+    }));
+  };
+
+  const handleCloseCommentField = (itemId: string) => {
+    setDecisions((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        validatorComment: '',
+        showCommentField: false,
       },
     }));
   };
@@ -141,8 +178,9 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
     // Construir payload (sin tipos de reparación)
     const approvedItems = Object.entries(decisions)
       .filter(([_, d]) => d.status === 'approved')
-      .map(([itemId]) => ({
+      .map(([itemId, d]) => ({
         itemId,
+        validatorComment: d.validatorComment?.trim() || undefined,
       }));
 
     const rejectedItems = Object.entries(decisions)
@@ -150,6 +188,7 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
       .map(([itemId, d]) => ({
         itemId,
         reason: d.rejectionReason,
+        validatorComment: d.validatorComment?.trim() || undefined,
       }));
 
     try {
@@ -232,6 +271,9 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                     onReject={() => handleRejectItem(item.itemId)}
                     onReset={() => handleResetItem(item.itemId)}
                     onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
+                    onValidatorCommentChange={(comment) => handleValidatorCommentChange(item.itemId, comment)}
+                    onToggleCommentField={() => handleToggleCommentField(item.itemId)}
+                    onCloseCommentField={() => handleCloseCommentField(item.itemId)}
                   />
                 ))}
               </CardContent>
@@ -258,6 +300,9 @@ export function SolicitudApprovalDialog({ request, open, onClose }: SolicitudApp
                     onReject={() => handleRejectItem(item.itemId)}
                     onReset={() => handleResetItem(item.itemId)}
                     onReasonChange={(reason) => handleRejectionReasonChange(item.itemId, reason)}
+                    onValidatorCommentChange={(comment) => handleValidatorCommentChange(item.itemId, comment)}
+                    onToggleCommentField={() => handleToggleCommentField(item.itemId)}
+                    onCloseCommentField={() => handleCloseCommentField(item.itemId)}
                   />
                 ))}
               </CardContent>
@@ -308,6 +353,9 @@ function ItemCard({
   onReject,
   onReset,
   onReasonChange,
+  onValidatorCommentChange,
+  onToggleCommentField,
+  onCloseCommentField,
 }: {
   item: DeviationItem;
   decision: ItemDecision | undefined;
@@ -315,12 +363,16 @@ function ItemCard({
   onReject: () => void;
   onReset: () => void;
   onReasonChange: (reason: string) => void;
+  onValidatorCommentChange: (comment: string) => void;
+  onToggleCommentField: () => void;
+  onCloseCommentField: () => void;
 }) {
   if (!decision) return null;
 
   const isRejected = decision.status === 'rejected';
   const isApproved = decision.status === 'approved';
   const isPending = decision.status === 'pending';
+  const hasDriverComment = !!item.driver_comment;
 
   return (
     <div
@@ -352,8 +404,12 @@ function ItemCard({
               Sección: {item.section_code.replace('_', ' ')}
             </p>
           )}
-          {item.driver_comment && (
-            <p className="text-sm text-muted-foreground mt-1 italic">Comentario: {item.driver_comment}</p>
+          {/* Comentario del chofer */}
+          {hasDriverComment && (
+            <div className="mt-2 p-2 bg-muted/50 rounded text-sm">
+              <span className="text-muted-foreground">Comentario del chofer: </span>
+              <span className="italic">{item.driver_comment}</span>
+            </div>
           )}
         </div>
 
@@ -383,6 +439,42 @@ function ItemCard({
           )}
         </div>
       </div>
+
+      {/* Botón para agregar/editar comentario del validador */}
+      {!decision.showCommentField ? (
+        <Button type="button" variant="outline" size="sm" onClick={onToggleCommentField} className="gap-2">
+          {hasDriverComment ? (
+            <>
+              <Pencil className="h-4 w-4" />
+              Ampliar comentario
+            </>
+          ) : (
+            <>
+              <MessageSquarePlus className="h-4 w-4" />
+              Agregar comentario
+            </>
+          )}
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor={`validator-comment-${item.itemId}`} className="text-sm">
+              Comentario del validador (opcional)
+            </Label>
+            <Button type="button" variant="ghost" size="sm" onClick={onCloseCommentField} className="h-6 w-6 p-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <Textarea
+            id={`validator-comment-${item.itemId}`}
+            value={decision.validatorComment}
+            onChange={(e) => onValidatorCommentChange(e.target.value)}
+            placeholder="Agregue observaciones adicionales..."
+            rows={2}
+            autoFocus
+          />
+        </div>
+      )}
 
       {/* Motivo de rechazo (solo si está rechazado) */}
       {isRejected && (

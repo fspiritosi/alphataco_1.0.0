@@ -1336,9 +1336,16 @@ WHERE r.slug = 'admin' AND a.slug IN ('view', 'create', 'update')
 ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
 ```
 
-#### 4. Documentar SQL Ejecutado
+#### 4. Documentar SQL del Sistema de Permisos
 
-**IMPORTANTE**: Despues de ejecutar SQL en desarrollo con el MCP, documentar en `docs/desarrollo/03-notas-desarrollo.md`:
+**IMPORTANTE**: Solo documentar en `docs/desarrollo/03-notas-desarrollo.md` las queries **INSERT, UPDATE o DELETE** relacionadas con el **sistema de permisos y enrutado**:
+
+- `tabs` - Nuevas tabs, modificaciones o eliminaciones
+- `roles` - Cambios en roles
+- `role_permissions` - Asignacion de permisos a roles
+- `user_permissions` - Permisos personalizados por usuario
+
+**NO documentar**: DDL (CREATE TABLE, ALTER TABLE, etc.) ni queries de otras tablas. Las migraciones de estructura se obtienen con otros comandos.
 
 ```markdown
 ## [FECHA] - Tab: Nueva Tab
@@ -1347,10 +1354,10 @@ ON CONFLICT (role_id, tab_id, action_id) DO NOTHING;
 
 \`\`\`sql
 -- Insertar tab
-INSERT INTO tabs ...
+INSERT INTO tabs (id, module_id, slug, name, ...) VALUES (...);
 
--- Permisos (si aplica)
-INSERT INTO role_permissions ...
+-- Permisos para roles (si aplica)
+INSERT INTO role_permissions (role_id, tab_id, action_id) VALUES (...);
 \`\`\`
 ```
 

@@ -130,6 +130,13 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                       </div>
                     )}
 
+                    {item.validator_comment && (
+                      <div className="text-sm p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
+                        <span className="text-blue-800 dark:text-blue-200 font-medium">Comentario del validador: </span>
+                        <span className="text-blue-700 dark:text-blue-300">{item.validator_comment}</span>
+                      </div>
+                    )}
+
                     {item.types_of_repairs && (
                       <div className="text-sm">
                         <span className="text-muted-foreground">Tipo de reparación: </span>

@@ -5,6 +5,19 @@ export type WorkOrder = Database['public']['Tables']['work_orders']['Row'];
 export type WorkOrderItem = Database['public']['Tables']['work_order_items']['Row'];
 export type WorkOrderStatus = Database['public']['Enums']['work_order_status'];
 export type WorkOrderItemStatus = Database['public']['Enums']['work_order_item_status'];
+export type WorkOrderPriority = Database['public']['Enums']['work_order_priority'];
+export type WorkOrderItemRepairRow = Database['public']['Tables']['work_order_item_repairs']['Row'];
+
+// Tipo para un trabajo individual (tipo de reparación) dentro de un item
+export interface WorkOrderItemRepair {
+  id: string;
+  repairTypeId: string;
+  repairTypeName: string;
+  status: WorkOrderItemStatus;
+  technicianNotes: string | null;
+  completedAt: string | null;
+  completedBy: string | null;
+}
 
 // Tipo para la fila de la tabla de OT
 export interface WorkOrderRowData {
@@ -12,6 +25,7 @@ export interface WorkOrderRowData {
   orderNumber: string;
   sequenceNumber: number;
   status: WorkOrderStatus;
+  priority: WorkOrderPriority;
   // Equipo
   equipmentId: string;
   vehicleDomain: string | null;
@@ -38,9 +52,13 @@ export interface WorkOrderRowData {
   // Auditoría
   createdAt: string | null;
   createdBy: string | null;
+  // Pausa
+  pausedAt: string | null;
+  pauseReason: string | null;
+  totalPausedTime: string | null;
 }
 
-// Tipo para los items de una OT en el detalle
+// Tipo para los items de una OT en el detalle (representa el desvío/item de mantenimiento)
 export interface WorkOrderItemDetail {
   id: string;
   status: WorkOrderItemStatus;
@@ -50,11 +68,18 @@ export interface WorkOrderItemDetail {
   maintenanceOrderItemId: string;
   repairTypeId: string | null;
   repairTypeName: string | null;
-  // Múltiples tipos de reparación (tabla pivot)
+  // Múltiples tipos de reparación (tabla pivot) - legacy
   repairTypeIds: string[];
   repairTypeNames: string[];
+  // Trabajos individuales a realizar (cada tipo de reparación)
+  repairs: WorkOrderItemRepair[];
+  // Contadores
+  totalRepairs: number;
+  completedRepairs: number;
+  // Descripción y comentarios
   description: string | null;
   driverComment: string | null;
+  validatorComment: string | null;
   // Datos del desvío (si viene de checklist)
   deviationId: string | null;
   itemLabel: string | null;
@@ -76,23 +101,49 @@ export interface WorkOrderDetail extends WorkOrderRowData {
   cancelledAt: string | null;
   cancelledBy: string | null;
   cancellationReason: string | null;
+  // Pausa
+  pausedBy: string | null;
 }
 
 // Constantes de estados
 export const WORK_ORDER_STATUS_LABELS: Record<WorkOrderStatus, string> = {
   pending: 'Pendiente',
   in_progress: 'En Proceso',
+  paused: 'Pausada',
   completed: 'Completada',
+  completed_partial: 'Completada Parcial',
   cancelled: 'Cancelada',
 };
 
-export const WORK_ORDER_STATUS_VARIANTS: Record<WorkOrderStatus, 'secondary' | 'warning' | 'success' | 'destructive'> =
-  {
-    pending: 'secondary',
-    in_progress: 'warning',
-    completed: 'success',
-    cancelled: 'destructive',
-  };
+export const WORK_ORDER_STATUS_VARIANTS: Record<
+  WorkOrderStatus,
+  'secondary' | 'warning' | 'success' | 'destructive' | 'default' | 'yellow'
+> = {
+  pending: 'secondary',
+  in_progress: 'warning',
+  paused: 'default',
+  completed: 'success',
+  completed_partial: 'yellow',
+  cancelled: 'destructive',
+};
+
+// Constantes de prioridad
+export const WORK_ORDER_PRIORITY_LABELS: Record<WorkOrderPriority, string> = {
+  urgent: 'Urgente',
+  high: 'Alta',
+  medium: 'Media',
+  low: 'Baja',
+};
+
+export const WORK_ORDER_PRIORITY_VARIANTS: Record<
+  WorkOrderPriority,
+  'destructive' | 'warning' | 'secondary' | 'default'
+> = {
+  urgent: 'destructive',
+  high: 'warning',
+  medium: 'secondary',
+  low: 'default',
+};
 
 export const WORK_ORDER_ITEM_STATUS_LABELS: Record<WorkOrderItemStatus, string> = {
   pending: 'Pendiente',

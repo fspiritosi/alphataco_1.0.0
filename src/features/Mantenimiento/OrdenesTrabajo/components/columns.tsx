@@ -8,7 +8,13 @@ import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-
 import { ColumnDef } from '@tanstack/react-table';
 import { CheckCircle, Eye, Play } from 'lucide-react';
 import moment from 'moment';
-import { WORK_ORDER_STATUS_LABELS, WORK_ORDER_STATUS_VARIANTS, type WorkOrderRowData } from '../types';
+import {
+  WORK_ORDER_PRIORITY_LABELS,
+  WORK_ORDER_PRIORITY_VARIANTS,
+  WORK_ORDER_STATUS_LABELS,
+  WORK_ORDER_STATUS_VARIANTS,
+  type WorkOrderRowData,
+} from '../types';
 
 interface ColumnsProps {
   onViewDetail: (workOrder: WorkOrderRowData) => void;
@@ -130,6 +136,19 @@ export function getColumns({ onViewDetail, onStart, onComplete }: ColumnsProps):
             <span className="text-muted-foreground">al {moment(end).format('DD/MM')}</span>
           </div>
         );
+      },
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'priority',
+      id: 'Prioridad',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Prioridad" />,
+      cell: ({ row }) => {
+        const priority = row.original.priority;
+        return <Badge variant={WORK_ORDER_PRIORITY_VARIANTS[priority]}>{WORK_ORDER_PRIORITY_LABELS[priority]}</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.original.priority);
       },
       enableSorting: true,
     },

@@ -48,8 +48,8 @@ export type MaintenanceOperationsData = Awaited<ReturnType<typeof getMaintenance
 export type MaintenanceOperationData = MaintenanceOperationsData[number];
 
 /**
- * Obtiene los pedidos con fecha confirmada (date_confirmed)
- * Listos para ser enviados a planificación (cambiar a in_workshop)
+ * Obtiene los pedidos con fecha confirmada (date_confirmed) y los que ya están en taller (in_workshop)
+ * Para que el usuario tenga visibilidad de todos los equipos en taller
  */
 export async function getOrdersForWorkshop() {
   const supabase = await supabaseServer();
@@ -75,7 +75,7 @@ export async function getOrdersForWorkshop() {
       )
     `
     )
-    .eq('status', 'date_confirmed')
+    .in('status', ['date_confirmed', 'in_workshop'])
     .order('scheduled_date', { ascending: true }); // Ordenar por fecha planificada
 
   if (error) {

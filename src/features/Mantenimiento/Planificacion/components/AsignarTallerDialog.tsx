@@ -19,16 +19,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { WORK_ORDER_PRIORITY_LABELS, type WorkOrderPriority } from '@/features/Mantenimiento/OrdenesTrabajo/types';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, ClipboardList, Loader2, Wrench } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, ClipboardList, Loader2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { assignWorkshopToItem, createWorkOrder } from '../actions/actionsServer';
+import type { SectorOccupancy } from '../actions/actionsServer';
+import { assignWorkshopToItem, createWorkOrder, getSectorOccupancy } from '../actions/actionsServer';
 import { PLANIFICACION_QUERY_KEY } from '../hooks/usePlanificacion';
 import type { DesvioRowData } from './columns';
 
@@ -88,8 +90,24 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
     desvio.repairTypeIds?.length > 0 ? desvio.repairTypeIds : desvio.repairTypeId ? [desvio.repairTypeId] : []
   );
 
+  // Prioridad de la orden de trabajo
+  const [priority, setPriority] = useState<WorkOrderPriority>('medium');
+
   // Sectores filtrados por taller seleccionado
   const availableSectors = workshopId ? sectors.filter((s) => s.workshop_id === workshopId) : [];
+
+  // Query para obtener la ocupación de sectores cuando se selecciona un taller
+  const { data: sectorOccupancy = [], isLoading: isLoadingOccupancy } = useQuery({
+    queryKey: ['sector-occupancy', workshopId],
+    queryFn: () => getSectorOccupancy(workshopId),
+    enabled: !!workshopId,
+    staleTime: 30 * 1000, // 30 segundos
+  });
+
+  // Función para obtener la info de ocupación de un sector
+  const getOccupancyInfo = (sectorId: string): SectorOccupancy | undefined => {
+    return sectorOccupancy.find((s) => s.id === sectorId);
+  };
 
   // Handler para togglear tipo de reparación
   const handleToggleRepairType = (repairTypeId: string) => {
@@ -139,6 +157,7 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
           plannedStartDate,
           plannedEndDate,
           repairTypeIds: selectedRepairTypeIds,
+          priority,
         });
 
         toast.success(`Orden de trabajo ${result.orderNumber} creada exitosamente`);
@@ -159,6 +178,8 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
 
       // Invalidar todas las vistas relacionadas
       queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
+      // Invalidar ocupación de sectores para refrescar contadores
+      queryClient.invalidateQueries({ queryKey: ['sector-occupancy'] });
       // Si se creó una OT, invalidar también la vista de Órdenes de Trabajo
       if (generateWorkOrder) {
         queryClient.invalidateQueries({ queryKey: ['ordenes-trabajo'] });
@@ -175,26 +196,26 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Asignar Taller y Período</DialogTitle>
           <DialogDescription>Configure la asignación para este desvío</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <div className="flex-1 overflow-y-auto pr-2 -mr-2">
           <div className="space-y-4">
             {/* Info del desvío */}
             <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
+              <div className="space-y-2">
+                <div>
                   <p className="font-medium">{desvio.itemLabel}</p>
                   <p className="text-xs text-muted-foreground">
                     Sección: {formatSectionCode(desvio.sectionCode)}
                     {desvio.itemCode && ` | Código: ${desvio.itemCode}`}
                   </p>
                 </div>
-                {/* Mostrar tipos de reparación actuales si existen */}
+                {/* Mostrar tipos de reparación actuales si existen - debajo del título */}
                 {(desvio.repairTypeNames?.length > 0 || desvio.repairTypeName) && (
-                  <div className="flex flex-wrap gap-1 justify-end max-w-[150px]">
+                  <div className="flex flex-wrap gap-1">
                     {(desvio.repairTypeNames?.length > 0 ? desvio.repairTypeNames : [desvio.repairTypeName]).map(
                       (name, idx) =>
                         name && (
@@ -272,27 +293,60 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
                 <Select
                   value={sectorId}
                   onValueChange={setSectorId}
-                  disabled={!workshopId || availableSectors.length === 0}
+                  disabled={!workshopId || availableSectors.length === 0 || isLoadingOccupancy}
                 >
                   <SelectTrigger id="sector">
                     <SelectValue
                       placeholder={
                         !workshopId
                           ? 'Seleccione taller primero'
-                          : availableSectors.length === 0
-                            ? 'Sin sectores disponibles'
-                            : 'Seleccionar sector (opcional)'
+                          : isLoadingOccupancy
+                            ? 'Cargando disponibilidad...'
+                            : availableSectors.length === 0
+                              ? 'Sin sectores disponibles'
+                              : 'Seleccionar sector (opcional)'
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableSectors.map((sector) => (
-                      <SelectItem key={sector.id} value={sector.id}>
-                        {sector.name}
-                      </SelectItem>
-                    ))}
+                    {availableSectors.map((sector) => {
+                      const occupancy = getOccupancyInfo(sector.id);
+                      const hasCapacity = occupancy?.maxCapacity != null;
+                      const isFull = hasCapacity && occupancy.currentOccupancy >= (occupancy.maxCapacity || 0);
+                      const available = hasCapacity ? (occupancy.maxCapacity || 0) - occupancy.currentOccupancy : null;
+
+                      return (
+                        <SelectItem key={sector.id} value={sector.id} disabled={isFull}>
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{sector.name}</span>
+                            {hasCapacity && (
+                              <Badge
+                                variant={isFull ? 'destructive' : available && available <= 2 ? 'warning' : 'secondary'}
+                                className="text-xs ml-2"
+                              >
+                                {occupancy.currentOccupancy}/{occupancy.maxCapacity}
+                                {isFull ? ' (Lleno)' : ` (${available} disp.)`}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
+                {sectorId &&
+                  (() => {
+                    const occupancy = getOccupancyInfo(sectorId);
+                    if (occupancy?.maxCapacity != null) {
+                      const available = (occupancy.maxCapacity || 0) - occupancy.currentOccupancy;
+                      return (
+                        <p className="text-xs text-muted-foreground">
+                          Disponibilidad: {available} de {occupancy.maxCapacity} cupos disponibles
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
               </div>
 
               {/* Tipos de Reparación */}
@@ -405,27 +459,70 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
               <Separator />
 
               {/* Opción para generar OT */}
-              <div className="flex items-center space-x-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                <Checkbox
-                  id="generateWorkOrder"
-                  checked={generateWorkOrder}
-                  onCheckedChange={(checked) => setGenerateWorkOrder(checked === true)}
-                />
-                <div className="flex-1">
-                  <Label htmlFor="generateWorkOrder" className="flex items-center gap-2 cursor-pointer font-medium">
-                    <ClipboardList className="h-4 w-4 text-blue-600" />
-                    Generar Orden de Trabajo
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Si se marca, se creará una OT automáticamente con este item
-                  </p>
+              <div className="space-y-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="generateWorkOrder"
+                    checked={generateWorkOrder}
+                    onCheckedChange={(checked) => setGenerateWorkOrder(checked === true)}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="generateWorkOrder" className="flex items-center gap-2 cursor-pointer font-medium">
+                      <ClipboardList className="h-4 w-4 text-blue-600" />
+                      Generar Orden de Trabajo
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Si se marca, se creará una OT automáticamente con este item
+                    </p>
+                  </div>
                 </div>
+
+                {/* Selector de Prioridad - solo visible si se va a generar OT */}
+                {generateWorkOrder && (
+                  <div className="space-y-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                    <Label className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Prioridad de la OT *
+                    </Label>
+                    <Select value={priority} onValueChange={(value) => setPriority(value as WorkOrderPriority)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar prioridad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="urgent">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                            {WORK_ORDER_PRIORITY_LABELS.urgent}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="high">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-orange-500" />
+                            {WORK_ORDER_PRIORITY_LABELS.high}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="medium">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                            {WORK_ORDER_PRIORITY_LABELS.medium}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="low">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-gray-400" />
+                            {WORK_ORDER_PRIORITY_LABELS.low}
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
-        <DialogFooter className="pt-4 border-t">
+        <DialogFooter className="flex-shrink-0 pt-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>

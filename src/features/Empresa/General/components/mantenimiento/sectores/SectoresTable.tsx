@@ -42,6 +42,12 @@ export function getSectoresColumns(
       },
     },
     {
+      accessorKey: 'max_capacity',
+      id: 'Cupo',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Cupo" />,
+      cell: ({ row }) => <span>{row.original.max_capacity != null ? row.original.max_capacity : '-'}</span>,
+    },
+    {
       accessorKey: 'is_active',
       id: 'Estado',
       header: 'Estado',

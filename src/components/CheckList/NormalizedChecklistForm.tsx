@@ -996,13 +996,11 @@ export function NormalizedChecklistForm({
             description: `Se detectaron ${failedItems.length} item(s) con fallos`,
           });
 
-          // Si no se puede cargar el modal, redirigir a la página de la respuesta creada
+          // Si no se puede cargar el modal, redirigir a la lista de respuestas
           setTimeout(() => {
             if (pathname?.includes('/dashboard/forms/')) {
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1] && checklistAnswer.id) {
-                router.push(`/dashboard/forms/${formIdMatch[1]}/view/${checklistAnswer.id}`);
-              } else if (formIdMatch && formIdMatch[1]) {
+              if (formIdMatch && formIdMatch[1]) {
                 router.push(`/dashboard/forms/${formIdMatch[1]}`);
               } else {
                 router.push('/dashboard/forms');
@@ -1017,14 +1015,11 @@ export function NormalizedChecklistForm({
         const { toast } = await import('sonner');
         toast.success('Checklist guardado correctamente');
 
-        // Redirigir según la ruta de origen - a la página de la respuesta creada
+        // Redirigir según la ruta de origen - a la lista de respuestas
         setTimeout(() => {
           if (pathname?.includes('/dashboard/forms/')) {
             const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-            if (formIdMatch && formIdMatch[1] && checklistAnswer.id) {
-              // Navegar a la página de visualización de la respuesta creada
-              router.push(`/dashboard/forms/${formIdMatch[1]}/view/${checklistAnswer.id}`);
-            } else if (formIdMatch && formIdMatch[1]) {
+            if (formIdMatch && formIdMatch[1]) {
               router.push(`/dashboard/forms/${formIdMatch[1]}`);
             } else {
               router.push('/dashboard/forms');
@@ -1508,13 +1503,11 @@ export function NormalizedChecklistForm({
           isOpen={showDeviationsModal}
           onClose={() => {
             setShowDeviationsModal(false);
-            // Redirigir a la página de la respuesta creada
+            // Redirigir a la lista de respuestas
             // NOTA: No llamar router.refresh() después de router.push() porque interfiere con la navegación
             if (pathname?.includes('/dashboard/forms/')) {
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1] && createdAnswerId) {
-                router.push(`/dashboard/forms/${formIdMatch[1]}/view/${createdAnswerId}`);
-              } else if (formIdMatch && formIdMatch[1]) {
+              if (formIdMatch && formIdMatch[1]) {
                 router.push(`/dashboard/forms/${formIdMatch[1]}`);
               } else {
                 router.push('/dashboard/forms');
@@ -1525,13 +1518,11 @@ export function NormalizedChecklistForm({
           }}
           onComplete={() => {
             setShowDeviationsModal(false);
-            // Redirigir a la página de la respuesta creada
+            // Redirigir a la lista de respuestas
             // NOTA: No llamar router.refresh() después de router.push() porque interfiere con la navegación
             if (pathname?.includes('/dashboard/forms/')) {
               const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1] && createdAnswerId) {
-                router.push(`/dashboard/forms/${formIdMatch[1]}/view/${createdAnswerId}`);
-              } else if (formIdMatch && formIdMatch[1]) {
+              if (formIdMatch && formIdMatch[1]) {
                 router.push(`/dashboard/forms/${formIdMatch[1]}`);
               } else {
                 router.push('/dashboard/forms');

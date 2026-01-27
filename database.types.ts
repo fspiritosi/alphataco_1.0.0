@@ -3283,6 +3283,7 @@ export type Database = {
           rejection_reason: string | null;
           repair_type_id: string | null;
           status: string;
+          validator_comment: string | null;
         };
         Insert: {
           checklist_deviation_id: string;
@@ -3294,6 +3295,7 @@ export type Database = {
           rejection_reason?: string | null;
           repair_type_id?: string | null;
           status?: string;
+          validator_comment?: string | null;
         };
         Update: {
           checklist_deviation_id?: string;
@@ -3305,6 +3307,7 @@ export type Database = {
           rejection_reason?: string | null;
           repair_type_id?: string | null;
           status?: string;
+          validator_comment?: string | null;
         };
         Relationships: [
           {
@@ -5066,6 +5069,64 @@ export type Database = {
           },
         ];
       };
+      work_order_item_repairs: {
+        Row: {
+          completed_at: string | null;
+          completed_by: string | null;
+          created_at: string | null;
+          id: string;
+          repair_type_id: string;
+          status: Database['public']['Enums']['work_order_item_status'];
+          technician_notes: string | null;
+          updated_at: string | null;
+          work_order_item_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          repair_type_id: string;
+          status?: Database['public']['Enums']['work_order_item_status'];
+          technician_notes?: string | null;
+          updated_at?: string | null;
+          work_order_item_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string | null;
+          id?: string;
+          repair_type_id?: string;
+          status?: Database['public']['Enums']['work_order_item_status'];
+          technician_notes?: string | null;
+          updated_at?: string | null;
+          work_order_item_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'work_order_item_repairs_completed_by_fkey';
+            columns: ['completed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_order_item_repairs_repair_type_id_fkey';
+            columns: ['repair_type_id'];
+            isOneToOne: false;
+            referencedRelation: 'types_of_repairs';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_order_item_repairs_work_order_item_id_fkey';
+            columns: ['work_order_item_id'];
+            isOneToOne: false;
+            referencedRelation: 'work_order_items';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       work_order_items: {
         Row: {
           completed_at: string | null;
@@ -5140,13 +5201,18 @@ export type Database = {
           id: string;
           notes: string | null;
           order_number: string;
+          pause_reason: string | null;
+          paused_at: string | null;
+          paused_by: string | null;
           planned_end_date: string;
           planned_start_date: string;
+          priority: Database['public']['Enums']['work_order_priority'];
           sector_id: string | null;
           sequence_number: number;
           started_at: string | null;
           started_by: string | null;
           status: Database['public']['Enums']['work_order_status'];
+          total_paused_time: string | null;
           updated_at: string | null;
           workshop_id: string;
         };
@@ -5165,13 +5231,18 @@ export type Database = {
           id?: string;
           notes?: string | null;
           order_number: string;
+          pause_reason?: string | null;
+          paused_at?: string | null;
+          paused_by?: string | null;
           planned_end_date: string;
           planned_start_date: string;
+          priority?: Database['public']['Enums']['work_order_priority'];
           sector_id?: string | null;
           sequence_number: number;
           started_at?: string | null;
           started_by?: string | null;
           status?: Database['public']['Enums']['work_order_status'];
+          total_paused_time?: string | null;
           updated_at?: string | null;
           workshop_id: string;
         };
@@ -5190,13 +5261,18 @@ export type Database = {
           id?: string;
           notes?: string | null;
           order_number?: string;
+          pause_reason?: string | null;
+          paused_at?: string | null;
+          paused_by?: string | null;
           planned_end_date?: string;
           planned_start_date?: string;
+          priority?: Database['public']['Enums']['work_order_priority'];
           sector_id?: string | null;
           sequence_number?: number;
           started_at?: string | null;
           started_by?: string | null;
           status?: Database['public']['Enums']['work_order_status'];
+          total_paused_time?: string | null;
           updated_at?: string | null;
           workshop_id?: string;
         };
@@ -5241,6 +5317,13 @@ export type Database = {
             columns: ['equipment_id'];
             isOneToOne: false;
             referencedRelation: 'vehicles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_orders_paused_by_fkey';
+            columns: ['paused_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
             referencedColumns: ['id'];
           },
           {
@@ -5909,6 +5992,45 @@ export type Database = {
         Returns: Json;
       };
       pruebaemail: { Args: never; Returns: undefined };
+      resume_work_order: {
+        Args: { p_paused_seconds: number; p_work_order_id: string };
+        Returns: {
+          actual_end_date: string | null;
+          actual_start_date: string | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          company_id: string;
+          completed_at: string | null;
+          completed_by: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          equipment_id: string;
+          id: string;
+          notes: string | null;
+          order_number: string;
+          pause_reason: string | null;
+          paused_at: string | null;
+          paused_by: string | null;
+          planned_end_date: string;
+          planned_start_date: string;
+          priority: Database['public']['Enums']['work_order_priority'];
+          sector_id: string | null;
+          sequence_number: number;
+          started_at: string | null;
+          started_by: string | null;
+          status: Database['public']['Enums']['work_order_status'];
+          total_paused_time: string | null;
+          updated_at: string | null;
+          workshop_id: string;
+        };
+        SetofOptions: {
+          from: '*';
+          to: 'work_orders';
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       run_daily_indicators_for_all_companies: {
         Args: never;
         Returns: undefined;
@@ -6045,7 +6167,8 @@ export type Database = {
       type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
       work_order_item_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-      work_order_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+      work_order_priority: 'urgent' | 'high' | 'medium' | 'low';
+      work_order_status: 'pending' | 'in_progress' | 'paused' | 'completed' | 'completed_partial' | 'cancelled';
       workshop_type: 'interno' | 'externo';
     };
     CompositeTypes: {
@@ -6244,7 +6367,8 @@ export const Constants = {
       type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
       type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
       work_order_item_status: ['pending', 'in_progress', 'completed', 'cancelled'],
-      work_order_status: ['pending', 'in_progress', 'completed', 'cancelled'],
+      work_order_priority: ['urgent', 'high', 'medium', 'low'],
+      work_order_status: ['pending', 'in_progress', 'paused', 'completed', 'completed_partial', 'cancelled'],
       workshop_type: ['interno', 'externo'],
     },
   },

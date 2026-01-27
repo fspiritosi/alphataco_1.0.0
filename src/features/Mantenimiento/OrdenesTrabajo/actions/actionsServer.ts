@@ -71,6 +71,7 @@ export async function getWorkOrders(status?: string | string[]) {
       orderNumber: wo.order_number,
       sequenceNumber: wo.sequence_number,
       status: wo.status as WorkOrderRowData['status'],
+      priority: wo.priority as WorkOrderRowData['priority'],
       equipmentId: wo.equipment_id,
       vehicleDomain: (wo.vehicles as any)?.domain || null,
       vehicleSerie: (wo.vehicles as any)?.serie || null,
@@ -90,6 +91,9 @@ export async function getWorkOrders(status?: string | string[]) {
       notes: wo.notes,
       createdAt: wo.created_at,
       createdBy: wo.created_by,
+      pausedAt: wo.paused_at,
+      pauseReason: wo.pause_reason,
+      totalPausedTime: wo.total_paused_time,
     };
   });
 
@@ -125,6 +129,9 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
       workshop_sectors (
         id,
         name
+      ),
+      paused_by_profile:profile!work_orders_paused_by_fkey (
+        fullname
       )
     `
     )
@@ -136,12 +143,21 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
     return null;
   }
 
-  // Obtener los items con sus detalles
+  // Obtener los items con sus detalles y repairs
   const { data: items, error: itemsError } = await supabase
     .from('work_order_items')
     .select(
       `
       *,
+      work_order_item_repairs (
+        id,
+        repair_type_id,
+        status,
+        technician_notes,
+        completed_at,
+        completed_by,
+        types_of_repairs (id, name)
+      ),
       maintenance_order_items!inner (
         id,
         description,
@@ -155,6 +171,7 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
           id,
           description,
           driver_comment,
+          validator_comment,
           checklist_deviations (
             id,
             item_code,
@@ -193,6 +210,35 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
           ? [moi.types_of_repairs.name]
           : [];
 
+    // Extraer trabajos individuales de work_order_item_repairs
+    const rawRepairs = (item as any).work_order_item_repairs || [];
+    const repairs: WorkOrderItemDetail['repairs'] = rawRepairs.map((r: any) => ({
+      id: r.id,
+      repairTypeId: r.repair_type_id,
+      repairTypeName: r.types_of_repairs?.name || 'Sin nombre',
+      status: r.status as WorkOrderItemDetail['status'],
+      technicianNotes: r.technician_notes,
+      completedAt: r.completed_at,
+      completedBy: r.completed_by,
+    }));
+
+    const completedRepairs = repairs.filter((r) => r.status === 'completed').length;
+    const totalRepairs = repairs.length;
+
+    // Si no hay repairs en la nueva tabla, usar los legacy
+    const effectiveRepairs =
+      repairs.length > 0
+        ? repairs
+        : repairTypeIds.map((id, idx) => ({
+            id: `legacy-${id}`,
+            repairTypeId: id,
+            repairTypeName: repairTypeNames[idx] || 'Sin nombre',
+            status: item.status as WorkOrderItemDetail['status'],
+            technicianNotes: null,
+            completedAt: null,
+            completedBy: null,
+          }));
+
     return {
       id: item.id,
       status: item.status as WorkOrderItemDetail['status'],
@@ -203,8 +249,12 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
       repairTypeName: moi?.types_of_repairs?.name || null,
       repairTypeIds,
       repairTypeNames,
+      repairs: effectiveRepairs,
+      totalRepairs: effectiveRepairs.length,
+      completedRepairs: effectiveRepairs.filter((r) => r.status === 'completed').length,
       description: moi?.description || null,
       driverComment: mri?.driver_comment || deviation?.driver_comment || null,
+      validatorComment: mri?.validator_comment || null,
       deviationId: deviation?.id || null,
       itemLabel: deviation?.item_label || moi?.types_of_repairs?.name || 'Sin descripción',
       itemCode: deviation?.item_code || null,
@@ -218,6 +268,7 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
     orderNumber: wo.order_number,
     sequenceNumber: wo.sequence_number,
     status: wo.status as WorkOrderDetail['status'],
+    priority: wo.priority as WorkOrderDetail['priority'],
     equipmentId: wo.equipment_id,
     vehicleDomain: (wo.vehicles as any)?.domain || null,
     vehicleSerie: (wo.vehicles as any)?.serie || null,
@@ -234,8 +285,9 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
     plannedEndDate: wo.planned_end_date,
     actualStartDate: wo.actual_start_date,
     actualEndDate: wo.actual_end_date,
-    totalItems: workOrderItems.length,
-    completedItems: workOrderItems.filter((i) => i.status === 'completed').length,
+    // totalItems y completedItems ahora cuentan repairs individuales
+    totalItems: workOrderItems.reduce((sum, item) => sum + item.totalRepairs, 0),
+    completedItems: workOrderItems.reduce((sum, item) => sum + item.completedRepairs, 0),
     notes: wo.notes,
     createdAt: wo.created_at,
     createdBy: wo.created_by,
@@ -247,6 +299,10 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
     cancelledAt: wo.cancelled_at,
     cancelledBy: wo.cancelled_by,
     cancellationReason: wo.cancellation_reason,
+    pausedAt: wo.paused_at,
+    pausedBy: (wo as any).paused_by_profile?.fullname || wo.paused_by,
+    pauseReason: wo.pause_reason,
+    totalPausedTime: wo.total_paused_time,
   };
 
   return workOrderDetail;
@@ -347,6 +403,86 @@ export async function completeWorkOrderItem(itemId: string, technicianNotes?: st
 }
 
 /**
+ * Completa un trabajo individual (tipo de reparación) de un item de OT
+ * @param repairId ID del work_order_item_repair
+ * @param technicianNotes Notas opcionales del técnico
+ */
+export async function completeWorkOrderItemRepair(repairId: string, technicianNotes?: string) {
+  const supabase = await supabaseServer();
+
+  logger.info('Completando trabajo de reparación', { data: { repairId } });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  // Verificar que el repair existe y obtener el work_order_item_id
+  const { data: repair, error: checkError } = await supabase
+    .from('work_order_item_repairs')
+    .select('id, work_order_item_id, status')
+    .eq('id', repairId)
+    .single();
+
+  if (checkError || !repair) {
+    throw new Error('Trabajo de reparación no encontrado');
+  }
+
+  if (repair.status === 'completed') {
+    throw new Error('Este trabajo ya está completado');
+  }
+
+  // Actualizar el repair
+  const { data, error } = await supabase
+    .from('work_order_item_repairs')
+    .update({
+      status: 'completed',
+      technician_notes: technicianNotes || null,
+      completed_at: new Date().toISOString(),
+      completed_by: user.id,
+    })
+    .eq('id', repairId)
+    .select()
+    .single();
+
+  if (error) {
+    logger.error('Error completando trabajo', { data: { error } });
+    throw new Error(`Error al completar trabajo: ${error.message}`);
+  }
+
+  // Verificar si todos los repairs del item están completados
+  const { data: allRepairs } = await supabase
+    .from('work_order_item_repairs')
+    .select('status')
+    .eq('work_order_item_id', repair.work_order_item_id);
+
+  const allCompleted = allRepairs?.every((r) => r.status === 'completed');
+
+  // Si todos los repairs están completados, marcar el work_order_item como completado
+  if (allCompleted) {
+    await supabase
+      .from('work_order_items')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        completed_by: user.id,
+      })
+      .eq('id', repair.work_order_item_id);
+
+    logger.info('Todos los trabajos del item completados, item marcado como completado', {
+      data: { workOrderItemId: repair.work_order_item_id },
+    });
+  }
+
+  logger.info('Trabajo de reparación completado', { data: { repairId } });
+
+  return data;
+}
+
+/**
  * Actualiza las notas del técnico en un item
  */
 export async function updateItemNotes(itemId: string, technicianNotes: string) {
@@ -369,7 +505,7 @@ export async function updateItemNotes(itemId: string, technicianNotes: string) {
 
 /**
  * Completa una orden de trabajo (in_progress → completed)
- * Todos los items deben estar completados
+ * Todos los trabajos (repairs) deben estar completados
  */
 export async function completeWorkOrder(workOrderId: string) {
   const supabase = await supabaseServer();
@@ -384,19 +520,30 @@ export async function completeWorkOrder(workOrderId: string) {
     throw new Error('Usuario no autenticado');
   }
 
-  // Verificar que todos los items estén completados
+  // Obtener items y sus repairs
   const { data: items, error: itemsError } = await supabase
     .from('work_order_items')
-    .select('id, status')
+    .select('id, status, work_order_item_repairs(id, status)')
     .eq('work_order_id', workOrderId);
 
   if (itemsError) {
     throw new Error('Error verificando items');
   }
 
-  const pendingItems = items?.filter((i) => i.status !== 'completed' && i.status !== 'cancelled');
-  if (pendingItems && pendingItems.length > 0) {
-    throw new Error(`Hay ${pendingItems.length} item(s) sin completar`);
+  // Verificar repairs pendientes
+  const allRepairs = items?.flatMap((item) => (item as any).work_order_item_repairs || []) || [];
+  const pendingRepairs = allRepairs.filter((r: any) => r.status !== 'completed' && r.status !== 'cancelled');
+
+  if (pendingRepairs.length > 0) {
+    throw new Error(`Hay ${pendingRepairs.length} trabajo(s) de reparación sin completar`);
+  }
+
+  // Si no hay repairs (OT legacy), verificar items
+  if (allRepairs.length === 0) {
+    const pendingItems = items?.filter((i) => i.status !== 'completed' && i.status !== 'cancelled');
+    if (pendingItems && pendingItems.length > 0) {
+      throw new Error(`Hay ${pendingItems.length} item(s) sin completar`);
+    }
   }
 
   // Actualizar estado
@@ -501,6 +648,277 @@ export async function updateWorkOrderNotes(workOrderId: string, notes: string) {
     logger.error('Error actualizando notas de OT', { data: { error } });
     throw new Error(`Error al actualizar notas: ${error.message}`);
   }
+
+  return data;
+}
+
+/**
+ * Pausa una orden de trabajo en progreso (in_progress → paused)
+ * Guarda el timestamp de pausa para calcular el tiempo pausado
+ */
+export async function pauseWorkOrder(workOrderId: string, reason: string) {
+  const supabase = await supabaseServer();
+
+  logger.info('Pausando orden de trabajo', { data: { workOrderId, reason } });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  // Verificar estado actual
+  const { data: wo, error: checkError } = await supabase
+    .from('work_orders')
+    .select('status')
+    .eq('id', workOrderId)
+    .single();
+
+  if (checkError || !wo) {
+    throw new Error('Orden de trabajo no encontrada');
+  }
+
+  if (wo.status !== 'in_progress') {
+    throw new Error(
+      `No se puede pausar una orden en estado "${wo.status}". Solo se pueden pausar órdenes "En Proceso".`
+    );
+  }
+
+  // Actualizar estado a pausado
+  const { data, error } = await supabase
+    .from('work_orders')
+    .update({
+      status: 'paused',
+      paused_at: new Date().toISOString(),
+      paused_by: user.id,
+      pause_reason: reason.trim() || null,
+    })
+    .eq('id', workOrderId)
+    .select()
+    .single();
+
+  if (error) {
+    logger.error('Error pausando OT', { data: { error } });
+    throw new Error(`Error al pausar orden: ${error.message}`);
+  }
+
+  logger.info('Orden de trabajo pausada', { data: { workOrderId } });
+
+  return data;
+}
+
+/**
+ * Reanuda una orden de trabajo pausada (paused → in_progress)
+ * Calcula y acumula el tiempo pausado
+ */
+export async function resumeWorkOrder(workOrderId: string) {
+  const supabase = await supabaseServer();
+
+  logger.info('Reanudando orden de trabajo', { data: { workOrderId } });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  // Obtener datos actuales de la OT
+  const { data: wo, error: checkError } = await supabase
+    .from('work_orders')
+    .select('status, paused_at, total_paused_time')
+    .eq('id', workOrderId)
+    .single();
+
+  if (checkError || !wo) {
+    throw new Error('Orden de trabajo no encontrada');
+  }
+
+  if (wo.status !== 'paused') {
+    throw new Error(
+      `No se puede reanudar una orden en estado "${wo.status}". Solo se pueden reanudar órdenes "Pausadas".`
+    );
+  }
+
+  // Calcular tiempo pausado en esta sesión
+  const pausedAt = wo.paused_at ? new Date(wo.paused_at) : new Date();
+  const now = new Date();
+  const pausedSeconds = Math.floor((now.getTime() - pausedAt.getTime()) / 1000);
+
+  // Actualizar usando SQL para sumar el intervalo
+  const { data, error } = await supabase.rpc('resume_work_order', {
+    p_work_order_id: workOrderId,
+    p_paused_seconds: pausedSeconds,
+  });
+
+  if (error) {
+    // Si la función RPC no existe, hacer update manual
+    logger.warn('RPC resume_work_order no disponible, usando update manual', { data: { error } });
+
+    const { data: manualData, error: manualError } = await supabase
+      .from('work_orders')
+      .update({
+        status: 'in_progress',
+        paused_at: null,
+        paused_by: null,
+        // No podemos sumar el intervalo directamente sin RPC, pero al menos cambiamos el estado
+      })
+      .eq('id', workOrderId)
+      .select()
+      .single();
+
+    if (manualError) {
+      logger.error('Error reanudando OT', { data: { error: manualError } });
+      throw new Error(`Error al reanudar orden: ${manualError.message}`);
+    }
+
+    logger.info('Orden de trabajo reanudada (sin acumular tiempo)', { data: { workOrderId } });
+    return manualData;
+  }
+
+  logger.info('Orden de trabajo reanudada', { data: { workOrderId, pausedSeconds } });
+
+  return data;
+}
+
+/**
+ * Completa múltiples trabajos de reparación de una vez
+ * @param repairIds IDs de los work_order_item_repairs a completar
+ */
+export async function completeMultipleRepairs(repairIds: string[]) {
+  const supabase = await supabaseServer();
+
+  logger.info('Completando múltiples trabajos de reparación', { data: { count: repairIds.length } });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  if (repairIds.length === 0) {
+    throw new Error('Debe seleccionar al menos un trabajo para completar');
+  }
+
+  const now = new Date().toISOString();
+
+  // Actualizar todos los repairs seleccionados
+  const { error } = await supabase
+    .from('work_order_item_repairs')
+    .update({
+      status: 'completed',
+      completed_at: now,
+      completed_by: user.id,
+    })
+    .in('id', repairIds)
+    .eq('status', 'pending');
+
+  if (error) {
+    logger.error('Error completando trabajos', { data: { error } });
+    throw new Error(`Error al completar trabajos: ${error.message}`);
+  }
+
+  // Obtener los work_order_item_ids afectados
+  const { data: repairs } = await supabase
+    .from('work_order_item_repairs')
+    .select('work_order_item_id')
+    .in('id', repairIds);
+
+  const workOrderItemIds = [...new Set(repairs?.map((r) => r.work_order_item_id) || [])];
+
+  // Verificar cada item si todos sus repairs están completados
+  for (const itemId of workOrderItemIds) {
+    const { data: allRepairs } = await supabase
+      .from('work_order_item_repairs')
+      .select('status')
+      .eq('work_order_item_id', itemId);
+
+    const allCompleted = allRepairs?.every((r) => r.status === 'completed');
+
+    if (allCompleted) {
+      await supabase
+        .from('work_order_items')
+        .update({
+          status: 'completed',
+          completed_at: now,
+          completed_by: user.id,
+        })
+        .eq('id', itemId);
+    }
+  }
+
+  logger.info('Múltiples trabajos completados', { data: { count: repairIds.length } });
+
+  return { completed: repairIds.length };
+}
+
+/**
+ * Completa parcialmente una orden de trabajo (in_progress → completed_partial)
+ * Al menos un trabajo debe estar completado, pero quedan pendientes
+ */
+export async function completeWorkOrderPartial(workOrderId: string, reason?: string) {
+  const supabase = await supabaseServer();
+
+  logger.info('Completando parcialmente orden de trabajo', { data: { workOrderId } });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Usuario no autenticado');
+  }
+
+  // Obtener items y sus repairs
+  const { data: items, error: itemsError } = await supabase
+    .from('work_order_items')
+    .select('id, status, work_order_item_repairs(id, status)')
+    .eq('work_order_id', workOrderId);
+
+  if (itemsError) {
+    throw new Error('Error verificando items');
+  }
+
+  // Contar repairs completados y pendientes
+  const allRepairs = items?.flatMap((item) => (item as any).work_order_item_repairs || []) || [];
+  const completedRepairs = allRepairs.filter((r: any) => r.status === 'completed');
+  const pendingRepairs = allRepairs.filter((r: any) => r.status !== 'completed' && r.status !== 'cancelled');
+
+  if (completedRepairs.length === 0) {
+    throw new Error('Debe completar al menos un trabajo antes de finalizar parcialmente');
+  }
+
+  if (pendingRepairs.length === 0) {
+    throw new Error('No hay trabajos pendientes. Use "Completar Orden" en su lugar.');
+  }
+
+  // Actualizar estado
+  const { data, error } = await supabase
+    .from('work_orders')
+    .update({
+      status: 'completed_partial',
+      actual_end_date: new Date().toISOString(),
+      completed_by: user.id,
+      completed_at: new Date().toISOString(),
+      notes: reason ? `[Finalizado con pendientes] ${reason}` : '[Finalizado con pendientes]',
+    })
+    .eq('id', workOrderId)
+    .select()
+    .single();
+
+  if (error) {
+    logger.error('Error completando parcialmente OT', { data: { error } });
+    throw new Error(`Error al completar parcialmente: ${error.message}`);
+  }
+
+  logger.info('Orden de trabajo completada parcialmente', {
+    data: { workOrderId, completedRepairs: completedRepairs.length, pendingRepairs: pendingRepairs.length },
+  });
 
   return data;
 }

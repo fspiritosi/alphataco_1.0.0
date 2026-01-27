@@ -1,5 +1,6 @@
 'use server';
 
+import type { WorkOrderPriority } from '@/features/Mantenimiento/OrdenesTrabajo/types';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 
@@ -35,6 +36,7 @@ export interface CreateWorkOrderInput {
   plannedEndDate: string;
   notes?: string;
   repairTypeIds?: string[]; // Tipos de reparación (opcional si ya están asignados)
+  priority?: WorkOrderPriority; // Prioridad de la orden de trabajo
 }
 
 // =============================================================================
@@ -313,6 +315,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
       workshop_id: input.workshopId,
       sector_id: input.sectorId || null,
       status: 'pending',
+      priority: input.priority || 'medium',
       planned_start_date: input.plannedStartDate,
       planned_end_date: input.plannedEndDate,
       notes: input.notes || null,
@@ -333,13 +336,45 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
     status: 'pending' as const,
   }));
 
-  const { error: woItemsError } = await supabase.from('work_order_items').insert(workOrderItems);
+  const { data: createdWoItems, error: woItemsError } = await supabase
+    .from('work_order_items')
+    .insert(workOrderItems)
+    .select('id, maintenance_order_item_id');
 
-  if (woItemsError) {
+  if (woItemsError || !createdWoItems) {
     logger.error('Error creando items de orden de trabajo', { data: { error: woItemsError } });
     // Rollback: eliminar la orden de trabajo creada
     await supabase.from('work_orders').delete().eq('id', workOrder.id);
-    throw new Error(`Error al crear items de orden: ${woItemsError.message}`);
+    throw new Error(`Error al crear items de orden: ${woItemsError?.message}`);
+  }
+
+  // 6.1 Crear los work_order_item_repairs (cada tipo de reparación es un trabajo individual)
+  if (input.repairTypeIds && input.repairTypeIds.length > 0) {
+    const repairRecords: { work_order_item_id: string; repair_type_id: string; status: 'pending' }[] = [];
+
+    for (const woItem of createdWoItems) {
+      for (const repairTypeId of input.repairTypeIds) {
+        repairRecords.push({
+          work_order_item_id: woItem.id,
+          repair_type_id: repairTypeId,
+          status: 'pending',
+        });
+      }
+    }
+
+    const { error: repairsError } = await supabase.from('work_order_item_repairs').insert(repairRecords);
+
+    if (repairsError) {
+      logger.error('Error creando trabajos de reparación', { data: { error: repairsError } });
+      // Rollback
+      await supabase.from('work_order_items').delete().eq('work_order_id', workOrder.id);
+      await supabase.from('work_orders').delete().eq('id', workOrder.id);
+      throw new Error(`Error al crear trabajos de reparación: ${repairsError.message}`);
+    }
+
+    logger.info('Trabajos de reparación creados', {
+      data: { count: repairRecords.length, workOrderId: workOrder.id },
+    });
   }
 
   // 7. Actualizar los maintenance_order_items con la referencia a la OT
@@ -390,6 +425,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
       orderNumber,
       itemCount: input.itemIds.length,
       repairTypeCount: input.repairTypeIds?.length || 0,
+      priority: input.priority || 'medium',
     },
   });
 
@@ -418,6 +454,69 @@ export async function assignAndCreateWorkOrder(input: CreateWorkOrderInput) {
   // Luego crear la orden de trabajo
   return createWorkOrder(input);
 }
+
+// =============================================================================
+// OCUPACIÓN DE SECTORES
+// =============================================================================
+
+/**
+ * Obtiene la ocupación de todos los sectores de un taller
+ * Retorna cuántas OT activas hay por sector vs el cupo máximo
+ */
+export async function getSectorOccupancy(workshopId: string) {
+  const supabase = await supabaseServer();
+
+  // Obtener todos los sectores del taller con su cupo
+  const { data: sectors, error: sectorsError } = await supabase
+    .from('workshop_sectors')
+    .select('id, name, max_capacity')
+    .eq('workshop_id', workshopId)
+    .eq('is_active', true);
+
+  if (sectorsError) {
+    logger.error('Error obteniendo sectores', { data: { error: sectorsError } });
+    return [];
+  }
+
+  if (!sectors || sectors.length === 0) {
+    return [];
+  }
+
+  // Contar OTs activas por sector (pending, in_progress, paused)
+  const { data: occupancyData, error: occupancyError } = await supabase
+    .from('work_orders')
+    .select('sector_id')
+    .eq('workshop_id', workshopId)
+    .in('status', ['pending', 'in_progress', 'paused'])
+    .not('sector_id', 'is', null);
+
+  if (occupancyError) {
+    logger.error('Error obteniendo ocupación', { data: { error: occupancyError } });
+    return sectors.map((s) => ({
+      id: s.id,
+      name: s.name,
+      maxCapacity: s.max_capacity,
+      currentOccupancy: 0,
+    }));
+  }
+
+  // Contar OTs por sector
+  const occupancyCount: Record<string, number> = {};
+  occupancyData?.forEach((ot) => {
+    if (ot.sector_id) {
+      occupancyCount[ot.sector_id] = (occupancyCount[ot.sector_id] || 0) + 1;
+    }
+  });
+
+  return sectors.map((s) => ({
+    id: s.id,
+    name: s.name,
+    maxCapacity: s.max_capacity,
+    currentOccupancy: occupancyCount[s.id] || 0,
+  }));
+}
+
+export type SectorOccupancy = Awaited<ReturnType<typeof getSectorOccupancy>>[number];
 
 // =============================================================================
 // TIPOS DE RETORNO

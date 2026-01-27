@@ -135,6 +135,16 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
                               </span>
                             </div>
                           )}
+                          {(item.maintenance_request_items as any)?.validator_comment && (
+                            <div className="text-sm mt-1 p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
+                              <span className="text-blue-800 dark:text-blue-200 font-medium">
+                                Comentario del validador:{' '}
+                              </span>
+                              <span className="text-blue-700 dark:text-blue-300">
+                                {(item.maintenance_request_items as any).validator_comment}
+                              </span>
+                            </div>
+                          )}
                           {item.maintenance_request_items?.description && (
                             <p className="text-sm text-muted-foreground mt-1">
                               {item.maintenance_request_items.description}

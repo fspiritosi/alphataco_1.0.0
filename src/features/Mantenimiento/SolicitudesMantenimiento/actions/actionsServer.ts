@@ -249,6 +249,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
       .from('maintenance_request_items')
       .update({
         status: 'approved',
+        validator_comment: item.validatorComment || null,
       })
       .eq('id', item.itemId);
 
@@ -265,6 +266,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
       .update({
         status: 'rejected',
         rejection_reason: item.reason,
+        validator_comment: item.validatorComment || null,
       })
       .eq('id', item.itemId);
 

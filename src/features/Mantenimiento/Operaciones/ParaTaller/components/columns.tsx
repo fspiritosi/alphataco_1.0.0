@@ -1,23 +1,12 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye, LogIn } from 'lucide-react';
 import moment from 'moment';
 import type { OrderForWorkshopData } from '../../actions/actionsServer';
 
-interface ColumnsParaTallerProps {
-  onView: (order: OrderForWorkshopData) => void;
-  onApproveWorkshopEntry: (order: OrderForWorkshopData) => void;
-}
-
-export function getColumnsParaTaller({
-  onView,
-  onApproveWorkshopEntry,
-}: ColumnsParaTallerProps): ColumnDef<OrderForWorkshopData>[] {
+export function getColumnsParaTaller(): ColumnDef<OrderForWorkshopData>[] {
   return [
     {
       accessorKey: 'vehicles',
@@ -113,29 +102,18 @@ export function getColumnsParaTaller({
       enableSorting: false,
     },
     {
-      id: 'actions',
-      header: 'Acciones',
+      accessorKey: 'status',
+      id: 'Estado',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
       cell: ({ row }) => {
-        const order = row.original;
-
+        const status = row.original.status;
+        const isInWorkshop = status === 'in_workshop';
         return (
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => onView(order)} title="Ver detalle">
-              <Eye className="h-4 w-4" />
-            </Button>
-            <PermissionGuard module="mantenimiento" tab="para_taller" action="update">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onApproveWorkshopEntry(order)}
-                title="Aprobar Entrada a Taller"
-                className="text-green-600 hover:text-green-700"
-              >
-                <LogIn className="h-4 w-4" />
-              </Button>
-            </PermissionGuard>
-          </div>
+          <Badge variant={isInWorkshop ? 'success' : 'warning'}>{isInWorkshop ? 'En Taller' : 'Por Ingresar'}</Badge>
         );
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.original.status);
       },
       enableSorting: false,
     },

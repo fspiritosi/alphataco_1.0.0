@@ -3,6 +3,8 @@ import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairType
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
+import { ParaTallerTabContent } from '@/features/Mantenimiento/Operaciones/ParaTaller';
+import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/fallback';
 import { OrdenesTrabajoSkeleton, OrdenesTrabajoTabContent } from '@/features/Mantenimiento/OrdenesTrabajo';
 import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
 import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
@@ -40,6 +42,7 @@ interface MantenimientoComponentProps {
  *   - Solicitudes de Mantenimiento
  *   - Pendientes de Ejecutar
  *   - Nuevo Pedido
+ *   - Para Taller
  *
  * - Taller (maint_taller)
  *   - Pedidos de Mantenimiento
@@ -140,6 +143,22 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   content: (
                     <Suspense fallback={<NuevoPedidoSkeleton />}>
                       <NuevoPedidoTabContent />
+                    </Suspense>
+                  ),
+                },
+                {
+                  value: 'para_taller',
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <Warehouse className="h-4 w-4" />
+                      Para Taller
+                    </span>
+                  ),
+                  moduleSlug: 'mantenimiento',
+                  tabSlug: 'para_taller',
+                  content: (
+                    <Suspense fallback={<OperacionesTableSkeleton />}>
+                      <ParaTallerTabContent />
                     </Suspense>
                   ),
                 },
