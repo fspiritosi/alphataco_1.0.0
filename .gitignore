@@ -22,6 +22,7 @@ cypress.env.json
 # misc
 .DS_Store
 *.pem
+*-cwd
 
 # debug
 npm-debug.log*
@@ -34,8 +35,11 @@ yarn-error.log*
 
 # vercel
 .vercel
+NotasAle.md
+nul
+03-notas-desarrollo.md
 # SQL
-supabase/seed.sql
+# supabase/seed.sql  -- Comentado para permitir seed en branches
 
 # typescript
 *.tsbuildinfo
@@ -48,5 +52,10 @@ cypress/videos
 cypress/screenshots
 cypress/downloads
 cypress.env.json
-
+.mcp.json
+settings.local.json
 .kiro
+.claude
+.cursor
+.zed
+.agents
