@@ -12,18 +12,16 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
+import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
-import moment from 'moment';
-import 'moment/locale/es';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PLANIFICACION_QUERY_KEY } from '../../Planificacion/hooks/usePlanificacion';
 import { PEDIDOS_CONFIRMADOS_QUERY_KEY } from '../Confirmados/components/ConfirmadosTableClient';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
 import { MAINTENANCE_ORDERS_QUERY_KEY, PEDIDOS_PENDIENTES_QUERY_KEY } from '../hooks/useMaintenanceOrders';
-
-moment.locale('es');
 
 interface EntradaTallerDialogProps {
   order: MaintenanceOrderData;
@@ -31,9 +29,71 @@ interface EntradaTallerDialogProps {
   onClose: () => void;
 }
 
+/**
+ * Obtiene el kilometraje inicial para el formulario.
+ * Prioridad:
+ * 1. Kilometraje de las respuestas del checklist (si existe y es > 0)
+ * 2. Kilometraje del vehículo (fallback)
+ */
+function getInitialKilometer(order: MaintenanceOrderData): { value: string; source: 'checklist' | 'vehicle' | 'none' } {
+  // Buscar kilometraje en las respuestas del checklist
+  const items = order.maintenance_order_items || [];
+  for (const item of items) {
+    const deviation = item.maintenance_request_items?.checklist_deviations;
+    // answer_data viene de la query pero el tipo no lo incluye, usamos casting
+    const checklistAnswer = deviation?.checklist_answers as { answer_data?: { kilometraje?: string } } | null;
+    const answerData = checklistAnswer?.answer_data;
+    if (answerData?.kilometraje) {
+      const kmValue = parseInt(answerData.kilometraje, 10);
+      if (!isNaN(kmValue) && kmValue > 0) {
+        return { value: answerData.kilometraje, source: 'checklist' };
+      }
+    }
+  }
+
+  // Fallback: kilometraje del vehículo
+  const vehicleKm = order.vehicles?.kilometer;
+  if (vehicleKm) {
+    const kmValue = typeof vehicleKm === 'string' ? parseInt(vehicleKm, 10) : vehicleKm;
+    if (!isNaN(kmValue) && kmValue > 0) {
+      return { value: kmValue.toString(), source: 'vehicle' };
+    }
+  }
+
+  return { value: '', source: 'none' };
+}
+
 export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialogProps) {
-  const [kilometer, setKilometer] = useState(order.vehicles?.kilometer?.toString() || '');
+  // Obtener kilometraje inicial y su origen
+  const initialKm = useMemo(() => getInitialKilometer(order), [order]);
+  const [kilometer, setKilometer] = useState(initialKm.value);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Valor mínimo permitido (el valor precargado)
+  const minKilometer = useMemo(() => {
+    const parsed = parseInt(initialKm.value, 10);
+    return !isNaN(parsed) ? parsed : 0;
+  }, [initialKm.value]);
+
+  // Validar kilometraje cuando cambia
+  const handleKilometerChange = (value: string) => {
+    setKilometer(value);
+
+    // Validar que no sea menor al valor precargado
+    if (value.trim()) {
+      const numValue = parseInt(value, 10);
+      if (!isNaN(numValue) && minKilometer > 0 && numValue < minKilometer) {
+        setValidationError(
+          `El kilometraje no puede ser menor a ${minKilometer.toLocaleString()} km (valor registrado)`
+        );
+      } else {
+        setValidationError(null);
+      }
+    } else {
+      setValidationError(null);
+    }
+  };
 
   const approveMutation = useMutation({
     mutationFn: approveWorkshopEntryFromOrder,
@@ -53,6 +113,13 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   const handleApprove = async () => {
     if (!kilometer.trim()) {
       toast.error('Debe ingresar el kilometraje actual');
+      return;
+    }
+
+    // Validar que no sea menor al valor precargado
+    const numKilometer = parseInt(kilometer, 10);
+    if (!isNaN(numKilometer) && minKilometer > 0 && numKilometer < minKilometer) {
+      toast.error(`El kilometraje no puede ser menor a ${minKilometer.toLocaleString()} km`);
       return;
     }
 
@@ -115,7 +182,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             {order.scheduled_date && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Fecha programada:</span>
-                <span className="font-medium">{moment(order.scheduled_date).format('dddd D [de] MMMM [de] YYYY')}</span>
+                <span className="font-medium">{formatDateLong(order.scheduled_date)}</span>
               </div>
             )}
             <div className="flex justify-between">
@@ -143,6 +210,9 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                           ? [item.types_of_repairs.name]
                           : [];
 
+                    // Obtener información del chofer
+                    const driverInfo = getDriverCommentInfo(item);
+
                     return (
                       <div key={item.id || index} className="p-2 bg-muted rounded text-sm">
                         <div className="font-medium">{deviation?.item_label || 'Sin etiqueta'}</div>
@@ -155,12 +225,12 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                             </span>
                           )}
                         </div>
-                        {((item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment) && (
+                        {driverInfo && (
                           <div className="text-xs mt-1">
-                            <span className="text-muted-foreground">Chofer: </span>
-                            <span className="italic">
-                              {(item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment}
+                            <span className="text-muted-foreground">
+                              Chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
                             </span>
+                            <span className="italic">{driverInfo.comment}</span>
                           </div>
                         )}
                       </div>
@@ -178,12 +248,29 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
               id="kilometer"
               type="text"
               value={kilometer}
-              onChange={(e) => setKilometer(e.target.value)}
+              onChange={(e) => handleKilometerChange(e.target.value)}
               placeholder="Ej: 150000"
+              className={validationError ? 'border-red-500 focus-visible:ring-red-500' : ''}
             />
-            <p className="text-xs text-muted-foreground">
-              Ingrese el kilometraje actual al momento de la entrada al taller
-            </p>
+            {validationError ? (
+              <p className="text-xs text-red-600">{validationError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {initialKm.source === 'checklist' ? (
+                  <>
+                    Valor precargado desde el checklist ({minKilometer.toLocaleString()} km). El nuevo valor no puede
+                    ser menor.
+                  </>
+                ) : initialKm.source === 'vehicle' ? (
+                  <>
+                    Valor precargado desde el vehículo ({minKilometer.toLocaleString()} km). El nuevo valor no puede ser
+                    menor.
+                  </>
+                ) : (
+                  'Ingrese el kilometraje actual al momento de la entrada al taller'
+                )}
+              </p>
+            )}
           </div>
         </div>
 
@@ -191,7 +278,10 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleApprove} disabled={approveMutation.isPending || !kilometer.trim()}>
+          <Button
+            onClick={handleApprove}
+            disabled={approveMutation.isPending || !kilometer.trim() || !!validationError}
+          >
             {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Entrada
           </Button>

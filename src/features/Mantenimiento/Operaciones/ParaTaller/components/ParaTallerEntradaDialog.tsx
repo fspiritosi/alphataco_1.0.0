@@ -12,17 +12,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
-import moment from 'moment';
-import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PLANIFICACION_QUERY_KEY } from '../../../Planificacion/hooks/usePlanificacion';
 import { approveWorkshopEntry, type OrderForWorkshopData } from '../../actions/actionsServer';
 import { PARA_TALLER_QUERY_KEY } from './ParaTallerTableClient';
-
-moment.locale('es');
 
 interface ParaTallerEntradaDialogProps {
   order: OrderForWorkshopData;
@@ -52,6 +49,20 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
   const handleApprove = async () => {
     if (!kilometer.trim()) {
       toast.error('Debe ingresar el kilometraje actual');
+      return;
+    }
+
+    const inputKm = Number(kilometer.trim());
+    if (isNaN(inputKm) || inputKm < 0) {
+      toast.error('El kilometraje debe ser un número válido mayor o igual a 0');
+      return;
+    }
+
+    // Validar que el kilometraje no sea menor al actual del equipo
+    // Solo si el equipo tiene un kilometraje registrado mayor a 0
+    const currentKm = Number(order.vehicles?.kilometer) || 0;
+    if (currentKm > 0 && inputKm < currentKm) {
+      toast.error(`El kilometraje no puede ser menor al actual del equipo (${currentKm.toLocaleString('es-AR')} km)`);
       return;
     }
 
@@ -114,7 +125,7 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
             {order.scheduled_date && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Fecha programada:</span>
-                <span className="font-medium">{moment(order.scheduled_date).format('dddd D [de] MMMM [de] YYYY')}</span>
+                <span className="font-medium">{formatDateLong(order.scheduled_date)}</span>
               </div>
             )}
             <div className="flex justify-between">
@@ -175,13 +186,19 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
             <Label htmlFor="kilometer">Kilometraje actual del equipo *</Label>
             <Input
               id="kilometer"
-              type="text"
+              type="number"
+              min={order.vehicles?.kilometer && Number(order.vehicles.kilometer) > 0 ? order.vehicles.kilometer : 0}
               value={kilometer}
               onChange={(e) => setKilometer(e.target.value)}
               placeholder="Ej: 150000"
             />
             <p className="text-xs text-muted-foreground">
               Ingrese el kilometraje actual al momento de la entrada al taller
+              {order.vehicles?.kilometer && Number(order.vehicles.kilometer) > 0 && (
+                <span className="block mt-1 text-yellow-600">
+                  Mínimo permitido: {Number(order.vehicles.kilometer).toLocaleString('es-AR')} km (actual del equipo)
+                </span>
+              )}
             </p>
           </div>
         </div>

@@ -15,9 +15,9 @@ import {
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatDateForDB, formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CalendarIcon, Loader2, Wrench } from 'lucide-react';
-import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
@@ -42,7 +42,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
     try {
       await scheduleMutation.mutateAsync({
         orderId: order.id,
-        scheduledDate: moment(date).format('YYYY-MM-DD'),
+        scheduledDate: formatDateForDB(date),
       });
       toast.success('Pedido planificado exitosamente');
       onClose();
@@ -172,7 +172,7 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                   className={cn('w-full justify-start text-left font-normal', !date && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? moment(date).format('DD/MM/YYYY') : 'Seleccionar fecha'}
+                  {date ? formatDateOnly(date) : 'Seleccionar fecha'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">

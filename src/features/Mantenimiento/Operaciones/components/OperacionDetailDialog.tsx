@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import moment from 'moment';
+import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
+import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import type { MaintenanceOperationData } from '../actions/actionsServer';
 
 interface OperacionDetailDialogProps {
@@ -20,7 +21,7 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
         <DialogHeader>
           <DialogTitle>Detalle de Operación</DialogTitle>
           <DialogDescription>
-            Operación planificada para el {moment(operation.scheduled_date).format('DD/MM/YYYY')}
+            Operación planificada para el {formatDateOnly(operation.scheduled_date)}
           </DialogDescription>
         </DialogHeader>
 
@@ -53,7 +54,7 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Fecha planificada:</span>
-                  <p className="font-medium">{moment(operation.scheduled_date).format('DD/MM/YYYY')}</p>
+                  <p className="font-medium">{formatDateOnly(operation.scheduled_date)}</p>
                 </div>
               </div>
             </CardContent>
@@ -80,6 +81,9 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                         ? [item.types_of_repairs.name]
                         : [];
 
+                  // Obtener información del chofer
+                  const driverInfo = getDriverCommentInfo(item);
+
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between">
@@ -90,14 +94,12 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                           <p className="text-sm text-muted-foreground">
                             Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
                           </p>
-                          {((item.maintenance_request_items as any)?.driver_comment ||
-                            item.maintenance_request_items?.checklist_deviations?.driver_comment) && (
+                          {driverInfo && (
                             <p className="text-sm mt-1">
-                              <span className="text-muted-foreground">Comentario del chofer: </span>
-                              <span className="italic">
-                                {(item.maintenance_request_items as any)?.driver_comment ||
-                                  item.maintenance_request_items?.checklist_deviations?.driver_comment}
+                              <span className="text-muted-foreground">
+                                Comentario del chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
                               </span>
+                              <span className="italic">{driverInfo.comment}</span>
                             </p>
                           )}
                           {(item.maintenance_request_items as any)?.validator_comment && (

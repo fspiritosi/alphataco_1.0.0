@@ -3,6 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { ApproveWorkshopEntryInput, MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
+import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const serverLogger = new Logger('PedidosMantenimiento/actions');
 
@@ -24,7 +25,18 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+          checklist_deviations(
+            id,
+            item_code,
+            item_label,
+            section_code,
+            driver_comment,
+            checklist_answers(
+              id,
+              employee:employees(id, firstname, lastname),
+              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
+            )
+          )
         ),
         types_of_repairs(id, name),
         maintenance_order_item_repair_types(
@@ -70,22 +82,40 @@ export type MaintenanceOrderData = MaintenanceOrdersData[number];
  * - scheduled: Pendientes de aprobación de fecha (ya planificados)
  *
  * Ordenamiento: pending_scheduling primero, luego scheduled, ambos de más viejo a más reciente
+ *
+ * FILTRO DE SUPERVISOR:
+ * - Usuarios con rol de sistema: ven TODOS los pedidos
+ * - Usuarios sin rol de sistema: solo ven pedidos cuya solicitud tiene supervisor_id = su user_id
  */
 export async function getMaintenanceOrdersPending() {
   const supabase = await supabaseServer();
 
-  const { data, error } = await supabase
+  // Obtener información del filtro de supervisor
+  const filterInfo = await getSupervisorFilterInfo();
+
+  let query = supabase
     .from('maintenance_orders')
     .select(
       `
       *,
       vehicles(id, domain, serie, intern_number, kilometer, condition),
-      maintenance_requests(id, kilometer, created_at),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id),
       maintenance_order_items(
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+          checklist_deviations(
+            id,
+            item_code,
+            item_label,
+            section_code,
+            driver_comment,
+            checklist_answers(
+              id,
+              employee:employees(id, firstname, lastname),
+              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
+            )
+          )
         ),
         types_of_repairs(id, name),
         maintenance_order_item_repair_types(
@@ -98,6 +128,13 @@ export async function getMaintenanceOrdersPending() {
     .in('status', ['pending_scheduling', 'scheduled'])
     .order('status', { ascending: false }) // pending_scheduling (p) antes que scheduled (s) - desc porque p > s alfabéticamente
     .order('created_at', { ascending: true }); // De más viejo a más reciente
+
+  // Aplicar filtro de supervisor si corresponde
+  if (filterInfo?.shouldFilterBySupervisor) {
+    query = query.eq('maintenance_requests.supervisor_id', filterInfo.userId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     serverLogger.error('Error al obtener pedidos pendientes', { data: { error } });
@@ -114,22 +151,41 @@ export type MaintenanceOrdersPendingData = Awaited<ReturnType<typeof getMaintena
  * - date_confirmed: Listos para entrada a taller
  *
  * Ordenamiento: de más viejo a más reciente
+ *
+ * FILTRO DE SUPERVISOR:
+ * - Usuarios con rol de sistema: ven TODOS los pedidos
+ * - Usuarios sin rol de sistema: solo ven pedidos cuya solicitud tiene supervisor_id = su user_id
  */
 export async function getMaintenanceOrdersConfirmed() {
   const supabase = await supabaseServer();
 
-  const { data, error } = await supabase
+  // Obtener información del filtro de supervisor
+  const filterInfo = await getSupervisorFilterInfo();
+
+  let query = supabase
     .from('maintenance_orders')
     .select(
       `
       *,
       vehicles(id, domain, serie, intern_number, kilometer, condition),
-      maintenance_requests(id, kilometer, created_at),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id),
       maintenance_order_items(
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+          checklist_deviations(
+            id,
+            item_code,
+            item_label,
+            section_code,
+            driver_comment,
+            checklist_answers(
+              id,
+              answer_data,
+              employee:employees(id, firstname, lastname),
+              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
+            )
+          )
         ),
         types_of_repairs(id, name),
         maintenance_order_item_repair_types(
@@ -141,6 +197,13 @@ export async function getMaintenanceOrdersConfirmed() {
     )
     .eq('status', 'date_confirmed')
     .order('created_at', { ascending: true }); // De más viejo a más reciente
+
+  // Aplicar filtro de supervisor si corresponde
+  if (filterInfo?.shouldFilterBySupervisor) {
+    query = query.eq('maintenance_requests.supervisor_id', filterInfo.userId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     serverLogger.error('Error al obtener pedidos confirmados', { data: { error } });
@@ -169,7 +232,18 @@ export async function getMaintenanceOrderById(orderId: string) {
         *,
         maintenance_request_items(
           *,
-          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+          checklist_deviations(
+            id,
+            item_code,
+            item_label,
+            section_code,
+            driver_comment,
+            checklist_answers(
+              id,
+              employee:employees(id, firstname, lastname),
+              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
+            )
+          )
         ),
         types_of_repairs(id, name),
         maintenance_order_item_repair_types(

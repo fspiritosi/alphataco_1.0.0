@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import moment from 'moment';
-import type { OrderForWorkshopData } from '../../actions/actionsServer';
+import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
+import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
+import { type OrderForWorkshopData } from '../../actions/actionsServer';
 
 interface ParaTallerDetailDialogProps {
   order: OrderForWorkshopData;
@@ -57,7 +58,7 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                 {order.scheduled_date && (
                   <div>
                     <span className="text-sm text-muted-foreground">Fecha Planificada:</span>
-                    <p className="font-medium">{moment(order.scheduled_date).format('DD/MM/YYYY')}</p>
+                    <p className="font-medium">{formatDateOnly(order.scheduled_date)}</p>
                   </div>
                 )}
                 {order.vehicles?.kilometer && (
@@ -89,6 +90,9 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                         ? [item.types_of_repairs.name]
                         : [];
 
+                  // Obtener información del chofer
+                  const driverInfo = getDriverCommentInfo(item);
+
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between">
@@ -112,14 +116,12 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                         )}
                       </div>
 
-                      {(item.maintenance_request_items?.driver_comment ||
-                        item.maintenance_request_items?.checklist_deviations?.driver_comment) && (
+                      {driverInfo && (
                         <div className="text-sm">
-                          <span className="text-muted-foreground">Comentario del chofer: </span>
-                          <span className="italic">
-                            {item.maintenance_request_items?.driver_comment ||
-                              item.maintenance_request_items?.checklist_deviations?.driver_comment}
+                          <span className="text-muted-foreground">
+                            Comentario del chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
                           </span>
+                          <span className="italic">{driverInfo.comment}</span>
                         </div>
                       )}
 

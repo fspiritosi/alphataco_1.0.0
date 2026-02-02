@@ -4,15 +4,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye } from 'lucide-react';
+import { Eye, History } from 'lucide-react';
 import moment from 'moment';
 import type { MaintenanceOperationData } from '../actions/actionsServer';
 
 interface ColumnsProps {
   onView: (operation: MaintenanceOperationData) => void;
+  onViewHistory: (operation: MaintenanceOperationData) => void;
 }
 
-export function getReadonlyColumns({ onView }: ColumnsProps): ColumnDef<MaintenanceOperationData>[] {
+export function getReadonlyColumns({ onView, onViewHistory }: ColumnsProps): ColumnDef<MaintenanceOperationData>[] {
   return [
     {
       accessorKey: 'vehicles',
@@ -134,9 +135,18 @@ export function getReadonlyColumns({ onView }: ColumnsProps): ColumnDef<Maintena
         const operation = row.original;
 
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={() => onView(operation)} title="Ver detalle">
               <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onViewHistory(operation)}
+              title="Ver historial"
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <History className="h-4 w-4" />
             </Button>
           </div>
         );

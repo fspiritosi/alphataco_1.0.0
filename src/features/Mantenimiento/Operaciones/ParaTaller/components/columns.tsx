@@ -1,12 +1,19 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
+import { Eye, History } from 'lucide-react';
 import moment from 'moment';
 import type { OrderForWorkshopData } from '../../actions/actionsServer';
 
-export function getColumnsParaTaller(): ColumnDef<OrderForWorkshopData>[] {
+interface ColumnsProps {
+  onViewDetail: (order: OrderForWorkshopData) => void;
+  onViewHistory: (order: OrderForWorkshopData) => void;
+}
+
+export function getColumnsParaTaller({ onViewDetail, onViewHistory }: ColumnsProps): ColumnDef<OrderForWorkshopData>[] {
   return [
     {
       accessorKey: 'vehicles',
@@ -114,6 +121,31 @@ export function getColumnsParaTaller(): ColumnDef<OrderForWorkshopData>[] {
       },
       filterFn: (row, id, value) => {
         return value.includes(row.original.status);
+      },
+      enableSorting: false,
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      cell: ({ row }) => {
+        const order = row.original;
+
+        return (
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => onViewDetail(order)} title="Ver detalle">
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onViewHistory(order)}
+              title="Ver historial"
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+          </div>
+        );
       },
       enableSorting: false,
     },

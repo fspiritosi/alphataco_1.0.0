@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useMemo, useState } from 'react';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
@@ -20,6 +21,7 @@ const STATUS_OPTIONS = [
 export function SolicitudesTable() {
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequestData | null>(null);
   const [dialogType, setDialogType] = useState<'view' | 'approve' | 'reject' | null>(null);
+  const [historyRequestId, setHistoryRequestId] = useState<string | null>(null);
 
   const { data: requests, isLoading, error } = useMaintenanceRequests();
 
@@ -58,12 +60,21 @@ export function SolicitudesTable() {
     setDialogType(null);
   };
 
+  const handleViewHistory = (request: MaintenanceRequestData) => {
+    setHistoryRequestId(request.id);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryRequestId(null);
+  };
+
   const columns = useMemo(
     () =>
       getColumns({
         onView: handleView,
         onApprove: handleApprove,
         onReject: handleReject,
+        onViewHistory: handleViewHistory,
       }),
     []
   );
@@ -140,6 +151,13 @@ export function SolicitudesTable() {
       {selectedRequest && dialogType === 'reject' && (
         <SolicitudRejectDialog request={selectedRequest} open={true} onClose={handleCloseDialog} />
       )}
+
+      <ActivityHistoryModal
+        open={!!historyRequestId}
+        onClose={handleCloseHistory}
+        maintenanceRequestId={historyRequestId}
+        title="Historial de la Solicitud"
+      />
     </>
   );
 }

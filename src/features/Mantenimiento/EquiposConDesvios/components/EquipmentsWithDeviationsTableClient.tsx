@@ -9,6 +9,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Wrench } from 'lucide-react';
+import moment from 'moment';
 import { useMemo, useState } from 'react';
 
 const logger = new Logger('EquipmentsWithDeviationsTableClient');
@@ -20,6 +21,7 @@ type EquipmentWithDeviations = {
   intern_number: string | null;
   type_name: string | null;
   deviation_count: number;
+  last_deviation_date: string | null;
 };
 
 type Deviation = {
@@ -121,6 +123,20 @@ export function EquipmentsWithDeviationsTableClient({
             <span className="font-semibold text-destructive">
               {count} {count === 1 ? 'desvío' : 'desvíos'}
             </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'last_deviation_date',
+        header: 'Último Desvío',
+        cell: ({ row }) => {
+          const date = row.original.last_deviation_date;
+          if (!date) return <span className="text-muted-foreground">-</span>;
+          return (
+            <div className="flex flex-col">
+              <span>{moment(date).format('DD/MM/YYYY')}</span>
+              <span className="text-xs text-muted-foreground">{moment(date).format('HH:mm')}</span>
+            </div>
           );
         },
       },

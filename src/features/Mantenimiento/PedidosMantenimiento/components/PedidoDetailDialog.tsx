@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import moment from 'moment';
+import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
+import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 
 interface PedidoDetailDialogProps {
@@ -40,7 +41,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalle de Pedido de Mantenimiento</DialogTitle>
-          <DialogDescription>Pedido creado el {moment(order.created_at).format('DD/MM/YYYY HH:mm')}</DialogDescription>
+          <DialogDescription>Pedido creado el {formatDateTime(order.created_at)}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -69,7 +70,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                 {order.scheduled_date && (
                   <div>
                     <span className="text-sm text-muted-foreground">Fecha Planificada:</span>
-                    <p className="font-medium">{moment(order.scheduled_date).format('DD/MM/YYYY')}</p>
+                    <p className="font-medium">{formatDateOnly(order.scheduled_date)}</p>
                   </div>
                 )}
                 {order.maintenance_requests?.kilometer && (
@@ -88,7 +89,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                   <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{order.date_rejection_reason}</p>
                   {order.date_rejected_at && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                      Rechazado el {moment(order.date_rejected_at).format('DD/MM/YYYY HH:mm')}
+                      Rechazado el {formatDateTime(order.date_rejected_at)}
                     </p>
                   )}
                 </div>
@@ -115,6 +116,9 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                         ? [item.types_of_repairs.name]
                         : [];
 
+                  // Obtener información del chofer
+                  const driverInfo = getDriverCommentInfo(item);
+
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between">
@@ -138,14 +142,12 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                         )}
                       </div>
 
-                      {(item.maintenance_request_items?.driver_comment ||
-                        item.maintenance_request_items?.checklist_deviations?.driver_comment) && (
+                      {driverInfo && (
                         <div className="text-sm">
-                          <span className="text-muted-foreground">Comentario del chofer: </span>
-                          <span className="italic">
-                            {item.maintenance_request_items?.driver_comment ||
-                              item.maintenance_request_items?.checklist_deviations?.driver_comment}
+                          <span className="text-muted-foreground">
+                            Comentario del chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
                           </span>
+                          <span className="italic">{driverInfo.comment}</span>
                         </div>
                       )}
 

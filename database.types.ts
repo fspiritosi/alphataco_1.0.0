@@ -440,7 +440,7 @@ export type Database = {
       };
       checklist_deviations: {
         Row: {
-          checklist_answer_id: string;
+          checklist_answer_id: string | null;
           created_at: string | null;
           created_by_employee_id: string | null;
           created_by_user_id: string | null;
@@ -453,7 +453,7 @@ export type Database = {
           section_code: string | null;
         };
         Insert: {
-          checklist_answer_id: string;
+          checklist_answer_id?: string | null;
           created_at?: string | null;
           created_by_employee_id?: string | null;
           created_by_user_id?: string | null;
@@ -466,7 +466,7 @@ export type Database = {
           section_code?: string | null;
         };
         Update: {
-          checklist_answer_id?: string;
+          checklist_answer_id?: string | null;
           created_at?: string | null;
           created_by_employee_id?: string | null;
           created_by_user_id?: string | null;
@@ -2895,6 +2895,83 @@ export type Database = {
           },
         ];
       };
+      maintenance_activity_log: {
+        Row: {
+          action_type: string;
+          created_at: string;
+          id: string;
+          maintenance_order_id: string | null;
+          maintenance_request_id: string | null;
+          metadata: Json | null;
+          new_status: string | null;
+          notes: string | null;
+          performed_at: string;
+          performed_by: string | null;
+          previous_status: string | null;
+          rejection_reason: string | null;
+          work_order_id: string | null;
+        };
+        Insert: {
+          action_type: string;
+          created_at?: string;
+          id?: string;
+          maintenance_order_id?: string | null;
+          maintenance_request_id?: string | null;
+          metadata?: Json | null;
+          new_status?: string | null;
+          notes?: string | null;
+          performed_at?: string;
+          performed_by?: string | null;
+          previous_status?: string | null;
+          rejection_reason?: string | null;
+          work_order_id?: string | null;
+        };
+        Update: {
+          action_type?: string;
+          created_at?: string;
+          id?: string;
+          maintenance_order_id?: string | null;
+          maintenance_request_id?: string | null;
+          metadata?: Json | null;
+          new_status?: string | null;
+          notes?: string | null;
+          performed_at?: string;
+          performed_by?: string | null;
+          previous_status?: string | null;
+          rejection_reason?: string | null;
+          work_order_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'maintenance_activity_log_maintenance_order_id_fkey';
+            columns: ['maintenance_order_id'];
+            isOneToOne: false;
+            referencedRelation: 'maintenance_orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_activity_log_maintenance_request_id_fkey';
+            columns: ['maintenance_request_id'];
+            isOneToOne: false;
+            referencedRelation: 'maintenance_requests';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_activity_log_performed_by_fkey';
+            columns: ['performed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'maintenance_activity_log_work_order_id_fkey';
+            columns: ['work_order_id'];
+            isOneToOne: false;
+            referencedRelation: 'work_orders';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       maintenance_group_type_of_repairs: {
         Row: {
           created_at: string;
@@ -3071,57 +3148,6 @@ export type Database = {
           },
         ];
       };
-      maintenance_order_status_history: {
-        Row: {
-          changed_at: string;
-          changed_by: string | null;
-          id: string;
-          maintenance_order_id: string;
-          new_status: string;
-          notes: string | null;
-          previous_status: string | null;
-          rejection_reason: string | null;
-          scheduled_date: string | null;
-        };
-        Insert: {
-          changed_at?: string;
-          changed_by?: string | null;
-          id?: string;
-          maintenance_order_id: string;
-          new_status: string;
-          notes?: string | null;
-          previous_status?: string | null;
-          rejection_reason?: string | null;
-          scheduled_date?: string | null;
-        };
-        Update: {
-          changed_at?: string;
-          changed_by?: string | null;
-          id?: string;
-          maintenance_order_id?: string;
-          new_status?: string;
-          notes?: string | null;
-          previous_status?: string | null;
-          rejection_reason?: string | null;
-          scheduled_date?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'maintenance_order_status_history_changed_by_fkey';
-            columns: ['changed_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'maintenance_order_status_history_maintenance_order_id_fkey';
-            columns: ['maintenance_order_id'];
-            isOneToOne: false;
-            referencedRelation: 'maintenance_orders';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
       maintenance_orders: {
         Row: {
           created_at: string | null;
@@ -3140,6 +3166,7 @@ export type Database = {
           scheduled_at: string | null;
           scheduled_by: string | null;
           scheduled_date: string | null;
+          source: string | null;
           status: string;
           updated_at: string | null;
           workshop_approved_by: string | null;
@@ -3162,6 +3189,7 @@ export type Database = {
           scheduled_at?: string | null;
           scheduled_by?: string | null;
           scheduled_date?: string | null;
+          source?: string | null;
           status?: string;
           updated_at?: string | null;
           workshop_approved_by?: string | null;
@@ -3184,6 +3212,7 @@ export type Database = {
           scheduled_at?: string | null;
           scheduled_by?: string | null;
           scheduled_date?: string | null;
+          source?: string | null;
           status?: string;
           updated_at?: string | null;
           workshop_approved_by?: string | null;
@@ -3337,7 +3366,7 @@ export type Database = {
         Row: {
           approved_at: string | null;
           approved_by: string | null;
-          checklist_answer_id: string;
+          checklist_answer_id: string | null;
           created_at: string | null;
           employee_id: string | null;
           equipment_id: string;
@@ -3346,6 +3375,7 @@ export type Database = {
           rejected_at: string | null;
           rejected_by: string | null;
           rejection_reason: string | null;
+          source: string | null;
           status: string;
           supervisor_id: string | null;
           updated_at: string | null;
@@ -3354,7 +3384,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null;
           approved_by?: string | null;
-          checklist_answer_id: string;
+          checklist_answer_id?: string | null;
           created_at?: string | null;
           employee_id?: string | null;
           equipment_id: string;
@@ -3363,6 +3393,7 @@ export type Database = {
           rejected_at?: string | null;
           rejected_by?: string | null;
           rejection_reason?: string | null;
+          source?: string | null;
           status?: string;
           supervisor_id?: string | null;
           updated_at?: string | null;
@@ -3371,7 +3402,7 @@ export type Database = {
         Update: {
           approved_at?: string | null;
           approved_by?: string | null;
-          checklist_answer_id?: string;
+          checklist_answer_id?: string | null;
           created_at?: string | null;
           employee_id?: string | null;
           equipment_id?: string;
@@ -3380,6 +3411,7 @@ export type Database = {
           rejected_at?: string | null;
           rejected_by?: string | null;
           rejection_reason?: string | null;
+          source?: string | null;
           status?: string;
           supervisor_id?: string | null;
           updated_at?: string | null;
@@ -5475,6 +5507,7 @@ export type Database = {
           domain: string | null;
           id: string | null;
           intern_number: string | null;
+          last_deviation_date: string | null;
           serie: string | null;
           type_name: string | null;
         };

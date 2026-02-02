@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { CheckCircle, Eye, XCircle } from 'lucide-react';
+import { CheckCircle, Eye, History, XCircle } from 'lucide-react';
 import moment from 'moment';
 import type { MaintenanceOperationData } from '../actions/actionsServer';
 
@@ -13,9 +13,15 @@ interface ColumnsProps {
   onView: (operation: MaintenanceOperationData) => void;
   onApprove: (operation: MaintenanceOperationData) => void;
   onReject: (operation: MaintenanceOperationData) => void;
+  onViewHistory: (operation: MaintenanceOperationData) => void;
 }
 
-export function getColumns({ onView, onApprove, onReject }: ColumnsProps): ColumnDef<MaintenanceOperationData>[] {
+export function getColumns({
+  onView,
+  onApprove,
+  onReject,
+  onViewHistory,
+}: ColumnsProps): ColumnDef<MaintenanceOperationData>[] {
   return [
     {
       accessorKey: 'vehicles',
@@ -110,11 +116,20 @@ export function getColumns({ onView, onApprove, onReject }: ColumnsProps): Colum
         const operation = row.original;
 
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={() => onView(operation)} title="Ver detalle">
               <Eye className="h-4 w-4" />
             </Button>
-            <PermissionGuard module="mantenimiento" tab="maintenance_orders" action="update">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onViewHistory(operation)}
+              title="Ver historial"
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+            <PermissionGuard module="mantenimiento" tab="para_taller" action="update">
               <Button
                 variant="ghost"
                 size="icon"

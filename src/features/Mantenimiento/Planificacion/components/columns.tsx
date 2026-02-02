@@ -4,11 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
 import { Settings2 } from 'lucide-react';
-import moment from 'moment';
 
 // Tipo para cada fila de desvío aplanado
 export interface DesvioRowData {
@@ -45,6 +45,12 @@ export interface DesvioRowData {
   // Orden de trabajo asociada
   workOrderId: string | null;
   workOrderNumber: string | null;
+  workOrderStatus: string | null;
+  workOrderPriority: string | null;
+  workOrderWorkshopId: string | null;
+  workOrderWorkshopName: string | null;
+  workOrderSectorId: string | null;
+  workOrderSectorName: string | null;
 }
 
 interface ColumnsProps {
@@ -195,7 +201,7 @@ export function getColumns({ onAssign }: ColumnsProps): ColumnDef<DesvioRowData>
       cell: ({ row }) => {
         const date = row.original.workshopEntryDate;
         if (!date) return <span className="text-muted-foreground">-</span>;
-        return moment(date).format('DD/MM/YYYY');
+        return formatDateOnly(date);
       },
       enableSorting: true,
     },

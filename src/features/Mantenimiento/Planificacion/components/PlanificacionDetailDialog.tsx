@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import moment from 'moment';
+import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceOrderInWorkshopData } from '../../actions/actionsServer';
 
 interface PlanificacionDetailDialogProps {
@@ -89,9 +89,7 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="text-sm text-muted-foreground">Fecha Entrada Taller</span>
-                <p className="font-medium">
-                  {order.workshop_entry_date ? moment(order.workshop_entry_date).format('DD/MM/YYYY HH:mm') : '-'}
-                </p>
+                <p className="font-medium">{formatDateTime(order.workshop_entry_date)}</p>
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Estado</span>

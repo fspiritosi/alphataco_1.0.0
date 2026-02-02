@@ -2,11 +2,11 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
 import { Calendar, Eye, LogIn } from 'lucide-react';
-import moment from 'moment';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 
 interface ColumnsProps {
@@ -46,7 +46,7 @@ export function getColumns({
       id: 'FechaAprobacion',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Aprobación" />,
       cell: ({ row }) => {
-        return moment(row.original.created_at).format('DD/MM/YYYY HH:mm');
+        return formatDateTime(row.original.created_at);
       },
     },
     {
@@ -70,7 +70,7 @@ export function getColumns({
       cell: ({ row }) => {
         const date = row.original.scheduled_date;
         if (!date) return <span className="text-muted-foreground">Sin planificar</span>;
-        return moment(date).format('DD/MM/YYYY');
+        return formatDateOnly(date);
       },
     },
     {

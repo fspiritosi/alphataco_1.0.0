@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, Clock, Loader2, Play } from 'lucide-react';
@@ -18,6 +19,7 @@ export function OrdenesTrabajoTableClient() {
   const [activeTab, setActiveTab] = useState<string>('pending');
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderRowData | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [historyWorkOrderId, setHistoryWorkOrderId] = useState<string | null>(null);
 
   // Queries por estado
   const { data: pendingOrders, isLoading: loadingPending } = useOrdenesTrabajo('pending');
@@ -28,6 +30,14 @@ export function OrdenesTrabajoTableClient() {
   const handleViewDetail = (workOrder: WorkOrderRowData) => {
     setSelectedWorkOrder(workOrder);
     setDetailDialogOpen(true);
+  };
+
+  const handleViewHistory = (workOrder: WorkOrderRowData) => {
+    setHistoryWorkOrderId(workOrder.id);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryWorkOrderId(null);
   };
 
   const handleStart = async (workOrder: WorkOrderRowData) => {
@@ -54,6 +64,7 @@ export function OrdenesTrabajoTableClient() {
     onViewDetail: handleViewDetail,
     onStart: handleStart,
     onComplete: handleComplete,
+    onViewHistory: handleViewHistory,
   });
 
   const renderTable = (data: WorkOrderRowData[] | undefined, isLoading: boolean) => {
@@ -128,6 +139,14 @@ export function OrdenesTrabajoTableClient() {
           setDetailDialogOpen(false);
           setSelectedWorkOrder(null);
         }}
+      />
+
+      {/* Modal de historial */}
+      <ActivityHistoryModal
+        open={!!historyWorkOrderId}
+        onClose={handleCloseHistory}
+        workOrderId={historyWorkOrderId}
+        title="Historial de la Orden de Trabajo"
       />
     </>
   );

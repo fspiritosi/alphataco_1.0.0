@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -28,6 +29,7 @@ interface SolicitudesTableClientProps {
 export function SolicitudesTableClient({ initialData }: SolicitudesTableClientProps) {
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequestData | null>(null);
   const [dialogType, setDialogType] = useState<'view' | 'approve' | 'reject' | null>(null);
+  const [historyRequestId, setHistoryRequestId] = useState<string | null>(null);
 
   // useQuery con initialData para refetching/invalidacion
   const { data: requests } = useQuery({
@@ -71,12 +73,21 @@ export function SolicitudesTableClient({ initialData }: SolicitudesTableClientPr
     setDialogType(null);
   };
 
+  const handleViewHistory = (request: MaintenanceRequestData) => {
+    setHistoryRequestId(request.id);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryRequestId(null);
+  };
+
   const columns = useMemo(
     () =>
       getColumns({
         onView: handleView,
         onApprove: handleApprove,
         onReject: handleReject,
+        onViewHistory: handleViewHistory,
       }),
     []
   );
@@ -124,6 +135,13 @@ export function SolicitudesTableClient({ initialData }: SolicitudesTableClientPr
       {selectedRequest && dialogType === 'reject' && (
         <SolicitudRejectDialog request={selectedRequest} open={true} onClose={handleCloseDialog} />
       )}
+
+      <ActivityHistoryModal
+        open={!!historyRequestId}
+        onClose={handleCloseHistory}
+        maintenanceRequestId={historyRequestId}
+        title="Historial de la Solicitud"
+      />
     </>
   );
 }

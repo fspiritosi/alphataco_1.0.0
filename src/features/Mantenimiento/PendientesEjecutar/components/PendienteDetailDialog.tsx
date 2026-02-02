@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import moment from 'moment';
+import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
 
 interface PendienteDetailDialogProps {
@@ -80,9 +80,7 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="text-sm text-muted-foreground">Fecha Planificada</span>
-                <p className="font-medium">
-                  {order.scheduled_date ? moment(order.scheduled_date).format('DD/MM/YYYY') : '-'}
-                </p>
+                <p className="font-medium">{formatDateOnly(order.scheduled_date)}</p>
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Estado</span>

@@ -26,6 +26,7 @@ export const ACTIONS = {
   create: { slug: 'create', name: 'Crear' },
   update: { slug: 'update', name: 'Editar' },
   delete: { slug: 'delete', name: 'Eliminar' },
+  view_all_requests: { slug: 'view_all_requests', name: 'Ver todas las solicitudes' },
 } as const;
 
 export type ActionSlug = keyof typeof ACTIONS;
@@ -852,14 +853,14 @@ export const PERMISSIONS = {
             name: 'Solicitudes de Mantenimiento',
             tabId: '60000000-0000-0000-0000-000000000020',
             parent: 'maint_operaciones',
-            allowedActions: ['view', 'update'], // update = aprobar/denegar
+            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar/denegar, view_all_requests = ver todas sin filtro de supervisor
           },
           pendientes_ejecutar: {
             slug: 'pendientes_ejecutar',
             name: 'Pendientes de Ejecutar',
             tabId: '60000000-0000-0000-0000-000000000023',
             parent: 'maint_operaciones',
-            allowedActions: ['view', 'update'], // update = aprobar/rechazar fecha
+            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar/rechazar fecha, view_all_requests = ver todas sin filtro de supervisor
           },
           nuevo_pedido: {
             slug: 'nuevo_pedido',
@@ -873,7 +874,7 @@ export const PERMISSIONS = {
             name: 'Para Taller',
             tabId: '60000000-0000-0000-0000-000000000025',
             parent: 'maint_operaciones',
-            allowedActions: ['view', 'update'], // update = aprobar entrada a taller
+            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar entrada a taller, view_all_requests = ver todas sin filtro de supervisor
           },
         },
       },

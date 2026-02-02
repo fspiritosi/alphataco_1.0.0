@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useMemo, useState } from 'react';
 import type { MaintenanceOperationData } from '../actions/actionsServer';
@@ -19,6 +20,7 @@ const STATUS_OPTIONS = [
 export function OperacionesPlanificadasTable() {
   const [selectedOperation, setSelectedOperation] = useState<MaintenanceOperationData | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [historyOperation, setHistoryOperation] = useState<MaintenanceOperationData | null>(null);
 
   const { data: operations, isLoading, error } = useMaintenanceOperations();
 
@@ -47,10 +49,19 @@ export function OperacionesPlanificadasTable() {
     setShowDetail(false);
   };
 
+  const handleViewHistory = (operation: MaintenanceOperationData) => {
+    setHistoryOperation(operation);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryOperation(null);
+  };
+
   const columns = useMemo(
     () =>
       getReadonlyColumns({
         onView: handleView,
+        onViewHistory: handleViewHistory,
       }),
     []
   );
@@ -119,6 +130,14 @@ export function OperacionesPlanificadasTable() {
       {selectedOperation && showDetail && (
         <OperacionDetailDialog operation={selectedOperation} open={true} onClose={handleCloseDialog} />
       )}
+
+      <ActivityHistoryModal
+        open={!!historyOperation}
+        onClose={handleCloseHistory}
+        maintenanceOrderId={historyOperation?.id}
+        maintenanceRequestId={historyOperation?.maintenance_requests?.id}
+        title="Historial del Pedido"
+      />
     </>
   );
 }

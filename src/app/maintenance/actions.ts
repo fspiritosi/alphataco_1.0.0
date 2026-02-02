@@ -590,7 +590,7 @@ export async function getPendingDeviations(equipmentId: string) {
     }
 
     // Verificar si tiene solicitud de reparación (sistema antiguo)
-    const resolvedSet = resolvedMap.get(deviation.checklist_answer_id);
+    const resolvedSet = deviation.checklist_answer_id ? resolvedMap.get(deviation.checklist_answer_id) : undefined;
     if (resolvedSet && resolvedSet.has(deviation.item_code)) {
       console.log(`[getPendingDeviations] FILTRANDO ${deviation.id} - tiene checklist_answer_repairs`);
       return false;
@@ -650,6 +650,7 @@ export async function getEquipmentsWithPendingDeviations() {
     intern_number: equipment.intern_number,
     type_name: equipment.type_name,
     deviation_count: Number(equipment.deviation_count),
+    last_deviation_date: equipment.last_deviation_date as string | null,
   }));
 }
 
@@ -835,12 +836,16 @@ export async function createRepairRequestsFromDeviations(
 
           if (!hitchDeviationsError && hitchDeviationsData) {
             // Filtrar solo los que coincidan exactamente en item_code y section_code
-            hitchDeviations = hitchDeviationsData.filter((hitchDev) => {
-              const utDeviation = deviations.find(
-                (d) => d.item_code === hitchDev.item_code && d.section_code === hitchDev.section_code
-              );
-              return utDeviation !== undefined;
-            });
+            // y que tengan checklist_answer_id definido
+            hitchDeviations = hitchDeviationsData.filter(
+              (hitchDev): hitchDev is typeof hitchDev & { checklist_answer_id: string } => {
+                if (!hitchDev.checklist_answer_id) return false;
+                const utDeviation = deviations.find(
+                  (d) => d.item_code === hitchDev.item_code && d.section_code === hitchDev.section_code
+                );
+                return utDeviation !== undefined;
+              }
+            );
 
             console.log(
               `[HITCH] Found ${hitchDeviations.length} matching deviations in hitched equipment ${hitchEquipmentInfo.hitchEquipmentId}`
@@ -954,7 +959,7 @@ export async function createRepairRequestsFromDeviations(
 
       for (const deviationId of repairRequest.selected_deviations) {
         const deviation = deviations.find((d) => d.id === deviationId);
-        if (deviation) {
+        if (deviation && deviation.checklist_answer_id) {
           answerRepairsToInsert.push({
             checklist_answer_id: deviation.checklist_answer_id,
             repair_solicitud_id: repairId,

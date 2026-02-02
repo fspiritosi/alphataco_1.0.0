@@ -2,21 +2,23 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { Calendar, Eye } from 'lucide-react';
-import moment from 'moment';
+import { Calendar, Eye, History } from 'lucide-react';
 import type { MaintenanceOrderData } from '../../actions/actionsServer';
 
 interface ColumnsPendientesProps {
   onView: (order: MaintenanceOrderData) => void;
   onSchedule: (order: MaintenanceOrderData) => void;
+  onViewHistory: (order: MaintenanceOrderData) => void;
 }
 
 export function getColumnsPendientes({
   onView,
   onSchedule,
+  onViewHistory,
 }: ColumnsPendientesProps): ColumnDef<MaintenanceOrderData>[] {
   return [
     {
@@ -44,7 +46,7 @@ export function getColumnsPendientes({
       id: 'FechaAprobacion',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Aprobación" />,
       cell: ({ row }) => {
-        return moment(row.original.created_at).format('DD/MM/YYYY HH:mm');
+        return formatDateTime(row.original.created_at);
       },
     },
     {
@@ -68,7 +70,7 @@ export function getColumnsPendientes({
       cell: ({ row }) => {
         const date = row.original.scheduled_date;
         if (!date) return <span className="text-muted-foreground">Sin planificar</span>;
-        return moment(date).format('DD/MM/YYYY');
+        return formatDateOnly(date);
       },
     },
     {
@@ -96,9 +98,18 @@ export function getColumnsPendientes({
         const isPendingScheduling = order.status === 'pending_scheduling';
 
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={() => onView(order)} title="Ver detalle">
               <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onViewHistory(order)}
+              title="Ver historial"
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <History className="h-4 w-4" />
             </Button>
             {isPendingScheduling && (
               <PermissionGuard module="mantenimiento" tab="pedidos_pendientes" action="update">

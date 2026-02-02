@@ -1,6 +1,5 @@
 'use server';
 
-import { createMaintenanceRequest } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
@@ -141,51 +140,9 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
         data: { answerId: data.id, count: deviationsToInsert.length },
       });
 
-      // NUEVO FLUJO: Crear maintenance_request en lugar de actualizar condición directamente
-      // La condición y kilometraje se actualizarán cuando se apruebe la entrada a taller
-      if (answerData.equipment_id && deviationsData && deviationsData.length > 0) {
-        try {
-          const deviationIds = deviationsData.map((d) => d.id);
-
-          console.log('[CreateChecklistAnswer] === CREANDO MAINTENANCE REQUEST ===');
-          console.log('[CreateChecklistAnswer] checklistAnswerId:', data.id);
-          console.log('[CreateChecklistAnswer] equipmentId:', answerData.equipment_id);
-          console.log('[CreateChecklistAnswer] employeeId:', finalEmployeeId);
-          console.log('[CreateChecklistAnswer] userId:', user?.id);
-          console.log('[CreateChecklistAnswer] kilometer:', answerData.kilometraje);
-          console.log('[CreateChecklistAnswer] deviationIds:', deviationIds);
-
-          const maintenanceResult = await createMaintenanceRequest({
-            checklistAnswerId: data.id,
-            equipmentId: answerData.equipment_id,
-            employeeId: finalEmployeeId || undefined,
-            userId: user?.id || undefined,
-            kilometer: answerData.kilometraje || undefined,
-            deviationIds,
-          });
-
-          console.log('[CreateChecklistAnswer] Maintenance request creada:', maintenanceResult);
-
-          serverLogger.info('Solicitud de mantenimiento creada desde checklist', {
-            data: {
-              answerId: data.id,
-              equipmentId: answerData.equipment_id,
-              deviationsCount: deviationIds.length,
-              maintenanceRequestId: maintenanceResult?.id,
-            },
-          });
-        } catch (maintenanceError) {
-          console.error('[CreateChecklistAnswer] ERROR creando maintenance request:', maintenanceError);
-          serverLogger.error('Error creating maintenance request from checklist', {
-            data: { error: maintenanceError },
-          });
-          // No lanzamos error para no fallar el guardado del checklist
-        }
-      } else {
-        console.log('[CreateChecklistAnswer] NO se crea maintenance request porque:');
-        console.log('[CreateChecklistAnswer] - equipment_id:', answerData.equipment_id);
-        console.log('[CreateChecklistAnswer] - deviationsData:', deviationsData?.length || 0);
-      }
+      // Los desvíos quedan registrados sin solicitud de mantenimiento.
+      // El usuario debe crear la solicitud desde el modal que aparece al finalizar
+      // o desde la tabla de "Equipos con Desvíos" en el módulo de Mantenimiento.
     }
   }
 
@@ -256,13 +213,20 @@ export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployee
 /**
  * Obtiene la lista de supervisores de turno (usuarios con rol "Administrador Operaciones")
  * Estos son los usuarios que el chofer puede seleccionar al registrar desvíos
- * Retorna todos los usuarios con el rol, sin filtrar por compañía
+ * Filtra por la compañía actual usando share_company_users
  */
 export async function fetchSupervisorsForChecklist() {
+  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
+  const company_id = cookiesStore.get('actualComp')?.value;
 
-  // El rol "Administrador Operaciones" tiene id = 17
-  const ADMIN_OPERACIONES_ROLE_ID = 17;
+  if (!company_id) {
+    serverLogger.warn('No company_id found in cookies for fetchSupervisorsForChecklist');
+    return [];
+  }
+
+  // El rol "Administrador Operaciones" tiene id = 20
+  const ADMIN_OPERACIONES_ROLE_ID = 20;
 
   // Paso 1: Obtener los user_ids que tienen el rol de Administrador Operaciones
   const { data: userRolesData, error: userRolesError } = await supabase
@@ -282,12 +246,31 @@ export async function fetchSupervisorsForChecklist() {
 
   const userIds = userRolesData.map((ur) => ur.user_id);
 
-  // Paso 2: Obtener los datos de profile para esos user_ids
-  // profile.id es igual a users.id (FK directa)
+  // Paso 2: Filtrar por usuarios que pertenecen a la compañía actual
+  // share_company_users tiene profile_id (= user_id) y company_id
+  const { data: companyUsersData, error: companyUsersError } = await supabase
+    .from('share_company_users')
+    .select('profile_id')
+    .eq('company_id', company_id)
+    .in('profile_id', userIds);
+
+  if (companyUsersError) {
+    serverLogger.error('Error fetching company users for supervisors', { data: { error: companyUsersError } });
+    return [];
+  }
+
+  if (!companyUsersData || companyUsersData.length === 0) {
+    serverLogger.warn('No hay supervisores en la compañía actual', { data: { company_id } });
+    return [];
+  }
+
+  const filteredUserIds = companyUsersData.map((cu) => cu.profile_id);
+
+  // Paso 3: Obtener los datos de profile para los user_ids filtrados
   const { data: profilesData, error: profilesError } = await supabase
     .from('profile')
     .select('id, fullname, email')
-    .in('id', userIds);
+    .in('id', filteredUserIds);
 
   if (profilesError) {
     serverLogger.error('Error fetching profiles for supervisors', { data: { error: profilesError } });

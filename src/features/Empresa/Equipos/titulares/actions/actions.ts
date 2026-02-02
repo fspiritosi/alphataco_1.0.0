@@ -1,7 +1,6 @@
 'use server';
 
 import { supabaseServer } from '@/lib/supabase/server';
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
 export async function createEquipmentOwner({
@@ -17,7 +16,7 @@ export async function createEquipmentOwner({
 }) {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('company_id')?.value;
+  const company_id = cookiesStore.get('actualComp')?.value;
 
   // Crear el titular (usamos el primer tipo de contrato para mantener compatibilidad con el campo legacy)
   const { data: ownerData, error: ownerError } = await supabase
@@ -68,7 +67,7 @@ export async function updateEquipmentOwner({
   cuit: string;
   contract_types: ('Leasing' | 'Alquiler' | 'Prendado')[];
 }) {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = await supabaseServer();
 
   // Actualizar el titular (usamos el primer tipo de contrato para mantener compatibilidad con el campo legacy)
   const { data, error } = await supabase

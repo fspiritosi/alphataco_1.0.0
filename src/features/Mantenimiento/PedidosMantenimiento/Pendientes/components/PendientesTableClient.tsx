@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -26,6 +27,7 @@ interface PendientesTableClientProps {
 export function PendientesTableClient({ initialData }: PendientesTableClientProps) {
   const [selectedOrder, setSelectedOrder] = useState<MaintenanceOrderData | null>(null);
   const [dialogType, setDialogType] = useState<'view' | 'schedule' | null>(null);
+  const [historyOrder, setHistoryOrder] = useState<MaintenanceOrderData | null>(null);
 
   const { data: orders } = useQuery({
     queryKey: PEDIDOS_PENDIENTES_QUERY_KEY,
@@ -62,11 +64,20 @@ export function PendientesTableClient({ initialData }: PendientesTableClientProp
     setDialogType(null);
   };
 
+  const handleViewHistory = (order: MaintenanceOrderData) => {
+    setHistoryOrder(order);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryOrder(null);
+  };
+
   const columns = useMemo(
     () =>
       getColumnsPendientes({
         onView: handleView,
         onSchedule: handleSchedule,
+        onViewHistory: handleViewHistory,
       }),
     []
   );
@@ -103,6 +114,14 @@ export function PendientesTableClient({ initialData }: PendientesTableClientProp
       {selectedOrder && dialogType === 'schedule' && (
         <PlanificarPedidoDialog order={selectedOrder} open={true} onClose={handleCloseDialog} />
       )}
+
+      <ActivityHistoryModal
+        open={!!historyOrder}
+        onClose={handleCloseHistory}
+        maintenanceOrderId={historyOrder?.id}
+        maintenanceRequestId={historyOrder?.maintenance_requests?.id}
+        title="Historial del Pedido"
+      />
     </Card>
   );
 }

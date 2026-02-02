@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { getSupervisorFilterInfo } from '../utils/supervisorFilter';
 
 const serverLogger = new Logger('Mantenimiento/actions');
 
@@ -9,17 +10,24 @@ const serverLogger = new Logger('Mantenimiento/actions');
  * Obtiene los pedidos de mantenimiento que están en el taller (in_workshop)
  * Para la vista de Planificación
  * Incluye información de órdenes de trabajo asociadas
+ *
+ * FILTRO DE SUPERVISOR:
+ * - Usuarios con rol de sistema: ven TODOS los pedidos
+ * - Usuarios sin rol de sistema: solo ven pedidos cuya solicitud tiene supervisor_id = su user_id
  */
 export async function getMaintenanceOrdersInWorkshop() {
   const supabase = await supabaseServer();
 
-  const { data, error } = await supabase
+  // Obtener información del filtro de supervisor
+  const filterInfo = await getSupervisorFilterInfo();
+
+  let query = supabase
     .from('maintenance_orders')
     .select(
       `
       *,
       vehicles(id, domain, serie, intern_number, condition, vehicle_type:type(id, name)),
-      maintenance_requests(id, kilometer, created_at),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -31,12 +39,19 @@ export async function getMaintenanceOrdersInWorkshop() {
           repair_type_id,
           types_of_repairs(id, name)
         ),
-        work_orders(id, order_number, status)
+        work_orders(id, order_number, status, priority, workshop_id, sector_id, workshops(id, name), workshop_sectors(id, name))
       )
     `
     )
     .eq('status', 'in_workshop')
     .order('created_at', { ascending: false });
+
+  // Aplicar filtro de supervisor si corresponde
+  if (filterInfo?.shouldFilterBySupervisor) {
+    query = query.eq('maintenance_requests.supervisor_id', filterInfo.userId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     serverLogger.error('Error al obtener pedidos en taller', { data: { error } });
@@ -58,17 +73,24 @@ export type MaintenanceOrderInWorkshopData = MaintenanceOrdersInWorkshopData[num
  * - 'date_confirmed': Ya confirmados (solo visualización)
  *
  * Ordenamiento: scheduled primero, luego date_confirmed, ambos por fecha ascendente
+ *
+ * FILTRO DE SUPERVISOR:
+ * - Usuarios con rol de sistema: ven TODOS los pedidos
+ * - Usuarios sin rol de sistema: solo ven pedidos cuya solicitud tiene supervisor_id = su user_id
  */
 export async function getMaintenanceOrdersPendingApproval() {
   const supabase = await supabaseServer();
 
-  const { data, error } = await supabase
+  // Obtener información del filtro de supervisor
+  const filterInfo = await getSupervisorFilterInfo();
+
+  let query = supabase
     .from('maintenance_orders')
     .select(
       `
       *,
       vehicles(id, domain, serie, intern_number, condition, vehicle_type:type(id, name)),
-      maintenance_requests(id, kilometer, created_at),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -86,6 +108,13 @@ export async function getMaintenanceOrdersPendingApproval() {
     .in('status', ['scheduled', 'date_confirmed'])
     .order('status', { ascending: false }) // scheduled (s) antes que date_confirmed (d) - desc porque s > d alfabéticamente
     .order('scheduled_date', { ascending: true });
+
+  // Aplicar filtro de supervisor si corresponde
+  if (filterInfo?.shouldFilterBySupervisor) {
+    query = query.eq('maintenance_requests.supervisor_id', filterInfo.userId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     serverLogger.error('Error al obtener pedidos pendientes de aprobación', { data: { error } });
@@ -171,17 +200,24 @@ export async function rejectMaintenanceOrderDate(orderId: string, rejectionReaso
 /**
  * Obtiene los pedidos de mantenimiento con fecha confirmada
  * Listos para aprobar entrada al taller
+ *
+ * FILTRO DE SUPERVISOR:
+ * - Usuarios con rol de sistema: ven TODOS los pedidos
+ * - Usuarios sin rol de sistema: solo ven pedidos cuya solicitud tiene supervisor_id = su user_id
  */
 export async function getMaintenanceOrdersDateConfirmed() {
   const supabase = await supabaseServer();
 
-  const { data, error } = await supabase
+  // Obtener información del filtro de supervisor
+  const filterInfo = await getSupervisorFilterInfo();
+
+  let query = supabase
     .from('maintenance_orders')
     .select(
       `
       *,
       vehicles(id, domain, serie, intern_number, type, condition, kilometer),
-      maintenance_requests(id, kilometer, created_at),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -198,6 +234,13 @@ export async function getMaintenanceOrdersDateConfirmed() {
     )
     .eq('status', 'date_confirmed')
     .order('scheduled_date', { ascending: true });
+
+  // Aplicar filtro de supervisor si corresponde
+  if (filterInfo?.shouldFilterBySupervisor) {
+    query = query.eq('maintenance_requests.supervisor_id', filterInfo.userId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     serverLogger.error('Error al obtener pedidos con fecha confirmada', { data: { error } });

@@ -12,15 +12,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatDateLong } from '@/features/Mantenimiento/utils/dateFormat';
 import { AlertTriangle, Loader2 } from 'lucide-react';
-import moment from 'moment';
-import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 import { useApproveWorkshopEntryFromRequest } from '../hooks/useMaintenanceRequests';
-
-moment.locale('es');
 
 interface EntradaTallerDialogProps {
   request: MaintenanceRequestData;
@@ -107,9 +104,7 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
             {maintenanceOrder?.scheduled_date && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Fecha programada:</span>
-                <span className="font-medium">
-                  {moment(maintenanceOrder.scheduled_date).format('dddd D [de] MMMM [de] YYYY')}
-                </span>
+                <span className="font-medium">{formatDateLong(maintenanceOrder.scheduled_date)}</span>
               </div>
             )}
             <div className="flex justify-between">

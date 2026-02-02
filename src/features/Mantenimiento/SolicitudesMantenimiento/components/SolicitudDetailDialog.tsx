@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import moment from 'moment';
+import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
 interface SolicitudDetailDialogProps {
@@ -40,9 +40,7 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalle de Solicitud de Mantenimiento</DialogTitle>
-          <DialogDescription>
-            Solicitud creada el {moment(request.created_at).format('DD/MM/YYYY HH:mm')}
-          </DialogDescription>
+          <DialogDescription>Solicitud creada el {formatDateTime(request.created_at)}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

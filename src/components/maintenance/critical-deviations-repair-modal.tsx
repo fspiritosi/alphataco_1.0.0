@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
-import { updateDeviationCommentsAndSupervisor } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
+import { createOrUpdateMaintenanceRequest } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -139,25 +139,30 @@ export function CriticalDeviationsRepairModal({
     setIsSubmitting(true);
 
     try {
-      // Construir los comentarios para actualizar
-      const comments = deviations.map((d) => ({
+      // Construir los desvíos con comentarios
+      const deviationsWithComments = deviations.map((d) => ({
         deviationId: d.id,
         comment: deviationComments[d.id]?.trim() || '',
       }));
 
-      logger.debug('Actualizando comentarios y supervisor', {
+      logger.debug('Creando/actualizando solicitud de mantenimiento', {
         data: {
           equipmentId,
           supervisorId: selectedSupervisorId,
-          commentsCount: comments.length,
+          deviationsCount: deviationsWithComments.length,
+          hasChecklistAnswerId: !!checklistAnswerId,
         },
       });
 
-      // Actualizar los comentarios de los desvíos y el supervisor de la solicitud
-      const result = await updateDeviationCommentsAndSupervisor({
+      // Crear o actualizar la solicitud de mantenimiento
+      const result = await createOrUpdateMaintenanceRequest({
         equipmentId,
         supervisorId: selectedSupervisorId,
-        comments,
+        deviations: deviationsWithComments,
+        checklistAnswerId,
+        employeeId,
+        userId,
+        kilometer,
       });
 
       if (!result.ok) {
@@ -166,7 +171,11 @@ export function CriticalDeviationsRepairModal({
         return;
       }
 
-      toast.success('Desvíos registrados correctamente', {
+      const message = result.created
+        ? 'Solicitud de mantenimiento creada correctamente'
+        : 'Solicitud actualizada correctamente';
+
+      toast.success(message, {
         description: `Se registraron ${deviations.length} desvío(s) para revisión del supervisor.`,
       });
 

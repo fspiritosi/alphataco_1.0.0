@@ -2,20 +2,26 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { CheckCircle, Eye, XCircle } from 'lucide-react';
-import moment from 'moment';
+import { CheckCircle, Eye, History, XCircle } from 'lucide-react';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
 interface ColumnsProps {
   onView: (request: MaintenanceRequestData) => void;
   onApprove: (request: MaintenanceRequestData) => void;
   onReject: (request: MaintenanceRequestData) => void;
+  onViewHistory: (request: MaintenanceRequestData) => void;
 }
 
-export function getColumns({ onView, onApprove, onReject }: ColumnsProps): ColumnDef<MaintenanceRequestData>[] {
+export function getColumns({
+  onView,
+  onApprove,
+  onReject,
+  onViewHistory,
+}: ColumnsProps): ColumnDef<MaintenanceRequestData>[] {
   return [
     {
       accessorKey: 'vehicles',
@@ -42,7 +48,7 @@ export function getColumns({ onView, onApprove, onReject }: ColumnsProps): Colum
       id: 'Fecha',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Solicitud" />,
       cell: ({ row }) => {
-        return moment(row.original.created_at).format('DD/MM/YYYY HH:mm');
+        return formatDateTime(row.original.created_at);
       },
     },
     {
@@ -132,6 +138,15 @@ export function getColumns({ onView, onApprove, onReject }: ColumnsProps): Colum
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => onView(request)} title="Ver detalle">
               <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onViewHistory(request)}
+              title="Ver historial"
+              className="text-blue-600 hover:text-blue-700"
+            >
+              <History className="h-4 w-4" />
             </Button>
             {isPending && (
               <PermissionGuard module="mantenimiento" tab="maintenance_requests" action="update">

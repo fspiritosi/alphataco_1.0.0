@@ -3,11 +3,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { formatDateShort } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { CheckCircle, Eye, Play } from 'lucide-react';
-import moment from 'moment';
+import { CheckCircle, Eye, History, Play } from 'lucide-react';
 import {
   WORK_ORDER_PRIORITY_LABELS,
   WORK_ORDER_PRIORITY_VARIANTS,
@@ -20,9 +20,15 @@ interface ColumnsProps {
   onViewDetail: (workOrder: WorkOrderRowData) => void;
   onStart?: (workOrder: WorkOrderRowData) => void;
   onComplete?: (workOrder: WorkOrderRowData) => void;
+  onViewHistory: (workOrder: WorkOrderRowData) => void;
 }
 
-export function getColumns({ onViewDetail, onStart, onComplete }: ColumnsProps): ColumnDef<WorkOrderRowData>[] {
+export function getColumns({
+  onViewDetail,
+  onStart,
+  onComplete,
+  onViewHistory,
+}: ColumnsProps): ColumnDef<WorkOrderRowData>[] {
   return [
     {
       accessorKey: 'orderNumber',
@@ -132,8 +138,8 @@ export function getColumns({ onViewDetail, onStart, onComplete }: ColumnsProps):
         const end = row.original.plannedEndDate;
         return (
           <div className="flex flex-col text-sm">
-            <span>{moment(start).format('DD/MM')}</span>
-            <span className="text-muted-foreground">al {moment(end).format('DD/MM')}</span>
+            <span>{formatDateShort(start)}</span>
+            <span className="text-muted-foreground">al {formatDateShort(end)}</span>
           </div>
         );
       },
@@ -179,6 +185,17 @@ export function getColumns({ onViewDetail, onStart, onComplete }: ColumnsProps):
             {/* Ver detalle - siempre visible */}
             <Button variant="ghost" size="icon" onClick={() => onViewDetail(workOrder)} title="Ver detalle">
               <Eye className="h-4 w-4" />
+            </Button>
+
+            {/* Ver historial */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onViewHistory(workOrder)}
+              title="Ver historial"
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <History className="h-4 w-4" />
             </Button>
 
             {/* Iniciar trabajo - solo en pending */}

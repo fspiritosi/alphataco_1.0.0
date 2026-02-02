@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateOnly, formatDateShort, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
@@ -420,20 +421,19 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                   <div>
                     <span className="text-muted-foreground">Planificado: </span>
                     <span>
-                      {moment(detail.plannedStartDate).format('DD/MM/YYYY')} -{' '}
-                      {moment(detail.plannedEndDate).format('DD/MM/YYYY')}
+                      {formatDateOnly(detail.plannedStartDate)} - {formatDateOnly(detail.plannedEndDate)}
                     </span>
                   </div>
                   {detail.actualStartDate && (
                     <div>
                       <span className="text-muted-foreground">Inicio real: </span>
-                      <span>{moment(detail.actualStartDate).format('DD/MM/YYYY HH:mm')}</span>
+                      <span>{formatDateTime(detail.actualStartDate)}</span>
                     </div>
                   )}
                   {detail.actualEndDate && (
                     <div>
                       <span className="text-muted-foreground">Fin real: </span>
-                      <span>{moment(detail.actualEndDate).format('DD/MM/YYYY HH:mm')}</span>
+                      <span>{formatDateTime(detail.actualEndDate)}</span>
                     </div>
                   )}
                   {detail.totalPausedTime && detail.totalPausedTime !== '00:00:00' && (
@@ -461,9 +461,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                   </div>
                   {detail.pauseReason && <p className="text-sm">{detail.pauseReason}</p>}
                   <div className="flex flex-col gap-1 mt-1">
-                    <p className="text-xs text-muted-foreground">
-                      Desde: {moment(detail.pausedAt).format('DD/MM/YYYY HH:mm')}
-                    </p>
+                    <p className="text-xs text-muted-foreground">Desde: {formatDateTime(detail.pausedAt)}</p>
                     {detail.pausedBy && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <User className="h-3 w-3" />
@@ -598,7 +596,8 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                                   )}
                                   {repair.completedAt && (
                                     <p className="text-xs text-muted-foreground">
-                                      {moment(repair.completedAt).format('DD/MM HH:mm')}
+                                      {formatDateShort(repair.completedAt)}{' '}
+                                      {formatDateTime(repair.completedAt, 'HH:mm')}
                                     </p>
                                   )}
                                 </div>
@@ -734,9 +733,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                   </div>
                   <p className="text-sm">{detail.cancellationReason}</p>
                   {detail.cancelledAt && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {moment(detail.cancelledAt).format('DD/MM/YYYY HH:mm')}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{formatDateTime(detail.cancelledAt)}</p>
                   )}
                 </div>
               )}

@@ -19,16 +19,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatDateForDB } from '@/features/Mantenimiento/utils/dateFormat';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Loader2, Wrench } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, Loader2, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { assignWorkshopToItemsBulk } from '../actions/actionsServer';
+import type { SectorOccupancy } from '../actions/actionsServer';
+import { assignWorkshopToItemsBulk, getSectorOccupancy } from '../actions/actionsServer';
 import { PLANIFICACION_QUERY_KEY } from '../hooks/usePlanificacion';
 import type { DesvioRowData } from './columns';
 
@@ -87,6 +89,19 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
   // Sectores filtrados por taller seleccionado
   const availableSectors = workshopId ? sectors.filter((s) => s.workshop_id === workshopId) : [];
 
+  // Query para obtener la ocupación de sectores cuando se selecciona un taller
+  const { data: sectorOccupancy = [], isLoading: isLoadingOccupancy } = useQuery({
+    queryKey: ['sector-occupancy', workshopId],
+    queryFn: () => getSectorOccupancy(workshopId),
+    enabled: !!workshopId,
+    staleTime: 30 * 1000, // 30 segundos
+  });
+
+  // Función para obtener la info de ocupación de un sector
+  const getOccupancyInfo = (sectorId: string): SectorOccupancy | undefined => {
+    return sectorOccupancy.find((s) => s.id === sectorId);
+  };
+
   // Handler para togglear tipo de reparación
   const handleToggleRepairType = (repairTypeId: string) => {
     setSelectedRepairTypeIds((prev) =>
@@ -123,8 +138,8 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
 
     setIsLoading(true);
     try {
-      const plannedStartDate = moment(startDate).format('YYYY-MM-DD');
-      const plannedEndDate = moment(endDate).format('YYYY-MM-DD');
+      const plannedStartDate = formatDateForDB(startDate);
+      const plannedEndDate = formatDateForDB(endDate);
 
       await assignWorkshopToItemsBulk({
         itemIds: desvios.map((d) => d.id),
@@ -233,27 +248,89 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
                 <Select
                   value={sectorId}
                   onValueChange={setSectorId}
-                  disabled={!workshopId || availableSectors.length === 0}
+                  disabled={!workshopId || availableSectors.length === 0 || isLoadingOccupancy}
                 >
                   <SelectTrigger id="sector-bulk">
                     <SelectValue
                       placeholder={
                         !workshopId
                           ? 'Seleccione taller primero'
-                          : availableSectors.length === 0
-                            ? 'Sin sectores disponibles'
-                            : 'Seleccionar sector (opcional)'
+                          : isLoadingOccupancy
+                            ? 'Cargando disponibilidad...'
+                            : availableSectors.length === 0
+                              ? 'Sin sectores disponibles'
+                              : 'Seleccionar sector (opcional)'
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableSectors.map((sector) => (
-                      <SelectItem key={sector.id} value={sector.id}>
-                        {sector.name}
-                      </SelectItem>
-                    ))}
+                    {availableSectors.map((sector) => {
+                      const occupancy = getOccupancyInfo(sector.id);
+                      const hasCapacity = occupancy?.maxCapacity != null;
+                      const isFull = hasCapacity && occupancy.currentOccupancy >= (occupancy.maxCapacity || 0);
+                      const available = hasCapacity ? (occupancy.maxCapacity || 0) - occupancy.currentOccupancy : null;
+
+                      return (
+                        <SelectItem key={sector.id} value={sector.id}>
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{sector.name}</span>
+                            {hasCapacity && (
+                              <Badge
+                                variant={isFull ? 'destructive' : available && available <= 2 ? 'warning' : 'secondary'}
+                                className="text-xs ml-2"
+                              >
+                                {occupancy.currentOccupancy}/{occupancy.maxCapacity}
+                                {isFull ? ' (Lleno)' : ` (${available} disp.)`}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
+                {sectorId &&
+                  (() => {
+                    const occupancy = getOccupancyInfo(sectorId);
+                    if (occupancy?.maxCapacity != null) {
+                      const available = (occupancy.maxCapacity || 0) - occupancy.currentOccupancy;
+                      const isOverCapacity = available <= 0;
+
+                      // En bulk, considerar cuántos items se van a asignar
+                      const willExceed = available < desvios.length;
+
+                      if (isOverCapacity) {
+                        return (
+                          <div className="flex items-center gap-2 p-2 mt-1 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                            <p className="text-xs text-amber-700 dark:text-amber-400">
+                              <span className="font-medium">Aviso:</span> El sector está al límite de su capacidad (
+                              {occupancy.currentOccupancy}/{occupancy.maxCapacity}). Puede continuar con la asignación.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      if (willExceed) {
+                        return (
+                          <div className="flex items-center gap-2 p-2 mt-1 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                            <p className="text-xs text-amber-700 dark:text-amber-400">
+                              <span className="font-medium">Aviso:</span> Hay {available} cupos disponibles pero se
+                              asignarán {desvios.length} items. Puede continuar con la asignación.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <p className="text-xs text-muted-foreground">
+                          Disponibilidad: {available} de {occupancy.maxCapacity} cupos disponibles
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
               </div>
 
               {/* Tipos de Reparación */}

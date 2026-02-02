@@ -33,18 +33,6 @@ export const supabaseServer = async () => {
           }
         }
 
-        const errorData = {
-          method,
-          url,
-          status: response.status,
-          statusText: response.statusText,
-          responseBody,
-          requestBody: requestBody ? String(requestBody).substring(0, 1000) : undefined,
-          timestamp: new Date().toISOString(),
-        };
-
-        // supabaseLogger.error('Supabase Server Error', { data: errorData });
-
         // Enviar error a PostHog
         const posthog = getPostHogServer();
 

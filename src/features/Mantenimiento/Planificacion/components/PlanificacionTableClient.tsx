@@ -97,6 +97,12 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
           // Orden de trabajo asociada
           workOrderId: workOrder?.id || (item as any).work_order_id || null,
           workOrderNumber: workOrder?.order_number || null,
+          workOrderStatus: workOrder?.status || null,
+          workOrderPriority: workOrder?.priority || null,
+          workOrderWorkshopId: workOrder?.workshop_id || null,
+          workOrderWorkshopName: workOrder?.workshops?.name || null,
+          workOrderSectorId: workOrder?.sector_id || null,
+          workOrderSectorName: workOrder?.workshop_sectors?.name || null,
         });
       });
     });

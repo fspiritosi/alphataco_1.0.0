@@ -692,6 +692,10 @@ export function NormalizedChecklistForm({
   const [currentEquipmentId, setCurrentEquipmentId] = useState<string | undefined>(defaultEquipmentId);
   const [createdAnswerId, setCreatedAnswerId] = useState<string | null>(null);
 
+  // Estado para validación de kilometraje mínimo
+  const [minKilometer, setMinKilometer] = useState<number | null>(null);
+  const [kilometerError, setKilometerError] = useState<string | null>(null);
+
   // Estado para manejo de enganche (COD-290)
   const [selectedHitchEquipment, setSelectedHitchEquipment] = useState<string | null>(defaultHitchEquipmentId || null);
   const [showHitchSelector, setShowHitchSelector] = useState(false);
@@ -801,6 +805,31 @@ export function NormalizedChecklistForm({
     checkEquipmentHitch();
   }, [selectedEquipmentId, readOnly, defaultHitchEquipmentId]);
 
+  // Auto-poblar kilometraje cuando se selecciona un equipo
+  useEffect(() => {
+    if (!selectedEquipmentId || readOnly) {
+      return;
+    }
+
+    const selectedEquipment = equipments.find((eq) => eq.value === selectedEquipmentId);
+    if (selectedEquipment) {
+      const equipmentKilometer = selectedEquipment.kilometer;
+
+      // Guardar el kilometraje mínimo para validación
+      const kilometerNumber = equipmentKilometer ? parseInt(equipmentKilometer, 10) : null;
+      setMinKilometer(isNaN(kilometerNumber!) ? null : kilometerNumber);
+
+      // Auto-poblar el campo de kilometraje con el valor actual del equipo
+      if (equipmentKilometer) {
+        form.setValue('kilometraje', equipmentKilometer);
+        // Limpiar cualquier error previo
+        setKilometerError(null);
+      }
+    } else {
+      setMinKilometer(null);
+    }
+  }, [selectedEquipmentId, equipments, form, readOnly]);
+
   // Función para abrir el selector de enganche y cargar equipos compatibles
   const handleOpenHitchSelector = async () => {
     if (!selectedEquipmentId) {
@@ -838,6 +867,24 @@ export function NormalizedChecklistForm({
   const onSubmit = async (data: z.infer<typeof schema>) => {
     setIsSubmitting(true);
     setCriticalItemsFailed([]);
+    setKilometerError(null);
+
+    // Validar que el kilometraje no sea menor al kilometraje actual del equipo
+    if (minKilometer !== null && data.kilometraje) {
+      const enteredKilometer = parseInt(data.kilometraje, 10);
+      if (!isNaN(enteredKilometer) && enteredKilometer < minKilometer) {
+        setKilometerError(
+          `El kilometraje ingresado (${enteredKilometer.toLocaleString('es-AR')} km) no puede ser menor al kilometraje actual del equipo (${minKilometer.toLocaleString('es-AR')} km)`
+        );
+        setIsSubmitting(false);
+        // Mostrar toast de error
+        const { toast } = await import('sonner');
+        toast.error('Error de validación', {
+          description: `El kilometraje no puede ser menor a ${minKilometer.toLocaleString('es-AR')} km`,
+        });
+        return;
+      }
+    }
 
     try {
       // NUEVO FLUJO: Detectar TODOS los items con valor "M" (no solo los críticos)
@@ -1286,11 +1333,33 @@ export function NormalizedChecklistForm({
                       name="kilometraje"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Kilometraje</FormLabel>
+                          <FormLabel>
+                            Kilometraje
+                            {minKilometer !== null && !readOnly && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                (mín: {minKilometer.toLocaleString('es-AR')} km)
+                              </span>
+                            )}
+                          </FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Kilometraje actual" disabled={readOnly} type="number" />
+                            <Input
+                              {...field}
+                              placeholder="Kilometraje actual"
+                              disabled={readOnly}
+                              type="number"
+                              min={minKilometer ?? undefined}
+                              className={kilometerError ? 'border-destructive' : ''}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                // Limpiar error al cambiar el valor
+                                if (kilometerError) {
+                                  setKilometerError(null);
+                                }
+                              }}
+                            />
                           </FormControl>
                           <FormMessage />
+                          {kilometerError && <p className="text-sm font-medium text-destructive">{kilometerError}</p>}
                         </FormItem>
                       )}
                     />

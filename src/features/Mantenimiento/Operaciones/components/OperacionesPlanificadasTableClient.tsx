@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -27,6 +28,7 @@ interface OperacionesPlanificadasTableClientProps {
 export function OperacionesPlanificadasTableClient({ initialData }: OperacionesPlanificadasTableClientProps) {
   const [selectedOperation, setSelectedOperation] = useState<MaintenanceOperationData | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [historyOperation, setHistoryOperation] = useState<MaintenanceOperationData | null>(null);
 
   // useQuery con initialData para refetching/invalidacion
   const { data: operations } = useQuery({
@@ -60,10 +62,19 @@ export function OperacionesPlanificadasTableClient({ initialData }: OperacionesP
     setShowDetail(false);
   };
 
+  const handleViewHistory = (operation: MaintenanceOperationData) => {
+    setHistoryOperation(operation);
+  };
+
+  const handleCloseHistory = () => {
+    setHistoryOperation(null);
+  };
+
   const columns = useMemo(
     () =>
       getReadonlyColumns({
         onView: handleView,
+        onViewHistory: handleViewHistory,
       }),
     []
   );
@@ -104,6 +115,14 @@ export function OperacionesPlanificadasTableClient({ initialData }: OperacionesP
       {selectedOperation && showDetail && (
         <OperacionDetailDialog operation={selectedOperation} open={true} onClose={handleCloseDialog} />
       )}
+
+      <ActivityHistoryModal
+        open={!!historyOperation}
+        onClose={handleCloseHistory}
+        maintenanceOrderId={historyOperation?.id}
+        maintenanceRequestId={historyOperation?.maintenance_requests?.id}
+        title="Historial del Pedido"
+      />
     </>
   );
 }

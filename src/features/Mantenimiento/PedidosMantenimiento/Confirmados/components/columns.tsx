@@ -2,21 +2,24 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye, LogIn } from 'lucide-react';
+import { Eye, History, LogIn } from 'lucide-react';
 import moment from 'moment';
 import type { MaintenanceOrderData } from '../../actions/actionsServer';
 
 interface ColumnsConfirmadosProps {
   onView: (order: MaintenanceOrderData) => void;
   onApproveWorkshopEntry: (order: MaintenanceOrderData) => void;
+  onViewHistory: (order: MaintenanceOrderData) => void;
 }
 
 export function getColumnsConfirmados({
   onView,
   onApproveWorkshopEntry,
+  onViewHistory,
 }: ColumnsConfirmadosProps): ColumnDef<MaintenanceOrderData>[] {
   return [
     {
@@ -44,7 +47,7 @@ export function getColumnsConfirmados({
       id: 'FechaAprobacion',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Aprobación" />,
       cell: ({ row }) => {
-        return moment(row.original.created_at).format('DD/MM/YYYY HH:mm');
+        return formatDateTime(row.original.created_at);
       },
     },
     {
@@ -69,7 +72,8 @@ export function getColumnsConfirmados({
         const date = row.original.scheduled_date;
         if (!date) return <span className="text-muted-foreground">-</span>;
 
-        const scheduledDate = moment(date);
+        // Usar moment.utc para fechas tipo 'date' (YYYY-MM-DD) para evitar desfase
+        const scheduledDate = moment.utc(date);
         const today = moment().startOf('day');
         const isToday = scheduledDate.isSame(today, 'day');
         const isPast = scheduledDate.isBefore(today);
@@ -116,9 +120,18 @@ export function getColumnsConfirmados({
         const order = row.original;
 
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={() => onView(order)} title="Ver detalle">
               <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onViewHistory(order)}
+              title="Ver historial"
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <History className="h-4 w-4" />
             </Button>
             <PermissionGuard module="mantenimiento" tab="pedidos_confirmados" action="update">
               <Button
