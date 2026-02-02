@@ -2,3 +2,7 @@
 .branches
 .temp
 .env
+
+# Edge Functions secrets
+functions/.env.local
+functions/.env

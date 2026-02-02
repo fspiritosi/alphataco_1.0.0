@@ -116,7 +116,7 @@ export default function QrActionSelector({
       <Card className="w-full max-w-md space-y-6 rounded-xl bg-white p-6 py-0 shadow-lg">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
-            <Image src="/gh_logo.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
+            <Image src="/gh_logo.png" alt="Logo de Grupo Horizonte" width={240} height={60} className="h-15" />
           </div>
           <CardDescription className="text-center text-gray-600">
             Sistema de Checklist y Mantenimiento de Equipos

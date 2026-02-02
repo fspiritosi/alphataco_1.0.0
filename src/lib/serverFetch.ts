@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
+import { getCompanyId } from './company-config';
 import { supabaseServer } from './supabase/server';
-// import { supabase } from '../../supabase/supabase';
 
 export async function getCompany() {
   const supabase = await supabaseServer();
@@ -20,7 +20,8 @@ export async function getCompany() {
 export async function getDocumentsEmployees() {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
-  const actualCompany = cookieStore.get('actualCompanyId')?.value;
+  // Usar getCompanyId para manejar fallback a empresa por defecto
+  const actualCompany = getCompanyId(cookieStore.get('actualComp')?.value);
   let { data, error } = await supabase
     .from('documents_employees')
     .select(
@@ -42,7 +43,7 @@ export async function getDocumentsEmployees() {
 export async function getDocumentsEquipment() {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
-  const actualCompany = cookieStore.get('actualCompanyId')?.value;
+  const actualCompany = getCompanyId(cookieStore.get('actualComp')?.value);
   let { data, error } = await supabase
     .from('documents_equipment')
     .select(
@@ -59,11 +60,9 @@ export async function getDocumentsEquipment() {
 
 export async function getEmployees() {
   const cookieStore = await cookies();
-  const fisrtId = cookieStore.get('actualCompanyId')?.value;
-  const secobndId = await getCompany();
   const supabase = await supabaseServer();
 
-  const actualCompany = cookieStore.get('actualCompanyId')?.value;
+  const actualCompany = getCompanyId(cookieStore.get('actualComp')?.value);
   let { data, error } = await supabase
     .from('employees')
     .select(

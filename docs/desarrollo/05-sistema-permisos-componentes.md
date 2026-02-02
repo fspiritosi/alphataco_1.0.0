@@ -374,13 +374,9 @@ export default async function EmployeesPage() {
 ```tsx
 'use server';
 
-import { requirePermissionServer } from '@/features/Permissions';
 import { supabaseServer } from '@/lib/supabase/server';
 
 export async function deleteEmployee(employeeId: string) {
-  // Lanza error si no tiene permiso
-  await requirePermissionServer('empleados', 'employees', 'delete');
-
   // Proceder con la eliminación
   const supabase = await supabaseServer();
   const { error } = await supabase.from('employees').delete().eq('id', employeeId);
@@ -633,11 +629,8 @@ if (hasPermission) {
 }
 ```
 
-#### requirePermissionServer
-
 ```typescript
 // Lanza error si no tiene permiso
-await requirePermissionServer('empleados', 'employees', 'delete');
 
 // Si llega aquí, tiene permiso
 await deleteEmployee(id);

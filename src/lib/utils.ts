@@ -407,3 +407,49 @@ export const formatSimpleVehiculesDocuments = (
     serie: doc.vehicles?.serie,
   };
 };
+
+/**
+ * Mapea un equipo al formato esperado por NormalizedChecklistForm
+ */
+export const mapEquipmentToChecklistFormat = (
+  equipment: Awaited<ReturnType<typeof import('@/app/server/GET/actions').fetchAllEquipment>>[number]
+) => {
+  // Manejar subType que puede ser un objeto expandido o null
+  let subTypeId: string | null = null;
+  if (equipment.subType) {
+    if (typeof equipment.subType === 'object' && 'id' in equipment.subType) {
+      subTypeId = equipment.subType.id as string;
+    } else if (typeof equipment.subType === 'string') {
+      subTypeId = equipment.subType;
+    }
+  }
+
+  // Manejar type que puede ser un objeto expandido
+  let typeId: string | null = null;
+  if (equipment.type) {
+    if (typeof equipment.type === 'object' && 'id' in equipment.type) {
+      typeId = String(equipment.type.id);
+    } else if (typeof equipment.type === 'string') {
+      typeId = equipment.type;
+    } else if (typeof equipment.type === 'number') {
+      typeId = String(equipment.type);
+    }
+  }
+
+  return {
+    label: equipment.domain
+      ? `${equipment.domain} - ${equipment.intern_number || '(Sin información)'}`
+      : `${equipment.serie} - ${equipment.intern_number || '(Sin información)'}`,
+    value: equipment.id,
+    domain: equipment.domain,
+    serie: equipment.serie,
+    kilometer: equipment.kilometer ?? '0',
+    model: equipment.model?.name || 'N/A',
+    brand: equipment.brand?.name || 'N/A',
+    intern_number: equipment.intern_number || '',
+    sub_type_id: subTypeId,
+    type_id: typeId,
+    type_name: equipment.type?.name || 'N/A',
+    sub_type_name: equipment.subType?.name || 'N/A',
+  };
+};

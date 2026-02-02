@@ -21,6 +21,7 @@ import {
   Trash2,
   Truck,
   Users,
+  UsersRound,
   Wrench,
 } from 'lucide-react';
 import { useMemo } from 'react';
@@ -35,6 +36,7 @@ const ACTION_ICONS = {
   create: Plus,
   update: Pencil,
   delete: Trash2,
+  view_all_requests: UsersRound,
 };
 
 const ACTION_LABELS = {
@@ -42,6 +44,7 @@ const ACTION_LABELS = {
   create: 'Crear',
   update: 'Editar',
   delete: 'Eliminar',
+  view_all_requests: 'Ver Todas',
 };
 
 const ACTION_COLORS = {
@@ -49,6 +52,7 @@ const ACTION_COLORS = {
   create: 'text-green-600',
   update: 'text-yellow-600',
   delete: 'text-red-600',
+  view_all_requests: 'text-purple-600',
 };
 
 const MODULE_ICONS: Record<string, any> = {

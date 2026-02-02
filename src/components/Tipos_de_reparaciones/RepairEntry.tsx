@@ -1,6 +1,19 @@
+/**
+ * @deprecated Este componente está DEPRECADO.
+ * Fue reemplazado por NuevoPedidoForm que crea maintenance_orders directamente
+ * sin pasar por el flujo de repair_solicitudes.
+ *
+ * El nuevo componente se encuentra en:
+ * src/features/Mantenimiento/NuevoPedido/components/NuevoPedidoForm.tsx
+ *
+ * Este archivo se mantiene temporalmente por compatibilidad con:
+ * - RepairEntryWrapper.tsx (también deprecado)
+ * - RepairTypes.tsx (tab "Nueva Solicitud" - usar NuevoPedidoTabContent en su lugar)
+ *
+ * TODO: Eliminar este archivo cuando se complete la migración de todos los lugares que lo usan.
+ */
 'use client';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -746,7 +759,7 @@ export default function RepairNewEntry({
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
-                                disabled={limittedEquipment ? false : allRepairs?.length > 0}
+                                disabled={limittedEquipment || default_equipment_id ? true : allRepairs?.length > 0}
                                 variant="outline"
                                 role="combobox"
                                 className={cn('justify-between', !field.value && 'text-muted-foreground')}
@@ -945,17 +958,16 @@ export default function RepairNewEntry({
                     </Popover>
                   </div>
                 </div>
-                <div className="flex gap-4 mt-2 justify-end pr-4">
-                  <Button type="submit" variant={'outline'}>
-                    {' '}
-                    Agregar reparacion
+                <div className="flex gap-4 mt-4 pt-4 border-t justify-end pr-4 mb-2">
+                  <Button type="submit" variant={'outline'} className="w-full sm:w-auto">
+                    Agregar reparación
                   </Button>
                 </div>
               </form>
             </Form>
           </div>
         </ResizablePanel>
-        <ResizableHandle withHandle className="hidden sm:flex" />
+        <ResizableHandle withHandle className="hidden md:flex" />
         <ResizablePanel className="pl-6 min-w-[600px] hidden sm:flex w-full" defaultSize={70}>
           <div className="flex flex-col gap-4 w-full ">
             <CardTitle>Se registraran las siguientes reparaciones</CardTitle>
@@ -990,7 +1002,6 @@ export default function RepairNewEntry({
         </ResizablePanel>
         <ResizablePanel className=" min-w-[250px] sm:hidden" defaultSize={70}>
           <div>
-            <Separator></Separator>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 {/* <CardTitle className="text-2xl font-bold">{repair?.name}</CardTitle> */}
@@ -999,117 +1010,113 @@ export default function RepairNewEntry({
               </Badge> */}
               </CardHeader>
               <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
-                <div className="flex p-2  gap-3 flex-wrap">
+                <div className="flex p-2 gap-3 flex-wrap">
                   {vehicle?.picture && (
-                    <div className="relative w-24 h-24 rounded-md overflow-hidden">
+                    <div className="relative w-20 h-20 rounded-md overflow-hidden shrink-0">
                       <Image
                         src={vehicle?.picture}
-                        alt={`Vehicle ${vehicle?.domain}`}
-                        layout="fill"
-                        objectFit="cover"
+                        alt={`Vehicle ${vehicle?.domain || vehicle?.serie}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
                     </div>
                   )}
-                  <div>
-                    <p className="text-sm font-medium">Vehiculo: {vehicle?.domain}</p>
-                    <p className="text-sm text-muted-foreground">Numero interno: {vehicle?.intern_number}</p>
-                    <p className="text-sm text-muted-foreground">Año: {vehicle?.year}</p>
-                    <p className="text-sm text-muted-foreground">Condicion: {vehicle?.condition}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">{vehicle?.domain || vehicle?.serie || 'Sin identificador'}</p>
+                    {vehicle?.types_of_vehicles?.name && (
+                      <p className="text-xs text-muted-foreground mt-1">{vehicle.types_of_vehicles.name}</p>
+                    )}
+                    {vehicle?.kilometer && <p className="text-xs text-muted-foreground">{vehicle.kilometer} km</p>}
                   </div>
-                  <ul className="w-full">
-                    {allRepairs?.map((field, index) => {
-                      const repair = tipo_de_mantenimiento.find((e) => e.id === field.repair);
-                      const maintenance = tipo_de_mantenimiento.find((e) => e.id === field.repair);
-                      const priority = criticidad.find((priority) => priority.value === repair?.criticity);
-                      const badgeVariant =
-                        repair?.criticity === 'Baja'
-                          ? 'success'
-                          : repair?.criticity === 'Media'
-                            ? 'yellow'
-                            : ('destructive' as
-                                | 'success'
-                                | 'default'
-                                | 'destructive'
-                                | 'outline'
-                                | 'secondary'
-                                | 'yellow'
-                                | 'red'
-                                | null
-                                | undefined);
-                      return (
-                        <Accordion type="single" collapsible key={field.provicionalId}>
-                          <AccordionItem value="item-1">
-                            <AccordionTrigger className="active:no-underline focus:no-underline">
-                              {' '}
-                              <div className="flex flex-row items-center w-full justify-between space-y-0 pb-2 mr-2">
-                                <div className="flex gap-2">
-                                  <CardDescription>{repair?.name}</CardDescription>
-                                  <Badge variant={badgeVariant} className="font-bold">
-                                    {' '}
-                                    {priority?.icon && <priority.icon className="mr-2 h-4 w-4 font-bold" />}
-                                    {repair?.criticity}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <li key={field.provicionalId}>
-                                <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
-                                  <div className="flex flex-col ">
-                                    <div className="flex items-center">
-                                      <FiTool className="mr-2 h-4 w-4" />
-                                      <span className="text-sm">
-                                        Tipo de mantenimiento: {maintenance?.type_of_maintenance}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <FiTool className="mr-2 h-4 w-4" />
-                                      <span className="text-sm">Nombre: {maintenance?.name}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Botón para abrir modal de detalles */}
-                                  <div className="flex flex-col gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleOpenDetailsModal(field.provicionalId)}
-                                      className="w-full"
-                                    >
-                                      {field.description ? 'Editar detalles' : 'Agregar detalles'}
-                                    </Button>
-
-                                    {/* Indicadores de estado */}
-                                    <div className="flex gap-2">
-                                      {field.description && (
-                                        <Badge variant="success" className="text-xs">
-                                          ✓ Descripción
-                                        </Badge>
-                                      )}
-                                      {field.user_images.some((img) => img !== null) && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          {field.user_images.filter((img) => img !== null).length} imágenes
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <Button
-                                    variant={'destructive'}
-                                    size={'sm'}
-                                    onClick={() => handleDeleteRepair(field.provicionalId)}
-                                  >
-                                    Eliminar
-                                  </Button>
-                                </CardContent>
-                              </li>
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                      );
-                    })}
-                  </ul>
                 </div>
+                <Separator className="my-2" />
+                <ul className="w-full space-y-3 p-2 pb-0">
+                  {allRepairs?.map((field, index) => {
+                    const repair = tipo_de_mantenimiento.find((e) => e.id === field.repair);
+                    const maintenance = tipo_de_mantenimiento.find((e) => e.id === field.repair);
+                    const priority = criticidad.find((priority) => priority.value === repair?.criticity);
+                    const badgeVariant =
+                      repair?.criticity === 'Baja'
+                        ? 'success'
+                        : repair?.criticity === 'Media'
+                          ? 'yellow'
+                          : ('destructive' as
+                              | 'success'
+                              | 'default'
+                              | 'destructive'
+                              | 'outline'
+                              | 'secondary'
+                              | 'yellow'
+                              | 'red'
+                              | null
+                              | undefined);
+                    return (
+                      <li key={field.provicionalId}>
+                        <Card className="border-l-4 border-l-primary">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <CardTitle className="text-base font-semibold line-clamp-2">{repair?.name}</CardTitle>
+                                <Badge variant={badgeVariant} className="mt-2 font-medium">
+                                  {priority?.icon && <priority.icon className="mr-1.5 h-3.5 w-3.5" />}
+                                  {repair?.criticity}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pt-0 space-y-3">
+                            {/* Información siempre visible */}
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <FiTool className="h-4 w-4 shrink-0" />
+                                <span>Tipo de mantenimiento: {maintenance?.type_of_maintenance || '-'}</span>
+                              </div>
+                            </div>
+
+                            {/* Botones de acción */}
+                            <div className="flex flex-col gap-2 pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenDetailsModal(field.provicionalId)}
+                                className="w-full"
+                              >
+                                {field.description ? 'Editar detalles' : 'Agregar detalles'}
+                              </Button>
+
+                              {/* Indicadores de estado */}
+                              {(field.description || field.user_images.some((img) => img !== null)) && (
+                                <div className="flex gap-2 flex-wrap">
+                                  {field.description && (
+                                    <Badge variant="success" className="text-xs">
+                                      ✓ Descripción
+                                    </Badge>
+                                  )}
+                                  {field.user_images.some((img) => img !== null) && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {field.user_images.filter((img) => img !== null).length} imagen
+                                      {field.user_images.filter((img) => img !== null).length > 1 ? 'es' : ''}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteRepair(field.provicionalId)}
+                                className="w-full"
+                              >
+                                Eliminar
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </li>
+                    );
+                  })}
+                </ul>
               </CardContent>
             </Card>
 

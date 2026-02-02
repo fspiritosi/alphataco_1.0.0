@@ -1,12 +1,20 @@
-import { fetchCustomFormById, fetchFormsAnswersByFormId } from '@/app/server/GET/actions';
+import {
+  fetchChecklistAnswersByTemplateId,
+  fetchChecklistTemplateById,
+  fetchCustomFormById,
+  fetchFormsAnswersByFormId,
+} from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
+import { ChecklistPDFButton } from '@/components/ChecklistPDFButton';
 import { PDFPreviewDialog } from '@/components/pdf-preview-dialog';
 import { TransporteSPANAYCHKHYS01 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS01';
 import { TransporteSPANAYCHKHYS03 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS03';
 import { TransporteSPANAYCHKHYS04 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS04';
 import { buttonVariants } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import CheckListAnwersTable from '../components/CheckListAnwersTable';
+import { NormalizedChecklistAnswersTable } from '../components/NormalizedChecklistAnswersTable';
 
 const renderForm = (activeFormType: string) => {
   switch (activeFormType) {
@@ -24,8 +32,68 @@ const renderForm = (activeFormType: string) => {
 export default async function FormDetailPage({ params }: { params: Promise<{ id: string }> }) {
   // En Next.js 15+, params es una Promise, necesitamos hacer await
   const resolvedParams = await params;
-  const answers = await fetchFormsAnswersByFormId(resolvedParams.id);
+
+  // Intentar obtener el checklist desde la nueva estructura normalizada
+  const checklistTemplate = await fetchChecklistTemplateById(resolvedParams.id);
+
+  // Si es un checklist normalizado
+  if (checklistTemplate) {
+    const formName = checklistTemplate.name;
+    const formDescription = checklistTemplate.description || '';
+    const answers = await fetchChecklistAnswersByTemplateId(resolvedParams.id);
+    const sections = (checklistTemplate.checklist_template_sections || []).map((section: any) => ({
+      id: section.id,
+      code: section.code,
+      name: section.name,
+      order_index: section.order_index,
+      checklist_template_items: (section.checklist_template_items || []).map((item: any) => ({
+        id: item.id,
+        code: item.code,
+        label: item.label,
+        order_index: item.order_index,
+        is_critical: item.is_critical || false,
+        requires_side_validation: item.requires_side_validation || false,
+        input_type: item.input_type || null,
+      })),
+    }));
+
+    return (
+      <Card className="px-6">
+        <div className="flex gap-4 mb-6">
+          <BackButton />
+          <ChecklistPDFButton templateName={formName} templateCode={checklistTemplate.code} sections={sections} />
+          <Link className={buttonVariants({ variant: 'default' })} href={`/dashboard/forms/${resolvedParams.id}/new`}>
+            Nueva respuesta
+          </Link>
+        </div>
+
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold">{formName}</h1>
+          {formDescription && <p className="text-muted-foreground">{formDescription}</p>}
+        </div>
+
+        <NormalizedChecklistAnswersTable answers={answers} templateId={resolvedParams.id} />
+      </Card>
+    );
+  }
+
+  // Si es un formulario de la estructura antigua
   const formInfo = await fetchCustomFormById(resolvedParams.id);
+
+  if (!formInfo || formInfo.length === 0) {
+    return (
+      <div className="px-6">
+        <div className="flex gap-4 mb-6">
+          <BackButton />
+        </div>
+        <div className="p-4 border rounded-lg">
+          <p className="text-red-600">No se encontró el formulario con ID: {resolvedParams.id}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const answers = await fetchFormsAnswersByFormId(resolvedParams.id);
   const formName = formInfo[0].name;
   const formDescription = (answers[0]?.form_id?.form as any)?.description ?? '';
 

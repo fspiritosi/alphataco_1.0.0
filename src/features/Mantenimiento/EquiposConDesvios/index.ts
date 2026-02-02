@@ -1,0 +1,1 @@
+export { EquiposConDesviosTabContent } from './EquiposConDesviosTabContent';

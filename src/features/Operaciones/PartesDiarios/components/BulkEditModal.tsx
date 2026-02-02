@@ -13,28 +13,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-  checkDailyReportExists,
-  createDailyReport,
-  createDailyReportRow,
-  updateDailyReportRowBody,
-  updateDailyReportRowStatus,
-} from '../actions/actions';
+import { toast } from 'sonner';
+import { checkDailyReportExists, createDailyReport, createDailyReportRow } from '../actions/actions';
+import { useUpdateDailyReportRowBody, useUpdateDailyReportRowStatus } from '../hooks/useDailyReportMutations';
 import { DailyReportRow } from './DayliReportDetailTable';
+
+const logger = new Logger('BulkEditModal');
 
 interface BulkEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedRows: DailyReportRow[];
-  onSuccess?: (updatedRowIds?: string[]) => void; // Callback para refrescar la tabla después de actualizar
+  dailyReportId: string; // Necesario para invalidar la query correcta
+  onSuccess?: (updatedRowIds?: string[]) => void; // Callback para limpiar selección después de actualizar
 }
 
-export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: BulkEditModalProps) {
+export function BulkEditModal({ isOpen, onClose, selectedRows, dailyReportId, onSuccess }: BulkEditModalProps) {
+  // Hooks de mutación para actualizar daily report rows
+  const updateRowBodyMutation = useUpdateDailyReportRowBody(dailyReportId);
+  const updateRowStatusMutation = useUpdateDailyReportRowStatus(dailyReportId);
   // Estados para Jornadas 24hs
   const [status24hs, setStatus24hs] = useState<string>('');
   const [cancelReason24hs, setCancelReason24hs] = useState<string>('');
@@ -174,38 +176,22 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
   const handleSave = async (tipoSeccion: '24hs' | 'completar-diurno' | 'completar-nocturno' | 'otras') => {
     // Validar según la sección
     if (tipoSeccion === '24hs' && !isFormValid24hs()) {
-      toast({
-        title: 'Error',
-        description: 'Por favor completa todos los campos requeridos para Jornadas 24hs.',
-        variant: 'destructive',
-      });
+      toast.error('Por favor completa todos los campos requeridos para Jornadas 24hs.');
       return;
     }
 
     if (tipoSeccion === 'completar-diurno' && !isFormValidCompletarDiurno()) {
-      toast({
-        title: 'Error',
-        description: 'Por favor completa todos los campos requeridos para Completar Diurno.',
-        variant: 'destructive',
-      });
+      toast.error('Por favor completa todos los campos requeridos para Completar Diurno.');
       return;
     }
 
     if (tipoSeccion === 'completar-nocturno' && !isFormValidCompletarNocturno()) {
-      toast({
-        title: 'Error',
-        description: 'Por favor completa todos los campos requeridos para Completar Nocturno.',
-        variant: 'destructive',
-      });
+      toast.error('Por favor completa todos los campos requeridos para Completar Nocturno.');
       return;
     }
 
     if (tipoSeccion === 'otras' && !isFormValidOtras()) {
-      toast({
-        title: 'Error',
-        description: 'Por favor completa todos los campos requeridos para Otras Jornadas.',
-        variant: 'destructive',
-      });
+      toast.error('Por favor completa todos los campos requeridos para Otras Jornadas.');
       return;
     }
 
@@ -274,11 +260,11 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
 
           //  { status: 'completar_nocturno', completed_night: true }
 
-          await updateDailyReportRowBody(row.id, rowData);
+          await updateRowBodyMutation.mutateAsync({ id: row.id, data: rowData });
         }
       } else {
         // Para otros estados: actualiza status masivamente
-        await updateDailyReportRowStatus(selectedRowsIds, updateData.status);
+        await updateRowStatusMutation.mutateAsync({ ids: selectedRowsIds, status: updateData.status });
       }
 
       // Si es reprogramación, también crear copias en la nueva fecha
@@ -319,10 +305,7 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
         await createDailyReportRow(newRows);
       }
 
-      toast({
-        title: 'Éxito',
-        description: `Se actualizó el estado de ${registrosAActualizar.length} registros a "${statusToUse}".`,
-      });
+      toast.success(`Se actualizó el estado de ${registrosAActualizar.length} registros a "${statusToUse}".`);
 
       // Marcar sección como procesada
       setSeccionesProcesadas((prev) => new Set(prev).add(tipoSeccion));
@@ -361,12 +344,8 @@ export function BulkEditModal({ isOpen, onClose, selectedRows, onSuccess }: Bulk
         onClose();
       }
     } catch (error) {
-      console.error('Error al actualizar registros:', error);
-      toast({
-        title: 'Error',
-        description: 'Ocurrió un error al actualizar los registros.',
-        variant: 'destructive',
-      });
+      logger.error('Error al actualizar registros', { data: { error } });
+      toast.error('Ocurrió un error al actualizar los registros.');
     } finally {
       setGuardandoSeccion(null);
     }

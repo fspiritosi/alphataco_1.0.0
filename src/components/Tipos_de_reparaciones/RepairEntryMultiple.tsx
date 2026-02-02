@@ -1,3 +1,16 @@
+/**
+ * @deprecated Este componente está DEPRECADO.
+ * Fue reemplazado por NuevoPedidoForm que crea maintenance_orders directamente
+ * sin pasar por el flujo de repair_solicitudes.
+ *
+ * El nuevo componente se encuentra en:
+ * src/features/Mantenimiento/NuevoPedido/components/NuevoPedidoForm.tsx
+ *
+ * La funcionalidad de "Carga Múltiple" ya no existe - ahora se crean pedidos
+ * de mantenimiento directamente desde NuevoPedido.
+ *
+ * TODO: Eliminar este archivo cuando se complete la migración.
+ */
 'use client';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';

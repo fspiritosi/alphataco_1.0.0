@@ -266,7 +266,7 @@ declare global {
     type: VehicleType; // Anteriormente: type_of_vehicle
     types_of_vehicles: TypeOfVehicle; // Anteriormente: type_of_vehicle
     contractor_equipment: contractor_equipmentWithContractor[]; // Anteriormente: contractor_equipment
-    subType: SubType;
+    subType: SubType | null; // Puede ser null si el equipo no tiene subtipo
   }
   interface ContractorEmployeeWithCustomer extends Omit<ContractorEmployee, 'customers'> {
     // Anteriormente: ContractorWithCustomers

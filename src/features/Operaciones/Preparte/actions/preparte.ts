@@ -15,7 +15,7 @@ export type Preparte = {
   status?: string;
   item?: string | null;
   observaciones?: string | null;
-  executionDate: string;
+  executionDate: string | null; // Ahora puede ser null cuando subject_to_availability es true
   requestDate: string;
   quantity?: number;
   numero_pedido: string;
@@ -27,6 +27,19 @@ export type Preparte = {
   confirmed_by?: string | null;
   created_at?: string;
   updated_at?: string;
+  // Nuevo campo: indica si el pedido está sujeto a disponibilidad operativa
+  subject_to_availability?: boolean;
+};
+
+// Tipo para registrar cambios en el log
+export type PreparteChangeLog = {
+  preparte_id: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  reason: string;
+  changed_by?: string;
+  metadata?: Record<string, string | number | boolean | null>;
 };
 
 // Create a new preparte
@@ -631,4 +644,95 @@ export async function updateMultiplePreparteStatus(
   }
 
   return data;
+}
+
+/**
+ * Registra un cambio en el log de cambios de preparte.
+ * Diseñado para ser genérico y soportar cambios de cualquier campo.
+ */
+export async function logPreparteChange(changeLog: PreparteChangeLog) {
+  const supabase = await supabaseServer();
+
+  // Obtener el usuario actual
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from('preparte_change_logs')
+    .insert({
+      preparte_id: changeLog.preparte_id,
+      field_name: changeLog.field_name,
+      old_value: changeLog.old_value,
+      new_value: changeLog.new_value,
+      reason: changeLog.reason,
+      changed_by: changeLog.changed_by || user?.id || null,
+      metadata: changeLog.metadata ? JSON.parse(JSON.stringify(changeLog.metadata)) : {},
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error logging preparte change:', error);
+    throw new Error('Error al registrar el cambio en el historial');
+  }
+
+  return data;
+}
+
+/**
+ * Obtiene el historial de cambios de un preparte.
+ */
+export async function getPreparteChangeLogs(preparteId: string) {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('preparte_change_logs')
+    .select('*')
+    .eq('preparte_id', preparteId)
+    .order('changed_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching preparte change logs:', error);
+    throw new Error('Error al obtener el historial de cambios');
+  }
+
+  return data || [];
+}
+
+/**
+ * Obtiene el historial de cambios de todos los prepartes con el mismo numero_pedido.
+ */
+export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
+  const supabase = await supabaseServer();
+
+  // Primero obtenemos todos los preparte_ids con ese numero_pedido
+  const { data: prepartes, error: prepError } = await supabase
+    .from('preparte')
+    .select('id')
+    .eq('numero_pedido', numeroPedido);
+
+  if (prepError) {
+    console.error('Error fetching prepartes by order number:', prepError);
+    throw new Error('Error al obtener los prepartes');
+  }
+
+  if (!prepartes || prepartes.length === 0) {
+    return [];
+  }
+
+  const preparteIds = prepartes.map((p) => p.id);
+
+  const { data, error } = await supabase
+    .from('preparte_change_logs')
+    .select('*')
+    .in('preparte_id', preparteIds)
+    .order('changed_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching preparte change logs by order number:', error);
+    throw new Error('Error al obtener el historial de cambios');
+  }
+
+  return data || [];
 }

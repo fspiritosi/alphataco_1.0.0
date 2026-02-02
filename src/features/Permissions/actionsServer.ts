@@ -300,20 +300,12 @@ export async function canViewServer(moduleSlug: string, tabSlug: string): Promis
  * 'use server';
  *
  * export async function deleteEmployee(id: string) {
- *   await requirePermissionServer('empleados', 'employees', 'delete');
  *
  *   // Proceder con la eliminación
  *   await supabase.from('employees').delete().eq('id', id);
  * }
  * ```
  */
-export async function requirePermissionServer(moduleSlug: string, tabSlug: string, actionSlug: string): Promise<void> {
-  const hasPermission = await checkPermissionServer(moduleSlug, tabSlug, actionSlug);
-
-  if (!hasPermission) {
-    throw new Error(`Permission denied: User does not have ${actionSlug} permission on ${moduleSlug}/${tabSlug}`);
-  }
-}
 
 /**
  * Obtiene los módulos accesibles para el usuario actual (server-side)

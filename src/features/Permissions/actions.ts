@@ -300,18 +300,6 @@ export async function removeUserPermission(userId: string, tabId: string, action
 }
 
 /**
- * Requiere que un usuario tenga un permiso específico, lanza error si no lo tiene
- * Obtiene el userId automáticamente desde los claims de Supabase
- */
-export async function requirePermission(moduleSlug: string, tabSlug: string, actionSlug: string) {
-  const hasPermission = await checkUserPermission(moduleSlug, tabSlug, actionSlug);
-
-  if (!hasPermission) {
-    throw new Error(`Permission denied: User does not have ${actionSlug} permission on ${moduleSlug}/${tabSlug}`);
-  }
-}
-
-/**
  * Obtiene todos los roles disponibles
  */
 export async function getRoles() {

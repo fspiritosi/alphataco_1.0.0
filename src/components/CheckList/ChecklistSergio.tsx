@@ -1,3 +1,12 @@
+/*
+ * ⚠️ ARCHIVO DEPRECADO - IMPLEMENTACIÓN VIEJA
+ * Este archivo está comentado porque se está migrando a la nueva estructura normalizada de checklists.
+ * Ver: docs/desarrollo/ANALISIS-CHECKLISTS-GH-ALE.md
+ *
+ * TODO: Eliminar este archivo una vez que la nueva implementación esté completa y probada.
+ */
+
+/*
 'use client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -284,7 +293,7 @@ export default function VehicleInspectionChecklist({
       {resetQrSelection && (
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <Image src="/logoLetrasNegras.png" alt="CodeControl Logo" width={240} height={60} className="h-15" />
+            <Image src="/gh_logo.png" alt="Logo de Grupo Horizonte" width={240} height={60} className="h-15" />
           </div>
           <CardDescription className="text-center text-gray-600">
             Sistema de Checklist y Mantenimiento de Equipos
@@ -539,3 +548,4 @@ export default function VehicleInspectionChecklist({
     </Card>
   );
 }
+*/
