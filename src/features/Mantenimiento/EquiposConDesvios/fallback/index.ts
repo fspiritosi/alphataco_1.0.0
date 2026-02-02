@@ -1,0 +1,1 @@
+export { EquipmentsWithDeviationsSkeleton } from './EquipmentsWithDeviationsSkeleton';

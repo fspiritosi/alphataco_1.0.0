@@ -15,7 +15,13 @@ import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { checkDailyReportExists, createDailyReport, createDailyReportRow } from '../actions/actions';
+import {
+  checkDailyReportExists,
+  createDailyReport,
+  createDailyReportEmployeeRelations,
+  createDailyReportEquipmentRelations,
+  createDailyReportRow,
+} from '../actions/actions';
 import { transformDailyReports } from './DayliReportDetailTable';
 
 interface ClonarRegistrosButtonProps {
@@ -42,6 +48,10 @@ export function ClonarRegistrosButton({
   const [incluirAdicionales, setIncluirAdicionales] = useState(false);
   const [incluirAdicionalesPermanentes, setIncluirAdicionalesPermanentes] = useState(false);
   const [soloSeleccionadas, setSoloSeleccionadas] = useState(selectedRows?.length > 0);
+
+  // Estados para trasladar recursos
+  const [trasladarPersonal, setTrasladarPersonal] = useState(false);
+  const [trasladarEquipos, setTrasladarEquipos] = useState(false);
 
   const router = useRouter();
 
@@ -128,22 +138,67 @@ export function ClonarRegistrosButton({
             );
           }
 
-          const formattedRows = filteredRows.map((row) => ({
-            customer_id: row.data_to_clone.customer_id!,
-            service_id: row.data_to_clone.service_id!,
-            item_id: row.data_to_clone.item_id!,
-            working_day: row.data_to_clone.working_day!,
-            start_time: row.data_to_clone.start_time,
-            end_time: row.data_to_clone.end_time,
-            description: row.data_to_clone.description,
-            daily_report_id: report.id,
-            status: 'sin_recursos_asignados' as any,
-            areas_service_id: row.data_to_clone.areas_service_id,
-            sector_service_id: row.data_to_clone.sector_service_id,
-            type_service: row.data_to_clone.type_service!,
-          }));
+          const formattedRows = filteredRows.map((row) => {
+            // Determinar el estado según si se copiarán recursos
+            const hasEmployees = trasladarPersonal && row.employees_references?.length > 0;
+            const hasEquipment = trasladarEquipos && row.equipment_references?.length > 0;
+            const newStatus = hasEmployees && hasEquipment ? 'pendiente' : 'sin_recursos_asignados';
 
-          await createDailyReportRow(formattedRows);
+            return {
+              customer_id: row.data_to_clone.customer_id!,
+              service_id: row.data_to_clone.service_id!,
+              item_id: row.data_to_clone.item_id!,
+              working_day: row.data_to_clone.working_day!,
+              start_time: row.data_to_clone.start_time,
+              end_time: row.data_to_clone.end_time,
+              description: row.data_to_clone.description,
+              daily_report_id: report.id,
+              status: newStatus as any,
+              areas_service_id: row.data_to_clone.areas_service_id,
+              sector_service_id: row.data_to_clone.sector_service_id,
+              type_service: row.data_to_clone.type_service!,
+            };
+          });
+
+          const createdRows = await createDailyReportRow(formattedRows);
+
+          // Copiar relaciones de empleados y equipos si está habilitado
+          if (createdRows && createdRows.length > 0) {
+            for (let i = 0; i < createdRows.length; i++) {
+              const newRow = createdRows[i];
+              const originalRow = filteredRows[i];
+
+              // Copiar empleados si está habilitado y hay empleados en la fila original
+              if (trasladarPersonal && originalRow.employees_references?.length > 0) {
+                const employeeIds = originalRow.employees_references
+                  .map((emp) => emp.id)
+                  .filter((id): id is string => !!id);
+                if (employeeIds.length > 0) {
+                  await createDailyReportEmployeeRelations(newRow.id, employeeIds);
+                }
+              }
+
+              // Copiar equipos si está habilitado y hay equipos en la fila original
+              if (trasladarEquipos && originalRow.equipment_references?.length > 0) {
+                const equipmentIds = originalRow.equipment_references
+                  .map((eq) => eq.id)
+                  .filter((id): id is string => !!id);
+                if (equipmentIds.length > 0) {
+                  await createDailyReportEquipmentRelations(newRow.id, equipmentIds);
+                }
+              }
+
+              // TODO: Descomentar cuando se requiera copiar equipos del cliente
+              // if (trasladarEquiposCliente && originalRow.customer_equipment?.length > 0) {
+              //   const customerEquipmentIds = originalRow.customer_equipment
+              //     .map((eq) => eq.id)
+              //     .filter((id): id is string => !!id);
+              //   if (customerEquipmentIds.length > 0) {
+              //     await createDailyReportCustomerEquipmentRelations(newRow.id, customerEquipmentIds);
+              //   }
+              // }
+            }
+          }
         }
 
         // Si solo hay un reporte y se debe navegar, ir al primer reporte creado
@@ -337,7 +392,33 @@ export function ClonarRegistrosButton({
                 </Label>
               </div>
 
-              <div className="flex items-center space-x-2 mt-2">
+              <div className="border-t pt-4 mt-4">
+                <div className="text-sm font-medium mb-2">Trasladar recursos:</div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="trasladar-personal"
+                    checked={trasladarPersonal}
+                    onCheckedChange={(checked) => setTrasladarPersonal(checked as boolean)}
+                  />
+                  <Label htmlFor="trasladar-personal">
+                    Trasladar Personal (copiar empleados asignados a las nuevas filas)
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2 mt-2">
+                  <Checkbox
+                    id="trasladar-equipos"
+                    checked={trasladarEquipos}
+                    onCheckedChange={(checked) => setTrasladarEquipos(checked as boolean)}
+                  />
+                  <Label htmlFor="trasladar-equipos">
+                    Trasladar Equipos (copiar vehículos asignados a las nuevas filas)
+                  </Label>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 mt-4">
                 <Checkbox
                   id="ir-registros"
                   checked={irARegistros}

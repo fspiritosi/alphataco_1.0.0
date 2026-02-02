@@ -1,3 +1,13 @@
+/**
+ * @deprecated Este componente está DEPRECADO.
+ * Fue reemplazado por NuevoPedidoTabContent que crea maintenance_orders directamente
+ * sin pasar por el flujo de repair_solicitudes.
+ *
+ * El nuevo componente se encuentra en:
+ * src/features/Mantenimiento/NuevoPedido/NuevoPedidoTabContent.tsx
+ *
+ * TODO: Eliminar este archivo cuando se complete la migración de todos los lugares que lo usan.
+ */
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -81,6 +91,7 @@ async function RepairEntryWrapper({
           ),
           moduleSlug: 'equipos',
           tabSlug: 'carga-multiple',
+          disabled: true, // Deshabilitado temporalmente
           content: (
             <Suspense fallback={<div>Cargando formulario...</div>}>
               <Card className="p-6">

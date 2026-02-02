@@ -1,5 +1,6 @@
 'use server';
 import { DailyReportRowHistoryRecord, ProcessedHistoryEntry } from '@/app/server/colections';
+import { logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import moment from 'moment';
 import { cookies } from 'next/headers';
@@ -64,7 +65,7 @@ export async function fetchDailyReportsWithFilters({
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching daily reports:', error);
+    logger.error('Error fetching daily reports', { data: { error } });
     throw error;
   }
 
@@ -85,7 +86,7 @@ export async function getDailyReports() {
     .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
-    console.error('Error fetching daily reports:', error);
+    logger.error('Error fetching daily reports', { data: { error } });
     return [];
   }
 
@@ -108,7 +109,7 @@ export async function getDailyReportsForCurrentMonth() {
     .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
-    console.error('Error fetching daily reports:', error);
+    logger.error('Error fetching daily reports', { data: { error } });
     return [];
   }
 
@@ -127,12 +128,12 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
     .select('preparte(id,numero_pedido)')
     .eq('id', dailyReportId);
   if (error2) {
-    console.error('Error fetching daily report row history:', error2);
+    logger.error('Error fetching daily report row history', { data: { error: error2 } });
     return [];
   }
 
   if (error) {
-    console.error('Error fetching daily report row history:', error);
+    logger.error('Error fetching daily report row history', { data: { error } });
     return [];
   }
 
@@ -490,7 +491,7 @@ export async function getDailyReportByIdOnlyDate(id: string) {
     .limit(1)
     .single();
   if (error) {
-    console.error('Error fetching daily reports:', error);
+    logger.error('Error fetching daily reports', { data: { error } });
     return null;
   }
   return dailyReports;
@@ -524,6 +525,7 @@ export async function getDailyReportById(id: string) {
         description,
         document_path,
         dailyreportemployeerelations(
+          role,
           employees(
             id,
             firstname,
@@ -555,7 +557,7 @@ export async function getDailyReportById(id: string) {
     )
     .eq('id', id);
   if (error) {
-    console.error('Error fetching daily reports:', error);
+    logger.error('Error fetching daily reports', { data: { error } });
     return [];
   }
   return dailyReports || [];
@@ -585,7 +587,7 @@ export async function updateDailyReportStatusAndRemitNumber(
     .select();
 
   if (error) {
-    console.error('Error updating daily report status and remit number:', error);
+    logger.error('Error updating daily report status and remit number', { data: { error } });
     throw error;
   }
 
@@ -597,7 +599,7 @@ export async function getDailyReportStatusById(id: string) {
   let { data: dailyReports, error } = await supabase.from('dailyreport').select('status,date').eq('id', id);
 
   if (error) {
-    console.error('Error fetching daily reports:', error);
+    logger.error('Error fetching daily reports', { data: { error } });
     return [];
   }
 
@@ -617,7 +619,7 @@ export async function checkDailyReportExists(date: string[]) {
     .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
-    console.error('Error checking daily reportsss:', error);
+    logger.error('Error checking daily reports', { data: { error } });
     return [];
   }
 
@@ -642,7 +644,7 @@ export async function createDailyReport(date: string[]) {
     .select();
 
   if (error) {
-    console.error(error);
+    logger.error('Error creating daily report', { data: { error } });
     return [];
   }
   return data;
@@ -670,7 +672,7 @@ export async function getCustomers() {
     )
     .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
-    console.error(error);
+    logger.error('Error fetching customers', { data: { error } });
   }
 
   return data;
@@ -680,7 +682,7 @@ export async function getCustomersServices() {
   const supabase = await supabaseServer();
   const { data, error } = await supabase.from('customer_services').select('*');
   if (error) {
-    console.error(error);
+    logger.error('Error fetching customer services', { data: { error } });
   }
   return data;
 }
@@ -696,7 +698,7 @@ export async function getServiceItems() {
     .select('*,measure_units(*)')
     .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
-    console.error(error);
+    logger.error('Error fetching service items', { data: { error } });
   }
   return data;
 }
@@ -730,11 +732,93 @@ export async function getActiveEmployeesForDailyReport() {
     .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
-    console.error('Error al obtener empleados con diagrama:', error);
+    logger.error('Error al obtener empleados con diagrama', { data: { error } });
     return [];
   }
 
   return data || [];
+}
+
+/**
+ * Obtiene TODOS los empleados activos SIN restricción de diagrama.
+ * Incluye información del diagrama para detectar desvíos visualmente.
+ * @param reportDate Fecha del parte diario (formato YYYY-MM-DD) para verificar el diagrama
+ */
+export async function getAllActiveEmployeesForDailyReport(reportDate?: string) {
+  const supabase = await supabaseServer();
+
+  // Usar la fecha proporcionada o la fecha actual
+  const dateToCheck = reportDate ? new Date(reportDate) : new Date();
+  const day = dateToCheck.getDate();
+  const month = dateToCheck.getMonth() + 1;
+  const year = dateToCheck.getFullYear();
+
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Obtener TODOS los empleados activos (sin filtro de diagrama)
+  const { data: employees, error } = await supabase
+    .from('employees')
+    .select(
+      'contractor_employee(customers(id,name)),*,hierarchy(id,name),cities(id,name),provinces(id,name),empleado_aptitudes(aptitudes_tecnicas(nombre)),company_positions(*),work_diagram(id,name),cost_center(id,name)'
+    )
+    .eq('is_active', true)
+    .eq('company_id', company_id || user?.app_metadata?.company || '');
+
+  if (error) {
+    logger.error('Error al obtener todos los empleados activos', { data: { error } });
+    return [];
+  }
+
+  if (!employees || employees.length === 0) {
+    return [];
+  }
+
+  // Obtener los diagramas de todos los empleados para el día especificado
+  const employeeIds = employees.map((e) => e.id);
+  const { data: diagrams, error: diagramError } = await supabase
+    .from('employees_diagram')
+    .select('*, diagram_type(*)')
+    .in('employee_id', employeeIds)
+    .eq('day', day)
+    .eq('month', month)
+    .eq('year', year)
+    .eq('is_active', true);
+
+  if (diagramError) {
+    logger.error('Error al obtener diagramas de empleados', { data: { error: diagramError } });
+  }
+
+  // Crear un mapa de diagramas por empleado
+  type DiagramType = NonNullable<typeof diagrams>[number];
+  const diagramMap = new Map<string, DiagramType>();
+  diagrams?.forEach((d) => {
+    if (d.employee_id) {
+      diagramMap.set(d.employee_id, d);
+    }
+  });
+
+  // Agregar información de desvío a cada empleado
+  const employeesWithDeviations = employees.map((employee) => {
+    const diagram = diagramMap.get(employee.id);
+    const hasDiagram = !!diagram;
+    const isWorkDay = diagram?.diagram_type?.work_active === true;
+
+    return {
+      ...employee,
+      // Información del diagrama para este día
+      current_diagram: diagram || null,
+      // Flags de desvío
+      deviation_no_diagram: !hasDiagram,
+      deviation_non_work_day: hasDiagram && !isWorkDay,
+      deviation_type: !hasDiagram ? 'sin_diagrama' : !isWorkDay ? 'dia_no_laboral' : null,
+    };
+  });
+
+  return employeesWithDeviations;
 }
 export async function getActiveEquipmentsForDailyReport() {
   const supabase = await supabaseServer();
@@ -753,7 +837,7 @@ export async function getActiveEquipmentsForDailyReport() {
     .neq('condition', 'en reparacion')
     .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
-    console.error('Error al obtener equipos activos:', error);
+    logger.error('Error al obtener equipos activos', { data: { error } });
     return [];
   }
   return data || [];
@@ -818,7 +902,7 @@ export async function updateDailyReportStatus(id: string, newStatus: string) {
     .single();
 
   if (updateError) {
-    console.error('Error al actualizar el estado de la fila:', updateError);
+    logger.error('Error al actualizar el estado de la fila', { data: { error: updateError } });
     throw updateError;
   }
   return updatedRow;
@@ -912,11 +996,11 @@ export async function updateDailyReportRow(
       } else {
       }
     } catch (error) {
-      console.error('Error al actualizar la razón de reasignación:', error);
+      logger.error('Error al actualizar la razón de reasignación', { data: { error } });
     }
   }
   if (updateError) {
-    console.error('Error al actualizar la fila:', updateError);
+    logger.error('Error al actualizar la fila', { data: { error: updateError } });
     throw updateError;
   }
   // Actualizar relaciones de empleados
@@ -940,7 +1024,7 @@ export async function updateDailyReportRowBody(id: string, data: Partial<DailyRe
     .single();
 
   if (updateError) {
-    console.error('Error al actualizar la fila:', updateError);
+    logger.error('Error al actualizar la fila', { data: { error: updateError } });
     throw updateError;
   }
   // Actualizar relaciones de empleados
@@ -956,7 +1040,7 @@ export async function updateDailyReportRowStatus(id: string[], status: DailyRepo
   const { data, error } = await supabase.from('dailyreportrows').update(updateData).in('id', id).select();
 
   if (error) {
-    console.error('Error updating daily report row status:', error);
+    logger.error('Error updating daily report row status', { data: { error } });
     throw error;
   }
 
@@ -1002,7 +1086,7 @@ export async function updateEmployeeRelations(rowId: string, employeeIds: string
       await createDailyReportEmployeeRelations(rowId, employeeIdsToAdd);
     }
   } catch (error) {
-    console.error('Error en updateEmployeeRelations:', error);
+    logger.error('Error en updateEmployeeRelations', { data: { error } });
     throw error;
   }
 }
@@ -1046,7 +1130,7 @@ export async function updateEquipmentRelations(rowId: string, equipmentIds: stri
       await createDailyReportEquipmentRelations(rowId, equipmentIdsToAdd);
     }
   } catch (error) {
-    console.error('Error en updateEquipmentRelations:', error);
+    logger.error('Error en updateEquipmentRelations', { data: { error } });
     throw error;
   }
 }
@@ -1103,7 +1187,7 @@ export async function updateEquiposClienteRelations(dailyReportRowId: string, eq
 
     return { success: true };
   } catch (error) {
-    console.error('Error en updateEquiposClienteRelations:', error);
+    logger.error('Error en updateEquiposClienteRelations', { data: { error } });
     throw error;
   }
 }
@@ -1129,7 +1213,7 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
         const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(chunk).select('*');
 
         if (error) {
-          console.error(error, 'error en chunk');
+          logger.error('Error en chunk al crear filas de parte diario', { data: { error } });
           throw error;
         }
 
@@ -1147,7 +1231,7 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
       const { data: createdRows, error } = await supabase.from('dailyreportrows').insert(data).select('*');
 
       if (error) {
-        console.error(error, 'error');
+        logger.error('Error al crear filas de parte diario', { data: { error } });
         throw error;
       }
 
@@ -1159,7 +1243,7 @@ export async function createDailyReportRow(data: Omit<DailyReportRowData, 'id' |
       return createdRows;
     }
   } catch (error) {
-    console.error('Error creando filas de parte diario:', error);
+    logger.error('Error creando filas de parte diario', { data: { error } });
     throw error;
   }
 }
@@ -1177,11 +1261,65 @@ export async function createDailyReportEmployeeRelations(dailyReportRowId: strin
   const { data, error } = await supabase.from('dailyreportemployeerelations').insert(relations).select();
 
   if (error) {
-    console.error('Error creating employee relations:', error);
+    logger.error('Error creating employee relations', { data: { error } });
     throw new Error(error.message);
   }
 
   return data || [];
+}
+
+// Tipo para empleados con rol
+export type EmployeeWithRole = {
+  employeeId: string;
+  role: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche';
+};
+
+// Crear relaciones de empleados con roles (para jornadas 12/24 hrs)
+export async function createDailyReportEmployeeRelationsWithRoles(
+  dailyReportRowId: string,
+  employeesWithRoles: EmployeeWithRole[]
+) {
+  if (!employeesWithRoles || employeesWithRoles.length === 0) return [];
+
+  const supabase = await supabaseServer();
+
+  const relations = employeesWithRoles.map((emp) => ({
+    daily_report_row_id: dailyReportRowId,
+    employee_id: emp.employeeId,
+    role: emp.role,
+  }));
+
+  const { data, error } = await supabase.from('dailyreportemployeerelations').insert(relations).select();
+
+  if (error) {
+    logger.error('Error creating employee relations with roles', { data: { error } });
+    throw new Error(error.message);
+  }
+
+  return data || [];
+}
+
+// Actualizar relaciones de empleados con roles
+export async function updateEmployeeRelationsWithRoles(rowId: string, employeesWithRoles: EmployeeWithRole[]) {
+  const supabase = await supabaseServer();
+
+  try {
+    // Eliminar todas las relaciones existentes
+    const { error: deleteError } = await supabase
+      .from('dailyreportemployeerelations')
+      .delete()
+      .eq('daily_report_row_id', rowId);
+
+    if (deleteError) throw deleteError;
+
+    // Crear nuevas relaciones con roles
+    if (employeesWithRoles.length > 0) {
+      await createDailyReportEmployeeRelationsWithRoles(rowId, employeesWithRoles);
+    }
+  } catch (error) {
+    logger.error('Error en updateEmployeeRelationsWithRoles', { data: { error } });
+    throw error;
+  }
 }
 
 export async function deleteDailyReportRow(id: string) {
@@ -1195,7 +1333,7 @@ export async function deleteDailyReportRow(id: string) {
 
     return { success: true };
   } catch (error) {
-    console.error('Error deleting daily report row:', error);
+    logger.error('Error deleting daily report row', { data: { error } });
     throw error;
   }
 }
@@ -1216,7 +1354,7 @@ export async function createDailyReportEquipmentRelations(dailyReportRowId: stri
     .select();
 
   if (error) {
-    console.error('Error creating equipment relations:', error);
+    logger.error('Error creating equipment relations', { data: { error } });
     throw new Error(error.message);
   }
 
@@ -1235,7 +1373,7 @@ export async function createDailyReportCustomerEquipmentRelations(dailyReportRow
   const { data, error } = await supabase.from('dailyreport_customer_equipment_relations').insert(relations).select();
 
   if (error) {
-    console.error('Error creating equipment customers relations:', error);
+    logger.error('Error creating equipment customers relations', { data: { error } });
     throw new Error(error.message);
   }
 
@@ -1259,7 +1397,7 @@ export async function getCustomersSectors(customerIds: string[]) {
     .select('*,customers(*),sectors(*)')
     .in('customer_id', customerIds);
   if (error) {
-    console.error(error);
+    logger.error('Error fetching customer sectors', { data: { error } });
     return [];
   }
   return data;
@@ -1281,7 +1419,7 @@ export async function deleteDailyReport(reportId: string) {
       .eq('daily_report_id', reportId);
 
     if (rowsError) {
-      console.error('Error verificando filas del parte diario:', rowsError);
+      logger.error('Error verificando filas del parte diario', { data: { error: rowsError } });
       return { success: false, message: 'Error al verificar si el parte diario está vacío' };
     }
 
@@ -1294,13 +1432,13 @@ export async function deleteDailyReport(reportId: string) {
     const { error: deleteError } = await supabase.from('dailyreport').delete().eq('id', reportId);
 
     if (deleteError) {
-      console.error('Error eliminando parte diario:', deleteError);
+      logger.error('Error eliminando parte diario', { data: { error: deleteError } });
       return { success: false, message: 'Error al eliminar el parte diario' };
     }
 
     return { success: true, message: 'Parte diario eliminado correctamente' };
   } catch (error) {
-    console.error('Error en la función deleteDailyReport:', error);
+    logger.error('Error en la función deleteDailyReport', { data: { error } });
     return { success: false, message: 'Error inesperado al procesar la solicitud' };
   }
 }
@@ -1385,7 +1523,7 @@ export async function getDailyReportsWithRows(): Promise<DailyReportWithRows[]> 
         .range(from, to);
 
       if (error) {
-        console.error('Error al obtener los reportes diarios con filas (página ${page + 1}):', error);
+        logger.error('Error al obtener los reportes diarios con filas', { data: { error, page: page + 1 } });
         throw new Error(`Error al obtener los reportes diarios: ${error.message}`);
       }
 
@@ -1405,7 +1543,7 @@ export async function getDailyReportsWithRows(): Promise<DailyReportWithRows[]> 
 
     return allDailyReports as any[];
   } catch (error) {
-    console.error('Error en getDailyReportsWithRows:', error);
+    logger.error('Error en getDailyReportsWithRows', { data: { error } });
     throw error;
   }
 }
@@ -1434,7 +1572,7 @@ export async function getDailyReportsLatest() {
     .eq('company_id', company_id || user?.app_metadata?.company || '');
 
   if (error) {
-    console.error('Error fetching daily reports:', error);
+    logger.error('Error fetching daily reports', { data: { error } });
     return [];
   }
 
@@ -1466,13 +1604,13 @@ export async function getServicesSummaryByType(saveToHistory?: boolean) {
     });
 
     if (error) {
-      console.error('Error fetching services summary aactual:', error);
+      logger.error('Error fetching services summary', { data: { error } });
       return [];
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getServicesSummaryByType:', error);
+    logger.error('Error in getServicesSummaryByType', { data: { error } });
     return [];
   }
 }
@@ -1571,7 +1709,7 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
       .eq('daily_report_id.date', today);
 
     if (error) {
-      console.error('Error fetching services detail by client:', error);
+      logger.error('Error fetching services detail by client', { data: { error } });
       return [];
     }
 
@@ -1634,7 +1772,10 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
     // Ordenar por total de servicios descendente
     return result.sort((a, b) => b.total_count - a.total_count);
   } catch (error) {
-    console.error('Error in getServicesDetailByClient:', error);
+    logger.error('Error in getServicesDetailByClient', { data: { error } });
     return [];
   }
 }
+
+// Tipos exportados
+export type EmployeeWithDeviations = Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>[number];

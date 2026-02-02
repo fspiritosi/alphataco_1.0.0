@@ -4,13 +4,14 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { Building2, DollarSign, FileText, Network, Users } from 'lucide-react';
+import { Building2, DollarSign, FileText, Network, Users, Wrench } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
 import { CreateUserModal } from '../Usuarios/components/create-user-modal';
 import CompanyComponent from './components/company/CompanyComponent';
 import CostCenterTab from './components/cost-center/CostCenterTab';
+import MantenimientoTab from './components/mantenimiento/MantenimientoTab';
 import OrganigramTabWrapper from './components/organigrama/OrganigramTabWrapper';
 
 export default async function GeneralTabContent({
@@ -144,6 +145,28 @@ export default async function GeneralTabContent({
                 </PermissionGuardServer>
                 <DocumentTabComponent />
               </div>
+            ),
+          },
+          {
+            value: 'mantenimiento',
+            label: (
+              <span className="flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
+                Mantenimiento
+              </span>
+            ),
+            moduleSlug: 'empresa',
+            tabSlug: 'empresa-mantenimiento',
+            content: (
+              <Card>
+                <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
+                  <CardTitle>Mantenimiento</CardTitle>
+                  <CardDescription>Gestión de talleres y sectores</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <MantenimientoTab />
+                </CardContent>
+              </Card>
             ),
           },
         ]}

@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
@@ -8,19 +9,32 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Database } from '../../../../../database.types';
-import { createSubTypeOfVehicle, updateSubTypeOfVehicle } from '../actions/actions';
+import { createSubTypeOfVehicle, getAvailableCompatibleItems, updateSubTypeOfVehicle } from '../actions/actions';
+import { useActiveChecklists } from './hooks/useActiveChecklists';
+
+type VehicleType = Database['public']['Tables']['type']['Row'];
+type VehicleSubType = Database['public']['Tables']['sub_type']['Row'];
+
+interface CompatibleItem {
+  id: string;
+  type: 'sub_type' | 'type';
+}
 
 interface EquipmentSubTypesFormProps {
   initialData?: any | null;
   onReset: () => void;
   isEditing?: boolean;
   onSuccess?: () => void;
-  types: Database['public']['Tables']['type']['Row'][];
+  types: VehicleType[];
+  allSubTypes?: VehicleSubType[];
+  initialCompatibleItems?: CompatibleItem[];
+  initialChecklistIds?: string[];
 }
 
 // Esquema de validación con Zod
@@ -29,6 +43,8 @@ const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   type_id: z.string().min(1, 'El tipo es requerido'),
   is_active: z.boolean().default(true),
+  compatible_item_ids: z.array(z.string()).default([]),
+  checklist_ids: z.array(z.string()).default([]),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -39,45 +55,160 @@ function EquipmentSubTypesForm({
   isEditing = false,
   onSuccess,
   types,
+  allSubTypes = [],
+  initialCompatibleItems = [],
+  initialChecklistIds = [],
 }: EquipmentSubTypesFormProps) {
   const [showDependencyModal, setShowDependencyModal] = useState(false);
+  const [availableItems, setAvailableItems] = useState<{ subTypes: VehicleSubType[]; types: VehicleType[] }>({
+    subTypes: [],
+    types: [],
+  });
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+
+  // Hook para obtener checklists activos
+  const { data: checklists = [], isLoading: isLoadingChecklists, error: checklistsError } = useActiveChecklists();
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       is_active: true,
       type_id: '',
+      compatible_item_ids: [],
+      checklist_ids: [],
     },
   });
 
   const router = useRouter();
+  const queryClient = useQueryClient();
   const {
     handleSubmit,
     reset,
     formState: { isSubmitting },
+    watch,
   } = form;
+
+  const selectedTypeId = watch('type_id');
+
+  // Obtener el tipo seleccionado
+  const selectedType = useMemo(() => {
+    return types.find((t) => t.id === selectedTypeId);
+  }, [types, selectedTypeId]);
+
+  // Verificar si el tipo padre es unidad tractora y tiene enganche
+  const showCompatibleItems = useMemo(() => {
+    return selectedType?.is_tractor_unit && selectedType?.has_hitch;
+  }, [selectedType]);
+
+  // Cargar items compatibles disponibles cuando cambia el tipo seleccionado
+  const loadAvailableItems = useCallback(async (typeId: string) => {
+    setIsLoadingItems(true);
+
+    try {
+      const result = await getAvailableCompatibleItems(typeId);
+      setAvailableItems({
+        subTypes: result.subTypes || [],
+        types: result.types || [],
+      });
+    } catch (error) {
+      console.error('Error loading available items:', error);
+      setAvailableItems({ subTypes: [], types: [] });
+    } finally {
+      setIsLoadingItems(false);
+    }
+  }, []);
+
+  // Cargar items disponibles cuando cambia el tipo seleccionado
+  useEffect(() => {
+    if (selectedTypeId && showCompatibleItems) {
+      loadAvailableItems(selectedTypeId);
+    } else {
+      setAvailableItems({ subTypes: [], types: [] });
+    }
+  }, [selectedTypeId, showCompatibleItems, loadAvailableItems]);
+
+  // Opciones para el multi-select de checklists
+  const checklistOptions = useMemo(() => {
+    return checklists.map((checklist) => ({
+      value: checklist.id,
+      label: checklist.name,
+    }));
+  }, [checklists]);
+
+  // Mostrar error si hay problema cargando checklists
+  useEffect(() => {
+    if (checklistsError) {
+      console.error('Error loading checklists:', checklistsError);
+    }
+  }, [checklistsError]);
+
+  // Opciones para el multi-select combinando subtipos y tipos
+  const compatibleItemOptions = useMemo(() => {
+    const options: { value: string; label: string }[] = [];
+
+    // Agregar subtipos
+    availableItems.subTypes.forEach((st) => {
+      const parentType = types.find((t) => t.id === st.type);
+      options.push({
+        value: `sub_type:${st.id}`,
+        label: `${st.name} (${parentType?.name || 'Sin tipo'})`,
+      });
+    });
+
+    // Agregar tipos sin subtipos
+    availableItems.types.forEach((t) => {
+      options.push({
+        value: `type:${t.id}`,
+        label: `${t.name} (Tipo)`,
+      });
+    });
+
+    return options;
+  }, [availableItems, types]);
 
   // Resetear el formulario cuando cambia initialData
   useEffect(() => {
     if (initialData) {
-      // Aseguramos que el ID sea un número
+      const compatibleIds = initialCompatibleItems.map((item) => `${item.type}:${item.id}`);
       reset({
         id: initialData.id,
         name: initialData.name,
         is_active: initialData.is_active,
         type_id: initialData.type,
+        compatible_item_ids: compatibleIds,
+        checklist_ids: initialChecklistIds,
       });
     } else {
       reset({
         name: '',
         is_active: true,
         type_id: '',
+        compatible_item_ids: [],
+        checklist_ids: [],
       });
     }
-  }, [initialData, reset]);
+  }, [initialData, initialCompatibleItems, initialChecklistIds, reset]);
+
+  // Resetear compatible_item_ids cuando cambia el tipo
+  useEffect(() => {
+    if (!isEditing) {
+      form.setValue('compatible_item_ids', []);
+    }
+  }, [selectedTypeId, form, isEditing]);
+
+  // Función para parsear los IDs de items compatibles del formato "type:id" o "sub_type:id"
+  const parseCompatibleItems = (ids: string[]): CompatibleItem[] => {
+    return ids.map((id) => {
+      const [type, itemId] = id.split(':');
+      return { id: itemId, type: type as 'sub_type' | 'type' };
+    });
+  };
 
   const onSubmit = async (data: FormData) => {
     try {
+      const compatibleItems = parseCompatibleItems(data.compatible_item_ids);
+
       if (isEditing && data.id) {
         const prevActive = !!initialData.is_active;
         const nextActive = data.is_active;
@@ -85,9 +216,9 @@ function EquipmentSubTypesForm({
         // Si se intenta cambiar a inactivo y el valor es diferente, abrir modal de dependencias
         if (prevActive && !nextActive) {
           //Awaite del fetch de dependencias
-          const data = await fetchDependencies(dependencyConfigs[0], initialData.id);
+          const depData = await fetchDependencies(dependencyConfigs[0], initialData.id);
 
-          if (data.data.length) {
+          if (depData.data.length) {
             setShowDependencyModal(true);
             return; // No ejecutar update aún, el modal decidirá
           }
@@ -97,27 +228,40 @@ function EquipmentSubTypesForm({
           name: data.name,
           is_active: data.is_active,
           type_id: data.type_id,
+          compatible_item_ids: compatibleItems,
+          checklist_ids: data.checklist_ids,
         });
+
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['subtype-checklists', data.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
+
         router.refresh();
       } else {
         await createSubTypeOfVehicle({
           name: data.name,
           is_active: data.is_active,
           type_id: data.type_id,
+          compatible_item_ids: compatibleItems,
+          checklist_ids: data.checklist_ids,
         });
+
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
+
+        router.refresh();
       }
 
       if (onSuccess) onSuccess();
       toast({
-        title: 'Tipo de equipo guardado correctamente',
+        title: 'Subtipo de equipo guardado correctamente',
         description: 'Los cambios se han guardado exitosamente.',
         variant: 'default',
       });
 
       onReset();
-      router.refresh();
     } catch (error: unknown) {
-      console.error('Error al guardar el tipo de equipo:', error);
+      console.error('Error al guardar el subtipo de equipo:', error);
 
       let errorMessage = 'Ocurrió un error al guardar. Por favor, inténtalo de nuevo.';
 
@@ -135,8 +279,8 @@ function EquipmentSubTypesForm({
       }
 
       // Mapear mensajes de error específicos
-      if (errorMessage.includes('Tipo de vehículo no encontrado')) {
-        errorMessage = 'No se encontró el tipo de vehículo a actualizar. Quizás fue eliminado por otro usuario.';
+      if (errorMessage.includes('Subtipo de vehículo no encontrado')) {
+        errorMessage = 'No se encontró el subtipo de vehículo a actualizar. Quizás fue eliminado por otro usuario.';
       } else if (errorMessage.includes('PGRST116') || errorMessage.includes('no rows returned')) {
         errorMessage = 'Error de base de datos: No se pudo completar la operación.';
       }
@@ -207,12 +351,21 @@ function EquipmentSubTypesForm({
 
         // Ahora sí, desactivar el registro actual
         const values = form.getValues();
+        const compatibleItems = parseCompatibleItems(values.compatible_item_ids);
         await updateSubTypeOfVehicle({
           id: values.id!,
           name: values.name,
           is_active: values.is_active,
           type_id: values.type_id,
+          compatible_item_ids: compatibleItems,
+          checklist_ids: values.checklist_ids,
         });
+
+        // Invalidar queries de React Query para refrescar los datos
+        queryClient.invalidateQueries({ queryKey: ['subtype-checklists', values.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-checklists'] });
+
+        router.refresh();
         if (onSuccess) onSuccess();
       } catch (err) {
         console.error('Error al reemplazar referencias:', err);
@@ -294,6 +447,56 @@ function EquipmentSubTypesForm({
                       <FormLabel className="font-normal">Inactivo</FormLabel>
                     </FormItem>
                   </RadioGroup>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Multi-select de items compatibles - solo visible si el tipo padre tiene enganche */}
+          {showCompatibleItems && (
+            <FormField
+              control={form.control}
+              name="compatible_item_ids"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Subtipos/Tipos compatibles para enganche</FormLabel>
+                  <FormControl>
+                    <MultiSelectCombobox
+                      options={compatibleItemOptions}
+                      selectedValues={field.value}
+                      onChange={field.onChange}
+                      placeholder={isLoadingItems ? 'Cargando...' : 'Seleccione los items compatibles'}
+                      emptyMessage="No hay items disponibles"
+                      disabled={isLoadingItems}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Multi-select de checklists */}
+          <FormField
+            control={form.control}
+            name="checklist_ids"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Checklists aplicables</FormLabel>
+                <FormControl>
+                  <MultiSelectCombobox
+                    options={checklistOptions}
+                    selectedValues={field.value}
+                    onChange={field.onChange}
+                    placeholder={
+                      isLoadingChecklists
+                        ? 'Cargando checklists...'
+                        : 'Seleccione los checklists que aplican a este subtipo'
+                    }
+                    emptyMessage="No hay checklists disponibles"
+                    disabled={isLoadingChecklists}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

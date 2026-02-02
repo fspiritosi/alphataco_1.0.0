@@ -1,8 +1,8 @@
 'use client';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Copy, Mail, RefreshCw } from 'lucide-react';
+import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -31,6 +31,10 @@ URL: ${window.location.href}
     navigator.clipboard.writeText(errorDetails);
     toast.success('Error copiado al portapapeles');
   };
+
+  useEffect(() => {
+    posthog.captureException(error);
+  }, [error]);
 
   const sendErrorByEmail = () => {
     const subject = encodeURIComponent('Error en GH Gestión');

@@ -269,7 +269,7 @@ export async function queryWithPagination<
   }
   // Aplicar filtro permanente si existe
   if (options.permanent_filter) {
-    query = options.permanent_filter(query) as typeof query;
+    query = options.permanent_filter(query as any) as any;
   }
   // Ejecutar query
   const { data, error, count } = await query;

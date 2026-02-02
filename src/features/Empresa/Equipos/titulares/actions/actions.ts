@@ -16,7 +16,7 @@ export async function createEquipmentOwner({
 }) {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('company_id')?.value;
+  const company_id = cookiesStore.get('actualComp')?.value;
 
   // Crear el titular (usamos el primer tipo de contrato para mantener compatibilidad con el campo legacy)
   const { data: ownerData, error: ownerError } = await supabase

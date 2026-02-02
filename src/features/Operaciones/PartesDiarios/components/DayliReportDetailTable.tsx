@@ -12,8 +12,8 @@ import { Edit, Info } from 'lucide-react';
 import moment from 'moment';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import {
-  getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
+  getAllActiveEmployeesForDailyReport,
   getCustomers,
   getDailyReportById,
 } from '../actions/actions';
@@ -66,6 +66,7 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
         ...rel.employees,
         name: rel.employees?.lastname + ' ' + rel.employees?.firstname,
         id: rel.employees?.id,
+        role: rel.role,
       })),
       equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
         ...rel.vehicles,
@@ -140,7 +141,7 @@ const getDuplicatedEquipments = (data: DailyReportRow[]): Set<string> => {
 // Función auxiliar para detectar empleados no asignados al cliente
 const getUnassignedEmployees = (
   data: DailyReportRow[],
-  employees: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>
+  employees: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>
 ): Map<string, string> => {
   const unassignedMap = new Map<string, string>(); // employeeName -> customerId
 
@@ -198,7 +199,7 @@ const getUnassignedEquipments = (
 export function getDailyReportColumns(
   onEdit: (row: DailyReportRow) => void,
   allData: DailyReportRow[] = [],
-  employees?: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>,
+  employees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>,
   equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>
 ): ColumnDef<DailyReportRow>[] {
   const duplicatedEmployees = getDuplicatedEmployees(allData);
@@ -654,7 +655,7 @@ export function DayliReportDetailTable({
   savedVisibility: VisibilityState;
   savedFilter: string[];
   customers: Awaited<ReturnType<typeof getCustomers>>;
-  employeesPromise: ReturnType<typeof getActiveEmployeesForDailyReport>;
+  employeesPromise: ReturnType<typeof getAllActiveEmployeesForDailyReport>;
   equipmentsPromise: ReturnType<typeof getActiveEquipmentsForDailyReport>;
 }) {
   // const dailyReport = await dailyReportPromise;
@@ -810,25 +811,20 @@ export function DayliReportDetailTable({
         isOpen={isBulkEditModalOpen}
         onClose={() => setIsBulkEditModalOpen(false)}
         selectedRows={selectedRows}
+        dailyReportId={dailyReport[0].id}
         onSuccess={(updatedRowIds?: string[]) => {
-          // Recargar datos primero para asegurar que estén actualizados
-          refetchDailyReport();
+          // Los datos se actualizan automáticamente via invalidateQueries en el mutation hook
+          // Solo necesitamos limpiar la selección local
+          if (updatedRowIds && updatedRowIds.length > 0) {
+            setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
+          } else {
+            setSelectedRows([]);
+          }
 
-          // Después de recargar, limpiar la selección local
-          setTimeout(() => {
-            // Actualizar el estado local - esto actualizará la lista de filas seleccionadas
-            if (updatedRowIds && updatedRowIds.length > 0) {
-              setSelectedRows((prev) => prev.filter((row) => !updatedRowIds.includes(row.id)));
-            } else {
-              // Si no hay IDs específicos, limpiar toda la selección
-              setSelectedRows([]);
-            }
-
-            // Usar el método clearRowSelection del BaseDataTable para limpiar la selección interna
-            if (tableRef.current && updatedRowIds && tableRef.current.clearRowSelection) {
-              tableRef.current.clearRowSelection(updatedRowIds);
-            }
-          }, 300); // Esperar a que se actualicen los datos
+          // Usar el método clearRowSelection del BaseDataTable para limpiar la selección interna
+          if (tableRef.current?.clearRowSelection) {
+            tableRef.current.clearRowSelection(updatedRowIds);
+          }
         }}
       />
     </>

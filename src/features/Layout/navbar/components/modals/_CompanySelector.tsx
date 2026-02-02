@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/command';
 import { Dialog } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DEFAULT_COMPANY_ID, DEFAULT_COMPANY_NAME } from '@/lib/company-config';
 import { cn } from '@/lib/utils';
 import { CaretSortIcon, CheckIcon, PlusCircledIcon } from '@radix-ui/react-icons';
 import Cookies from 'js-cookie';
@@ -29,22 +30,18 @@ export function _CompanySelector({ sharedCompanies, allCompanies, currentCompany
     currentCompany?.[0] || allCompanies[0] || null
   );
 
-  // Si no hay compañía seleccionada y hay compañías disponibles, seleccionar la primera
+  // Inicializar la cookie con la empresa por defecto si no existe
   useEffect(() => {
     const actualCompany = Cookies.get('actualComp');
-    setNewCompanyUserMetadata(actualCompany || '');
 
-    if ((!actualCompany || actualCompany === 'undefined') && (allCompanies[0]?.id || sharedCompanies[0]?.id)) {
-      Cookies.set('actualComp', allCompanies[0]?.id || sharedCompanies[0]?.id);
-      Cookies.set('actualCompName', allCompanies[0]?.company_name || sharedCompanies[0]?.company_name);
+    // Si no hay cookie o es inválida, usar la empresa por defecto
+    if (!actualCompany || actualCompany === 'undefined' || actualCompany.trim() === '') {
+      Cookies.set('actualComp', DEFAULT_COMPANY_ID);
+      Cookies.set('actualCompName', DEFAULT_COMPANY_NAME);
+      setNewCompanyUserMetadata(DEFAULT_COMPANY_ID);
+    } else {
+      setNewCompanyUserMetadata(actualCompany);
     }
-
-    // if (!selectedCompany && (allCompanies?.length > 0 || sharedCompanies?.length > 0)) {
-    //   const firstCompany = allCompanies[0] || sharedCompanies[0];
-    //   setSelectedCompany(firstCompany);
-    //   Cookies.set('actualComp', firstCompany.id);
-    //   handleNewCompany(firstCompany);
-    // }
   }, [allCompanies, sharedCompanies, currentCompany]);
 
   const totalCompanies = [...sharedCompanies, ...allCompanies];

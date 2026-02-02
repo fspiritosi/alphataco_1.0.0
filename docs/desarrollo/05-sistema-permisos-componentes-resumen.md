@@ -69,17 +69,7 @@ export default async function MyPage() {
 
 ### Proteger Server Action
 
-```tsx
-'use server';
-
-import { requirePermissionServer } from '@/features/Permissions';
-
-export async function deleteEmployee(id: string) {
-  await requirePermissionServer('empleados', 'employees', 'delete');
-  // Proceder con eliminación
-}
-```
-
+````tsx
 ---
 
 ## 🎨 Características Principales
@@ -92,7 +82,7 @@ export async function deleteEmployee(id: string) {
   tab="documentos-de-empleados"  // ← Autocompleta solo tabs de empleados
   action="view"  // ← Autocompleta: view, create, update, delete
 >
-```
+````
 
 ### 2. Mapa de Permisos Centralizado
 
@@ -215,7 +205,6 @@ const {
 ```typescript
 import {
   checkPermissionServer, // Verifica permiso
-  requirePermissionServer, // Lanza error si no tiene permiso
   getUserPermissionsServer, // Obtiene todos los permisos
 } from '@/features/Permissions';
 ```

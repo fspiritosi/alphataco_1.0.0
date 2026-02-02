@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 function VehicleQr({ vehicle }: { vehicle: VehicleById }) {
   const URLQR = process.env.NEXT_PUBLIC_BASE_URL;
   const qrCodeRef = useRef<HTMLDivElement>(null);
-  const qrUrl = `${URLQR}maintenance?equipment=${vehicle?.id}`;
+  const qrUrl = `${URLQR}/maintenance?equipment=${vehicle?.id}`;
   const downloadQR = async () => {
     if (!qrCodeRef.current) return;
 

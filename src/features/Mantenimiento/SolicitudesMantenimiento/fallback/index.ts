@@ -1,0 +1,1 @@
+export { SolicitudesTableSkeleton } from './SolicitudesTableSkeleton';

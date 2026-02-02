@@ -16,17 +16,20 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
+  EmployeeWithRole,
   checkDailyReportExists,
   createDailyReport,
   createDailyReportCustomerEquipmentRelations,
   createDailyReportEmployeeRelations,
+  createDailyReportEmployeeRelationsWithRoles,
   createDailyReportEquipmentRelations,
   createDailyReportRow,
-  getActiveEmployeesForDailyReport,
   getActiveEquipmentsForDailyReport,
+  getAllActiveEmployeesForDailyReport,
   getCustomers,
   getDailyReportById,
   updateDailyReportRow,
+  updateEmployeeRelationsWithRoles,
 } from '../actions/actions';
 
 import { Calendar } from '@/components/ui/calendar';
@@ -54,13 +57,14 @@ import {
   filterEquipmentsByCustomer,
 } from '../utils/employeeEquipmentIndex';
 import { transformDailyReports } from './DayliReportDetailTable';
+import { EmployeeRoleSelect } from './EmployeeRoleSelect';
 import { SearchEmployee } from './SearchEmployee';
 import { SearchEquipment } from './SearchEquipment';
 
 type DailyReportFormProps = {
   refetchDailyReport: () => void;
   customers?: Awaited<ReturnType<typeof getCustomers>>;
-  employees?: Awaited<ReturnType<typeof getActiveEmployeesForDailyReport>>;
+  employees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>;
   equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   disabled?: boolean;
@@ -77,6 +81,11 @@ export const dailyReportSchema = z
     employees: z.array(z.string()).default([]).optional(),
     equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
+    // Campos para empleados con roles (jornadas 12/24 hrs)
+    chofer_dia: z.string().optional(),
+    chofer_noche: z.string().optional(),
+    ayudante_dia: z.string().optional(),
+    ayudante_noche: z.string().optional(),
     type_service: z
       .enum(['mensual', 'adicional', 'adicional_permanente'], {
         required_error: 'Debe seleccionar un tipo de servicio',
@@ -218,6 +227,11 @@ export function DailyReportForm({
       equipos_cliente: [],
       cancel_reason: '',
       type_service: undefined,
+      // Campos para empleados con roles
+      chofer_dia: undefined,
+      chofer_noche: undefined,
+      ayudante_dia: undefined,
+      ayudante_noche: undefined,
     },
   });
 
@@ -355,6 +369,30 @@ export function DailyReportForm({
       ? data.employees.filter((emp): emp is string => typeof emp === 'string')
       : [];
 
+    // Construir lista de empleados con roles (para jornadas 12/24 hrs)
+    const workingDayLower = data.working_day?.toLowerCase() || '';
+    const is12Hours = workingDayLower === 'jornada 12 horas';
+    const is24Hours = workingDayLower === 'jornada 24 horas';
+    const hasRoleBasedEmployees = is12Hours || is24Hours;
+
+    const employeesWithRoles: EmployeeWithRole[] = [];
+    if (hasRoleBasedEmployees) {
+      if (data.chofer_dia) {
+        employeesWithRoles.push({ employeeId: data.chofer_dia, role: 'chofer_dia' });
+      }
+      if (data.ayudante_dia) {
+        employeesWithRoles.push({ employeeId: data.ayudante_dia, role: 'ayudante_dia' });
+      }
+      if (is24Hours) {
+        if (data.chofer_noche) {
+          employeesWithRoles.push({ employeeId: data.chofer_noche, role: 'chofer_noche' });
+        }
+        if (data.ayudante_noche) {
+          employeesWithRoles.push({ employeeId: data.ayudante_noche, role: 'ayudante_noche' });
+        }
+      }
+    }
+
     // Asegurarse de que los equipos sean un array de IDs
     const equipmentIds = Array.isArray(data.equipment)
       ? data.equipment.filter((eq): eq is string => typeof eq === 'string')
@@ -394,18 +432,37 @@ export function DailyReportForm({
             equipments?.filter((eq) => data?.equipment?.includes(eq.id))?.map((eq) => eq.id) || [];
 
           // Modo edición
-          await updateDailyReportRow(
-            selectedRow.id,
-            rowData,
-            employeeIdsUpdated,
-            equipmentIdsUpdated,
-            data?.equipos_cliente || [],
-            {
-              equipmentHasChanged,
-              employeeHasChanged,
-              reassignmentReason: data.reasigment_reason || '',
-            }
-          );
+          if (hasRoleBasedEmployees) {
+            // Para jornadas 12/24 hrs, usar update con roles
+            await updateEmployeeRelationsWithRoles(selectedRow.id, employeesWithRoles);
+
+            // Actualizar equipos y equipos cliente
+            await updateDailyReportRow(
+              selectedRow.id,
+              rowData,
+              [], // Ya manejamos empleados con roles arriba
+              equipmentIdsUpdated,
+              data?.equipos_cliente || [],
+              {
+                equipmentHasChanged,
+                employeeHasChanged,
+                reassignmentReason: data.reasigment_reason || '',
+              }
+            );
+          } else {
+            await updateDailyReportRow(
+              selectedRow.id,
+              rowData,
+              employeeIdsUpdated,
+              equipmentIdsUpdated,
+              data?.equipos_cliente || [],
+              {
+                equipmentHasChanged,
+                employeeHasChanged,
+                reassignmentReason: data.reasigment_reason || '',
+              }
+            );
+          }
           if (rowData.status === 'reprogramado') {
             const existingReports = await checkDailyReportExists([format(data.reprogram_date!, 'yyyy-MM-dd')]);
             if (existingReports.length > 0) {
@@ -429,15 +486,22 @@ export function DailyReportForm({
           }
         } else {
           // Modo creación
+          // Determinar si tiene empleados (ya sea por array o por roles)
+          const hasEmployees = hasRoleBasedEmployees ? employeesWithRoles.length > 0 : employeeIds.length > 0;
+
           const createdRow = await createDailyReportRow([
             {
               ...rowData,
-              status: !employeeIds.length && !equipmentIds.length ? 'sin_recursos_asignados' : 'pendiente',
+              status: !hasEmployees && !equipmentIds.length ? 'sin_recursos_asignados' : 'pendiente',
             },
           ]);
 
-          // Crear relaciones con empleados si existen
-          if (employeeIds.length > 0) {
+          // Crear relaciones con empleados (con o sin roles)
+          if (hasRoleBasedEmployees) {
+            if (employeesWithRoles.length > 0) {
+              await createDailyReportEmployeeRelationsWithRoles(createdRow[0].id, employeesWithRoles);
+            }
+          } else if (employeeIds.length > 0) {
             await createDailyReportEmployeeRelations(createdRow[0].id, employeeIds);
           }
 
@@ -479,6 +543,10 @@ export function DailyReportForm({
           remit_number: '',
           type_service: undefined,
           cancel_reason: '',
+          chofer_dia: undefined,
+          chofer_noche: undefined,
+          ayudante_dia: undefined,
+          ayudante_noche: undefined,
         });
 
         // Restablecer los estados locales
@@ -542,10 +610,35 @@ export function DailyReportForm({
       }
     }
 
-    // Setear empleados
+    // Setear empleados (con o sin roles)
     if (selectedRow.employees_references) {
-      const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
-      form.setValue('employees', employeeIds);
+      const workingDay = selectedRow.working_day?.toLowerCase() || '';
+      const is12Hours = workingDay === 'jornada 12 horas';
+      const is24Hours = workingDay === 'jornada 24 horas';
+      const hasRoleBasedEmployees = is12Hours || is24Hours;
+
+      // Cast para incluir el role en el tipo (viene de la BD pero TypeScript no lo infiere)
+      type EmployeeRefWithRole = (typeof selectedRow.employees_references)[number] & {
+        role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
+      };
+      const employeesWithRole = selectedRow.employees_references as EmployeeRefWithRole[];
+
+      if (hasRoleBasedEmployees) {
+        // Setear empleados por rol
+        const choferDia = employeesWithRole.find((emp) => emp.role === 'chofer_dia');
+        const choferNoche = employeesWithRole.find((emp) => emp.role === 'chofer_noche');
+        const ayudanteDia = employeesWithRole.find((emp) => emp.role === 'ayudante_dia');
+        const ayudanteNoche = employeesWithRole.find((emp) => emp.role === 'ayudante_noche');
+
+        if (choferDia?.id) form.setValue('chofer_dia', choferDia.id);
+        if (choferNoche?.id) form.setValue('chofer_noche', choferNoche.id);
+        if (ayudanteDia?.id) form.setValue('ayudante_dia', ayudanteDia.id);
+        if (ayudanteNoche?.id) form.setValue('ayudante_noche', ayudanteNoche.id);
+      } else {
+        // Setear empleados sin rol (forma tradicional)
+        const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
+        form.setValue('employees', employeeIds);
+      }
     }
 
     // Setear equipos del cliente
@@ -647,6 +740,10 @@ export function DailyReportForm({
       cancel_reason: '',
       reprogram_date: undefined,
       equipos_cliente: [],
+      chofer_dia: undefined,
+      chofer_noche: undefined,
+      ayudante_dia: undefined,
+      ayudante_noche: undefined,
     });
 
     // Restablecer estados locales
@@ -1405,263 +1502,375 @@ export function DailyReportForm({
                   />
                 )}
 
-                {/* Empleados */}
-                <FormField
-                  control={form.control}
-                  name="employees"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Empleados</FormLabel>
-                      {duplicateEmployees.length > 0 && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                  clipRule="evenodd"
+                {/* Empleados - Campos condicionales según jornada */}
+                {(() => {
+                  const workingDayValue = form.watch('working_day')?.toLowerCase() || '';
+                  const is12Hours = workingDayValue === 'jornada 12 horas';
+                  const is24Hours = workingDayValue === 'jornada 24 horas';
+                  const hasRoleFields = is12Hours || is24Hours;
+
+                  // IDs de empleados seleccionados en otros roles (para deshabilitar)
+                  const choferDiaId = form.watch('chofer_dia');
+                  const choferNocheId = form.watch('chofer_noche');
+                  const ayudanteDiaId = form.watch('ayudante_dia');
+                  const ayudanteNocheId = form.watch('ayudante_noche');
+
+                  if (hasRoleFields) {
+                    return (
+                      <div className="space-y-4">
+                        <div className="text-sm font-medium text-muted-foreground mb-2">
+                          {is12Hours
+                            ? 'Asignación de Personal - Jornada 12 Horas'
+                            : 'Asignación de Personal - Jornada 24 Horas'}
+                        </div>
+
+                        {/* Chofer de Día */}
+                        <FormField
+                          control={form.control}
+                          name="chofer_dia"
+                          render={({ field }) => (
+                            <EmployeeRoleSelect
+                              field={field}
+                              employees={allEmployees}
+                              selectedCustomerId={selectedCustomerId}
+                              label="Chofer de Día"
+                              placeholder="Seleccionar chofer de día"
+                              disabledEmployeeIds={
+                                [choferNocheId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
+                              }
+                            />
+                          )}
+                        />
+
+                        {/* Ayudante de Día */}
+                        <FormField
+                          control={form.control}
+                          name="ayudante_dia"
+                          render={({ field }) => (
+                            <EmployeeRoleSelect
+                              field={field}
+                              employees={allEmployees}
+                              selectedCustomerId={selectedCustomerId}
+                              label="Ayudante de Día (opcional)"
+                              placeholder="Seleccionar ayudante de día"
+                              disabledEmployeeIds={
+                                [choferDiaId, choferNocheId, ayudanteNocheId].filter(Boolean) as string[]
+                              }
+                            />
+                          )}
+                        />
+
+                        {is24Hours && (
+                          <>
+                            {/* Chofer de Noche */}
+                            <FormField
+                              control={form.control}
+                              name="chofer_noche"
+                              render={({ field }) => (
+                                <EmployeeRoleSelect
+                                  field={field}
+                                  employees={allEmployees}
+                                  selectedCustomerId={selectedCustomerId}
+                                  label="Chofer de Noche"
+                                  placeholder="Seleccionar chofer de noche"
+                                  disabledEmployeeIds={
+                                    [choferDiaId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
+                                  }
                                 />
-                              </svg>
-                            </div>
-                            <div className="ml-3">
-                              <h3 className="text-sm font-medium text-yellow-800">Empleados duplicados detectados</h3>
-                              <div className="mt-2 text-sm text-yellow-700">
-                                <p>Los siguientes empleados ya están asignados en otras filas del parte diario:</p>
-                                <ul className="list-disc list-inside mt-1">
-                                  {duplicateEmployees.map((employee, index) => (
-                                    <li key={index}>{employee}</li>
-                                  ))}
-                                </ul>
+                              )}
+                            />
+
+                            {/* Ayudante de Noche */}
+                            <FormField
+                              control={form.control}
+                              name="ayudante_noche"
+                              render={({ field }) => (
+                                <EmployeeRoleSelect
+                                  field={field}
+                                  employees={allEmployees}
+                                  selectedCustomerId={selectedCustomerId}
+                                  label="Ayudante de Noche (opcional)"
+                                  placeholder="Seleccionar ayudante de noche"
+                                  disabledEmployeeIds={
+                                    [choferDiaId, choferNocheId, ayudanteDiaId].filter(Boolean) as string[]
+                                  }
+                                />
+                              )}
+                            />
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Campos normales para otras jornadas
+                  return null;
+                })()}
+
+                {/* Empleados - Selección múltiple (para jornadas que no son 12/24 hrs) */}
+                {!['jornada 12 horas', 'jornada 24 horas'].includes(form.watch('working_day')?.toLowerCase() || '') && (
+                  <FormField
+                    control={form.control}
+                    name="employees"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Empleados</FormLabel>
+                        {duplicateEmployees.length > 0 && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-yellow-800">Empleados duplicados detectados</h3>
+                                <div className="mt-2 text-sm text-yellow-700">
+                                  <p>Los siguientes empleados ya están asignados en otras filas del parte diario:</p>
+                                  <ul className="list-disc list-inside mt-1">
+                                    {duplicateEmployees.map((employee, index) => (
+                                      <li key={index}>{employee}</li>
+                                    ))}
+                                  </ul>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )}
-                      {unassignedEmployeesSelected.length > 0 && (
-                        <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                            <div className="ml-3">
-                              <h3 className="text-sm font-medium text-orange-800">Empleados no asignados al cliente</h3>
-                              <div className="mt-2 text-sm text-orange-700">
-                                <p>Los siguientes empleados no están asignados al cliente seleccionado:</p>
-                                <ul className="list-disc list-inside mt-1">
-                                  {unassignedEmployeesSelected.map((employeeId) => {
-                                    const employee = employees?.find((emp) => emp.id === employeeId);
-                                    return employee ? (
-                                      <li key={employeeId}>
-                                        {employee.lastname.charAt(0).toUpperCase() +
-                                          employee.lastname.slice(1).toLowerCase()}{' '}
-                                        {employee.firstname.charAt(0).toUpperCase() +
-                                          employee.firstname.slice(1).toLowerCase()}
-                                      </li>
-                                    ) : null;
-                                  })}
-                                </ul>
+                        )}
+                        {unassignedEmployeesSelected.length > 0 && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-orange-800">
+                                  Empleados no asignados al cliente
+                                </h3>
+                                <div className="mt-2 text-sm text-orange-700">
+                                  <p>Los siguientes empleados no están asignados al cliente seleccionado:</p>
+                                  <ul className="list-disc list-inside mt-1">
+                                    {unassignedEmployeesSelected.map((employeeId) => {
+                                      const employee = employees?.find((emp) => emp.id === employeeId);
+                                      return employee ? (
+                                        <li key={employeeId}>
+                                          {employee.lastname.charAt(0).toUpperCase() +
+                                            employee.lastname.slice(1).toLowerCase()}{' '}
+                                          {employee.firstname.charAt(0).toUpperCase() +
+                                            employee.firstname.slice(1).toLowerCase()}
+                                        </li>
+                                      ) : null;
+                                    })}
+                                  </ul>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )}
-                      <SearchEmployee
-                        field={field as any}
-                        employees={allEmployees}
-                        selectedCustomerId={selectedCustomerId}
-                      />
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              disabled={!selectedCustomerId}
-                              className={cn(
-                                'w-full justify-between',
-                                !field.value?.length && 'text-muted-foreground',
-                                !selectedCustomerId && 'opacity-50 cursor-not-allowed'
-                              )}
-                            >
-                              {field.value?.length
-                                ? `${field.value.length} empleado${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
-                                : selectedCustomerId
-                                  ? 'Seleccionar empleados'
-                                  : 'Seleccione un cliente primero'}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-full p-0">
-                          <Command>
-                            <CommandInput placeholder="Buscar empleados..." />
-                            <CommandList>
-                              <CommandEmpty>
-                                {!selectedCustomerId
-                                  ? 'Seleccione un cliente primero.'
-                                  : allEmployees.length === 0
-                                    ? 'No hay empleados activos disponibles.'
-                                    : 'No se encontraron empleados que coincidan.'}
-                              </CommandEmpty>
-                              {selectedCustomerId && (
-                                <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                                  Nota: Los empleados marcados en naranja no están asignados al cliente seleccionado.
-                                </div>
-                              )}
+                        )}
+                        <SearchEmployee
+                          field={field as any}
+                          employees={allEmployees}
+                          selectedCustomerId={selectedCustomerId}
+                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                disabled={!selectedCustomerId}
+                                className={cn(
+                                  'w-full justify-between',
+                                  !field.value?.length && 'text-muted-foreground',
+                                  !selectedCustomerId && 'opacity-50 cursor-not-allowed'
+                                )}
+                              >
+                                {field.value?.length
+                                  ? `${field.value.length} empleado${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
+                                  : selectedCustomerId
+                                    ? 'Seleccionar empleados'
+                                    : 'Seleccione un cliente primero'}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-full p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar empleados..." />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {!selectedCustomerId
+                                    ? 'Seleccione un cliente primero.'
+                                    : allEmployees.length === 0
+                                      ? 'No hay empleados activos disponibles.'
+                                      : 'No se encontraron empleados que coincidan.'}
+                                </CommandEmpty>
+                                {selectedCustomerId && (
+                                  <div className="px-3 py-1.5 text-xs text-muted-foreground">
+                                    Nota: Los empleados marcados en naranja no están asignados al cliente seleccionado.
+                                  </div>
+                                )}
 
-                              {!selectedCustomerId && (
-                                <div className="py-6 text-center text-sm text-muted-foreground">
-                                  Por favor, seleccione un cliente primero.
-                                </div>
-                              )}
+                                {!selectedCustomerId && (
+                                  <div className="py-6 text-center text-sm text-muted-foreground">
+                                    Por favor, seleccione un cliente primero.
+                                  </div>
+                                )}
 
-                              {selectedCustomerId && allEmployees.length === 0 && (
-                                <div className="py-6 text-center text-sm text-muted-foreground">
-                                  No hay empleados activos disponibles.
-                                </div>
-                              )}
+                                {selectedCustomerId && allEmployees.length === 0 && (
+                                  <div className="py-6 text-center text-sm text-muted-foreground">
+                                    No hay empleados activos disponibles.
+                                  </div>
+                                )}
 
-                              {selectedCustomerId &&
-                                allEmployees.length > 0 &&
-                                (() => {
-                                  // Obtener todas las posiciones únicas para todos los empleados
-                                  const positionsMap: Record<string, (typeof allEmployees)[0][]> = {};
+                                {selectedCustomerId &&
+                                  allEmployees.length > 0 &&
+                                  (() => {
+                                    // Obtener todas las posiciones únicas para todos los empleados
+                                    const positionsMap: Record<string, (typeof allEmployees)[0][]> = {};
 
-                                  // Agrupar todos los empleados por posición
-                                  allEmployees.forEach((employee) => {
-                                    const position = employee.company_positions?.name || 'Sin posición';
+                                    // Agrupar todos los empleados por posición
+                                    allEmployees.forEach((employee) => {
+                                      const position = employee.company_positions?.name || 'Sin posición';
 
-                                    if (!positionsMap[position]) {
-                                      positionsMap[position] = [];
-                                    }
-                                    positionsMap[position].push(employee);
-                                  });
+                                      if (!positionsMap[position]) {
+                                        positionsMap[position] = [];
+                                      }
+                                      positionsMap[position].push(employee);
+                                    });
 
-                                  // Convertir a array y ordenar por posición
-                                  const positionsArray = Object.keys(positionsMap).sort();
+                                    // Convertir a array y ordenar por posición
+                                    const positionsArray = Object.keys(positionsMap).sort();
 
-                                  return positionsArray.map((position) => (
-                                    <CommandGroup
-                                      key={position}
-                                      heading={position.charAt(0).toUpperCase() + position.slice(1)}
-                                    >
-                                      {positionsMap[position].map((employee) => {
-                                        // Verificar si el empleado está asignado al cliente
-                                        const isAssigned = employee.contractor_employee?.some(
-                                          (ce) => ce.customers?.id === selectedCustomerId
-                                        );
+                                    return positionsArray.map((position) => (
+                                      <CommandGroup
+                                        key={position}
+                                        heading={position.charAt(0).toUpperCase() + position.slice(1)}
+                                      >
+                                        {positionsMap[position].map((employee) => {
+                                          // Verificar si el empleado está asignado al cliente
+                                          const isAssigned = employee.contractor_employee?.some(
+                                            (ce) => ce.customers?.id === selectedCustomerId
+                                          );
 
-                                        return (
-                                          <CommandItem
-                                            value={employee.firstname + employee.lastname}
-                                            key={employee.id}
-                                            onSelect={() => {
-                                              const currentValues = field.value || [];
-                                              const newValues = currentValues.includes(employee.id)
-                                                ? currentValues.filter((id) => id !== employee.id)
-                                                : [...currentValues, employee.id];
+                                          return (
+                                            <CommandItem
+                                              value={employee.firstname + employee.lastname}
+                                              key={employee.id}
+                                              onSelect={() => {
+                                                const currentValues = field.value || [];
+                                                const newValues = currentValues.includes(employee.id)
+                                                  ? currentValues.filter((id) => id !== employee.id)
+                                                  : [...currentValues, employee.id];
 
-                                              field.onChange(newValues);
-                                            }}
-                                            className={cn(
-                                              !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
-                                            )}
-                                          >
-                                            <div className="flex items-center justify-between w-full">
-                                              <div className="flex items-center">
-                                                <Check
-                                                  className={cn(
-                                                    'mr-2 h-4 w-4 capitalize',
-                                                    !isAssigned && 'text-orange-600',
-                                                    field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
-                                                  )}
-                                                />
-                                                {employee.lastname.replace(
-                                                  /\w\S*/g,
-                                                  (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                                ) +
-                                                  ' ' +
-                                                  employee.firstname.replace(
+                                                field.onChange(newValues);
+                                              }}
+                                              className={cn(
+                                                !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                              )}
+                                            >
+                                              <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center">
+                                                  <Check
+                                                    className={cn(
+                                                      'mr-2 h-4 w-4 capitalize',
+                                                      !isAssigned && 'text-orange-600',
+                                                      field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
+                                                    )}
+                                                  />
+                                                  {employee.lastname.replace(
                                                     /\w\S*/g,
                                                     (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                                  )}
+                                                  ) +
+                                                    ' ' +
+                                                    employee.firstname.replace(
+                                                      /\w\S*/g,
+                                                      (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                                    )}
+                                                </div>
+                                                {!isAssigned && (
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
+                                                  >
+                                                    No asignado
+                                                  </Badge>
+                                                )}
                                               </div>
-                                              {!isAssigned && (
-                                                <Badge
-                                                  variant="outline"
-                                                  className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
-                                                >
-                                                  No asignado
-                                                </Badge>
-                                              )}
-                                            </div>
-                                          </CommandItem>
-                                        );
-                                      })}
-                                    </CommandGroup>
-                                  ));
-                                })()}
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {field.value?.map((employeeId) => {
-                          const employee = employees?.find((emp) => emp.id === employeeId);
-                          if (!employee) return null;
+                                            </CommandItem>
+                                          );
+                                        })}
+                                      </CommandGroup>
+                                    ));
+                                  })()}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {field.value?.map((employeeId) => {
+                            const employee = employees?.find((emp) => emp.id === employeeId);
+                            if (!employee) return null;
 
-                          const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
+                            const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
 
-                          // Verificar si el empleado está asignado al cliente
-                          const isAssigned = employee.contractor_employee?.some(
-                            (ce) => ce.customers?.id === selectedCustomerId
-                          );
+                            // Verificar si el empleado está asignado al cliente
+                            const isAssigned = employee.contractor_employee?.some(
+                              (ce) => ce.customers?.id === selectedCustomerId
+                            );
 
-                          return (
-                            <div
-                              key={employeeId}
-                              className={cn(
-                                'text-xs px-2 py-1 rounded-md flex items-center gap-1',
-                                isAssigned
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'bg-orange-100 text-orange-800 border border-orange-300'
-                              )}
-                            >
-                              {displayName}
-                              {!isAssigned && (
-                                <Badge
-                                  variant="outline"
-                                  className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
-                                >
-                                  No asignado
-                                </Badge>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const currentValues = field.value || [];
-                                  const newValues = currentValues.filter((id) => id !== employeeId);
-                                  field.onChange(newValues);
-                                }}
-                                className={cn('ml-1 hover:opacity-80', isAssigned ? 'text-primary' : 'text-orange-800')}
+                            return (
+                              <div
+                                key={employeeId}
+                                className={cn(
+                                  'text-xs px-2 py-1 rounded-md flex items-center gap-1',
+                                  isAssigned
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                )}
                               >
-                                <X className="h-3 w-3 text-red-500" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                                {displayName}
+                                {!isAssigned && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
+                                  >
+                                    No asignado
+                                  </Badge>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const currentValues = field.value || [];
+                                    const newValues = currentValues.filter((id) => id !== employeeId);
+                                    field.onChange(newValues);
+                                  }}
+                                  className={cn(
+                                    'ml-1 hover:opacity-80',
+                                    isAssigned ? 'text-primary' : 'text-orange-800'
+                                  )}
+                                >
+                                  <X className="h-3 w-3 text-red-500" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 {/* Equipos */}
                 <FormField

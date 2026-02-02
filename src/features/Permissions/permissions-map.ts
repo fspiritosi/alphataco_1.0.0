@@ -26,6 +26,7 @@ export const ACTIONS = {
   create: { slug: 'create', name: 'Crear' },
   update: { slug: 'update', name: 'Editar' },
   delete: { slug: 'delete', name: 'Eliminar' },
+  view_all_requests: { slug: 'view_all_requests', name: 'Ver todas las solicitudes' },
 } as const;
 
 export type ActionSlug = keyof typeof ACTIONS;
@@ -201,6 +202,29 @@ export const PERMISSIONS = {
             tabId: '10000000-0000-0000-0000-000000000015',
             parent: 'general',
             allowedActions: ['view', 'create'],
+          },
+          'empresa-mantenimiento': {
+            slug: 'empresa_mantenimiento',
+            name: 'Mantenimiento',
+            tabId: '10000000-0000-0000-0000-000000000016',
+            parent: 'general',
+            allowedActions: ['view'],
+            subtabs: {
+              talleres: {
+                slug: 'talleres',
+                name: 'Talleres',
+                tabId: '10000000-0000-0000-0000-000000000161',
+                parent: 'empresa-mantenimiento',
+                allowedActions: ['view', 'create', 'update', 'delete'],
+              },
+              'sectores-taller': {
+                slug: 'sectores_taller',
+                name: 'Sectores',
+                tabId: '10000000-0000-0000-0000-000000000162',
+                parent: 'empresa-mantenimiento',
+                allowedActions: ['view', 'create', 'update', 'delete'],
+              },
+            },
           },
         },
       },
@@ -532,6 +556,13 @@ export const PERMISSIONS = {
             parent: 'type_of_repairs',
             allowedActions: ['view', 'create', 'update'],
           },
+          equipments_with_deviations: {
+            slug: 'equipments_with_deviations',
+            name: 'Equipos con Desvíos',
+            tabId: '60000000-0000-0000-0000-000000000015',
+            parent: 'type_of_repairs',
+            allowedActions: ['view'],
+          },
           type_of_repair_new_entry: {
             slug: 'type_of_repair_new_entry',
             name: 'Nueva Solicitud',
@@ -563,6 +594,13 @@ export const PERMISSIONS = {
             allowedActions: ['view', 'create', 'update'],
           },
         },
+      },
+      'checklist-equipo': {
+        slug: 'checklist-equipo',
+        name: 'Checklist',
+        tabId: '30000000-0000-0000-0000-000000000056',
+        parent: 'detalle-equipo',
+        allowedActions: ['view'],
       },
       'detalle-equipo': {
         slug: 'detalle-equipo',
@@ -795,40 +833,119 @@ export const PERMISSIONS = {
     name: 'Mantenimiento',
     moduleId: '421e96da-5235-4857-bf81-e63336447f13',
     tabs: {
-      type_of_repairs: {
-        slug: 'type_of_repairs',
-        name: 'Mantenimiento',
-        tabId: '60000000-0000-0000-0000-000000000001',
+      // Tab 1: Operaciones
+      maint_operaciones: {
+        slug: 'maint_operaciones',
+        name: 'Operaciones',
+        tabId: '60000000-0000-0000-0000-000000000030',
         parent: null,
         allowedActions: ['view'],
         subtabs: {
-          created_solicitudes: {
-            slug: 'created_solicitudes',
-            name: 'Solicitudes',
-            tabId: '60000000-0000-0000-0000-000000000011',
-            parent: 'type_of_repairs',
+          equipments_with_deviations: {
+            slug: 'equipments_with_deviations',
+            name: 'Equipos con Desvíos',
+            tabId: '60000000-0000-0000-0000-000000000015',
+            parent: 'maint_operaciones',
             allowedActions: ['view'],
           },
+          maintenance_requests: {
+            slug: 'maintenance_requests',
+            name: 'Solicitudes de Mantenimiento',
+            tabId: '60000000-0000-0000-0000-000000000020',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar/denegar, view_all_requests = ver todas sin filtro de supervisor
+          },
+          pendientes_ejecutar: {
+            slug: 'pendientes_ejecutar',
+            name: 'Pendientes de Ejecutar',
+            tabId: '60000000-0000-0000-0000-000000000023',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar/rechazar fecha, view_all_requests = ver todas sin filtro de supervisor
+          },
+          nuevo_pedido: {
+            slug: 'nuevo_pedido',
+            name: 'Nuevo Pedido',
+            tabId: '60000000-0000-0000-0000-000000000024',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'create'], // create = crear pedidos de mantenimiento
+          },
+          para_taller: {
+            slug: 'para_taller',
+            name: 'Para Taller',
+            tabId: '60000000-0000-0000-0000-000000000025',
+            parent: 'maint_operaciones',
+            allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar entrada a taller, view_all_requests = ver todas sin filtro de supervisor
+          },
+        },
+      },
+      // Tab 2: Taller
+      maint_taller: {
+        slug: 'maint_taller',
+        name: 'Taller',
+        tabId: '60000000-0000-0000-0000-000000000040',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {
+          maintenance_orders: {
+            slug: 'maintenance_orders',
+            name: 'Pedidos de Mantenimiento',
+            tabId: '60000000-0000-0000-0000-000000000021',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'update'], // update = planificar fecha, aprobar entrada
+            subtabs: {
+              pedidos_pendientes: {
+                slug: 'pedidos_pendientes',
+                name: 'Pendientes',
+                tabId: '60000000-0000-0000-0000-000000000211',
+                parent: 'maintenance_orders',
+                allowedActions: ['view', 'update'], // update = planificar fecha
+              },
+              pedidos_confirmados: {
+                slug: 'pedidos_confirmados',
+                name: 'Confirmados',
+                tabId: '60000000-0000-0000-0000-000000000212',
+                parent: 'maintenance_orders',
+                allowedActions: ['view', 'update'], // update = aprobar entrada a taller
+              },
+            },
+          },
+          planificacion: {
+            slug: 'planificacion',
+            name: 'Planificación',
+            tabId: '60000000-0000-0000-0000-000000000041',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'update'], // update = asignar talleres/sectores a desvíos
+          },
+          ordenes_trabajo: {
+            slug: 'ordenes_trabajo',
+            name: 'Órdenes de Trabajo',
+            tabId: '60000000-0000-0000-0000-000000000042',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'create', 'update', 'delete'], // CRUD completo para órdenes de trabajo
+          },
+        },
+      },
+      // Tab 3: Configuración
+      maint_configuracion: {
+        slug: 'maint_configuracion',
+        name: 'Configuración',
+        tabId: '60000000-0000-0000-0000-000000000050',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {
           type_of_repair: {
             slug: 'type_of_repair',
             name: 'Tipos de Reparación',
             tabId: '60000000-0000-0000-0000-000000000012',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
-          },
-          type_of_repair_new_entry: {
-            slug: 'type_of_repair_new_entry',
-            name: 'Nueva Solicitud',
-            tabId: '60000000-0000-0000-0000-000000000013',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
+            parent: 'maint_configuracion',
+            allowedActions: ['view', 'create', 'update'],
           },
           maintenance_groups: {
             slug: 'maintenance_groups',
             name: 'Grupos',
             tabId: '60000000-0000-0000-0000-000000000014',
-            parent: 'type_of_repairs',
-            allowedActions: ['view'],
+            parent: 'maint_configuracion',
+            allowedActions: ['view', 'create', 'update'],
           },
         },
       },

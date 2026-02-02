@@ -1,40 +1,33 @@
 'use server';
 
-import { getCurrentUserProfile } from '@/features/Layout/navbar/actions/actions.navbar';
+import { getCompanyId } from '@/lib/company-config';
+import { logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
-import cookiesjs from 'js-cookie';
 import { cookies } from 'next/headers';
+
+/**
+ * Obtiene el company_id del contexto actual.
+ * Usa la empresa por defecto si no hay cookie configurada.
+ */
+export const getServerCompanyId = async (): Promise<string> => {
+  const cookieStore = await cookies();
+  const cookieValue = cookieStore.get('actualComp')?.value;
+
+  // Usar la función centralizada que maneja el fallback
+  return getCompanyId(cookieValue);
+};
+
 export const fetchCurrentCompany = async () => {
   'use server';
   const supabase = await supabaseServer();
-  const cookieStore = await cookies();
-  let company_id = cookieStore.get('actualComp')?.value;
 
-  // <<<<<<< Updated upstream
-  if (!company_id) {
-    const user = await getCurrentUserProfile();
-    const { allCompanies, sharedCompanies } = await fetchUserCompanies(user?.id || '');
-    const firstCompany = allCompanies[0] || sharedCompanies[0];
-    if (firstCompany?.id) {
-      // Establecer cookie desde el servidor
-      cookiesjs.set('actualComp', firstCompany.id);
-      company_id = firstCompany.id;
-    }
-  }
+  // Usar la función centralizada para obtener el company_id
+  const company_id = await getServerCompanyId();
 
-  //   const { data: company, error } = await supabase
-  //     .from('company')
-  //     .select('*')
-  //     .eq('id', company_id || '');
-  // =======
-  const { data: company, error } = await supabase
-    .from('company')
-    .select('*, city(id, name)')
-    .eq('id', company_id || '');
-  // >>>>>>> Stashed changes
+  const { data: company, error } = await supabase.from('company').select('*, city(id, name)').eq('id', company_id);
 
   if (error) {
-    console.error('Error fetching company:', error);
+    logger.error('Error fetching company:', { data: { error } });
     return null;
   }
   return company;
@@ -54,7 +47,7 @@ export const fetchUserCompanies = async (userId: string) => {
     .returns<SharedCompanyWithCompany[]>();
 
   if (sharedError) {
-    console.error('Error fetching shared companies:', sharedError);
+    logger.error('Error fetching shared companies:', { data: { error: sharedError } });
     return { sharedCompanies: [], allCompanies: [] };
   }
 
@@ -62,7 +55,7 @@ export const fetchUserCompanies = async (userId: string) => {
   const { data: allCompanies, error: ownedError } = await supabase.from('company').select('*').eq('owner_id', userId);
 
   if (ownedError) {
-    console.error('Error fetching owned companies:', ownedError);
+    logger.error('Error fetching owned companies:', { data: { error: ownedError } });
     return { sharedCompanies: [], allCompanies: [] };
   }
 

@@ -8,6 +8,7 @@ import DocumentEquipmentComponent from '@/components/DocumentEquipmentComponent'
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { VehicleChecklistsTabContent } from '@/features/Equipos/EquipoID/components/vehicle-checklists-tab-content';
 import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form';
 import { VehicleHeader } from '@/features/Equipos/EquipoID/components/vehicle-header';
 import VehicleQr from '@/features/Equipos/EquipoID/components/vehicle-qr';
@@ -22,6 +23,7 @@ import {
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
+// import { TestErrorButtons } from './test-error-buttons';
 
 interface VehiclePageProps {
   searchParams: Promise<{ action?: 'new' | 'edit' | 'view'; id?: string }>;
@@ -51,6 +53,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
 
   return (
     <div className="p-6 space-y-6">
+      {/* <TestErrorButtons /> */}
       <Card className="p-4">
         {/* Vehicle Header */}
         {mode !== 'new' ? (
@@ -87,6 +90,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
             />
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
+          checklistsComponent={<VehicleChecklistsTabContent equipmentId={vehicle?.id || ''} />}
         />
       </Card>
     </div>

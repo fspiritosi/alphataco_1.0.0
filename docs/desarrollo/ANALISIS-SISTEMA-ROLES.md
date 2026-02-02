@@ -358,9 +358,6 @@ export async function checkPermissionServer(moduleSlug: string, tabSlug: string,
 
 // Obtener permisos del usuario actual (server-side)
 export async function getUserPermissionsServer(): Promise<UserPermission[]>;
-
-// Requerir permiso (lanza error si no tiene)
-export async function requirePermissionServer(moduleSlug: string, tabSlug: string, actionSlug: string): Promise<void>;
 ```
 
 **Características:**
@@ -617,11 +614,8 @@ export default async function EmployeesPage() {
 ```tsx
 'use server';
 
-import { requirePermissionServer } from '@/features/Permissions/actionsServer';
-
 export async function deleteEmployee(employeeId: string) {
   // Lanza error si no tiene permiso
-  await requirePermissionServer('empleados', 'employees', 'delete');
 
   // Proceder con eliminación
   const supabase = await supabaseServer();
