@@ -67,10 +67,10 @@ export type PreparteItem = {
     quantity: number;
   }[];
   requestDate: Date;
-  executionDate?: {
-    from?: Date;
+  executionDate: {
+    from: Date;
     to?: Date;
-  }; // Opcional cuando subject_to_availability es true
+  };
   tipo: string;
   jornada: string;
   start_time?: string;
@@ -90,11 +90,12 @@ export type PreparteItem = {
   equipos_cliente: string[];
   preparteImage?: string;
   image_url?: string;
-  // Nuevo: indica si está sujeto a disponibilidad operativa
-  subject_to_availability: boolean;
-  // Campos para tracking de cambios de item
-  item_change_reason?: string;
-  original_item_id?: string;
+  // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+  // // Nuevo: indica si está sujeto a disponibilidad operativa
+  // subject_to_availability: boolean;
+  // // Campos para tracking de cambios de item
+  // item_change_reason?: string;
+  // original_item_id?: string;
 };
 
 interface PreparteManagerProps {
@@ -167,7 +168,8 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
     equipos_cliente: [],
     preparteImage: '',
     image_url: '',
-    subject_to_availability: false,
+    // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+    // subject_to_availability: false,
   });
 
   const router = useRouter();
@@ -226,8 +228,8 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           equipos_cliente: formData.equipos_cliente ?? [],
           // persistir en columna DB (procesada)
           preparteImage: imageUrl,
-          // Nuevo campo
-          subject_to_availability: formData.subject_to_availability ?? false,
+          // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+          // subject_to_availability: formData.subject_to_availability ?? false,
         };
 
         await updatePreparte(currentItem.id, updatedPreparte as any);
@@ -240,42 +242,43 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
         // Generar número de pedido
         const numeroPedido = await generateOrderNumber();
 
-        // Si está sujeto a disponibilidad, no hay fechas que procesar
-        if (formData.subject_to_availability) {
-          // Crear prepartes sin fecha de ejecución
-          const newPrepartes = formData.item
-            .filter((i) => i.id)
-            .flatMap((itemData) =>
-              Array.from({ length: itemData.quantity }, () => ({
-                cliente_id: formData.cliente_id,
-                contrato_id: formData.contrato_id,
-                tipo: formData.tipo,
-                jornada: formData.jornada,
-                start_time: formData.start_time || null,
-                end_time: formData.end_time || null,
-                solicitante: formData.solicitante,
-                status: 'pendiente',
-                item: itemData.id,
-                observaciones: formData.observaciones || '',
-                executionDate: null, // Sin fecha
-                requestDate: formData.requestDate?.toISOString() || new Date().toISOString(),
-                quantity: 1,
-                numero_pedido: numeroPedido,
-                sector_service_id: formData.sector_service_id || null,
-                areas_service_id: formData.areas_service_id || null,
-                equipos_cliente: formData.equipos_cliente?.[0] || null,
-                preparteImage: formData.image_url || null,
-                subject_to_availability: true,
-              }))
-            );
+        // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+        // // Si está sujeto a disponibilidad, no hay fechas que procesar
+        // if (formData.subject_to_availability) {
+        //   // Crear prepartes sin fecha de ejecución
+        //   const newPrepartes = formData.item
+        //     .filter((i) => i.id)
+        //     .flatMap((itemData) =>
+        //       Array.from({ length: itemData.quantity }, () => ({
+        //         cliente_id: formData.cliente_id,
+        //         contrato_id: formData.contrato_id,
+        //         tipo: formData.tipo,
+        //         jornada: formData.jornada,
+        //         start_time: formData.start_time || null,
+        //         end_time: formData.end_time || null,
+        //         solicitante: formData.solicitante,
+        //         status: 'pendiente',
+        //         item: itemData.id,
+        //         observaciones: formData.observaciones || '',
+        //         executionDate: null, // Sin fecha
+        //         requestDate: formData.requestDate?.toISOString() || new Date().toISOString(),
+        //         quantity: 1,
+        //         numero_pedido: numeroPedido,
+        //         sector_service_id: formData.sector_service_id || null,
+        //         areas_service_id: formData.areas_service_id || null,
+        //         equipos_cliente: formData.equipos_cliente?.[0] || null,
+        //         preparteImage: formData.image_url || null,
+        //         subject_to_availability: true,
+        //       }))
+        //     );
 
-          await createPreparte(newPrepartes as any);
-          toast.success(`Pedido ${numeroPedido} creado (sujeto a disponibilidad)`);
-          refreshTable();
-          router.refresh();
-          setOpen(false);
-          return;
-        }
+        //   await createPreparte(newPrepartes as any);
+        //   toast.success(`Pedido ${numeroPedido} creado (sujeto a disponibilidad)`);
+        //   refreshTable();
+        //   router.refresh();
+        //   setOpen(false);
+        //   return;
+        // }
 
         // Create new prepartes con fechas
         if (!formData.executionDate?.from) {
@@ -368,7 +371,8 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
         equipos_cliente: [],
         preparteImage: '',
         image_url: '',
-        subject_to_availability: false,
+        // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+        // subject_to_availability: false,
       });
       setOpen(false);
       setIsEditing(false);
@@ -431,12 +435,10 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
       contrato_id: item.contrato_id || '',
       item: itemArray,
       requestDate: item.requestDate ? new Date(item.requestDate) : new Date(),
-      executionDate: item.executionDate?.from
-        ? {
-            from: new Date(item.executionDate.from),
-            to: item.executionDate.to ? new Date(item.executionDate.to) : undefined,
-          }
-        : undefined,
+      executionDate: {
+        from: item.executionDate?.from ? new Date(item.executionDate.from) : new Date(),
+        to: item.executionDate?.to ? new Date(item.executionDate.to) : undefined,
+      },
       tipo: item.tipo || '',
       jornada: item.jornada || '',
       start_time: item.start_time || '',
@@ -452,7 +454,8 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
       equipos_cliente: equiposForForm,
       preparteImage: item.preparteImage || '',
       image_url: '',
-      subject_to_availability: item.subject_to_availability ?? false,
+      // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+      // subject_to_availability: item.subject_to_availability ?? false,
     });
 
     setCurrentItem(item);
@@ -462,16 +465,17 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
   const handleConfirm = async (item: PreparteItem) => {
     try {
-      // Verificar si está sujeto a disponibilidad y no tiene fecha
-      if (item.subject_to_availability && !item.executionDate?.from) {
-        toast.error(
-          'Este pedido está sujeto a disponibilidad operativa. Debe asignar una fecha de ejecución antes de confirmar.',
-          { duration: 5000 }
-        );
-        // Abrir el formulario de edición para que el usuario asigne la fecha
-        handleEdit(item);
-        return;
-      }
+      // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+      // // Verificar si está sujeto a disponibilidad y no tiene fecha
+      // if (item.subject_to_availability && !item.executionDate?.from) {
+      //   toast.error(
+      //     'Este pedido está sujeto a disponibilidad operativa. Debe asignar una fecha de ejecución antes de confirmar.',
+      //     { duration: 5000 }
+      //   );
+      //   // Abrir el formulario de edición para que el usuario asigne la fecha
+      //   handleEdit(item);
+      //   return;
+      // }
 
       // Verificar que tenga fecha de ejecución
       if (!item.executionDate?.from) {
@@ -640,7 +644,8 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
                   equipos_cliente: [],
                   preparteImage: '',
                   image_url: '',
-                  subject_to_availability: false,
+                  // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+                  // subject_to_availability: false,
                 });
               }}
             />

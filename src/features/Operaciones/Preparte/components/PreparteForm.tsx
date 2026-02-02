@@ -3,7 +3,8 @@
 import { fetchContractsByClientId } from '@/app/dashboard/employee/action/actions/actions';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Checkbox } from '@/components/ui/checkbox';
+// TODO: Descomentar cuando se reactive la funcionalidad de "Sujeto a disponibilidad operativa"
+// import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
@@ -28,7 +29,8 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
-import { createPreparte, logPreparteChange } from '../actions/preparte';
+// TODO: Descomentar logPreparteChange cuando se reactive el sistema de cambio de item con motivo
+import { createPreparte /* , logPreparteChange */ } from '../actions/preparte';
 import type { Cliente } from './PreparteManager';
 
 // Esquema de validación con Zod
@@ -48,14 +50,34 @@ const formSchema = z
     requestDate: z.date({
       required_error: 'La fecha de solicitud es requerida',
     }),
-    // executionDate ahora es opcional cuando subject_to_availability es true
+    // ORIGINAL: executionDate con validación requerida
     executionDate: z
       .object({
-        from: z.date().optional(),
+        from: z
+          .date({
+            required_error: 'La fecha de ejecución es requerida',
+          })
+          .refine((date) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date >= today;
+          }, 'La fecha de ejecución no puede ser anterior al día actual'),
         to: z.date().optional(),
       })
-      .optional(),
-    subject_to_availability: z.boolean().default(false),
+      .refine((data) => {
+        if (data.from && data.to) {
+          return data.from <= data.to;
+        }
+        return true;
+      }, 'La fecha de inicio debe ser anterior a la fecha de fin'),
+    // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+    // executionDate: z
+    //   .object({
+    //     from: z.date().optional(),
+    //     to: z.date().optional(),
+    //   })
+    //   .optional(),
+    // subject_to_availability: z.boolean().default(false),
     tipo: z.string().min(1, 'El tipo es requerido'),
     jornada: z.string().min(1, 'La jornada es requerida'),
     start_time: z.string().optional(),
@@ -75,10 +97,11 @@ const formSchema = z
     areas_service_id: z.string({ required_error: 'Área del cliente es obligatoria' }).uuid('Área inválida'),
     equipos_cliente: z.array(z.string().uuid()).optional().default([]),
     image_url: z.string().optional(),
-    // Campo para registrar motivo de cambio de item (solo en edición)
-    item_change_reason: z.string().optional(),
-    // Guardar el item original para detectar cambios
-    original_item_id: z.string().optional(),
+    // TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo
+    // // Campo para registrar motivo de cambio de item (solo en edición)
+    // item_change_reason: z.string().optional(),
+    // // Guardar el item original para detectar cambios
+    // original_item_id: z.string().optional(),
   })
   .refine(
     (data) => data.status !== 'reprogramado' || (data.reprogram !== undefined && data.reprogram instanceof Date),
@@ -110,42 +133,43 @@ const formSchema = z
       message: "La razón del reprogramado es obligatoria cuando el estado es 'reprogramado'",
       path: ['reprogram_reason'],
     }
-  )
-  // Validar que si NO es sujeto a disponibilidad, debe tener fecha de ejecución
-  .refine(
-    (data) => {
-      if (data.subject_to_availability) return true;
-      return data.executionDate?.from !== undefined;
-    },
-    {
-      message: 'La fecha de ejecución es requerida cuando no está sujeto a disponibilidad',
-      path: ['executionDate'],
-    }
-  )
-  // Validar que la fecha from sea menor o igual a to
-  .refine(
-    (data) => {
-      if (!data.executionDate?.from || !data.executionDate?.to) return true;
-      return data.executionDate.from <= data.executionDate.to;
-    },
-    {
-      message: 'La fecha de inicio debe ser anterior a la fecha de fin',
-      path: ['executionDate'],
-    }
-  )
-  // Validar que la fecha de ejecución no sea anterior al día actual (solo si tiene fecha)
-  .refine(
-    (data) => {
-      if (!data.executionDate?.from) return true;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return data.executionDate.from >= today;
-    },
-    {
-      message: 'La fecha de ejecución no puede ser anterior al día actual',
-      path: ['executionDate'],
-    }
   );
+// TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+// // Validar que si NO es sujeto a disponibilidad, debe tener fecha de ejecución
+// .refine(
+//   (data) => {
+//     if (data.subject_to_availability) return true;
+//     return data.executionDate?.from !== undefined;
+//   },
+//   {
+//     message: 'La fecha de ejecución es requerida cuando no está sujeto a disponibilidad',
+//     path: ['executionDate'],
+//   }
+// )
+// // Validar que la fecha from sea menor o igual a to
+// .refine(
+//   (data) => {
+//     if (!data.executionDate?.from || !data.executionDate?.to) return true;
+//     return data.executionDate.from <= data.executionDate.to;
+//   },
+//   {
+//     message: 'La fecha de inicio debe ser anterior a la fecha de fin',
+//     path: ['executionDate'],
+//   }
+// )
+// // Validar que la fecha de ejecución no sea anterior al día actual (solo si tiene fecha)
+// .refine(
+//   (data) => {
+//     if (!data.executionDate?.from) return true;
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     return data.executionDate.from >= today;
+//   },
+//   {
+//     message: 'La fecha de ejecución no puede ser anterior al día actual',
+//     path: ['executionDate'],
+//   }
+// )
 type PreparteItem = z.infer<typeof formSchema>;
 
 interface Contrato {
@@ -195,17 +219,18 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   // Archivo seleccionado (no forma parte del schema del formulario)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Estado para rastrear el item original (para detectar cambios en edición)
-  const [originalItemId, setOriginalItemId] = useState<string | null>(() => {
-    if (isEditing && formData?.item) {
-      const items = Array.isArray(formData.item) ? formData.item : [formData.item];
-      return items[0]?.id || null;
-    }
-    return null;
-  });
+  // TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo
+  // // Estado para rastrear el item original (para detectar cambios en edición)
+  // const [originalItemId, setOriginalItemId] = useState<string | null>(() => {
+  //   if (isEditing && formData?.item) {
+  //     const items = Array.isArray(formData.item) ? formData.item : [formData.item];
+  //     return items[0]?.id || null;
+  //   }
+  //   return null;
+  // });
 
-  // Estado para mostrar el campo de motivo de cambio de item
-  const [showItemChangeReason, setShowItemChangeReason] = useState(false);
+  // // Estado para mostrar el campo de motivo de cambio de item
+  // const [showItemChangeReason, setShowItemChangeReason] = useState(false);
 
   const handleAddItem = () => {
     setSelectedItems((prev) => [...prev, { id: '', quantity: 1 }]);
@@ -322,19 +347,20 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     try {
       setIsSubmitting(true);
 
-      // Validar que si se cambió el item, debe tener motivo
-      if (isEditing && showItemChangeReason) {
-        const itemChangeReason = data.item_change_reason?.trim();
-        if (!itemChangeReason) {
-          toast.error('Debe ingresar el motivo del cambio de ítem');
-          form.setError('item_change_reason', {
-            type: 'required',
-            message: 'El motivo del cambio es obligatorio',
-          });
-          setIsSubmitting(false);
-          return;
-        }
-      }
+      // TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo
+      // // Validar que si se cambió el item, debe tener motivo
+      // if (isEditing && showItemChangeReason) {
+      //   const itemChangeReason = data.item_change_reason?.trim();
+      //   if (!itemChangeReason) {
+      //     toast.error('Debe ingresar el motivo del cambio de ítem');
+      //     form.setError('item_change_reason', {
+      //       type: 'required',
+      //       message: 'El motivo del cambio es obligatorio',
+      //     });
+      //     setIsSubmitting(false);
+      //     return;
+      //   }
+      // }
 
       // 1) Si hay archivo seleccionado, subirlo desde el formulario usando el hook
       if (selectedFile) {
@@ -351,30 +377,31 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
         }
       }
 
-      // Registrar cambio de item en el log si corresponde
-      if (isEditing && showItemChangeReason && originalItemId) {
-        const newItemId = data.item?.[0]?.id;
-        const oldItemName = contractItems.find((i) => i.value === originalItemId)?.label || originalItemId;
-        const newItemName = contractItems.find((i) => i.value === newItemId)?.label || newItemId;
+      // TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo
+      // // Registrar cambio de item en el log si corresponde
+      // if (isEditing && showItemChangeReason && originalItemId) {
+      //   const newItemId = data.item?.[0]?.id;
+      //   const oldItemName = contractItems.find((i) => i.value === originalItemId)?.label || originalItemId;
+      //   const newItemName = contractItems.find((i) => i.value === newItemId)?.label || newItemId;
 
-        try {
-          await logPreparteChange({
-            preparte_id: data.id,
-            field_name: 'item',
-            old_value: originalItemId,
-            new_value: newItemId || null,
-            reason: data.item_change_reason || '',
-            metadata: {
-              old_item_name: oldItemName,
-              new_item_name: newItemName,
-            },
-          });
-        } catch (logError) {
-          console.error('Error registrando cambio de item:', logError);
-          // No bloqueamos el guardado si falla el log, pero notificamos
-          toast.warning('El cambio se guardó pero hubo un error al registrar el historial');
-        }
-      }
+      //   try {
+      //     await logPreparteChange({
+      //       preparte_id: data.id,
+      //       field_name: 'item',
+      //       old_value: originalItemId,
+      //       new_value: newItemId || null,
+      //       reason: data.item_change_reason || '',
+      //       metadata: {
+      //         old_item_name: oldItemName,
+      //         new_item_name: newItemName,
+      //       },
+      //     });
+      //   } catch (logError) {
+      //     console.error('Error registrando cambio de item:', logError);
+      //     // No bloqueamos el guardado si falla el log, pero notificamos
+      //     toast.warning('El cambio se guardó pero hubo un error al registrar el historial');
+      //   }
+      // }
 
       if (data.status === 'reprogramado' && data.reprogram) {
         // Crear nuevo ítem con la nueva fecha
@@ -552,83 +579,78 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
             <FormField
               control={form.control}
               name="executionDate"
-              render={({ field }) => {
-                const isSubjectToAvailability = form.watch('subject_to_availability');
-                return (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Fecha de Ejecución Solicitada</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            disabled={isEditing || isSubjectToAvailability}
-                            className={cn(
-                              'w-full justify-start text-left font-normal',
-                              !field.value?.from && 'text-muted-foreground',
-                              isSubjectToAvailability && 'opacity-50'
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {isSubjectToAvailability ? (
-                              <span className="italic">Sujeto a disponibilidad operativa</span>
-                            ) : field.value?.from ? (
-                              field.value.to && field.value.from.getTime() !== field.value.to.getTime() ? (
-                                <>
-                                  {format(field.value.from, 'PPP', { locale: es })} -{' '}
-                                  {format(field.value.to, 'PPP', { locale: es })}
-                                </>
-                              ) : (
-                                format(field.value.from, 'PPP', { locale: es })
-                              )
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha de Ejecución Solicitada</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          disabled={isEditing}
+                          className={cn(
+                            'w-full justify-start text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value?.from ? (
+                            field.value.to ? (
+                              <>
+                                {format(field.value.from, 'PPP', { locale: es })} -{' '}
+                                {format(field.value.to, 'PPP', { locale: es })}
+                              </>
                             ) : (
-                              <span>Seleccionar rango de fechas</span>
-                            )}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        {isEditing ? (
-                          // Modo edición (single)
-                          <Calendar
-                            mode="single"
-                            selected={field.value?.from}
-                            onSelect={(date) => {
-                              if (date) {
-                                field.onChange({ from: date, to: date });
-                              }
-                            }}
-                            initialFocus
-                            locale={es}
-                            numberOfMonths={2}
-                          />
-                        ) : (
-                          // Modo creación (range)
-                          <Calendar
-                            mode="range"
-                            selected={field.value?.from ? (field.value as { from: Date; to?: Date }) : undefined}
-                            fromDate={new Date()} // Usar fromDate en lugar de minDate
-                            onSelect={(range) => {
-                              if (range?.from && range?.to && range.from > range.to) {
-                                return; // No permitir que la fecha desde sea mayor que la fecha hasta
-                              }
-                              field.onChange(range);
-                            }}
-                            initialFocus
-                            locale={es}
-                            numberOfMonths={2}
-                          />
-                        )}
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
+                              format(field.value.from, 'PPP', { locale: es })
+                            )
+                          ) : (
+                            <span>Seleccionar rango de fechas</span>
+                          )}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      {isEditing ? (
+                        // Modo edición (single)
+                        <Calendar
+                          mode="single"
+                          selected={field.value?.from}
+                          onSelect={(date) => {
+                            if (date) {
+                              field.onChange({ from: date, to: date });
+                            }
+                          }}
+                          initialFocus
+                          locale={es}
+                          numberOfMonths={2}
+                        />
+                      ) : (
+                        // Modo creación (range)
+                        <Calendar
+                          mode="range"
+                          selected={field.value || { from: undefined, to: undefined }}
+                          fromDate={new Date()} // Usar fromDate en lugar de minDate
+                          onSelect={(range) => {
+                            if (range?.from && range?.to && range.from > range.to) {
+                              return; // No permitir que la fecha desde sea mayor que la fecha hasta
+                            }
+                            field.onChange(range);
+                          }}
+                          initialFocus
+                          locale={es}
+                          numberOfMonths={2}
+                        />
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
+            {/* TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa" */}
             {/* Checkbox: Sujeto a disponibilidad operativa */}
-            {!isEditing && (
+            {/* {!isEditing && (
               <FormField
                 control={form.control}
                 name="subject_to_availability"
@@ -656,7 +678,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   </FormItem>
                 )}
               />
-            )}
+            )} */}
 
             {/* Jornada */}
             <FormField
@@ -1142,136 +1164,124 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
             <FormField
               control={form.control}
               name="item"
-              render={({ field }) => {
-                // En edición, solo permitir cambiar item si status='pendiente'
-                const currentStatus = form.watch('status');
-                const canEditItem = !isEditing || currentStatus === 'pendiente';
-                const isItemDisabled = !form.getValues('contrato_id') || isLoading || !canEditItem;
+              render={({ field }) => (
+                <FormItem>
+                  <div className="space-y-4">
+                    {selectedItems.map((row, index) => {
+                      const selectedItem = contractItems.find((item) => item.value === row.id);
 
-                return (
-                  <FormItem>
-                    <div className="space-y-4">
-                      {selectedItems.map((row, index) => {
-                        const selectedItem = contractItems.find((item) => item.value === row.id);
+                      return (
+                        <div key={row.id} className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <FormLabel>{index === 0 ? 'Item' : ''}</FormLabel>
+                            <MultiSelectCombobox
+                              data-testid={`item-select-${index}`}
+                              options={contractItems.filter(
+                                (item) => !selectedItems.some((r) => r.id === item.value && r.id !== row.id)
+                              )}
+                              selectedValues={row.id ? [row.id] : []}
+                              onChange={(selectedIds) => {
+                                const newItemId = selectedIds[0] || '';
+                                updateItemRow(row.id, { id: newItemId });
 
-                        return (
-                          <div key={row.id} className="flex items-end gap-2">
-                            <div className="flex-1">
-                              <FormLabel>{index === 0 ? 'Item' : ''}</FormLabel>
-                              <MultiSelectCombobox
-                                data-testid={`item-select-${index}`}
-                                options={contractItems.filter(
-                                  (item) => !selectedItems.some((r) => r.id === item.value && r.id !== row.id)
-                                )}
-                                selectedValues={row.id ? [row.id] : []}
-                                onChange={(selectedIds) => {
-                                  const newItemId = selectedIds[0] || '';
-                                  const oldItemId = row.id;
-                                  updateItemRow(row.id, { id: newItemId });
+                                // TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo
+                                // // Detectar si el item cambió respecto al original (en edición)
+                                // if (isEditing && originalItemId && newItemId !== originalItemId) {
+                                //   setShowItemChangeReason(true);
+                                // } else if (isEditing && newItemId === originalItemId) {
+                                //   setShowItemChangeReason(false);
+                                //   form.setValue('item_change_reason', '');
+                                // }
 
-                                  // Detectar si el item cambió respecto al original (en edición)
-                                  if (isEditing && originalItemId && newItemId !== originalItemId) {
-                                    setShowItemChangeReason(true);
-                                  } else if (isEditing && newItemId === originalItemId) {
-                                    setShowItemChangeReason(false);
-                                    form.setValue('item_change_reason', '');
-                                  }
+                                // Update form value
+                                const updatedItems = selectedItems
+                                  .filter((r) => r.id)
+                                  .map((r) => ({
+                                    id: r.id,
+                                    quantity: r.quantity,
+                                  }));
 
-                                  // Update form value
-                                  const updatedItems = selectedItems
-                                    .filter((r) => r.id)
-                                    .map((r) => ({
-                                      id: r.id,
-                                      quantity: r.quantity,
-                                    }));
+                                if (newItemId) {
+                                  updatedItems.push({
+                                    id: newItemId,
+                                    quantity: row.quantity,
+                                  });
+                                }
 
-                                  if (newItemId) {
-                                    updatedItems.push({
-                                      id: newItemId,
-                                      quantity: row.quantity,
-                                    });
-                                  }
-
-                                  field.onChange(updatedItems);
-                                }}
-                                placeholder="Seleccionar item"
-                                emptyMessage="No hay items disponibles"
-                                disabled={isItemDisabled}
-                                maxSelections={1}
-                              />
-                            </div>
-
-                            <div className="w-20">
-                              <FormLabel>{index === 0 ? 'Cantidad' : ''}</FormLabel>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={row.quantity}
-                                disabled={!row.id || !canEditItem}
-                                onChange={(e) => {
-                                  const newQuantity = parseInt(e.target.value) || 1;
-                                  updateItemRow(row.id, { quantity: newQuantity });
-
-                                  // Update form value
-                                  const updatedItems = selectedItems
-                                    .filter((r) => r.id)
-                                    .map((r) => ({
-                                      id: r.id,
-                                      quantity: r.id === row.id ? newQuantity : r.quantity,
-                                    }));
-
-                                  field.onChange(updatedItems);
-                                }}
-                                className="w-full bg-background"
-                              />
-                            </div>
-                            {selectedItems.length > 1 && !isEditing && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                disabled={!canEditItem}
-                                onClick={() => {
-                                  handleRemoveItem(row.id);
-                                  // Update form value after removal
-                                  const updatedItems = selectedItems
-                                    .filter((r) => r.id !== row.id && r.id)
-                                    .map((r) => ({
-                                      id: r.id,
-                                      quantity: r.quantity,
-                                    }));
-                                  field.onChange(updatedItems);
-                                }}
-                                className="mb-2"
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
+                                field.onChange(updatedItems);
+                              }}
+                              placeholder="Seleccionar item"
+                              emptyMessage="No hay items disponibles"
+                              disabled={!form.getValues('contrato_id') || isLoading || isEditing}
+                              maxSelections={1}
+                            />
                           </div>
-                        );
-                      })}
-                      {!isEditing && selectedItems.some((item) => item.id) && (
-                        <div className="flex justify-center mt-4">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleAddItem}
-                            disabled={isEditing}
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Agregar ítem
-                          </Button>
+
+                          <div className="w-20">
+                            <FormLabel>{index === 0 ? 'Cantidad' : ''}</FormLabel>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={row.quantity}
+                              disabled={!row.id || isEditing}
+                              onChange={(e) => {
+                                const newQuantity = parseInt(e.target.value) || 1;
+                                updateItemRow(row.id, { quantity: newQuantity });
+
+                                // Update form value
+                                const updatedItems = selectedItems
+                                  .filter((r) => r.id)
+                                  .map((r) => ({
+                                    id: r.id,
+                                    quantity: r.id === row.id ? newQuantity : r.quantity,
+                                  }));
+
+                                field.onChange(updatedItems);
+                              }}
+                              className="w-full bg-background"
+                            />
+                          </div>
+                          {selectedItems.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={isEditing}
+                              onClick={() => {
+                                handleRemoveItem(row.id);
+                                // Update form value after removal
+                                const updatedItems = selectedItems
+                                  .filter((r) => r.id !== row.id && r.id)
+                                  .map((r) => ({
+                                    id: r.id,
+                                    quantity: r.quantity,
+                                  }));
+                                field.onChange(updatedItems);
+                              }}
+                              className="mb-2"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </FormItem>
-                );
-              }}
+                      );
+                    })}
+                    {!isEditing && selectedItems.some((item) => item.id) && (
+                      <div className="flex justify-center mt-4">
+                        <Button type="button" variant="outline" size="sm" onClick={handleAddItem} disabled={isEditing}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Agregar ítem
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </FormItem>
+              )}
             />
 
+            {/* TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo */}
             {/* Campo de motivo de cambio de item (solo visible cuando se cambia el item en edición) */}
-            {isEditing && showItemChangeReason && (
+            {/* {isEditing && showItemChangeReason && (
               <FormField
                 control={form.control}
                 name="item_change_reason"
@@ -1293,7 +1303,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   </FormItem>
                 )}
               />
-            )}
+            )} */}
 
             {/* Campo de Observaciones */}
             <FormField
