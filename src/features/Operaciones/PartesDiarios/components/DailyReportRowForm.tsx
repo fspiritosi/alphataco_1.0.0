@@ -16,12 +16,10 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
-  EmployeeWithRole,
   checkDailyReportExists,
   createDailyReport,
   createDailyReportCustomerEquipmentRelations,
   createDailyReportEmployeeRelations,
-  createDailyReportEmployeeRelationsWithRoles,
   createDailyReportEquipmentRelations,
   createDailyReportRow,
   getActiveEquipmentsForDailyReport,
@@ -29,7 +27,6 @@ import {
   getCustomers,
   getDailyReportById,
   updateDailyReportRow,
-  updateEmployeeRelationsWithRoles,
 } from '../actions/actions';
 
 import { Calendar } from '@/components/ui/calendar';
@@ -57,7 +54,6 @@ import {
   filterEquipmentsByCustomer,
 } from '../utils/employeeEquipmentIndex';
 import { transformDailyReports } from './DayliReportDetailTable';
-import { EmployeeRoleSelect } from './EmployeeRoleSelect';
 import { SearchEmployee } from './SearchEmployee';
 import { SearchEquipment } from './SearchEquipment';
 
@@ -81,11 +77,12 @@ export const dailyReportSchema = z
     employees: z.array(z.string()).default([]).optional(),
     equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
-    // Campos para empleados con roles (jornadas 12/24 hrs)
-    chofer_dia: z.string().optional(),
-    chofer_noche: z.string().optional(),
-    ayudante_dia: z.string().optional(),
-    ayudante_noche: z.string().optional(),
+    // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+    // // Campos para empleados con roles (jornadas 12/24 hrs)
+    // chofer_dia: z.string().optional(),
+    // chofer_noche: z.string().optional(),
+    // ayudante_dia: z.string().optional(),
+    // ayudante_noche: z.string().optional(),
     type_service: z
       .enum(['mensual', 'adicional', 'adicional_permanente'], {
         required_error: 'Debe seleccionar un tipo de servicio',
@@ -227,11 +224,12 @@ export function DailyReportForm({
       equipos_cliente: [],
       cancel_reason: '',
       type_service: undefined,
-      // Campos para empleados con roles
-      chofer_dia: undefined,
-      chofer_noche: undefined,
-      ayudante_dia: undefined,
-      ayudante_noche: undefined,
+      // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+      // // Campos para empleados con roles
+      // chofer_dia: undefined,
+      // chofer_noche: undefined,
+      // ayudante_dia: undefined,
+      // ayudante_noche: undefined,
     },
   });
 
@@ -369,29 +367,31 @@ export function DailyReportForm({
       ? data.employees.filter((emp): emp is string => typeof emp === 'string')
       : [];
 
-    // Construir lista de empleados con roles (para jornadas 12/24 hrs)
-    const workingDayLower = data.working_day?.toLowerCase() || '';
-    const is12Hours = workingDayLower === 'jornada 12 horas';
-    const is24Hours = workingDayLower === 'jornada 24 horas';
-    const hasRoleBasedEmployees = is12Hours || is24Hours;
+    // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+    // // Construir lista de empleados con roles (para jornadas 12/24 hrs)
+    // const workingDayLower = data.working_day?.toLowerCase() || '';
+    // const is12Hours = workingDayLower === 'jornada 12 horas';
+    // const is24Hours = workingDayLower === 'jornada 24 horas';
+    // const hasRoleBasedEmployees = is12Hours || is24Hours;
 
-    const employeesWithRoles: EmployeeWithRole[] = [];
-    if (hasRoleBasedEmployees) {
-      if (data.chofer_dia) {
-        employeesWithRoles.push({ employeeId: data.chofer_dia, role: 'chofer_dia' });
-      }
-      if (data.ayudante_dia) {
-        employeesWithRoles.push({ employeeId: data.ayudante_dia, role: 'ayudante_dia' });
-      }
-      if (is24Hours) {
-        if (data.chofer_noche) {
-          employeesWithRoles.push({ employeeId: data.chofer_noche, role: 'chofer_noche' });
-        }
-        if (data.ayudante_noche) {
-          employeesWithRoles.push({ employeeId: data.ayudante_noche, role: 'ayudante_noche' });
-        }
-      }
-    }
+    // const employeesWithRoles: EmployeeWithRole[] = [];
+    // if (hasRoleBasedEmployees) {
+    //   if (data.chofer_dia) {
+    //     employeesWithRoles.push({ employeeId: data.chofer_dia, role: 'chofer_dia' });
+    //   }
+    //   if (data.ayudante_dia) {
+    //     employeesWithRoles.push({ employeeId: data.ayudante_dia, role: 'ayudante_dia' });
+    //   }
+    //   if (is24Hours) {
+    //     if (data.chofer_noche) {
+    //       employeesWithRoles.push({ employeeId: data.chofer_noche, role: 'chofer_noche' });
+    //     }
+    //     if (data.ayudante_noche) {
+    //       employeesWithRoles.push({ employeeId: data.ayudante_noche, role: 'ayudante_noche' });
+    //     }
+    //   }
+    // }
+    const hasRoleBasedEmployees = false; // Desactivado temporalmente
 
     // Asegurarse de que los equipos sean un array de IDs
     const equipmentIds = Array.isArray(data.equipment)
@@ -432,37 +432,38 @@ export function DailyReportForm({
             equipments?.filter((eq) => data?.equipment?.includes(eq.id))?.map((eq) => eq.id) || [];
 
           // Modo edición
-          if (hasRoleBasedEmployees) {
-            // Para jornadas 12/24 hrs, usar update con roles
-            await updateEmployeeRelationsWithRoles(selectedRow.id, employeesWithRoles);
+          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+          // if (hasRoleBasedEmployees) {
+          //   // Para jornadas 12/24 hrs, usar update con roles
+          //   await updateEmployeeRelationsWithRoles(selectedRow.id, employeesWithRoles);
 
-            // Actualizar equipos y equipos cliente
-            await updateDailyReportRow(
-              selectedRow.id,
-              rowData,
-              [], // Ya manejamos empleados con roles arriba
-              equipmentIdsUpdated,
-              data?.equipos_cliente || [],
-              {
-                equipmentHasChanged,
-                employeeHasChanged,
-                reassignmentReason: data.reasigment_reason || '',
-              }
-            );
-          } else {
-            await updateDailyReportRow(
-              selectedRow.id,
-              rowData,
-              employeeIdsUpdated,
-              equipmentIdsUpdated,
-              data?.equipos_cliente || [],
-              {
-                equipmentHasChanged,
-                employeeHasChanged,
-                reassignmentReason: data.reasigment_reason || '',
-              }
-            );
-          }
+          //   // Actualizar equipos y equipos cliente
+          //   await updateDailyReportRow(
+          //     selectedRow.id,
+          //     rowData,
+          //     [], // Ya manejamos empleados con roles arriba
+          //     equipmentIdsUpdated,
+          //     data?.equipos_cliente || [],
+          //     {
+          //       equipmentHasChanged,
+          //       employeeHasChanged,
+          //       reassignmentReason: data.reasigment_reason || '',
+          //     }
+          //   );
+          // } else {
+          await updateDailyReportRow(
+            selectedRow.id,
+            rowData,
+            employeeIdsUpdated,
+            equipmentIdsUpdated,
+            data?.equipos_cliente || [],
+            {
+              equipmentHasChanged,
+              employeeHasChanged,
+              reassignmentReason: data.reasigment_reason || '',
+            }
+          );
+          // }
           if (rowData.status === 'reprogramado') {
             const existingReports = await checkDailyReportExists([format(data.reprogram_date!, 'yyyy-MM-dd')]);
             if (existingReports.length > 0) {
@@ -486,8 +487,10 @@ export function DailyReportForm({
           }
         } else {
           // Modo creación
-          // Determinar si tiene empleados (ya sea por array o por roles)
-          const hasEmployees = hasRoleBasedEmployees ? employeesWithRoles.length > 0 : employeeIds.length > 0;
+          // Determinar si tiene empleados
+          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+          // const hasEmployees = hasRoleBasedEmployees ? employeesWithRoles.length > 0 : employeeIds.length > 0;
+          const hasEmployees = employeeIds.length > 0;
 
           const createdRow = await createDailyReportRow([
             {
@@ -496,12 +499,14 @@ export function DailyReportForm({
             },
           ]);
 
-          // Crear relaciones con empleados (con o sin roles)
-          if (hasRoleBasedEmployees) {
-            if (employeesWithRoles.length > 0) {
-              await createDailyReportEmployeeRelationsWithRoles(createdRow[0].id, employeesWithRoles);
-            }
-          } else if (employeeIds.length > 0) {
+          // Crear relaciones con empleados
+          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+          // if (hasRoleBasedEmployees) {
+          //   if (employeesWithRoles.length > 0) {
+          //     await createDailyReportEmployeeRelationsWithRoles(createdRow[0].id, employeesWithRoles);
+          //   }
+          // } else if (employeeIds.length > 0) {
+          if (employeeIds.length > 0) {
             await createDailyReportEmployeeRelations(createdRow[0].id, employeeIds);
           }
 
@@ -543,10 +548,11 @@ export function DailyReportForm({
           remit_number: '',
           type_service: undefined,
           cancel_reason: '',
-          chofer_dia: undefined,
-          chofer_noche: undefined,
-          ayudante_dia: undefined,
-          ayudante_noche: undefined,
+          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+          // chofer_dia: undefined,
+          // chofer_noche: undefined,
+          // ayudante_dia: undefined,
+          // ayudante_noche: undefined,
         });
 
         // Restablecer los estados locales
@@ -612,33 +618,34 @@ export function DailyReportForm({
 
     // Setear empleados (con o sin roles)
     if (selectedRow.employees_references) {
-      const workingDay = selectedRow.working_day?.toLowerCase() || '';
-      const is12Hours = workingDay === 'jornada 12 horas';
-      const is24Hours = workingDay === 'jornada 24 horas';
-      const hasRoleBasedEmployees = is12Hours || is24Hours;
+      // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+      // const workingDay = selectedRow.working_day?.toLowerCase() || '';
+      // const is12Hours = workingDay === 'jornada 12 horas';
+      // const is24Hours = workingDay === 'jornada 24 horas';
+      // const hasRoleBasedEmployees = is12Hours || is24Hours;
 
-      // Cast para incluir el role en el tipo (viene de la BD pero TypeScript no lo infiere)
-      type EmployeeRefWithRole = (typeof selectedRow.employees_references)[number] & {
-        role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
-      };
-      const employeesWithRole = selectedRow.employees_references as EmployeeRefWithRole[];
+      // // Cast para incluir el role en el tipo (viene de la BD pero TypeScript no lo infiere)
+      // type EmployeeRefWithRole = (typeof selectedRow.employees_references)[number] & {
+      //   role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
+      // };
+      // const employeesWithRole = selectedRow.employees_references as EmployeeRefWithRole[];
 
-      if (hasRoleBasedEmployees) {
-        // Setear empleados por rol
-        const choferDia = employeesWithRole.find((emp) => emp.role === 'chofer_dia');
-        const choferNoche = employeesWithRole.find((emp) => emp.role === 'chofer_noche');
-        const ayudanteDia = employeesWithRole.find((emp) => emp.role === 'ayudante_dia');
-        const ayudanteNoche = employeesWithRole.find((emp) => emp.role === 'ayudante_noche');
+      // if (hasRoleBasedEmployees) {
+      //   // Setear empleados por rol
+      //   const choferDia = employeesWithRole.find((emp) => emp.role === 'chofer_dia');
+      //   const choferNoche = employeesWithRole.find((emp) => emp.role === 'chofer_noche');
+      //   const ayudanteDia = employeesWithRole.find((emp) => emp.role === 'ayudante_dia');
+      //   const ayudanteNoche = employeesWithRole.find((emp) => emp.role === 'ayudante_noche');
 
-        if (choferDia?.id) form.setValue('chofer_dia', choferDia.id);
-        if (choferNoche?.id) form.setValue('chofer_noche', choferNoche.id);
-        if (ayudanteDia?.id) form.setValue('ayudante_dia', ayudanteDia.id);
-        if (ayudanteNoche?.id) form.setValue('ayudante_noche', ayudanteNoche.id);
-      } else {
-        // Setear empleados sin rol (forma tradicional)
-        const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
-        form.setValue('employees', employeeIds);
-      }
+      //   if (choferDia?.id) form.setValue('chofer_dia', choferDia.id);
+      //   if (choferNoche?.id) form.setValue('chofer_noche', choferNoche.id);
+      //   if (ayudanteDia?.id) form.setValue('ayudante_dia', ayudanteDia.id);
+      //   if (ayudanteNoche?.id) form.setValue('ayudante_noche', ayudanteNoche.id);
+      // } else {
+      // Setear empleados sin rol (forma tradicional)
+      const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
+      form.setValue('employees', employeeIds);
+      // }
     }
 
     // Setear equipos del cliente
@@ -740,10 +747,11 @@ export function DailyReportForm({
       cancel_reason: '',
       reprogram_date: undefined,
       equipos_cliente: [],
-      chofer_dia: undefined,
-      chofer_noche: undefined,
-      ayudante_dia: undefined,
-      ayudante_noche: undefined,
+      // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
+      // chofer_dia: undefined,
+      // chofer_noche: undefined,
+      // ayudante_dia: undefined,
+      // ayudante_noche: undefined,
     });
 
     // Restablecer estados locales
@@ -1502,8 +1510,9 @@ export function DailyReportForm({
                   />
                 )}
 
+                {/* TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche */}
                 {/* Empleados - Campos condicionales según jornada */}
-                {(() => {
+                {/* {(() => {
                   const workingDayValue = form.watch('working_day')?.toLowerCase() || '';
                   const is12Hours = workingDayValue === 'jornada 12 horas';
                   const is24Hours = workingDayValue === 'jornada 24 horas';
@@ -1524,7 +1533,6 @@ export function DailyReportForm({
                             : 'Asignación de Personal - Jornada 24 Horas'}
                         </div>
 
-                        {/* Chofer de Día */}
                         <FormField
                           control={form.control}
                           name="chofer_dia"
@@ -1542,7 +1550,6 @@ export function DailyReportForm({
                           )}
                         />
 
-                        {/* Ayudante de Día */}
                         <FormField
                           control={form.control}
                           name="ayudante_dia"
@@ -1562,7 +1569,6 @@ export function DailyReportForm({
 
                         {is24Hours && (
                           <>
-                            {/* Chofer de Noche */}
                             <FormField
                               control={form.control}
                               name="chofer_noche"
@@ -1580,7 +1586,6 @@ export function DailyReportForm({
                               )}
                             />
 
-                            {/* Ayudante de Noche */}
                             <FormField
                               control={form.control}
                               name="ayudante_noche"
@@ -1603,12 +1608,12 @@ export function DailyReportForm({
                     );
                   }
 
-                  // Campos normales para otras jornadas
                   return null;
-                })()}
+                })()} */}
 
-                {/* Empleados - Selección múltiple (para jornadas que no son 12/24 hrs) */}
-                {!['jornada 12 horas', 'jornada 24 horas'].includes(form.watch('working_day')?.toLowerCase() || '') && (
+                {/* Empleados - Selección múltiple (siempre visible mientras está desactivada la funcionalidad de Chofer/Ayudante) */}
+                {/* Original: !['jornada 12 horas', 'jornada 24 horas'].includes(form.watch('working_day')?.toLowerCase() || '') */}
+                {true && (
                   <FormField
                     control={form.control}
                     name="employees"
