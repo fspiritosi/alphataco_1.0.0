@@ -4,15 +4,15 @@ import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { useDailyReportFormStore } from '@/stores/dailyReportFormStore';
-import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { Edit, Info } from 'lucide-react';
+import { Edit, Info, Loader2 } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -21,7 +21,12 @@ import {
   getCustomers,
   getDailyReportById,
 } from '../actions/actions';
-import { fetchAllDailyReportData, fetchDailyReportData } from '../actions/server-actions';
+import { fetchAllDailyReportData } from '../actions/server-actions';
+import {
+  DailyReportRowCombined,
+  useDailyReportDetailData,
+  useInvalidateDailyReportDetail,
+} from '../hooks/useDailyReportDetailData';
 import { formatDailyReportData, formatDailyReportRow } from '../utils/formatDailyReportData';
 import { BulkEditModal } from './BulkEditModal';
 import { ClonarRegistrosButton } from './ClonarRegistrosButton';
@@ -36,13 +41,13 @@ type ExtendedColumnDef<TData> = ColumnDef<TData> & {
   excludeFromExport?: boolean;
 };
 
-// Tipo inferido automáticamente del retorno de la función del servidor
-type DailyReportServerData = Awaited<ReturnType<typeof fetchDailyReportData>>['rows'][0];
+// Usar el tipo combinado del hook para la tabla client-side
+// Usamos 'any' para flexibilidad de tipos entre las diferentes fuentes de datos
+type DailyReportServerData = DailyReportRowCombined;
 
 export default function DayliReportDetailTableServer({
   dailyReportId,
   reportDate,
-  initialData,
   savedFilters,
   savedVisibility,
   dailyReport,
@@ -50,7 +55,6 @@ export default function DayliReportDetailTableServer({
 }: {
   dailyReportId: string;
   reportDate: string;
-  initialData?: Awaited<ReturnType<typeof fetchDailyReportData>>;
   savedFilters: string[];
   savedVisibility: VisibilityState;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
@@ -62,10 +66,22 @@ export default function DayliReportDetailTableServer({
 
   // selectedRow ahora se maneja en el store de Zustand
 
+  // Hook para cargar datos client-side con queries separadas
+  const {
+    data: tableData,
+    isLoading: isLoadingRows,
+    isLoadingEmployees,
+    isLoadingEquipment,
+    refetchAll,
+  } = useDailyReportDetailData(dailyReportId);
+
+  // Hook para invalidar queries
+  const { invalidate: invalidateDailyReport } = useInvalidateDailyReportDetail();
+
   // Estado para datos transformados (para DailyReportForm y ClonarRegistrosButton)
   const [formattedData, setFormattedData] = useState<any[]>([]);
 
-  // Estado para empleados, equipos y clientes (carga asíncrona)
+  // Estado para empleados, equipos y clientes (carga asíncrona para validaciones y formulario)
   const [employees, setEmployees] = useState<
     Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>> | undefined
   >();
@@ -74,23 +90,18 @@ export default function DayliReportDetailTableServer({
   >();
   const [customers, setCustomers] = useState<Awaited<ReturnType<typeof getCustomers>> | undefined>();
   const [loadingValidations, setLoadingValidations] = useState(true);
-  const queryClient = useQueryClient();
 
-  // Función para refrescar los datos
-  const refetchDailyReport = async () => {
-    // Invalidar la query específica para que se refresque automáticamente
-    const queryKey = `daily-report-server-${dailyReportId}`;
-    await queryClient.invalidateQueries({
-      queryKey: [queryKey],
-      exact: false, // Esto invalidará todas las queries que empiecen con este queryKey
-    });
-  };
+  // Función para refrescar los datos usando el nuevo sistema de queries
+  const refetchDailyReport = useCallback(async () => {
+    await invalidateDailyReport(dailyReportId);
+  }, [invalidateDailyReport, dailyReportId]);
 
   // Función para manejar la edición de una fila
   const handleEditRow = useCallback(
     (row: DailyReportServerData) => {
       // Formatear la fila directamente usando la función utilitaria
-      const transformedRow = formatDailyReportRow(row, reportDate);
+      // Usar 'as any' para compatibilidad de tipos entre diferentes fuentes de datos
+      const transformedRow = formatDailyReportRow(row as any, reportDate);
 
       // Buscar el cliente completo para los filtros
       const customer = customers?.find((c) => c.id === transformedRow.data_to_clone?.customer_id);
@@ -126,13 +137,13 @@ export default function DayliReportDetailTableServer({
     loadValidationData();
   }, [reportDate]);
 
-  // Transformar datos del servidor al formato esperado por DailyReportForm y ClonarRegistrosButton
+  // Transformar datos al formato esperado por DailyReportForm y ClonarRegistrosButton
   useEffect(() => {
-    if (initialData?.rows) {
-      const transformed = formatDailyReportData(initialData.rows, reportDate);
+    if (tableData && tableData.length > 0) {
+      const transformed = formatDailyReportData(tableData as any, reportDate);
       setFormattedData(transformed);
     }
-  }, [initialData, reportDate]);
+  }, [tableData, reportDate]);
 
   // Función wrapper para la exportación que devuelve solo los datos
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
@@ -195,6 +206,7 @@ export default function DayliReportDetailTableServer({
             ...rel.employees,
             name: `${rel.employees?.lastname} ${rel.employees?.firstname}`,
             id: rel.employees?.id,
+            role: rel.role, // Include role for 12/24 hour shifts
           })) || [],
         equipment_references:
           row.dailyreportequipmentrelations?.map((rel) => ({
@@ -358,7 +370,7 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'customers.name',
       id: 'customers.name',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Cliente" />,
       cell: ({ row }) => <span className="font-medium select-none text-nowrap">{row.original.customers?.name}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -370,7 +382,9 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'customer_services.service_name',
       id: 'customer_services.service_name',
-      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Servicio" />,
+      header: ({ column, table }) => (
+        <DataTableColumnHeader className="w-[130px]" column={column} table={table} title="Servicio" />
+      ),
       cell: ({ row }) => <span className="font-medium">{row.original.customer_services?.service_name}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -382,7 +396,9 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'service_items.item_name',
       id: 'service_items.item_name',
-      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Item" />,
+      header: ({ column, table }) => (
+        <DataTableColumnHeader className="w-[130px]" column={column} table={table} title="Item" />
+      ),
       cell: ({ row }) => <span className="font-medium">{row.original.service_items?.item_name}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -394,7 +410,13 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'service_sectors.sectors.name',
       id: 'service_sectors.sectors.name',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Sector" />,
+      // Función de ordenamiento client-side para relaciones anidadas
+      sortingFn: (rowA, rowB) => {
+        const sectorA = rowA.original.service_sectors?.sectors?.name || '';
+        const sectorB = rowB.original.service_sectors?.sectors?.name || '';
+        return sectorA.localeCompare(sectorB);
+      },
       cell: ({ row }) => {
         return row.original.service_sectors?.sectors?.name ? (
           <Badge variant={'outline'} className="font-medium">
@@ -412,7 +434,13 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'service_areas.areas_cliente.descripcion_corta',
       id: 'service_areas.areas_cliente.descripcion_corta',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Área" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Área" />,
+      // Función de ordenamiento client-side para relaciones anidadas
+      sortingFn: (rowA, rowB) => {
+        const areaA = rowA.original.service_areas?.areas_cliente?.descripcion_corta || '';
+        const areaB = rowB.original.service_areas?.areas_cliente?.descripcion_corta || '';
+        return areaA.localeCompare(areaB);
+      },
       cell: ({ row }) => {
         return row.original.service_areas?.areas_cliente?.descripcion_corta ? (
           <Badge variant={'outline'} className="font-medium">
@@ -430,7 +458,7 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'type_service',
       id: 'type_service',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de servicio" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Tipo de servicio" />,
       cell: ({ row }) => {
         return row.original.type_service ? (
           <Badge className="font-medium capitalize">{row.original.type_service.replaceAll('_', ' ')}</Badge>
@@ -446,7 +474,13 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'dailyreport_customer_equipment_relations.equipos_clientes.name',
       id: 'dailyreport_customer_equipment_relations.equipos_clientes.name',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo cliente" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo cliente" />,
+      // Función de ordenamiento client-side para relaciones anidadas
+      sortingFn: (rowA, rowB) => {
+        const eqA = rowA.original.dailyreport_customer_equipment_relations?.[0]?.equipos_clientes?.name || '';
+        const eqB = rowB.original.dailyreport_customer_equipment_relations?.[0]?.equipos_clientes?.name || '';
+        return eqA.localeCompare(eqB);
+      },
       cell: ({ row }) => {
         return (
           <div className="flex flex-wrap gap-1">
@@ -471,11 +505,379 @@ export default function DayliReportDetailTableServer({
         );
       },
     },
+    // Columnas para Chofer/Ayudante en jornadas 12/24 hrs
+    {
+      accessorKey: 'chofer_dia',
+      id: 'chofer_dia',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Chofer Día" />,
+      sortingFn: (rowA, rowB) => {
+        const empA = rowA.original.dailyreportemployeerelations?.find((r) => r.role === 'chofer_dia')?.employees;
+        const empB = rowB.original.dailyreportemployeerelations?.find((r) => r.role === 'chofer_dia')?.employees;
+        const nameA = empA ? `${empA.lastname} ${empA.firstname}` : '';
+        const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
+        return nameA.localeCompare(nameB);
+      },
+      cell: ({ row, table }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
+        if (!is12or24) return <span className="text-muted-foreground">-</span>;
+
+        // Mostrar skeleton mientras cargan los empleados
+        if (isLoadingEmployees && !row.original.dailyreportemployeerelations) {
+          return <Skeleton className="h-5 w-24" />;
+        }
+
+        const employeeRel = row.original.dailyreportemployeerelations?.find((r) => r.role === 'chofer_dia');
+        if (!employeeRel?.employees) {
+          return <span className="text-muted-foreground">Sin asignar</span>;
+        }
+
+        const employee = employeeRel.employees;
+        const employeeName = `${employee.lastname} ${employee.firstname}`;
+
+        const allData = table.getRowModel().rows.map((r) => r.original);
+        const duplicatedEmployees = getDuplicatedEmployees(allData);
+        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+
+        const isDuplicated = duplicatedEmployees.has(employeeName);
+        const isUnassigned = unassignedEmployees.has(employeeName);
+
+        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+        let badgeClassName = 'select-none text-nowrap';
+
+        if (loadingValidations) {
+          badgeVariant = 'secondary';
+          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+        } else if (isDuplicated) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+          );
+        } else if (isUnassigned) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+          );
+        } else {
+          badgeClassName = cn(badgeClassName, 'dark:text-black');
+        }
+
+        let tooltipMessage = loadingValidations
+          ? 'Validando asignaciones...'
+          : isDuplicated
+            ? 'Este empleado está asignado en múltiples filas del parte diario'
+            : isUnassigned
+              ? 'Este empleado no está asignado al cliente de esta fila'
+              : 'Empleado asignado correctamente';
+
+        return (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Badge variant={badgeVariant} className={badgeClassName}>
+                    {employeeName}
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{tooltipMessage}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
+      exportFormatter: (value, row) => {
+        const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'chofer_dia')?.employees;
+        return emp ? `${emp.lastname} ${emp.firstname}` : '';
+      },
+    },
+    {
+      accessorKey: 'ayudante_dia',
+      id: 'ayudante_dia',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Ayudante Día" />,
+      sortingFn: (rowA, rowB) => {
+        const empA = rowA.original.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_dia')?.employees;
+        const empB = rowB.original.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_dia')?.employees;
+        const nameA = empA ? `${empA.lastname} ${empA.firstname}` : '';
+        const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
+        return nameA.localeCompare(nameB);
+      },
+      cell: ({ row, table }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
+        if (!is12or24) return <span className="text-muted-foreground">-</span>;
+
+        if (isLoadingEmployees && !row.original.dailyreportemployeerelations) {
+          return <Skeleton className="h-5 w-24" />;
+        }
+
+        const employeeRel = row.original.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_dia');
+        if (!employeeRel?.employees) {
+          return <span className="text-muted-foreground italic">Opcional</span>;
+        }
+
+        const employee = employeeRel.employees;
+        const employeeName = `${employee.lastname} ${employee.firstname}`;
+
+        const allData = table.getRowModel().rows.map((r) => r.original);
+        const duplicatedEmployees = getDuplicatedEmployees(allData);
+        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+
+        const isDuplicated = duplicatedEmployees.has(employeeName);
+        const isUnassigned = unassignedEmployees.has(employeeName);
+
+        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+        let badgeClassName = 'select-none text-nowrap';
+
+        if (loadingValidations) {
+          badgeVariant = 'secondary';
+          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+        } else if (isDuplicated) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+          );
+        } else if (isUnassigned) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+          );
+        } else {
+          badgeClassName = cn(badgeClassName, 'dark:text-black');
+        }
+
+        let tooltipMessage = loadingValidations
+          ? 'Validando asignaciones...'
+          : isDuplicated
+            ? 'Este empleado está asignado en múltiples filas del parte diario'
+            : isUnassigned
+              ? 'Este empleado no está asignado al cliente de esta fila'
+              : 'Empleado asignado correctamente';
+
+        return (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Badge variant={badgeVariant} className={badgeClassName}>
+                    {employeeName}
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{tooltipMessage}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
+      exportFormatter: (value, row) => {
+        const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_dia')?.employees;
+        return emp ? `${emp.lastname} ${emp.firstname}` : '';
+      },
+    },
+    {
+      accessorKey: 'chofer_noche',
+      id: 'chofer_noche',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Chofer Noche" />,
+      sortingFn: (rowA, rowB) => {
+        const empA = rowA.original.dailyreportemployeerelations?.find((r) => r.role === 'chofer_noche')?.employees;
+        const empB = rowB.original.dailyreportemployeerelations?.find((r) => r.role === 'chofer_noche')?.employees;
+        const nameA = empA ? `${empA.lastname} ${empA.firstname}` : '';
+        const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
+        return nameA.localeCompare(nameB);
+      },
+      cell: ({ row, table }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is24 = workingDay === 'jornada 24 horas';
+        if (!is24) return <span className="text-muted-foreground">-</span>;
+
+        if (isLoadingEmployees && !row.original.dailyreportemployeerelations) {
+          return <Skeleton className="h-5 w-24" />;
+        }
+
+        const employeeRel = row.original.dailyreportemployeerelations?.find((r) => r.role === 'chofer_noche');
+        if (!employeeRel?.employees) {
+          return <span className="text-muted-foreground">Sin asignar</span>;
+        }
+
+        const employee = employeeRel.employees;
+        const employeeName = `${employee.lastname} ${employee.firstname}`;
+
+        const allData = table.getRowModel().rows.map((r) => r.original);
+        const duplicatedEmployees = getDuplicatedEmployees(allData);
+        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+
+        const isDuplicated = duplicatedEmployees.has(employeeName);
+        const isUnassigned = unassignedEmployees.has(employeeName);
+
+        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+        let badgeClassName = 'select-none text-nowrap';
+
+        if (loadingValidations) {
+          badgeVariant = 'secondary';
+          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+        } else if (isDuplicated) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+          );
+        } else if (isUnassigned) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+          );
+        } else {
+          badgeClassName = cn(badgeClassName, 'dark:text-black');
+        }
+
+        let tooltipMessage = loadingValidations
+          ? 'Validando asignaciones...'
+          : isDuplicated
+            ? 'Este empleado está asignado en múltiples filas del parte diario'
+            : isUnassigned
+              ? 'Este empleado no está asignado al cliente de esta fila'
+              : 'Empleado asignado correctamente';
+
+        return (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Badge variant={badgeVariant} className={badgeClassName}>
+                    {employeeName}
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{tooltipMessage}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
+      exportFormatter: (value, row) => {
+        const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'chofer_noche')?.employees;
+        return emp ? `${emp.lastname} ${emp.firstname}` : '';
+      },
+    },
+    {
+      accessorKey: 'ayudante_noche',
+      id: 'ayudante_noche',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Ayudante Noche" />,
+      sortingFn: (rowA, rowB) => {
+        const empA = rowA.original.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_noche')?.employees;
+        const empB = rowB.original.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_noche')?.employees;
+        const nameA = empA ? `${empA.lastname} ${empA.firstname}` : '';
+        const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
+        return nameA.localeCompare(nameB);
+      },
+      cell: ({ row, table }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is24 = workingDay === 'jornada 24 horas';
+        if (!is24) return <span className="text-muted-foreground">-</span>;
+
+        if (isLoadingEmployees && !row.original.dailyreportemployeerelations) {
+          return <Skeleton className="h-5 w-24" />;
+        }
+
+        const employeeRel = row.original.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_noche');
+        if (!employeeRel?.employees) {
+          return <span className="text-muted-foreground italic">Opcional</span>;
+        }
+
+        const employee = employeeRel.employees;
+        const employeeName = `${employee.lastname} ${employee.firstname}`;
+
+        const allData = table.getRowModel().rows.map((r) => r.original);
+        const duplicatedEmployees = getDuplicatedEmployees(allData);
+        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+
+        const isDuplicated = duplicatedEmployees.has(employeeName);
+        const isUnassigned = unassignedEmployees.has(employeeName);
+
+        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+        let badgeClassName = 'select-none text-nowrap';
+
+        if (loadingValidations) {
+          badgeVariant = 'secondary';
+          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+        } else if (isDuplicated) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+          );
+        } else if (isUnassigned) {
+          badgeVariant = 'outline';
+          badgeClassName = cn(
+            badgeClassName,
+            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+          );
+        } else {
+          badgeClassName = cn(badgeClassName, 'dark:text-black');
+        }
+
+        let tooltipMessage = loadingValidations
+          ? 'Validando asignaciones...'
+          : isDuplicated
+            ? 'Este empleado está asignado en múltiples filas del parte diario'
+            : isUnassigned
+              ? 'Este empleado no está asignado al cliente de esta fila'
+              : 'Empleado asignado correctamente';
+
+        return (
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Badge variant={badgeVariant} className={badgeClassName}>
+                    {employeeName}
+                  </Badge>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{tooltipMessage}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
+      exportFormatter: (value, row) => {
+        const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_noche')?.employees;
+        return emp ? `${emp.lastname} ${emp.firstname}` : '';
+      },
+    },
     {
       accessorKey: 'dailyreportemployeerelations.employees.lastname',
       id: 'dailyreportemployeerelations.employees.lastname',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Empleados" />,
+      // Función de ordenamiento client-side para empleados
+      sortingFn: (rowA, rowB) => {
+        const empA = rowA.original.dailyreportemployeerelations?.[0]?.employees;
+        const empB = rowB.original.dailyreportemployeerelations?.[0]?.employees;
+        const nameA = empA ? `${empA.lastname} ${empA.firstname}` : '';
+        const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
+        return nameA.localeCompare(nameB);
+      },
       cell: ({ row, table }) => {
+        // Mostrar skeleton mientras cargan los empleados
+        if (isLoadingEmployees && !row.original.dailyreportemployeerelations) {
+          return (
+            <div className="flex gap-1">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+          );
+        }
+
         const employeeRelations = row.original.dailyreportemployeerelations || [];
         const allData = table.getRowModel().rows.map((r) => r.original);
         const duplicatedEmployees = getDuplicatedEmployees(allData);
@@ -494,7 +896,11 @@ export default function DayliReportDetailTableServer({
               let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
               let badgeClassName = 'select-none text-nowrap';
 
-              if (isDuplicated) {
+              // Mientras cargan las validaciones, mostrar en gris (efecto deshabilitado)
+              if (loadingValidations) {
+                badgeVariant = 'secondary';
+                badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+              } else if (isDuplicated) {
                 badgeVariant = 'outline';
                 badgeClassName = cn(
                   badgeClassName,
@@ -512,7 +918,7 @@ export default function DayliReportDetailTableServer({
 
               let tooltipMessage = '';
               if (loadingValidations) {
-                tooltipMessage = 'Cargando validaciones...';
+                tooltipMessage = 'Validando asignaciones...';
               } else if (isDuplicated) {
                 tooltipMessage = 'Este empleado está asignado en múltiples filas del parte diario';
               } else if (isUnassigned) {
@@ -559,8 +965,25 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'dailyreportequipmentrelations.vehicles.domain',
       id: 'dailyreportequipmentrelations.vehicles.domain',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo" />,
+      // Función de ordenamiento client-side para equipos
+      sortingFn: (rowA, rowB) => {
+        const eqA = rowA.original.dailyreportequipmentrelations?.[0]?.vehicles;
+        const eqB = rowB.original.dailyreportequipmentrelations?.[0]?.vehicles;
+        const nameA = eqA ? eqA.domain || eqA.intern_number || '' : '';
+        const nameB = eqB ? eqB.domain || eqB.intern_number || '' : '';
+        return nameA.localeCompare(nameB);
+      },
       cell: ({ row, table }) => {
+        // Mostrar skeleton mientras cargan los equipos
+        if (isLoadingEquipment && !row.original.dailyreportequipmentrelations) {
+          return (
+            <div className="flex gap-1">
+              <Skeleton className="h-5 w-20" />
+            </div>
+          );
+        }
+
         const equipmentRelations = row.original.dailyreportequipmentrelations || [];
         const allData = table.getRowModel().rows.map((r) => r.original);
         const duplicatedEquipments = getDuplicatedEquipments(allData);
@@ -579,7 +1002,11 @@ export default function DayliReportDetailTableServer({
               let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
               let badgeClassName = 'select-none text-nowrap';
 
-              if (isDuplicated) {
+              // Mientras cargan las validaciones, mostrar en gris (efecto deshabilitado)
+              if (loadingValidations) {
+                badgeVariant = 'secondary';
+                badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+              } else if (isDuplicated) {
                 badgeVariant = 'outline';
                 badgeClassName = cn(
                   badgeClassName,
@@ -597,7 +1024,7 @@ export default function DayliReportDetailTableServer({
 
               let tooltipMessage = '';
               if (loadingValidations) {
-                tooltipMessage = 'Cargando validaciones...';
+                tooltipMessage = 'Validando asignaciones...';
               } else if (isDuplicated) {
                 tooltipMessage = 'Este equipo está asignado en múltiples filas del parte diario';
               } else if (isUnassigned) {
@@ -642,7 +1069,7 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'working_day',
       id: 'working_day',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Jornada" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Jornada" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.working_day}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -654,7 +1081,7 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'start_time',
       id: 'start_time',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de inicio" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Hora de inicio" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.start_time}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -666,7 +1093,7 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'end_time',
       id: 'end_time',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de fin" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Hora de fin" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.end_time}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -678,7 +1105,7 @@ export default function DayliReportDetailTableServer({
     {
       accessorKey: 'status',
       id: 'status',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Estado" />,
       cell: ({ row }) => {
         const variants = {
           ejecutado: 'success',
@@ -748,7 +1175,7 @@ export default function DayliReportDetailTableServer({
     },
     {
       id: 'actions',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Acciones" />,
       cell: ({ row }) => {
         // Comprobamos si la fecha es hoy
         const isToday = moment(reportDate).isSame(moment(), 'day');
@@ -794,7 +1221,7 @@ export default function DayliReportDetailTableServer({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <ServiceDetailModal serviceData={row.original} reportDate={reportDate} />
+                  <ServiceDetailModal serviceData={row.original as any} reportDate={reportDate} />
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p>Ver detalle</p>
@@ -850,342 +1277,348 @@ export default function DayliReportDetailTableServer({
         </PermissionGuard>
       </div>
 
-      <BaseDataTable
-        columns={columns}
-        savedVisibility={savedVisibility}
-        initialData={initialData}
-        row_classname={(row) => {
-          if (!row.created_at || !dailyReport[0]?.date) return '';
-          // Parsear la fecha del parte (formato DD-MM-YYYY) con moment
-          const reportDate = moment(dailyReport[0]?.date, 'YYYY-MM-DD').endOf('day');
-          // Parsear created_at con moment
-          const createdAt = moment(row.created_at);
-          // Si created_at es posterior a la fecha del parte, fue creado post-cierre
+      {/* Mostrar loading mientras cargan los datos base */}
+      {isLoadingRows ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Cargando registros...</span>
+        </div>
+      ) : (
+        <BaseDataTable
+          columns={columns}
+          savedVisibility={savedVisibility}
+          data={tableData}
+          row_classname={(row) => {
+            if (!row.created_at || !dailyReport[0]?.date) return '';
+            // Parsear la fecha del parte (formato DD-MM-YYYY) con moment
+            const reportDateMoment = moment(dailyReport[0]?.date, 'YYYY-MM-DD').endOf('day');
+            // Parsear created_at con moment
+            const createdAt = moment(row.created_at);
+            // Si created_at es posterior a la fecha del parte, fue creado post-cierre
 
-          if (row.last_comercial_edit_at) return 'bg-blue-100 dark:bg-blue-900/30';
-          return createdAt.isAfter(reportDate) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '';
-        }}
-        tableId="dailyReportServerTable"
-        enableRowSelection={
-          canEdit
-            ? (row) =>
-                row.original.status !== 'ejecutado' &&
-                row.original.status !== 'sin_recursos_asignados' &&
-                row.original.status !== 'reprogramado'
-            : false
-        }
-        onRowSelectionChange={(rows) => {
-          setSelectedRows(rows);
-        }}
-        serverSide={true}
-        fetchData={async (options) => {
-          const result = await fetchDailyReportData({ dailyReportId, ...options });
-          return result;
-        }}
-        fetchAllData={handleFetchAllData}
-        queryKey={`daily-report-server-${dailyReportId}`}
-        toolbarOptions={{
-          initialVisibleFilters: savedFilters,
-          showExport: true,
-          searchableColumns: [],
-          filterableColumns: [
-            {
-              columnId: 'customers.name',
-              title: 'Cliente',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'customers.name' as '*',
-                relation: '{"customers": "customer_id"}',
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (
-                  data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'customers.name'>>>
-                ) => {
-                  return data.map((value) => ({
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  }));
-                },
-              },
-            },
-            {
-              columnId: 'customer_services.service_name',
-              title: 'Servicio',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'customer_services.service_name' as '*',
-                relation: '{"customer_services": "service_id"}',
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (
-                  data: Awaited<
-                    ReturnType<typeof querySelectDistinct<'dailyreportrows', 'customer_services.service_name'>>
-                  >
-                ) => {
-                  return data.map((value) => ({
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  }));
-                },
-              },
-            },
-            {
-              columnId: 'service_items.item_name',
-              title: 'Item',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'service_items.item_name' as '*',
-                relation: '{"service_items": "item_id"}',
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (
-                  data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'service_items.item_name'>>>
-                ) => {
-                  return data.map((value) => ({
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  }));
-                },
-              },
-            },
-            {
-              columnId: 'service_sectors.sectors.name',
-              title: 'Sector',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'id' as '*',
-                multiJoinPaths: {
-                  joins: [
-                    {
-                      from_table: 'dailyreportrows',
-                      to_table: 'service_sectors',
-                      from_column: 'sector_service_id',
-                      to_column: 'id',
-                    },
-                    {
-                      from_table: 'service_sectors',
-                      to_table: 'sectors',
-                      from_column: 'sector_id',
-                      to_column: 'id',
-                    },
-                  ],
-                  final_column: 'sectors.name',
-                },
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
-                  return data
-                    .filter((value) => value.col_value !== null)
-                    .map((value) => ({
+            if (row.last_comercial_edit_at) return 'bg-blue-100 dark:bg-blue-900/30';
+            return createdAt.isAfter(reportDateMoment) ? 'bg-yellow-100 dark:bg-yellow-900/30' : '';
+          }}
+          tableId="dailyReportServerTable"
+          enableRowSelection={
+            canEdit
+              ? (row) =>
+                  row.original.status !== 'ejecutado' &&
+                  row.original.status !== 'sin_recursos_asignados' &&
+                  row.original.status !== 'reprogramado'
+              : false
+          }
+          onRowSelectionChange={(rows) => {
+            setSelectedRows(rows);
+          }}
+          serverSide={false}
+          fetchAllData={handleFetchAllData as any}
+          queryKey={`daily-report-server-${dailyReportId}`}
+          toolbarOptions={{
+            initialVisibleFilters: savedFilters,
+            showExport: true,
+            searchableColumns: [],
+            filterableColumns: [
+              {
+                columnId: 'customers.name',
+                title: 'Cliente',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'customers.name' as '*',
+                  relation: '{"customers": "customer_id"}',
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (
+                    data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'customers.name'>>>
+                  ) => {
+                    return data.map((value) => ({
                       label: String(value.display_value),
                       value: String(value.col_value),
                       count: value.col_count,
                     }));
+                  },
                 },
               },
-            },
-            {
-              columnId: 'service_areas.areas_cliente.descripcion_corta',
-              title: 'Área',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'id' as '*',
-                multiJoinPaths: {
-                  joins: [
-                    {
-                      from_table: 'dailyreportrows',
-                      to_table: 'service_areas',
-                      from_column: 'areas_service_id',
-                      to_column: 'id',
-                    },
-                    {
-                      from_table: 'service_areas',
-                      to_table: 'areas_cliente',
-                      from_column: 'area_id',
-                      to_column: 'id',
-                    },
-                  ],
-                  final_column: 'areas_cliente.descripcion_corta',
-                },
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
-                  return data
-                    .filter((value) => value.col_value !== null)
-                    .map((value) => ({
+              {
+                columnId: 'customer_services.service_name',
+                title: 'Servicio',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'customer_services.service_name' as '*',
+                  relation: '{"customer_services": "service_id"}',
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (
+                    data: Awaited<
+                      ReturnType<typeof querySelectDistinct<'dailyreportrows', 'customer_services.service_name'>>
+                    >
+                  ) => {
+                    return data.map((value) => ({
                       label: String(value.display_value),
                       value: String(value.col_value),
                       count: value.col_count,
                     }));
+                  },
                 },
               },
-            },
-            {
-              columnId: 'type_service',
-              title: 'Tipo de servicio',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'type_service' as '*',
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'type_service'>>>) => {
-                  return data.map((value) => ({
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  }));
-                },
-              },
-            },
-            {
-              columnId: 'working_day',
-              title: 'Jornada',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'working_day' as '*',
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'working_day'>>>) => {
-                  return data.map((value) => ({
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  }));
-                },
-              },
-            },
-            {
-              columnId: 'status',
-              title: 'Estado',
-              config: {
-                tableName: 'dailyreportrows',
-                select: 'status' as '*',
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'status'>>>) => {
-                  return data.map((value) => ({
-                    label: String(value.display_value),
-                    value: String(value.col_value),
-                    count: value.col_count,
-                  }));
-                },
-              },
-            },
-            {
-              columnId: 'dailyreportemployeerelations.employees.lastname',
-              title: 'Empleados',
-              config: {
-                tableName: 'dailyreportrows' as const,
-                select: 'id' as '*',
-                multiJoinPaths: {
-                  joins: [
-                    {
-                      from_table: 'dailyreportrows',
-                      to_table: 'dailyreportemployeerelations',
-                      from_column: 'id',
-                      to_column: 'daily_report_row_id',
-                    },
-                    {
-                      from_table: 'dailyreportemployeerelations',
-                      to_table: 'employees',
-                      from_column: 'employee_id',
-                      to_column: 'id',
-                    },
-                  ],
-                  final_column: 'employees.lastname',
-                },
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
-                  return data
-                    .filter((value) => value.col_value !== null)
-                    .map((value) => ({
+              {
+                columnId: 'service_items.item_name',
+                title: 'Item',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'service_items.item_name' as '*',
+                  relation: '{"service_items": "item_id"}',
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (
+                    data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'service_items.item_name'>>>
+                  ) => {
+                    return data.map((value) => ({
                       label: String(value.display_value),
                       value: String(value.col_value),
                       count: value.col_count,
                     }));
+                  },
                 },
               },
-            },
-            {
-              columnId: 'dailyreportequipmentrelations.vehicles.domain',
-              title: 'Equipo',
-              config: {
-                tableName: 'dailyreportrows' as const,
-                select: 'id' as '*',
-                multiJoinPaths: {
-                  joins: [
-                    {
-                      from_table: 'dailyreportrows',
-                      to_table: 'dailyreportequipmentrelations',
-                      from_column: 'id',
-                      to_column: 'daily_report_row_id',
-                    },
-                    {
-                      from_table: 'dailyreportequipmentrelations',
-                      to_table: 'vehicles',
-                      from_column: 'equipment_id',
-                      to_column: 'id',
-                    },
-                  ],
-                  final_column: 'vehicles.domain',
+              {
+                columnId: 'service_sectors.sectors.name',
+                title: 'Sector',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'id' as '*',
+                  multiJoinPaths: {
+                    joins: [
+                      {
+                        from_table: 'dailyreportrows',
+                        to_table: 'service_sectors',
+                        from_column: 'sector_service_id',
+                        to_column: 'id',
+                      },
+                      {
+                        from_table: 'service_sectors',
+                        to_table: 'sectors',
+                        from_column: 'sector_id',
+                        to_column: 'id',
+                      },
+                    ],
+                    final_column: 'sectors.name',
+                  },
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
+                    return data
+                      .filter((value) => value.col_value !== null)
+                      .map((value) => ({
+                        label: String(value.display_value),
+                        value: String(value.col_value),
+                        count: value.col_count,
+                      }));
+                  },
                 },
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
-                  return data
-                    .filter((value) => value.col_value !== null)
-                    .map((value) => ({
+              },
+              {
+                columnId: 'service_areas.areas_cliente.descripcion_corta',
+                title: 'Área',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'id' as '*',
+                  multiJoinPaths: {
+                    joins: [
+                      {
+                        from_table: 'dailyreportrows',
+                        to_table: 'service_areas',
+                        from_column: 'areas_service_id',
+                        to_column: 'id',
+                      },
+                      {
+                        from_table: 'service_areas',
+                        to_table: 'areas_cliente',
+                        from_column: 'area_id',
+                        to_column: 'id',
+                      },
+                    ],
+                    final_column: 'areas_cliente.descripcion_corta',
+                  },
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
+                    return data
+                      .filter((value) => value.col_value !== null)
+                      .map((value) => ({
+                        label: String(value.display_value),
+                        value: String(value.col_value),
+                        count: value.col_count,
+                      }));
+                  },
+                },
+              },
+              {
+                columnId: 'type_service',
+                title: 'Tipo de servicio',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'type_service' as '*',
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (
+                    data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'type_service'>>>
+                  ) => {
+                    return data.map((value) => ({
                       label: String(value.display_value),
                       value: String(value.col_value),
                       count: value.col_count,
                     }));
+                  },
                 },
               },
-            },
-            {
-              columnId: 'dailyreport_customer_equipment_relations.equipos_clientes.name',
-              title: 'Equipo cliente',
-              config: {
-                tableName: 'dailyreportrows' as const,
-                select: 'id' as '*',
-                multiJoinPaths: {
-                  joins: [
-                    {
-                      from_table: 'dailyreportrows',
-                      to_table: 'dailyreport_customer_equipment_relations',
-                      from_column: 'id',
-                      to_column: 'daily_report_row_id',
-                    },
-                    {
-                      from_table: 'dailyreport_customer_equipment_relations',
-                      to_table: 'equipos_clientes',
-                      from_column: 'customer_equipment_id',
-                      to_column: 'id',
-                    },
-                  ],
-                  final_column: 'equipos_clientes.name',
-                },
-                p_filters: { daily_report_id: dailyReportId },
-                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
-                  return data
-                    .filter((value) => value.col_value !== null)
-                    .map((value) => ({
+              {
+                columnId: 'working_day',
+                title: 'Jornada',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'working_day' as '*',
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'working_day'>>>) => {
+                    return data.map((value) => ({
                       label: String(value.display_value),
                       value: String(value.col_value),
                       count: value.col_count,
                     }));
+                  },
                 },
               },
-            },
-          ],
-          showFilterOptions: true,
-          bulkAction: canEdit
-            ? {
-                enabled: true,
-                label: 'Editar',
-                icon: <Edit className="h-4 w-4" />,
-                onClick: (rows) => {
-                  setSelectedRows(rows);
-                  setIsBulkEditModalOpen(true);
+              {
+                columnId: 'status',
+                title: 'Estado',
+                config: {
+                  tableName: 'dailyreportrows',
+                  select: 'status' as '*',
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'status'>>>) => {
+                    return data.map((value) => ({
+                      label: String(value.display_value),
+                      value: String(value.col_value),
+                      count: value.col_count,
+                    }));
+                  },
                 },
-              }
-            : undefined,
-        }}
-      />
+              },
+              {
+                columnId: 'dailyreportemployeerelations.employees.lastname',
+                title: 'Empleados',
+                config: {
+                  tableName: 'dailyreportrows' as const,
+                  select: 'id' as '*',
+                  multiJoinPaths: {
+                    joins: [
+                      {
+                        from_table: 'dailyreportrows',
+                        to_table: 'dailyreportemployeerelations',
+                        from_column: 'id',
+                        to_column: 'daily_report_row_id',
+                      },
+                      {
+                        from_table: 'dailyreportemployeerelations',
+                        to_table: 'employees',
+                        from_column: 'employee_id',
+                        to_column: 'id',
+                      },
+                    ],
+                    final_column: 'employees.lastname',
+                  },
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
+                    return data
+                      .filter((value) => value.col_value !== null)
+                      .map((value) => ({
+                        label: String(value.display_value),
+                        value: String(value.col_value),
+                        count: value.col_count,
+                      }));
+                  },
+                },
+              },
+              {
+                columnId: 'dailyreportequipmentrelations.vehicles.domain',
+                title: 'Equipo',
+                config: {
+                  tableName: 'dailyreportrows' as const,
+                  select: 'id' as '*',
+                  multiJoinPaths: {
+                    joins: [
+                      {
+                        from_table: 'dailyreportrows',
+                        to_table: 'dailyreportequipmentrelations',
+                        from_column: 'id',
+                        to_column: 'daily_report_row_id',
+                      },
+                      {
+                        from_table: 'dailyreportequipmentrelations',
+                        to_table: 'vehicles',
+                        from_column: 'equipment_id',
+                        to_column: 'id',
+                      },
+                    ],
+                    final_column: 'vehicles.domain',
+                  },
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
+                    return data
+                      .filter((value) => value.col_value !== null)
+                      .map((value) => ({
+                        label: String(value.display_value),
+                        value: String(value.col_value),
+                        count: value.col_count,
+                      }));
+                  },
+                },
+              },
+              {
+                columnId: 'dailyreport_customer_equipment_relations.equipos_clientes.name',
+                title: 'Equipo cliente',
+                config: {
+                  tableName: 'dailyreportrows' as const,
+                  select: 'id' as '*',
+                  multiJoinPaths: {
+                    joins: [
+                      {
+                        from_table: 'dailyreportrows',
+                        to_table: 'dailyreport_customer_equipment_relations',
+                        from_column: 'id',
+                        to_column: 'daily_report_row_id',
+                      },
+                      {
+                        from_table: 'dailyreport_customer_equipment_relations',
+                        to_table: 'equipos_clientes',
+                        from_column: 'customer_equipment_id',
+                        to_column: 'id',
+                      },
+                    ],
+                    final_column: 'equipos_clientes.name',
+                  },
+                  p_filters: { daily_report_id: dailyReportId },
+                  mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
+                    return data
+                      .filter((value) => value.col_value !== null)
+                      .map((value) => ({
+                        label: String(value.display_value),
+                        value: String(value.col_value),
+                        count: value.col_count,
+                      }));
+                  },
+                },
+              },
+            ],
+            showFilterOptions: true,
+            bulkAction: canEdit
+              ? {
+                  enabled: true,
+                  label: 'Editar',
+                  icon: <Edit className="h-4 w-4" />,
+                  onClick: (rows) => {
+                    setSelectedRows(rows);
+                    setIsBulkEditModalOpen(true);
+                  },
+                }
+              : undefined,
+          }}
+        />
+      )}
 
       {/* Modal de edición masiva */}
       <BulkEditModal

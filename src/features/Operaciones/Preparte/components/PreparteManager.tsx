@@ -19,6 +19,8 @@ import {
   updatePreparte,
 } from '@/features/Operaciones/Preparte/actions/preparte';
 import { PermissionGuard } from '@/features/Permissions';
+import { Logger } from '@/lib/logger';
+import { useQueryClient } from '@tanstack/react-query';
 import { VisibilityState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
@@ -27,6 +29,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PreparteForm } from './PreparteForm';
 import { PreparteTable } from './PreparteTable';
+
+const logger = new Logger('PreparteManager');
 
 // Tipo de datos para los clientes
 export type Cliente = {
@@ -57,6 +61,7 @@ export type Cliente = {
 };
 
 // Tipo de datos para los prepartes
+// PP-3: jornada, tipo, observaciones, executionDate y subject_to_availability ahora están en cada item
 export type PreparteItem = {
   id: string;
   cliente_id: string;
@@ -65,18 +70,20 @@ export type PreparteItem = {
   item: {
     id: string;
     quantity: number;
+    // PP-3: Campos por ítem
+    jornada: string;
+    tipo: string;
+    observaciones?: string;
+    start_time?: string;
+    end_time?: string;
+    executionDate?: {
+      from?: Date;
+      to?: Date;
+    };
+    subject_to_availability: boolean;
   }[];
   requestDate: Date;
-  executionDate?: {
-    from?: Date;
-    to?: Date;
-  }; // Opcional cuando subject_to_availability es true
-  tipo: string;
-  jornada: string;
-  start_time?: string;
-  end_time?: string;
   solicitante: string;
-  observaciones?: string;
   status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado' | 'vencido';
   cancel_reason?: string;
   rejected_reason?: string;
@@ -84,17 +91,23 @@ export type PreparteItem = {
   reprogram?: Date;
   quantity?: number;
   numero_pedido?: string;
-  // nuevos campos
+  // Campos del pedido general
   sector_service_id?: string;
   areas_service_id: string;
   equipos_cliente: string[];
   preparteImage?: string;
   image_url?: string;
-  // Nuevo: indica si está sujeto a disponibilidad operativa
-  subject_to_availability: boolean;
   // Campos para tracking de cambios de item
   item_change_reason?: string;
   original_item_id?: string;
+  // Legacy: mantener para compatibilidad con registros existentes (lectura desde BD)
+  executionDate?: { from?: Date; to?: Date };
+  tipo?: string;
+  jornada?: string;
+  start_time?: string;
+  end_time?: string;
+  observaciones?: string;
+  subject_to_availability?: boolean;
 };
 
 interface PreparteManagerProps {
@@ -142,39 +155,46 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
   const [open, setOpen] = useState(false);
   const [savedVisibility] = useState<VisibilityState>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
+  // PP-3: formData ya no tiene jornada, tipo, observaciones, executionDate ni subject_to_availability a nivel global
+  // Estos campos ahora están dentro de cada item
   const [formData, setFormData] = useState<PreparteItem>({
     id: '',
     cliente_id: '',
     contrato_id: '',
     item: [],
     requestDate: new Date(),
-    executionDate: {
-      from: new Date(),
-      to: undefined,
-    },
-    tipo: '',
-    jornada: '',
-    start_time: '',
-    end_time: '',
     solicitante: '',
     status: 'pendiente',
-    observaciones: '',
-    // defaults nuevos
+    // Campos del pedido general
     sector_service_id: '',
     areas_service_id: '',
     equipos_cliente: [],
     preparteImage: '',
     image_url: '',
-    subject_to_availability: false,
   });
 
+  const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Función para forzar refresh de la tabla
+  // Función para invalidar las queries de la tabla y refrescar los datos
+  // Usamos router.refresh() para revalidar los datos del Server Component
   const refreshTable = () => {
-    setRefreshKey((prev) => prev + 1);
+    // Invalidar todas las queries relacionadas con preparte
+    // El queryKey de BaseDataTable tiene formato: [queryKey, pageIndex, pageSize, sorting, filters]
+    // donde queryKey es 'preparte-table-{status}' (ej: 'preparte-table-all', 'preparte-table-confirmado')
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey;
+        if (Array.isArray(key) && typeof key[0] === 'string') {
+          return key[0].startsWith('preparte-table');
+        }
+        return false;
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: ['prepartes'] });
+    // Refrescar el Server Component para actualizar las cards de estadísticas
+    router.refresh();
   };
 
   const handleInputChange = (field: keyof PreparteItem, value: any) => {
@@ -207,15 +227,27 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           );
         }
 
+        // PP-3: En edición, usar los campos del primer ítem (ya que en edición solo hay un ítem)
+        const firstItem = formData.item[0];
+        const itemExecutionDate = firstItem?.executionDate;
+        const itemSubjectToAvailability = firstItem?.subject_to_availability ?? false;
+
         const updatedPreparte = {
           ...formData,
           id: currentItem.id,
-          item: formData.item[0]?.id || null,
+          item: firstItem?.id || null,
           quantity: 1, // Always set quantity to 1
+          // PP-3: Usar campos del ítem
+          jornada: firstItem?.jornada || '',
+          tipo: firstItem?.tipo || '',
+          observaciones: firstItem?.observaciones || '',
+          start_time: firstItem?.start_time || null,
+          end_time: firstItem?.end_time || null,
           executionDate:
-            formData.executionDate && typeof formData.executionDate === 'object' && formData.executionDate.from
-              ? formData.executionDate.from.toISOString()
+            itemExecutionDate && typeof itemExecutionDate === 'object' && itemExecutionDate.from
+              ? itemExecutionDate.from.toISOString()
               : null,
+          subject_to_availability: itemSubjectToAvailability,
           updated_at: new Date().toISOString(),
           numero_pedido: formData.numero_pedido,
           // Si el estado es 'reprogramado', guardamos el ID del preparte original
@@ -226,8 +258,6 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           equipos_cliente: formData.equipos_cliente ?? [],
           // persistir en columna DB (procesada)
           preparteImage: imageUrl,
-          // Nuevo campo
-          subject_to_availability: formData.subject_to_availability ?? false,
         };
 
         await updatePreparte(currentItem.id, updatedPreparte as any);
@@ -235,59 +265,11 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
         // Refresh de la tabla
         refreshTable();
-        router.refresh();
       } else {
         // Generar número de pedido
         const numeroPedido = await generateOrderNumber();
 
-        // Si está sujeto a disponibilidad, no hay fechas que procesar
-        if (formData.subject_to_availability) {
-          // Crear prepartes sin fecha de ejecución
-          const newPrepartes = formData.item
-            .filter((i) => i.id)
-            .flatMap((itemData) =>
-              Array.from({ length: itemData.quantity }, () => ({
-                cliente_id: formData.cliente_id,
-                contrato_id: formData.contrato_id,
-                tipo: formData.tipo,
-                jornada: formData.jornada,
-                start_time: formData.start_time || null,
-                end_time: formData.end_time || null,
-                solicitante: formData.solicitante,
-                status: 'pendiente',
-                item: itemData.id,
-                observaciones: formData.observaciones || '',
-                executionDate: null, // Sin fecha
-                requestDate: formData.requestDate?.toISOString() || new Date().toISOString(),
-                quantity: 1,
-                numero_pedido: numeroPedido,
-                sector_service_id: formData.sector_service_id || null,
-                areas_service_id: formData.areas_service_id || null,
-                equipos_cliente: formData.equipos_cliente?.[0] || null,
-                preparteImage: formData.image_url || null,
-                subject_to_availability: true,
-              }))
-            );
-
-          await createPreparte(newPrepartes as any);
-          toast.success(`Pedido ${numeroPedido} creado (sujeto a disponibilidad)`);
-          refreshTable();
-          router.refresh();
-          setOpen(false);
-          return;
-        }
-
-        // Create new prepartes con fechas
-        if (!formData.executionDate?.from) {
-          toast.error('Debe seleccionar una fecha de ejecución');
-          return;
-        }
-
-        const dates = formData.executionDate.to
-          ? getDatesInRange(new Date(formData.executionDate.from), new Date(formData.executionDate.to))
-          : [new Date(formData.executionDate.from)];
-
-        // Si image_url viene del formulario (ya subido), mover a la estructura final y renombrar con el número de pedido
+        // Si image_url viene del formulario (ya subido), mover a la estructura final
         let uploadedUrl: string | undefined = formData.image_url || undefined;
         if (formData.image_url) {
           const cliente = Customers.find((c) => c.id === formData.cliente_id);
@@ -300,89 +282,185 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           );
         }
 
-        // Create one line per item with quantity 1
+        // PP-3: Crear prepartes por cada ítem con su propia fecha
         const prepartesToCreate = [] as any[];
 
         for (const item of formData.item) {
-          // For each quantity of the item, create a separate line
-          for (let i = 0; i < (item.quantity || 1); i++) {
-            // For each date in the range
-            for (const date of dates) {
+          if (!item.id) continue;
+
+          // PP-3: Cada ítem tiene su propia configuración de fecha
+          const isSubjectToAvailability = item.subject_to_availability ?? false;
+          const itemExecutionDate = item.executionDate;
+
+          if (isSubjectToAvailability) {
+            // Ítem sujeto a disponibilidad: crear sin fecha
+            for (let i = 0; i < (item.quantity || 1); i++) {
               prepartesToCreate.push({
                 cliente_id: formData.cliente_id,
                 contrato_id: formData.contrato_id,
-                tipo: formData.tipo,
-                jornada: formData.jornada,
-                start_time: formData.start_time || null,
-                end_time: formData.end_time || null,
+                // PP-3: Usar campos del ítem
+                tipo: item.tipo || '',
+                jornada: item.jornada || '',
+                start_time: item.start_time || null,
+                end_time: item.end_time || null,
+                observaciones: item.observaciones || '',
                 solicitante: formData.solicitante,
                 status: 'pendiente',
                 item: item.id,
-                quantity: 1, // Always 1 per line
-                observaciones: formData.observaciones || null,
-                executionDate: date.toISOString(),
-                requestDate: formData.requestDate.toISOString(),
+                executionDate: null, // Sin fecha
+                requestDate: formData.requestDate?.toISOString() || new Date().toISOString(),
+                quantity: 1,
                 numero_pedido: numeroPedido,
-                sector_service_id: formData.sector_service_id ?? '',
-                areas_service_id: formData.areas_service_id ?? '',
-                equipos_cliente: formData.equipos_cliente ?? [],
-                // persistir en columna DB (misma URL para todas las filas del mismo pedido)
+                sector_service_id: formData.sector_service_id || null,
+                areas_service_id: formData.areas_service_id || null,
+                equipos_cliente: formData.equipos_cliente?.[0] || null,
                 preparteImage: uploadedUrl || null,
+                subject_to_availability: true,
               });
+            }
+          } else {
+            // Ítem con fecha: crear por cada fecha en el rango
+            if (!itemExecutionDate?.from) {
+              toast.error(`El ítem debe tener fecha de ejecución o estar sujeto a disponibilidad`);
+              return;
+            }
+
+            const dates = itemExecutionDate.to
+              ? getDatesInRange(new Date(itemExecutionDate.from), new Date(itemExecutionDate.to))
+              : [new Date(itemExecutionDate.from)];
+
+            for (let i = 0; i < (item.quantity || 1); i++) {
+              for (const date of dates) {
+                prepartesToCreate.push({
+                  cliente_id: formData.cliente_id,
+                  contrato_id: formData.contrato_id,
+                  // PP-3: Usar campos del ítem
+                  tipo: item.tipo || '',
+                  jornada: item.jornada || '',
+                  start_time: item.start_time || null,
+                  end_time: item.end_time || null,
+                  observaciones: item.observaciones || null,
+                  solicitante: formData.solicitante,
+                  status: 'pendiente',
+                  item: item.id,
+                  quantity: 1,
+                  executionDate: date.toISOString(),
+                  requestDate: formData.requestDate.toISOString(),
+                  numero_pedido: numeroPedido,
+                  sector_service_id: formData.sector_service_id ?? '',
+                  areas_service_id: formData.areas_service_id ?? '',
+                  equipos_cliente: formData.equipos_cliente ?? [],
+                  preparteImage: uploadedUrl || null,
+                  subject_to_availability: false,
+                });
+              }
             }
           }
         }
 
+        if (prepartesToCreate.length === 0) {
+          toast.error('Debe agregar al menos un ítem válido');
+          return;
+        }
+
         const createdPrepartes = await createPreparte(prepartesToCreate as any);
-        toast.success(
-          `Se crearon ${createdPrepartes.length} pedidos correctamente con el número de pedido ${numeroPedido}`
-        );
+
+        // Contar cuántos están sujetos a disponibilidad
+        const subjectToAvailabilityCount = prepartesToCreate.filter((p) => p.subject_to_availability).length;
+        const withDateCount = prepartesToCreate.length - subjectToAvailabilityCount;
+
+        let successMessage = `Se crearon ${createdPrepartes.length} pedidos con N° ${numeroPedido}`;
+        if (subjectToAvailabilityCount > 0 && withDateCount > 0) {
+          successMessage += ` (${withDateCount} con fecha, ${subjectToAvailabilityCount} pendientes de fecha)`;
+        } else if (subjectToAvailabilityCount > 0) {
+          successMessage += ` (pendientes de fecha)`;
+        }
+
+        toast.success(successMessage);
 
         // Refresh de la tabla
         refreshTable();
-        router.refresh();
       }
 
-      // Reset form and close
+      // PP-3: Reset form and close (campos por ítem ya no están a nivel global)
       setFormData({
         id: '',
         cliente_id: '',
         contrato_id: '',
         item: [],
         requestDate: new Date(),
-        executionDate: {
-          from: new Date(),
-          to: undefined,
-        },
-        tipo: '',
-        jornada: '',
-        start_time: '',
-        end_time: '',
         solicitante: '',
         status: 'pendiente',
         cancel_reason: '',
         reprogram: new Date(),
-        observaciones: '',
         sector_service_id: '',
         areas_service_id: '',
         equipos_cliente: [],
         preparteImage: '',
         image_url: '',
-        subject_to_availability: false,
       });
       setOpen(false);
       setIsEditing(false);
       setCurrentItem(null);
     } catch (error) {
-      console.error('Error saving preparte:', error);
+      logger.error('Error saving preparte', { data: { error } });
       toast.error(error instanceof Error ? error.message : 'Error al guardar el pedido');
     }
   };
 
   const handleEdit = (item: PreparteItem) => {
-    // Convert the item string to the expected array format
+    // PP-3: Convert the item string to the expected array format with date info
+    // En registros existentes, la fecha está a nivel de preparte, la movemos al ítem
+    const existingSubjectToAvailability = item.subject_to_availability ?? false;
+
+    // Parsear executionDate: puede ser string (de BD), objeto {from, to}, o null
+    let existingExecutionDate: { from?: Date; to?: Date } | undefined = undefined;
+
+    if (!existingSubjectToAvailability && item.executionDate) {
+      // Si es string (formato de BD como "2026-02-05 03:00:00+00")
+      if (typeof item.executionDate === 'string') {
+        existingExecutionDate = {
+          from: new Date(item.executionDate),
+          to: undefined,
+        };
+      }
+      // Si es objeto con propiedad from
+      else if (typeof item.executionDate === 'object' && item.executionDate.from) {
+        existingExecutionDate = {
+          from: new Date(item.executionDate.from),
+          to: item.executionDate.to ? new Date(item.executionDate.to) : undefined,
+        };
+      }
+    }
+    // Si subject_to_availability es true, la fecha debe quedar undefined
+
     const itemArray =
-      typeof item.item === 'string' ? [{ id: item.item, quantity: item.quantity || 1 }] : item.item || [];
+      typeof item.item === 'string'
+        ? [
+            {
+              id: item.item,
+              quantity: item.quantity || 1,
+              // PP-3: Cargar campos del registro existente al ítem
+              jornada: item.jornada || '',
+              tipo: item.tipo || '',
+              observaciones: item.observaciones || '',
+              start_time: item.start_time || '',
+              end_time: item.end_time || '',
+              executionDate: existingExecutionDate,
+              subject_to_availability: existingSubjectToAvailability,
+            },
+          ]
+        : (item.item || []).map((i: any) => ({
+            id: i.id || i,
+            quantity: i.quantity || 1,
+            jornada: i.jornada || item.jornada || '',
+            tipo: i.tipo || item.tipo || '',
+            observaciones: i.observaciones || item.observaciones || '',
+            start_time: i.start_time || item.start_time || '',
+            end_time: i.end_time || item.end_time || '',
+            executionDate: i.executionDate || existingExecutionDate,
+            subject_to_availability: i.subject_to_availability ?? existingSubjectToAvailability,
+          }));
 
     // Normalize sector/area/equipos for edit UI
     const cliente = Customers.find((c) => c.id === item.cliente_id);
@@ -425,34 +503,23 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
         ? [item.equipos_cliente as unknown as string]
         : [];
 
+    // PP-3: jornada, tipo, observaciones, fecha y subject_to_availability ahora están en el itemArray
     setFormData({
       id: item.id,
       cliente_id: item.cliente_id,
       contrato_id: item.contrato_id || '',
       item: itemArray,
       requestDate: item.requestDate ? new Date(item.requestDate) : new Date(),
-      executionDate: item.executionDate?.from
-        ? {
-            from: new Date(item.executionDate.from),
-            to: item.executionDate.to ? new Date(item.executionDate.to) : undefined,
-          }
-        : undefined,
-      tipo: item.tipo || '',
-      jornada: item.jornada || '',
-      start_time: item.start_time || '',
-      end_time: item.end_time || '',
       solicitante: item.solicitante || '',
       status: item.status || 'pendiente',
       quantity: item.quantity || 1,
-      observaciones: item.observaciones || '',
       numero_pedido: item.numero_pedido || '',
-      // nuevos campos (mapped for UI expectations)
+      // Campos del pedido general
       sector_service_id: sectorForForm,
       areas_service_id: areaForForm,
       equipos_cliente: equiposForForm,
       preparteImage: item.preparteImage || '',
       image_url: '',
-      subject_to_availability: item.subject_to_availability ?? false,
     });
 
     setCurrentItem(item);
@@ -462,27 +529,39 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
   const handleConfirm = async (item: PreparteItem) => {
     try {
+      // Normalizar executionDate: puede venir como string ISO de la BD o como objeto { from, to } del formulario
+      const execDateRaw = item.executionDate;
+      let execDateValue: Date | null = null;
+
+      if (execDateRaw) {
+        if (typeof execDateRaw === 'string') {
+          // Viene de la BD como string ISO
+          execDateValue = new Date(execDateRaw);
+        } else if (typeof execDateRaw === 'object' && 'from' in execDateRaw && execDateRaw.from) {
+          // Viene del formulario como { from: Date, to?: Date }
+          execDateValue = new Date(execDateRaw.from);
+        }
+      }
+
       // Verificar si está sujeto a disponibilidad y no tiene fecha
-      if (item.subject_to_availability && !item.executionDate?.from) {
+      if (item.subject_to_availability && !execDateValue) {
         toast.error(
           'Este pedido está sujeto a disponibilidad operativa. Debe asignar una fecha de ejecución antes de confirmar.',
           { duration: 5000 }
         );
         // Abrir el formulario de edición para que el usuario asigne la fecha
         handleEdit(item);
-        return;
+        throw new Error('Pedido sujeto a disponibilidad sin fecha asignada');
       }
 
       // Verificar que tenga fecha de ejecución
-      if (!item.executionDate?.from) {
+      if (!execDateValue || isNaN(execDateValue.getTime())) {
         toast.error('El pedido debe tener una fecha de ejecución para poder confirmarse.');
-        return;
+        throw new Error('El pedido no tiene fecha de ejecución válida');
       }
 
       // 1. Format execution date
-      const execSrc: any = item.executionDate;
-      const execDateInput = typeof execSrc === 'object' && execSrc?.from ? execSrc.from : execSrc;
-      const executionDate = format(new Date(execDateInput), 'yyyy-MM-dd');
+      const executionDate = format(execDateValue, 'yyyy-MM-dd');
 
       // 2. Check if daily report exists for this date
       const existingReports = await checkDailyReportExists([executionDate]);
@@ -547,10 +626,9 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
       // Refresh de la tabla
       refreshTable();
-      router.refresh();
       toast.success('Pedido confirmado y enviado al parte diario');
     } catch (error) {
-      console.error('Error al confirmar el pedido:', error);
+      logger.error('Error al confirmar el pedido', { data: { error } });
       toast.error(error instanceof Error ? error.message : 'Error al confirmar el pedido');
     }
   };
@@ -561,10 +639,9 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
 
       // Refresh de la tabla
       refreshTable();
-      router.refresh();
       toast.success('Pedido eliminado correctamente');
     } catch (error) {
-      console.error('Error al eliminar:', error);
+      logger.error('Error al eliminar', { data: { error } });
       toast.error('Error al eliminar el pedido');
     }
   };
@@ -579,7 +656,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
       setIsLoading(true);
       return await fetchPrepartes(opciones);
     } catch (error) {
-      console.error('Error al cargar datos:', error);
+      logger.error('Error al cargar datos', { data: { error } });
       return { rows: [], pageCount: 0, rowCount: 0 };
     } finally {
       setIsLoading(false);
@@ -592,61 +669,82 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
         <h2 className="text-2xl font-bold" data-testid="preparte-title">
           Gestión de Pedidos
         </h2>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger>
-            <PermissionGuard module="operaciones" tab="preparte" action="create">
-              <Button data-testid="nuevo-pedido-button">
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo Pedido
-              </Button>
-            </PermissionGuard>
-          </SheetTrigger>
-          <SheetContent side="right" className="overflow-y-auto w-[750px] max-w-[75vw] sm:max-w-[75vw]">
-            <SheetHeader className="mb-6">
-              <SheetTitle>{isEditing ? 'Editar Pedido' : 'Nuevo Pedido'}</SheetTitle>
-            </SheetHeader>
-            <PreparteForm
-              formData={formData}
-              clientes={Customers as Cliente[]}
-              contratos={contratos as Contrato[]}
-              isEditing={isEditing}
-              onInputChange={handleInputChange}
-              onSubmit={(formData: PreparteItem) => handleSubmit(formData)}
-              onCancel={() => {
-                setOpen(false);
-                setIsEditing(false);
-                setCurrentItem(null);
-                setFormData({
-                  id: '',
-                  cliente_id: '',
-                  contrato_id: '',
-                  item: [],
-                  requestDate: new Date(),
-                  executionDate: {
-                    from: new Date(),
-                    to: undefined,
-                  },
-                  tipo: '',
-                  jornada: '',
-                  start_time: '',
-                  end_time: '',
-                  solicitante: '',
-                  status: 'pendiente',
-                  cancel_reason: '',
-                  reprogram: new Date(),
-                  observaciones: '',
-                  sector_service_id: '',
-                  areas_service_id: '',
-                  equipos_cliente: [],
-                  preparteImage: '',
-                  image_url: '',
-                  subject_to_availability: false,
-                });
-              }}
-            />
-          </SheetContent>
-        </Sheet>
+        <PermissionGuard module="operaciones" tab="preparte" action="create">
+          <Button
+            data-testid="nuevo-pedido-button"
+            onClick={() => {
+              // Limpiar el formulario al abrir para nuevo pedido
+              setIsEditing(false);
+              setCurrentItem(null);
+              setFormData({
+                id: '',
+                cliente_id: '',
+                contrato_id: '',
+                item: [],
+                requestDate: new Date(),
+                solicitante: '',
+                status: 'pendiente',
+                cancel_reason: '',
+                reprogram: new Date(),
+                sector_service_id: '',
+                areas_service_id: '',
+                equipos_cliente: [],
+                preparteImage: '',
+                image_url: '',
+              });
+              setOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Pedido
+          </Button>
+        </PermissionGuard>
       </div>
+
+      {/* Sheet fuera del contenedor flex para no afectar el layout */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        {/* SheetTrigger vacío ya que controlamos la apertura manualmente */}
+        <SheetTrigger asChild>
+          <span className="hidden" />
+        </SheetTrigger>
+        <SheetContent side="right" className="overflow-y-auto w-[750px] max-w-[75vw] sm:max-w-[75vw]">
+          <SheetHeader className="mb-6">
+            <SheetTitle>{isEditing ? 'Editar Pedido' : 'Nuevo Pedido'}</SheetTitle>
+          </SheetHeader>
+          <PreparteForm
+            // Key para forzar remontaje cuando se cambia entre editar y crear
+            key={isEditing ? `edit-${currentItem?.id}` : 'create-new'}
+            formData={formData}
+            clientes={Customers as Cliente[]}
+            contratos={contratos as Contrato[]}
+            isEditing={isEditing}
+            onInputChange={handleInputChange}
+            onSubmit={(formData: PreparteItem) => handleSubmit(formData)}
+            onCancel={() => {
+              setOpen(false);
+              setIsEditing(false);
+              setCurrentItem(null);
+              // PP-3: Reset (campos por ítem ya no están a nivel global)
+              setFormData({
+                id: '',
+                cliente_id: '',
+                contrato_id: '',
+                item: [],
+                requestDate: new Date(),
+                solicitante: '',
+                status: 'pendiente',
+                cancel_reason: '',
+                reprogram: new Date(),
+                sector_service_id: '',
+                areas_service_id: '',
+                equipos_cliente: [],
+                preparteImage: '',
+                image_url: '',
+              });
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       <Card className="w-full">
         <CardContent className="p-2">
@@ -661,7 +759,6 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
             savedVisibility={savedVisibility}
             fetchData={handleFetchData}
             isLoading={isLoading}
-            refreshKey={refreshKey}
           />
         </CardContent>
       </Card>

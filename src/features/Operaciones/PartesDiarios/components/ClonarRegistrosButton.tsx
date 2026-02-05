@@ -139,10 +139,17 @@ export function ClonarRegistrosButton({
           }
 
           const formattedRows = filteredRows.map((row) => {
-            // Determinar el estado según si se copiarán recursos
-            const hasEmployees = trasladarPersonal && row.employees_references?.length > 0;
-            const hasEquipment = trasladarEquipos && row.equipment_references?.length > 0;
-            const newStatus = hasEmployees && hasEquipment ? 'pendiente' : 'sin_recursos_asignados';
+            // PO-2: Determinar el estado según si se copiarán recursos válidos
+            // Solo contar empleados activos y equipos operativos
+            const validEmployees = trasladarPersonal
+              ? row.employees_references?.filter((emp) => emp.is_active !== false) || []
+              : [];
+            const validEquipment = trasladarEquipos
+              ? row.equipment_references?.filter((eq) => eq.condition !== 'no operativo') || []
+              : [];
+            const hasEmployees = validEmployees.length > 0;
+            const hasEquipment = validEquipment.length > 0;
+            const newStatus = hasEmployees || hasEquipment ? 'pendiente' : 'sin_recursos_asignados';
 
             return {
               customer_id: row.data_to_clone.customer_id!,
@@ -169,8 +176,10 @@ export function ClonarRegistrosButton({
               const originalRow = filteredRows[i];
 
               // Copiar empleados si está habilitado y hay empleados en la fila original
+              // PO-2: Filtrar empleados de baja (is_active = false)
               if (trasladarPersonal && originalRow.employees_references?.length > 0) {
                 const employeeIds = originalRow.employees_references
+                  .filter((emp) => emp.is_active !== false) // Solo empleados activos
                   .map((emp) => emp.id)
                   .filter((id): id is string => !!id);
                 if (employeeIds.length > 0) {
@@ -179,8 +188,10 @@ export function ClonarRegistrosButton({
               }
 
               // Copiar equipos si está habilitado y hay equipos en la fila original
+              // PO-2: Filtrar equipos con condición "no operativo"
               if (trasladarEquipos && originalRow.equipment_references?.length > 0) {
                 const equipmentIds = originalRow.equipment_references
+                  .filter((eq) => eq.condition !== 'no operativo') // Solo equipos operativos
                   .map((eq) => eq.id)
                   .filter((id): id is string => !!id);
                 if (equipmentIds.length > 0) {

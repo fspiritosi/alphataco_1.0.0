@@ -238,7 +238,7 @@ export function getDailyReportColumns(
       accessorKey: 'customer',
       id: 'Cliente',
       // header: () => <span className="w-[200px]">Nombre</span>,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Cliente" />,
       cell: ({ row }) => <span className="font-medium select-none text-nowrap">{row.original.customer}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -247,7 +247,9 @@ export function getDailyReportColumns(
     {
       accessorKey: 'services',
       id: 'Servicio',
-      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Servicio" />,
+      header: ({ column, table }) => (
+        <DataTableColumnHeader className="w-[130px]" column={column} table={table} title="Servicio" />
+      ),
       cell: ({ row }) => <span className="font-medium">{row.original.services}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -256,7 +258,9 @@ export function getDailyReportColumns(
     {
       accessorKey: 'item',
       id: 'Item',
-      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Item" />,
+      header: ({ column, table }) => (
+        <DataTableColumnHeader className="w-[130px]" column={column} table={table} title="Item" />
+      ),
       cell: ({ row }) => <span className="font-medium">{row.original.item}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -266,7 +270,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'sector_service_name',
       id: 'Sector',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Sector" />,
       cell: ({ row }) => {
         return row.original.sector_service_name ? (
           <Badge variant={'outline'} className="font-medium">
@@ -281,7 +285,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'areas_customer_name',
       id: 'Área',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Área" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Área" />,
       cell: ({ row }) => {
         return row.original.areas_customer_name ? (
           <Badge variant={'outline'} className="font-medium">
@@ -296,7 +300,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'type_service',
       id: 'Tipo de servicio',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de servicio" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Tipo de servicio" />,
       cell: ({ row }) => {
         return row.original.type_service ? (
           <Badge className="font-medium capitalize">{row.original.type_service.replaceAll('_', ' ')}</Badge>
@@ -309,7 +313,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'customer_equipment',
       id: 'Equipo cliente',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo cliente" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo cliente" />,
       cell: ({ row }) => {
         // const employees = row.original.customer_equipment;
         // if (!employees || employees.length === 0) return null;
@@ -342,7 +346,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'employees',
       id: 'Empleados',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Empleados" />,
       cell: ({ row }) => {
         const employees: string[] = row.original.employees;
         return (
@@ -410,10 +414,87 @@ export function getDailyReportColumns(
         return value.some((val) => rowValues.includes(val));
       },
     },
+    // PO-3: Columnas para Chofer/Ayudante en jornadas 12/24 hrs
+    {
+      accessorKey: 'chofer_dia',
+      id: 'Chofer Día',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Chofer Día" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
+        if (!is12or24) return <span className="text-muted-foreground">-</span>;
+
+        const choferDia = row.original.employees_references?.find((emp) => emp.role === 'chofer_dia');
+        return choferDia?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {choferDia.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">Sin asignar</span>
+        );
+      },
+    },
+    {
+      accessorKey: 'ayudante_dia',
+      id: 'Ayudante Día',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Ayudante Día" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
+        if (!is12or24) return <span className="text-muted-foreground">-</span>;
+
+        const ayudanteDia = row.original.employees_references?.find((emp) => emp.role === 'ayudante_dia');
+        return ayudanteDia?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {ayudanteDia.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground italic">Opcional</span>
+        );
+      },
+    },
+    {
+      accessorKey: 'chofer_noche',
+      id: 'Chofer Noche',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Chofer Noche" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is24 = workingDay === 'jornada 24 horas';
+        if (!is24) return <span className="text-muted-foreground">-</span>;
+
+        const choferNoche = row.original.employees_references?.find((emp) => emp.role === 'chofer_noche');
+        return choferNoche?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {choferNoche.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">Sin asignar</span>
+        );
+      },
+    },
+    {
+      accessorKey: 'ayudante_noche',
+      id: 'Ayudante Noche',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Ayudante Noche" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is24 = workingDay === 'jornada 24 horas';
+        if (!is24) return <span className="text-muted-foreground">-</span>;
+
+        const ayudanteNoche = row.original.employees_references?.find((emp) => emp.role === 'ayudante_noche');
+        return ayudanteNoche?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {ayudanteNoche.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground italic">Opcional</span>
+        );
+      },
+    },
     {
       accessorKey: 'equipment',
       id: 'Equipo',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo" />,
       cell: ({ row }) => {
         const equipment = row.original.equipment;
         return (
@@ -482,7 +563,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'working_day',
       id: 'Jornada',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Jornada" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Jornada" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.working_day}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -491,7 +572,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'start_time',
       id: 'Hora de inicio',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de inicio" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Hora de inicio" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.start_time}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -500,7 +581,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'end_time',
       id: 'Hora de fin',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de fin" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Hora de fin" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.end_time}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -509,7 +590,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'status',
       id: 'Estado',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Estado" />,
       cell: ({ row }) => {
         const variants = {
           ejecutado: 'success',
@@ -574,7 +655,7 @@ export function getDailyReportColumns(
     },
     {
       id: 'actions',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Acciones" />,
       cell: ({ row }) => {
         // Comprobamos si la fecha es hoy
         const isToday = moment(row.original.date).isSame(moment(), 'day');

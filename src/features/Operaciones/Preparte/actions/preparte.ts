@@ -1,7 +1,10 @@
 'use server';
 
-import { supabaseServer } from '@/lib/supabase/server';
+import { Logger } from '@/lib/logger';
+import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
 // import { cookies } from 'next/headers';
+
+const logger = new Logger('preparte-actions');
 
 export type Preparte = {
   id?: string;
@@ -162,6 +165,7 @@ export async function createPreparte(
       areas_service_id: item.areas_service_id || null,
       equipos_cliente: item.equipos_cliente || null,
       preparteImage: (item as any).preparteImage || null,
+      subject_to_availability: item.subject_to_availability ?? false,
     }));
 
     const { data, error } = await supabase
@@ -191,6 +195,9 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
   };
   // Nunca enviar columnas que no existen en la tabla
   if ('image_url' in payload) delete payload.image_url;
+  // Campos del formulario que no van a la tabla preparte
+  if ('item_change_reason' in payload) delete payload.item_change_reason;
+  if ('original_item_id' in payload) delete payload.original_item_id;
 
   // Equipos: solo si la clave está presente
   if ('equipos_cliente' in preparteData) {
@@ -649,16 +656,19 @@ export async function updateMultiplePreparteStatus(
 /**
  * Registra un cambio en el log de cambios de preparte.
  * Diseñado para ser genérico y soportar cambios de cualquier campo.
+ * Usa adminSupabaseServer para bypasear RLS ya que es un log de auditoría.
  */
 export async function logPreparteChange(changeLog: PreparteChangeLog) {
+  // Obtener el usuario actual con el cliente normal
   const supabase = await supabaseServer();
-
-  // Obtener el usuario actual
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
+  // Usar admin client para el insert (bypasea RLS)
+  const adminSupabase = await adminSupabaseServer();
+
+  const { data, error } = await adminSupabase
     .from('preparte_change_logs')
     .insert({
       preparte_id: changeLog.preparte_id,
@@ -673,7 +683,7 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
     .single();
 
   if (error) {
-    console.error('Error logging preparte change:', error);
+    logger.error('Error logging preparte change', { data: { error } });
     throw new Error('Error al registrar el cambio en el historial');
   }
 

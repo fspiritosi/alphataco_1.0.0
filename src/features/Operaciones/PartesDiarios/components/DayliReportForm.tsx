@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { es } from 'date-fns/locale';
 import moment from 'moment';
+import { useState } from 'react';
 
 const FormSchema = z.object({
   date: z.date({
@@ -26,33 +27,47 @@ const FormSchema = z.object({
 
 export default function DayliReportForm() {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
   });
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
-    toast.promise(
-      async () => {
-        const exists = await checkDailyReportExists([format(data.date, 'yyyy-MM-dd')]);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-        if (exists.length > 0) {
-          throw new Error('Ya existe un parte diario para esta fecha.');
-        }
+    const loadingToast = toast.loading('Creando parte diario...');
 
-        const created = await createDailyReport([format(data.date, 'yyyy-MM-dd')]);
-        if (created?.[0].id) {
-          router.push(`/dashboard/operations/${created[0].id}`);
-        }
-        router.refresh();
-        return 'Parte diario creado exitosamente!';
-      },
-      {
-        loading: 'Creando parte diario...',
-        success: 'Parte diario creado exitosamente!',
-        error: (error) => error,
+    try {
+      // Verificar si ya existe
+      const exists = await checkDailyReportExists([format(data.date, 'yyyy-MM-dd')]);
+
+      if (exists.length > 0) {
+        toast.dismiss(loadingToast);
+        toast.error('Ya existe un parte diario para esta fecha.');
+        setIsSubmitting(false);
+        return;
       }
-    );
+
+      // Crear el parte diario
+      const created = await createDailyReport([format(data.date, 'yyyy-MM-dd')]);
+
+      toast.dismiss(loadingToast);
+      toast.success('Parte diario creado exitosamente!');
+
+      // Refrescar la página para actualizar la tabla
+      router.refresh();
+
+      // Redirigir al detalle del parte diario creado
+      if (created?.[0]?.id) {
+        router.push(`/dashboard/operations/${created[0].id}`);
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error(error instanceof Error ? error.message : 'Error al crear el parte diario');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -93,7 +108,9 @@ export default function DayliReportForm() {
               </FormItem>
             )}
           />
-          <Button type="submit">Crear parte diario</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Creando...' : 'Crear parte diario'}
+          </Button>
         </form>
       </Form>
     </div>

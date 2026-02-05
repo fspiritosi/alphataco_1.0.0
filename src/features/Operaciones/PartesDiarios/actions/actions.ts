@@ -533,6 +533,7 @@ export async function getDailyReportById(id: string) {
             document_number,
             phone,
             email,
+            is_active,
             company_positions(name),
             contractor_employee(customers(name))
           )
@@ -833,8 +834,6 @@ export async function getActiveEquipmentsForDailyReport() {
       '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(id,name))'
     )
     .eq('is_active', true)
-    .neq('condition', 'no operativo')
-    .neq('condition', 'en reparacion')
     .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
     logger.error('Error al obtener equipos activos', { data: { error } });
@@ -918,28 +917,44 @@ export async function updateDailyReportRow(
     equipmentHasChanged = false,
     employeeHasChanged = false,
     reassignmentReason = '',
-  }: { equipmentHasChanged: boolean; employeeHasChanged: boolean; reassignmentReason: string }
+    skipEmployeeUpdate = false, // When true, skip employee relation updates (used for role-based employees)
+  }: {
+    equipmentHasChanged: boolean;
+    employeeHasChanged: boolean;
+    reassignmentReason: string;
+    skipEmployeeUpdate?: boolean;
+  }
 ) {
   const supabase = await supabaseServer();
 
-  // Actualizar la fila principal
-  await updateEmployeeRelations(id, employeeIds);
+  // Actualizar relaciones de empleados (solo si no se usa el sistema de roles)
+  if (!skipEmployeeUpdate) {
+    await updateEmployeeRelations(id, employeeIds);
+  }
 
   // Actualizar relaciones de equipos
   await updateEquipmentRelations(id, equipmentIds);
 
   await updateEquiposClienteRelations(id, equipos_clienteIds);
 
+  // Determinar si hay recursos asignados
+  let hasResources = employeeIds.length > 0 || equipmentIds.length > 0;
+
+  // Si se saltó la actualización de empleados, verificar si hay empleados en la BD
+  if (skipEmployeeUpdate) {
+    const { count } = await supabase
+      .from('dailyreportemployeerelations')
+      .select('*', { count: 'exact', head: true })
+      .eq('daily_report_row_id', id);
+    hasResources = (count || 0) > 0 || equipmentIds.length > 0;
+  }
+
   const { data: updatedRow, error: updateError } = await supabase
     .from('dailyreportrows')
     .update({
       ...data,
       status:
-        data.status === 'cancelado' ||
-        data.status === 'reprogramado' ||
-        data.status === 'ejecutado' ||
-        employeeIds.length > 0 ||
-        equipmentIds.length > 0
+        data.status === 'cancelado' || data.status === 'reprogramado' || data.status === 'ejecutado' || hasResources
           ? data.status
           : 'sin_recursos_asignados',
     })

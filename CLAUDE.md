@@ -72,7 +72,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 
 | Regla                                       | Archivo                             | Aplicacion                                        |
 | ------------------------------------------- | ----------------------------------- | ------------------------------------------------- |
-| NO `:any` - Inferir tipos                   | @.claude/rules/typescript-types.md  | Siempre al escribir codigo TypeScript             |
+| NO `:any ni as any` - Inferir tipos         | @.claude/rules/typescript-types.md  | Siempre al escribir codigo TypeScript             |
 | Server Actions (ubicacion, formato)         | @.claude/rules/server-actions.md    | Al crear/modificar server actions                 |
 | Logger vs console.\* (REEMPLAZO AUTOMATICO) | @.claude/rules/logger.md            | Siempre - reemplazar console.\* cuando se detecte |
 | React Query obligatorio                     | @.claude/rules/react-query.md       | Fetching en componentes cliente                   |

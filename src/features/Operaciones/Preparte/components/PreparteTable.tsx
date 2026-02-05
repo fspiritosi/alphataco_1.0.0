@@ -19,9 +19,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Cliente } from '@/features/Operaciones/Preparte/components/PreparteManager';
 import { PermissionGuard } from '@/features/Permissions';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
+import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import { useQueryClient } from '@tanstack/react-query';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -33,6 +35,8 @@ import { PreparteDetailModal } from './PreparteDetailModal';
 import { Contrato, PreparteItem } from './PreparteManager';
 import { Status, StatusCards } from './StatusCards';
 
+const logger = new Logger('PreparteTable');
+
 interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
@@ -42,7 +46,6 @@ interface PreparteTableProps {
   onDelete: (id: string) => void;
   onConfirm: (item: PreparteItem) => void;
   savedVisibility?: VisibilityState;
-  refreshKey?: number;
 
   // Nueva prop para la carga de datos
   fetchData: (opciones: {
@@ -137,6 +140,16 @@ const getColumns = (
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de Ejecución" />,
       cell: ({ row }) => {
         const executionDate = row.original.executionDate;
+        const isSubjectToAvailability = row.original.subject_to_availability;
+
+        if (isSubjectToAvailability && !executionDate) {
+          return (
+            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+              Pendiente de fecha
+            </Badge>
+          );
+        }
+
         return <div>{executionDate ? new Date(executionDate as any).toLocaleDateString() : '-'}</div>;
       },
       enableColumnFilter: true,
@@ -330,7 +343,12 @@ const getColumns = (
     {
       accessorKey: 'tipo',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
-      cell: ({ row }) => <div>{row.getValue('tipo')}</div>,
+      cell: ({ row }) => {
+        const tipo = row.getValue('tipo') as string;
+        // Reemplazar guiones bajos por espacios y capitalizar cada palabra
+        const formattedTipo = tipo ? tipo.replace(/_/g, ' ') : '-';
+        return <div className="capitalize">{formattedTipo}</div>;
+      },
     },
     {
       accessorKey: 'jornada',
@@ -499,11 +517,20 @@ const getColumns = (
             : row.original.observaciones;
 
           try {
-            // Actualizar el preparte en la base de datos
+            // Primero enviar al parte diario (con la fecha seleccionada)
+            // onConfirm valida, crea la fila en el parte diario y actualiza el status
+            await onConfirm({
+              ...row.original,
+              executionDate: selectedDate as any,
+              ...(esVencido && {
+                observaciones: observacionesActualizadas,
+              }),
+            });
+
+            // Solo si onConfirm fue exitoso, guardar quien confirmó y las observaciones
             const updateData = esVencido
               ? {
                   observaciones: observacionesActualizadas,
-                  status: 'confirmado', // Mantener como vencido si es el caso
                   confirmed_by: confirmedBy,
                 }
               : {
@@ -512,21 +539,11 @@ const getColumns = (
 
             await updatePreparte(row.original.id, updateData);
 
-            // Enviar al parte diario
-            onConfirm({
-              ...row.original,
-              executionDate: selectedDate as any,
-              ...(esVencido && {
-                observaciones: observacionesActualizadas,
-                status: 'confirmado', // Mantener como confirmado si es el caso
-              }),
-            });
-
             setShowDatePicker(false);
             setConfirmedBy('');
           } catch (error) {
-            console.error('Error al actualizar el preparte:', error);
-            // Aquí podrías agregar un toast o alerta de error
+            logger.error('Error al actualizar el preparte', { data: { error } });
+            // Si onConfirm lanza excepción, no se guarda confirmed_by ni se cierra el modal
           }
         };
 
@@ -536,20 +553,20 @@ const getColumns = (
           }
 
           try {
-            // Actualizar el preparte en la base de datos
+            // Enviar al parte diario (valida fecha, crea fila en parte diario y actualiza status)
+            await onConfirm(row.original);
+
+            // Solo si onConfirm fue exitoso, guardar quien confirmó
             await updatePreparte(row.original.id, {
-              status: 'confirmado',
               confirmed_by: confirmedBy,
             });
-
-            // Enviar al parte diario
-            onConfirm(row.original);
 
             setShowConfirmDialog(false);
             setConfirmedBy('');
           } catch (error) {
-            console.error('Error al confirmar el preparte:', error);
-            // Aquí podrías agregar un toast o alerta de error
+            logger.error('Error al confirmar el preparte', { data: { error } });
+            // Si onConfirm lanza excepción, no se guarda confirmed_by ni se cierra el modal
+            // El toast de error ya se muestra en handleConfirm de PreparteManager
           }
         };
 
@@ -592,46 +609,61 @@ const getColumns = (
             )}
 
             <PermissionGuard module="operaciones" tab="preparte" action="update">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    {isPending || isVencido ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          'text-green-600 hover:bg-green-50 hover:text-green-700',
-                          isVencido && row.original.observaciones?.includes('Parte confirmado vencido')
-                            ? 'opacity-50 cursor-not-allowed'
-                            : ''
+              {(() => {
+                // Verificar si el preparte tiene fecha de ejecución o está sujeto a disponibilidad
+                const hasExecutionDate = !!row.original.executionDate;
+                const isSubjectToAvailability = row.original.subject_to_availability === true;
+                // Solo se puede confirmar si tiene fecha de ejecución
+                const canConfirm = hasExecutionDate && !isSubjectToAvailability;
+
+                // Si está sujeto a disponibilidad sin fecha, no mostrar botón de confirmar
+                if (isSubjectToAvailability && !hasExecutionDate) {
+                  return null;
+                }
+
+                return (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {(isPending || isVencido) && canConfirm ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              'text-green-600 hover:bg-green-50 hover:text-green-700',
+                              isVencido && row.original.observaciones?.includes('Parte confirmado vencido')
+                                ? 'opacity-50 cursor-not-allowed'
+                                : ''
+                            )}
+                            onClick={() => {
+                              if (isVencido && !row.original.observaciones?.includes('Parte confirmado vencido')) {
+                                setShowDatePicker(true);
+                              } else if (!isVencido) {
+                                setShowConfirmDialog(true);
+                              }
+                            }}
+                            data-testid={`confirmar-button-${row.original.numero_pedido}`}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-green-600 opacity-50 cursor-not-allowed"
+                            disabled
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
                         )}
-                        onClick={() => {
-                          if (isVencido && !row.original.observaciones?.includes('Parte confirmado vencido')) {
-                            setShowDatePicker(true);
-                          } else if (!isVencido) {
-                            setShowConfirmDialog(true);
-                          }
-                        }}
-                        data-testid={`confirmar-button-${row.original.numero_pedido}`}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-green-600 opacity-50 cursor-not-allowed"
-                        disabled
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{isConfirmed ? 'Ya confirmado' : 'Confirmar y enviar a parte diario'}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isConfirmed ? 'Ya confirmado' : 'Confirmar y enviar a parte diario'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })()}
             </PermissionGuard>
 
             {/* Dialog de confirmación con campo de confirmante */}
@@ -777,10 +809,10 @@ export function PreparteTable({
   fetchData,
   fetchAllData,
   isLoading = false,
-  refreshKey = 0,
 }: PreparteTableProps) {
   const { canUpdate } = usePermissions();
   const canEdit = canUpdate('operaciones', 'preparte');
+  const queryClient = useQueryClient();
 
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   // Filtro de estado para inyectar al server-side
@@ -870,7 +902,7 @@ export function PreparteTable({
         serverSide={true}
         fetchData={handleFetchData}
         fetchAllData={fetchAllData}
-        queryKey={`preparte-table-${refreshKey}-${statusFilter ?? 'all'}`} // Refetch al cambiar estado
+        queryKey={`preparte-table-${statusFilter ?? 'all'}`}
         enableRowSelection={
           canEdit ? (row) => row.original.status === 'pendiente' || row.original.status === 'reprogramado' : false
         }
@@ -1140,8 +1172,9 @@ export function PreparteTable({
           // Limpiar selección y refrescar tabla
           setSelectedRows([]);
           setIsBulkStatusModalOpen(false);
-          // Trigger refresh
-          window.location.reload();
+          // Invalidar queries para refrescar la tabla
+          queryClient.invalidateQueries({ queryKey: ['preparte-table'] });
+          queryClient.invalidateQueries({ queryKey: ['prepartes'] });
         }}
       />
     </>

@@ -335,11 +335,48 @@ export function DailyReportForm({
     });
   };
 
+  // PO-1: Detectar equipos con desvíos de condición (no operativo, en reparación, etc.)
+  const checkEquipmentsWithConditionIssues = (equipmentIds: string[]) => {
+    if (!equipmentIds?.length) return [];
+
+    const conditionsWithIssues = ['no operativo', 'en reparacion'];
+    return equipmentIds.filter((equipmentId) => {
+      const equipment = equipments?.find((eq) => eq.id === equipmentId);
+      return equipment && conditionsWithIssues.includes(equipment.condition || '');
+    });
+  };
+
+  // PO-1: Helper para obtener info de desvío de un equipo
+  const getEquipmentDeviationInfo = (equipmentId: string) => {
+    const equipment = equipments?.find((eq) => eq.id === equipmentId);
+    if (!equipment) return null;
+
+    const isAssigned = equipment.contractor_equipment?.some((ce) => ce.customers?.id === selectedCustomerId);
+    const condition = equipment.condition || 'operativo';
+    const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+
+    return {
+      isAssigned,
+      condition,
+      hasConditionIssue,
+      conditionLabel:
+        condition === 'no operativo'
+          ? 'No operativo'
+          : condition === 'en reparacion'
+            ? 'En reparación'
+            : condition === 'operativo condicionado'
+              ? 'Condicionado'
+              : null,
+    };
+  };
+
   // Detectar duplicados y no asignados en tiempo real
   const duplicateEmployees = checkEmployeeDuplicates(currentEmployeesWatch || []);
   const duplicateEquipments = checkEquipmentDuplicates(currentEquipmentWatch || []);
   const unassignedEmployeesSelected = checkUnassignedEmployees(currentEmployeesWatch || []);
   const unassignedEquipmentsSelected = checkUnassignedEquipments(currentEquipmentWatch || []);
+  // PO-1: Detectar equipos con desvíos de condición
+  const equipmentsWithConditionIssues = checkEquipmentsWithConditionIssues(currentEquipmentWatch || []);
 
   // If arrays have different lengths, they've changed
   // If arrays have same length, check if any item is different
@@ -436,7 +473,7 @@ export function DailyReportForm({
             // Para jornadas 12/24 hrs, usar update con roles
             await updateEmployeeRelationsWithRoles(selectedRow.id, employeesWithRoles);
 
-            // Actualizar equipos y equipos cliente
+            // Actualizar equipos y equipos cliente (skip employee update since we handled it above)
             await updateDailyReportRow(
               selectedRow.id,
               rowData,
@@ -447,6 +484,7 @@ export function DailyReportForm({
                 equipmentHasChanged,
                 employeeHasChanged,
                 reassignmentReason: data.reasigment_reason || '',
+                skipEmployeeUpdate: true, // Don't update employee relations again - we already did it with roles
               }
             );
           } else {
@@ -1502,6 +1540,138 @@ export function DailyReportForm({
                   />
                 )}
 
+                {/* Jornada */}
+                <FormField
+                  control={form.control}
+                  name="working_day"
+                  render={({ field }) => {
+                    return (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Jornada</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                                data-testid="working-day-select-button"
+                              >
+                                {field.value
+                                  ? workingDayOptions.find(
+                                      (day) => day.value.toLowerCase() === field.value.toLowerCase()
+                                    )?.label
+                                  : 'Seleccionar jornada'}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="max-w-[400px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar jornada..." className="h-9" />
+                              <CommandList>
+                                <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
+                                <CommandGroup>
+                                  {workingDayOptions.map((day) => (
+                                    <CommandItem
+                                      value={day.label.toLocaleLowerCase()}
+                                      key={day.value.toLocaleLowerCase()}
+                                      data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
+                                      onSelect={() => {
+                                        const previousValue = form.getValues('working_day');
+                                        form.setValue('working_day', day.value.toLowerCase());
+
+                                        // Si el valor anterior era 'por horario' o si el nuevo valor no es 'por horario', limpiar las horas
+                                        if (
+                                          previousValue.toLowerCase() === 'por horario' ||
+                                          day.value.toLowerCase() !== 'por horario'
+                                        ) {
+                                          form.setValue('start_time', '');
+                                          form.setValue('end_time', '');
+                                        }
+                                      }}
+                                    >
+                                      {day.label}
+                                      <Check
+                                        className={cn(
+                                          'ml-auto h-4 w-4',
+                                          day.value.toLowerCase() === field.value.toLowerCase()
+                                            ? 'opacity-100'
+                                            : 'opacity-0'
+                                        )}
+                                      />
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+                {form.watch('status') === 'pendiente' &&
+                  form.watch('working_day').toLowerCase() === 'jornada 24 horas' &&
+                  selectedRow && (
+                    <div className="flex flex-row gap-4 items-center">
+                      <FormField
+                        control={form.control}
+                        name="completed_day"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                            <FormControl>
+                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
+                            </FormControl>
+                            <FormLabel className=" font-normal m-0">Completado Día</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="completed_night"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                            <FormControl>
+                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
+                            </FormControl>
+                            <FormLabel className="font-normal">Completado Noche</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                {/* Horario (condicional) */}
+                {form.watch('working_day').toLowerCase() === 'por horario' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="start_time"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hora de inicio</FormLabel>
+                          <Input type="time" {...field} />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="end_time"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hora de fin</FormLabel>
+                          <Input type="time" {...field} />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
                 {/* Empleados - Campos condicionales según jornada */}
                 {(() => {
                   const workingDayValue = form.watch('working_day')?.toLowerCase() || '';
@@ -1934,6 +2104,40 @@ export function DailyReportForm({
                           </div>
                         </div>
                       )}
+                      {/* PO-1: Warning para equipos con problemas de condición */}
+                      {equipmentsWithConditionIssues.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-2">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-red-800">Equipos con problemas de condición</h3>
+                              <div className="mt-2 text-sm text-red-700">
+                                <p>Los siguientes equipos tienen desvíos de condición:</p>
+                                <ul className="list-disc list-inside mt-1">
+                                  {equipmentsWithConditionIssues.map((equipmentId) => {
+                                    const equipment = equipments?.find((eq) => eq.id === equipmentId);
+                                    const deviationInfo = getEquipmentDeviationInfo(equipmentId);
+                                    return equipment ? (
+                                      <li key={equipmentId}>
+                                        {equipment.domain || equipment.serie} -{' '}
+                                        <span className="font-medium">{deviationInfo?.conditionLabel}</span>
+                                      </li>
+                                    ) : null;
+                                  })}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <SearchEquipment
                         field={field as any}
                         equipment={allEquipments}
@@ -1973,8 +2177,16 @@ export function DailyReportForm({
                                     : 'No se encontraron equipos que coincidan.'}
                               </CommandEmpty>
                               {selectedCustomerId && (
-                                <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                                  Nota: Los equipos marcados en naranja no están asignados al cliente seleccionado.
+                                <div className="px-3 py-1.5 text-xs text-muted-foreground space-y-1">
+                                  <p>
+                                    Nota: Los equipos marcados en{' '}
+                                    <span className="text-orange-600 font-medium">naranja</span> no están asignados al
+                                    cliente.
+                                  </p>
+                                  <p>
+                                    Los equipos marcados en <span className="text-red-600 font-medium">rojo</span>{' '}
+                                    tienen problemas de condición.
+                                  </p>
                                 </div>
                               )}
 
@@ -2016,6 +2228,16 @@ export function DailyReportForm({
                                         const isAssigned = equipment.contractor_equipment?.some(
                                           (ce) => ce.customers?.id === selectedCustomerId
                                         );
+                                        // PO-1: Verificar desvíos de condición
+                                        const condition = equipment.condition || 'operativo';
+                                        const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+                                        const conditionLabel =
+                                          condition === 'no operativo'
+                                            ? 'No operativo'
+                                            : condition === 'en reparacion'
+                                              ? 'En reparación'
+                                              : null;
+                                        const hasAnyDeviation = !isAssigned || hasConditionIssue;
 
                                         return (
                                           <CommandItem
@@ -2029,7 +2251,10 @@ export function DailyReportForm({
                                               field.onChange(newValues);
                                             }}
                                             className={cn(
-                                              !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                              hasConditionIssue && 'text-red-700 bg-red-50 hover:bg-red-100',
+                                              !isAssigned &&
+                                                !hasConditionIssue &&
+                                                'text-orange-700 bg-orange-50 hover:bg-orange-100'
                                             )}
                                           >
                                             <div className="flex items-center justify-between w-full">
@@ -2037,20 +2262,31 @@ export function DailyReportForm({
                                                 <Check
                                                   className={cn(
                                                     'mr-2 h-4 w-4',
-                                                    !isAssigned && 'text-orange-600',
+                                                    hasConditionIssue && 'text-red-600',
+                                                    !isAssigned && !hasConditionIssue && 'text-orange-600',
                                                     field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
                                                   )}
                                                 />
                                                 {equipment.domain || equipment.serie}
                                               </div>
-                                              {!isAssigned && (
-                                                <Badge
-                                                  variant="outline"
-                                                  className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
-                                                >
-                                                  No asignado
-                                                </Badge>
-                                              )}
+                                              <div className="flex gap-1">
+                                                {hasConditionIssue && (
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="ml-2 bg-red-100 text-red-800 border-red-300"
+                                                  >
+                                                    {conditionLabel}
+                                                  </Badge>
+                                                )}
+                                                {!isAssigned && (
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
+                                                  >
+                                                    No asignado
+                                                  </Badge>
+                                                )}
+                                              </div>
                                             </div>
                                           </CommandItem>
                                         );
@@ -2074,17 +2310,37 @@ export function DailyReportForm({
                             (ce) => ce.customers?.id === selectedCustomerId
                           );
 
+                          // PO-1: Verificar desvíos de condición
+                          const condition = equipment.condition || 'operativo';
+                          const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+                          const conditionLabel =
+                            condition === 'no operativo'
+                              ? 'No operativo'
+                              : condition === 'en reparacion'
+                                ? 'En reparación'
+                                : null;
+
                           return (
                             <div
                               key={equipmentId}
                               className={cn(
                                 'text-xs px-2 py-1 rounded-md flex items-center gap-1',
-                                isAssigned
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                hasConditionIssue
+                                  ? 'bg-red-100 text-red-800 border border-red-300'
+                                  : isAssigned
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-orange-100 text-orange-800 border border-orange-300'
                               )}
                             >
                               {displayName}
+                              {hasConditionIssue && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
+                                >
+                                  {conditionLabel}
+                                </Badge>
+                              )}
                               {!isAssigned && (
                                 <Badge
                                   variant="outline"
@@ -2100,7 +2356,10 @@ export function DailyReportForm({
                                   const newValues = currentValues.filter((id) => id !== equipmentId);
                                   field.onChange(newValues);
                                 }}
-                                className={cn('ml-1 hover:opacity-80', isAssigned ? 'text-primary' : 'text-orange-800')}
+                                className={cn(
+                                  'ml-1 hover:opacity-80',
+                                  hasConditionIssue ? 'text-red-800' : isAssigned ? 'text-primary' : 'text-orange-800'
+                                )}
                               >
                                 <X className="h-3 w-3 text-red-500" />
                               </button>
@@ -2129,138 +2388,6 @@ export function DailyReportForm({
                       </FormItem>
                     )}
                   />
-                )}
-
-                {/* Jornada */}
-                <FormField
-                  control={form.control}
-                  name="working_day"
-                  render={({ field }) => {
-                    return (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Jornada</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                                data-testid="working-day-select-button"
-                              >
-                                {field.value
-                                  ? workingDayOptions.find(
-                                      (day) => day.value.toLowerCase() === field.value.toLowerCase()
-                                    )?.label
-                                  : 'Seleccionar jornada'}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent align="start" className="max-w-[400px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Buscar jornada..." className="h-9" />
-                              <CommandList>
-                                <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
-                                <CommandGroup>
-                                  {workingDayOptions.map((day) => (
-                                    <CommandItem
-                                      value={day.label.toLocaleLowerCase()}
-                                      key={day.value.toLocaleLowerCase()}
-                                      data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
-                                      onSelect={() => {
-                                        const previousValue = form.getValues('working_day');
-                                        form.setValue('working_day', day.value.toLowerCase());
-
-                                        // Si el valor anterior era 'por horario' o si el nuevo valor no es 'por horario', limpiar las horas
-                                        if (
-                                          previousValue.toLowerCase() === 'por horario' ||
-                                          day.value.toLowerCase() !== 'por horario'
-                                        ) {
-                                          form.setValue('start_time', '');
-                                          form.setValue('end_time', '');
-                                        }
-                                      }}
-                                    >
-                                      {day.label}
-                                      <Check
-                                        className={cn(
-                                          'ml-auto h-4 w-4',
-                                          day.value.toLowerCase() === field.value.toLowerCase()
-                                            ? 'opacity-100'
-                                            : 'opacity-0'
-                                        )}
-                                      />
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-                {form.watch('status') === 'pendiente' &&
-                  form.watch('working_day').toLowerCase() === 'jornada 24 horas' &&
-                  selectedRow && (
-                    <div className="flex flex-row gap-4 items-center">
-                      <FormField
-                        control={form.control}
-                        name="completed_day"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                            <FormControl>
-                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
-                            </FormControl>
-                            <FormLabel className=" font-normal m-0">Completado Día</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="completed_night"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                            <FormControl>
-                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
-                            </FormControl>
-                            <FormLabel className="font-normal">Completado Noche</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                {/* Horario (condicional) */}
-                {form.watch('working_day').toLowerCase() === 'por horario' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="start_time"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Hora de inicio</FormLabel>
-                          <Input type="time" {...field} />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="end_time"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Hora de fin</FormLabel>
-                          <Input type="time" {...field} />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
                 )}
 
                 {/* Tipo de servicio */}
