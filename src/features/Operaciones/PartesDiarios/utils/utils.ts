@@ -1,8 +1,4 @@
-import type { BadgeProps } from '@/components/ui/badge';
-
-type BadgeVariant = NonNullable<BadgeProps['variant']>;
-
-export const dailyReportStatus: Record<string, BadgeVariant> = {
+export const dailyReportStatus: any = {
   abierto: 'default',
   cerrado_completo: 'success',
   cerrado_incompleto: 'destructive',

@@ -1,11 +1,8 @@
-'use client';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Building2, Calendar, Clock, EyeIcon, FileText, History, Wrench } from 'lucide-react';
-import { usePreparteChangeLogs } from '../hooks';
+import { Building2, Calendar, Clock, EyeIcon, FileText, Wrench } from 'lucide-react';
 import { Cliente, Contrato, PreparteItem } from './PreparteManager';
 
 interface PreparteDetailModalProps {
@@ -16,9 +13,6 @@ interface PreparteDetailModalProps {
 }
 
 export function PreparteDetailModal({ preparteData, Customers, contratos, items }: PreparteDetailModalProps) {
-  // Hook para obtener el historial de cambios del preparte
-  const { data: changeLogs = [], isLoading: isLoadingChangeLogs } = usePreparteChangeLogs(preparteData?.id);
-
   if (!preparteData) return null;
 
   const getStatusColor = (status: string) => {
@@ -77,7 +71,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
     const sectorServiceId = preparteData.sector_service_id;
     if (!sectorServiceId) return 'No especificado';
 
-    const service = cliente?.customer_services?.find((s) => s.id === preparteData.contrato_id);
+    const service = cliente?.customer_services?.find((s) => s.service_id === preparteData.contrato_id);
     const sectorLink = service?.service_sectors?.find(
       (ss) => ss.id === sectorServiceId || ss?.sectors?.id === sectorServiceId
     );
@@ -97,7 +91,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
     const areaServiceId = preparteData.areas_service_id;
     if (!areaServiceId) return 'No especificado';
 
-    const service = cliente?.customer_services?.find((s) => s.id === preparteData.contrato_id);
+    const service = cliente?.customer_services?.find((s) => s.service_id === preparteData.contrato_id);
     const areaLink = service?.service_areas?.find(
       (sa) => sa.id === areaServiceId || sa?.areas_cliente?.id === areaServiceId
     );
@@ -350,73 +344,6 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
                       alt="preparte"
                       className="max-w-full max-h-[300px] object-contain"
                     />
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Historial de Cambios */}
-          {changeLogs.length > 0 && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <History className="h-5 w-5 text-gray-600" />
-                  Historial de Cambios
-                </h3>
-                <div className="space-y-2">
-                  {isLoadingChangeLogs ? (
-                    <div className="text-sm text-gray-500">Cargando historial...</div>
-                  ) : (
-                    changeLogs.map((log, index) => {
-                      const metadata = log.metadata as Record<string, string | number | boolean | null> | null;
-                      const oldItemName = metadata?.old_item_name || log.old_value;
-                      const newItemName = metadata?.new_item_name || log.new_value;
-                      const changedAt = log.changed_at
-                        ? new Date(log.changed_at).toLocaleDateString('es-ES', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'Fecha no disponible';
-
-                      return (
-                        <div
-                          key={log.id || index}
-                          className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
-                              Cambio de {log.field_name}
-                            </Badge>
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span className="text-xs text-gray-500">{changedAt}</span>
-                              {log.changed_by_name && (
-                                <span className="text-xs text-gray-400">por {log.changed_by_name}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="space-y-1 text-gray-700">
-                            <div>
-                              <span className="font-medium">De:</span>{' '}
-                              <span className="text-red-600 line-through">{String(oldItemName)}</span>
-                            </div>
-                            <div>
-                              <span className="font-medium">A:</span>{' '}
-                              <span className="text-green-600">{String(newItemName)}</span>
-                            </div>
-                            {log.reason && (
-                              <div className="mt-2 pt-2 border-t border-amber-200">
-                                <span className="font-medium">Motivo:</span> {log.reason}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
                   )}
                 </div>
               </div>

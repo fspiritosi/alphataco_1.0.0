@@ -1,4 +1,3 @@
-import BackButton from '@/components/BackButton';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { getDailyReportByIdOnlyDate } from '@/features/Operaciones/PartesDiarios/actions/actions';
 import DayliReportDetailTableServerWrapper from '@/features/Operaciones/PartesDiarios/components/DayliReportDetailTableServerWrapper';
@@ -27,14 +26,11 @@ async function page({
   return (
     <div className="mx-6 mt-4 space-y-6">
       <Card className="p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">Parte diario</CardTitle>
-            <CardDescription>
-              Fecha: {dailyReportStatus ? moment(dailyReportStatus.date).format('DD/MM/YYYY') : ''}
-            </CardDescription>
-          </div>
-          <BackButton />
+        <div className="mb-4">
+          <CardTitle className="text-lg">Parte diario</CardTitle>
+          <CardDescription>
+            Fecha: {dailyReportStatus ? moment(dailyReportStatus.date).format('DD/MM/YYYY') : ''}
+          </CardDescription>
         </div>
 
         <TabsManagerServer<'operaciones'>

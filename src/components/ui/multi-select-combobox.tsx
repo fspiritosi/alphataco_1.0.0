@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Check, CheckSquare, ChevronsUpDown, Loader2, Square } from 'lucide-react';
+import { Check, CheckSquare, ChevronsUpDown, Square } from 'lucide-react';
 import * as React from 'react';
 import { CardDescription } from './card';
 
@@ -24,7 +24,6 @@ interface MultiSelectComboboxProps {
   showSelectAll?: boolean;
   maxSelections?: null | number;
   'data-testid'?: string;
-  isLoading?: boolean;
 }
 
 export function MultiSelectCombobox({
@@ -38,7 +37,6 @@ export function MultiSelectCombobox({
   showSelectAll = false,
   maxSelections = null,
   'data-testid': dataTestId,
-  isLoading = false,
 }: MultiSelectComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -93,9 +91,7 @@ export function MultiSelectCombobox({
   };
   const getSelectedLabel = (value: string) => {
     const option = options.find((opt) => opt.value === value);
-    if (option) return option.label;
-    if (isLoading) return 'Cargando...';
-    return value;
+    return option ? option.label : value; // Retorna el label si existe, si no, el valor
   };
 
   return (
@@ -109,12 +105,7 @@ export function MultiSelectCombobox({
           className="w-full justify-between"
           data-testid={dataTestId}
         >
-          {isLoading && selectedValues?.length > 0 ? (
-            <CardDescription className="flex items-center gap-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Cargando...
-            </CardDescription>
-          ) : selectedValues?.length > 0 ? (
+          {selectedValues?.length > 0 ? (
             maxSelections === 1 ? (
               <CardDescription className="flex flex-wrap gap-1">
                 {getSelectedLabel(Array.isArray(selectedValues) ? selectedValues[0] : selectedValues).toString()}
@@ -127,26 +118,13 @@ export function MultiSelectCombobox({
           ) : (
             placeholder
           )}
-          {isLoading ? (
-            <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" />
-          ) : (
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
           <CommandInput placeholder={`Buscar ${placeholder.toLowerCase()}...`} />
-          <CommandEmpty>
-            {isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Cargando opciones...
-              </div>
-            ) : (
-              emptyMessage
-            )}
-          </CommandEmpty>
+          <CommandEmpty>{emptyMessage}</CommandEmpty>
           {showSelectAll && (
             <div className="px-2 py-1 border-b flex items-center">
               <div

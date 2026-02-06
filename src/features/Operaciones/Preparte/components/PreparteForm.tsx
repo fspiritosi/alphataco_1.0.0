@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchContractsByClientId } from '@/app/dashboard/employee/action/actions/actions';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 // TODO: Descomentar cuando se reactive la funcionalidad de "Sujeto a disponibilidad operativa"
@@ -11,31 +12,28 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { fetchServiceItems } from '@/features/Empresa/Clientes/actions/items';
+import {
+  fetchAreasByContract,
+  fetchEquipmentsByCustomer,
+  fetchSectorsByContract,
+} from '@/features/Operaciones/Preparte/actions/actions';
 import { useImageUpload } from '@/hooks/useUploadImage';
-import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Building, CalendarIcon, Plus, Trash2 } from 'lucide-react';
 import moment from 'moment';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
-import { createPreparte, logPreparteChange } from '../actions/preparte';
-import {
-  useContratos,
-  usePreparteChangeLogsInvalidation,
-  usePreparteFormDependentOptions,
-  useServiceItems,
-} from '../hooks';
+// TODO: Descomentar logPreparteChange cuando se reactive el sistema de cambio de item con motivo
+import { createPreparte /* , logPreparteChange */ } from '../actions/preparte';
 import type { Cliente } from './PreparteManager';
 
-const logger = new Logger('PreparteForm');
-
 // Esquema de validación con Zod
-// PP-3: jornada, tipo, observaciones y fecha ahora son por ítem
 const formSchema = z
   .object({
     id: z.string(),
@@ -46,25 +44,44 @@ const formSchema = z
         z.object({
           id: z.string(),
           quantity: z.number().min(1, 'La cantidad debe ser al menos 1'),
-          // PP-3: Campos por ítem
-          jornada: z.string().min(1, 'La jornada es requerida'),
-          tipo: z.string().min(1, 'El tipo es requerido'),
-          observaciones: z.string().optional(),
-          start_time: z.string().optional(),
-          end_time: z.string().optional(),
-          executionDate: z
-            .object({
-              from: z.date().optional(),
-              to: z.date().optional(),
-            })
-            .optional(),
-          subject_to_availability: z.boolean().default(false),
         })
       )
       .min(1, 'Por favor selecciona al menos un ítem'),
     requestDate: z.date({
       required_error: 'La fecha de solicitud es requerida',
     }),
+    // ORIGINAL: executionDate con validación requerida
+    executionDate: z
+      .object({
+        from: z
+          .date({
+            required_error: 'La fecha de ejecución es requerida',
+          })
+          .refine((date) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date >= today;
+          }, 'La fecha de ejecución no puede ser anterior al día actual'),
+        to: z.date().optional(),
+      })
+      .refine((data) => {
+        if (data.from && data.to) {
+          return data.from <= data.to;
+        }
+        return true;
+      }, 'La fecha de inicio debe ser anterior a la fecha de fin'),
+    // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
+    // executionDate: z
+    //   .object({
+    //     from: z.date().optional(),
+    //     to: z.date().optional(),
+    //   })
+    //   .optional(),
+    // subject_to_availability: z.boolean().default(false),
+    tipo: z.string().min(1, 'El tipo es requerido'),
+    jornada: z.string().min(1, 'La jornada es requerida'),
+    start_time: z.string().optional(),
+    end_time: z.string().optional(),
     solicitante: z.string().min(1, 'El solicitante es requerido'),
     status: z
       .enum(['pendiente', 'reprogramado', 'cancelado', 'rechazado', 'confirmado', 'vencido'])
@@ -75,6 +92,7 @@ const formSchema = z
     reprogram: z.date().optional(),
     quantity: z.number().optional(),
     numero_pedido: z.string().optional(),
+    observaciones: z.string().optional(),
     sector_service_id: z.string().uuid('Sector inválido').optional().or(z.literal('')),
     areas_service_id: z.string({ required_error: 'Área del cliente es obligatoria' }).uuid('Área inválida'),
     equipos_cliente: z.array(z.string().uuid()).optional().default([]),
@@ -114,39 +132,6 @@ const formSchema = z
     {
       message: "La razón del reprogramado es obligatoria cuando el estado es 'reprogramado'",
       path: ['reprogram_reason'],
-    }
-  )
-  // PP-3: Validar que cada ítem tenga jornada seleccionada
-  .refine(
-    (data) => {
-      return data.item.every((item) => item.id === '' || item.jornada !== '');
-    },
-    {
-      message: 'Todos los ítems deben tener una jornada seleccionada',
-      path: ['item'],
-    }
-  )
-  // PP-3: Validar que cada ítem tenga tipo de servicio seleccionado
-  .refine(
-    (data) => {
-      return data.item.every((item) => item.id === '' || item.tipo !== '');
-    },
-    {
-      message: 'Todos los ítems deben tener un tipo de servicio seleccionado',
-      path: ['item'],
-    }
-  )
-  // PP-3: Validar que cada ítem que NO esté sujeto a disponibilidad tenga fecha de ejecución
-  .refine(
-    (data) => {
-      return data.item.every((item) => {
-        if (item.id === '' || item.subject_to_availability) return true;
-        return item.executionDate?.from !== undefined;
-      });
-    },
-    {
-      message: 'Todos los ítems deben tener fecha de ejecución o estar sujetos a disponibilidad',
-      path: ['item'],
     }
   );
 // TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa"
@@ -213,111 +198,23 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     defaultValues: formData,
   });
 
-  // Log para depuración de valores iniciales
-  logger.debug('PreparteForm inicializado', {
-    data: {
-      isEditing,
-      formDataItem: formData?.item,
-      defaultItemValues: formData?.item ? JSON.stringify(formData.item) : 'undefined',
-    },
-  });
-
-  // Log de errores del formulario en cada render (útil para depurar)
-  const formErrors = form.formState.errors;
-  if (Object.keys(formErrors).length > 0) {
-    logger.warn('Errores activos en el formulario', {
-      data: {
-        errors: formErrors,
-        itemErrors: formErrors.item,
-      },
-    });
-  }
-
-  // Hooks de invalidación para refrescar datos después de mutaciones
-  const { invalidateChangeLogs } = usePreparteChangeLogsInvalidation();
-
-  // Observar cambios en cliente y contrato para los hooks dependientes
-  const watchedClienteId = form.watch('cliente_id');
-  const watchedContratoId = form.watch('contrato_id');
-
-  // Hook para obtener contratos del cliente seleccionado
-  const { data: contratosData = [], isLoading: isLoadingContratos } = useContratos(watchedClienteId);
-  const contratos = contratosData as Contrato[];
-
-  // Hook para obtener items del contrato seleccionado
-  const { data: serviceItemsData = [], isLoading: isLoadingItems } = useServiceItems(watchedContratoId);
-  const contractItems = serviceItemsData.map((item) => ({
-    label: item.item_name || `Item ${item.id}`,
-    value: item.id.toString(),
-  }));
-
-  // Hook combinado para sectores, áreas y equipos
-  const {
-    sectors: sectorList,
-    areas: areaList,
-    equipments: equipmentList,
-    isLoading: isLoadingDependentOptions,
-    isLoadingSectors,
-    isLoadingAreas,
-    isLoadingEquipments,
-  } = usePreparteFormDependentOptions(watchedClienteId, watchedContratoId);
-
-  // Estado de carga combinado
-  const isLoading = isLoadingContratos || isLoadingItems || isLoadingDependentOptions;
-
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [contractItems, setContractItems] = useState<{ label: string; value: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [reprogramDate, setReprogramDate] = useState<Date | null>(null);
-  // PP-3: Estado de items incluye fecha y subject_to_availability por ítem
-  // PP-3: Tipo completo de ítem con todos los campos por ítem
-  type ItemRow = {
-    id: string;
-    quantity: number;
-    jornada: string;
-    tipo: string;
-    observaciones: string;
-    start_time: string;
-    end_time: string;
-    executionDate?: { from?: Date; to?: Date };
-    subject_to_availability: boolean;
-  };
-
-  const defaultItemRow: ItemRow = {
-    id: '',
-    quantity: 1,
-    jornada: '',
-    tipo: '',
-    observaciones: '',
-    start_time: '',
-    end_time: '',
-    executionDate: { from: undefined, to: undefined },
-    subject_to_availability: false,
-  };
-
-  const [selectedItems, setSelectedItems] = useState<ItemRow[]>(() => {
+  // Opciones dependientes del contrato (solo id+name)
+  const [sectorList, setSectorList] = useState<Array<{ id: string; name: string }>>([]);
+  const [areaList, setAreaList] = useState<Array<{ id: string; name: string }>>([]);
+  const [equipmentList, setEquipmentList] = useState<Array<{ id: string; name: string }>>([]);
+  // Reemplaza la línea actual de inicialización de selectedItems por:
+  const [selectedItems, setSelectedItems] = useState<Array<{ id: string; quantity: number }>>(() => {
     if (formData?.item) {
       const items = Array.isArray(formData.item)
-        ? formData.item.map((i: any) => {
-            // Si subject_to_availability es true, la fecha debe estar vacía
-            const isSubjectToAvailability = i.subject_to_availability ?? false;
-            const execDate = isSubjectToAvailability
-              ? { from: undefined, to: undefined }
-              : i.executionDate || { from: undefined, to: undefined };
-
-            return {
-              id: i.id || '',
-              quantity: i.quantity || 1,
-              jornada: i.jornada || '',
-              tipo: i.tipo || '',
-              observaciones: i.observaciones || '',
-              start_time: i.start_time || '',
-              end_time: i.end_time || '',
-              executionDate: execDate,
-              subject_to_availability: isSubjectToAvailability,
-            };
-          })
-        : [{ ...defaultItemRow }];
-      return items.length > 0 ? items : [{ ...defaultItemRow }];
+        ? formData.item
+        : [{ id: formData.item, quantity: formData.item || 1 }];
+      return items.length > 0 ? items : [{ id: '', quantity: 1 }];
     }
-    return [{ ...defaultItemRow }];
+    return [{ id: '', quantity: 1 }];
   });
   // Archivo seleccionado (no forma parte del schema del formulario)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -336,7 +233,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   // const [showItemChangeReason, setShowItemChangeReason] = useState(false);
 
   const handleAddItem = () => {
-    setSelectedItems((prev) => [...prev, { ...defaultItemRow }]);
+    setSelectedItems((prev) => [...prev, { id: '', quantity: 1 }]);
   };
 
   // Add this function to handle item removal
@@ -350,6 +247,97 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   const updateItemRow = (id: string, updates: Partial<(typeof selectedItems)[0]>) => {
     setSelectedItems(selectedItems.map((row) => (row.id === id ? { ...row, ...updates } : row)));
   };
+
+  useEffect(() => {
+    if (form.formState.isSubmitSuccessful) return;
+
+    const clienteId = form.getValues('cliente_id');
+    if (clienteId) {
+      handleClienteChange(clienteId);
+    }
+  }, [form, form.watch('cliente_id')]);
+
+  const handleClienteChange = async (clienteId: string) => {
+    if (!clienteId) {
+      setContratos([]);
+      form.setValue('contrato_id', '');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const contratosCliente = await fetchContractsByClientId(clienteId);
+      setContratos(contratosCliente as Contrato[]);
+    } catch (error) {
+      console.error('Error cargando contratos:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch items when contratoId changes
+  useEffect(() => {
+    const fetchItems = async () => {
+      if (!form.watch('contrato_id')) {
+        setContractItems([]);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const items = await fetchServiceItems(form.watch('contrato_id'));
+
+        setContractItems(
+          items.map((item) => ({
+            label: item.item_name || `Item ${item.id}`,
+            value: item.id.toString(),
+          }))
+        );
+      } catch (error) {
+        console.error('Error fetching contract items:', error);
+        setContractItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchItems();
+  }, [form.watch('contrato_id')]);
+
+  // Cargar sectores/áreas/equipos (id+name) cuando hay cliente y contrato seleccionados
+  useEffect(() => {
+    const loadDependentOptions = async () => {
+      const customerId = form.watch('cliente_id');
+      const serviceId = form.watch('contrato_id');
+
+      if (!customerId || !serviceId) {
+        setSectorList([]);
+        setAreaList([]);
+        setEquipmentList([]);
+        return;
+      }
+      try {
+        const [sectors, areas] = await Promise.all([
+          fetchSectorsByContract(serviceId),
+          fetchAreasByContract(serviceId),
+        ]);
+
+        setSectorList(sectors);
+        setAreaList(areas);
+        // Equipos: por cliente
+        const equipmentsByCustomer = await fetchEquipmentsByCustomer(customerId);
+
+        setEquipmentList(equipmentsByCustomer);
+      } catch (e) {
+        console.error('Error loading dependent options:', e);
+        setSectorList([]);
+        setAreaList([]);
+        setEquipmentList([]);
+      }
+    };
+
+    loadDependentOptions();
+  }, [form.watch('cliente_id'), form.watch('contrato_id')]);
 
   const { uploadImage } = useImageUpload();
 
@@ -383,64 +371,55 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
           form.setValue('image_url', tempUrl as any);
           (data as any).image_url = tempUrl;
         } catch (e) {
-          logger.error('Error subiendo archivo', { data: { error: e } });
+          console.error('Error subiendo archivo:', e);
           toast.error('No se pudo subir el archivo. Intente nuevamente.');
           return;
         }
       }
 
-      // Registrar cambio de item en el log si corresponde
-      if (isEditing && showItemChangeReason && originalItemId) {
-        const newItemId = data.item?.[0]?.id;
-        const oldItemName = contractItems.find((i) => i.value === originalItemId)?.label || originalItemId;
-        const newItemName = contractItems.find((i) => i.value === newItemId)?.label || newItemId;
+      // TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo
+      // // Registrar cambio de item en el log si corresponde
+      // if (isEditing && showItemChangeReason && originalItemId) {
+      //   const newItemId = data.item?.[0]?.id;
+      //   const oldItemName = contractItems.find((i) => i.value === originalItemId)?.label || originalItemId;
+      //   const newItemName = contractItems.find((i) => i.value === newItemId)?.label || newItemId;
 
-        try {
-          await logPreparteChange({
-            preparte_id: data.id,
-            field_name: 'item',
-            old_value: originalItemId,
-            new_value: newItemId || null,
-            reason: data.item_change_reason || '',
-            metadata: {
-              old_item_name: oldItemName,
-              new_item_name: newItemName,
-            },
-          });
-          // Invalidar los logs de cambios para que se refresquen en el detalle
-          invalidateChangeLogs(data.id, data.numero_pedido);
-        } catch (logError) {
-          logger.error('Error registrando cambio de item', { data: { error: logError } });
-          // No bloqueamos el guardado si falla el log, pero notificamos
-          toast.warning('El cambio se guardó pero hubo un error al registrar el historial');
-        }
-      }
+      //   try {
+      //     await logPreparteChange({
+      //       preparte_id: data.id,
+      //       field_name: 'item',
+      //       old_value: originalItemId,
+      //       new_value: newItemId || null,
+      //       reason: data.item_change_reason || '',
+      //       metadata: {
+      //         old_item_name: oldItemName,
+      //         new_item_name: newItemName,
+      //       },
+      //     });
+      //   } catch (logError) {
+      //     console.error('Error registrando cambio de item:', logError);
+      //     // No bloqueamos el guardado si falla el log, pero notificamos
+      //     toast.warning('El cambio se guardó pero hubo un error al registrar el historial');
+      //   }
+      // }
 
       if (data.status === 'reprogramado' && data.reprogram) {
-        // PP-3: Usar los campos del primer ítem para el nuevo registro
-        const firstItem = data.item[0];
-        const itemObservaciones = firstItem?.observaciones || '';
-
         // Crear nuevo ítem con la nueva fecha
         const newItem = {
           ...data,
           id: crypto.randomUUID(),
           status: 'pendiente',
           executionDate: new Date(data.reprogram),
-          item: firstItem?.id,
-          jornada: firstItem?.jornada || '',
-          tipo: firstItem?.tipo || '',
-          observaciones: itemObservaciones,
-          start_time: firstItem?.start_time || null,
-          end_time: firstItem?.end_time || null,
+          item: data.item[0]?.id, // Tomamos solo el ID del primer ítem
           reprogram: data.id,
           numero_pedido: data.numero_pedido,
+          // observaciones: `[${new Date().toLocaleDateString('es-ES')}] Reprogramado de ${format(data.executionDate.from, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
         };
 
         try {
-          await createPreparte(newItem as never);
+          const result = await createPreparte(newItem as any);
         } catch (createError) {
-          logger.error('Error al crear nuevo item', { data: { error: createError } });
+          console.error('Error al crear nuevo item:', createError);
           throw createError;
         }
 
@@ -448,14 +427,13 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
         const updatedOriginal = {
           ...data,
           status: 'reprogramado',
-          // PP-3: Agregar nota de reprogramación a las observaciones del ítem
-          observaciones: `[${new Date().toLocaleDateString('es-ES')}] Se reprogramó para ${format(data.reprogram, 'PPP', { locale: es })}. ${itemObservaciones}`,
+          observaciones: `[${new Date().toLocaleDateString('es-ES')}] Se reprogramó para ${format(data.reprogram, 'PPP', { locale: es })}. ${data.observaciones || ''}`,
         };
 
         try {
-          await onSubmit(updatedOriginal as never);
+          await onSubmit(updatedOriginal as any);
         } catch (updateError) {
-          logger.error('Error al actualizar item original', { data: { error: updateError } });
+          console.error('Error al actualizar item original:', updateError);
           throw updateError;
         }
 
@@ -472,7 +450,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
       }
       await onSubmit(data);
     } catch (error) {
-      logger.error('Error en handleSubmit', { data: { error } });
+      console.error('Error en handleSubmit:', error);
       toast.error(`Error al guardar el servicio: ${(error as Error).message}`);
     } finally {
       setIsSubmitting(false);
@@ -482,23 +460,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
   return (
     <div className=" gap-4 space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
       <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(
-            handleSubmit,
-            // Handler de errores de validación
-            (errors) => {
-              logger.error('Errores de validación del formulario', {
-                data: {
-                  errors,
-                  formValues: form.getValues(),
-                  itemValues: form.getValues('item'),
-                  selectedItems: selectedItems,
-                },
-              });
-            }
-          )}
-          className="space-y-6"
-        >
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Building className="h-4 w-4" />
@@ -522,11 +484,13 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                     onChange={(selectedIds) => {
                       const value = selectedIds[0] || '';
                       field.onChange(value);
-                      // reset dependientes - los hooks se refrescan automáticamente al cambiar cliente_id
+                      // reset dependientes
                       form.setValue('contrato_id', '');
                       form.setValue('sector_service_id', '');
                       form.setValue('areas_service_id', '');
                       form.setValue('equipos_cliente', []);
+                      setContractItems([]);
+                      handleClienteChange(value);
                     }}
                     placeholder={clientes.find((c) => c.id === field.value)?.name || 'Seleccionar cliente'}
                     emptyMessage="No hay clientes disponibles"
@@ -549,7 +513,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       label: contrato.service_name,
                       value: contrato.id,
                     }))}
-                    selectedValues={field.value ? [field.value] : []}
+                    selectedValues={field.value ? [field.value] : []} // Asegurar que sea un array
                     onChange={(selectedIds) => {
                       const value = selectedIds[0] || '';
                       field.onChange(value);
@@ -558,11 +522,10 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       form.setValue('areas_service_id', '');
                       form.setValue('equipos_cliente', []);
                     }}
-                    placeholder="Seleccionar contrato"
+                    placeholder={contratos.find((c) => c.id === field.value)?.service_name || 'Seleccionar contrato'}
                     emptyMessage="No hay contratos disponibles"
                     disabled={!form.watch('cliente_id') || isLoading || isEditing}
-                    isLoading={isLoadingContratos}
-                    maxSelections={1}
+                    maxSelections={1} // Para selección única
                   />
                   <FormMessage />
                 </FormItem>
@@ -607,6 +570,230 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       />
                     </PopoverContent>
                   </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Fecha de Ejecución Solicitada */}
+            <FormField
+              control={form.control}
+              name="executionDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha de Ejecución Solicitada</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          disabled={isEditing}
+                          className={cn(
+                            'w-full justify-start text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value?.from ? (
+                            field.value.to ? (
+                              <>
+                                {format(field.value.from, 'PPP', { locale: es })} -{' '}
+                                {format(field.value.to, 'PPP', { locale: es })}
+                              </>
+                            ) : (
+                              format(field.value.from, 'PPP', { locale: es })
+                            )
+                          ) : (
+                            <span>Seleccionar rango de fechas</span>
+                          )}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      {isEditing ? (
+                        // Modo edición (single)
+                        <Calendar
+                          mode="single"
+                          selected={field.value?.from}
+                          onSelect={(date) => {
+                            if (date) {
+                              field.onChange({ from: date, to: date });
+                            }
+                          }}
+                          initialFocus
+                          locale={es}
+                          numberOfMonths={2}
+                        />
+                      ) : (
+                        // Modo creación (range)
+                        <Calendar
+                          mode="range"
+                          selected={field.value || { from: undefined, to: undefined }}
+                          fromDate={new Date()} // Usar fromDate en lugar de minDate
+                          onSelect={(range) => {
+                            if (range?.from && range?.to && range.from > range.to) {
+                              return; // No permitir que la fecha desde sea mayor que la fecha hasta
+                            }
+                            field.onChange(range);
+                          }}
+                          initialFocus
+                          locale={es}
+                          numberOfMonths={2}
+                        />
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* TODO: Descomentar cuando se reactive "Sujeto a disponibilidad operativa" */}
+            {/* Checkbox: Sujeto a disponibilidad operativa */}
+            {/* {!isEditing && (
+              <FormField
+                control={form.control}
+                name="subject_to_availability"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          // Si se marca, limpiar la fecha de ejecución
+                          if (checked) {
+                            form.setValue('executionDate', { from: undefined, to: undefined });
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="cursor-pointer">Sujeto a disponibilidad operativa</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Marcar si la fecha de ejecución depende de la disponibilidad. El pedido no podrá confirmarse
+                        hasta que se asigne una fecha.
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )} */}
+
+            {/* Jornada */}
+            <FormField
+              control={form.control}
+              name="jornada"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Jornada</FormLabel>
+                  <FormControl>
+                    <Select onValueChange={(value) => form.setValue('jornada', value)} value={field.value}>
+                      <SelectTrigger className="bg-background" disabled={isEditing} data-testid="jornada-select">
+                        <SelectValue placeholder="Seleccionar jornada">
+                          {field.value ? field.value : 'Seleccionar jornada'}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Jornada 8 horas" data-testid="jornada-option-8">
+                          Jornada 8 horas
+                        </SelectItem>
+                        <SelectItem value="Jornada 12 horas" data-testid="jornada-option-12">
+                          Jornada 12 horas
+                        </SelectItem>
+                        <SelectItem value="Jornada 24 horas" data-testid="jornada-option-24">
+                          Jornada 24 horas
+                        </SelectItem>
+                        <SelectItem value="por horario" data-testid="jornada-option-horario">
+                          Por horario
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Horario (condicional) */}
+            {form.watch('jornada') === 'por horario' && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="start_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora de inicio</FormLabel>
+                      <Input type="time" {...field} className="bg-background" />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="end_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora de fin</FormLabel>
+                      <Input type="time" {...field} className="bg-background" />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+            {/* Tipo de servicio */}
+            <FormField
+              control={form.control}
+              name="tipo"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Tipo de servicio</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      disabled={isEditing}
+                      defaultValue={field.value}
+                      className="flex flex-col space-y-1"
+                      data-testid="tipo-servicio-radio"
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem
+                            defaultValue={field.value}
+                            defaultChecked={field.value === 'mensual'}
+                            value="mensual"
+                            className="bg-background"
+                            data-testid="tipo-servicio-mensual"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Mensual</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem
+                            defaultValue={field.value}
+                            defaultChecked={field.value === 'adicional'}
+                            value="adicional"
+                            className="bg-background"
+                            data-testid="tipo-servicio-adicional"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Adicional</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem
+                            defaultValue={field.value}
+                            defaultChecked={field.value === 'adicional_permanente'}
+                            value="adicional_permanente"
+                            className="bg-background"
+                            data-testid="tipo-servicio-adicional-permanente"
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">Adicional Permanente</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -859,14 +1046,17 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       options={sectorOptions}
                       selectedValues={field.value ? [field.value] : []}
                       onChange={(vals) => field.onChange(vals[0] || '')}
-                      placeholder="Seleccionar sector"
+                      placeholder={
+                        field.value
+                          ? sectorOptions.find((o) => o.value === field.value)?.label || 'Seleccionar sector'
+                          : 'Seleccionar sector'
+                      }
                       disabled={!selectedCustomer || !selectedServiceId || isEditing}
                       emptyMessage={
                         !selectedCustomer || !selectedServiceId
                           ? 'Seleccione un cliente y contrato'
                           : 'Sin sectores disponibles para este contrato'
                       }
-                      isLoading={isLoadingSectors}
                       maxSelections={1}
                     />
                     <FormMessage />
@@ -917,14 +1107,17 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       options={areaOptions}
                       selectedValues={field.value ? [field.value] : []}
                       onChange={(vals) => field.onChange(vals[0] || '')}
-                      placeholder="Seleccionar área"
+                      placeholder={
+                        field.value
+                          ? areaOptions.find((o) => o.value === field.value)?.label || 'Seleccionar área'
+                          : 'Seleccionar área'
+                      }
                       disabled={!selectedCustomer || !selectedServiceId || isEditing}
                       emptyMessage={
                         !selectedCustomer || !selectedServiceId
                           ? 'Seleccione un cliente y contrato'
                           : 'Sin áreas disponibles para este contrato'
                       }
-                      isLoading={isLoadingAreas}
                       maxSelections={1}
                     />
                     <FormMessage />
@@ -959,7 +1152,6 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                           ? 'Seleccione un cliente y contrato'
                           : 'Sin equipos disponibles para este contrato/cliente'
                       }
-                      isLoading={isLoadingEquipments}
                       maxSelections={1}
                     />
                     <FormMessage />
@@ -968,7 +1160,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               }}
             />
 
-            {/* Multiselector de items - PP-3: con fecha y sujeto a disponibilidad por ítem */}
+            {/* Multiselector de items */}
             <FormField
               control={form.control}
               name="item"
@@ -1025,384 +1217,29 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                             />
                           </div>
 
-                // Función helper para sincronizar selectedItems con el form
-                const syncFormValue = (items: typeof selectedItems) => {
-                  const formItems = items
-                    .filter((r) => r.id)
-                    .map((r) => ({
-                      id: r.id,
-                      quantity: r.quantity,
-                      // PP-3: Incluir todos los campos requeridos por ítem
-                      jornada: r.jornada,
-                      tipo: r.tipo,
-                      observaciones: r.observaciones,
-                      start_time: r.start_time,
-                      end_time: r.end_time,
-                      executionDate: r.executionDate,
-                      subject_to_availability: r.subject_to_availability,
-                    }));
-                  field.onChange(formItems);
+                          <div className="w-20">
+                            <FormLabel>{index === 0 ? 'Cantidad' : ''}</FormLabel>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={row.quantity}
+                              disabled={!row.id || isEditing}
+                              onChange={(e) => {
+                                const newQuantity = parseInt(e.target.value) || 1;
+                                updateItemRow(row.id, { quantity: newQuantity });
 
-                  // Log para depuración
-                  logger.debug('syncFormValue - Items sincronizados', {
-                    data: {
-                      itemCount: formItems.length,
-                      items: formItems,
-                    },
-                  });
-                };
+                                // Update form value
+                                const updatedItems = selectedItems
+                                  .filter((r) => r.id)
+                                  .map((r) => ({
+                                    id: r.id,
+                                    quantity: r.id === row.id ? newQuantity : r.quantity,
+                                  }));
 
-                return (
-                  <FormItem>
-                    <div className="space-y-6">
-                      {selectedItems.map((row, index) => {
-                        const selectedItem = contractItems.find((item) => item.value === row.id);
-                        const rowKey = row.id || `temp-${index}`;
-
-                        return (
-                          <div key={rowKey} className="border rounded-lg p-4 space-y-4 bg-muted/30">
-                            {/* Fila superior: Item, Cantidad, Eliminar */}
-                            <div className="flex items-end gap-2">
-                              <div className="flex-1">
-                                <FormLabel>{index === 0 ? 'Item' : `Item ${index + 1}`}</FormLabel>
-                                <MultiSelectCombobox
-                                  data-testid={`item-select-${index}`}
-                                  options={contractItems.filter(
-                                    (item) => !selectedItems.some((r) => r.id === item.value && r.id !== row.id)
-                                  )}
-                                  selectedValues={row.id ? [row.id] : []}
-                                  isLoading={isLoadingItems}
-                                  onChange={(selectedIds) => {
-                                    const newItemId = selectedIds[0] || '';
-                                    const updatedItems = selectedItems.map((r, i) =>
-                                      i === index ? { ...r, id: newItemId } : r
-                                    );
-                                    setSelectedItems(updatedItems);
-
-                                    // Detectar si el item cambió respecto al original (en edición)
-                                    if (isEditing && originalItemId && newItemId !== originalItemId) {
-                                      setShowItemChangeReason(true);
-                                    } else if (isEditing && newItemId === originalItemId) {
-                                      setShowItemChangeReason(false);
-                                      form.setValue('item_change_reason', '');
-                                    }
-
-                                    syncFormValue(updatedItems);
-                                  }}
-                                  placeholder="Seleccionar item"
-                                  emptyMessage="No hay items disponibles"
-                                  disabled={isItemDisabled}
-                                  maxSelections={1}
-                                />
-                              </div>
-
-                              <div className="w-20">
-                                <FormLabel>Cantidad</FormLabel>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={row.quantity}
-                                  disabled={!row.id || !canEditItem}
-                                  onChange={(e) => {
-                                    const newQuantity = parseInt(e.target.value) || 1;
-                                    const updatedItems = selectedItems.map((r, i) =>
-                                      i === index ? { ...r, quantity: newQuantity } : r
-                                    );
-                                    setSelectedItems(updatedItems);
-                                    syncFormValue(updatedItems);
-                                  }}
-                                  className="w-full bg-background"
-                                />
-                              </div>
-
-                              {selectedItems.length > 1 && !isEditing && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  disabled={!canEditItem}
-                                  onClick={() => {
-                                    const updatedItems = selectedItems.filter((_, i) => i !== index);
-                                    setSelectedItems(updatedItems);
-                                    syncFormValue(updatedItems);
-                                  }}
-                                  className="mb-0"
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              )}
-                            </div>
-
-                            {/* PP-3: Campos por ítem - solo visibles cuando hay ítem seleccionado */}
-                            {row.id && (
-                              <>
-                                {/* Jornada por ítem */}
-                                <div className="flex flex-col gap-2">
-                                  <FormLabel
-                                    className={cn('text-sm', formErrors.item && !row.jornada && 'text-destructive')}
-                                  >
-                                    Jornada{' '}
-                                    {!row.jornada && formErrors.item && <span className="text-destructive">*</span>}
-                                  </FormLabel>
-                                  <Select
-                                    value={row.jornada}
-                                    onValueChange={(value) => {
-                                      const updatedItems = selectedItems.map((r, i) =>
-                                        i === index ? { ...r, jornada: value, start_time: '', end_time: '' } : r
-                                      );
-                                      setSelectedItems(updatedItems);
-                                      syncFormValue(updatedItems);
-                                    }}
-                                    disabled={!canEditItem}
-                                  >
-                                    <SelectTrigger
-                                      className={cn(
-                                        'bg-background',
-                                        formErrors.item && !row.jornada && 'border-destructive'
-                                      )}
-                                    >
-                                      <SelectValue placeholder="Seleccionar jornada">
-                                        {row.jornada || 'Seleccionar jornada'}
-                                      </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Jornada 8 horas">Jornada 8 horas</SelectItem>
-                                      <SelectItem value="Jornada 12 horas">Jornada 12 horas</SelectItem>
-                                      <SelectItem value="Jornada 24 horas">Jornada 24 horas</SelectItem>
-                                      <SelectItem value="por horario">Por horario</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
-                                {/* Horario (solo si jornada es "por horario") */}
-                                {row.jornada === 'por horario' && (
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-2">
-                                      <FormLabel className="text-sm">Hora de inicio</FormLabel>
-                                      <Input
-                                        type="time"
-                                        value={row.start_time || ''}
-                                        onChange={(e) => {
-                                          const updatedItems = selectedItems.map((r, i) =>
-                                            i === index ? { ...r, start_time: e.target.value } : r
-                                          );
-                                          setSelectedItems(updatedItems);
-                                          syncFormValue(updatedItems);
-                                        }}
-                                        className="bg-background"
-                                      />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                      <FormLabel className="text-sm">Hora de fin</FormLabel>
-                                      <Input
-                                        type="time"
-                                        value={row.end_time || ''}
-                                        onChange={(e) => {
-                                          const updatedItems = selectedItems.map((r, i) =>
-                                            i === index ? { ...r, end_time: e.target.value } : r
-                                          );
-                                          setSelectedItems(updatedItems);
-                                          syncFormValue(updatedItems);
-                                        }}
-                                        className="bg-background"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Tipo de servicio por ítem */}
-                                <div className="flex flex-col gap-2">
-                                  <FormLabel
-                                    className={cn('text-sm', formErrors.item && !row.tipo && 'text-destructive')}
-                                  >
-                                    Tipo de servicio{' '}
-                                    {!row.tipo && formErrors.item && <span className="text-destructive">*</span>}
-                                  </FormLabel>
-                                  <RadioGroup
-                                    value={row.tipo}
-                                    onValueChange={(value) => {
-                                      const updatedItems = selectedItems.map((r, i) =>
-                                        i === index ? { ...r, tipo: value } : r
-                                      );
-                                      setSelectedItems(updatedItems);
-                                      syncFormValue(updatedItems);
-                                    }}
-                                    disabled={!canEditItem}
-                                    className={cn(
-                                      'flex flex-row space-x-4',
-                                      formErrors.item && !row.tipo && 'p-2 border border-destructive rounded-md'
-                                    )}
-                                  >
-                                    <div className="flex items-center space-x-2">
-                                      <RadioGroupItem value="mensual" id={`tipo-mensual-${index}`} />
-                                      <label htmlFor={`tipo-mensual-${index}`} className="text-sm">
-                                        Mensual
-                                      </label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <RadioGroupItem value="adicional" id={`tipo-adicional-${index}`} />
-                                      <label htmlFor={`tipo-adicional-${index}`} className="text-sm">
-                                        Adicional
-                                      </label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <RadioGroupItem value="adicional_permanente" id={`tipo-permanente-${index}`} />
-                                      <label htmlFor={`tipo-permanente-${index}`} className="text-sm">
-                                        Adicional Permanente
-                                      </label>
-                                    </div>
-                                  </RadioGroup>
-                                </div>
-
-                                {/* Observaciones por ítem */}
-                                <div className="flex flex-col gap-2">
-                                  <FormLabel className="text-sm">Observaciones</FormLabel>
-                                  <Textarea
-                                    placeholder="Observaciones para este ítem..."
-                                    value={row.observaciones || ''}
-                                    onChange={(e) => {
-                                      const updatedItems = selectedItems.map((r, i) =>
-                                        i === index ? { ...r, observaciones: e.target.value } : r
-                                      );
-                                      setSelectedItems(updatedItems);
-                                      syncFormValue(updatedItems);
-                                    }}
-                                    className="min-h-[60px] bg-background"
-                                  />
-                                </div>
-
-                                {/* Fecha de ejecución por ítem */}
-                                <div className="flex flex-col gap-2">
-                                  <FormLabel
-                                    className={cn(
-                                      'text-sm',
-                                      formErrors.item &&
-                                        !row.executionDate?.from &&
-                                        !row.subject_to_availability &&
-                                        'text-destructive'
-                                    )}
-                                  >
-                                    Fecha de Ejecución{' '}
-                                    {!row.executionDate?.from && !row.subject_to_availability && formErrors.item && (
-                                      <span className="text-destructive">*</span>
-                                    )}
-                                  </FormLabel>
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        disabled={row.subject_to_availability}
-                                        className={cn(
-                                          'w-full justify-start text-left font-normal',
-                                          !row.executionDate?.from && 'text-muted-foreground',
-                                          row.subject_to_availability && 'opacity-50',
-                                          formErrors.item &&
-                                            !row.executionDate?.from &&
-                                            !row.subject_to_availability &&
-                                            'border-destructive'
-                                        )}
-                                      >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {row.subject_to_availability ? (
-                                          <span className="italic">Sujeto a disponibilidad operativa</span>
-                                        ) : row.executionDate?.from ? (
-                                          row.executionDate.to &&
-                                          row.executionDate.from.getTime() !== row.executionDate.to.getTime() ? (
-                                            <>
-                                              {format(row.executionDate.from, 'dd/MM/yyyy', { locale: es })} -{' '}
-                                              {format(row.executionDate.to, 'dd/MM/yyyy', { locale: es })}
-                                            </>
-                                          ) : (
-                                            format(row.executionDate.from, 'PPP', { locale: es })
-                                          )
-                                        ) : (
-                                          <span>Seleccionar fecha</span>
-                                        )}
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                      {isEditing ? (
-                                        <Calendar
-                                          mode="single"
-                                          selected={row.executionDate?.from}
-                                          onSelect={(date) => {
-                                            if (date) {
-                                              const updatedItems = selectedItems.map((r, i) =>
-                                                i === index ? { ...r, executionDate: { from: date, to: date } } : r
-                                              );
-                                              setSelectedItems(updatedItems);
-                                              syncFormValue(updatedItems);
-                                            }
-                                          }}
-                                          initialFocus
-                                          locale={es}
-                                        />
-                                      ) : (
-                                        <Calendar
-                                          mode="range"
-                                          selected={
-                                            row.executionDate?.from
-                                              ? (row.executionDate as { from: Date; to?: Date })
-                                              : undefined
-                                          }
-                                          fromDate={new Date()}
-                                          onSelect={(range) => {
-                                            if (range?.from && range?.to && range.from > range.to) {
-                                              return;
-                                            }
-                                            const updatedItems = selectedItems.map((r, i) =>
-                                              i === index ? { ...r, executionDate: range || undefined } : r
-                                            );
-                                            setSelectedItems(updatedItems);
-                                            syncFormValue(updatedItems);
-                                          }}
-                                          initialFocus
-                                          locale={es}
-                                          numberOfMonths={2}
-                                        />
-                                      )}
-                                    </PopoverContent>
-                                  </Popover>
-                                </div>
-
-                                {/* PP-3: Checkbox sujeto a disponibilidad por ítem */}
-                                <div className="flex items-center space-x-3 pt-2">
-                                  <Checkbox
-                                    id={`subject-availability-${index}`}
-                                    checked={row.subject_to_availability}
-                                    onCheckedChange={(checked) => {
-                                      const updatedItems = selectedItems.map((r, i) =>
-                                        i === index
-                                          ? {
-                                              ...r,
-                                              subject_to_availability: !!checked,
-                                              // Si se marca, limpiar fecha
-                                              executionDate: checked
-                                                ? { from: undefined, to: undefined }
-                                                : r.executionDate,
-                                            }
-                                          : r
-                                      );
-                                      setSelectedItems(updatedItems);
-                                      syncFormValue(updatedItems);
-                                    }}
-                                  />
-                                  <label
-                                    htmlFor={`subject-availability-${index}`}
-                                    className="text-sm cursor-pointer leading-none"
-                                  >
-                                    Sujeto a disponibilidad operativa
-                                  </label>
-                                </div>
-                                {row.subject_to_availability && (
-                                  <p className="text-xs text-muted-foreground pl-6">
-                                    {isEditing
-                                      ? 'Desmarcar para asignar fecha y poder confirmar.'
-                                      : 'No podrá confirmarse hasta asignar fecha.'}
-                                  </p>
-                                )}
-                              </>
-                            )}
+                                field.onChange(updatedItems);
+                              }}
+                              className="w-full bg-background"
+                            />
                           </div>
                           {selectedItems.length > 1 && (
                             <Button
@@ -1427,27 +1264,19 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                             </Button>
                           )}
                         </div>
-                      )}
-                    </div>
-                    {/* Mostrar errores de validación de items de forma más específica */}
-                    <FormMessage />
-                    {formErrors.item && (
-                      <div className="text-sm text-destructive mt-2 space-y-1">
-                        {Array.isArray(formErrors.item)
-                          ? formErrors.item.map((itemError, idx) => {
-                              if (!itemError) return null;
-                              const errors = [];
-                              if (itemError.jornada) errors.push(`Item ${idx + 1}: ${itemError.jornada.message}`);
-                              if (itemError.tipo) errors.push(`Item ${idx + 1}: ${itemError.tipo.message}`);
-                              if (itemError.quantity) errors.push(`Item ${idx + 1}: ${itemError.quantity.message}`);
-                              return errors.map((err, errIdx) => <p key={`${idx}-${errIdx}`}>{err}</p>);
-                            })
-                          : formErrors.item.message && <p>{formErrors.item.message}</p>}
+                      );
+                    })}
+                    {!isEditing && selectedItems.some((item) => item.id) && (
+                      <div className="flex justify-center mt-4">
+                        <Button type="button" variant="outline" size="sm" onClick={handleAddItem} disabled={isEditing}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Agregar ítem
+                        </Button>
                       </div>
                     )}
-                  </FormItem>
-                );
-              }}
+                  </div>
+                </FormItem>
+              )}
             />
 
             {/* TODO: Descomentar cuando se reactive el sistema de cambio de item con motivo */}
@@ -1476,30 +1305,56 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
               />
             )} */}
 
-            {/* Imagen del pedido - No usa FormField porque es manejado localmente */}
+            {/* Campo de Observaciones */}
+            <FormField
+              control={form.control}
+              name="observaciones"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observaciones</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Ingrese observaciones adicionales..."
+                      className="min-h-[100px] bg-background"
+                      {...field}
+                      data-testid="observaciones-textarea"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Imagen del pedido */}
             {isEditing ? (
-              <div className="space-y-2">
+              <FormItem>
                 <FormLabel>
                   {`Cambiar imagen del pedido${form?.watch('numero_pedido') ? ` (aplica a todo el N° ${form.watch('numero_pedido')})` : ''}`}
                 </FormLabel>
-                <Input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="bg-background"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                />
-              </div>
+                <FormControl>
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="bg-background"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             ) : (
-              <div className="space-y-2">
+              <FormItem>
                 <FormLabel>Documento adjunto (Imagen o PDF)</FormLabel>
-                <Input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="bg-background"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  data-testid="archivo-adjunto-input"
-                />
-              </div>
+                <FormControl>
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="bg-background"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    data-testid="archivo-adjunto-input"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
 
             <div className="flex justify-end space-x-4 pt-4">

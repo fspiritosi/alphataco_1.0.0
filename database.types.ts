@@ -5758,12 +5758,10 @@ export type Database = {
         }[];
       };
       get_company_for_user: { Args: { user_id: string }; Returns: string };
-      get_daily_report_deviations:
-        | { Args: { p_daily_report_id: string }; Returns: Json }
-        | {
-            Args: { p_daily_report_id: string; p_report_date: string };
-            Returns: Json;
-          };
+      get_daily_report_deviations: {
+        Args: { p_daily_report_id: string };
+        Returns: Json;
+      };
       get_dailyreportrow_history: {
         Args: { p_row_id: string };
         Returns: {
