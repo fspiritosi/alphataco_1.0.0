@@ -1,8 +1,6 @@
 'use client';
 
-import { getPendingDeviations } from '@/app/maintenance/actions';
 import { getCompatibleEquipmentForHitch, getEquipmentTypeInfo } from '@/app/server/GET/actions';
-import { CriticalDeviationsRepairModal } from '@/components/maintenance/critical-deviations-repair-modal';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -1007,77 +1005,97 @@ export function NormalizedChecklistForm({
         }
       }
 
-      // NUEVO FLUJO: Mostrar modal si hay CUALQUIER item fallido (crítico o no)
+      // ===================================================================================
+      // FLUJO DE DESVÍOS DESHABILITADO TEMPORALMENTE
+      // TODO: Descomentar este bloque cuando se active el nuevo flujo de mantenimiento
+      // El código comentado abre un modal para crear desvíos cuando hay items con valor "M"
+      // ===================================================================================
+      // if (failedItems.length > 0) {
+      //   setCriticalItemsFailed(failedItems.map((item) => item.item_label));
+      //
+      //   // Obtener los desvíos creados y los supervisores disponibles para el modal
+      //   try {
+      //     console.log('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id:', data.equipment_id);
+      //     const [deviations, supervisorsList] = await Promise.all([
+      //       getPendingDeviations(data.equipment_id),
+      //       fetchSupervisorsForChecklist(),
+      //     ]);
+      //
+      //     console.log('[NormalizedChecklistForm] Desvíos obtenidos:', deviations?.length || 0);
+      //     console.log('[NormalizedChecklistForm] Desvíos detalle:', JSON.stringify(deviations, null, 2));
+      //     console.log('[NormalizedChecklistForm] Supervisores:', supervisorsList?.length || 0);
+      //
+      //     setPendingDeviations(deviations);
+      //     setSupervisors(supervisorsList);
+      //     setShowDeviationsModal(true);
+      //     // NO redirigir aquí, esperar a que el modal se cierre
+      //
+      //     // Contar críticos vs no críticos para el mensaje
+      //     const criticalCount = failedItems.filter((item) => item.is_critical).length;
+      //     const nonCriticalCount = failedItems.length - criticalCount;
+      //
+      //     const { toast } = await import('sonner');
+      //     toast.success('Checklist guardado', {
+      //       description: `Se detectaron ${failedItems.length} item(s) con fallos${criticalCount > 0 ? ` (${criticalCount} crítico(s))` : ''}. Por favor, registra los desvíos.`,
+      //     });
+      //   } catch (error) {
+      //     logger.error('Error fetching deviations or supervisors', { data: { error } });
+      //     const { toast } = await import('sonner');
+      //     toast.success('Checklist guardado', {
+      //       description: `Se detectaron ${failedItems.length} item(s) con fallos`,
+      //     });
+      //
+      //     // Si no se puede cargar el modal, redirigir a la lista de respuestas
+      //     setTimeout(() => {
+      //       if (pathname?.includes('/dashboard/forms/')) {
+      //         const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+      //         if (formIdMatch && formIdMatch[1]) {
+      //           router.push(`/dashboard/forms/${formIdMatch[1]}`);
+      //         } else {
+      //           router.push('/dashboard/forms');
+      //         }
+      //       } else {
+      //         router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
+      //       }
+      //       router.refresh();
+      //     }, 1500);
+      //   }
+      // } else {
+      // ===================================================================================
+      // FIN DEL FLUJO DE DESVÍOS COMENTADO
+      // ===================================================================================
+
+      // Flujo simplificado: solo guardar y redirigir (sin modal de desvíos)
+      const { toast } = await import('sonner');
       if (failedItems.length > 0) {
-        setCriticalItemsFailed(failedItems.map((item) => item.item_label));
-
-        // Obtener los desvíos creados y los supervisores disponibles para el modal
-        try {
-          console.log('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id:', data.equipment_id);
-          const [deviations, supervisorsList] = await Promise.all([
-            getPendingDeviations(data.equipment_id),
-            fetchSupervisorsForChecklist(),
-          ]);
-
-          console.log('[NormalizedChecklistForm] Desvíos obtenidos:', deviations?.length || 0);
-          console.log('[NormalizedChecklistForm] Desvíos detalle:', JSON.stringify(deviations, null, 2));
-          console.log('[NormalizedChecklistForm] Supervisores:', supervisorsList?.length || 0);
-
-          setPendingDeviations(deviations);
-          setSupervisors(supervisorsList);
-          setShowDeviationsModal(true);
-          // NO redirigir aquí, esperar a que el modal se cierre
-
-          // Contar críticos vs no críticos para el mensaje
-          const criticalCount = failedItems.filter((item) => item.is_critical).length;
-          const nonCriticalCount = failedItems.length - criticalCount;
-
-          const { toast } = await import('sonner');
-          toast.success('Checklist guardado', {
-            description: `Se detectaron ${failedItems.length} item(s) con fallos${criticalCount > 0 ? ` (${criticalCount} crítico(s))` : ''}. Por favor, registra los desvíos.`,
-          });
-        } catch (error) {
-          logger.error('Error fetching deviations or supervisors', { data: { error } });
-          const { toast } = await import('sonner');
-          toast.success('Checklist guardado', {
-            description: `Se detectaron ${failedItems.length} item(s) con fallos`,
-          });
-
-          // Si no se puede cargar el modal, redirigir a la lista de respuestas
-          setTimeout(() => {
-            if (pathname?.includes('/dashboard/forms/')) {
-              const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1]) {
-                router.push(`/dashboard/forms/${formIdMatch[1]}`);
-              } else {
-                router.push('/dashboard/forms');
-              }
-            } else {
-              router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
-            }
-            router.refresh();
-          }, 1500);
-        }
+        const criticalCount = failedItems.filter((item) => item.is_critical).length;
+        toast.success('Checklist guardado', {
+          description: `Se detectaron ${failedItems.length} item(s) con fallos${criticalCount > 0 ? ` (${criticalCount} crítico(s))` : ''}. Los desvíos fueron registrados.`,
+        });
       } else {
-        const { toast } = await import('sonner');
         toast.success('Checklist guardado correctamente');
-
-        // Redirigir según la ruta de origen - a la lista de respuestas
-        setTimeout(() => {
-          if (pathname?.includes('/dashboard/forms/')) {
-            const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-            if (formIdMatch && formIdMatch[1]) {
-              router.push(`/dashboard/forms/${formIdMatch[1]}`);
-            } else {
-              router.push('/dashboard/forms');
-            }
-          } else {
-            // Si venimos de /maintenance, redirigir a la página de checklists del equipo
-            router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
-          }
-          router.refresh();
-        }, 1500);
       }
+
+      // Redirigir según la ruta de origen - a la lista de respuestas
+      setTimeout(() => {
+        if (pathname?.includes('/dashboard/forms/')) {
+          const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+          if (formIdMatch && formIdMatch[1]) {
+            router.push(`/dashboard/forms/${formIdMatch[1]}`);
+          } else {
+            router.push('/dashboard/forms');
+          }
+        } else {
+          // Si venimos de /maintenance, redirigir a la página de checklists del equipo
+          router.push(`/maintenance/equipment/${data.equipment_id}/checklists`);
+        }
+        router.refresh();
+      }, 1500);
+
+      // ===================================================================================
+      // TODO: Eliminar el cierre del else cuando se reactive el flujo de desvíos
+      // }
+      // ===================================================================================
     } catch (error) {
       logger.error('Error al guardar el checklist', { data: { error } });
       // TODO: Mostrar toast de error
@@ -1576,8 +1594,11 @@ export function NormalizedChecklistForm({
         </DialogContent>
       </Dialog>
 
-      {/* Modal para generar solicitudes de reparación desde desvíos */}
-      {currentEquipmentId && (
+      {/* ===================================================================================
+          MODAL DE DESVÍOS DESHABILITADO TEMPORALMENTE
+          TODO: Descomentar cuando se active el nuevo flujo de mantenimiento
+          =================================================================================== */}
+      {/* {currentEquipmentId && (
         <CriticalDeviationsRepairModal
           isOpen={showDeviationsModal}
           onClose={() => {
@@ -1620,7 +1641,7 @@ export function NormalizedChecklistForm({
           }))}
           equipmentId={currentEquipmentId}
         />
-      )}
+      )} */}
 
       {/* Botón de autocompletado para desarrollo */}
       <DevAutoFillButton form={form} template={template} />
