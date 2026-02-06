@@ -90,64 +90,61 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
 
   serverLogger.info('Checklist answer creado', { data: { answerId: data.id, result: computedResult } });
 
-  // TODO: Descomentar este bloque cuando se reactive el flujo de desvíos de mantenimiento
-  // ========================================================================================
-  // // Si hay items fallidos, crear registros en checklist_deviations
-  // // IMPORTANTE: NO crear desvíos si este checklist es de enganche (ut_checklist_answer_id existe)
-  // // Los desvíos solo se crean en la unidad tractora
-  // // NUEVO FLUJO: Ahora se detectan TODOS los items con valor "M", no solo los críticos
-  // if (failedItems.length > 0 && data && !answerData.ut_checklist_answer_id) {
-  //   // Crear registros de desvíos para cada item fallido (crítico o no)
-  //   const deviationsToInsert = failedItems.map((item: any) => {
-  //     // Soporta tanto formato antiguo (string) como nuevo (objeto)
-  //     if (typeof item === 'string') {
-  //       // Formato antiguo: solo label, necesitamos buscar el código en el template
-  //       return {
-  //         checklist_answer_id: data.id,
-  //         equipment_id: answerData.equipment_id,
-  //         item_code: item, // Como fallback, usamos el label como código
-  //         item_label: item,
-  //         section_code: null,
-  //         is_critical: false, // Formato antiguo no tiene esta info
-  //         driver_comment: null,
-  //         created_by_user_id: user?.id || null,
-  //         created_by_employee_id: finalEmployeeId,
-  //       };
-  //     } else {
-  //       // Formato nuevo: objeto con item_code, item_label, section_code, is_critical, driver_comment
-  //       return {
-  //         checklist_answer_id: data.id,
-  //         equipment_id: answerData.equipment_id,
-  //         item_code: item.item_code || item.item_label || '',
-  //         item_label: item.item_label || item.item_code || '',
-  //         section_code: item.section_code || null,
-  //         is_critical: item.is_critical || false,
-  //         driver_comment: item.driver_comment || null,
-  //         created_by_user_id: user?.id || null,
-  //         created_by_employee_id: finalEmployeeId,
-  //       };
-  //     }
-  //   });
+  // Si hay items fallidos, crear registros en checklist_deviations
+  // IMPORTANTE: NO crear desvíos si este checklist es de enganche (ut_checklist_answer_id existe)
+  // Los desvíos solo se crean en la unidad tractora
+  // NUEVO FLUJO: Ahora se detectan TODOS los items con valor "M", no solo los críticos
+  if (failedItems.length > 0 && data && !answerData.ut_checklist_answer_id) {
+    // Crear registros de desvíos para cada item fallido (crítico o no)
+    const deviationsToInsert = failedItems.map((item: any) => {
+      // Soporta tanto formato antiguo (string) como nuevo (objeto)
+      if (typeof item === 'string') {
+        // Formato antiguo: solo label, necesitamos buscar el código en el template
+        return {
+          checklist_answer_id: data.id,
+          equipment_id: answerData.equipment_id,
+          item_code: item, // Como fallback, usamos el label como código
+          item_label: item,
+          section_code: null,
+          is_critical: false, // Formato antiguo no tiene esta info
+          driver_comment: null,
+          created_by_user_id: user?.id || null,
+          created_by_employee_id: finalEmployeeId,
+        };
+      } else {
+        // Formato nuevo: objeto con item_code, item_label, section_code, is_critical, driver_comment
+        return {
+          checklist_answer_id: data.id,
+          equipment_id: answerData.equipment_id,
+          item_code: item.item_code || item.item_label || '',
+          item_label: item.item_label || item.item_code || '',
+          section_code: item.section_code || null,
+          is_critical: item.is_critical || false,
+          driver_comment: item.driver_comment || null,
+          created_by_user_id: user?.id || null,
+          created_by_employee_id: finalEmployeeId,
+        };
+      }
+    });
 
-  //   const { data: deviationsData, error: deviationsError } = await supabase
-  //     .from('checklist_deviations')
-  //     .insert(deviationsToInsert)
-  //     .select();
+    const { data: deviationsData, error: deviationsError } = await supabase
+      .from('checklist_deviations')
+      .insert(deviationsToInsert)
+      .select();
 
-  //   if (deviationsError) {
-  //     serverLogger.error('Error creating checklist deviations', { data: { error: deviationsError } });
-  //     // No lanzamos error para no fallar el guardado del checklist, solo lo logueamos
-  //   } else {
-  //     serverLogger.info(`Created ${deviationsToInsert.length} checklist deviations`, {
-  //       data: { answerId: data.id, count: deviationsToInsert.length },
-  //     });
+    if (deviationsError) {
+      serverLogger.error('Error creating checklist deviations', { data: { error: deviationsError } });
+      // No lanzamos error para no fallar el guardado del checklist, solo lo logueamos
+    } else {
+      serverLogger.info(`Created ${deviationsToInsert.length} checklist deviations`, {
+        data: { answerId: data.id, count: deviationsToInsert.length },
+      });
 
-  //     // Los desvíos quedan registrados sin solicitud de mantenimiento.
-  //     // El usuario debe crear la solicitud desde el modal que aparece al finalizar
-  //     // o desde la tabla de "Equipos con Desvíos" en el módulo de Mantenimiento.
-  //   }
-  // }
-  // ========================================================================================
+      // Los desvíos quedan registrados sin solicitud de mantenimiento.
+      // El usuario debe crear la solicitud desde el modal que aparece al finalizar
+      // o desde la tabla de "Equipos con Desvíos" en el módulo de Mantenimiento.
+    }
+  }
 
   return data;
 };
