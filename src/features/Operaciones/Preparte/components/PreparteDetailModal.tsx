@@ -392,7 +392,12 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
                             <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
                               Cambio de {log.field_name}
                             </Badge>
-                            <span className="text-xs text-gray-500">{changedAt}</span>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-xs text-gray-500">{changedAt}</span>
+                              {log.changed_by_name && (
+                                <span className="text-xs text-gray-400">por {log.changed_by_name}</span>
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-1 text-gray-700">
                             <div>

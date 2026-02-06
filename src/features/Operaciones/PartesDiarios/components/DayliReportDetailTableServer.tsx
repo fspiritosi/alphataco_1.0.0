@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
@@ -128,7 +129,7 @@ export default function DayliReportDetailTableServer({
         setEquipments(equipmentsData);
         setCustomers(customersData);
       } catch (error) {
-        console.error('Error loading validation data:', error);
+        logger.error('Error loading validation data', { data: { error } });
       } finally {
         setLoadingValidations(false);
       }
@@ -334,6 +335,109 @@ export default function DayliReportDetailTableServer({
     return unassignedMap;
   };
 
+  // Función auxiliar para obtener desvíos de diagrama de un empleado por ID
+  const getEmployeeDiagramDeviation = (
+    employeeId: string,
+    allEmployees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>
+  ): { hasNoDiagram: boolean; hasNonWorkDay: boolean; diagramTypeName: string | null } => {
+    if (!allEmployees) return { hasNoDiagram: false, hasNonWorkDay: false, diagramTypeName: null };
+
+    const emp = allEmployees.find((e) => e.id === employeeId);
+    if (!emp) return { hasNoDiagram: false, hasNonWorkDay: false, diagramTypeName: null };
+
+    return {
+      hasNoDiagram: !!emp.deviation_no_diagram,
+      hasNonWorkDay: !!emp.deviation_non_work_day,
+      diagramTypeName: emp.current_diagram?.diagram_type?.name || null,
+    };
+  };
+
+  // Función reutilizable para renderizar un badge de empleado con múltiples desvíos
+  const renderEmployeeBadge = (
+    employeeName: string,
+    employeeId: string | undefined,
+    isDuplicated: boolean,
+    isUnassigned: boolean,
+    key?: string | number
+  ) => {
+    const diagramDeviation = employeeId
+      ? getEmployeeDiagramDeviation(employeeId, employees)
+      : { hasNoDiagram: false, hasNonWorkDay: false, diagramTypeName: null };
+
+    // Determinar estilo principal del badge del nombre
+    let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+    let badgeClassName = 'select-none text-nowrap';
+
+    // Detectar si tiene ambos desvíos: sin diagrama Y no asignado al cliente
+    const hasBothDeviations = isUnassigned && diagramDeviation.hasNoDiagram;
+
+    if (loadingValidations) {
+      badgeVariant = 'secondary';
+      badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+    } else if (isDuplicated || isUnassigned || diagramDeviation.hasNoDiagram || diagramDeviation.hasNonWorkDay) {
+      badgeVariant = 'outline';
+      // Prioridad visual: duplicado > ambos desvíos (violeta) > no asignado > sin diagrama > día no laboral
+      if (isDuplicated) {
+        badgeClassName = cn(
+          badgeClassName,
+          'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+        );
+      } else if (hasBothDeviations) {
+        badgeClassName = cn(
+          badgeClassName,
+          'border-purple-500 bg-purple-50 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-400'
+        );
+      } else if (isUnassigned) {
+        badgeClassName = cn(
+          badgeClassName,
+          'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+        );
+      } else if (diagramDeviation.hasNoDiagram) {
+        badgeClassName = cn(
+          badgeClassName,
+          'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-400'
+        );
+      } else {
+        badgeClassName = cn(
+          badgeClassName,
+          'border-yellow-500 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-400'
+        );
+      }
+    } else {
+      badgeClassName = cn(badgeClassName, 'dark:text-black');
+    }
+
+    // Construir lista de mensajes de tooltip
+    const tooltipMessages: string[] = [];
+    if (loadingValidations) {
+      tooltipMessages.push('Validando asignaciones...');
+    } else {
+      if (isDuplicated) tooltipMessages.push('Empleado asignado en múltiples filas');
+      if (isUnassigned) tooltipMessages.push('No asignado al cliente de esta fila');
+      if (diagramDeviation.hasNoDiagram) tooltipMessages.push('Sin diagrama cargado para este día');
+      if (diagramDeviation.hasNonWorkDay)
+        tooltipMessages.push(`Día no laboral: ${diagramDeviation.diagramTypeName || 'No laboral'}`);
+      if (tooltipMessages.length === 0) tooltipMessages.push('Empleado asignado correctamente');
+    }
+
+    return (
+      <TooltipProvider key={key} delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant={badgeVariant} className={badgeClassName}>
+              {employeeName}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            {tooltipMessages.map((msg, i) => (
+              <p key={i}>{msg}</p>
+            ))}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   // Definición de columnas
   const columns: ExtendedColumnDef<DailyReportServerData>[] = [
     // Columna de checkbox solo si tiene permiso de editar
@@ -522,7 +626,6 @@ export default function DayliReportDetailTableServer({
         const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
         if (!is12or24) return <span className="text-muted-foreground">-</span>;
 
-        // Mostrar skeleton mientras cargan los empleados
         if (isLoadingEmployees && !row.original.dailyreportemployeerelations) {
           return <Skeleton className="h-5 w-24" />;
         }
@@ -534,60 +637,11 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-
         const allData = table.getRowModel().rows.map((r) => r.original);
-        const duplicatedEmployees = getDuplicatedEmployees(allData);
-        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
+        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
 
-        const isDuplicated = duplicatedEmployees.has(employeeName);
-        const isUnassigned = unassignedEmployees.has(employeeName);
-
-        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
-        let badgeClassName = 'select-none text-nowrap';
-
-        if (loadingValidations) {
-          badgeVariant = 'secondary';
-          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
-        } else if (isDuplicated) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
-          );
-        } else if (isUnassigned) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-          );
-        } else {
-          badgeClassName = cn(badgeClassName, 'dark:text-black');
-        }
-
-        let tooltipMessage = loadingValidations
-          ? 'Validando asignaciones...'
-          : isDuplicated
-            ? 'Este empleado está asignado en múltiples filas del parte diario'
-            : isUnassigned
-              ? 'Este empleado no está asignado al cliente de esta fila'
-              : 'Empleado asignado correctamente';
-
-        return (
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Badge variant={badgeVariant} className={badgeClassName}>
-                    {employeeName}
-                  </Badge>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{tooltipMessage}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        );
+        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'chofer_dia')?.employees;
@@ -621,60 +675,11 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-
         const allData = table.getRowModel().rows.map((r) => r.original);
-        const duplicatedEmployees = getDuplicatedEmployees(allData);
-        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
+        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
 
-        const isDuplicated = duplicatedEmployees.has(employeeName);
-        const isUnassigned = unassignedEmployees.has(employeeName);
-
-        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
-        let badgeClassName = 'select-none text-nowrap';
-
-        if (loadingValidations) {
-          badgeVariant = 'secondary';
-          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
-        } else if (isDuplicated) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
-          );
-        } else if (isUnassigned) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-          );
-        } else {
-          badgeClassName = cn(badgeClassName, 'dark:text-black');
-        }
-
-        let tooltipMessage = loadingValidations
-          ? 'Validando asignaciones...'
-          : isDuplicated
-            ? 'Este empleado está asignado en múltiples filas del parte diario'
-            : isUnassigned
-              ? 'Este empleado no está asignado al cliente de esta fila'
-              : 'Empleado asignado correctamente';
-
-        return (
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Badge variant={badgeVariant} className={badgeClassName}>
-                    {employeeName}
-                  </Badge>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{tooltipMessage}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        );
+        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_dia')?.employees;
@@ -708,60 +713,11 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-
         const allData = table.getRowModel().rows.map((r) => r.original);
-        const duplicatedEmployees = getDuplicatedEmployees(allData);
-        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
+        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
 
-        const isDuplicated = duplicatedEmployees.has(employeeName);
-        const isUnassigned = unassignedEmployees.has(employeeName);
-
-        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
-        let badgeClassName = 'select-none text-nowrap';
-
-        if (loadingValidations) {
-          badgeVariant = 'secondary';
-          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
-        } else if (isDuplicated) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
-          );
-        } else if (isUnassigned) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-          );
-        } else {
-          badgeClassName = cn(badgeClassName, 'dark:text-black');
-        }
-
-        let tooltipMessage = loadingValidations
-          ? 'Validando asignaciones...'
-          : isDuplicated
-            ? 'Este empleado está asignado en múltiples filas del parte diario'
-            : isUnassigned
-              ? 'Este empleado no está asignado al cliente de esta fila'
-              : 'Empleado asignado correctamente';
-
-        return (
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Badge variant={badgeVariant} className={badgeClassName}>
-                    {employeeName}
-                  </Badge>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{tooltipMessage}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        );
+        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'chofer_noche')?.employees;
@@ -795,60 +751,11 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-
         const allData = table.getRowModel().rows.map((r) => r.original);
-        const duplicatedEmployees = getDuplicatedEmployees(allData);
-        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
+        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
+        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
 
-        const isDuplicated = duplicatedEmployees.has(employeeName);
-        const isUnassigned = unassignedEmployees.has(employeeName);
-
-        let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
-        let badgeClassName = 'select-none text-nowrap';
-
-        if (loadingValidations) {
-          badgeVariant = 'secondary';
-          badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
-        } else if (isDuplicated) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
-          );
-        } else if (isUnassigned) {
-          badgeVariant = 'outline';
-          badgeClassName = cn(
-            badgeClassName,
-            'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-          );
-        } else {
-          badgeClassName = cn(badgeClassName, 'dark:text-black');
-        }
-
-        let tooltipMessage = loadingValidations
-          ? 'Validando asignaciones...'
-          : isDuplicated
-            ? 'Este empleado está asignado en múltiples filas del parte diario'
-            : isUnassigned
-              ? 'Este empleado no está asignado al cliente de esta fila'
-              : 'Empleado asignado correctamente';
-
-        return (
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Badge variant={badgeVariant} className={badgeClassName}>
-                    {employeeName}
-                  </Badge>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{tooltipMessage}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        );
+        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_noche')?.employees;
@@ -893,56 +800,7 @@ export default function DayliReportDetailTableServer({
               const isDuplicated = duplicatedEmployees.has(employeeName);
               const isUnassigned = unassignedEmployees.has(employeeName);
 
-              let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
-              let badgeClassName = 'select-none text-nowrap';
-
-              // Mientras cargan las validaciones, mostrar en gris (efecto deshabilitado)
-              if (loadingValidations) {
-                badgeVariant = 'secondary';
-                badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
-              } else if (isDuplicated) {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
-                );
-              } else if (isUnassigned) {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-                );
-              } else {
-                badgeClassName = cn(badgeClassName, 'dark:text-black');
-              }
-
-              let tooltipMessage = '';
-              if (loadingValidations) {
-                tooltipMessage = 'Validando asignaciones...';
-              } else if (isDuplicated) {
-                tooltipMessage = 'Este empleado está asignado en múltiples filas del parte diario';
-              } else if (isUnassigned) {
-                tooltipMessage = 'Este empleado no está asignado al cliente de esta fila';
-              } else {
-                tooltipMessage = 'Empleado asignado correctamente';
-              }
-
-              return (
-                <TooltipProvider key={rel.id} delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Badge variant={badgeVariant} className={badgeClassName}>
-                          {employeeName}
-                        </Badge>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{tooltipMessage}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
+              return renderEmployeeBadge(employeeName, rel.employees.id, isDuplicated, isUnassigned, rel.id);
             })}
           </div>
         );

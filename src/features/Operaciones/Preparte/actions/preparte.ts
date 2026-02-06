@@ -646,7 +646,7 @@ export async function updateMultiplePreparteStatus(
     .select();
 
   if (error) {
-    console.error('Error updating multiple preparte status:', error);
+    logger.error('Error updating multiple preparte status', { data: { error } });
     throw error;
   }
 
@@ -691,7 +691,7 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
 }
 
 /**
- * Obtiene el historial de cambios de un preparte.
+ * Obtiene el historial de cambios de un preparte con el nombre del usuario que realizó el cambio.
  */
 export async function getPreparteChangeLogs(preparteId: string) {
   const supabase = await supabaseServer();
@@ -703,11 +703,36 @@ export async function getPreparteChangeLogs(preparteId: string) {
     .order('changed_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching preparte change logs:', error);
+    logger.error('Error fetching preparte change logs', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
 
-  return data || [];
+  if (!data || data.length === 0) return [];
+
+  // Obtener los user IDs únicos para resolver nombres
+  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
+
+  let userMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profile')
+      .select('credential_id, fullname')
+      .in('credential_id', userIds);
+
+    if (profiles) {
+      profiles.forEach((p) => {
+        if (p.credential_id && p.fullname) {
+          userMap.set(p.credential_id, p.fullname);
+        }
+      });
+    }
+  }
+
+  // Enriquecer los logs con el nombre del usuario
+  return data.map((log) => ({
+    ...log,
+    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+  }));
 }
 
 /**
@@ -723,7 +748,7 @@ export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
     .eq('numero_pedido', numeroPedido);
 
   if (prepError) {
-    console.error('Error fetching prepartes by order number:', prepError);
+    logger.error('Error fetching prepartes by order number', { data: { prepError } });
     throw new Error('Error al obtener los prepartes');
   }
 
@@ -740,9 +765,34 @@ export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
     .order('changed_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching preparte change logs by order number:', error);
+    logger.error('Error fetching preparte change logs by order number', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
 
-  return data || [];
+  if (!data || data.length === 0) return [];
+
+  // Obtener los user IDs únicos para resolver nombres
+  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
+
+  let userMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profile')
+      .select('credential_id, fullname')
+      .in('credential_id', userIds);
+
+    if (profiles) {
+      profiles.forEach((p) => {
+        if (p.credential_id && p.fullname) {
+          userMap.set(p.credential_id, p.fullname);
+        }
+      });
+    }
+  }
+
+  // Enriquecer los logs con el nombre del usuario
+  return data.map((log) => ({
+    ...log,
+    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+  }));
 }

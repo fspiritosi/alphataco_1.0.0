@@ -193,6 +193,9 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
       },
     });
     queryClient.invalidateQueries({ queryKey: ['prepartes'] });
+    // Invalidar los logs de cambios para que el detalle muestre datos actualizados
+    queryClient.invalidateQueries({ queryKey: ['preparte-change-logs'] });
+    queryClient.invalidateQueries({ queryKey: ['preparte-change-logs-order'] });
     // Refrescar el Server Component para actualizar las cards de estadísticas
     router.refresh();
   };
@@ -236,7 +239,7 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
           ...formData,
           id: currentItem.id,
           item: firstItem?.id || null,
-          quantity: 1, // Always set quantity to 1
+          quantity: firstItem?.quantity || 1,
           // PP-3: Usar campos del ítem
           jornada: firstItem?.jornada || '',
           tipo: firstItem?.tipo || '',

@@ -1066,7 +1066,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                                       setSelectedItems(updatedItems);
                                       syncFormValue(updatedItems);
                                     }}
-                                    disabled={isEditing}
+                                    disabled={!canEditItem}
                                   >
                                     <SelectTrigger
                                       className={cn(
@@ -1140,7 +1140,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                                       setSelectedItems(updatedItems);
                                       syncFormValue(updatedItems);
                                     }}
-                                    disabled={isEditing}
+                                    disabled={!canEditItem}
                                     className={cn(
                                       'flex flex-row space-x-4',
                                       formErrors.item && !row.tipo && 'p-2 border border-destructive rounded-md'

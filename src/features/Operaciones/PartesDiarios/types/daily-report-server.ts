@@ -161,6 +161,7 @@ export function transformDailyReportsServer(serverData: DailyReportServerData[],
             ...rel.employees,
             name: `${rel.employees?.lastname} ${rel.employees?.firstname}`,
             id: rel.employees?.id || '',
+            role: rel.role as 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null,
           }))
           .filter((emp) => emp.id) || [],
       equipment_references:

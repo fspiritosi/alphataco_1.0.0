@@ -847,6 +847,7 @@ interface EmployeeRelation {
   id: string;
   employee_id: string;
   daily_report_row_id: string;
+  role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
   created_at?: string;
 }
 
@@ -1314,22 +1315,55 @@ export async function createDailyReportEmployeeRelationsWithRoles(
   return data || [];
 }
 
-// Actualizar relaciones de empleados con roles
+// Actualizar relaciones de empleados con roles (smart merge: solo elimina/crea lo necesario)
 export async function updateEmployeeRelationsWithRoles(rowId: string, employeesWithRoles: EmployeeWithRole[]) {
   const supabase = await supabaseServer();
 
   try {
-    // Eliminar todas las relaciones existentes
-    const { error: deleteError } = await supabase
-      .from('dailyreportemployeerelations')
-      .delete()
+    // Obtener relaciones existentes
+    const { data: existingRelations, error: fetchError } = await supabase
+      .from('dailyreportemployeerelations' as any)
+      .select('*')
       .eq('daily_report_row_id', rowId);
 
-    if (deleteError) throw deleteError;
+    if (fetchError) throw fetchError;
 
-    // Crear nuevas relaciones con roles
-    if (employeesWithRoles.length > 0) {
-      await createDailyReportEmployeeRelationsWithRoles(rowId, employeesWithRoles);
+    const currentRelations = (existingRelations || []) as EmployeeRelation[];
+
+    // Crear un mapa de las nuevas relaciones por employee_id+role
+    const newRelationsMap = new Map(employeesWithRoles.map((emp) => [`${emp.employeeId}:${emp.role}`, emp]));
+
+    // Crear un mapa de las relaciones existentes por employee_id+role
+    const existingRelationsMap = new Map(currentRelations.map((rel) => [`${rel.employee_id}:${rel.role || ''}`, rel]));
+
+    // Encontrar relaciones a eliminar (existen en BD pero no en las nuevas)
+    const relationsToDelete = currentRelations.filter((rel) => {
+      const key = `${rel.employee_id}:${rel.role || ''}`;
+      return !newRelationsMap.has(key);
+    });
+
+    // Encontrar relaciones a agregar (están en las nuevas pero no en la BD)
+    const relationsToAdd = employeesWithRoles.filter((emp) => {
+      const key = `${emp.employeeId}:${emp.role}`;
+      return !existingRelationsMap.has(key);
+    });
+
+    // Eliminar solo las relaciones que ya no corresponden
+    if (relationsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('dailyreportemployeerelations' as any)
+        .delete()
+        .in(
+          'id',
+          relationsToDelete.map((r) => r.id)
+        );
+
+      if (deleteError) throw deleteError;
+    }
+
+    // Crear solo las relaciones nuevas
+    if (relationsToAdd.length > 0) {
+      await createDailyReportEmployeeRelationsWithRoles(rowId, relationsToAdd);
     }
   } catch (error) {
     logger.error('Error en updateEmployeeRelationsWithRoles', { data: { error } });

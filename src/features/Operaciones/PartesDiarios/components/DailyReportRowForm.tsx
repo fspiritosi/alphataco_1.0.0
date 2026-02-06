@@ -653,7 +653,7 @@ export function DailyReportForm({
       const workingDay = selectedRow.working_day?.toLowerCase() || '';
       const is12Hours = workingDay === 'jornada 12 horas';
       const is24Hours = workingDay === 'jornada 24 horas';
-      const hasRoleBasedEmployees = is12Hours || is24Hours;
+      const isRoleBasedJornada = is12Hours || is24Hours;
 
       // Cast para incluir el role en el tipo (viene de la BD pero TypeScript no lo infiere)
       type EmployeeRefWithRole = (typeof selectedRow.employees_references)[number] & {
@@ -661,7 +661,16 @@ export function DailyReportForm({
       };
       const employeesWithRole = selectedRow.employees_references as EmployeeRefWithRole[];
 
-      if (hasRoleBasedEmployees) {
+      // Verificar si algún empleado tiene rol asignado
+      const anyEmployeeHasRole = employeesWithRole.some(
+        (emp) =>
+          emp.role === 'chofer_dia' ||
+          emp.role === 'chofer_noche' ||
+          emp.role === 'ayudante_dia' ||
+          emp.role === 'ayudante_noche'
+      );
+
+      if (isRoleBasedJornada && anyEmployeeHasRole) {
         // Setear empleados por rol
         const choferDia = employeesWithRole.find((emp) => emp.role === 'chofer_dia');
         const choferNoche = employeesWithRole.find((emp) => emp.role === 'chofer_noche');
@@ -674,6 +683,7 @@ export function DailyReportForm({
         if (ayudanteNoche?.id) form.setValue('ayudante_noche', ayudanteNoche.id);
       } else {
         // Setear empleados sin rol (forma tradicional)
+        // Esto cubre: jornadas que no son 12/24hr, y retrocompatibilidad (12/24hr sin roles)
         const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
         form.setValue('employees', employeeIds);
       }
@@ -1777,8 +1787,24 @@ export function DailyReportForm({
                   return null;
                 })()}
 
-                {/* Empleados - Selección múltiple (para jornadas que no son 12/24 hrs) */}
-                {!['jornada 12 horas', 'jornada 24 horas'].includes(form.watch('working_day')?.toLowerCase() || '') && (
+                {/* Empleados - Selección múltiple (para jornadas que no son 12/24 hrs, o retrocompatibilidad) */}
+                {(() => {
+                  const workingDayLower = form.watch('working_day')?.toLowerCase() || '';
+                  const isRoleBasedJornada = ['jornada 12 horas', 'jornada 24 horas'].includes(workingDayLower);
+                  // Retrocompatibilidad: mostrar campo legacy si estamos editando y el registro tiene empleados sin roles
+                  const hasLegacyEmployees =
+                    !!selectedRow &&
+                    (selectedRow.employees_references?.length ?? 0) > 0 &&
+                    !selectedRow.employees_references?.some(
+                      (emp: { role?: string | null }) =>
+                        emp.role === 'chofer_dia' ||
+                        emp.role === 'chofer_noche' ||
+                        emp.role === 'ayudante_dia' ||
+                        emp.role === 'ayudante_noche'
+                    );
+                  const showLegacyField = !isRoleBasedJornada || hasLegacyEmployees;
+                  return showLegacyField;
+                })() && (
                   <FormField
                     control={form.control}
                     name="employees"
@@ -1935,7 +1961,7 @@ export function DailyReportForm({
 
                                           return (
                                             <CommandItem
-                                              value={employee.firstname + employee.lastname}
+                                              value={`${employee.lastname} ${employee.firstname}`}
                                               key={employee.id}
                                               onSelect={() => {
                                                 const currentValues = field.value || [];
@@ -1974,6 +2000,22 @@ export function DailyReportForm({
                                                     className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
                                                   >
                                                     No asignado
+                                                  </Badge>
+                                                )}
+                                                {employee.deviation_no_diagram && (
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="ml-1 bg-red-100 text-red-800 border-red-300"
+                                                  >
+                                                    Sin diagrama
+                                                  </Badge>
+                                                )}
+                                                {employee.deviation_non_work_day && (
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="ml-1 bg-yellow-100 text-yellow-800 border-yellow-300"
+                                                  >
+                                                    {employee.current_diagram?.diagram_type?.name || 'No laboral'}
                                                   </Badge>
                                                 )}
                                               </div>
@@ -2016,6 +2058,22 @@ export function DailyReportForm({
                                     className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
                                   >
                                     No asignado
+                                  </Badge>
+                                )}
+                                {employee.deviation_no_diagram && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
+                                  >
+                                    Sin diagrama
+                                  </Badge>
+                                )}
+                                {employee.deviation_non_work_day && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-1 bg-yellow-200 text-yellow-900 border-yellow-400 text-[10px] px-1 py-0"
+                                  >
+                                    {employee.current_diagram?.diagram_type?.name || 'No laboral'}
                                   </Badge>
                                 )}
                                 <button
