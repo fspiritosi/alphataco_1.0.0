@@ -1369,8 +1369,18 @@ export function NormalizedChecklistForm({
                               className={kilometerError ? 'border-destructive' : ''}
                               onChange={(e) => {
                                 field.onChange(e);
-                                // Limpiar error al cambiar el valor
-                                if (kilometerError) {
+                                // Validar que el kilometraje no sea menor al mínimo
+                                const value = e.target.value;
+                                if (value && minKilometer !== null) {
+                                  const enteredKm = parseInt(value, 10);
+                                  if (!isNaN(enteredKm) && enteredKm < minKilometer) {
+                                    setKilometerError(
+                                      `El kilometraje no puede ser menor a ${minKilometer.toLocaleString('es-AR')} km (actual del equipo)`
+                                    );
+                                  } else {
+                                    setKilometerError(null);
+                                  }
+                                } else {
                                   setKilometerError(null);
                                 }
                               }}

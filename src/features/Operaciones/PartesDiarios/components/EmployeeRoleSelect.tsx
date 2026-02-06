@@ -88,7 +88,8 @@ export function EmployeeRoleSelect({
 
               {selectedCustomerId && (
                 <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                  Los empleados marcados en naranja no están asignados al cliente.
+                  Los empleados marcados en naranja no están asignados al cliente. Los marcados en rojo no tienen
+                  diagrama.
                 </div>
               )}
 
@@ -102,10 +103,13 @@ export function EmployeeRoleSelect({
                       );
                       const isDisabled = disabledEmployeeIds.includes(employee.id);
                       const isSelected = field.value === employee.id;
+                      const hasNoDiagram = !!employee.deviation_no_diagram;
+                      const hasNonWorkDay = !!employee.deviation_non_work_day;
+                      const diagramTypeName = employee.current_diagram?.diagram_type?.name || null;
 
                       return (
                         <CommandItem
-                          value={employee.firstname + employee.lastname}
+                          value={`${employee.lastname} ${employee.firstname}`}
                           key={employee.id}
                           disabled={isDisabled && !isSelected}
                           onSelect={() => {
@@ -146,6 +150,22 @@ export function EmployeeRoleSelect({
                                   No asignado
                                 </Badge>
                               )}
+                              {hasNoDiagram && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-2 bg-red-100 text-red-800 border-red-300 text-[10px]"
+                                >
+                                  Sin diagrama
+                                </Badge>
+                              )}
+                              {hasNonWorkDay && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]"
+                                >
+                                  {diagramTypeName || 'No laboral'}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </CommandItem>
@@ -174,6 +194,19 @@ export function EmployeeRoleSelect({
               <X className="h-3 w-3 text-red-500" />
             </button>
           </div>
+          {selectedEmployee.deviation_no_diagram && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-red-400 bg-red-50 text-red-700">
+              Sin diagrama
+            </Badge>
+          )}
+          {selectedEmployee.deviation_non_work_day && (
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0.5 border-yellow-400 bg-yellow-50 text-yellow-700"
+            >
+              {selectedEmployee.current_diagram?.diagram_type?.name || 'No laboral'}
+            </Badge>
+          )}
         </div>
       )}
       <FormMessage />

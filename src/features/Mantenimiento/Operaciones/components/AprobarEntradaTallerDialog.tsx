@@ -25,12 +25,27 @@ interface AprobarEntradaTallerDialogProps {
 }
 
 export function AprobarEntradaTallerDialog({ operation, open, onClose }: AprobarEntradaTallerDialogProps) {
-  const [kilometer, setKilometer] = useState(operation.vehicles?.kilometer || '');
+  const [kilometer, setKilometer] = useState(operation.vehicles?.kilometer?.toString() || '');
   const approveMutation = useApproveWorkshopEntry();
+
+  // Valor mínimo permitido (kilometraje actual del vehículo)
+  const currentKm = Number(operation.vehicles?.kilometer) || 0;
 
   const handleApprove = async () => {
     if (!kilometer.trim()) {
       toast.error('Debe ingresar el kilometraje actual');
+      return;
+    }
+
+    const inputKm = Number(kilometer.trim());
+    if (isNaN(inputKm) || inputKm < 0) {
+      toast.error('El kilometraje debe ser un número válido mayor o igual a 0');
+      return;
+    }
+
+    // Validar que el kilometraje no sea menor al actual del equipo
+    if (currentKm > 0 && inputKm < currentKm) {
+      toast.error(`El kilometraje no puede ser menor al actual del equipo (${currentKm.toLocaleString('es-AR')} km)`);
       return;
     }
 
@@ -101,13 +116,19 @@ export function AprobarEntradaTallerDialog({ operation, open, onClose }: Aprobar
             <Label htmlFor="kilometer">Kilometraje actual del equipo *</Label>
             <Input
               id="kilometer"
-              type="text"
+              type="number"
+              min={currentKm > 0 ? currentKm : 0}
               value={kilometer}
               onChange={(e) => setKilometer(e.target.value)}
               placeholder="Ej: 150000"
             />
             <p className="text-xs text-muted-foreground">
               Ingrese el kilometraje actual al momento de la entrada al taller
+              {currentKm > 0 && (
+                <span className="block mt-1 text-yellow-600">
+                  Mínimo permitido: {currentKm.toLocaleString('es-AR')} km (actual del equipo)
+                </span>
+              )}
             </p>
           </div>
         </div>

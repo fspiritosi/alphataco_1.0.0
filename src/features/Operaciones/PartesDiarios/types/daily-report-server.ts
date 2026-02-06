@@ -94,7 +94,12 @@ export interface DailyReportRowServer {
   description: string | null;
   document_path: string | null;
   remit_number: string | null;
-  employees_references: Array<EmployeeReference & { name: string }>;
+  employees_references: Array<
+    EmployeeReference & {
+      name: string;
+      role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
+    }
+  >;
   equipment_references: Array<EquipmentReference & { name: string }>;
   data_to_clone: {
     customer_id: string | null;
@@ -156,6 +161,7 @@ export function transformDailyReportsServer(serverData: DailyReportServerData[],
             ...rel.employees,
             name: `${rel.employees?.lastname} ${rel.employees?.firstname}`,
             id: rel.employees?.id || '',
+            role: rel.role as 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null,
           }))
           .filter((emp) => emp.id) || [],
       equipment_references:

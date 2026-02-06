@@ -1,35 +1,30 @@
 'use client';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { CardContent } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getServicesDetailByClient } from '@/features/Operaciones/PartesDiarios/actions/actions';
-import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { CalendarIcon } from 'lucide-react';
+import moment from 'moment';
+import 'moment/locale/es';
+import { useState } from 'react';
 
 export function ServicesDetailByClient() {
-  // const servicesDetail = use(getServicesDetailByClient());
-  const [servicesDetail, setServicesDetail] = useState<Awaited<ReturnType<typeof getServicesDetailByClient>> | null>(
-    []
-  );
-  const [isLoading, setIsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  const fetchServicesDetail = async () => {
-    try {
-      setIsLoading(true);
-      const data = await getServicesDetailByClient();
-      setServicesDetail(data);
-    } catch (error) {
-      console.error('Error fetching services detail:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const dateString = moment(selectedDate).format('YYYY-MM-DD');
 
-  useEffect(() => {
-    fetchServicesDetail();
-  }, []);
+  const { data: servicesDetail, isLoading } = useQuery({
+    queryKey: ['services-detail-by-client', dateString],
+    queryFn: () => getServicesDetailByClient(dateString),
+  });
 
-  // Función para formatear los estados
   const formatStatus = (status: string) => {
     return status
       .split('_')
@@ -37,49 +32,66 @@ export function ServicesDetailByClient() {
       .join(' ');
   };
 
-  const totalMensual = servicesDetail?.reduce((sum, client) => sum + client.mensual_count, 0);
-  const totalAdicional = servicesDetail?.reduce((sum, client) => sum + client.adicional_count, 0);
-  const grandTotal = (totalMensual || 0) + (totalAdicional || 0);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {/* Skeleton para la tabla principal */}
-        <div>
-          <CardContent>
-            <div className="space-y-3">
-              {/* Skeleton para el header de la tabla */}
-              <div className="grid grid-cols-5 gap-4 pb-2 border-b">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-20 mx-auto" />
-                <Skeleton className="h-4 w-20 mx-auto" />
-                <Skeleton className="h-4 w-12 mx-auto" />
-                <Skeleton className="h-4 w-16 mx-auto" />
-              </div>
-              {/* Skeleton para las filas */}
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="grid grid-cols-5 gap-4 py-3">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-6 w-8 mx-auto rounded-full" />
-                  <Skeleton className="h-6 w-8 mx-auto rounded-full" />
-                  <Skeleton className="h-6 w-8 mx-auto rounded-full" />
-                  <div className="flex gap-1 justify-center">
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </div>
-      </div>
-    );
-  }
+  const totalMensual = servicesDetail?.reduce((sum, client) => sum + client.mensual_count, 0) || 0;
+  const totalAdicional = servicesDetail?.reduce((sum, client) => sum + client.adicional_count, 0) || 0;
+  const grandTotal = totalMensual + totalAdicional;
 
   return (
     <div className="space-y-4">
+      {/* Date Picker */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-muted-foreground">Fecha:</span>
+        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn('w-[220px] justify-start text-left font-normal', !selectedDate && 'text-muted-foreground')}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {moment(selectedDate).locale('es').format('DD [de] MMMM [de] YYYY')}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => {
+                if (date) {
+                  setSelectedDate(date);
+                  setIsCalendarOpen(false);
+                }
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
       {/* Tabla principal por cliente */}
-      <div>
+      {isLoading ? (
+        <CardContent>
+          <div className="space-y-3">
+            <div className="grid grid-cols-5 gap-4 pb-2 border-b">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-4 w-20 mx-auto" />
+              <Skeleton className="h-4 w-20 mx-auto" />
+              <Skeleton className="h-4 w-12 mx-auto" />
+              <Skeleton className="h-4 w-16 mx-auto" />
+            </div>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="grid grid-cols-5 gap-4 py-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-6 w-8 mx-auto rounded-full" />
+                <Skeleton className="h-6 w-8 mx-auto rounded-full" />
+                <Skeleton className="h-6 w-8 mx-auto rounded-full" />
+                <div className="flex gap-1 justify-center">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      ) : (
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
@@ -129,7 +141,7 @@ export function ServicesDetailByClient() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No hay datos disponibles
+                      No hay datos disponibles para esta fecha
                     </TableCell>
                   </TableRow>
                 )}
@@ -159,7 +171,7 @@ export function ServicesDetailByClient() {
             </Table>
           </div>
         </CardContent>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,10 @@
 'use server';
 
-import { supabaseServer } from '@/lib/supabase/server';
+import { Logger } from '@/lib/logger';
+import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
 // import { cookies } from 'next/headers';
+
+const logger = new Logger('preparte-actions');
 
 export type Preparte = {
   id?: string;
@@ -162,6 +165,7 @@ export async function createPreparte(
       areas_service_id: item.areas_service_id || null,
       equipos_cliente: item.equipos_cliente || null,
       preparteImage: (item as any).preparteImage || null,
+      subject_to_availability: item.subject_to_availability ?? false,
     }));
 
     const { data, error } = await supabase
@@ -191,6 +195,9 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
   };
   // Nunca enviar columnas que no existen en la tabla
   if ('image_url' in payload) delete payload.image_url;
+  // Campos del formulario que no van a la tabla preparte
+  if ('item_change_reason' in payload) delete payload.item_change_reason;
+  if ('original_item_id' in payload) delete payload.original_item_id;
 
   // Equipos: solo si la clave está presente
   if ('equipos_cliente' in preparteData) {
@@ -639,7 +646,7 @@ export async function updateMultiplePreparteStatus(
     .select();
 
   if (error) {
-    console.error('Error updating multiple preparte status:', error);
+    logger.error('Error updating multiple preparte status', { data: { error } });
     throw error;
   }
 
@@ -649,16 +656,19 @@ export async function updateMultiplePreparteStatus(
 /**
  * Registra un cambio en el log de cambios de preparte.
  * Diseñado para ser genérico y soportar cambios de cualquier campo.
+ * Usa adminSupabaseServer para bypasear RLS ya que es un log de auditoría.
  */
 export async function logPreparteChange(changeLog: PreparteChangeLog) {
+  // Obtener el usuario actual con el cliente normal
   const supabase = await supabaseServer();
-
-  // Obtener el usuario actual
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
+  // Usar admin client para el insert (bypasea RLS)
+  const adminSupabase = await adminSupabaseServer();
+
+  const { data, error } = await adminSupabase
     .from('preparte_change_logs')
     .insert({
       preparte_id: changeLog.preparte_id,
@@ -673,7 +683,7 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
     .single();
 
   if (error) {
-    console.error('Error logging preparte change:', error);
+    logger.error('Error logging preparte change', { data: { error } });
     throw new Error('Error al registrar el cambio en el historial');
   }
 
@@ -681,7 +691,7 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
 }
 
 /**
- * Obtiene el historial de cambios de un preparte.
+ * Obtiene el historial de cambios de un preparte con el nombre del usuario que realizó el cambio.
  */
 export async function getPreparteChangeLogs(preparteId: string) {
   const supabase = await supabaseServer();
@@ -693,11 +703,36 @@ export async function getPreparteChangeLogs(preparteId: string) {
     .order('changed_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching preparte change logs:', error);
+    logger.error('Error fetching preparte change logs', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
 
-  return data || [];
+  if (!data || data.length === 0) return [];
+
+  // Obtener los user IDs únicos para resolver nombres
+  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
+
+  let userMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profile')
+      .select('credential_id, fullname')
+      .in('credential_id', userIds);
+
+    if (profiles) {
+      profiles.forEach((p) => {
+        if (p.credential_id && p.fullname) {
+          userMap.set(p.credential_id, p.fullname);
+        }
+      });
+    }
+  }
+
+  // Enriquecer los logs con el nombre del usuario
+  return data.map((log) => ({
+    ...log,
+    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+  }));
 }
 
 /**
@@ -713,7 +748,7 @@ export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
     .eq('numero_pedido', numeroPedido);
 
   if (prepError) {
-    console.error('Error fetching prepartes by order number:', prepError);
+    logger.error('Error fetching prepartes by order number', { data: { prepError } });
     throw new Error('Error al obtener los prepartes');
   }
 
@@ -730,9 +765,34 @@ export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
     .order('changed_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching preparte change logs by order number:', error);
+    logger.error('Error fetching preparte change logs by order number', { data: { error } });
     throw new Error('Error al obtener el historial de cambios');
   }
 
-  return data || [];
+  if (!data || data.length === 0) return [];
+
+  // Obtener los user IDs únicos para resolver nombres
+  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
+
+  let userMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profile')
+      .select('credential_id, fullname')
+      .in('credential_id', userIds);
+
+    if (profiles) {
+      profiles.forEach((p) => {
+        if (p.credential_id && p.fullname) {
+          userMap.set(p.credential_id, p.fullname);
+        }
+      });
+    }
+  }
+
+  // Enriquecer los logs con el nombre del usuario
+  return data.map((log) => ({
+    ...log,
+    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+  }));
 }

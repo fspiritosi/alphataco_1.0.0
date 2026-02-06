@@ -72,7 +72,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 
 | Regla                                       | Archivo                             | Aplicacion                                        |
 | ------------------------------------------- | ----------------------------------- | ------------------------------------------------- |
-| NO `:any` - Inferir tipos                   | @.claude/rules/typescript-types.md  | Siempre al escribir codigo TypeScript             |
+| NO `:any ni as any` - Inferir tipos         | @.claude/rules/typescript-types.md  | Siempre al escribir codigo TypeScript             |
 | Server Actions (ubicacion, formato)         | @.claude/rules/server-actions.md    | Al crear/modificar server actions                 |
 | Logger vs console.\* (REEMPLAZO AUTOMATICO) | @.claude/rules/logger.md            | Siempre - reemplazar console.\* cuando se detecte |
 | React Query obligatorio                     | @.claude/rules/react-query.md       | Fetching en componentes cliente                   |
@@ -104,7 +104,21 @@ moment(date1).isBefore(date2);
 
 **NO** crear archivos markdown (.md) a menos que se solicite explicitamente.
 
-### 3. Queries Eficientes
+### 3. NUNCA Co-Authored-By en Commits
+
+**ESTRICTAMENTE PROHIBIDO** agregar `Co-Authored-By` en los mensajes de commit. JAMAS incluir referencias a IA, Claude, o cualquier co-autor automatico en los commits.
+
+```bash
+# ❌ PROHIBIDO - NUNCA hacer esto
+git commit -m "feat: something
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# ✅ CORRECTO - Solo el mensaje del commit
+git commit -m "feat: something"
+```
+
+### 4. Queries Eficientes
 
 Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 
