@@ -22,13 +22,13 @@ export function useFormData(reportDate: string) {
   const equipmentsQuery = useQuery({
     queryKey: ['daily-report-form-equipments'],
     queryFn: () => getActiveEquipmentsForDailyReport(),
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   const customersQuery = useQuery({
     queryKey: ['daily-report-form-customers'],
     queryFn: () => getCustomers(),
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
 
   return {

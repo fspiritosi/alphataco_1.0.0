@@ -86,7 +86,7 @@ export default function DayliReportDetailTableServer({
   } = useValidationData(dailyReportId, reportDate);
 
   // Hook para datos del formulario (empleados completos, equipos, clientes)
-  const { employees, equipments, customers } = useFormData(reportDate);
+  const { employees, equipments, customers, isLoading: isLoadingFormData } = useFormData(reportDate);
 
   // Función para refrescar los datos usando el nuevo sistema de queries
   const refetchDailyReport = useCallback(async () => {
@@ -97,19 +97,15 @@ export default function DayliReportDetailTableServer({
   const handleEditRow = useCallback(
     (row: DailyReportServerData) => {
       // Formatear la fila directamente usando la función utilitaria
-      // Usar 'as any' para compatibilidad de tipos entre diferentes fuentes de datos
       const transformedRow = formatDailyReportRow(row as any, reportDate);
 
-      // Buscar el cliente completo para los filtros
-      const customer = customers?.find((c) => c.id === transformedRow.data_to_clone?.customer_id);
-
-      // Abrir modal con el store (esto procesa todo de una vez)
-      useDailyReportFormStore.getState().openModalWithRow(transformedRow, customer || null);
+      // Abrir modal con el store (el customer se resolverá en el form cuando customers cargue)
+      useDailyReportFormStore.getState().openModalWithRow(transformedRow);
 
       // Abrir el modal físicamente
       document.getElementById('open-button-daily-report')?.click();
     },
-    [reportDate, customers]
+    [reportDate]
   );
 
   // Transformar datos al formato esperado por DailyReportForm y ClonarRegistrosButton
@@ -991,6 +987,7 @@ export default function DayliReportDetailTableServer({
             customers={customers}
             employees={employees}
             equipments={equipments}
+            isLoadingFormData={isLoadingFormData}
             dailyReport={dailyReport}
             formattedData={formattedData}
             refetchDailyReport={refetchDailyReport}
