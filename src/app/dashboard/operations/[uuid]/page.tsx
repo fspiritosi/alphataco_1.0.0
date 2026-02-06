@@ -6,6 +6,7 @@ import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { FileText } from 'lucide-react';
 import moment from 'moment';
+import { SmtpTest } from './SmtpTest';
 
 async function page({
   params,
@@ -58,6 +59,9 @@ async function page({
           ]}
         />
       </Card>
+
+      {/* TODO: BORRAR - Test temporal SMTP */}
+      <SmtpTest />
     </div>
   );
 }

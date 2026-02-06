@@ -7,7 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
-import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
@@ -16,18 +15,15 @@ import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { Edit, Info, Loader2 } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  getActiveEquipmentsForDailyReport,
-  getAllActiveEmployeesForDailyReport,
-  getCustomers,
-  getDailyReportById,
-} from '../actions/actions';
+import { getDailyReportById } from '../actions/actions';
 import { fetchAllDailyReportData } from '../actions/server-actions';
 import {
   DailyReportRowCombined,
   useDailyReportDetailData,
   useInvalidateDailyReportDetail,
 } from '../hooks/useDailyReportDetailData';
+import { useFormData } from '../hooks/useFormData';
+import { useValidationData } from '../hooks/useValidationData';
 import { formatDailyReportData, formatDailyReportRow } from '../utils/formatDailyReportData';
 import { BulkEditModal } from './BulkEditModal';
 import { ClonarRegistrosButton } from './ClonarRegistrosButton';
@@ -82,15 +78,15 @@ export default function DayliReportDetailTableServer({
   // Estado para datos transformados (para DailyReportForm y ClonarRegistrosButton)
   const [formattedData, setFormattedData] = useState<any[]>([]);
 
-  // Estado para empleados, equipos y clientes (carga asíncrona para validaciones y formulario)
-  const [employees, setEmployees] = useState<
-    Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>> | undefined
-  >();
-  const [equipments, setEquipments] = useState<
-    Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>> | undefined
-  >();
-  const [customers, setCustomers] = useState<Awaited<ReturnType<typeof getCustomers>> | undefined>();
-  const [loadingValidations, setLoadingValidations] = useState(true);
+  // Hook de validacion via RPC: una sola query SQL devuelve todos los desvíos
+  const {
+    isLoading: loadingValidations,
+    getEmployeeDeviation,
+    getEquipmentDeviation,
+  } = useValidationData(dailyReportId, reportDate);
+
+  // Hook para datos del formulario (empleados completos, equipos, clientes)
+  const { employees, equipments, customers } = useFormData(reportDate);
 
   // Función para refrescar los datos usando el nuevo sistema de queries
   const refetchDailyReport = useCallback(async () => {
@@ -115,28 +111,6 @@ export default function DayliReportDetailTableServer({
     },
     [reportDate, customers]
   );
-
-  // Cargar empleados, equipos y clientes de forma asíncrona en el cliente
-  useEffect(() => {
-    const loadValidationData = async () => {
-      try {
-        const [employeesData, equipmentsData, customersData] = await Promise.all([
-          getAllActiveEmployeesForDailyReport(reportDate), // Pasar fecha del reporte para verificar diagrama
-          getActiveEquipmentsForDailyReport(),
-          getCustomers(),
-        ]);
-        setEmployees(employeesData);
-        setEquipments(equipmentsData);
-        setCustomers(customersData);
-      } catch (error) {
-        logger.error('Error loading validation data', { data: { error } });
-      } finally {
-        setLoadingValidations(false);
-      }
-    };
-
-    loadValidationData();
-  }, [reportDate]);
 
   // Transformar datos al formato esperado por DailyReportForm y ClonarRegistrosButton
   useEffect(() => {
@@ -233,148 +207,31 @@ export default function DayliReportDetailTableServer({
     return transformed;
   };
 
-  // Función auxiliar para detectar empleados duplicados
-  const getDuplicatedEmployees = (data: DailyReportServerData[]): Set<string> => {
-    const employeeCounts = new Map<string, number>();
-
-    data.forEach((row) => {
-      row.dailyreportemployeerelations?.forEach((rel) => {
-        const employeeName = `${rel.employees?.lastname} ${rel.employees?.firstname}`;
-        if (employeeName.trim()) {
-          employeeCounts.set(employeeName, (employeeCounts.get(employeeName) || 0) + 1);
-        }
-      });
-    });
-
-    return new Set(
-      Array.from(employeeCounts.entries())
-        .filter(([_, count]) => count > 1)
-        .map(([employee, _]) => employee)
-    );
-  };
-
-  // Función auxiliar para detectar equipos duplicados
-  const getDuplicatedEquipments = (data: DailyReportServerData[]): Set<string> => {
-    const equipmentCounts = new Map<string, number>();
-
-    data.forEach((row) => {
-      row.dailyreportequipmentrelations?.forEach((rel) => {
-        const equipmentName = rel.vehicles?.domain || rel.vehicles?.intern_number || '';
-        if (equipmentName.trim()) {
-          equipmentCounts.set(equipmentName, (equipmentCounts.get(equipmentName) || 0) + 1);
-        }
-      });
-    });
-
-    return new Set(
-      Array.from(equipmentCounts.entries())
-        .filter(([_, count]) => count > 1)
-        .map(([equipment, _]) => equipment)
-    );
-  };
-
-  // Función auxiliar para detectar empleados no asignados al cliente
-  const getUnassignedEmployees = (
-    data: DailyReportServerData[],
-    employees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>
-  ): Map<string, string> => {
-    const unassignedMap = new Map<string, string>();
-
-    if (!employees) return unassignedMap;
-
-    data.forEach((row) => {
-      const customerId = row.customer_id;
-      if (!customerId) return;
-
-      row.dailyreportemployeerelations?.forEach((rel) => {
-        if (!rel.employees?.id) return;
-
-        const employee = employees.find((emp: { id: string }) => emp.id === rel.employees!.id);
-        if (!employee) return;
-
-        const isAssigned = employee.contractor_employee?.some((ce) => ce.customers?.id === customerId);
-
-        if (!isAssigned) {
-          const employeeName = `${employee.lastname} ${employee.firstname}`;
-          unassignedMap.set(employeeName, customerId);
-        }
-      });
-    });
-
-    return unassignedMap;
-  };
-
-  // Función auxiliar para detectar equipos no asignados al cliente
-  const getUnassignedEquipments = (
-    data: DailyReportServerData[],
-    equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>
-  ): Map<string, string> => {
-    const unassignedMap = new Map<string, string>();
-
-    if (!equipments) return unassignedMap;
-
-    data.forEach((row) => {
-      const customerId = row.customer_id;
-      if (!customerId) return;
-
-      row.dailyreportequipmentrelations?.forEach((rel) => {
-        if (!rel.vehicles?.id) return;
-
-        const equipment = equipments.find((eq) => eq.id === rel.vehicles!.id);
-        if (!equipment) return;
-
-        const isAssigned = equipment.contractor_equipment?.some((ce) => ce.customers?.id === customerId);
-
-        if (!isAssigned) {
-          const equipmentName = equipment.domain || equipment.intern_number || '';
-          unassignedMap.set(equipmentName, customerId);
-        }
-      });
-    });
-
-    return unassignedMap;
-  };
-
-  // Función auxiliar para obtener desvíos de diagrama de un empleado por ID
-  const getEmployeeDiagramDeviation = (
-    employeeId: string,
-    allEmployees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>
-  ): { hasNoDiagram: boolean; hasNonWorkDay: boolean; diagramTypeName: string | null } => {
-    if (!allEmployees) return { hasNoDiagram: false, hasNonWorkDay: false, diagramTypeName: null };
-
-    const emp = allEmployees.find((e) => e.id === employeeId);
-    if (!emp) return { hasNoDiagram: false, hasNonWorkDay: false, diagramTypeName: null };
-
-    return {
-      hasNoDiagram: !!emp.deviation_no_diagram,
-      hasNonWorkDay: !!emp.deviation_non_work_day,
-      diagramTypeName: emp.current_diagram?.diagram_type?.name || null,
-    };
-  };
-
-  // Función reutilizable para renderizar un badge de empleado con múltiples desvíos
+  // Función reutilizable para renderizar un badge de empleado con desvíos de la RPC
   const renderEmployeeBadge = (
     employeeName: string,
     employeeId: string | undefined,
-    isDuplicated: boolean,
-    isUnassigned: boolean,
+    rowId: string,
     key?: string | number
   ) => {
-    const diagramDeviation = employeeId
-      ? getEmployeeDiagramDeviation(employeeId, employees)
-      : { hasNoDiagram: false, hasNonWorkDay: false, diagramTypeName: null };
+    const deviation = employeeId ? getEmployeeDeviation(employeeId, rowId) : null;
 
-    // Determinar estilo principal del badge del nombre
+    const isDuplicated = deviation?.is_duplicated ?? false;
+    const isUnassigned = deviation?.is_unassigned_to_client ?? false;
+    const hasNoDiagram = deviation?.has_no_diagram ?? false;
+    const hasNonWorkDay = deviation?.is_non_work_day ?? false;
+    const diagramTypeName = deviation?.diagram_type_name ?? null;
+
+    // Determinar estilo principal del badge
     let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
     let badgeClassName = 'select-none text-nowrap';
 
-    // Detectar si tiene ambos desvíos: sin diagrama Y no asignado al cliente
-    const hasBothDeviations = isUnassigned && diagramDeviation.hasNoDiagram;
+    const hasBothDeviations = isUnassigned && hasNoDiagram;
 
     if (loadingValidations) {
       badgeVariant = 'secondary';
       badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
-    } else if (isDuplicated || isUnassigned || diagramDeviation.hasNoDiagram || diagramDeviation.hasNonWorkDay) {
+    } else if (isDuplicated || isUnassigned || hasNoDiagram || hasNonWorkDay) {
       badgeVariant = 'outline';
       // Prioridad visual: duplicado > ambos desvíos (violeta) > no asignado > sin diagrama > día no laboral
       if (isDuplicated) {
@@ -392,7 +249,7 @@ export default function DayliReportDetailTableServer({
           badgeClassName,
           'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
         );
-      } else if (diagramDeviation.hasNoDiagram) {
+      } else if (hasNoDiagram) {
         badgeClassName = cn(
           badgeClassName,
           'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-400'
@@ -414,9 +271,8 @@ export default function DayliReportDetailTableServer({
     } else {
       if (isDuplicated) tooltipMessages.push('Empleado asignado en múltiples filas');
       if (isUnassigned) tooltipMessages.push('No asignado al cliente de esta fila');
-      if (diagramDeviation.hasNoDiagram) tooltipMessages.push('Sin diagrama cargado para este día');
-      if (diagramDeviation.hasNonWorkDay)
-        tooltipMessages.push(`Día no laboral: ${diagramDeviation.diagramTypeName || 'No laboral'}`);
+      if (hasNoDiagram) tooltipMessages.push('Sin diagrama cargado para este día');
+      if (hasNonWorkDay) tooltipMessages.push(`Día no laboral: ${diagramTypeName || 'No laboral'}`);
       if (tooltipMessages.length === 0) tooltipMessages.push('Empleado asignado correctamente');
     }
 
@@ -621,7 +477,7 @@ export default function DayliReportDetailTableServer({
         const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
         return nameA.localeCompare(nameB);
       },
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         const workingDay = row.original.working_day?.toLowerCase() || '';
         const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
         if (!is12or24) return <span className="text-muted-foreground">-</span>;
@@ -637,11 +493,7 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-        const allData = table.getRowModel().rows.map((r) => r.original);
-        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
-        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
-
-        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
+        return renderEmployeeBadge(employeeName, employee.id, row.original.id);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'chofer_dia')?.employees;
@@ -659,7 +511,7 @@ export default function DayliReportDetailTableServer({
         const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
         return nameA.localeCompare(nameB);
       },
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         const workingDay = row.original.working_day?.toLowerCase() || '';
         const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
         if (!is12or24) return <span className="text-muted-foreground">-</span>;
@@ -675,11 +527,7 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-        const allData = table.getRowModel().rows.map((r) => r.original);
-        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
-        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
-
-        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
+        return renderEmployeeBadge(employeeName, employee.id, row.original.id);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_dia')?.employees;
@@ -697,7 +545,7 @@ export default function DayliReportDetailTableServer({
         const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
         return nameA.localeCompare(nameB);
       },
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         const workingDay = row.original.working_day?.toLowerCase() || '';
         const is24 = workingDay === 'jornada 24 horas';
         if (!is24) return <span className="text-muted-foreground">-</span>;
@@ -713,11 +561,7 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-        const allData = table.getRowModel().rows.map((r) => r.original);
-        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
-        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
-
-        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
+        return renderEmployeeBadge(employeeName, employee.id, row.original.id);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'chofer_noche')?.employees;
@@ -735,7 +579,7 @@ export default function DayliReportDetailTableServer({
         const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
         return nameA.localeCompare(nameB);
       },
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         const workingDay = row.original.working_day?.toLowerCase() || '';
         const is24 = workingDay === 'jornada 24 horas';
         if (!is24) return <span className="text-muted-foreground">-</span>;
@@ -751,11 +595,7 @@ export default function DayliReportDetailTableServer({
 
         const employee = employeeRel.employees;
         const employeeName = `${employee.lastname} ${employee.firstname}`;
-        const allData = table.getRowModel().rows.map((r) => r.original);
-        const isDuplicated = getDuplicatedEmployees(allData).has(employeeName);
-        const isUnassigned = employees ? getUnassignedEmployees(allData, employees).has(employeeName) : false;
-
-        return renderEmployeeBadge(employeeName, employee.id, isDuplicated, isUnassigned);
+        return renderEmployeeBadge(employeeName, employee.id, row.original.id);
       },
       exportFormatter: (value, row) => {
         const emp = row.dailyreportemployeerelations?.find((r) => r.role === 'ayudante_noche')?.employees;
@@ -774,7 +614,7 @@ export default function DayliReportDetailTableServer({
         const nameB = empB ? `${empB.lastname} ${empB.firstname}` : '';
         return nameA.localeCompare(nameB);
       },
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         // Mostrar skeleton mientras cargan los empleados
         if (isLoadingEmployees && !row.original.dailyreportemployeerelations) {
           return (
@@ -786,9 +626,6 @@ export default function DayliReportDetailTableServer({
         }
 
         const employeeRelations = row.original.dailyreportemployeerelations || [];
-        const allData = table.getRowModel().rows.map((r) => r.original);
-        const duplicatedEmployees = getDuplicatedEmployees(allData);
-        const unassignedEmployees = employees ? getUnassignedEmployees(allData, employees) : new Map();
 
         return (
           <div className="flex flex-wrap gap-1">
@@ -797,10 +634,7 @@ export default function DayliReportDetailTableServer({
               const employeeName = `${rel.employees.lastname} ${rel.employees.firstname}`;
               if (!employeeName.trim()) return null;
 
-              const isDuplicated = duplicatedEmployees.has(employeeName);
-              const isUnassigned = unassignedEmployees.has(employeeName);
-
-              return renderEmployeeBadge(employeeName, rel.employees.id, isDuplicated, isUnassigned, rel.id);
+              return renderEmployeeBadge(employeeName, rel.employees.id, row.original.id, rel.id);
             })}
           </div>
         );
@@ -832,7 +666,7 @@ export default function DayliReportDetailTableServer({
         const nameB = eqB ? eqB.domain || eqB.intern_number || '' : '';
         return nameA.localeCompare(nameB);
       },
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         // Mostrar skeleton mientras cargan los equipos
         if (isLoadingEquipment && !row.original.dailyreportequipmentrelations) {
           return (
@@ -843,9 +677,6 @@ export default function DayliReportDetailTableServer({
         }
 
         const equipmentRelations = row.original.dailyreportequipmentrelations || [];
-        const allData = table.getRowModel().rows.map((r) => r.original);
-        const duplicatedEquipments = getDuplicatedEquipments(allData);
-        const unassignedEquipments = equipments ? getUnassignedEquipments(allData, equipments) : new Map();
 
         return (
           <div className="flex flex-wrap gap-1">
@@ -854,13 +685,26 @@ export default function DayliReportDetailTableServer({
               const equipmentName = rel.vehicles.domain || rel.vehicles.intern_number || '';
               if (!equipmentName.trim()) return null;
 
-              const isDuplicated = duplicatedEquipments.has(equipmentName);
-              const isUnassigned = unassignedEquipments.has(equipmentName);
+              // Obtener desvíos desde la RPC
+              const deviation = rel.vehicles.id ? getEquipmentDeviation(rel.vehicles.id, row.original.id) : null;
 
+              const isDuplicated = deviation?.is_duplicated ?? false;
+              const isUnassigned = deviation?.is_unassigned_to_client ?? false;
+              const condition = deviation?.condition || rel.vehicles?.condition || 'operativo';
+              const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+              const isNonStandardCondition = condition !== 'operativo';
+
+              const conditionLabels: Record<string, string> = {
+                'no operativo': 'No operativo',
+                'en reparacion': 'En reparación',
+                'operativo condicionado': 'Condicionado',
+                'en preparacion': 'En preparación',
+              };
+
+              // Color del badge - Prioridad: loading > duplicado > condición crítica > no asignado > condición info > normal
               let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
               let badgeClassName = 'select-none text-nowrap';
 
-              // Mientras cargan las validaciones, mostrar en gris (efecto deshabilitado)
               if (loadingValidations) {
                 badgeVariant = 'secondary';
                 badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
@@ -870,29 +714,54 @@ export default function DayliReportDetailTableServer({
                   badgeClassName,
                   'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
                 );
+              } else if (condition === 'no operativo') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-400'
+                );
+              } else if (condition === 'en reparacion') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-yellow-500 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-400'
+                );
               } else if (isUnassigned) {
                 badgeVariant = 'outline';
                 badgeClassName = cn(
                   badgeClassName,
                   'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
                 );
+              } else if (condition === 'operativo condicionado') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-400'
+                );
+              } else if (condition === 'en preparacion') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-gray-400 bg-gray-50 text-gray-600 dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-500'
+                );
               } else {
                 badgeClassName = cn(badgeClassName, 'dark:text-black');
               }
 
-              let tooltipMessage = '';
+              // Tooltip
+              const tooltipMessages: string[] = [];
               if (loadingValidations) {
-                tooltipMessage = 'Validando asignaciones...';
-              } else if (isDuplicated) {
-                tooltipMessage = 'Este equipo está asignado en múltiples filas del parte diario';
-              } else if (isUnassigned) {
-                tooltipMessage = 'Este equipo no está asignado al cliente de esta fila';
+                tooltipMessages.push('Validando asignaciones...');
               } else {
-                tooltipMessage = 'Equipo asignado correctamente';
+                if (hasConditionIssue) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+                else if (isNonStandardCondition) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+                if (isDuplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
+                if (isUnassigned) tooltipMessages.push('No asignado al cliente de esta fila');
+                if (tooltipMessages.length === 0) tooltipMessages.push('Equipo asignado correctamente');
               }
 
               return (
-                <TooltipProvider key={rel.id}>
+                <TooltipProvider key={rel.id} delayDuration={300}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge variant={badgeVariant} className={badgeClassName}>
@@ -900,7 +769,9 @@ export default function DayliReportDetailTableServer({
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{tooltipMessage}</p>
+                      {tooltipMessages.map((msg, i) => (
+                        <p key={i}>{msg}</p>
+                      ))}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -1129,7 +1000,7 @@ export default function DayliReportDetailTableServer({
         <PermissionGuard module="operaciones" tab="detalle-parte-diario" action="create">
           <ClonarRegistrosButton
             formattedData={formattedData}
-            selectedRows={selectedRows as any}
+            selectedRows={formattedData.filter((row) => selectedRows.some((sr) => sr.id === row.id))}
             fetchAllFormattedData={fetchAllFormattedData}
           />
         </PermissionGuard>

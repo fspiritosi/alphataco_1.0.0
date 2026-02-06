@@ -842,6 +842,153 @@ export async function getActiveEquipmentsForDailyReport() {
   return data || [];
 }
 
+/**
+ * Obtiene datos de validacion SOLO para los recursos asignados a un parte diario.
+ * Query liviana: solo trae los campos necesarios para validar desvios.
+ * - Empleados: contractor_employee (afectacion) + diagrama (dia laboral)
+ * - Equipos: contractor_equipment (afectacion) + condition
+ */
+export async function getResourceValidationData(employeeIds: string[], equipmentIds: string[], reportDate: string) {
+  const supabase = await supabaseServer();
+
+  const dateToCheck = new Date(reportDate);
+  const day = dateToCheck.getDate();
+  const month = dateToCheck.getMonth() + 1;
+  const year = dateToCheck.getFullYear();
+
+  // 3 queries en PARALELO
+  const [employeesResult, diagramsResult, equipmentResult] = await Promise.all([
+    // 1. Empleados: solo id, nombres y contractor_employee
+    employeeIds.length > 0
+      ? supabase
+          .from('employees')
+          .select('id, firstname, lastname, contractor_employee(customers(id,name))')
+          .in('id', employeeIds)
+      : Promise.resolve({ data: [] as never[], error: null }),
+
+    // 2. Diagramas para los empleados en la fecha del parte
+    employeeIds.length > 0
+      ? supabase
+          .from('employees_diagram')
+          .select('employee_id, diagram_type(name, work_active)')
+          .in('employee_id', employeeIds)
+          .eq('day', day)
+          .eq('month', month)
+          .eq('year', year)
+          .or('is_active.eq.true,is_active.is.null')
+      : Promise.resolve({ data: [] as never[], error: null }),
+
+    // 3. Equipos: solo id, domain, intern_number, condition y contractor_equipment
+    equipmentIds.length > 0
+      ? supabase
+          .from('vehicles')
+          .select('id, domain, intern_number, condition, contractor_equipment(customers(id,name))')
+          .in('id', equipmentIds)
+      : Promise.resolve({ data: [] as never[], error: null }),
+  ]);
+
+  if (employeesResult.error) {
+    logger.error('Error en validacion de empleados', { data: { error: employeesResult.error } });
+  }
+  if (diagramsResult.error) {
+    logger.error('Error en validacion de diagramas', { data: { error: diagramsResult.error } });
+  }
+  if (equipmentResult.error) {
+    logger.error('Error en validacion de equipos', { data: { error: equipmentResult.error } });
+  }
+
+  // Crear mapa de diagramas por employee_id
+  const diagramMap = new Map<string, NonNullable<typeof diagramsResult.data>[number]>();
+  diagramsResult.data?.forEach((d) => {
+    if (d.employee_id) {
+      diagramMap.set(d.employee_id, d);
+    }
+  });
+
+  // Agregar flags de desvio a cada empleado
+  const employees = (employeesResult.data || []).map((employee) => {
+    const diagram = diagramMap.get(employee.id);
+    const hasDiagram = !!diagram;
+    const isWorkDay = diagram?.diagram_type?.work_active === true;
+
+    return {
+      ...employee,
+      current_diagram: diagram || null,
+      deviation_no_diagram: !hasDiagram,
+      deviation_non_work_day: hasDiagram && !isWorkDay,
+      deviation_type: !hasDiagram ? ('sin_diagrama' as const) : !isWorkDay ? ('dia_no_laboral' as const) : null,
+    };
+  });
+
+  return {
+    employees,
+    equipments: equipmentResult.data || [],
+  };
+}
+
+// Tipo exportado para el resultado de validacion
+export type ResourceValidationData = Awaited<ReturnType<typeof getResourceValidationData>>;
+export type ValidationEmployee = ResourceValidationData['employees'][number];
+export type ValidationEquipment = ResourceValidationData['equipments'][number];
+
+// ========================
+// RPC: Desvíos del parte diario (reemplaza getResourceValidationData + cálculos de duplicados)
+// ========================
+
+export interface EmployeeDeviation {
+  employee_id: string;
+  row_id: string;
+  customer_id: string;
+  is_duplicated: boolean;
+  is_unassigned_to_client: boolean;
+  has_no_diagram: boolean;
+  is_non_work_day: boolean;
+  diagram_type_name: string | null;
+}
+
+export interface EquipmentDeviation {
+  equipment_id: string;
+  row_id: string;
+  customer_id: string;
+  is_duplicated: boolean;
+  is_unassigned_to_client: boolean;
+  condition: string | null;
+}
+
+export interface DailyReportDeviationsResult {
+  employee_deviations: EmployeeDeviation[];
+  equipment_deviations: EquipmentDeviation[];
+}
+
+/**
+ * Obtiene todos los desvíos de empleados y equipos de un parte diario en una sola query RPC.
+ * Reemplaza: getResourceValidationData + getDuplicatedEmployees + getDuplicatedEquipments
+ */
+export async function getDailyReportDeviations(
+  dailyReportId: string,
+  reportDate: string
+): Promise<DailyReportDeviationsResult> {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase.rpc('get_daily_report_deviations', {
+    p_daily_report_id: dailyReportId,
+    p_report_date: reportDate,
+  });
+
+  if (error) {
+    logger.error('Error fetching daily report deviations', { data: { error } });
+    throw error;
+  }
+
+  // La RPC devuelve JSONB, necesitamos castear al tipo correcto
+  const result = data as unknown as DailyReportDeviationsResult;
+
+  return {
+    employee_deviations: result?.employee_deviations || [],
+    equipment_deviations: result?.equipment_deviations || [],
+  };
+}
+
 // Tipos para las relaciones
 interface EmployeeRelation {
   id: string;
@@ -1722,7 +1869,7 @@ export interface ServiceDetailByClient {
  * Obtiene el detalle de servicios por cliente para el día actual
  * Incluye distribución de servicios mensuales, adicionales y estados
  */
-export async function getServicesDetailByClient(): Promise<ServiceDetailByClient[]> {
+export async function getServicesDetailByClient(date?: string): Promise<ServiceDetailByClient[]> {
   const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   const supabase = await supabaseServer();
@@ -1735,7 +1882,7 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
   }
 
   try {
-    const today = moment().format('YYYY-MM-DD');
+    const targetDate = date || moment().utcOffset(-3).format('YYYY-MM-DD');
 
     // Consulta para obtener los datos detallados por cliente
     const { data, error } = await supabase
@@ -1755,7 +1902,7 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
       `
       )
       .eq('daily_report_id.company_id', company_id || user?.app_metadata?.company || '')
-      .eq('daily_report_id.date', today);
+      .eq('daily_report_id.date', targetDate);
 
     if (error) {
       logger.error('Error fetching services detail by client', { data: { error } });

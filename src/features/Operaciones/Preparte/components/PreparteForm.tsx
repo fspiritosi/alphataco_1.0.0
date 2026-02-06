@@ -219,6 +219,9 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
     areas: areaList,
     equipments: equipmentList,
     isLoading: isLoadingDependentOptions,
+    isLoadingSectors,
+    isLoadingAreas,
+    isLoadingEquipments,
   } = usePreparteFormDependentOptions(watchedClienteId, watchedContratoId);
 
   // Estado de carga combinado
@@ -506,7 +509,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       label: contrato.service_name,
                       value: contrato.id,
                     }))}
-                    selectedValues={field.value ? [field.value] : []} // Asegurar que sea un array
+                    selectedValues={field.value ? [field.value] : []}
                     onChange={(selectedIds) => {
                       const value = selectedIds[0] || '';
                       field.onChange(value);
@@ -515,10 +518,11 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       form.setValue('areas_service_id', '');
                       form.setValue('equipos_cliente', []);
                     }}
-                    placeholder={contratos.find((c) => c.id === field.value)?.service_name || 'Seleccionar contrato'}
+                    placeholder="Seleccionar contrato"
                     emptyMessage="No hay contratos disponibles"
                     disabled={!form.watch('cliente_id') || isLoading || isEditing}
-                    maxSelections={1} // Para selección única
+                    isLoading={isLoadingContratos}
+                    maxSelections={1}
                   />
                   <FormMessage />
                 </FormItem>
@@ -815,17 +819,14 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       options={sectorOptions}
                       selectedValues={field.value ? [field.value] : []}
                       onChange={(vals) => field.onChange(vals[0] || '')}
-                      placeholder={
-                        field.value
-                          ? sectorOptions.find((o) => o.value === field.value)?.label || 'Seleccionar sector'
-                          : 'Seleccionar sector'
-                      }
+                      placeholder="Seleccionar sector"
                       disabled={!selectedCustomer || !selectedServiceId || isEditing}
                       emptyMessage={
                         !selectedCustomer || !selectedServiceId
                           ? 'Seleccione un cliente y contrato'
                           : 'Sin sectores disponibles para este contrato'
                       }
+                      isLoading={isLoadingSectors}
                       maxSelections={1}
                     />
                     <FormMessage />
@@ -876,17 +877,14 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                       options={areaOptions}
                       selectedValues={field.value ? [field.value] : []}
                       onChange={(vals) => field.onChange(vals[0] || '')}
-                      placeholder={
-                        field.value
-                          ? areaOptions.find((o) => o.value === field.value)?.label || 'Seleccionar área'
-                          : 'Seleccionar área'
-                      }
+                      placeholder="Seleccionar área"
                       disabled={!selectedCustomer || !selectedServiceId || isEditing}
                       emptyMessage={
                         !selectedCustomer || !selectedServiceId
                           ? 'Seleccione un cliente y contrato'
                           : 'Sin áreas disponibles para este contrato'
                       }
+                      isLoading={isLoadingAreas}
                       maxSelections={1}
                     />
                     <FormMessage />
@@ -921,6 +919,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                           ? 'Seleccione un cliente y contrato'
                           : 'Sin equipos disponibles para este contrato/cliente'
                       }
+                      isLoading={isLoadingEquipments}
                       maxSelections={1}
                     />
                     <FormMessage />
@@ -985,6 +984,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                                     (item) => !selectedItems.some((r) => r.id === item.value && r.id !== row.id)
                                   )}
                                   selectedValues={row.id ? [row.id] : []}
+                                  isLoading={isLoadingItems}
                                   onChange={(selectedIds) => {
                                     const newItemId = selectedIds[0] || '';
                                     const updatedItems = selectedItems.map((r, i) =>

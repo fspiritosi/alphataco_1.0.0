@@ -10,6 +10,7 @@ import {
   fetchDailyReportEquipmentRelations,
   fetchDailyReportRowsBase,
 } from '../actions/server-actions';
+import { VALIDATION_QUERY_KEY } from './useValidationData';
 
 // Query keys para el detalle del parte diario
 export const dailyReportDetailQueryKeys = {
@@ -158,6 +159,10 @@ export function useInvalidateDailyReportDetail() {
         // También invalidar la query legacy por si acaso
         queryClient.invalidateQueries({
           queryKey: [`daily-report-server-${dailyReportId}`],
+        }),
+        // Invalidar desvíos (RPC) para que se recalculen
+        queryClient.invalidateQueries({
+          queryKey: [...VALIDATION_QUERY_KEY, dailyReportId],
         }),
       ]);
     },

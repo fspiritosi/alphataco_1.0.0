@@ -110,6 +110,9 @@ export function usePreparteFormDependentOptions(clienteId: string | undefined, c
     areas: areasQuery.data || [],
     equipments: equipmentsQuery.data || [],
     isLoading: sectorsQuery.isLoading || areasQuery.isLoading || equipmentsQuery.isLoading,
+    isLoadingSectors: sectorsQuery.isLoading,
+    isLoadingAreas: areasQuery.isLoading,
+    isLoadingEquipments: equipmentsQuery.isLoading,
     isError: sectorsQuery.isError || areasQuery.isError || equipmentsQuery.isError,
   };
 }

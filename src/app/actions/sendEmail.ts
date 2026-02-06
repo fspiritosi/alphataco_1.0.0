@@ -65,7 +65,7 @@ export async function sendEmail(options: EmailOptions) {
 
     // Configuración básica del correo
     const mailOptions = {
-      from: `"CodeControl" <${process.env.SMTP_USER}>`,
+      from: `"Grupo Horizonte" <${process.env.SMTP_USER}>`,
       to: to || 'diegodac77@gmail.com',
       subject: subject || 'Mensaje de CodeControl',
       html: emailHtml,

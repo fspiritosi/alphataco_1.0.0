@@ -233,41 +233,47 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Send email using Resend
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || Deno.env.get('RESEND_SUPABASE_API_KEY');
+    // Send email using SMTP
+    const SMTP_HOST = Deno.env.get('SMTP_HOST');
+    const SMTP_PORT = Deno.env.get('SMTP_PORT') || '465';
+    const SMTP_USER = Deno.env.get('SMTP_USER');
+    const SMTP_PASS = Deno.env.get('SMTP_PASS');
+    const SMTP_SECURE = Deno.env.get('SMTP_SECURE') || 'true';
 
-    if (!RESEND_API_KEY) {
-      throw new Error('RESEND_API_KEY not configured');
+    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+      throw new Error('SMTP credentials not configured (SMTP_HOST, SMTP_USER, SMTP_PASS)');
     }
 
     const emailTo = recipient_email || 'yordanpz@hotmail.com';
     const emailHtml = formatDeviationsEmail(deviations);
 
-    const emailResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
+    const nodemailer = (await import('npm:nodemailer@6')).default;
+
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: parseInt(SMTP_PORT),
+      secure: SMTP_SECURE === 'true',
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
       },
-      body: JSON.stringify({
-        from: 'GH Gestión <notificaciones@ghgestion.com>',
-        to: [emailTo],
-        subject: `⚠️ Desvíos del Parte Diario - ${deviations.report_date}`,
-        html: emailHtml,
-      }),
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
 
-    const emailResult = await emailResponse.json();
-
-    if (!emailResponse.ok) {
-      throw new Error(`Error sending email: ${JSON.stringify(emailResult)}`);
-    }
+    const emailResult = await transporter.sendMail({
+      from: `"Grupo Horizonte" <${SMTP_USER}>`,
+      to: emailTo,
+      subject: `⚠️ Desvíos del Parte Diario - ${deviations.report_date}`,
+      html: emailHtml,
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Email sent successfully',
-        email_id: emailResult.id,
+        email_id: emailResult.messageId,
         deviations_summary: deviations.summary,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

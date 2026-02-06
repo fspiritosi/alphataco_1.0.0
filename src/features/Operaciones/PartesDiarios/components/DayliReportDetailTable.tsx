@@ -497,14 +497,26 @@ export function getDailyReportColumns(
       header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo" />,
       cell: ({ row }) => {
         const equipment = row.original.equipment;
+        const equipmentRefs = row.original.equipment_references || [];
         return (
           <div className="flex flex-wrap gap-1">
             {equipment.filter(Boolean).map((equipmentItem) => {
               if (!equipmentItem) return null;
               const isDuplicated = duplicatedEquipments.has(equipmentItem);
               const isUnassigned = unassignedEquipments.has(equipmentItem);
+              const eqRef = equipmentRefs.find((ref) => ref.name === equipmentItem);
+              const condition = eqRef?.condition || 'operativo';
+              const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+              const isNonStandardCondition = condition !== 'operativo';
 
-              // Prioridad: duplicado > no asignado > normal
+              const conditionLabels: Record<string, string> = {
+                'no operativo': 'No operativo',
+                'en reparacion': 'En reparación',
+                'operativo condicionado': 'Condicionado',
+                'en preparacion': 'En preparación',
+              };
+
+              // Color - Prioridad: duplicado > condición crítica > no asignado > condición info > normal
               let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
               let badgeClassName = 'select-none text-nowrap';
 
@@ -514,28 +526,50 @@ export function getDailyReportColumns(
                   badgeClassName,
                   'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
                 );
+              } else if (condition === 'no operativo') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-400'
+                );
+              } else if (condition === 'en reparacion') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-yellow-500 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-400'
+                );
               } else if (isUnassigned) {
                 badgeVariant = 'outline';
                 badgeClassName = cn(
                   badgeClassName,
                   'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
                 );
+              } else if (condition === 'operativo condicionado') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-400'
+                );
+              } else if (condition === 'en preparacion') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-gray-400 bg-gray-50 text-gray-600 dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-500'
+                );
               } else {
                 badgeClassName = cn(badgeClassName, 'dark:text-black');
               }
 
-              // Determinar el mensaje del tooltip
-              let tooltipMessage = '';
-              if (isDuplicated) {
-                tooltipMessage = 'Este equipo está asignado en múltiples filas del parte diario';
-              } else if (isUnassigned) {
-                tooltipMessage = 'Este equipo no está asignado al cliente de esta fila';
-              } else {
-                tooltipMessage = 'Equipo asignado correctamente';
-              }
+              // Tooltip - combinar todos los desvíos (mismo formato que empleados)
+              const tooltipMessages: string[] = [];
+              if (hasConditionIssue) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+              else if (isNonStandardCondition) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+              if (isDuplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
+              if (isUnassigned) tooltipMessages.push('No asignado al cliente de esta fila');
+              if (tooltipMessages.length === 0) tooltipMessages.push('Equipo asignado correctamente');
 
               return (
-                <TooltipProvider key={equipmentItem}>
+                <TooltipProvider key={equipmentItem} delayDuration={300}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge variant={badgeVariant} className={badgeClassName}>
@@ -543,7 +577,9 @@ export function getDailyReportColumns(
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{tooltipMessage}</p>
+                      {tooltipMessages.map((msg, i) => (
+                        <p key={i}>{msg}</p>
+                      ))}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
