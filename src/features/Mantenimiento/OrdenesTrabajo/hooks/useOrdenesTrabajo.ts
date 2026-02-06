@@ -12,7 +12,6 @@ export function useOrdenesTrabajo(status?: string | string[]) {
   return useQuery({
     queryKey: [...ORDENES_TRABAJO_QUERY_KEY, status],
     queryFn: () => getWorkOrders(status),
-    staleTime: 30 * 1000, // 30 segundos
   });
 }
 
@@ -24,6 +23,5 @@ export function useOrdenTrabajoDetail(workOrderId: string | null) {
     queryKey: [...ORDENES_TRABAJO_QUERY_KEY, 'detail', workOrderId],
     queryFn: () => (workOrderId ? getWorkOrderDetail(workOrderId) : null),
     enabled: !!workOrderId,
-    staleTime: 30 * 1000,
   });
 }

@@ -30,7 +30,7 @@ export default async function PartesDiariosTabContent() {
             <DailyReportTable
               savedVisibility={dailyReportTableSavedColumns ? JSON.parse(dailyReportTableSavedColumns) : {}}
               savedFilter={dailyReportTableSavedFilter ? JSON.parse(dailyReportTableSavedFilter) : []}
-              dailyReports={dailyReports as any}
+              initialData={dailyReports}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

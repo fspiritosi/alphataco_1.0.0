@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -15,9 +14,11 @@ import { CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { es } from 'date-fns/locale';
+import { useQueryClient } from '@tanstack/react-query';
 import moment from 'moment';
+import 'moment/locale/es';
 import { useState } from 'react';
+import { DAILY_REPORTS_QUERY_KEY } from '../hooks/useDailyReports';
 
 const FormSchema = z.object({
   date: z.date({
@@ -27,6 +28,7 @@ const FormSchema = z.object({
 
 export default function DayliReportForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof FormSchema>>({
@@ -41,7 +43,7 @@ export default function DayliReportForm() {
 
     try {
       // Verificar si ya existe
-      const exists = await checkDailyReportExists([format(data.date, 'yyyy-MM-dd')]);
+      const exists = await checkDailyReportExists([moment(data.date).format('YYYY-MM-DD')]);
 
       if (exists.length > 0) {
         toast.dismiss(loadingToast);
@@ -51,13 +53,13 @@ export default function DayliReportForm() {
       }
 
       // Crear el parte diario
-      const created = await createDailyReport([format(data.date, 'yyyy-MM-dd')]);
+      const created = await createDailyReport([moment(data.date).format('YYYY-MM-DD')]);
 
       toast.dismiss(loadingToast);
       toast.success('Parte diario creado exitosamente!');
 
-      // Refrescar la página para actualizar la tabla
-      router.refresh();
+      // Invalidar la query para actualizar la tabla
+      queryClient.invalidateQueries({ queryKey: [...DAILY_REPORTS_QUERY_KEY] });
 
       // Redirigir al detalle del parte diario creado
       if (created?.[0]?.id) {
@@ -88,7 +90,11 @@ export default function DayliReportForm() {
                         variant={'outline'}
                         className={cn('w-[240px] pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
                       >
-                        {field.value ? format(field.value, 'PPP', { locale: es }) : <span>Seleccione una fecha</span>}
+                        {field.value ? (
+                          moment(field.value).locale('es').format('LL')
+                        ) : (
+                          <span>Seleccione una fecha</span>
+                        )}
                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                       </Button>
                     </FormControl>
