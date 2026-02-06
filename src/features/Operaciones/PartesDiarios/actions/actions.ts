@@ -956,6 +956,11 @@ export interface EquipmentDeviation {
   is_unassigned_to_client: boolean;
 }
 
+export interface CustomerEquipmentInfo {
+  name: string;
+  type: string;
+}
+
 export interface RowWithDeviations {
   row_id: string;
   customer_id: string;
@@ -964,6 +969,13 @@ export interface RowWithDeviations {
   item_name: string;
   start_time: string | null;
   end_time: string | null;
+  working_day: string | null;
+  type_service: string | null;
+  status: string | null;
+  description: string | null;
+  sector_name: string | null;
+  area_name: string | null;
+  customer_equipment: CustomerEquipmentInfo[];
   employee_deviations: EmployeeDeviation[];
   equipment_deviations: EquipmentDeviation[];
 }

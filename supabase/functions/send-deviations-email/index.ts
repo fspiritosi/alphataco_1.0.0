@@ -31,6 +31,11 @@ interface EquipmentDeviation {
   is_unassigned_to_client: boolean;
 }
 
+interface CustomerEquipment {
+  name: string;
+  type: string;
+}
+
 interface RowWithDeviations {
   row_id: string;
   customer_id: string;
@@ -39,6 +44,13 @@ interface RowWithDeviations {
   item_name: string;
   start_time: string | null;
   end_time: string | null;
+  working_day: string | null;
+  type_service: string | null;
+  status: string | null;
+  description: string | null;
+  sector_name: string | null;
+  area_name: string | null;
+  customer_equipment: CustomerEquipment[];
   employee_deviations: EmployeeDeviation[];
   equipment_deviations: EquipmentDeviation[];
 }
@@ -102,10 +114,35 @@ function equipmentDeviationBadges(d: EquipmentDeviation): string {
   return badges.join(' ');
 }
 
+const TYPE_SERVICE_LABELS: Record<string, string> = {
+  mensual: 'Mensual',
+  adicional: 'Adicional',
+  adicional_permanente: 'Adicional Permanente',
+};
+
+const STATUS_LABELS: Record<string, { label: string; bg: string; text: string }> = {
+  pendiente: { label: 'Pendiente', bg: '#fefce8', text: '#a16207' },
+  sin_recursos_asignados: { label: 'Sin recursos', bg: '#fef2f2', text: '#b91c1c' },
+  ejecutado: { label: 'Ejecutado', bg: '#f0fdf4', text: '#15803d' },
+  reprogramado: { label: 'Reprogramado', bg: '#eff6ff', text: '#1d4ed8' },
+  cancelado: { label: 'Cancelado', bg: '#fef2f2', text: '#b91c1c' },
+  en_certificacion: { label: 'En certificaci\u00f3n', bg: '#f5f3ff', text: '#7c3aed' },
+};
+
 function formatTime(time: string | null): string {
   if (!time) return '—';
   // time comes as "HH:MM:SS" or "HH:MM", show only HH:MM
   return time.substring(0, 5);
+}
+
+function metadataItem(label: string, value: string): string {
+  return `<span style="font-size:12px;color:#64748b;">${label}: </span><span style="font-size:12px;color:#1e293b;font-weight:500;">${value}</span>`;
+}
+
+function statusBadge(status: string | null): string {
+  if (!status) return badge('—', '#f1f5f9', '#475569');
+  const s = STATUS_LABELS[status] || { label: status, bg: '#f1f5f9', text: '#475569' };
+  return badge(s.label, s.bg, s.text);
 }
 
 // ========================================
@@ -250,6 +287,16 @@ function formatDeviationsEmail(
       const borderTop = rowIdx > 0 ? 'border-top:1px solid #e2e8f0;' : '';
 
       // Row info bar
+      const workingDayLabel = row.working_day || '—';
+      const typeServiceLabel = TYPE_SERVICE_LABELS[row.type_service || ''] || row.type_service || '—';
+      const sectorLabel = row.sector_name || '—';
+      const areaLabel = row.area_name || '—';
+      const custEquip = (row.customer_equipment || []).filter((e: CustomerEquipment) => e.name !== '—');
+      const custEquipText =
+        custEquip.length > 0
+          ? custEquip.map((e: CustomerEquipment) => `${e.name}${e.type !== '—' ? ` (${e.type})` : ''}`).join(', ')
+          : null;
+
       html += `
                     <tr>
                       <td style="background:${rowBg};padding:0;${borderTop}">
@@ -263,10 +310,28 @@ function formatDeviationsEmail(
                                     <p style="margin:0;font-size:13px;font-weight:600;color:#334155;">${row.service_name}${row.item_name !== '—' ? ` &rsaquo; ${row.item_name}` : ''}</p>
                                   </td>
                                   <td align="right">
-                                    <span style="font-size:12px;color:#64748b;">${formatTime(row.start_time)} — ${formatTime(row.end_time)}</span>
+                                    <span style="font-size:12px;color:#64748b;">${formatTime(row.start_time)} &mdash; ${formatTime(row.end_time)}</span>
                                   </td>
                                 </tr>
                               </table>
+                            </td>
+                          </tr>
+                          <!-- Row metadata -->
+                          <tr>
+                            <td style="padding:8px 18px;">
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                  <td style="padding:2px 0;">${metadataItem('Jornada', workingDayLabel)}</td>
+                                  <td style="padding:2px 0;">${metadataItem('Tipo', typeServiceLabel)}</td>
+                                  <td style="padding:2px 0;">${metadataItem('Estado', '')} ${statusBadge(row.status)}</td>
+                                </tr>
+                                <tr>
+                                  <td style="padding:2px 0;">${metadataItem('Sector', sectorLabel)}</td>
+                                  <td style="padding:2px 0;" colspan="2">${metadataItem('&Aacute;rea', areaLabel)}</td>
+                                </tr>
+                              </table>
+                              ${custEquipText ? `<p style="margin:4px 0 0;font-size:12px;color:#64748b;">Equipo cliente: <span style="color:#1e293b;font-weight:500;">${custEquipText}</span></p>` : ''}
+                              ${row.description ? `<p style="margin:4px 0 0;font-size:12px;color:#64748b;">Descripci&oacute;n: <span style="color:#475569;font-style:italic;">${row.description}</span></p>` : ''}
                             </td>
                           </tr>
       `;
