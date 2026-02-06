@@ -10,16 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building, CalendarIcon, Check, ChevronsUpDown, X } from 'lucide-react';
+import { Building, CalendarIcon, Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
+  EmployeeWithRole,
   checkDailyReportExists,
   createDailyReport,
   createDailyReportCustomerEquipmentRelations,
   createDailyReportEmployeeRelations,
+  createDailyReportEmployeeRelationsWithRoles,
   createDailyReportEquipmentRelations,
   createDailyReportRow,
   getActiveEquipmentsForDailyReport,
@@ -27,6 +29,7 @@ import {
   getCustomers,
   getDailyReportById,
   updateDailyReportRow,
+  updateEmployeeRelationsWithRoles,
 } from '../actions/actions';
 
 import { Calendar } from '@/components/ui/calendar';
@@ -54,6 +57,7 @@ import {
   filterEquipmentsByCustomer,
 } from '../utils/employeeEquipmentIndex';
 import { transformDailyReports } from './DayliReportDetailTable';
+import { EmployeeRoleSelect } from './EmployeeRoleSelect';
 import { SearchEmployee } from './SearchEmployee';
 import { SearchEquipment } from './SearchEquipment';
 
@@ -62,6 +66,7 @@ type DailyReportFormProps = {
   customers?: Awaited<ReturnType<typeof getCustomers>>;
   employees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>;
   equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
+  isLoadingFormData?: boolean;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   disabled?: boolean;
   formattedData: ReturnType<typeof transformDailyReports>;
@@ -77,12 +82,11 @@ export const dailyReportSchema = z
     employees: z.array(z.string()).default([]).optional(),
     equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
-    // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-    // // Campos para empleados con roles (jornadas 12/24 hrs)
-    // chofer_dia: z.string().optional(),
-    // chofer_noche: z.string().optional(),
-    // ayudante_dia: z.string().optional(),
-    // ayudante_noche: z.string().optional(),
+    // Campos para empleados con roles (jornadas 12/24 hrs)
+    chofer_dia: z.string().optional(),
+    chofer_noche: z.string().optional(),
+    ayudante_dia: z.string().optional(),
+    ayudante_noche: z.string().optional(),
     type_service: z
       .enum(['mensual', 'adicional', 'adicional_permanente'], {
         required_error: 'Debe seleccionar un tipo de servicio',
@@ -171,6 +175,7 @@ export function DailyReportForm({
   customers,
   employees,
   equipments,
+  isLoadingFormData,
   disabled,
   formattedData,
   dailyReport,
@@ -224,12 +229,11 @@ export function DailyReportForm({
       equipos_cliente: [],
       cancel_reason: '',
       type_service: undefined,
-      // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-      // // Campos para empleados con roles
-      // chofer_dia: undefined,
-      // chofer_noche: undefined,
-      // ayudante_dia: undefined,
-      // ayudante_noche: undefined,
+      // Campos para empleados con roles
+      chofer_dia: undefined,
+      chofer_noche: undefined,
+      ayudante_dia: undefined,
+      ayudante_noche: undefined,
     },
   });
 
@@ -333,11 +337,48 @@ export function DailyReportForm({
     });
   };
 
+  // PO-1: Detectar equipos con desvíos de condición (no operativo, en reparación, etc.)
+  const checkEquipmentsWithConditionIssues = (equipmentIds: string[]) => {
+    if (!equipmentIds?.length) return [];
+
+    const conditionsWithIssues = ['no operativo', 'en reparacion'];
+    return equipmentIds.filter((equipmentId) => {
+      const equipment = equipments?.find((eq) => eq.id === equipmentId);
+      return equipment && conditionsWithIssues.includes(equipment.condition || '');
+    });
+  };
+
+  // PO-1: Helper para obtener info de desvío de un equipo
+  const getEquipmentDeviationInfo = (equipmentId: string) => {
+    const equipment = equipments?.find((eq) => eq.id === equipmentId);
+    if (!equipment) return null;
+
+    const isAssigned = equipment.contractor_equipment?.some((ce) => ce.customers?.id === selectedCustomerId);
+    const condition = equipment.condition || 'operativo';
+    const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+
+    return {
+      isAssigned,
+      condition,
+      hasConditionIssue,
+      conditionLabel:
+        condition === 'no operativo'
+          ? 'No operativo'
+          : condition === 'en reparacion'
+            ? 'En reparación'
+            : condition === 'operativo condicionado'
+              ? 'Condicionado'
+              : null,
+    };
+  };
+
   // Detectar duplicados y no asignados en tiempo real
   const duplicateEmployees = checkEmployeeDuplicates(currentEmployeesWatch || []);
   const duplicateEquipments = checkEquipmentDuplicates(currentEquipmentWatch || []);
   const unassignedEmployeesSelected = checkUnassignedEmployees(currentEmployeesWatch || []);
   const unassignedEquipmentsSelected = checkUnassignedEquipments(currentEquipmentWatch || []);
+  // PO-1: Detectar equipos con desvíos de condición
+  const equipmentsWithConditionIssues = checkEquipmentsWithConditionIssues(currentEquipmentWatch || []);
 
   // If arrays have different lengths, they've changed
   // If arrays have same length, check if any item is different
@@ -367,31 +408,29 @@ export function DailyReportForm({
       ? data.employees.filter((emp): emp is string => typeof emp === 'string')
       : [];
 
-    // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-    // // Construir lista de empleados con roles (para jornadas 12/24 hrs)
-    // const workingDayLower = data.working_day?.toLowerCase() || '';
-    // const is12Hours = workingDayLower === 'jornada 12 horas';
-    // const is24Hours = workingDayLower === 'jornada 24 horas';
-    // const hasRoleBasedEmployees = is12Hours || is24Hours;
+    // Construir lista de empleados con roles (para jornadas 12/24 hrs)
+    const workingDayLower = data.working_day?.toLowerCase() || '';
+    const is12Hours = workingDayLower === 'jornada 12 horas';
+    const is24Hours = workingDayLower === 'jornada 24 horas';
+    const hasRoleBasedEmployees = is12Hours || is24Hours;
 
-    // const employeesWithRoles: EmployeeWithRole[] = [];
-    // if (hasRoleBasedEmployees) {
-    //   if (data.chofer_dia) {
-    //     employeesWithRoles.push({ employeeId: data.chofer_dia, role: 'chofer_dia' });
-    //   }
-    //   if (data.ayudante_dia) {
-    //     employeesWithRoles.push({ employeeId: data.ayudante_dia, role: 'ayudante_dia' });
-    //   }
-    //   if (is24Hours) {
-    //     if (data.chofer_noche) {
-    //       employeesWithRoles.push({ employeeId: data.chofer_noche, role: 'chofer_noche' });
-    //     }
-    //     if (data.ayudante_noche) {
-    //       employeesWithRoles.push({ employeeId: data.ayudante_noche, role: 'ayudante_noche' });
-    //     }
-    //   }
-    // }
-    const hasRoleBasedEmployees = false; // Desactivado temporalmente
+    const employeesWithRoles: EmployeeWithRole[] = [];
+    if (hasRoleBasedEmployees) {
+      if (data.chofer_dia) {
+        employeesWithRoles.push({ employeeId: data.chofer_dia, role: 'chofer_dia' });
+      }
+      if (data.ayudante_dia) {
+        employeesWithRoles.push({ employeeId: data.ayudante_dia, role: 'ayudante_dia' });
+      }
+      if (is24Hours) {
+        if (data.chofer_noche) {
+          employeesWithRoles.push({ employeeId: data.chofer_noche, role: 'chofer_noche' });
+        }
+        if (data.ayudante_noche) {
+          employeesWithRoles.push({ employeeId: data.ayudante_noche, role: 'ayudante_noche' });
+        }
+      }
+    }
 
     // Asegurarse de que los equipos sean un array de IDs
     const equipmentIds = Array.isArray(data.equipment)
@@ -432,38 +471,38 @@ export function DailyReportForm({
             equipments?.filter((eq) => data?.equipment?.includes(eq.id))?.map((eq) => eq.id) || [];
 
           // Modo edición
-          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-          // if (hasRoleBasedEmployees) {
-          //   // Para jornadas 12/24 hrs, usar update con roles
-          //   await updateEmployeeRelationsWithRoles(selectedRow.id, employeesWithRoles);
+          if (hasRoleBasedEmployees) {
+            // Para jornadas 12/24 hrs, usar update con roles
+            await updateEmployeeRelationsWithRoles(selectedRow.id, employeesWithRoles);
 
-          //   // Actualizar equipos y equipos cliente
-          //   await updateDailyReportRow(
-          //     selectedRow.id,
-          //     rowData,
-          //     [], // Ya manejamos empleados con roles arriba
-          //     equipmentIdsUpdated,
-          //     data?.equipos_cliente || [],
-          //     {
-          //       equipmentHasChanged,
-          //       employeeHasChanged,
-          //       reassignmentReason: data.reasigment_reason || '',
-          //     }
-          //   );
-          // } else {
-          await updateDailyReportRow(
-            selectedRow.id,
-            rowData,
-            employeeIdsUpdated,
-            equipmentIdsUpdated,
-            data?.equipos_cliente || [],
-            {
-              equipmentHasChanged,
-              employeeHasChanged,
-              reassignmentReason: data.reasigment_reason || '',
-            }
-          );
-          // }
+            // Actualizar equipos y equipos cliente (skip employee update since we handled it above)
+            await updateDailyReportRow(
+              selectedRow.id,
+              rowData,
+              [], // Ya manejamos empleados con roles arriba
+              equipmentIdsUpdated,
+              data?.equipos_cliente || [],
+              {
+                equipmentHasChanged,
+                employeeHasChanged,
+                reassignmentReason: data.reasigment_reason || '',
+                skipEmployeeUpdate: true, // Don't update employee relations again - we already did it with roles
+              }
+            );
+          } else {
+            await updateDailyReportRow(
+              selectedRow.id,
+              rowData,
+              employeeIdsUpdated,
+              equipmentIdsUpdated,
+              data?.equipos_cliente || [],
+              {
+                equipmentHasChanged,
+                employeeHasChanged,
+                reassignmentReason: data.reasigment_reason || '',
+              }
+            );
+          }
           if (rowData.status === 'reprogramado') {
             const existingReports = await checkDailyReportExists([format(data.reprogram_date!, 'yyyy-MM-dd')]);
             if (existingReports.length > 0) {
@@ -487,10 +526,8 @@ export function DailyReportForm({
           }
         } else {
           // Modo creación
-          // Determinar si tiene empleados
-          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-          // const hasEmployees = hasRoleBasedEmployees ? employeesWithRoles.length > 0 : employeeIds.length > 0;
-          const hasEmployees = employeeIds.length > 0;
+          // Determinar si tiene empleados (ya sea por array o por roles)
+          const hasEmployees = hasRoleBasedEmployees ? employeesWithRoles.length > 0 : employeeIds.length > 0;
 
           const createdRow = await createDailyReportRow([
             {
@@ -499,14 +536,12 @@ export function DailyReportForm({
             },
           ]);
 
-          // Crear relaciones con empleados
-          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-          // if (hasRoleBasedEmployees) {
-          //   if (employeesWithRoles.length > 0) {
-          //     await createDailyReportEmployeeRelationsWithRoles(createdRow[0].id, employeesWithRoles);
-          //   }
-          // } else if (employeeIds.length > 0) {
-          if (employeeIds.length > 0) {
+          // Crear relaciones con empleados (con o sin roles)
+          if (hasRoleBasedEmployees) {
+            if (employeesWithRoles.length > 0) {
+              await createDailyReportEmployeeRelationsWithRoles(createdRow[0].id, employeesWithRoles);
+            }
+          } else if (employeeIds.length > 0) {
             await createDailyReportEmployeeRelations(createdRow[0].id, employeeIds);
           }
 
@@ -548,11 +583,10 @@ export function DailyReportForm({
           remit_number: '',
           type_service: undefined,
           cancel_reason: '',
-          // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-          // chofer_dia: undefined,
-          // chofer_noche: undefined,
-          // ayudante_dia: undefined,
-          // ayudante_noche: undefined,
+          chofer_dia: undefined,
+          chofer_noche: undefined,
+          ayudante_dia: undefined,
+          ayudante_noche: undefined,
         });
 
         // Restablecer los estados locales
@@ -566,6 +600,16 @@ export function DailyReportForm({
       }
     );
   };
+
+  // Resolver customer automáticamente cuando customers cargan (fix: form vacío al editar tras recargar)
+  useEffect(() => {
+    if (!selectedRow || selectedCustomer || !selectedCustomerId || !customers?.length) return;
+
+    const customer = customers.find((c) => c.id === selectedCustomerId);
+    if (customer) {
+      setSelectedCustomer(customer);
+    }
+  }, [selectedRow, selectedCustomer, selectedCustomerId, customers, setSelectedCustomer]);
 
   // 🔥 SETEAR VALORES DEL FORMULARIO CUANDO SE ABRE EL MODAL (una sola vez)
   useEffect(() => {
@@ -618,34 +662,43 @@ export function DailyReportForm({
 
     // Setear empleados (con o sin roles)
     if (selectedRow.employees_references) {
-      // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-      // const workingDay = selectedRow.working_day?.toLowerCase() || '';
-      // const is12Hours = workingDay === 'jornada 12 horas';
-      // const is24Hours = workingDay === 'jornada 24 horas';
-      // const hasRoleBasedEmployees = is12Hours || is24Hours;
+      const workingDay = selectedRow.working_day?.toLowerCase() || '';
+      const is12Hours = workingDay === 'jornada 12 horas';
+      const is24Hours = workingDay === 'jornada 24 horas';
+      const isRoleBasedJornada = is12Hours || is24Hours;
 
-      // // Cast para incluir el role en el tipo (viene de la BD pero TypeScript no lo infiere)
-      // type EmployeeRefWithRole = (typeof selectedRow.employees_references)[number] & {
-      //   role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
-      // };
-      // const employeesWithRole = selectedRow.employees_references as EmployeeRefWithRole[];
+      // Cast para incluir el role en el tipo (viene de la BD pero TypeScript no lo infiere)
+      type EmployeeRefWithRole = (typeof selectedRow.employees_references)[number] & {
+        role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
+      };
+      const employeesWithRole = selectedRow.employees_references as EmployeeRefWithRole[];
 
-      // if (hasRoleBasedEmployees) {
-      //   // Setear empleados por rol
-      //   const choferDia = employeesWithRole.find((emp) => emp.role === 'chofer_dia');
-      //   const choferNoche = employeesWithRole.find((emp) => emp.role === 'chofer_noche');
-      //   const ayudanteDia = employeesWithRole.find((emp) => emp.role === 'ayudante_dia');
-      //   const ayudanteNoche = employeesWithRole.find((emp) => emp.role === 'ayudante_noche');
+      // Verificar si algún empleado tiene rol asignado
+      const anyEmployeeHasRole = employeesWithRole.some(
+        (emp) =>
+          emp.role === 'chofer_dia' ||
+          emp.role === 'chofer_noche' ||
+          emp.role === 'ayudante_dia' ||
+          emp.role === 'ayudante_noche'
+      );
 
-      //   if (choferDia?.id) form.setValue('chofer_dia', choferDia.id);
-      //   if (choferNoche?.id) form.setValue('chofer_noche', choferNoche.id);
-      //   if (ayudanteDia?.id) form.setValue('ayudante_dia', ayudanteDia.id);
-      //   if (ayudanteNoche?.id) form.setValue('ayudante_noche', ayudanteNoche.id);
-      // } else {
-      // Setear empleados sin rol (forma tradicional)
-      const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
-      form.setValue('employees', employeeIds);
-      // }
+      if (isRoleBasedJornada && anyEmployeeHasRole) {
+        // Setear empleados por rol
+        const choferDia = employeesWithRole.find((emp) => emp.role === 'chofer_dia');
+        const choferNoche = employeesWithRole.find((emp) => emp.role === 'chofer_noche');
+        const ayudanteDia = employeesWithRole.find((emp) => emp.role === 'ayudante_dia');
+        const ayudanteNoche = employeesWithRole.find((emp) => emp.role === 'ayudante_noche');
+
+        if (choferDia?.id) form.setValue('chofer_dia', choferDia.id);
+        if (choferNoche?.id) form.setValue('chofer_noche', choferNoche.id);
+        if (ayudanteDia?.id) form.setValue('ayudante_dia', ayudanteDia.id);
+        if (ayudanteNoche?.id) form.setValue('ayudante_noche', ayudanteNoche.id);
+      } else {
+        // Setear empleados sin rol (forma tradicional)
+        // Esto cubre: jornadas que no son 12/24hr, y retrocompatibilidad (12/24hr sin roles)
+        const employeeIds = selectedRow.employees_references.map((emp) => emp.id || '');
+        form.setValue('employees', employeeIds);
+      }
     }
 
     // Setear equipos del cliente
@@ -747,11 +800,10 @@ export function DailyReportForm({
       cancel_reason: '',
       reprogram_date: undefined,
       equipos_cliente: [],
-      // TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche
-      // chofer_dia: undefined,
-      // chofer_noche: undefined,
-      // ayudante_dia: undefined,
-      // ayudante_noche: undefined,
+      chofer_dia: undefined,
+      chofer_noche: undefined,
+      ayudante_dia: undefined,
+      ayudante_noche: undefined,
     });
 
     // Restablecer estados locales
@@ -793,66 +845,789 @@ export function DailyReportForm({
                 : 'Complete los campos para agregar un nuevo parte diarios.'}
             </SheetDescription>
           </SheetHeader>
-          <div className="grid gap-4 py-4">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                {/* Cliente */}
-                <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
-                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Building className="h-4 w-4" />
-                    Datos del Cliente
-                  </h4>
-                  <div className="grid grid-cols-1 gap-4 w-full">
+          {selectedRow && isLoadingFormData ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Cargando datos del formulario...</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 py-4">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  {/* Cliente */}
+                  <div className="space-y-4 rounded-lg dark:bg-slate-900 bg-slate-50 p-4 w-full">
+                    <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                      <Building className="h-4 w-4" />
+                      Datos del Cliente
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4 w-full">
+                      <FormField
+                        control={form.control}
+                        name="customer"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col w-full">
+                            <FormLabel>Cliente</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    disabled={disabled || selectedRow != null}
+                                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                                    data-testid="customer-select-button"
+                                  >
+                                    {field.value
+                                      ? customers?.find((customer) => customer.id === field.value)?.name
+                                      : 'Seleccionar cliente'}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="max-w-[400px] p-0">
+                                <Command>
+                                  <CommandInput placeholder="Buscar cliente..." className="h-9" />
+                                  <CommandList>
+                                    <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                                    <div className="px-3 py-1.5 text-xs text-muted-foreground">
+                                      Nota: Los clientes dados de baja no se muestran en la lista.
+                                    </div>
+
+                                    {/* Clientes activos */}
+                                    <CommandGroup heading="Clientes activos">
+                                      {activeCustomers.map((customer) => (
+                                        <CommandItem
+                                          value={customer.name}
+                                          key={customer.id}
+                                          data-testid={`customer-option-${customer.id}`}
+                                          onSelect={() => {
+                                            handleCustomerChange(customer.id);
+                                            setSelectedServiceId(null);
+                                            setSelectedCustomer(customer);
+                                          }}
+                                        >
+                                          {customer.name}
+                                          <Check
+                                            className={cn(
+                                              'ml-auto h-4 w-4',
+                                              customer.id === field.value ? 'opacity-100' : 'opacity-0'
+                                            )}
+                                          />
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {/* Servicio */}
+                      <FormField
+                        control={form.control}
+                        name="services"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Servicio</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    disabled={isServiceDisabled || disabled}
+                                    className={cn(
+                                      'w-full justify-between',
+                                      !field.value && 'text-muted-foreground',
+                                      isServiceDisabled && 'opacity-50 cursor-not-allowed'
+                                    )}
+                                    data-testid="service-select-button"
+                                  >
+                                    {field.value
+                                      ? customerServices.find((service) => service.id === field.value)?.service_name
+                                      : selectedCustomerId
+                                        ? 'Seleccionar servicio'
+                                        : 'Seleccione un cliente primero'}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="max-w-[400px] p-0">
+                                <Command>
+                                  <CommandInput
+                                    placeholder="Buscar servicio..."
+                                    className="h-9"
+                                    disabled={isServiceDisabled}
+                                  />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      {!selectedCustomerId
+                                        ? 'Seleccione un cliente primero.'
+                                        : customerServices.length === 0
+                                          ? 'No hay servicios activos para este cliente.'
+                                          : 'No se encontraron servicios que coincidan.'}
+                                    </CommandEmpty>
+                                    {selectedCustomerId && (
+                                      <div className="px-3 py-1.5 text-xs text-muted-foreground">
+                                        Nota: Los servicios vencidos o de baja no se muestran en la lista.
+                                      </div>
+                                    )}
+
+                                    {(() => {
+                                      if (!selectedCustomerId) return null;
+
+                                      if (customerServices.length === 0) {
+                                        return (
+                                          <div className="py-6 text-center text-sm text-muted-foreground">
+                                            No hay servicios activos para este cliente.
+                                          </div>
+                                        );
+                                      }
+
+                                      return (
+                                        <CommandGroup>
+                                          {customerServices.map((service) => {
+                                            return (
+                                              <CommandItem
+                                                value={service.service_name || ''}
+                                                key={service.id}
+                                                data-testid={`service-option-${service.id}`}
+                                                onSelect={() => handleServiceChange(service.id)}
+                                              >
+                                                <div className="flex items-center justify-between w-full">
+                                                  <span>{service.service_name}</span>
+                                                </div>
+                                                <Check
+                                                  className={cn(
+                                                    'ml-auto h-4 w-4',
+                                                    service.id === field.value ? 'opacity-100' : 'opacity-0'
+                                                  )}
+                                                />
+                                              </CommandItem>
+                                            );
+                                          })}
+                                        </CommandGroup>
+                                      );
+                                    })()}
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Ítem */}
+                      <FormField
+                        control={form.control}
+                        name="item"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Ítem</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    disabled={!selectedServiceId || disabled}
+                                    className={cn(
+                                      'w-full justify-between',
+                                      !field.value && 'text-muted-foreground',
+                                      !selectedServiceId && 'opacity-50 cursor-not-allowed'
+                                    )}
+                                    data-testid="item-select-button"
+                                  >
+                                    {field.value
+                                      ? serviceItems.find((item) => item.id === field.value)?.item_name ||
+                                        'Ítem no encontrado'
+                                      : selectedServiceId
+                                        ? 'Seleccionar ítem'
+                                        : 'Seleccione un servicio primero'}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-full p-0">
+                                <Command>
+                                  <CommandInput
+                                    placeholder={
+                                      !selectedServiceId ? 'Seleccione un servicio primero' : 'Buscar ítem...'
+                                    }
+                                    className="h-9"
+                                    disabled={!selectedServiceId}
+                                  />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      {!selectedServiceId
+                                        ? 'Seleccione un servicio primero.'
+                                        : serviceItems.length === 0
+                                          ? 'No hay ítems disponibles para este servicio.'
+                                          : 'No se encontraron ítems que coincidan.'}
+                                    </CommandEmpty>
+                                    {!selectedServiceId && (
+                                      <div className="py-6 text-center text-sm text-muted-foreground">
+                                        Por favor, seleccione un servicio primero.
+                                      </div>
+                                    )}
+
+                                    {selectedServiceId &&
+                                      (() => {
+                                        if (!selectedServiceId) return null;
+
+                                        if (serviceItems.length === 0) {
+                                          return (
+                                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                              No hay ítems disponibles para este servicio.
+                                            </div>
+                                          );
+                                        }
+
+                                        return (
+                                          <CommandGroup>
+                                            {serviceItems.map((item) => {
+                                              const isSelected = item.id === field.value;
+
+                                              return (
+                                                <CommandItem
+                                                  value={`${item.id}-${item.item_name}`} // Usamos ID y nombre para búsqueda
+                                                  key={item.id}
+                                                  data-testid={`item-option-${item.id}`}
+                                                  onSelect={() => {
+                                                    form.setValue('item', item.id);
+                                                  }}
+                                                  className={cn('group', isSelected ? '' : '')}
+                                                >
+                                                  <div className="flex items-center justify-between w-full">
+                                                    <span>{item.item_name}</span>
+                                                    {item.measure_units?.unit && (
+                                                      <Badge variant="outline" className="ml-2">
+                                                        {item.measure_units.unit}
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                  <Check
+                                                    className={cn(
+                                                      'ml-2 h-4 w-4',
+                                                      isSelected ? 'opacity-100' : 'opacity-0'
+                                                    )}
+                                                  />
+                                                </CommandItem>
+                                              );
+                                            })}
+                                          </CommandGroup>
+                                        );
+                                      })()}
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Sector del Cliente */}
+                      <FormField
+                        control={form.control}
+                        name="sector_service_id"
+                        render={({ field }) => {
+                          // Filtrar sectores del cliente seleccionado
+                          // const customerSectors =
+                          //   Array.from(
+                          //     new Set(
+                          //       selectedCustomer?.customer_services
+                          //         ?.flatMap((service) => service.service_sectors || [])
+                          //         .filter((sector) => sector.sectors)
+                          //         .map((sector) => ({
+                          //           id: sector.id,
+                          //           name: sector.sectors?.name || '',
+                          //           description: sector.sectors?.descripcion_corta || '',
+                          //         }))
+                          //     )
+                          //   ) || [];
+                          const customerSectors = Array.from(
+                            new Set(
+                              selectedCustomer?.customer_services
+                                ?.flatMap((service) => service.service_sectors || [])
+                                .filter((sector) => sector.sectors && sector.service_id === selectedServiceId)
+                                .map((sector) => ({
+                                  sector_id: sector.sectors?.id,
+                                  id: sector.id,
+                                }))
+                            )
+                          ).map((data) => ({
+                            id: data.id,
+                            name:
+                              selectedCustomer?.customer_services
+                                ?.flatMap((service) => service.service_sectors || [])
+                                .find((sector) => sector.sectors?.id === data.sector_id)?.sectors?.name || '',
+                            description:
+                              selectedCustomer?.customer_services
+                                ?.flatMap((service) => service.service_sectors || [])
+                                .find((sector) => sector.sectors?.id === data.sector_id)?.sectors?.descripcion_corta ||
+                              '',
+                          }));
+
+                          // Encontrar el sector seleccionado
+                          const selectedSector = customerSectors.find((sector) => sector.id === field.value);
+
+                          return (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Sector del Cliente (Opcional)</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      disabled={isSectorDisabled || disabled}
+                                      className={cn(
+                                        'w-full justify-between',
+                                        !field.value && 'text-muted-foreground',
+                                        isSectorDisabled && 'opacity-50 cursor-not-allowed'
+                                      )}
+                                    >
+                                      {selectedSector?.name ||
+                                        (selectedCustomer
+                                          ? customerSectors.length > 0
+                                            ? 'Seleccionar sector (opcional)'
+                                            : 'No hay sectores disponibles'
+                                          : 'Seleccione un cliente primero')}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="w-full p-0">
+                                  <Command>
+                                    <CommandInput
+                                      placeholder="Buscar sector..."
+                                      className="h-9"
+                                      disabled={isSectorDisabled}
+                                    />
+                                    <CommandList>
+                                      <CommandEmpty>
+                                        {!selectedCustomerId
+                                          ? 'Seleccione un cliente primero.'
+                                          : customerSectors.length === 0
+                                            ? 'No hay sectores disponibles para este cliente.'
+                                            : 'No se encontraron sectores que coincidan.'}
+                                      </CommandEmpty>
+                                      {customerSectors.length > 0 && (
+                                        <CommandGroup>
+                                          {customerSectors.map((sector) => (
+                                            <CommandItem
+                                              value={sector.name || ''}
+                                              key={sector.id}
+                                              onSelect={() => {
+                                                form.setValue('sector_service_id', sector.id, { shouldDirty: true });
+                                              }}
+                                            >
+                                              {sector.name || 'Sin nombre'}
+                                              <Check
+                                                className={cn(
+                                                  'ml-auto h-4 w-4',
+                                                  sector.id === field.value ? 'opacity-100' : 'opacity-0'
+                                                )}
+                                              />
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      )}
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
+
+                      {/* Área del Cliente */}
+                      <FormField
+                        control={form.control}
+                        name="areas_service_id"
+                        render={({ field }) => {
+                          // Filtrar áreas del cliente seleccionado
+                          const customerAreas = Array.from(
+                            new Set(
+                              selectedCustomer?.customer_services
+                                ?.flatMap((service) => service.service_areas || [])
+                                .filter((area) => area.areas_cliente && area.service_id === selectedServiceId)
+                                .map((area) => {
+                                  return {
+                                    id: area.id,
+                                    area_id: area.areas_cliente?.id,
+                                  };
+                                })
+                            )
+                          ).map((data) => ({
+                            id: data.id,
+                            name:
+                              selectedCustomer?.customer_services
+                                ?.flatMap((service) => service.service_areas || [])
+                                .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente?.nombre || '',
+                            description:
+                              selectedCustomer?.customer_services
+                                ?.flatMap((service) => service.service_areas || [])
+                                .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente
+                                ?.descripcion_corta || '',
+                          }));
+
+                          // Encontrar el área seleccionada
+                          const selectedArea = customerAreas.find((area) => area.id === field.value);
+
+                          return (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Área del Cliente</FormLabel>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      disabled={isAreaDisabled || disabled}
+                                      className={cn(
+                                        'w-full justify-between',
+                                        !field.value && 'text-muted-foreground',
+                                        isAreaDisabled && 'opacity-50 cursor-not-allowed'
+                                      )}
+                                    >
+                                      {selectedArea?.name ||
+                                        (selectedCustomer
+                                          ? customerAreas.length > 0
+                                            ? 'Seleccionar área'
+                                            : 'No hay áreas disponibles'
+                                          : 'Seleccione un cliente primero')}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="w-full p-0">
+                                  <Command>
+                                    <CommandInput
+                                      placeholder="Buscar área..."
+                                      className="h-9"
+                                      disabled={isAreaDisabled}
+                                    />
+                                    <CommandList>
+                                      <CommandEmpty>
+                                        {!selectedCustomerId
+                                          ? 'Seleccione un cliente primero.'
+                                          : customerAreas.length === 0
+                                            ? 'No hay áreas disponibles para este cliente.'
+                                            : 'No se encontraron áreas que coincidan.'}
+                                      </CommandEmpty>
+                                      {customerAreas.length > 0 && (
+                                        <CommandGroup>
+                                          {customerAreas.map((area) => (
+                                            <CommandItem
+                                              value={area.name || ''}
+                                              key={area.id}
+                                              onSelect={() => {
+                                                form.setValue('areas_service_id', area.id, { shouldDirty: true });
+                                              }}
+                                            >
+                                              {area.name || 'Sin nombre'}
+                                              <Check
+                                                className={cn(
+                                                  'ml-auto h-4 w-4',
+                                                  area.id === field.value ? 'opacity-100' : 'opacity-0'
+                                                )}
+                                              />
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      )}
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
+
+                      {/* Equipos del Cliente */}
+                      <FormField
+                        control={form.control}
+                        name="equipos_cliente"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Equipos del Cliente</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    disabled={disabled}
+                                    className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                                  >
+                                    {field.value && field.value.length > 0
+                                      ? `${field.value.length} equipos del cliente seleccionados`
+                                      : 'Seleccionar equipos del cliente'}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[400px] p-0">
+                                <Command>
+                                  <CommandInput placeholder="Buscar equipos..." />
+                                  <CommandEmpty>No se encontraron equipos.</CommandEmpty>
+                                  <CommandGroup className="max-h-[200px] overflow-y-auto">
+                                    {selectedCustomer?.equipos_clientes?.map((equipo) => {
+                                      const isSelected = field.value?.includes(equipo.id);
+                                      const maxSelected = (field.value?.length || 0) >= 1;
+                                      const isDisabled = !isSelected && maxSelected;
+
+                                      return (
+                                        <CommandItem
+                                          value={equipo.name || equipo.type || ''}
+                                          key={equipo.id}
+                                          disabled={isDisabled}
+                                          onSelect={() => {
+                                            if (isDisabled) return;
+
+                                            const newValue = isSelected
+                                              ? field.value?.filter((v: string) => v !== equipo.id) || []
+                                              : [...(field.value || []), equipo.id];
+                                            field.onChange(newValue);
+                                          }}
+                                          className={cn(
+                                            isDisabled && 'opacity-50 cursor-not-allowed',
+                                            isSelected && 'bg-accent/50'
+                                          )}
+                                        >
+                                          <Check
+                                            className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')}
+                                          />
+                                          {equipo.name} ({equipo.type})
+                                        </CommandItem>
+                                      );
+                                    })}
+                                  </CommandGroup>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Campo de estado - Solo visible en modo edición */}
+                  {selectedRow && (
                     <FormField
                       control={form.control}
-                      name="customer"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col w-full">
-                          <FormLabel>Cliente</FormLabel>
+                      name="status"
+                      render={({ field }) => {
+                        // Obtener el valor actual del estado
+                        const currentStatusWatch = form.watch('status');
+                        // const currentStatus = field.value as string;
+
+                        return (
+                          <FormItem>
+                            <FormLabel>Estado</FormLabel>
+                            <Select
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                if (value !== 'ejecutado') {
+                                  form.setValue('remit_number', '');
+                                }
+                              }}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccione un estado" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem
+                                  className="hover:bg-accent"
+                                  value="ejecutado"
+                                  disabled={
+                                    field.value === 'sin_recursos_asignados' ||
+                                    //Si la fecha del aprte es para mañana, no se puede pasar a ejecutado
+                                    moment(dailyReport[0].date).isSameOrAfter(moment().add(1, 'day'))
+                                  }
+                                >
+                                  Ejecutado
+                                </SelectItem>
+                                <SelectItem className="hover:bg-accent" value="reprogramado">
+                                  Reprogramado
+                                </SelectItem>
+                                <SelectItem className="hover:bg-accent" value="cancelado">
+                                  Cancelado
+                                </SelectItem>
+                                <SelectItem value="pendiente" disabled>
+                                  Pendiente
+                                </SelectItem>
+                                <SelectItem value="sin_recursos_asignados" disabled>
+                                  Sin recursos asignados
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+
+                            {/* Campo de número de remito - Solo visible cuando el estado es 'ejecutado' */}
+                            {/* {currentStatusWatch === 'ejecutado' && ( */}
+                            {false && (
+                              <div className="mt-6">
+                                <FormField
+                                  control={form.control}
+                                  name="remit_number"
+                                  render={({ field: remitField }) => (
+                                    <FormItem>
+                                      <FormLabel>Número de Remito</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="Ingrese el número de remito"
+                                          {...remitField}
+                                          value={remitField.value || ''}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            )}
+                            {currentStatusWatch === 'cancelado' && (
+                              <div className="mt-6">
+                                <FormField
+                                  control={form.control}
+                                  name="cancel_reason"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Motivo de cancelación</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          placeholder="Ingrese el motivo de cancelación"
+                                          {...field}
+                                          value={field.value || ''}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            )}
+                            {currentStatusWatch === 'reprogramado' && (
+                              <div className="mt-6">
+                                <FormField
+                                  control={form.control}
+                                  name="reprogram_date"
+                                  render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                      <FormLabel className="mt-2">Fecha de reprogramación</FormLabel>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <FormControl>
+                                            <Button
+                                              variant={'outline'}
+                                              className={cn(
+                                                'pl-3 text-left font-normal',
+                                                !field.value && 'text-muted-foreground'
+                                              )}
+                                            >
+                                              {field.value ? (
+                                                format(field.value, 'PPP', { locale: es })
+                                              ) : (
+                                                <span>Seleccionar fecha</span>
+                                              )}
+                                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                          </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                          <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={field.onChange}
+                                            disabled={(date) => moment(date).isBefore(moment())}
+                                            initialFocus
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            )}
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  )}
+
+                  {/* Jornada */}
+                  <FormField
+                    control={form.control}
+                    name="working_day"
+                    render={({ field }) => {
+                      return (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Jornada</FormLabel>
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  disabled={disabled || selectedRow != null}
                                   className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                                  data-testid="customer-select-button"
+                                  data-testid="working-day-select-button"
                                 >
                                   {field.value
-                                    ? customers?.find((customer) => customer.id === field.value)?.name
-                                    : 'Seleccionar cliente'}
+                                    ? workingDayOptions.find(
+                                        (day) => day.value.toLowerCase() === field.value.toLowerCase()
+                                      )?.label
+                                    : 'Seleccionar jornada'}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
                             <PopoverContent align="start" className="max-w-[400px] p-0">
                               <Command>
-                                <CommandInput placeholder="Buscar cliente..." className="h-9" />
+                                <CommandInput placeholder="Buscar jornada..." className="h-9" />
                                 <CommandList>
-                                  <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                                  <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                                    Nota: Los clientes dados de baja no se muestran en la lista.
-                                  </div>
-
-                                  {/* Clientes activos */}
-                                  <CommandGroup heading="Clientes activos">
-                                    {activeCustomers.map((customer) => (
+                                  <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
+                                  <CommandGroup>
+                                    {workingDayOptions.map((day) => (
                                       <CommandItem
-                                        value={customer.name}
-                                        key={customer.id}
-                                        data-testid={`customer-option-${customer.id}`}
+                                        value={day.label.toLocaleLowerCase()}
+                                        key={day.value.toLocaleLowerCase()}
+                                        data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
                                         onSelect={() => {
-                                          handleCustomerChange(customer.id);
-                                          setSelectedServiceId(null);
-                                          setSelectedCustomer(customer);
+                                          const previousValue = form.getValues('working_day');
+                                          form.setValue('working_day', day.value.toLowerCase());
+
+                                          // Si el valor anterior era 'por horario' o si el nuevo valor no es 'por horario', limpiar las horas
+                                          if (
+                                            previousValue.toLowerCase() === 'por horario' ||
+                                            day.value.toLowerCase() !== 'por horario'
+                                          ) {
+                                            form.setValue('start_time', '');
+                                            form.setValue('end_time', '');
+                                          }
                                         }}
                                       >
-                                        {customer.name}
+                                        {day.label}
                                         <Check
                                           className={cn(
                                             'ml-auto h-4 w-4',
-                                            customer.id === field.value ? 'opacity-100' : 'opacity-0'
+                                            day.value.toLowerCase() === field.value.toLowerCase()
+                                              ? 'opacity-100'
+                                              : 'opacity-0'
                                           )}
                                         />
                                       </CommandItem>
@@ -864,763 +1639,498 @@ export function DailyReportForm({
                           </Popover>
                           <FormMessage />
                         </FormItem>
-                      )}
-                    />
-                    {/* Servicio */}
-                    <FormField
-                      control={form.control}
-                      name="services"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Servicio</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
+                      );
+                    }}
+                  />
+                  {form.watch('status') === 'pendiente' &&
+                    form.watch('working_day').toLowerCase() === 'jornada 24 horas' &&
+                    selectedRow && (
+                      <div className="flex flex-row gap-4 items-center">
+                        <FormField
+                          control={form.control}
+                          name="completed_day"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center gap-2 space-y-0">
                               <FormControl>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  disabled={isServiceDisabled || disabled}
-                                  className={cn(
-                                    'w-full justify-between',
-                                    !field.value && 'text-muted-foreground',
-                                    isServiceDisabled && 'opacity-50 cursor-not-allowed'
-                                  )}
-                                  data-testid="service-select-button"
-                                >
-                                  {field.value
-                                    ? customerServices.find((service) => service.id === field.value)?.service_name
-                                    : selectedCustomerId
-                                      ? 'Seleccionar servicio'
-                                      : 'Seleccione un cliente primero'}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
+                                <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
                               </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent align="start" className="max-w-[400px] p-0">
-                              <Command>
-                                <CommandInput
-                                  placeholder="Buscar servicio..."
-                                  className="h-9"
-                                  disabled={isServiceDisabled}
-                                />
-                                <CommandList>
-                                  <CommandEmpty>
-                                    {!selectedCustomerId
-                                      ? 'Seleccione un cliente primero.'
-                                      : customerServices.length === 0
-                                        ? 'No hay servicios activos para este cliente.'
-                                        : 'No se encontraron servicios que coincidan.'}
-                                  </CommandEmpty>
-                                  {selectedCustomerId && (
-                                    <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                                      Nota: Los servicios vencidos o de baja no se muestran en la lista.
-                                    </div>
-                                  )}
+                              <FormLabel className=" font-normal m-0">Completado Día</FormLabel>
+                            </FormItem>
+                          )}
+                        />
 
-                                  {(() => {
-                                    if (!selectedCustomerId) return null;
+                        <FormField
+                          control={form.control}
+                          name="completed_night"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                              <FormControl>
+                                <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
+                              </FormControl>
+                              <FormLabel className="font-normal">Completado Noche</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
 
-                                    if (customerServices.length === 0) {
-                                      return (
-                                        <div className="py-6 text-center text-sm text-muted-foreground">
-                                          No hay servicios activos para este cliente.
-                                        </div>
-                                      );
+                  {/* Horario (condicional) */}
+                  {form.watch('working_day').toLowerCase() === 'por horario' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="start_time"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Hora de inicio</FormLabel>
+                            <Input type="time" {...field} />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="end_time"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Hora de fin</FormLabel>
+                            <Input type="time" {...field} />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Empleados - Campos condicionales según jornada */}
+                  {(() => {
+                    const workingDayValue = form.watch('working_day')?.toLowerCase() || '';
+                    const is12Hours = workingDayValue === 'jornada 12 horas';
+                    const is24Hours = workingDayValue === 'jornada 24 horas';
+                    const hasRoleFields = is12Hours || is24Hours;
+
+                    // IDs de empleados seleccionados en otros roles (para deshabilitar)
+                    const choferDiaId = form.watch('chofer_dia');
+                    const choferNocheId = form.watch('chofer_noche');
+                    const ayudanteDiaId = form.watch('ayudante_dia');
+                    const ayudanteNocheId = form.watch('ayudante_noche');
+
+                    if (hasRoleFields) {
+                      return (
+                        <div className="space-y-4">
+                          <div className="text-sm font-medium text-muted-foreground mb-2">
+                            {is12Hours
+                              ? 'Asignación de Personal - Jornada 12 Horas'
+                              : 'Asignación de Personal - Jornada 24 Horas'}
+                          </div>
+
+                          {/* Chofer de Día */}
+                          <FormField
+                            control={form.control}
+                            name="chofer_dia"
+                            render={({ field }) => (
+                              <EmployeeRoleSelect
+                                field={field}
+                                employees={allEmployees}
+                                selectedCustomerId={selectedCustomerId}
+                                label="Chofer de Día"
+                                placeholder="Seleccionar chofer de día"
+                                disabledEmployeeIds={
+                                  [choferNocheId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
+                                }
+                              />
+                            )}
+                          />
+
+                          {/* Ayudante de Día */}
+                          <FormField
+                            control={form.control}
+                            name="ayudante_dia"
+                            render={({ field }) => (
+                              <EmployeeRoleSelect
+                                field={field}
+                                employees={allEmployees}
+                                selectedCustomerId={selectedCustomerId}
+                                label="Ayudante de Día (opcional)"
+                                placeholder="Seleccionar ayudante de día"
+                                disabledEmployeeIds={
+                                  [choferDiaId, choferNocheId, ayudanteNocheId].filter(Boolean) as string[]
+                                }
+                              />
+                            )}
+                          />
+
+                          {is24Hours && (
+                            <>
+                              {/* Chofer de Noche */}
+                              <FormField
+                                control={form.control}
+                                name="chofer_noche"
+                                render={({ field }) => (
+                                  <EmployeeRoleSelect
+                                    field={field}
+                                    employees={allEmployees}
+                                    selectedCustomerId={selectedCustomerId}
+                                    label="Chofer de Noche"
+                                    placeholder="Seleccionar chofer de noche"
+                                    disabledEmployeeIds={
+                                      [choferDiaId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
                                     }
+                                  />
+                                )}
+                              />
 
-                                    return (
-                                      <CommandGroup>
-                                        {customerServices.map((service) => {
-                                          return (
-                                            <CommandItem
-                                              value={service.service_name || ''}
-                                              key={service.id}
-                                              data-testid={`service-option-${service.id}`}
-                                              onSelect={() => handleServiceChange(service.id)}
-                                            >
-                                              <div className="flex items-center justify-between w-full">
-                                                <span>{service.service_name}</span>
-                                              </div>
-                                              <Check
-                                                className={cn(
-                                                  'ml-auto h-4 w-4',
-                                                  service.id === field.value ? 'opacity-100' : 'opacity-0'
-                                                )}
-                                              />
-                                            </CommandItem>
-                                          );
-                                        })}
-                                      </CommandGroup>
-                                    );
-                                  })()}
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                              {/* Ayudante de Noche */}
+                              <FormField
+                                control={form.control}
+                                name="ayudante_noche"
+                                render={({ field }) => (
+                                  <EmployeeRoleSelect
+                                    field={field}
+                                    employees={allEmployees}
+                                    selectedCustomerId={selectedCustomerId}
+                                    label="Ayudante de Noche (opcional)"
+                                    placeholder="Seleccionar ayudante de noche"
+                                    disabledEmployeeIds={
+                                      [choferDiaId, choferNocheId, ayudanteDiaId].filter(Boolean) as string[]
+                                    }
+                                  />
+                                )}
+                              />
+                            </>
+                          )}
+                        </div>
+                      );
+                    }
 
-                    {/* Ítem */}
+                    // Campos normales para otras jornadas
+                    return null;
+                  })()}
+
+                  {/* Empleados - Selección múltiple (para jornadas que no son 12/24 hrs, o retrocompatibilidad) */}
+                  {(() => {
+                    const workingDayLower = form.watch('working_day')?.toLowerCase() || '';
+                    const isRoleBasedJornada = ['jornada 12 horas', 'jornada 24 horas'].includes(workingDayLower);
+                    // Retrocompatibilidad: mostrar campo legacy si estamos editando y el registro tiene empleados sin roles
+                    const hasLegacyEmployees =
+                      !!selectedRow &&
+                      (selectedRow.employees_references?.length ?? 0) > 0 &&
+                      !selectedRow.employees_references?.some(
+                        (emp: { role?: string | null }) =>
+                          emp.role === 'chofer_dia' ||
+                          emp.role === 'chofer_noche' ||
+                          emp.role === 'ayudante_dia' ||
+                          emp.role === 'ayudante_noche'
+                      );
+                    const showLegacyField = !isRoleBasedJornada || hasLegacyEmployees;
+                    return showLegacyField;
+                  })() && (
                     <FormField
                       control={form.control}
-                      name="item"
+                      name="employees"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Ítem</FormLabel>
+                          <FormLabel>Empleados</FormLabel>
+                          {duplicateEmployees.length > 0 && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                              <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                </div>
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-yellow-800">
+                                    Empleados duplicados detectados
+                                  </h3>
+                                  <div className="mt-2 text-sm text-yellow-700">
+                                    <p>Los siguientes empleados ya están asignados en otras filas del parte diario:</p>
+                                    <ul className="list-disc list-inside mt-1">
+                                      {duplicateEmployees.map((employee, index) => (
+                                        <li key={index}>{employee}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {unassignedEmployeesSelected.length > 0 && (
+                            <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
+                              <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                  <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                </div>
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-orange-800">
+                                    Empleados no asignados al cliente
+                                  </h3>
+                                  <div className="mt-2 text-sm text-orange-700">
+                                    <p>Los siguientes empleados no están asignados al cliente seleccionado:</p>
+                                    <ul className="list-disc list-inside mt-1">
+                                      {unassignedEmployeesSelected.map((employeeId) => {
+                                        const employee = employees?.find((emp) => emp.id === employeeId);
+                                        return employee ? (
+                                          <li key={employeeId}>
+                                            {employee.lastname.charAt(0).toUpperCase() +
+                                              employee.lastname.slice(1).toLowerCase()}{' '}
+                                            {employee.firstname.charAt(0).toUpperCase() +
+                                              employee.firstname.slice(1).toLowerCase()}
+                                          </li>
+                                        ) : null;
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <SearchEmployee
+                            field={field as any}
+                            employees={allEmployees}
+                            selectedCustomerId={selectedCustomerId}
+                          />
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
                                 <Button
                                   variant="outline"
                                   role="combobox"
-                                  disabled={!selectedServiceId || disabled}
+                                  disabled={!selectedCustomerId}
                                   className={cn(
                                     'w-full justify-between',
-                                    !field.value && 'text-muted-foreground',
-                                    !selectedServiceId && 'opacity-50 cursor-not-allowed'
+                                    !field.value?.length && 'text-muted-foreground',
+                                    !selectedCustomerId && 'opacity-50 cursor-not-allowed'
                                   )}
-                                  data-testid="item-select-button"
                                 >
-                                  {field.value
-                                    ? serviceItems.find((item) => item.id === field.value)?.item_name ||
-                                      'Ítem no encontrado'
-                                    : selectedServiceId
-                                      ? 'Seleccionar ítem'
-                                      : 'Seleccione un servicio primero'}
+                                  {field.value?.length
+                                    ? `${field.value.length} empleado${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
+                                    : selectedCustomerId
+                                      ? 'Seleccionar empleados'
+                                      : 'Seleccione un cliente primero'}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
                             <PopoverContent align="start" className="w-full p-0">
                               <Command>
-                                <CommandInput
-                                  placeholder={!selectedServiceId ? 'Seleccione un servicio primero' : 'Buscar ítem...'}
-                                  className="h-9"
-                                  disabled={!selectedServiceId}
-                                />
+                                <CommandInput placeholder="Buscar empleados..." />
                                 <CommandList>
                                   <CommandEmpty>
-                                    {!selectedServiceId
-                                      ? 'Seleccione un servicio primero.'
-                                      : serviceItems.length === 0
-                                        ? 'No hay ítems disponibles para este servicio.'
-                                        : 'No se encontraron ítems que coincidan.'}
+                                    {!selectedCustomerId
+                                      ? 'Seleccione un cliente primero.'
+                                      : allEmployees.length === 0
+                                        ? 'No hay empleados activos disponibles.'
+                                        : 'No se encontraron empleados que coincidan.'}
                                   </CommandEmpty>
-                                  {!selectedServiceId && (
-                                    <div className="py-6 text-center text-sm text-muted-foreground">
-                                      Por favor, seleccione un servicio primero.
+                                  {selectedCustomerId && (
+                                    <div className="px-3 py-1.5 text-xs text-muted-foreground">
+                                      Nota: Los empleados marcados en naranja no están asignados al cliente
+                                      seleccionado.
                                     </div>
                                   )}
 
-                                  {selectedServiceId &&
+                                  {!selectedCustomerId && (
+                                    <div className="py-6 text-center text-sm text-muted-foreground">
+                                      Por favor, seleccione un cliente primero.
+                                    </div>
+                                  )}
+
+                                  {selectedCustomerId && allEmployees.length === 0 && (
+                                    <div className="py-6 text-center text-sm text-muted-foreground">
+                                      No hay empleados activos disponibles.
+                                    </div>
+                                  )}
+
+                                  {selectedCustomerId &&
+                                    allEmployees.length > 0 &&
                                     (() => {
-                                      if (!selectedServiceId) return null;
+                                      // Obtener todas las posiciones únicas para todos los empleados
+                                      const positionsMap: Record<string, (typeof allEmployees)[0][]> = {};
 
-                                      if (serviceItems.length === 0) {
-                                        return (
-                                          <div className="py-6 text-center text-sm text-muted-foreground">
-                                            No hay ítems disponibles para este servicio.
-                                          </div>
-                                        );
-                                      }
+                                      // Agrupar todos los empleados por posición
+                                      allEmployees.forEach((employee) => {
+                                        const position = employee.company_positions?.name || 'Sin posición';
 
-                                      return (
-                                        <CommandGroup>
-                                          {serviceItems.map((item) => {
-                                            const isSelected = item.id === field.value;
+                                        if (!positionsMap[position]) {
+                                          positionsMap[position] = [];
+                                        }
+                                        positionsMap[position].push(employee);
+                                      });
+
+                                      // Convertir a array y ordenar por posición
+                                      const positionsArray = Object.keys(positionsMap).sort();
+
+                                      return positionsArray.map((position) => (
+                                        <CommandGroup
+                                          key={position}
+                                          heading={position.charAt(0).toUpperCase() + position.slice(1)}
+                                        >
+                                          {positionsMap[position].map((employee) => {
+                                            // Verificar si el empleado está asignado al cliente
+                                            const isAssigned = employee.contractor_employee?.some(
+                                              (ce) => ce.customers?.id === selectedCustomerId
+                                            );
 
                                             return (
                                               <CommandItem
-                                                value={`${item.id}-${item.item_name}`} // Usamos ID y nombre para búsqueda
-                                                key={item.id}
-                                                data-testid={`item-option-${item.id}`}
+                                                value={`${employee.lastname} ${employee.firstname}`}
+                                                key={employee.id}
                                                 onSelect={() => {
-                                                  form.setValue('item', item.id);
+                                                  const currentValues = field.value || [];
+                                                  const newValues = currentValues.includes(employee.id)
+                                                    ? currentValues.filter((id) => id !== employee.id)
+                                                    : [...currentValues, employee.id];
+
+                                                  field.onChange(newValues);
                                                 }}
-                                                className={cn('group', isSelected ? '' : '')}
+                                                className={cn(
+                                                  !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                                )}
                                               >
                                                 <div className="flex items-center justify-between w-full">
-                                                  <span>{item.item_name}</span>
-                                                  {item.measure_units?.unit && (
-                                                    <Badge variant="outline" className="ml-2">
-                                                      {item.measure_units.unit}
+                                                  <div className="flex items-center">
+                                                    <Check
+                                                      className={cn(
+                                                        'mr-2 h-4 w-4 capitalize',
+                                                        !isAssigned && 'text-orange-600',
+                                                        field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
+                                                      )}
+                                                    />
+                                                    {employee.lastname.replace(
+                                                      /\w\S*/g,
+                                                      (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                                    ) +
+                                                      ' ' +
+                                                      employee.firstname.replace(
+                                                        /\w\S*/g,
+                                                        (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                                      )}
+                                                  </div>
+                                                  {!isAssigned && (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
+                                                    >
+                                                      No asignado
+                                                    </Badge>
+                                                  )}
+                                                  {employee.deviation_no_diagram && (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="ml-1 bg-red-100 text-red-800 border-red-300"
+                                                    >
+                                                      Sin diagrama
+                                                    </Badge>
+                                                  )}
+                                                  {employee.deviation_non_work_day && (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="ml-1 bg-yellow-100 text-yellow-800 border-yellow-300"
+                                                    >
+                                                      {employee.current_diagram?.diagram_type?.name || 'No laboral'}
                                                     </Badge>
                                                   )}
                                                 </div>
-                                                <Check
-                                                  className={cn(
-                                                    'ml-2 h-4 w-4',
-                                                    isSelected ? 'opacity-100' : 'opacity-0'
-                                                  )}
-                                                />
                                               </CommandItem>
                                             );
                                           })}
                                         </CommandGroup>
-                                      );
+                                      ));
                                     })()}
                                 </CommandList>
                               </Command>
                             </PopoverContent>
                           </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {field.value?.map((employeeId) => {
+                              const employee = employees?.find((emp) => emp.id === employeeId);
+                              if (!employee) return null;
 
-                    {/* Sector del Cliente */}
-                    <FormField
-                      control={form.control}
-                      name="sector_service_id"
-                      render={({ field }) => {
-                        // Filtrar sectores del cliente seleccionado
-                        // const customerSectors =
-                        //   Array.from(
-                        //     new Set(
-                        //       selectedCustomer?.customer_services
-                        //         ?.flatMap((service) => service.service_sectors || [])
-                        //         .filter((sector) => sector.sectors)
-                        //         .map((sector) => ({
-                        //           id: sector.id,
-                        //           name: sector.sectors?.name || '',
-                        //           description: sector.sectors?.descripcion_corta || '',
-                        //         }))
-                        //     )
-                        //   ) || [];
-                        const customerSectors = Array.from(
-                          new Set(
-                            selectedCustomer?.customer_services
-                              ?.flatMap((service) => service.service_sectors || [])
-                              .filter((sector) => sector.sectors && sector.service_id === selectedServiceId)
-                              .map((sector) => ({
-                                sector_id: sector.sectors?.id,
-                                id: sector.id,
-                              }))
-                          )
-                        ).map((data) => ({
-                          id: data.id,
-                          name:
-                            selectedCustomer?.customer_services
-                              ?.flatMap((service) => service.service_sectors || [])
-                              .find((sector) => sector.sectors?.id === data.sector_id)?.sectors?.name || '',
-                          description:
-                            selectedCustomer?.customer_services
-                              ?.flatMap((service) => service.service_sectors || [])
-                              .find((sector) => sector.sectors?.id === data.sector_id)?.sectors?.descripcion_corta ||
-                            '',
-                        }));
+                              const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
 
-                        // Encontrar el sector seleccionado
-                        const selectedSector = customerSectors.find((sector) => sector.id === field.value);
+                              // Verificar si el empleado está asignado al cliente
+                              const isAssigned = employee.contractor_employee?.some(
+                                (ce) => ce.customers?.id === selectedCustomerId
+                              );
 
-                        return (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Sector del Cliente (Opcional)</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    disabled={isSectorDisabled || disabled}
-                                    className={cn(
-                                      'w-full justify-between',
-                                      !field.value && 'text-muted-foreground',
-                                      isSectorDisabled && 'opacity-50 cursor-not-allowed'
-                                    )}
-                                  >
-                                    {selectedSector?.name ||
-                                      (selectedCustomer
-                                        ? customerSectors.length > 0
-                                          ? 'Seleccionar sector (opcional)'
-                                          : 'No hay sectores disponibles'
-                                        : 'Seleccione un cliente primero')}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent align="start" className="w-full p-0">
-                                <Command>
-                                  <CommandInput
-                                    placeholder="Buscar sector..."
-                                    className="h-9"
-                                    disabled={isSectorDisabled}
-                                  />
-                                  <CommandList>
-                                    <CommandEmpty>
-                                      {!selectedCustomerId
-                                        ? 'Seleccione un cliente primero.'
-                                        : customerSectors.length === 0
-                                          ? 'No hay sectores disponibles para este cliente.'
-                                          : 'No se encontraron sectores que coincidan.'}
-                                    </CommandEmpty>
-                                    {customerSectors.length > 0 && (
-                                      <CommandGroup>
-                                        {customerSectors.map((sector) => (
-                                          <CommandItem
-                                            value={sector.name || ''}
-                                            key={sector.id}
-                                            onSelect={() => {
-                                              form.setValue('sector_service_id', sector.id, { shouldDirty: true });
-                                            }}
-                                          >
-                                            {sector.name || 'Sin nombre'}
-                                            <Check
-                                              className={cn(
-                                                'ml-auto h-4 w-4',
-                                                sector.id === field.value ? 'opacity-100' : 'opacity-0'
-                                              )}
-                                            />
-                                          </CommandItem>
-                                        ))}
-                                      </CommandGroup>
-                                    )}
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        );
-                      }}
-                    />
-
-                    {/* Área del Cliente */}
-                    <FormField
-                      control={form.control}
-                      name="areas_service_id"
-                      render={({ field }) => {
-                        // Filtrar áreas del cliente seleccionado
-                        const customerAreas = Array.from(
-                          new Set(
-                            selectedCustomer?.customer_services
-                              ?.flatMap((service) => service.service_areas || [])
-                              .filter((area) => area.areas_cliente && area.service_id === selectedServiceId)
-                              .map((area) => {
-                                return {
-                                  id: area.id,
-                                  area_id: area.areas_cliente?.id,
-                                };
-                              })
-                          )
-                        ).map((data) => ({
-                          id: data.id,
-                          name:
-                            selectedCustomer?.customer_services
-                              ?.flatMap((service) => service.service_areas || [])
-                              .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente?.nombre || '',
-                          description:
-                            selectedCustomer?.customer_services
-                              ?.flatMap((service) => service.service_areas || [])
-                              .find((area) => area.areas_cliente?.id === data.area_id)?.areas_cliente
-                              ?.descripcion_corta || '',
-                        }));
-
-                        // Encontrar el área seleccionada
-                        const selectedArea = customerAreas.find((area) => area.id === field.value);
-
-                        return (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Área del Cliente</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    disabled={isAreaDisabled || disabled}
-                                    className={cn(
-                                      'w-full justify-between',
-                                      !field.value && 'text-muted-foreground',
-                                      isAreaDisabled && 'opacity-50 cursor-not-allowed'
-                                    )}
-                                  >
-                                    {selectedArea?.name ||
-                                      (selectedCustomer
-                                        ? customerAreas.length > 0
-                                          ? 'Seleccionar área'
-                                          : 'No hay áreas disponibles'
-                                        : 'Seleccione un cliente primero')}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent align="start" className="w-full p-0">
-                                <Command>
-                                  <CommandInput
-                                    placeholder="Buscar área..."
-                                    className="h-9"
-                                    disabled={isAreaDisabled}
-                                  />
-                                  <CommandList>
-                                    <CommandEmpty>
-                                      {!selectedCustomerId
-                                        ? 'Seleccione un cliente primero.'
-                                        : customerAreas.length === 0
-                                          ? 'No hay áreas disponibles para este cliente.'
-                                          : 'No se encontraron áreas que coincidan.'}
-                                    </CommandEmpty>
-                                    {customerAreas.length > 0 && (
-                                      <CommandGroup>
-                                        {customerAreas.map((area) => (
-                                          <CommandItem
-                                            value={area.name || ''}
-                                            key={area.id}
-                                            onSelect={() => {
-                                              form.setValue('areas_service_id', area.id, { shouldDirty: true });
-                                            }}
-                                          >
-                                            {area.name || 'Sin nombre'}
-                                            <Check
-                                              className={cn(
-                                                'ml-auto h-4 w-4',
-                                                area.id === field.value ? 'opacity-100' : 'opacity-0'
-                                              )}
-                                            />
-                                          </CommandItem>
-                                        ))}
-                                      </CommandGroup>
-                                    )}
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        );
-                      }}
-                    />
-
-                    {/* Equipos del Cliente */}
-                    <FormField
-                      control={form.control}
-                      name="equipos_cliente"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Equipos del Cliente</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  disabled={disabled}
-                                  className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
+                              return (
+                                <div
+                                  key={employeeId}
+                                  className={cn(
+                                    'text-xs px-2 py-1 rounded-md flex items-center gap-1',
+                                    isAssigned
+                                      ? 'bg-primary/10 text-primary'
+                                      : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                  )}
                                 >
-                                  {field.value && field.value.length > 0
-                                    ? `${field.value.length} equipos del cliente seleccionados`
-                                    : 'Seleccionar equipos del cliente'}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[400px] p-0">
-                              <Command>
-                                <CommandInput placeholder="Buscar equipos..." />
-                                <CommandEmpty>No se encontraron equipos.</CommandEmpty>
-                                <CommandGroup className="max-h-[200px] overflow-y-auto">
-                                  {selectedCustomer?.equipos_clientes?.map((equipo) => {
-                                    const isSelected = field.value?.includes(equipo.id);
-                                    const maxSelected = (field.value?.length || 0) >= 1;
-                                    const isDisabled = !isSelected && maxSelected;
-
-                                    return (
-                                      <CommandItem
-                                        value={equipo.name || equipo.type || ''}
-                                        key={equipo.id}
-                                        disabled={isDisabled}
-                                        onSelect={() => {
-                                          if (isDisabled) return;
-
-                                          const newValue = isSelected
-                                            ? field.value?.filter((v: string) => v !== equipo.id) || []
-                                            : [...(field.value || []), equipo.id];
-                                          field.onChange(newValue);
-                                        }}
-                                        className={cn(
-                                          isDisabled && 'opacity-50 cursor-not-allowed',
-                                          isSelected && 'bg-accent/50'
-                                        )}
-                                      >
-                                        <Check
-                                          className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')}
-                                        />
-                                        {equipo.name} ({equipo.type})
-                                      </CommandItem>
-                                    );
-                                  })}
-                                </CommandGroup>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
+                                  {displayName}
+                                  {!isAssigned && (
+                                    <Badge
+                                      variant="outline"
+                                      className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
+                                    >
+                                      No asignado
+                                    </Badge>
+                                  )}
+                                  {employee.deviation_no_diagram && (
+                                    <Badge
+                                      variant="outline"
+                                      className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
+                                    >
+                                      Sin diagrama
+                                    </Badge>
+                                  )}
+                                  {employee.deviation_non_work_day && (
+                                    <Badge
+                                      variant="outline"
+                                      className="ml-1 bg-yellow-200 text-yellow-900 border-yellow-400 text-[10px] px-1 py-0"
+                                    >
+                                      {employee.current_diagram?.diagram_type?.name || 'No laboral'}
+                                    </Badge>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const currentValues = field.value || [];
+                                      const newValues = currentValues.filter((id) => id !== employeeId);
+                                      field.onChange(newValues);
+                                    }}
+                                    className={cn(
+                                      'ml-1 hover:opacity-80',
+                                      isAssigned ? 'text-primary' : 'text-orange-800'
+                                    )}
+                                  >
+                                    <X className="h-3 w-3 text-red-500" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                </div>
+                  )}
 
-                {/* Campo de estado - Solo visible en modo edición */}
-                {selectedRow && (
+                  {/* Equipos */}
                   <FormField
                     control={form.control}
-                    name="status"
-                    render={({ field }) => {
-                      // Obtener el valor actual del estado
-                      const currentStatusWatch = form.watch('status');
-                      // const currentStatus = field.value as string;
-
-                      return (
-                        <FormItem>
-                          <FormLabel>Estado</FormLabel>
-                          <Select
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              if (value !== 'ejecutado') {
-                                form.setValue('remit_number', '');
-                              }
-                            }}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Seleccione un estado" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem
-                                className="hover:bg-accent"
-                                value="ejecutado"
-                                disabled={
-                                  field.value === 'sin_recursos_asignados' ||
-                                  //Si la fecha del aprte es para mañana, no se puede pasar a ejecutado
-                                  moment(dailyReport[0].date).isSameOrAfter(moment().add(1, 'day'))
-                                }
-                              >
-                                Ejecutado
-                              </SelectItem>
-                              <SelectItem className="hover:bg-accent" value="reprogramado">
-                                Reprogramado
-                              </SelectItem>
-                              <SelectItem className="hover:bg-accent" value="cancelado">
-                                Cancelado
-                              </SelectItem>
-                              <SelectItem value="pendiente" disabled>
-                                Pendiente
-                              </SelectItem>
-                              <SelectItem value="sin_recursos_asignados" disabled>
-                                Sin recursos asignados
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-
-                          {/* Campo de número de remito - Solo visible cuando el estado es 'ejecutado' */}
-                          {/* {currentStatusWatch === 'ejecutado' && ( */}
-                          {false && (
-                            <div className="mt-6">
-                              <FormField
-                                control={form.control}
-                                name="remit_number"
-                                render={({ field: remitField }) => (
-                                  <FormItem>
-                                    <FormLabel>Número de Remito</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        placeholder="Ingrese el número de remito"
-                                        {...remitField}
-                                        value={remitField.value || ''}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          )}
-                          {currentStatusWatch === 'cancelado' && (
-                            <div className="mt-6">
-                              <FormField
-                                control={form.control}
-                                name="cancel_reason"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Motivo de cancelación</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        placeholder="Ingrese el motivo de cancelación"
-                                        {...field}
-                                        value={field.value || ''}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          )}
-                          {currentStatusWatch === 'reprogramado' && (
-                            <div className="mt-6">
-                              <FormField
-                                control={form.control}
-                                name="reprogram_date"
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-col">
-                                    <FormLabel className="mt-2">Fecha de reprogramación</FormLabel>
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <FormControl>
-                                          <Button
-                                            variant={'outline'}
-                                            className={cn(
-                                              'pl-3 text-left font-normal',
-                                              !field.value && 'text-muted-foreground'
-                                            )}
-                                          >
-                                            {field.value ? (
-                                              format(field.value, 'PPP', { locale: es })
-                                            ) : (
-                                              <span>Seleccionar fecha</span>
-                                            )}
-                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                          </Button>
-                                        </FormControl>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={field.value}
-                                          onSelect={field.onChange}
-                                          disabled={(date) => moment(date).isBefore(moment())}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          )}
-                        </FormItem>
-                      );
-                    }}
-                  />
-                )}
-
-                {/* TODO: Descomentar cuando se reactive la funcionalidad de Chofer/Ayudante Día/Noche */}
-                {/* Empleados - Campos condicionales según jornada */}
-                {/* {(() => {
-                  const workingDayValue = form.watch('working_day')?.toLowerCase() || '';
-                  const is12Hours = workingDayValue === 'jornada 12 horas';
-                  const is24Hours = workingDayValue === 'jornada 24 horas';
-                  const hasRoleFields = is12Hours || is24Hours;
-
-                  // IDs de empleados seleccionados en otros roles (para deshabilitar)
-                  const choferDiaId = form.watch('chofer_dia');
-                  const choferNocheId = form.watch('chofer_noche');
-                  const ayudanteDiaId = form.watch('ayudante_dia');
-                  const ayudanteNocheId = form.watch('ayudante_noche');
-
-                  if (hasRoleFields) {
-                    return (
-                      <div className="space-y-4">
-                        <div className="text-sm font-medium text-muted-foreground mb-2">
-                          {is12Hours
-                            ? 'Asignación de Personal - Jornada 12 Horas'
-                            : 'Asignación de Personal - Jornada 24 Horas'}
-                        </div>
-
-                        <FormField
-                          control={form.control}
-                          name="chofer_dia"
-                          render={({ field }) => (
-                            <EmployeeRoleSelect
-                              field={field}
-                              employees={allEmployees}
-                              selectedCustomerId={selectedCustomerId}
-                              label="Chofer de Día"
-                              placeholder="Seleccionar chofer de día"
-                              disabledEmployeeIds={
-                                [choferNocheId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
-                              }
-                            />
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="ayudante_dia"
-                          render={({ field }) => (
-                            <EmployeeRoleSelect
-                              field={field}
-                              employees={allEmployees}
-                              selectedCustomerId={selectedCustomerId}
-                              label="Ayudante de Día (opcional)"
-                              placeholder="Seleccionar ayudante de día"
-                              disabledEmployeeIds={
-                                [choferDiaId, choferNocheId, ayudanteNocheId].filter(Boolean) as string[]
-                              }
-                            />
-                          )}
-                        />
-
-                        {is24Hours && (
-                          <>
-                            <FormField
-                              control={form.control}
-                              name="chofer_noche"
-                              render={({ field }) => (
-                                <EmployeeRoleSelect
-                                  field={field}
-                                  employees={allEmployees}
-                                  selectedCustomerId={selectedCustomerId}
-                                  label="Chofer de Noche"
-                                  placeholder="Seleccionar chofer de noche"
-                                  disabledEmployeeIds={
-                                    [choferDiaId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
-                                  }
-                                />
-                              )}
-                            />
-
-                            <FormField
-                              control={form.control}
-                              name="ayudante_noche"
-                              render={({ field }) => (
-                                <EmployeeRoleSelect
-                                  field={field}
-                                  employees={allEmployees}
-                                  selectedCustomerId={selectedCustomerId}
-                                  label="Ayudante de Noche (opcional)"
-                                  placeholder="Seleccionar ayudante de noche"
-                                  disabledEmployeeIds={
-                                    [choferDiaId, choferNocheId, ayudanteDiaId].filter(Boolean) as string[]
-                                  }
-                                />
-                              )}
-                            />
-                          </>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  return null;
-                })()} */}
-
-                {/* Empleados - Selección múltiple (siempre visible mientras está desactivada la funcionalidad de Chofer/Ayudante) */}
-                {/* Original: !['jornada 12 horas', 'jornada 24 horas'].includes(form.watch('working_day')?.toLowerCase() || '') */}
-                {true && (
-                  <FormField
-                    control={form.control}
-                    name="employees"
+                    name="equipment"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Empleados</FormLabel>
-                        {duplicateEmployees.length > 0 && (
+                        <FormLabel>Equipos propios</FormLabel>
+                        {duplicateEquipments.length > 0 && (
                           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
                             <div className="flex items-start">
                               <div className="flex-shrink-0">
@@ -1633,12 +2143,12 @@ export function DailyReportForm({
                                 </svg>
                               </div>
                               <div className="ml-3">
-                                <h3 className="text-sm font-medium text-yellow-800">Empleados duplicados detectados</h3>
+                                <h3 className="text-sm font-medium text-yellow-800">Equipos duplicados detectados</h3>
                                 <div className="mt-2 text-sm text-yellow-700">
-                                  <p>Los siguientes empleados ya están asignados en otras filas del parte diario:</p>
+                                  <p>Los siguientes equipos ya están asignados en otras filas del parte diario:</p>
                                   <ul className="list-disc list-inside mt-1">
-                                    {duplicateEmployees.map((employee, index) => (
-                                      <li key={index}>{employee}</li>
+                                    {duplicateEquipments.map((equipment, index) => (
+                                      <li key={index}>{equipment}</li>
                                     ))}
                                   </ul>
                                 </div>
@@ -1646,7 +2156,7 @@ export function DailyReportForm({
                             </div>
                           </div>
                         )}
-                        {unassignedEmployeesSelected.length > 0 && (
+                        {unassignedEquipmentsSelected.length > 0 && (
                           <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
                             <div className="flex items-start">
                               <div className="flex-shrink-0">
@@ -1659,20 +2169,47 @@ export function DailyReportForm({
                                 </svg>
                               </div>
                               <div className="ml-3">
-                                <h3 className="text-sm font-medium text-orange-800">
-                                  Empleados no asignados al cliente
-                                </h3>
+                                <h3 className="text-sm font-medium text-orange-800">Equipos no asignados al cliente</h3>
                                 <div className="mt-2 text-sm text-orange-700">
-                                  <p>Los siguientes empleados no están asignados al cliente seleccionado:</p>
+                                  <p>Los siguientes equipos no están asignados al cliente seleccionado:</p>
                                   <ul className="list-disc list-inside mt-1">
-                                    {unassignedEmployeesSelected.map((employeeId) => {
-                                      const employee = employees?.find((emp) => emp.id === employeeId);
-                                      return employee ? (
-                                        <li key={employeeId}>
-                                          {employee.lastname.charAt(0).toUpperCase() +
-                                            employee.lastname.slice(1).toLowerCase()}{' '}
-                                          {employee.firstname.charAt(0).toUpperCase() +
-                                            employee.firstname.slice(1).toLowerCase()}
+                                    {unassignedEquipmentsSelected.map((equipmentId) => {
+                                      const equipment = equipments?.find((eq) => eq.id === equipmentId);
+                                      return equipment ? (
+                                        <li key={equipmentId}>{equipment.domain || equipment.serie}</li>
+                                      ) : null;
+                                    })}
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {/* PO-1: Warning para equipos con problemas de condición */}
+                        {equipmentsWithConditionIssues.length > 0 && (
+                          <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-2">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">Equipos con problemas de condición</h3>
+                                <div className="mt-2 text-sm text-red-700">
+                                  <p>Los siguientes equipos tienen desvíos de condición:</p>
+                                  <ul className="list-disc list-inside mt-1">
+                                    {equipmentsWithConditionIssues.map((equipmentId) => {
+                                      const equipment = equipments?.find((eq) => eq.id === equipmentId);
+                                      const deviationInfo = getEquipmentDeviationInfo(equipmentId);
+                                      return equipment ? (
+                                        <li key={equipmentId}>
+                                          {equipment.domain || equipment.serie} -{' '}
+                                          <span className="font-medium">{deviationInfo?.conditionLabel}</span>
                                         </li>
                                       ) : null;
                                     })}
@@ -1682,9 +2219,9 @@ export function DailyReportForm({
                             </div>
                           </div>
                         )}
-                        <SearchEmployee
+                        <SearchEquipment
                           field={field as any}
-                          employees={allEmployees}
+                          equipment={allEquipments}
                           selectedCustomerId={selectedCustomerId}
                         />
                         <Popover>
@@ -1701,9 +2238,9 @@ export function DailyReportForm({
                                 )}
                               >
                                 {field.value?.length
-                                  ? `${field.value.length} empleado${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
+                                  ? `${field.value.length} equipo${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
                                   : selectedCustomerId
-                                    ? 'Seleccionar empleados'
+                                    ? 'Seleccionar equipos'
                                     : 'Seleccione un cliente primero'}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
@@ -1711,18 +2248,26 @@ export function DailyReportForm({
                           </PopoverTrigger>
                           <PopoverContent align="start" className="w-full p-0">
                             <Command>
-                              <CommandInput placeholder="Buscar empleados..." />
+                              <CommandInput placeholder="Buscar equipos..." />
                               <CommandList>
                                 <CommandEmpty>
                                   {!selectedCustomerId
                                     ? 'Seleccione un cliente primero.'
-                                    : allEmployees.length === 0
-                                      ? 'No hay empleados activos disponibles.'
-                                      : 'No se encontraron empleados que coincidan.'}
+                                    : allEquipments.length === 0
+                                      ? 'No hay equipos activos disponibles.'
+                                      : 'No se encontraron equipos que coincidan.'}
                                 </CommandEmpty>
                                 {selectedCustomerId && (
-                                  <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                                    Nota: Los empleados marcados en naranja no están asignados al cliente seleccionado.
+                                  <div className="px-3 py-1.5 text-xs text-muted-foreground space-y-1">
+                                    <p>
+                                      Nota: Los equipos marcados en{' '}
+                                      <span className="text-orange-600 font-medium">naranja</span> no están asignados al
+                                      cliente.
+                                    </p>
+                                    <p>
+                                      Los equipos marcados en <span className="text-red-600 font-medium">rojo</span>{' '}
+                                      tienen problemas de condición.
+                                    </p>
                                   </div>
                                 )}
 
@@ -1732,85 +2277,99 @@ export function DailyReportForm({
                                   </div>
                                 )}
 
-                                {selectedCustomerId && allEmployees.length === 0 && (
+                                {selectedCustomerId && allEquipments.length === 0 && (
                                   <div className="py-6 text-center text-sm text-muted-foreground">
-                                    No hay empleados activos disponibles.
+                                    No hay equipos activos disponibles.
                                   </div>
                                 )}
 
                                 {selectedCustomerId &&
-                                  allEmployees.length > 0 &&
+                                  allEquipments.length > 0 &&
                                   (() => {
-                                    // Obtener todas las posiciones únicas para todos los empleados
-                                    const positionsMap: Record<string, (typeof allEmployees)[0][]> = {};
+                                    // Obtener todos los tipos únicos para todos los equipos
+                                    const typesMap: Record<string, (typeof allEquipments)[0][]> = {};
 
-                                    // Agrupar todos los empleados por posición
-                                    allEmployees.forEach((employee) => {
-                                      const position = employee.company_positions?.name || 'Sin posición';
+                                    // Agrupar todos los equipos por tipo
+                                    allEquipments.forEach((equipment) => {
+                                      const type = equipment.type?.name || 'Sin tipo';
 
-                                      if (!positionsMap[position]) {
-                                        positionsMap[position] = [];
+                                      if (!typesMap[type]) {
+                                        typesMap[type] = [];
                                       }
-                                      positionsMap[position].push(employee);
+                                      typesMap[type].push(equipment);
                                     });
 
-                                    // Convertir a array y ordenar por posición
-                                    const positionsArray = Object.keys(positionsMap).sort();
+                                    // Convertir a array y ordenar por tipo
+                                    const typesArray = Object.keys(typesMap).sort();
 
-                                    return positionsArray.map((position) => (
-                                      <CommandGroup
-                                        key={position}
-                                        heading={position.charAt(0).toUpperCase() + position.slice(1)}
-                                      >
-                                        {positionsMap[position].map((employee) => {
-                                          // Verificar si el empleado está asignado al cliente
-                                          const isAssigned = employee.contractor_employee?.some(
+                                    return typesArray.map((type) => (
+                                      <CommandGroup key={type} heading={type.charAt(0).toUpperCase() + type.slice(1)}>
+                                        {typesMap[type].map((equipment) => {
+                                          // Verificar si el equipo está asignado al cliente
+                                          const isAssigned = equipment.contractor_equipment?.some(
                                             (ce) => ce.customers?.id === selectedCustomerId
                                           );
+                                          // PO-1: Verificar desvíos de condición
+                                          const condition = equipment.condition || 'operativo';
+                                          const hasConditionIssue = ['no operativo', 'en reparacion'].includes(
+                                            condition
+                                          );
+                                          const conditionLabel =
+                                            condition === 'no operativo'
+                                              ? 'No operativo'
+                                              : condition === 'en reparacion'
+                                                ? 'En reparación'
+                                                : null;
+                                          const hasAnyDeviation = !isAssigned || hasConditionIssue;
 
                                           return (
                                             <CommandItem
-                                              value={employee.firstname + employee.lastname}
-                                              key={employee.id}
+                                              value={equipment.domain || ''}
+                                              key={equipment.id}
                                               onSelect={() => {
                                                 const currentValues = field.value || [];
-                                                const newValues = currentValues.includes(employee.id)
-                                                  ? currentValues.filter((id) => id !== employee.id)
-                                                  : [...currentValues, employee.id];
-
+                                                const newValues = currentValues.includes(equipment.id)
+                                                  ? currentValues.filter((id) => id !== equipment.id)
+                                                  : [...currentValues, equipment.id];
                                                 field.onChange(newValues);
                                               }}
                                               className={cn(
-                                                !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                                hasConditionIssue && 'text-red-700 bg-red-50 hover:bg-red-100',
+                                                !isAssigned &&
+                                                  !hasConditionIssue &&
+                                                  'text-orange-700 bg-orange-50 hover:bg-orange-100'
                                               )}
                                             >
                                               <div className="flex items-center justify-between w-full">
                                                 <div className="flex items-center">
                                                   <Check
                                                     className={cn(
-                                                      'mr-2 h-4 w-4 capitalize',
-                                                      !isAssigned && 'text-orange-600',
-                                                      field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
+                                                      'mr-2 h-4 w-4',
+                                                      hasConditionIssue && 'text-red-600',
+                                                      !isAssigned && !hasConditionIssue && 'text-orange-600',
+                                                      field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
                                                     )}
                                                   />
-                                                  {employee.lastname.replace(
-                                                    /\w\S*/g,
-                                                    (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                                  ) +
-                                                    ' ' +
-                                                    employee.firstname.replace(
-                                                      /\w\S*/g,
-                                                      (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                                    )}
+                                                  {equipment.domain || equipment.serie}
                                                 </div>
-                                                {!isAssigned && (
-                                                  <Badge
-                                                    variant="outline"
-                                                    className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
-                                                  >
-                                                    No asignado
-                                                  </Badge>
-                                                )}
+                                                <div className="flex gap-1">
+                                                  {hasConditionIssue && (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="ml-2 bg-red-100 text-red-800 border-red-300"
+                                                    >
+                                                      {conditionLabel}
+                                                    </Badge>
+                                                  )}
+                                                  {!isAssigned && (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
+                                                    >
+                                                      No asignado
+                                                    </Badge>
+                                                  )}
+                                                </div>
                                               </div>
                                             </CommandItem>
                                           );
@@ -1823,28 +2382,48 @@ export function DailyReportForm({
                           </PopoverContent>
                         </Popover>
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {field.value?.map((employeeId) => {
-                            const employee = employees?.find((emp) => emp.id === employeeId);
-                            if (!employee) return null;
+                          {field.value?.map((equipmentId) => {
+                            const equipment = equipments?.find((eq) => eq.id === equipmentId);
+                            if (!equipment) return null;
 
-                            const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
+                            const displayName = equipment.domain || equipment.serie;
 
-                            // Verificar si el empleado está asignado al cliente
-                            const isAssigned = employee.contractor_employee?.some(
+                            // Verificar si el equipo está asignado al cliente
+                            const isAssigned = equipment.contractor_equipment?.some(
                               (ce) => ce.customers?.id === selectedCustomerId
                             );
 
+                            // PO-1: Verificar desvíos de condición
+                            const condition = equipment.condition || 'operativo';
+                            const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+                            const conditionLabel =
+                              condition === 'no operativo'
+                                ? 'No operativo'
+                                : condition === 'en reparacion'
+                                  ? 'En reparación'
+                                  : null;
+
                             return (
                               <div
-                                key={employeeId}
+                                key={equipmentId}
                                 className={cn(
                                   'text-xs px-2 py-1 rounded-md flex items-center gap-1',
-                                  isAssigned
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                  hasConditionIssue
+                                    ? 'bg-red-100 text-red-800 border border-red-300'
+                                    : isAssigned
+                                      ? 'bg-primary/10 text-primary'
+                                      : 'bg-orange-100 text-orange-800 border border-orange-300'
                                 )}
                               >
                                 {displayName}
+                                {hasConditionIssue && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
+                                  >
+                                    {conditionLabel}
+                                  </Badge>
+                                )}
                                 {!isAssigned && (
                                   <Badge
                                     variant="outline"
@@ -1857,12 +2436,12 @@ export function DailyReportForm({
                                   type="button"
                                   onClick={() => {
                                     const currentValues = field.value || [];
-                                    const newValues = currentValues.filter((id) => id !== employeeId);
+                                    const newValues = currentValues.filter((id) => id !== equipmentId);
                                     field.onChange(newValues);
                                   }}
                                   className={cn(
                                     'ml-1 hover:opacity-80',
-                                    isAssigned ? 'text-primary' : 'text-orange-800'
+                                    hasConditionIssue ? 'text-red-800' : isAssigned ? 'text-primary' : 'text-orange-800'
                                   )}
                                 >
                                   <X className="h-3 w-3 text-red-500" />
@@ -1875,475 +2454,102 @@ export function DailyReportForm({
                       </FormItem>
                     )}
                   />
-                )}
 
-                {/* Equipos */}
-                <FormField
-                  control={form.control}
-                  name="equipment"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Equipos propios</FormLabel>
-                      {duplicateEquipments.length > 0 && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                            <div className="ml-3">
-                              <h3 className="text-sm font-medium text-yellow-800">Equipos duplicados detectados</h3>
-                              <div className="mt-2 text-sm text-yellow-700">
-                                <p>Los siguientes equipos ya están asignados en otras filas del parte diario:</p>
-                                <ul className="list-disc list-inside mt-1">
-                                  {duplicateEquipments.map((equipment, index) => (
-                                    <li key={index}>{equipment}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      {unassignedEquipmentsSelected.length > 0 && (
-                        <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                            <div className="ml-3">
-                              <h3 className="text-sm font-medium text-orange-800">Equipos no asignados al cliente</h3>
-                              <div className="mt-2 text-sm text-orange-700">
-                                <p>Los siguientes equipos no están asignados al cliente seleccionado:</p>
-                                <ul className="list-disc list-inside mt-1">
-                                  {unassignedEquipmentsSelected.map((equipmentId) => {
-                                    const equipment = equipments?.find((eq) => eq.id === equipmentId);
-                                    return equipment ? (
-                                      <li key={equipmentId}>{equipment.domain || equipment.serie}</li>
-                                    ) : null;
-                                  })}
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      <SearchEquipment
-                        field={field as any}
-                        equipment={allEquipments}
-                        selectedCustomerId={selectedCustomerId}
-                      />
-                      <Popover>
-                        <PopoverTrigger asChild>
+                  {/* reasigment_reason */}
+
+                  {(equipmentHasChanged || employeeHasChanged) && (
+                    <FormField
+                      control={form.control}
+                      name="reasigment_reason"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Motivo de reasignación</FormLabel>
                           <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              disabled={!selectedCustomerId}
-                              className={cn(
-                                'w-full justify-between',
-                                !field.value?.length && 'text-muted-foreground',
-                                !selectedCustomerId && 'opacity-50 cursor-not-allowed'
-                              )}
-                            >
-                              {field.value?.length
-                                ? `${field.value.length} equipo${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
-                                : selectedCustomerId
-                                  ? 'Seleccionar equipos'
-                                  : 'Seleccione un cliente primero'}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
+                            <Input placeholder="Ingrese el motivo de la reasignación" {...field} />
                           </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-full p-0">
-                          <Command>
-                            <CommandInput placeholder="Buscar equipos..." />
-                            <CommandList>
-                              <CommandEmpty>
-                                {!selectedCustomerId
-                                  ? 'Seleccione un cliente primero.'
-                                  : allEquipments.length === 0
-                                    ? 'No hay equipos activos disponibles.'
-                                    : 'No se encontraron equipos que coincidan.'}
-                              </CommandEmpty>
-                              {selectedCustomerId && (
-                                <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                                  Nota: Los equipos marcados en naranja no están asignados al cliente seleccionado.
-                                </div>
-                              )}
-
-                              {!selectedCustomerId && (
-                                <div className="py-6 text-center text-sm text-muted-foreground">
-                                  Por favor, seleccione un cliente primero.
-                                </div>
-                              )}
-
-                              {selectedCustomerId && allEquipments.length === 0 && (
-                                <div className="py-6 text-center text-sm text-muted-foreground">
-                                  No hay equipos activos disponibles.
-                                </div>
-                              )}
-
-                              {selectedCustomerId &&
-                                allEquipments.length > 0 &&
-                                (() => {
-                                  // Obtener todos los tipos únicos para todos los equipos
-                                  const typesMap: Record<string, (typeof allEquipments)[0][]> = {};
-
-                                  // Agrupar todos los equipos por tipo
-                                  allEquipments.forEach((equipment) => {
-                                    const type = equipment.type?.name || 'Sin tipo';
-
-                                    if (!typesMap[type]) {
-                                      typesMap[type] = [];
-                                    }
-                                    typesMap[type].push(equipment);
-                                  });
-
-                                  // Convertir a array y ordenar por tipo
-                                  const typesArray = Object.keys(typesMap).sort();
-
-                                  return typesArray.map((type) => (
-                                    <CommandGroup key={type} heading={type.charAt(0).toUpperCase() + type.slice(1)}>
-                                      {typesMap[type].map((equipment) => {
-                                        // Verificar si el equipo está asignado al cliente
-                                        const isAssigned = equipment.contractor_equipment?.some(
-                                          (ce) => ce.customers?.id === selectedCustomerId
-                                        );
-
-                                        return (
-                                          <CommandItem
-                                            value={equipment.domain || ''}
-                                            key={equipment.id}
-                                            onSelect={() => {
-                                              const currentValues = field.value || [];
-                                              const newValues = currentValues.includes(equipment.id)
-                                                ? currentValues.filter((id) => id !== equipment.id)
-                                                : [...currentValues, equipment.id];
-                                              field.onChange(newValues);
-                                            }}
-                                            className={cn(
-                                              !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
-                                            )}
-                                          >
-                                            <div className="flex items-center justify-between w-full">
-                                              <div className="flex items-center">
-                                                <Check
-                                                  className={cn(
-                                                    'mr-2 h-4 w-4',
-                                                    !isAssigned && 'text-orange-600',
-                                                    field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
-                                                  )}
-                                                />
-                                                {equipment.domain || equipment.serie}
-                                              </div>
-                                              {!isAssigned && (
-                                                <Badge
-                                                  variant="outline"
-                                                  className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
-                                                >
-                                                  No asignado
-                                                </Badge>
-                                              )}
-                                            </div>
-                                          </CommandItem>
-                                        );
-                                      })}
-                                    </CommandGroup>
-                                  ));
-                                })()}
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {field.value?.map((equipmentId) => {
-                          const equipment = equipments?.find((eq) => eq.id === equipmentId);
-                          if (!equipment) return null;
-
-                          const displayName = equipment.domain || equipment.serie;
-
-                          // Verificar si el equipo está asignado al cliente
-                          const isAssigned = equipment.contractor_equipment?.some(
-                            (ce) => ce.customers?.id === selectedCustomerId
-                          );
-
-                          return (
-                            <div
-                              key={equipmentId}
-                              className={cn(
-                                'text-xs px-2 py-1 rounded-md flex items-center gap-1',
-                                isAssigned
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'bg-orange-100 text-orange-800 border border-orange-300'
-                              )}
-                            >
-                              {displayName}
-                              {!isAssigned && (
-                                <Badge
-                                  variant="outline"
-                                  className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
-                                >
-                                  No asignado
-                                </Badge>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const currentValues = field.value || [];
-                                  const newValues = currentValues.filter((id) => id !== equipmentId);
-                                  field.onChange(newValues);
-                                }}
-                                className={cn('ml-1 hover:opacity-80', isAssigned ? 'text-primary' : 'text-orange-800')}
-                              >
-                                <X className="h-3 w-3 text-red-500" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
 
-                {/* reasigment_reason */}
-
-                {(equipmentHasChanged || employeeHasChanged) && (
+                  {/* Tipo de servicio */}
                   <FormField
                     control={form.control}
-                    name="reasigment_reason"
+                    name="type_service"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Motivo de reasignación</FormLabel>
+                      <FormItem className="space-y-3">
+                        <FormLabel>Tipo de servicio</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ingrese el motivo de la reasignación" {...field} />
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="flex flex-col space-y-1"
+                          >
+                            <FormItem className="flex items-center space-x-3 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem
+                                  defaultValue={field.value}
+                                  defaultChecked={field.value === 'mensual'}
+                                  value="mensual"
+                                  data-testid="type-service-mensual"
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal">Mensual</FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-3 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem
+                                  defaultValue={field.value}
+                                  defaultChecked={field.value === 'adicional'}
+                                  value="adicional"
+                                  data-testid="type-service-adicional"
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal">Adicional</FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-3 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem
+                                  defaultValue={field.value}
+                                  defaultChecked={field.value === 'adicional_permanente'}
+                                  value="adicional_permanente"
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal">Adicional Permanente</FormLabel>
+                            </FormItem>
+                          </RadioGroup>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                )}
 
-                {/* Jornada */}
-                <FormField
-                  control={form.control}
-                  name="working_day"
-                  render={({ field }) => {
-                    return (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Jornada</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn('w-full justify-between', !field.value && 'text-muted-foreground')}
-                                data-testid="working-day-select-button"
-                              >
-                                {field.value
-                                  ? workingDayOptions.find(
-                                      (day) => day.value.toLowerCase() === field.value.toLowerCase()
-                                    )?.label
-                                  : 'Seleccionar jornada'}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent align="start" className="max-w-[400px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Buscar jornada..." className="h-9" />
-                              <CommandList>
-                                <CommandEmpty>No se encontraron jornadas.</CommandEmpty>
-                                <CommandGroup>
-                                  {workingDayOptions.map((day) => (
-                                    <CommandItem
-                                      value={day.label.toLocaleLowerCase()}
-                                      key={day.value.toLocaleLowerCase()}
-                                      data-testid={`working-day-option-${day.value.replace(/ /g, '-')}`}
-                                      onSelect={() => {
-                                        const previousValue = form.getValues('working_day');
-                                        form.setValue('working_day', day.value.toLowerCase());
-
-                                        // Si el valor anterior era 'por horario' o si el nuevo valor no es 'por horario', limpiar las horas
-                                        if (
-                                          previousValue.toLowerCase() === 'por horario' ||
-                                          day.value.toLowerCase() !== 'por horario'
-                                        ) {
-                                          form.setValue('start_time', '');
-                                          form.setValue('end_time', '');
-                                        }
-                                      }}
-                                    >
-                                      {day.label}
-                                      <Check
-                                        className={cn(
-                                          'ml-auto h-4 w-4',
-                                          day.value.toLowerCase() === field.value.toLowerCase()
-                                            ? 'opacity-100'
-                                            : 'opacity-0'
-                                        )}
-                                      />
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                  {/* Descripción */}
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descripción</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Ingrese una descripción" className="min-h-[100px]" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
-                    );
-                  }}
-                />
-                {form.watch('status') === 'pendiente' &&
-                  form.watch('working_day').toLowerCase() === 'jornada 24 horas' &&
-                  selectedRow && (
-                    <div className="flex flex-row gap-4 items-center">
-                      <FormField
-                        control={form.control}
-                        name="completed_day"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                            <FormControl>
-                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
-                            </FormControl>
-                            <FormLabel className=" font-normal m-0">Completado Día</FormLabel>
-                          </FormItem>
-                        )}
-                      />
+                    )}
+                  />
 
-                      <FormField
-                        control={form.control}
-                        name="completed_night"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                            <FormControl>
-                              <Checkbox checked={field.value || undefined} onCheckedChange={field.onChange} />
-                            </FormControl>
-                            <FormLabel className="font-normal">Completado Noche</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                {/* Horario (condicional) */}
-                {form.watch('working_day').toLowerCase() === 'por horario' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="start_time"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Hora de inicio</FormLabel>
-                          <Input type="time" {...field} />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="end_time"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Hora de fin</FormLabel>
-                          <Input type="time" {...field} />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="flex justify-end space-x-4 pt-4">
+                    <Button type="button" variant="outline" onClick={onCancel}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">{selectedRow ? 'Actualizar' : 'Crear'}</Button>
                   </div>
-                )}
-
-                {/* Tipo de servicio */}
-                <FormField
-                  control={form.control}
-                  name="type_service"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel>Tipo de servicio</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-col space-y-1"
-                        >
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem
-                                defaultValue={field.value}
-                                defaultChecked={field.value === 'mensual'}
-                                value="mensual"
-                                data-testid="type-service-mensual"
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">Mensual</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem
-                                defaultValue={field.value}
-                                defaultChecked={field.value === 'adicional'}
-                                value="adicional"
-                                data-testid="type-service-adicional"
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">Adicional</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem
-                                defaultValue={field.value}
-                                defaultChecked={field.value === 'adicional_permanente'}
-                                value="adicional_permanente"
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">Adicional Permanente</FormLabel>
-                          </FormItem>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Descripción */}
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descripción</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Ingrese una descripción" className="min-h-[100px]" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end space-x-4 pt-4">
-                  <Button type="button" variant="outline" onClick={onCancel}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">{selectedRow ? 'Actualizar' : 'Crear'}</Button>
-                </div>
-              </form>
-            </Form>
-          </div>
+                </form>
+              </Form>
+            </div>
+          )}
           <SheetFooter>
             <SheetClose asChild>
               <Button className="hidden" id="close-button-daily-report" />

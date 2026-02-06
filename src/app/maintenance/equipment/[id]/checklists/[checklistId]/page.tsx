@@ -1,7 +1,6 @@
 import { fetchAllEquipment, fetchChecklistTemplateById, getCurrentProfile } from '@/app/server/GET/actions';
 import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
 import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
-import { fetchActiveCustomersForChecklist } from '@/features/Checklist';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -94,9 +93,6 @@ export default async function ChecklistFormPage({
     : null;
   const employeeCuil = employeeData?.cuil || null;
 
-  // Obtener clientes activos
-  const activeCustomers = await fetchActiveCustomersForChecklist();
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <MaintenanceHeader
@@ -110,7 +106,6 @@ export default async function ChecklistFormPage({
         <NormalizedChecklistForm
           template={template}
           equipments={equipmentsForComboBox}
-          customers={activeCustomers}
           currentUser={currentUser}
           defaultEquipmentId={resolvedParams.id}
           defaultEmployeeId={employee || undefined}

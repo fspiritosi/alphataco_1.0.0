@@ -1,8 +1,8 @@
 'use client';
-import { Filter, querySelectDistinct } from '@/app/server/GET/probando';
+import { querySelectDistinct } from '@/app/server/GET/probando';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import { VisibilityState } from '@tanstack/react-table';
-import { useCallback, useMemo } from 'react';
+import Cookies from 'js-cookie';
 import { fetchAllRepairSolicitudesData, fetchRepairSolicitudes } from '../actions/actions';
 import { repairSolicitudesColums } from './components/columns';
 import { mechanicColums } from './components/mechanicColumns';
@@ -13,43 +13,23 @@ export default function RepairSolicitudes({
   initialData,
   savedFilters,
   savedVisibility,
-  equipment_id,
 }: {
   mechanic?: boolean;
   initialData?: Awaited<ReturnType<typeof fetchRepairSolicitudes>>;
-  equipment_id?: string;
+  default_equipment_id?: string;
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
-  // Filtro por equipo si se proporciona equipment_id
-  const equipmentFilter: Filter<'repair_solicitudes'>[] = useMemo(
-    () => (equipment_id ? [{ column: 'equipment_id', operator: 'eq', value: equipment_id }] : []),
-    [equipment_id]
-  );
+  const company_id = Cookies.get('actualComp');
 
-  // Wrapper para fetchData que incluye el filtro de equipo
-  const handleFetchData = useCallback(
-    async (options: Parameters<typeof fetchRepairSolicitudes>[0]) => {
-      return fetchRepairSolicitudes({
-        ...options,
-        filters: [...(options.filters || []), ...equipmentFilter],
-      });
-    },
-    [equipmentFilter]
-  );
-
-  const handleFetchAllData = useCallback(
-    async (options: { sorting: any; columnFilters: any }) => {
-      const result = await fetchAllRepairSolicitudesData({
-        sorting: options.sorting,
-        columnFilters: options.columnFilters,
-        filters: equipmentFilter,
-        server: true,
-      });
-      return result.rows;
-    },
-    [equipmentFilter]
-  );
+  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
+    const result = await fetchAllRepairSolicitudesData({
+      sorting: options.sorting,
+      columnFilters: options.columnFilters,
+      server: true,
+    });
+    return result.rows; // Solo devolver los datos, no la estructura de paginación
+  };
 
   return (
     <>
@@ -57,12 +37,12 @@ export default function RepairSolicitudes({
         columns={mechanic ? mechanicColums : repairSolicitudesColums}
         savedVisibility={savedVisibility}
         initialData={initialData}
-        tableId={equipment_id ? `repair-solicitudes-table-${equipment_id}` : 'repair-solicitudes-table'}
+        tableId="repair-solicitudes-table"
         enableRowSelection={true}
         serverSide={true}
-        fetchData={handleFetchData}
+        fetchData={fetchRepairSolicitudes}
         fetchAllData={handleFetchAllData}
-        queryKey={equipment_id ? `repair-solicitudes-${equipment_id}` : 'repair-solicitudes-supabase'}
+        queryKey="repair-solicitudes-supabase"
         toolbarOptions={{
           initialVisibleFilters: savedFilters,
           showExport: true,
