@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getServicesDetailByClient } from '@/features/Operaciones/PartesDiarios/actions/actions';
-import { logger } from '@/lib/logger';
 import { Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Pie, PieChart } from 'recharts';
@@ -74,7 +73,7 @@ export function ServicesDistributionSection({ servicesSummary }: { servicesSumma
         setChartData(clientData);
         setChartConfig2(config);
       } catch (error) {
-        logger.error('Error loading chart data', { data: { error } });
+        console.error('Error loading chart data:', error);
       } finally {
         setIsLoading(false);
       }

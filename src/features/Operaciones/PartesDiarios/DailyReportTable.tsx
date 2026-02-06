@@ -16,71 +16,66 @@ import { createFilterOptions } from '@/features/Employees/Empleados/components/u
 import { PermissionGuard } from '@/features/Permissions';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import { useQueryClient } from '@tanstack/react-query';
 import { ColumnDef, ColumnFiltersState, FilterFn, Row, Updater, VisibilityState } from '@tanstack/react-table';
+import { endOfMonth, format, startOfMonth } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { deleteDailyReport, fetchDailyReportsWithFilters } from './actions/actions';
-import { DAILY_REPORTS_QUERY_KEY, DailyReportType, useDailyReports } from './hooks/useDailyReports';
+import {
+  deleteDailyReport,
+  fetchDailyReportsWithFilters,
+  getDailyReports,
+  getDailyReportsForCurrentMonth,
+} from './actions/actions';
 import { dailyReportStatus } from './utils/utils';
 
-// Pass-through: el filtro de fechas se aplica en el servidor
-const dateRangeFilter: FilterFn<DailyReportType> = () => true;
+const dateRangeFilter: FilterFn<Awaited<ReturnType<typeof getDailyReports>>[number]> = (
+  row: Row<Awaited<ReturnType<typeof getDailyReports>>[number]>,
+  columnId: string,
+  filterValue: { from?: Date | null; to?: Date | null },
+  addMeta: (meta: any) => void
+) => {
+  const validityRaw = row.original.date;
+  const { from, to } = filterValue || {};
+  if (!validityRaw) {
+    return false;
+  }
+  if (validityRaw === 'No vence') {
+    return false;
+  }
 
-function DeleteDailyReportCell({ row }: { row: Row<DailyReportType> }) {
-  const queryClient = useQueryClient();
-  const hasRows = row.original.dailyreportrows.length > 0;
+  // Parsear la fecha del documento
+  const [day, month, year] = validityRaw.split('/');
+  const validityMoment = moment(`${year}-${month}-${day}`, 'YYYY-MM-DD');
+  if (!validityMoment.isValid()) {
+    return false;
+  }
 
-  const handleDelete = async () => {
-    toast.promise(
-      async () => {
-        await deleteDailyReport(row.original.id);
-        queryClient.invalidateQueries({ queryKey: [...DAILY_REPORTS_QUERY_KEY] });
-      },
-      {
-        loading: 'Eliminando parte diario...',
-        success: 'Parte diario eliminado correctamente',
-        error: 'Error al eliminar el parte diario',
-      }
-    );
-  };
+  // Comparaciones con moment
+  if (from && !to) {
+    const fromMoment = moment(from);
+    const result = validityMoment.isSameOrAfter(fromMoment, 'day');
+    return result;
+  }
+  if (!from && to) {
+    const toMoment = moment(to);
+    const result = validityMoment.isSameOrBefore(toMoment, 'day');
+    return result;
+  }
+  if (from && to) {
+    const fromMoment = moment(from);
+    const toMoment = moment(to);
+    const result = validityMoment.isBetween(fromMoment, toMoment, 'day', '[]');
 
-  return (
-    <PermissionGuard module="operaciones" tab="dailyreportstable" action="delete">
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button
-            variant="ghost"
-            className="h-8 w-8 p-0"
-            disabled={hasRows}
-            title={hasRows ? 'No se puede eliminar un parte con registros' : 'Eliminar parte diario'}
-          >
-            <Trash2 className={hasRows ? 'text-gray-400' : 'text-red-500'} size={16} />
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Está seguro de eliminar este parte diario?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. El parte diario será eliminado permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </PermissionGuard>
-  );
-}
-
-const reportColumnas: ColumnDef<DailyReportType>[] = [
+    return result;
+  }
+  // ('[dateRangeFilter] Sin from/to, return true');
+  return true;
+};
+export const reportColumnas: ColumnDef<Awaited<ReturnType<typeof getDailyReports>>[number]>[] = [
   {
     accessorKey: 'date',
     id: 'Fecha',
@@ -105,7 +100,7 @@ const reportColumnas: ColumnDef<DailyReportType>[] = [
     cell: ({ row }) => {
       return (
         <Badge variant={'warning'}>
-          {row.original.dailyreportrows.filter((r) => r.status === 'sin_recursos_asignados').length}
+          {row.original.dailyreportrows.filter((row) => row.status === 'sin_recursos_asignados').length}
         </Badge>
       );
     },
@@ -117,7 +112,7 @@ const reportColumnas: ColumnDef<DailyReportType>[] = [
     id: 'Pendientes',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Pendientes" />,
     cell: ({ row }) => {
-      return <Badge>{row.original.dailyreportrows.filter((r) => r.status === 'pendiente').length}</Badge>;
+      return <Badge>{row.original.dailyreportrows.filter((row) => row.status === 'pendiente').length}</Badge>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -145,59 +140,168 @@ const reportColumnas: ColumnDef<DailyReportType>[] = [
   },
   {
     id: 'delete',
-    header: () => null,
-    cell: ({ row }) => <DeleteDailyReportCell row={row} />,
+    header: () => null, // Sin encabezado
+    cell: ({ row }) => {
+      const router = useRouter();
+      const hasRows = row.original.dailyreportrows.length > 0;
+
+      const handleDelete = async () => {
+        toast.promise(
+          async () => {
+            const result = await deleteDailyReport(row.original.id);
+          },
+          {
+            loading: 'Eliminando parte diario...',
+            success: 'Parte diario eliminado correctamente',
+            error: 'Error al eliminar el parte diario',
+          }
+        );
+        router.refresh();
+      };
+
+      return (
+        <PermissionGuard module="operaciones" tab="dailyreportstable" action="delete">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                disabled={hasRows}
+                title={hasRows ? 'No se puede eliminar un parte con registros' : 'Eliminar parte diario'}
+              >
+                <Trash2 className={hasRows ? 'text-gray-400' : 'text-red-500'} size={16} />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Está seguro de eliminar este parte diario?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción no se puede deshacer. El parte diario será eliminado permanentemente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                  Eliminar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </PermissionGuard>
+      );
+    },
   },
 ];
 
 function DailyReportTable({
   savedVisibility,
   savedFilter,
-  initialData,
+  dailyReports,
 }: {
   savedVisibility: VisibilityState;
   savedFilter: string[];
-  initialData: Awaited<ReturnType<typeof fetchDailyReportsWithFilters>>;
+  dailyReports: Awaited<ReturnType<typeof getDailyReportsForCurrentMonth>>;
 }) {
-  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({
-    from: moment().startOf('month').toDate(),
-    to: moment().endOf('month').toDate(),
+  const statusOptions = createFilterOptions(dailyReports, (dailyReport) => dailyReport.status);
+  // Estado para los datos mostrados actualmente
+  const [dailyRows, setDailyRows] = useState<Awaited<ReturnType<typeof getDailyReportsForCurrentMonth>>>(dailyReports);
+
+  // Estado para seguir los filtros actuales
+  const [currentFilters, setCurrentFilters] = useState<{
+    dateFrom: Date | null;
+    dateTo: Date | null;
+    status: string[] | null;
+  }>({
+    dateFrom: startOfMonth(new Date()), // Primer día del mes actual
+    dateTo: endOfMonth(new Date()), // Último día del mes actual
+    status: null,
   });
 
-  const fromDate = dateRange.from ? moment(dateRange.from).format('YYYY-MM-DD') : undefined;
-  const toDate = dateRange.to ? moment(dateRange.to).format('YYYY-MM-DD') : undefined;
+  // Estado para indicar carga
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { data: dailyRows, isFetching } = useDailyReports({
-    fromDate,
-    toDate,
-    initialData,
-  });
+  useEffect(() => {
+    setDailyRows(dailyReports);
+  }, [dailyReports]);
 
-  const statusOptions = useMemo(
-    () => createFilterOptions(dailyRows || [], (dailyReport) => dailyReport.status),
-    [dailyRows]
-  );
+  // Función para cargar datos basados en filtros
+  const fetchFilteredData = useCallback(async () => {
+    try {
+      // Verificar si hay filtros activos
+      const hasFiltros =
+        currentFilters.dateFrom !== null ||
+        currentFilters.dateTo !== null ||
+        (currentFilters.status !== null && currentFilters.status.length > 0);
 
-  const handleColumnFiltersChange = useCallback((updater: Updater<ColumnFiltersState>) => {
-    const newFilters = typeof updater === 'function' ? updater([]) : updater;
+      // Si no hay filtros activos, restaurar los datos originales
+      if (!hasFiltros) {
+        // setDailyRows(dailyReports);
+        return;
+      }
+      setIsLoading(true);
+
+      // Formatear fechas para la API
+      const fromDate = currentFilters.dateFrom ? format(currentFilters.dateFrom, 'yyyy-MM-dd') : undefined;
+      const toDate = currentFilters.dateTo ? format(currentFilters.dateTo, 'yyyy-MM-dd') : undefined;
+
+      // Llamada a la API con parámetros de filtro
+      const response = await fetchDailyReportsWithFilters({
+        fromDate,
+        toDate,
+        status: currentFilters.status,
+      });
+
+      // Si obtenemos datos, actualizar el estado
+      if (response && response.length > 0) {
+        setDailyRows(response);
+      } else {
+        // Si no hay resultados con los filtros aplicados, mostrar mensaje
+        // toast.info('No se encontraron registros con los filtros aplicados');
+      }
+    } catch (error) {
+      console.error('Error al cargar los datos filtrados:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentFilters, dailyReports]);
+
+  // Efecto para cargar datos al inicio o cuando cambian los filtros
+  useEffect(() => {
+    fetchFilteredData();
+  }, [currentFilters]);
+
+  // Manejador para cambios en los filtros de columna
+  const handleColumnFiltersChange = useCallback((updatedFilters: Updater<ColumnFiltersState>) => {
+    // Convertir Updater<ColumnFiltersState> a ColumnFiltersState
+    const newFilters =
+      typeof updatedFilters === 'function'
+        ? updatedFilters([]) // Si es una función, pasarle un array vacío (simplificado)
+        : updatedFilters; // Si es un valor directo, usarlo como está
+    // Extraer filtro de fecha
     const dateFilter = newFilters.find((f) => f.id === 'Fecha')?.value as
       | { from: Date | null; to: Date | null }
       | undefined;
-
-    if (dateFilter) {
-      setDateRange(dateFilter);
-    } else {
-      // Si no hay filtro de fecha activo, resetear al mes actual
-      setDateRange({
-        from: moment().startOf('month').toDate(),
-        to: moment().endOf('month').toDate(),
+    // Extraer filtro de estado
+    const statusFilter = newFilters.find((f) => f.id === 'Estado')?.value as string[] | undefined;
+    if (!dateFilter && !statusFilter) {
+      setCurrentFilters({
+        dateFrom: startOfMonth(new Date()),
+        dateTo: endOfMonth(new Date()),
+        status: null,
       });
+      setDailyRows(dailyReports);
     }
+    // Actualizar el estado de filtros actuales
+    setCurrentFilters((prev) => ({
+      dateFrom: dateFilter?.from ?? prev.dateFrom,
+      dateTo: dateFilter?.to ?? prev.dateTo,
+      status: statusFilter ?? prev.status,
+    }));
   }, []);
 
   return (
     <div className="relative">
-      {isFetching && (
+      {isLoading && (
         <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center z-10">
           <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-md shadow-md">
             <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full"></div>
@@ -209,10 +313,10 @@ function DailyReportTable({
       <BaseDataTable
         tableId="dailyReportTable"
         columns={reportColumnas}
-        data={dailyRows || []}
+        data={dailyRows}
         row_classname={(row) => (row.status === 'cerrado_incompleto' ? 'bg-red-400/30' : '')}
         savedVisibility={savedVisibility}
-        onColumnFiltersChange={handleColumnFiltersChange}
+        onColumnFiltersChange={(data) => handleColumnFiltersChange(data)}
         toolbarOptions={{
           initialVisibleFilters: savedFilter || [],
           filterableColumns: [
@@ -224,6 +328,11 @@ function DailyReportTable({
               toPlaceholder: 'Hasta (Fecha)',
               showFrom: true,
               showTo: true,
+              // Valores iniciales para los datepickers
+              // defaultValues: {
+              //   from: currentFilters.dateFrom,
+              //   to: currentFilters.dateTo,
+              // },
             },
             {
               columnId: 'Estado',

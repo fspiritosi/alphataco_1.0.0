@@ -1,23 +1,19 @@
 'use client';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Logger } from '@/lib/logger';
-import { sendErrorReport } from '@/lib/utils/sendErrorReport';
-import { AlertTriangle, Copy, Loader2, Mail, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Copy, Mail, RefreshCw } from 'lucide-react';
 import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-const logger = new Logger('AppError');
-
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [errorDetails, setErrorDetails] = useState<string>('');
-  const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    logger.error('Application Error', { data: { message: error.message, digest: error.digest } });
+    // Log the error to console for debugging
+    console.error('Application Error:', error);
 
+    // Format error details
     const details = `
 Error Message: ${error.message}
 Error Digest: ${error.digest || 'N/A'}
@@ -31,37 +27,21 @@ URL: ${window.location.href}
     setErrorDetails(details);
   }, [error]);
 
-  useEffect(() => {
-    posthog.captureException(error);
-  }, [error]);
-
   const copyErrorToClipboard = () => {
     navigator.clipboard.writeText(errorDetails);
     toast.success('Error copiado al portapapeles');
   };
 
-  const sendErrorByEmail = async () => {
-    setSending(true);
-    try {
-      const result = await sendErrorReport({
-        message: error.message,
-        stack: error.stack,
-        digest: error.digest,
-        url: window.location.href,
-        userAgent: navigator.userAgent,
-        source: 'Aplicacion',
-      });
+  useEffect(() => {
+    posthog.captureException(error);
+  }, [error]);
 
-      if (result.success) {
-        toast.success('Reporte enviado al equipo de desarrollo');
-      } else {
-        toast.error('No se pudo enviar el reporte', { description: result.error });
-      }
-    } catch {
-      toast.error('Error al enviar el reporte');
-    } finally {
-      setSending(false);
-    }
+  const sendErrorByEmail = () => {
+    const subject = encodeURIComponent('Error en GH Gestión');
+    const body = encodeURIComponent(errorDetails);
+    // const recipients = 'fspiritosi@codecontrol.com.ar,yjimenez@codecontrol.com.ar';
+    const recipients = 'fspiritosi@codecontrol.com.ar';
+    window.location.href = `mailto:${recipients}?subject=${subject}&body=${body}`;
   };
 
   return (
@@ -99,9 +79,9 @@ URL: ${window.location.href}
               <Copy className="h-4 w-4" />
               Copiar error
             </Button>
-            <Button onClick={sendErrorByEmail} disabled={sending} variant="outline" className="flex-1 gap-2">
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              {sending ? 'Enviando reporte...' : 'Reportar al equipo'}
+            <Button onClick={sendErrorByEmail} variant="outline" className="flex-1 gap-2">
+              <Mail className="h-4 w-4" />
+              Enviar por email
             </Button>
           </div>
         </CardContent>

@@ -29,7 +29,7 @@ interface DailyReportFormState {
 
 interface DailyReportFormActions {
   // Abrir modal con una fila
-  openModalWithRow: (row: FormattedDailyReportRow) => void;
+  openModalWithRow: (row: FormattedDailyReportRow, customer: SelectedCustomer | null) => void;
 
   // Cerrar modal y limpiar estado
   closeModal: () => void;
@@ -57,13 +57,13 @@ export const useDailyReportFormStore = create<DailyReportFormStore>((set) => ({
   isLoadingEquipments: false,
 
   // Actions
-  openModalWithRow: (row) => {
+  openModalWithRow: (row, customer) => {
     set({
       isModalOpen: true,
       selectedRow: row,
       selectedCustomerId: row.data_to_clone?.customer_id || null,
       selectedServiceId: row.data_to_clone?.service_id || null,
-      selectedCustomer: null,
+      selectedCustomer: customer,
     });
   },
 

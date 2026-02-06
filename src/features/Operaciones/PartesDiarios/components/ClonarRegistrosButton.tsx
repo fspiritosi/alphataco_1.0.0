@@ -19,7 +19,6 @@ import {
   checkDailyReportExists,
   createDailyReport,
   createDailyReportEmployeeRelations,
-  createDailyReportEmployeeRelationsWithRoles,
   createDailyReportEquipmentRelations,
   createDailyReportRow,
 } from '../actions/actions';
@@ -56,8 +55,8 @@ export function ClonarRegistrosButton({
 
   const router = useRouter();
 
-  // Inicializar irARegistros en true (navegar al registro clonado por defecto)
-  const [irARegistros, setIrARegistros] = useState(true);
+  // Inicializar irARegistros basado en la cantidad de registros
+  const [irARegistros, setIrARegistros] = useState(fechasSeleccionadas.length > 1);
 
   // Controlar los estados de los checkboxes según el estado de las filas seleccionadas
   useEffect(() => {
@@ -85,13 +84,6 @@ export function ClonarRegistrosButton({
       setIncluirAdicionalesPermanentes(hasAdicionalesPermanentes);
     }
   }, [formattedData, selectedRows]);
-
-  // Deshabilitar "Ir a registros" cuando hay más de una fecha seleccionada
-  useEffect(() => {
-    if (fechasSeleccionadas.length > 1) {
-      setIrARegistros(false);
-    }
-  }, [fechasSeleccionadas.length]);
 
   const handleClonar = async () => {
     toast.promise(
@@ -148,13 +140,9 @@ export function ClonarRegistrosButton({
 
           const formattedRows = filteredRows.map((row) => {
             // Determinar el estado según si se copiarán recursos
-            const validEmployees = trasladarPersonal
-              ? row.employees_references?.filter((emp) => emp.is_active !== false) || []
-              : [];
-            const validEquipment = trasladarEquipos ? row.equipment_references || [] : [];
-            const hasEmployees = validEmployees.length > 0;
-            const hasEquipment = validEquipment.length > 0;
-            const newStatus = hasEmployees || hasEquipment ? 'pendiente' : 'sin_recursos_asignados';
+            const hasEmployees = trasladarPersonal && row.employees_references?.length > 0;
+            const hasEquipment = trasladarEquipos && row.equipment_references?.length > 0;
+            const newStatus = hasEmployees && hasEquipment ? 'pendiente' : 'sin_recursos_asignados';
 
             return {
               customer_id: row.data_to_clone.customer_id!,
@@ -181,30 +169,12 @@ export function ClonarRegistrosButton({
               const originalRow = filteredRows[i];
 
               // Copiar empleados si está habilitado y hay empleados en la fila original
-              // PO-2: Filtrar empleados de baja (is_active = false)
               if (trasladarPersonal && originalRow.employees_references?.length > 0) {
-                const activeEmployees = originalRow.employees_references.filter(
-                  (emp) => emp.is_active !== false && !!emp.id
-                );
-
-                // Separar empleados con rol (jornadas 12/24 hrs) y sin rol
-                const employeesWithRoles = activeEmployees
-                  .filter((emp) => !!emp.role)
-                  .map((emp) => ({
-                    employeeId: emp.id as string,
-                    role: emp.role as 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche',
-                  }));
-
-                const employeesWithoutRoles = activeEmployees
-                  .filter((emp) => !emp.role)
+                const employeeIds = originalRow.employees_references
                   .map((emp) => emp.id)
                   .filter((id): id is string => !!id);
-
-                if (employeesWithRoles.length > 0) {
-                  await createDailyReportEmployeeRelationsWithRoles(newRow.id, employeesWithRoles);
-                }
-                if (employeesWithoutRoles.length > 0) {
-                  await createDailyReportEmployeeRelations(newRow.id, employeesWithoutRoles);
+                if (employeeIds.length > 0) {
+                  await createDailyReportEmployeeRelations(newRow.id, employeeIds);
                 }
               }
 
@@ -231,32 +201,21 @@ export function ClonarRegistrosButton({
           }
         }
 
-        // Guardar el ID del reporte para navegar después
-        const navigateToReportId =
-          irARegistros && fechasSeleccionadas.length === 1 && allReports.length > 0 ? allReports[0].id : null;
+        // Si solo hay un reporte y se debe navegar, ir al primer reporte creado
+        if (irARegistros && allReports.length > 0) {
+          router.push(`/dashboard/operations/${allReports[0].id}`);
+          router.refresh();
+        }
 
         setOpen(false);
         setFechasSeleccionadas([]);
-
-        // Retornar el ID para usarlo en el success callback
-        return navigateToReportId;
       },
       {
         loading: 'Clonando registros...',
-        success: (navigateToReportId) => {
+        success: () => {
           setOpen(false);
           setFechasSeleccionadas([]);
           setLoading(false);
-
-          // Navegar al reporte clonado después de que el toast se muestre
-          if (navigateToReportId) {
-            setTimeout(() => {
-              router.push(`/dashboard/operations/${navigateToReportId}`);
-            }, 300);
-          } else {
-            router.refresh();
-          }
-
           return 'Registros clonados exitosamente!';
         },
         error: (error) => {
@@ -265,6 +224,7 @@ export function ClonarRegistrosButton({
         },
       }
     );
+    router.refresh();
   };
 
   const removeFecha = (fecha: Date) => {
