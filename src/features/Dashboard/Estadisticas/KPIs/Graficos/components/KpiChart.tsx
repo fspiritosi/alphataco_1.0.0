@@ -273,7 +273,7 @@ export function KpiChart({ kpiCode, kpiName, kpiDescription, expectedPercentage 
             </Select>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[200px]" disabled={loading}>
+                <Button variant="outline" className="w-[260px]" disabled={loading}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {dateRange.from && dateRange.to
                     ? `${moment(dateRange.from).format('DD/MM/YYYY')} - ${moment(dateRange.to).format('DD/MM/YYYY')}`

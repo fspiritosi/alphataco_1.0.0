@@ -533,6 +533,7 @@ export async function getDailyReportById(id: string) {
             document_number,
             phone,
             email,
+            is_active,
             company_positions(name),
             contractor_employee(customers(name))
           )
@@ -833,8 +834,6 @@ export async function getActiveEquipmentsForDailyReport() {
       '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(id,name))'
     )
     .eq('is_active', true)
-    .neq('condition', 'no operativo')
-    .neq('condition', 'en reparacion')
     .eq('company_id', company_id || user?.app_metadata?.company || '');
   if (error) {
     logger.error('Error al obtener equipos activos', { data: { error } });
@@ -843,11 +842,159 @@ export async function getActiveEquipmentsForDailyReport() {
   return data || [];
 }
 
+/**
+ * Obtiene datos de validacion SOLO para los recursos asignados a un parte diario.
+ * Query liviana: solo trae los campos necesarios para validar desvios.
+ * - Empleados: contractor_employee (afectacion) + diagrama (dia laboral)
+ * - Equipos: contractor_equipment (afectacion) + condition
+ */
+export async function getResourceValidationData(employeeIds: string[], equipmentIds: string[], reportDate: string) {
+  const supabase = await supabaseServer();
+
+  const dateToCheck = new Date(reportDate);
+  const day = dateToCheck.getDate();
+  const month = dateToCheck.getMonth() + 1;
+  const year = dateToCheck.getFullYear();
+
+  // 3 queries en PARALELO
+  const [employeesResult, diagramsResult, equipmentResult] = await Promise.all([
+    // 1. Empleados: solo id, nombres y contractor_employee
+    employeeIds.length > 0
+      ? supabase
+          .from('employees')
+          .select('id, firstname, lastname, contractor_employee(customers(id,name))')
+          .in('id', employeeIds)
+      : Promise.resolve({ data: [] as never[], error: null }),
+
+    // 2. Diagramas para los empleados en la fecha del parte
+    employeeIds.length > 0
+      ? supabase
+          .from('employees_diagram')
+          .select('employee_id, diagram_type(name, work_active)')
+          .in('employee_id', employeeIds)
+          .eq('day', day)
+          .eq('month', month)
+          .eq('year', year)
+          .or('is_active.eq.true,is_active.is.null')
+      : Promise.resolve({ data: [] as never[], error: null }),
+
+    // 3. Equipos: solo id, domain, intern_number, condition y contractor_equipment
+    equipmentIds.length > 0
+      ? supabase
+          .from('vehicles')
+          .select('id, domain, intern_number, condition, contractor_equipment(customers(id,name))')
+          .in('id', equipmentIds)
+      : Promise.resolve({ data: [] as never[], error: null }),
+  ]);
+
+  if (employeesResult.error) {
+    logger.error('Error en validacion de empleados', { data: { error: employeesResult.error } });
+  }
+  if (diagramsResult.error) {
+    logger.error('Error en validacion de diagramas', { data: { error: diagramsResult.error } });
+  }
+  if (equipmentResult.error) {
+    logger.error('Error en validacion de equipos', { data: { error: equipmentResult.error } });
+  }
+
+  // Crear mapa de diagramas por employee_id
+  const diagramMap = new Map<string, NonNullable<typeof diagramsResult.data>[number]>();
+  diagramsResult.data?.forEach((d) => {
+    if (d.employee_id) {
+      diagramMap.set(d.employee_id, d);
+    }
+  });
+
+  // Agregar flags de desvio a cada empleado
+  const employees = (employeesResult.data || []).map((employee) => {
+    const diagram = diagramMap.get(employee.id);
+    const hasDiagram = !!diagram;
+    const isWorkDay = diagram?.diagram_type?.work_active === true;
+
+    return {
+      ...employee,
+      current_diagram: diagram || null,
+      deviation_no_diagram: !hasDiagram,
+      deviation_non_work_day: hasDiagram && !isWorkDay,
+      deviation_type: !hasDiagram ? ('sin_diagrama' as const) : !isWorkDay ? ('dia_no_laboral' as const) : null,
+    };
+  });
+
+  return {
+    employees,
+    equipments: equipmentResult.data || [],
+  };
+}
+
+// Tipo exportado para el resultado de validacion
+export type ResourceValidationData = Awaited<ReturnType<typeof getResourceValidationData>>;
+export type ValidationEmployee = ResourceValidationData['employees'][number];
+export type ValidationEquipment = ResourceValidationData['equipments'][number];
+
+// ========================
+// RPC: Desvíos del parte diario (reemplaza getResourceValidationData + cálculos de duplicados)
+// ========================
+
+export interface EmployeeDeviation {
+  employee_id: string;
+  row_id: string;
+  customer_id: string;
+  is_duplicated: boolean;
+  is_unassigned_to_client: boolean;
+  has_no_diagram: boolean;
+  is_non_work_day: boolean;
+  diagram_type_name: string | null;
+}
+
+export interface EquipmentDeviation {
+  equipment_id: string;
+  row_id: string;
+  customer_id: string;
+  is_duplicated: boolean;
+  is_unassigned_to_client: boolean;
+  condition: string | null;
+}
+
+export interface DailyReportDeviationsResult {
+  employee_deviations: EmployeeDeviation[];
+  equipment_deviations: EquipmentDeviation[];
+}
+
+/**
+ * Obtiene todos los desvíos de empleados y equipos de un parte diario en una sola query RPC.
+ * Reemplaza: getResourceValidationData + getDuplicatedEmployees + getDuplicatedEquipments
+ */
+export async function getDailyReportDeviations(
+  dailyReportId: string,
+  reportDate: string
+): Promise<DailyReportDeviationsResult> {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase.rpc('get_daily_report_deviations', {
+    p_daily_report_id: dailyReportId,
+    p_report_date: reportDate,
+  });
+
+  if (error) {
+    logger.error('Error fetching daily report deviations', { data: { error } });
+    throw error;
+  }
+
+  // La RPC devuelve JSONB, necesitamos castear al tipo correcto
+  const result = data as unknown as DailyReportDeviationsResult;
+
+  return {
+    employee_deviations: result?.employee_deviations || [],
+    equipment_deviations: result?.equipment_deviations || [],
+  };
+}
+
 // Tipos para las relaciones
 interface EmployeeRelation {
   id: string;
   employee_id: string;
   daily_report_row_id: string;
+  role?: 'chofer_dia' | 'chofer_noche' | 'ayudante_dia' | 'ayudante_noche' | null;
   created_at?: string;
 }
 
@@ -918,28 +1065,44 @@ export async function updateDailyReportRow(
     equipmentHasChanged = false,
     employeeHasChanged = false,
     reassignmentReason = '',
-  }: { equipmentHasChanged: boolean; employeeHasChanged: boolean; reassignmentReason: string }
+    skipEmployeeUpdate = false, // When true, skip employee relation updates (used for role-based employees)
+  }: {
+    equipmentHasChanged: boolean;
+    employeeHasChanged: boolean;
+    reassignmentReason: string;
+    skipEmployeeUpdate?: boolean;
+  }
 ) {
   const supabase = await supabaseServer();
 
-  // Actualizar la fila principal
-  await updateEmployeeRelations(id, employeeIds);
+  // Actualizar relaciones de empleados (solo si no se usa el sistema de roles)
+  if (!skipEmployeeUpdate) {
+    await updateEmployeeRelations(id, employeeIds);
+  }
 
   // Actualizar relaciones de equipos
   await updateEquipmentRelations(id, equipmentIds);
 
   await updateEquiposClienteRelations(id, equipos_clienteIds);
 
+  // Determinar si hay recursos asignados
+  let hasResources = employeeIds.length > 0 || equipmentIds.length > 0;
+
+  // Si se saltó la actualización de empleados, verificar si hay empleados en la BD
+  if (skipEmployeeUpdate) {
+    const { count } = await supabase
+      .from('dailyreportemployeerelations')
+      .select('*', { count: 'exact', head: true })
+      .eq('daily_report_row_id', id);
+    hasResources = (count || 0) > 0 || equipmentIds.length > 0;
+  }
+
   const { data: updatedRow, error: updateError } = await supabase
     .from('dailyreportrows')
     .update({
       ...data,
       status:
-        data.status === 'cancelado' ||
-        data.status === 'reprogramado' ||
-        data.status === 'ejecutado' ||
-        employeeIds.length > 0 ||
-        equipmentIds.length > 0
+        data.status === 'cancelado' || data.status === 'reprogramado' || data.status === 'ejecutado' || hasResources
           ? data.status
           : 'sin_recursos_asignados',
     })
@@ -1299,22 +1462,55 @@ export async function createDailyReportEmployeeRelationsWithRoles(
   return data || [];
 }
 
-// Actualizar relaciones de empleados con roles
+// Actualizar relaciones de empleados con roles (smart merge: solo elimina/crea lo necesario)
 export async function updateEmployeeRelationsWithRoles(rowId: string, employeesWithRoles: EmployeeWithRole[]) {
   const supabase = await supabaseServer();
 
   try {
-    // Eliminar todas las relaciones existentes
-    const { error: deleteError } = await supabase
-      .from('dailyreportemployeerelations')
-      .delete()
+    // Obtener relaciones existentes
+    const { data: existingRelations, error: fetchError } = await supabase
+      .from('dailyreportemployeerelations' as any)
+      .select('*')
       .eq('daily_report_row_id', rowId);
 
-    if (deleteError) throw deleteError;
+    if (fetchError) throw fetchError;
 
-    // Crear nuevas relaciones con roles
-    if (employeesWithRoles.length > 0) {
-      await createDailyReportEmployeeRelationsWithRoles(rowId, employeesWithRoles);
+    const currentRelations = (existingRelations || []) as EmployeeRelation[];
+
+    // Crear un mapa de las nuevas relaciones por employee_id+role
+    const newRelationsMap = new Map(employeesWithRoles.map((emp) => [`${emp.employeeId}:${emp.role}`, emp]));
+
+    // Crear un mapa de las relaciones existentes por employee_id+role
+    const existingRelationsMap = new Map(currentRelations.map((rel) => [`${rel.employee_id}:${rel.role || ''}`, rel]));
+
+    // Encontrar relaciones a eliminar (existen en BD pero no en las nuevas)
+    const relationsToDelete = currentRelations.filter((rel) => {
+      const key = `${rel.employee_id}:${rel.role || ''}`;
+      return !newRelationsMap.has(key);
+    });
+
+    // Encontrar relaciones a agregar (están en las nuevas pero no en la BD)
+    const relationsToAdd = employeesWithRoles.filter((emp) => {
+      const key = `${emp.employeeId}:${emp.role}`;
+      return !existingRelationsMap.has(key);
+    });
+
+    // Eliminar solo las relaciones que ya no corresponden
+    if (relationsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('dailyreportemployeerelations' as any)
+        .delete()
+        .in(
+          'id',
+          relationsToDelete.map((r) => r.id)
+        );
+
+      if (deleteError) throw deleteError;
+    }
+
+    // Crear solo las relaciones nuevas
+    if (relationsToAdd.length > 0) {
+      await createDailyReportEmployeeRelationsWithRoles(rowId, relationsToAdd);
     }
   } catch (error) {
     logger.error('Error en updateEmployeeRelationsWithRoles', { data: { error } });
@@ -1673,7 +1869,7 @@ export interface ServiceDetailByClient {
  * Obtiene el detalle de servicios por cliente para el día actual
  * Incluye distribución de servicios mensuales, adicionales y estados
  */
-export async function getServicesDetailByClient(): Promise<ServiceDetailByClient[]> {
+export async function getServicesDetailByClient(date?: string): Promise<ServiceDetailByClient[]> {
   const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
   const supabase = await supabaseServer();
@@ -1686,7 +1882,7 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
   }
 
   try {
-    const today = moment().format('YYYY-MM-DD');
+    const targetDate = date || moment().utcOffset(-3).format('YYYY-MM-DD');
 
     // Consulta para obtener los datos detallados por cliente
     const { data, error } = await supabase
@@ -1706,7 +1902,7 @@ export async function getServicesDetailByClient(): Promise<ServiceDetailByClient
       `
       )
       .eq('daily_report_id.company_id', company_id || user?.app_metadata?.company || '')
-      .eq('daily_report_id.date', today);
+      .eq('daily_report_id.date', targetDate);
 
     if (error) {
       logger.error('Error fetching services detail by client', { data: { error } });

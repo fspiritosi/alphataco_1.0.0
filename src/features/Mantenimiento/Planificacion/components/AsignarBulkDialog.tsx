@@ -74,7 +74,6 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
   const { data: repairTypes = [], isLoading: isLoadingRepairTypes } = useQuery({
     queryKey: ['types-of-repairs'],
     queryFn: fetchAllTypesOfRepairs,
-    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
   // Estado del formulario
@@ -94,7 +93,6 @@ export function AsignarBulkDialog({ desvios, open, onClose, workshops, sectors, 
     queryKey: ['sector-occupancy', workshopId],
     queryFn: () => getSectorOccupancy(workshopId),
     enabled: !!workshopId,
-    staleTime: 30 * 1000, // 30 segundos
   });
 
   // Función para obtener la info de ocupación de un sector

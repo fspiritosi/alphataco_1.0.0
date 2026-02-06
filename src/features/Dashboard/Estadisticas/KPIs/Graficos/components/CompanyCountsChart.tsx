@@ -164,7 +164,7 @@ export function CompanyCountsChart() {
             </Select>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[200px]">
+                <Button variant="outline" className="w-[260px]">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {range?.from && range?.to
                     ? `${format(range.from, 'dd/MM/yyyy', { locale: es })} - ${format(range.to, 'dd/MM/yyyy', { locale: es })}`

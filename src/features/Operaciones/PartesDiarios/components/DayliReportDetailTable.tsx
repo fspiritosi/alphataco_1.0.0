@@ -238,7 +238,7 @@ export function getDailyReportColumns(
       accessorKey: 'customer',
       id: 'Cliente',
       // header: () => <span className="w-[200px]">Nombre</span>,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Cliente" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Cliente" />,
       cell: ({ row }) => <span className="font-medium select-none text-nowrap">{row.original.customer}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -247,7 +247,9 @@ export function getDailyReportColumns(
     {
       accessorKey: 'services',
       id: 'Servicio',
-      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Servicio" />,
+      header: ({ column, table }) => (
+        <DataTableColumnHeader className="w-[130px]" column={column} table={table} title="Servicio" />
+      ),
       cell: ({ row }) => <span className="font-medium">{row.original.services}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -256,7 +258,9 @@ export function getDailyReportColumns(
     {
       accessorKey: 'item',
       id: 'Item',
-      header: ({ column }) => <DataTableColumnHeader className="w-[130px]" column={column} title="Item" />,
+      header: ({ column, table }) => (
+        <DataTableColumnHeader className="w-[130px]" column={column} table={table} title="Item" />
+      ),
       cell: ({ row }) => <span className="font-medium">{row.original.item}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -266,7 +270,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'sector_service_name',
       id: 'Sector',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Sector" />,
       cell: ({ row }) => {
         return row.original.sector_service_name ? (
           <Badge variant={'outline'} className="font-medium">
@@ -281,7 +285,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'areas_customer_name',
       id: 'Área',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Área" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Área" />,
       cell: ({ row }) => {
         return row.original.areas_customer_name ? (
           <Badge variant={'outline'} className="font-medium">
@@ -296,7 +300,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'type_service',
       id: 'Tipo de servicio',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de servicio" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Tipo de servicio" />,
       cell: ({ row }) => {
         return row.original.type_service ? (
           <Badge className="font-medium capitalize">{row.original.type_service.replaceAll('_', ' ')}</Badge>
@@ -309,7 +313,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'customer_equipment',
       id: 'Equipo cliente',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo cliente" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo cliente" />,
       cell: ({ row }) => {
         // const employees = row.original.customer_equipment;
         // if (!employees || employees.length === 0) return null;
@@ -342,7 +346,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'employees',
       id: 'Empleados',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Empleados" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Empleados" />,
       cell: ({ row }) => {
         const employees: string[] = row.original.employees;
         return (
@@ -410,20 +414,109 @@ export function getDailyReportColumns(
         return value.some((val) => rowValues.includes(val));
       },
     },
+    // PO-3: Columnas para Chofer/Ayudante en jornadas 12/24 hrs
+    {
+      accessorKey: 'chofer_dia',
+      id: 'Chofer Día',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Chofer Día" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
+        if (!is12or24) return <span className="text-muted-foreground">-</span>;
+
+        const choferDia = row.original.employees_references?.find((emp) => emp.role === 'chofer_dia');
+        return choferDia?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {choferDia.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">Sin asignar</span>
+        );
+      },
+    },
+    {
+      accessorKey: 'ayudante_dia',
+      id: 'Ayudante Día',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Ayudante Día" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is12or24 = workingDay === 'jornada 12 horas' || workingDay === 'jornada 24 horas';
+        if (!is12or24) return <span className="text-muted-foreground">-</span>;
+
+        const ayudanteDia = row.original.employees_references?.find((emp) => emp.role === 'ayudante_dia');
+        return ayudanteDia?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {ayudanteDia.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground italic">Opcional</span>
+        );
+      },
+    },
+    {
+      accessorKey: 'chofer_noche',
+      id: 'Chofer Noche',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Chofer Noche" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is24 = workingDay === 'jornada 24 horas';
+        if (!is24) return <span className="text-muted-foreground">-</span>;
+
+        const choferNoche = row.original.employees_references?.find((emp) => emp.role === 'chofer_noche');
+        return choferNoche?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {choferNoche.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">Sin asignar</span>
+        );
+      },
+    },
+    {
+      accessorKey: 'ayudante_noche',
+      id: 'Ayudante Noche',
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Ayudante Noche" />,
+      cell: ({ row }) => {
+        const workingDay = row.original.working_day?.toLowerCase() || '';
+        const is24 = workingDay === 'jornada 24 horas';
+        if (!is24) return <span className="text-muted-foreground">-</span>;
+
+        const ayudanteNoche = row.original.employees_references?.find((emp) => emp.role === 'ayudante_noche');
+        return ayudanteNoche?.name ? (
+          <Badge variant="default" className="select-none text-nowrap dark:text-black">
+            {ayudanteNoche.name}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground italic">Opcional</span>
+        );
+      },
+    },
     {
       accessorKey: 'equipment',
       id: 'Equipo',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Equipo" />,
       cell: ({ row }) => {
         const equipment = row.original.equipment;
+        const equipmentRefs = row.original.equipment_references || [];
         return (
           <div className="flex flex-wrap gap-1">
             {equipment.filter(Boolean).map((equipmentItem) => {
               if (!equipmentItem) return null;
               const isDuplicated = duplicatedEquipments.has(equipmentItem);
               const isUnassigned = unassignedEquipments.has(equipmentItem);
+              const eqRef = equipmentRefs.find((ref) => ref.name === equipmentItem);
+              const condition = eqRef?.condition || 'operativo';
+              const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+              const isNonStandardCondition = condition !== 'operativo';
 
-              // Prioridad: duplicado > no asignado > normal
+              const conditionLabels: Record<string, string> = {
+                'no operativo': 'No operativo',
+                'en reparacion': 'En reparación',
+                'operativo condicionado': 'Condicionado',
+                'en preparacion': 'En preparación',
+              };
+
+              // Color - Prioridad: duplicado > condición crítica > no asignado > condición info > normal
               let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
               let badgeClassName = 'select-none text-nowrap';
 
@@ -433,28 +526,50 @@ export function getDailyReportColumns(
                   badgeClassName,
                   'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
                 );
+              } else if (condition === 'no operativo') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-400'
+                );
+              } else if (condition === 'en reparacion') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-yellow-500 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-400'
+                );
               } else if (isUnassigned) {
                 badgeVariant = 'outline';
                 badgeClassName = cn(
                   badgeClassName,
                   'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
                 );
+              } else if (condition === 'operativo condicionado') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-400'
+                );
+              } else if (condition === 'en preparacion') {
+                badgeVariant = 'outline';
+                badgeClassName = cn(
+                  badgeClassName,
+                  'border-gray-400 bg-gray-50 text-gray-600 dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-500'
+                );
               } else {
                 badgeClassName = cn(badgeClassName, 'dark:text-black');
               }
 
-              // Determinar el mensaje del tooltip
-              let tooltipMessage = '';
-              if (isDuplicated) {
-                tooltipMessage = 'Este equipo está asignado en múltiples filas del parte diario';
-              } else if (isUnassigned) {
-                tooltipMessage = 'Este equipo no está asignado al cliente de esta fila';
-              } else {
-                tooltipMessage = 'Equipo asignado correctamente';
-              }
+              // Tooltip - combinar todos los desvíos (mismo formato que empleados)
+              const tooltipMessages: string[] = [];
+              if (hasConditionIssue) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+              else if (isNonStandardCondition) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+              if (isDuplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
+              if (isUnassigned) tooltipMessages.push('No asignado al cliente de esta fila');
+              if (tooltipMessages.length === 0) tooltipMessages.push('Equipo asignado correctamente');
 
               return (
-                <TooltipProvider key={equipmentItem}>
+                <TooltipProvider key={equipmentItem} delayDuration={300}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge variant={badgeVariant} className={badgeClassName}>
@@ -462,7 +577,9 @@ export function getDailyReportColumns(
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{tooltipMessage}</p>
+                      {tooltipMessages.map((msg, i) => (
+                        <p key={i}>{msg}</p>
+                      ))}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -482,7 +599,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'working_day',
       id: 'Jornada',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Jornada" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Jornada" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.working_day}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -491,7 +608,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'start_time',
       id: 'Hora de inicio',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de inicio" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Hora de inicio" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.start_time}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -500,7 +617,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'end_time',
       id: 'Hora de fin',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Hora de fin" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Hora de fin" />,
       cell: ({ row }) => <span className="font-medium capitalize">{row.original.end_time}</span>,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -509,7 +626,7 @@ export function getDailyReportColumns(
     {
       accessorKey: 'status',
       id: 'Estado',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Estado" />,
       cell: ({ row }) => {
         const variants = {
           ejecutado: 'success',
@@ -574,7 +691,7 @@ export function getDailyReportColumns(
     },
     {
       id: 'actions',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Acciones" />,
+      header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Acciones" />,
       cell: ({ row }) => {
         // Comprobamos si la fecha es hoy
         const isToday = moment(row.original.date).isSame(moment(), 'day');

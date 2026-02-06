@@ -53,6 +53,7 @@ export function formatDailyReportRow(
         ...rel.employees!,
         name: `${rel.employees?.lastname} ${rel.employees?.firstname}`,
         id: rel.employees?.id || '',
+        role: (rel as { role?: string }).role || null,
       })) || [],
     equipment_references:
       row.dailyreportequipmentrelations?.map((rel) => ({

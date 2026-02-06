@@ -122,7 +122,6 @@ export function NuevoPedidoChecklistForm({
     queryKey: ['checklist-templates-for-equipment', selectedEquipmentId],
     queryFn: () => getChecklistTemplatesForEquipment(selectedEquipmentId),
     enabled: !!selectedEquipmentId && currentStep >= 1,
-    staleTime: 5 * 60 * 1000,
   });
 
   // Template seleccionado
@@ -136,7 +135,6 @@ export function NuevoPedidoChecklistForm({
     queryKey: ['current-user-for-supervisor'],
     queryFn: getCurrentUserForSupervisorCheck,
     enabled: currentStep >= 3,
-    staleTime: 5 * 60 * 1000,
   });
 
   // Query para supervisores (solo se ejecuta cuando NO es supervisor)
@@ -144,7 +142,6 @@ export function NuevoPedidoChecklistForm({
     queryKey: ['supervisors-for-checklist'],
     queryFn: fetchSupervisorsForChecklist,
     enabled: currentStep >= 3 && isCurrentUserSupervisor === false,
-    staleTime: 5 * 60 * 1000,
   });
 
   // Supervisor seleccionado

@@ -250,14 +250,27 @@ export async function queryWithPagination<
       if (sort.id.includes('.')) {
         // Para relaciones anidadas, usar el formato correcto de PostgREST
         const parts = sort.id.split('.');
-        const relationTable = parts[0];
-        const column = parts.slice(1).join('.');
 
-        // Aplicar ordenamiento en la relación
-        query = query.order(`${relationTable}(${column})`, { ascending: sort.desc });
+        // PostgREST solo soporta ordenamiento en relaciones de UN nivel
+        // Para relaciones de múltiples niveles (ej: service_areas.areas_cliente.descripcion_corta),
+        // no podemos ordenar server-side - se omite y se debe manejar client-side
+        if (parts.length > 2) {
+          // Relación de múltiples niveles - no soportado por PostgREST, omitir
+          continue;
+        }
+
+        const relationTable = parts[0];
+        const column = parts[1];
+
+        // Aplicar ordenamiento en la relación (solo para relaciones de un nivel)
+        // Usar foreignTable para ordenamiento correcto en relaciones
+        query = query.order(column, {
+          ascending: !sort.desc,
+          referencedTable: relationTable,
+        });
       } else {
         // Para columnas directas
-        query = query.order(sort.id, { ascending: sort.desc });
+        query = query.order(sort.id, { ascending: !sort.desc });
       }
     }
   }

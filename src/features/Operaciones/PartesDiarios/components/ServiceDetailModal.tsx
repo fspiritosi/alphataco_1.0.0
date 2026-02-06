@@ -196,7 +196,11 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                   >
                     <div>
                       <div className="font-semibold text-blue-900 dark:text-blue-100 text-lg mb-3">
-                        <Link href={`/empleados/${employee.id}`} className="w-fit flex items-center" target="_blank">
+                        <Link
+                          href={`/dashboard/employee/action?action=view&employee_id=${employee.id}`}
+                          className="w-fit flex items-center"
+                          target="_blank"
+                        >
                           {' '}
                           {employee.firstname && employee.lastname
                             ? `${employee.lastname} ${employee.firstname}`
@@ -275,7 +279,11 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                   >
                     <div>
                       <div className="font-semibold text-green-900 dark:text-green-100 text-lg mb-3 flex items-center">
-                        <Link href={`/equipos/${equipment.id}`} className="w-fit flex items-center" target="_blank">
+                        <Link
+                          href={`/dashboard/equipment/action?action=view&id=${equipment.id}`}
+                          className="w-fit flex items-center"
+                          target="_blank"
+                        >
                           {' '}
                           {equipment.domain || equipment.intern_number || `Equipo ${equipment?.id?.slice(-6)}`}
                           <ExternalLinkIcon className="h-4 w-4 ml-2 inline " />
