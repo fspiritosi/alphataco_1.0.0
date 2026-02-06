@@ -39,6 +39,18 @@ interface DeviationsResult {
   };
 }
 
+const LOGO_URL = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
+
+function getDeviationBadge(type: string): string {
+  const colors: Record<string, { bg: string; text: string }> = {
+    'No afectado': { bg: '#fff7ed', text: '#c2410c' },
+    'Sin diagrama válido': { bg: '#fef2f2', text: '#b91c1c' },
+    'Sin recursos': { bg: '#fefce8', text: '#a16207' },
+  };
+  const c = colors[type] || { bg: '#f1f5f9', text: '#475569' };
+  return `<span style="background:${c.bg};color:${c.text};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap;">${type}</span>`;
+}
+
 function formatDeviationsEmail(data: DeviationsResult): string {
   const { report_date, deviations, duplicates, summary } = data;
 
@@ -49,139 +61,204 @@ function formatDeviationsEmail(data: DeviationsResult): string {
     day: 'numeric',
   });
 
+  const totalIssues = summary.total_deviations + summary.total_duplicates;
+
+  const summaryCards = [
+    { label: 'Total Desvíos', value: totalIssues, color: '#ea580c' },
+    { label: 'No Afectados', value: summary.employees_not_assigned, color: '#c2410c' },
+    { label: 'Sin Diagrama', value: summary.employees_no_valid_diagram, color: '#b91c1c' },
+    { label: 'Sin Recursos', value: summary.rows_without_resources, color: '#a16207' },
+    { label: 'Duplicados', value: summary.total_duplicates, color: '#7c3aed' },
+  ];
+
   let html = `
     <!DOCTYPE html>
-    <html>
+    <html lang="es">
     <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .header { background: #dc2626; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .summary { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .summary-item { display: inline-block; margin-right: 20px; padding: 10px; background: #fef2f2; border-radius: 4px; }
-        .summary-number { font-size: 24px; font-weight: bold; color: #dc2626; }
-        .section { margin-top: 20px; }
-        .section-title { font-size: 18px; font-weight: bold; color: #1f2937; border-bottom: 2px solid #dc2626; padding-bottom: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th { background: #374151; color: white; padding: 10px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
-        tr:hover { background: #f3f4f6; }
-        .deviation-type { background: #fef2f2; color: #dc2626; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-        .footer { margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 0 0 8px 8px; text-align: center; color: #6b7280; font-size: 12px; }
-      </style>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>⚠️ Reporte de Desvíos - Parte Diario</h1>
-          <p>Fecha: ${formattedDate}</p>
-        </div>
-        <div class="content">
-          <div class="summary">
-            <h3>Resumen</h3>
-            <div class="summary-item">
-              <div class="summary-number">${summary.total_deviations + summary.total_duplicates}</div>
-              <div>Total Desvíos</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-number">${summary.employees_not_assigned}</div>
-              <div>No Afectados</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-number">${summary.employees_no_valid_diagram}</div>
-              <div>Sin Diagrama</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-number">${summary.rows_without_resources}</div>
-              <div>Sin Recursos</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-number">${summary.total_duplicates}</div>
-              <div>Duplicados</div>
-            </div>
-          </div>
+    <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:24px 0;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+              <!-- HEADER -->
+              <tr>
+                <td style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:28px 32px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td width="56" style="vertical-align:middle;">
+                        <img src="${LOGO_URL}" alt="Grupo Horizonte" width="48" height="48" style="display:block;border-radius:8px;border:2px solid rgba(255,255,255,0.15);" />
+                      </td>
+                      <td style="vertical-align:middle;padding-left:16px;">
+                        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">Grupo Horizonte</p>
+                        <p style="margin:2px 0 0;font-size:13px;color:#94a3b8;font-weight:400;">Sistema de Gestión</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- TITLE BAR -->
+              <tr>
+                <td style="background:#ff9800;padding:16px 32px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff;">Reporte de Desvíos — Parte Diario</p>
+                        <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.85);text-transform:capitalize;">${formattedDate}</p>
+                      </td>
+                      <td align="right" style="vertical-align:middle;">
+                        <span style="background:rgba(255,255,255,0.2);color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">${totalIssues} desvío${totalIssues !== 1 ? 's' : ''}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- BODY -->
+              <tr>
+                <td style="background:#ffffff;padding:28px 32px;">
+
+                  <!-- SUMMARY CARDS -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                    <tr>
+                      ${summaryCards
+                        .map(
+                          (card) => `
+                        <td align="center" style="padding:0 4px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                            <tr>
+                              <td style="padding:14px 8px;text-align:center;">
+                                <p style="margin:0;font-size:28px;font-weight:800;color:${card.color};line-height:1;">${card.value}</p>
+                                <p style="margin:6px 0 0;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${card.label}</p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      `
+                        )
+                        .join('')}
+                    </tr>
+                  </table>
   `;
 
-  // Desvíos por tipo
+  // Desvíos table
   if (deviations.length > 0) {
     html += `
-          <div class="section">
-            <div class="section-title">Desvíos Detectados</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Servicio</th>
-                  <th>Empleado</th>
-                  <th>CUIL</th>
-                  <th>Tipo de Desvío</th>
-                </tr>
-              </thead>
-              <tbody>
+                  <!-- DEVIATIONS TABLE -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                    <tr>
+                      <td style="padding-bottom:12px;">
+                        <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Desvíos Detectados</p>
+                        <div style="width:40px;height:3px;background:#ff9800;border-radius:2px;margin-top:6px;"></div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                          <thead>
+                            <tr style="background:#1e293b;">
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Cliente</th>
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Servicio</th>
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Empleado</th>
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">CUIL</th>
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Tipo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
     `;
 
-    for (const d of deviations) {
+    for (let i = 0; i < deviations.length; i++) {
+      const d = deviations[i];
+      const bgColor = i % 2 === 0 ? '#ffffff' : '#f8fafc';
       html += `
-                <tr>
-                  <td>${d.customer_name || '-'}</td>
-                  <td>${d.service_name || '-'}</td>
-                  <td>${d.employee_name || '-'}</td>
-                  <td>${d.employee_cuil || '-'}</td>
-                  <td><span class="deviation-type">${d.deviation_type}</span></td>
-                </tr>
+                            <tr style="background:${bgColor};">
+                              <td style="padding:10px 14px;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;">${d.customer_name || '—'}</td>
+                              <td style="padding:10px 14px;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;">${d.service_name || '—'}</td>
+                              <td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${d.employee_name || '—'}</td>
+                              <td style="padding:10px 14px;font-size:13px;color:#64748b;font-family:monospace;border-bottom:1px solid #f1f5f9;">${d.employee_cuil || '—'}</td>
+                              <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">${getDeviationBadge(d.deviation_type)}</td>
+                            </tr>
       `;
     }
 
     html += `
-              </tbody>
-            </table>
-          </div>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
     `;
   }
 
-  // Duplicados
+  // Duplicates table
   if (duplicates.length > 0) {
     html += `
-          <div class="section">
-            <div class="section-title">Empleados Duplicados</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Empleado</th>
-                  <th>CUIL</th>
-                  <th>Veces Asignado</th>
-                  <th>Asignaciones</th>
-                </tr>
-              </thead>
-              <tbody>
+                  <!-- DUPLICATES TABLE -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding-bottom:12px;">
+                        <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Empleados Duplicados</p>
+                        <div style="width:40px;height:3px;background:#7c3aed;border-radius:2px;margin-top:6px;"></div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                          <thead>
+                            <tr style="background:#1e293b;">
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Empleado</th>
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">CUIL</th>
+                              <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Veces</th>
+                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Asignaciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
     `;
 
-    for (const d of duplicates) {
+    for (let i = 0; i < duplicates.length; i++) {
+      const d = duplicates[i];
+      const bgColor = i % 2 === 0 ? '#ffffff' : '#f8fafc';
       html += `
-                <tr>
-                  <td>${d.employee_name}</td>
-                  <td>${d.employee_cuil}</td>
-                  <td>${d.times_assigned}</td>
-                  <td>${d.assignments.join('<br>')}</td>
-                </tr>
+                            <tr style="background:${bgColor};">
+                              <td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${d.employee_name}</td>
+                              <td style="padding:10px 14px;font-size:13px;color:#64748b;font-family:monospace;border-bottom:1px solid #f1f5f9;">${d.employee_cuil}</td>
+                              <td style="padding:10px 14px;text-align:center;border-bottom:1px solid #f1f5f9;">
+                                <span style="background:#f5f3ff;color:#7c3aed;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">${d.times_assigned}</span>
+                              </td>
+                              <td style="padding:10px 14px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;line-height:1.5;">${d.assignments.join('<br>')}</td>
+                            </tr>
       `;
     }
 
     html += `
-              </tbody>
-            </table>
-          </div>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
     `;
   }
 
   html += `
-        </div>
-        <div class="footer">
-          <p>Este es un correo automático generado por el sistema de gestión.</p>
-          <p>Por favor no responda a este correo.</p>
-        </div>
-      </div>
+                </td>
+              </tr>
+
+              <!-- FOOTER -->
+              <tr>
+                <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
+                  <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">Este es un correo automático generado por el sistema de gestión.</p>
+                  <p style="margin:0;font-size:12px;color:#94a3b8;">Grupo Horizonte — Por favor no responda a este correo.</p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
   `;

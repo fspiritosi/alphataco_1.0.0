@@ -2,18 +2,21 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Copy, Home, Mail, RefreshCw } from 'lucide-react';
+import { Logger } from '@/lib/logger';
+import { sendErrorReport } from '@/lib/utils/sendErrorReport';
+import { AlertTriangle, Copy, Home, Loader2, Mail, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+const logger = new Logger('DashboardError');
+
 export default function DashboardError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [errorDetails, setErrorDetails] = useState<string>('');
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    // Log the error to console for debugging
-    console.error('Dashboard Error:', error);
+    logger.error('Dashboard Error', { data: { message: error.message, digest: error.digest } });
 
-    // Format error details
     const details = `
 === ERROR EN DASHBOARD ===
 Error Message: ${error.message}
@@ -35,26 +38,33 @@ ${error.stack || 'No stack trace available'}
       toast.success('Error copiado al portapapeles', {
         description: 'Puedes pegarlo en un email o mensaje',
       });
-    } catch (err) {
+    } catch {
       toast.error('No se pudo copiar el error');
     }
   };
 
-  const sendErrorByEmail = () => {
-    const subject = encodeURIComponent('Error en Dashboard - GH Gestión');
-    const body = encodeURIComponent(errorDetails);
-    // const recipients = 'fspiritosi@codecontrol.com.ar,yjimenez@codecontrol.com.ar';
-    const recipients = 'fspiritosi@codecontrol.com.ar';
+  const sendErrorByEmail = async () => {
+    setSending(true);
+    try {
+      const result = await sendErrorReport({
+        message: error.message,
+        stack: error.stack,
+        digest: error.digest,
+        url: window.location.href,
+        userAgent: navigator.userAgent,
+        source: 'Dashboard',
+      });
 
-    // Create mailto link
-    const mailtoLink = `mailto:${recipients}?subject=${subject}&body=${body}`;
-
-    // Open email client
-    window.location.href = mailtoLink;
-
-    toast.info('Abriendo cliente de correo...', {
-      description: 'Si no se abre automáticamente, copia el error y envíalo manualmente',
-    });
+      if (result.success) {
+        toast.success('Reporte enviado al equipo de desarrollo');
+      } else {
+        toast.error('No se pudo enviar el reporte', { description: result.error });
+      }
+    } catch {
+      toast.error('Error al enviar el reporte');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -109,11 +119,12 @@ ${error.stack || 'No stack trace available'}
             </Button>
             <Button
               onClick={sendErrorByEmail}
+              disabled={sending}
               variant="outline"
               className="gap-2 border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-orange-950/30"
             >
-              <Mail className="h-4 w-4" />
-              Enviar por email
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              {sending ? 'Enviando reporte...' : 'Reportar al equipo'}
             </Button>
           </div>
 
@@ -122,7 +133,7 @@ ${error.stack || 'No stack trace available'}
             <p className="font-semibold">¿Qué puedes hacer?</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-blue-800 dark:text-blue-300">
               <li>Intenta recargar la página usando el botón Intentar nuevamente</li>
-              <li>Copia el error y envíalo al equipo de soporte</li>
+              <li>Reporta el error al equipo de desarrollo para que lo resuelvan</li>
               <li>Vuelve al inicio del dashboard y prueba otra sección</li>
             </ul>
           </div>

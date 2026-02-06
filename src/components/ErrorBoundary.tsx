@@ -1,10 +1,14 @@
 'use client';
 
-import { AlertTriangle, Copy, Mail, RefreshCw } from 'lucide-react';
+import { Logger } from '@/lib/logger';
+import { sendErrorReport } from '@/lib/utils/sendErrorReport';
+import { AlertTriangle, Copy, Loader2, Mail, RefreshCw } from 'lucide-react';
 import { Component, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+
+const logger = new Logger('ErrorBoundary');
 
 interface Props {
   children: ReactNode;
@@ -16,6 +20,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: React.ErrorInfo | null;
+  sending: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -25,10 +30,11 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      sending: false,
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
       error,
@@ -37,14 +43,13 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    logger.error('ErrorBoundary caught an error', { data: { message: error.message } });
 
     this.setState({
       error,
       errorInfo,
     });
 
-    // Call custom error handler if provided
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
@@ -55,6 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      sending: false,
     });
   };
 
@@ -74,29 +80,42 @@ URL: ${window.location.href}
 
   sendErrorByEmail = () => {
     const { error, errorInfo } = this.state;
-    const errorDetails = `
-Error: ${error?.message}
-Stack: ${error?.stack}
-Component Stack: ${errorInfo?.componentStack}
-Timestamp: ${new Date().toISOString()}
-URL: ${window.location.href}
-    `.trim();
+    if (!error) return;
 
-    const subject = encodeURIComponent('Error en Componente - GH Gestión');
-    const body = encodeURIComponent(errorDetails);
-    // const recipients = 'fspiritosi@codecontrol.com.ar,yjimenez@codecontrol.com.ar';
-    const recipients = 'fspiritosi@codecontrol.com.ar';
-    window.location.href = `mailto:${recipients}?subject=${subject}&body=${body}`;
+    this.setState({ sending: true });
+
+    sendErrorReport({
+      message: error.message,
+      stack: error.stack,
+      digest: undefined,
+      componentStack: errorInfo?.componentStack ?? undefined,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      source: 'Componente',
+    })
+      .then((result) => {
+        if (result.success) {
+          toast.success('Reporte enviado al equipo de desarrollo');
+        } else {
+          toast.error('No se pudo enviar el reporte', { description: result.error });
+        }
+      })
+      .catch(() => {
+        toast.error('Error al enviar el reporte');
+      })
+      .finally(() => {
+        this.setState({ sending: false });
+      });
   };
 
   render() {
     if (this.state.hasError) {
-      // Use custom fallback if provided
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
-      // Default error UI
+      const { sending } = this.state;
+
       return (
         <div className="flex min-h-[400px] items-center justify-center p-4" data-error-boundary>
           <Card className="w-full max-w-2xl border-destructive/50">
@@ -130,9 +149,15 @@ URL: ${window.location.href}
                   <Copy className="h-3 w-3" />
                   Copiar
                 </Button>
-                <Button onClick={this.sendErrorByEmail} variant="outline" size="sm" className="gap-2">
-                  <Mail className="h-3 w-3" />
-                  Enviar
+                <Button
+                  onClick={this.sendErrorByEmail}
+                  disabled={sending}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                  {sending ? 'Enviando...' : 'Reportar'}
                 </Button>
               </div>
             </CardContent>
