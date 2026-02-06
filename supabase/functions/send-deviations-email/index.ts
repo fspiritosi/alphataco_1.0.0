@@ -66,6 +66,7 @@ interface DeviationsResult {
   };
 }
 
+const APP_URL = 'https://gh-gestion.com';
 const LOGO_URL = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
 
 // ========================================
@@ -476,24 +477,67 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { daily_report_id, recipient_email, report_date, app_url } = await req.json();
-
-    if (!daily_report_id || !report_date) {
-      return new Response(JSON.stringify({ error: 'daily_report_id and report_date are required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const body = await req.json();
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get deviations using the RPC function
+    // ========================================
+    // RESOLVE report_date (optional)
+    // If not provided, use current date in Argentina timezone
+    // ========================================
+    const resolvedDate: string =
+      body.report_date || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+
+    // ========================================
+    // RESOLVE daily_report_id (optional)
+    // If not provided, find active daily report for resolvedDate
+    // ========================================
+    let resolvedDailyReportId: string = body.daily_report_id;
+
+    if (!resolvedDailyReportId) {
+      const { data: reports, error: reportsError } = await supabase
+        .from('dailyreport')
+        .select('id')
+        .eq('date', resolvedDate)
+        .eq('is_active', true);
+
+      if (reportsError) {
+        throw new Error(`Error finding daily report: ${reportsError.message}`);
+      }
+
+      if (!reports || reports.length === 0) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `No active daily report found for date ${resolvedDate}`,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Use the first active daily report for the date
+      resolvedDailyReportId = reports[0].id;
+    }
+
+    // ========================================
+    // RESOLVE email recipients
+    // Accepts: to (string[]), cc (string[]), bcc (string[])
+    // Legacy: emails (string[]) or recipient_email (string) mapped to "to"
+    // ========================================
+    const emailTo: string[] =
+      body.to || body.emails || (body.recipient_email ? [body.recipient_email] : ['yordanpz@hotmail.com']);
+    const emailCc: string[] = body.cc || [];
+    const emailBcc: string[] = body.bcc || [];
+
+    // ========================================
+    // GET DEVIATIONS
+    // ========================================
     const { data: deviationsData, error: deviationsError } = await supabase.rpc('get_daily_report_deviations', {
-      p_daily_report_id: daily_report_id,
-      p_report_date: report_date,
+      p_daily_report_id: resolvedDailyReportId,
+      p_report_date: resolvedDate,
     });
 
     if (deviationsError) {
@@ -508,13 +552,16 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({
           success: true,
           message: 'No deviations found, email not sent',
-          deviations: deviations,
+          report_date: resolvedDate,
+          daily_report_id: resolvedDailyReportId,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Send email using SMTP
+    // ========================================
+    // SEND EMAIL
+    // ========================================
     const SMTP_HOST = Deno.env.get('SMTP_HOST');
     const SMTP_PORT = Deno.env.get('SMTP_PORT') || '465';
     const SMTP_USER = Deno.env.get('SMTP_USER');
@@ -525,9 +572,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('SMTP credentials not configured (SMTP_HOST, SMTP_USER, SMTP_PASS)');
     }
 
-    const emailTo = recipient_email || 'yordanpz@hotmail.com';
-    const baseUrl = app_url || Deno.env.get('APP_URL') || 'https://gestion.grupohorizonte.com.ar';
-    const emailHtml = formatDeviationsEmail(deviations, report_date, daily_report_id, baseUrl);
+    const emailHtml = formatDeviationsEmail(deviations, resolvedDate, resolvedDailyReportId, APP_URL);
 
     const nodemailer = (await import('npm:nodemailer@6')).default;
 
@@ -544,10 +589,13 @@ Deno.serve(async (req: Request) => {
       },
     });
 
+    // Send single email with to, cc, bcc
     const emailResult = await transporter.sendMail({
       from: `"Grupo Horizonte" <${SMTP_USER}>`,
-      to: emailTo,
-      subject: `Desv\u00edos del Parte Diario - ${report_date}`,
+      to: emailTo.join(', '),
+      cc: emailCc.length > 0 ? emailCc.join(', ') : undefined,
+      bcc: emailBcc.length > 0 ? emailBcc.join(', ') : undefined,
+      subject: `Desv\u00edos del Parte Diario - ${resolvedDate}`,
       html: emailHtml,
     });
 
@@ -556,6 +604,11 @@ Deno.serve(async (req: Request) => {
         success: true,
         message: 'Email sent successfully',
         email_id: emailResult.messageId,
+        to: emailTo,
+        cc: emailCc,
+        bcc: emailBcc,
+        report_date: resolvedDate,
+        daily_report_id: resolvedDailyReportId,
         deviations_summary: deviations.summary,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
