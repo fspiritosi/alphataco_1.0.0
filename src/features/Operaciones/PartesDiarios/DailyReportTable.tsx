@@ -167,7 +167,7 @@ function DailyReportTable({
   const fromDate = dateRange.from ? moment(dateRange.from).format('YYYY-MM-DD') : undefined;
   const toDate = dateRange.to ? moment(dateRange.to).format('YYYY-MM-DD') : undefined;
 
-  const { data: dailyRows, isFetching } = useDailyReports({
+  const { data: dailyRows } = useDailyReports({
     fromDate,
     toDate,
     initialData,
@@ -196,16 +196,7 @@ function DailyReportTable({
   }, []);
 
   return (
-    <div className="relative">
-      {isFetching && (
-        <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center z-10">
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-md shadow-md">
-            <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full"></div>
-            <span className="text-sm font-medium">Cargando...</span>
-          </div>
-        </div>
-      )}
-
+    <div>
       <BaseDataTable
         tableId="dailyReportTable"
         columns={reportColumnas}

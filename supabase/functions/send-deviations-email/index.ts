@@ -6,69 +6,150 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface DeviationData {
-  row_id: string;
-  customer_name: string;
-  service_name: string | null;
-  item_name: string | null;
-  employee_id: string | null;
-  employee_name: string | null;
-  employee_cuil: string | null;
-  deviation_type: string;
-}
+// ========================================
+// INTERFACES (match RPC output)
+// ========================================
 
-interface DuplicateData {
+interface EmployeeDeviation {
   employee_id: string;
   employee_name: string;
   employee_cuil: string;
-  times_assigned: number;
-  assignments: string[];
+  role: string;
+  is_duplicated: boolean;
+  is_unassigned_to_client: boolean;
+  has_no_diagram: boolean;
+  is_non_work_day: boolean;
+  diagram_type_name: string | null;
+}
+
+interface EquipmentDeviation {
+  equipment_id: string;
+  equipment_domain: string;
+  equipment_intern_number: string;
+  condition: string;
+  is_duplicated: boolean;
+  is_unassigned_to_client: boolean;
+}
+
+interface RowWithDeviations {
+  row_id: string;
+  customer_id: string;
+  customer_name: string;
+  service_name: string;
+  item_name: string;
+  start_time: string | null;
+  end_time: string | null;
+  employee_deviations: EmployeeDeviation[];
+  equipment_deviations: EquipmentDeviation[];
 }
 
 interface DeviationsResult {
-  daily_report_id: string;
-  report_date: string;
-  deviations: DeviationData[];
-  duplicates: DuplicateData[];
+  rows_with_deviations: RowWithDeviations[];
   summary: {
-    total_deviations: number;
-    total_duplicates: number;
-    employees_not_assigned: number;
-    employees_no_valid_diagram: number;
-    rows_without_resources: number;
+    total_employee_deviations: number;
+    total_equipment_deviations: number;
+    total_duplicated_employees: number;
+    total_duplicated_equipment: number;
+    total_rows_with_deviations: number;
   };
 }
 
 const LOGO_URL = 'https://vvrckjjyrwqzpbaatemz.supabase.co/storage/v1/object/public/logo/30709694363.png';
 
-function getDeviationBadge(type: string): string {
-  const colors: Record<string, { bg: string; text: string }> = {
-    'No afectado': { bg: '#fff7ed', text: '#c2410c' },
-    'Sin diagrama válido': { bg: '#fef2f2', text: '#b91c1c' },
-    'Sin recursos': { bg: '#fefce8', text: '#a16207' },
-  };
-  const c = colors[type] || { bg: '#f1f5f9', text: '#475569' };
-  return `<span style="background:${c.bg};color:${c.text};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap;">${type}</span>`;
+// ========================================
+// HELPERS
+// ========================================
+
+const ROLE_LABELS: Record<string, string> = {
+  chofer_dia: 'Chofer Día',
+  chofer_noche: 'Chofer Noche',
+  ayudante_dia: 'Ayudante Día',
+  ayudante_noche: 'Ayudante Noche',
+  sin_rol: 'Sin rol',
+};
+
+const CONDITION_LABELS: Record<string, { label: string; bg: string; text: string }> = {
+  operativo: { label: 'Operativo', bg: '#f0fdf4', text: '#15803d' },
+  'no operativo': { label: 'No operativo', bg: '#fef2f2', text: '#b91c1c' },
+  'en reparacion': { label: 'En reparación', bg: '#fefce8', text: '#a16207' },
+  'operativo condicionado': { label: 'Operativo condicionado', bg: '#fff7ed', text: '#c2410c' },
+  'en preparacion': { label: 'En preparación', bg: '#eff6ff', text: '#1d4ed8' },
+  desconocido: { label: 'Desconocido', bg: '#f1f5f9', text: '#475569' },
+};
+
+function badge(label: string, bg: string, text: string): string {
+  return `<span style="display:inline-block;background:${bg};color:${text};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;line-height:1.4;">${label}</span>`;
 }
 
-function formatDeviationsEmail(data: DeviationsResult): string {
-  const { report_date, deviations, duplicates, summary } = data;
+function employeeDeviationBadges(d: EmployeeDeviation): string {
+  const badges: string[] = [];
+  if (d.is_unassigned_to_client) badges.push(badge('No afectado', '#fff7ed', '#c2410c'));
+  if (d.has_no_diagram) badges.push(badge('Sin diagrama', '#fef2f2', '#b91c1c'));
+  if (d.is_non_work_day)
+    badges.push(badge(`Día no laboral${d.diagram_type_name ? ` (${d.diagram_type_name})` : ''}`, '#fefce8', '#a16207'));
+  if (d.is_duplicated) badges.push(badge('Duplicado', '#f5f3ff', '#7c3aed'));
+  return badges.join(' ');
+}
 
-  const formattedDate = new Date(report_date).toLocaleDateString('es-AR', {
+function equipmentDeviationBadges(d: EquipmentDeviation): string {
+  const badges: string[] = [];
+  if (d.is_unassigned_to_client) badges.push(badge('No afectado', '#fff7ed', '#c2410c'));
+  if (d.condition && d.condition !== 'operativo') {
+    const c = CONDITION_LABELS[d.condition] || CONDITION_LABELS['desconocido'];
+    badges.push(badge(c.label, c.bg, c.text));
+  }
+  if (d.is_duplicated) badges.push(badge('Duplicado', '#f5f3ff', '#7c3aed'));
+  return badges.join(' ');
+}
+
+function formatTime(time: string | null): string {
+  if (!time) return '—';
+  // time comes as "HH:MM:SS" or "HH:MM", show only HH:MM
+  return time.substring(0, 5);
+}
+
+// ========================================
+// EMAIL TEMPLATE
+// ========================================
+
+function formatDeviationsEmail(
+  data: DeviationsResult,
+  reportDate: string,
+  dailyReportId: string,
+  appUrl: string
+): string {
+  const { rows_with_deviations, summary } = data;
+
+  const formattedDate = new Date(reportDate + 'T12:00:00').toLocaleDateString('es-AR', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
 
-  const totalIssues = summary.total_deviations + summary.total_duplicates;
+  const totalIssues =
+    summary.total_employee_deviations +
+    summary.total_equipment_deviations +
+    summary.total_duplicated_employees +
+    summary.total_duplicated_equipment;
+  const viewUrl = `${appUrl}/dashboard/operations/${dailyReportId}`;
+
+  // Group rows by customer
+  const customerGroups: Record<string, { customer_name: string; rows: RowWithDeviations[] }> = {};
+  for (const row of rows_with_deviations) {
+    const key = row.customer_id;
+    if (!customerGroups[key]) {
+      customerGroups[key] = { customer_name: row.customer_name, rows: [] };
+    }
+    customerGroups[key].rows.push(row);
+  }
 
   const summaryCards = [
-    { label: 'Total Desvíos', value: totalIssues, color: '#ea580c' },
-    { label: 'No Afectados', value: summary.employees_not_assigned, color: '#c2410c' },
-    { label: 'Sin Diagrama', value: summary.employees_no_valid_diagram, color: '#b91c1c' },
-    { label: 'Sin Recursos', value: summary.rows_without_resources, color: '#a16207' },
-    { label: 'Duplicados', value: summary.total_duplicates, color: '#7c3aed' },
+    { label: 'Rows con desvíos', value: summary.total_rows_with_deviations, color: '#ea580c' },
+    { label: 'Desvíos Empleados', value: summary.total_employee_deviations, color: '#c2410c' },
+    { label: 'Desvíos Equipos', value: summary.total_equipment_deviations, color: '#b91c1c' },
+    { label: 'Empleados Duplicados', value: summary.total_duplicated_employees, color: '#7c3aed' },
+    { label: 'Equipos Duplicados', value: summary.total_duplicated_equipment, color: '#6d28d9' },
   ];
 
   let html = `
@@ -82,7 +163,7 @@ function formatDeviationsEmail(data: DeviationsResult): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:24px 0;">
         <tr>
           <td align="center">
-            <table role="presentation" width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+            <table role="presentation" width="780" cellpadding="0" cellspacing="0" style="max-width:780px;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
               <!-- HEADER -->
               <tr>
@@ -94,7 +175,7 @@ function formatDeviationsEmail(data: DeviationsResult): string {
                       </td>
                       <td style="vertical-align:middle;padding-left:16px;">
                         <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">Grupo Horizonte</p>
-                        <p style="margin:2px 0 0;font-size:13px;color:#94a3b8;font-weight:400;">Sistema de Gestión</p>
+                        <p style="margin:2px 0 0;font-size:13px;color:#94a3b8;font-weight:400;">Sistema de Gesti&oacute;n</p>
                       </td>
                     </tr>
                   </table>
@@ -107,11 +188,11 @@ function formatDeviationsEmail(data: DeviationsResult): string {
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                     <tr>
                       <td>
-                        <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff;">Reporte de Desvíos — Parte Diario</p>
+                        <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff;">Reporte de Desv&iacute;os &mdash; Parte Diario</p>
                         <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.85);text-transform:capitalize;">${formattedDate}</p>
                       </td>
                       <td align="right" style="vertical-align:middle;">
-                        <span style="background:rgba(255,255,255,0.2);color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">${totalIssues} desvío${totalIssues !== 1 ? 's' : ''}</span>
+                        <span style="background:rgba(255,255,255,0.2);color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">${totalIssues} desv&iacute;o${totalIssues !== 1 ? 's' : ''}</span>
                       </td>
                     </tr>
                   </table>
@@ -128,12 +209,12 @@ function formatDeviationsEmail(data: DeviationsResult): string {
                       ${summaryCards
                         .map(
                           (card) => `
-                        <td align="center" style="padding:0 4px;">
+                        <td align="center" style="padding:0 3px;">
                           <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
                             <tr>
-                              <td style="padding:14px 8px;text-align:center;">
-                                <p style="margin:0;font-size:28px;font-weight:800;color:${card.color};line-height:1;">${card.value}</p>
-                                <p style="margin:6px 0 0;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${card.label}</p>
+                              <td style="padding:12px 6px;text-align:center;">
+                                <p style="margin:0;font-size:24px;font-weight:800;color:${card.color};line-height:1;">${card.value}</p>
+                                <p style="margin:5px 0 0;font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">${card.label}</p>
                               </td>
                             </tr>
                           </table>
@@ -145,113 +226,166 @@ function formatDeviationsEmail(data: DeviationsResult): string {
                   </table>
   `;
 
-  // Desvíos table
-  if (deviations.length > 0) {
+  // ========================================
+  // ROWS GROUPED BY CUSTOMER
+  // ========================================
+  const customerEntries = Object.values(customerGroups).sort((a, b) => a.customer_name.localeCompare(b.customer_name));
+
+  for (const group of customerEntries) {
+    // Customer header
     html += `
-                  <!-- DEVIATIONS TABLE -->
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                    <!-- Customer Header -->
                     <tr>
-                      <td style="padding-bottom:12px;">
-                        <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Desvíos Detectados</p>
-                        <div style="width:40px;height:3px;background:#ff9800;border-radius:2px;margin-top:6px;"></div>
+                      <td style="background:#1e293b;padding:12px 18px;">
+                        <p style="margin:0;font-size:14px;font-weight:700;color:#ffffff;">${group.customer_name}</p>
+                        <p style="margin:2px 0 0;font-size:11px;color:#94a3b8;">${group.rows.length} row${group.rows.length !== 1 ? 's' : ''} con desv&iacute;os</p>
                       </td>
                     </tr>
-                    <tr>
-                      <td>
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-                          <thead>
-                            <tr style="background:#1e293b;">
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Cliente</th>
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Servicio</th>
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Empleado</th>
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">CUIL</th>
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Tipo</th>
-                            </tr>
-                          </thead>
-                          <tbody>
     `;
 
-    for (let i = 0; i < deviations.length; i++) {
-      const d = deviations[i];
-      const bgColor = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-      html += `
-                            <tr style="background:${bgColor};">
-                              <td style="padding:10px 14px;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;">${d.customer_name || '—'}</td>
-                              <td style="padding:10px 14px;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;">${d.service_name || '—'}</td>
-                              <td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${d.employee_name || '—'}</td>
-                              <td style="padding:10px 14px;font-size:13px;color:#64748b;font-family:monospace;border-bottom:1px solid #f1f5f9;">${d.employee_cuil || '—'}</td>
-                              <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">${getDeviationBadge(d.deviation_type)}</td>
-                            </tr>
-      `;
-    }
+    for (let rowIdx = 0; rowIdx < group.rows.length; rowIdx++) {
+      const row = group.rows[rowIdx];
+      const rowBg = rowIdx % 2 === 0 ? '#ffffff' : '#f8fafc';
+      const borderTop = rowIdx > 0 ? 'border-top:1px solid #e2e8f0;' : '';
 
-    html += `
-                          </tbody>
+      // Row info bar
+      html += `
+                    <tr>
+                      <td style="background:${rowBg};padding:0;${borderTop}">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                          <!-- Row info -->
+                          <tr>
+                            <td style="padding:10px 18px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;">
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                  <td>
+                                    <p style="margin:0;font-size:13px;font-weight:600;color:#334155;">${row.service_name}${row.item_name !== '—' ? ` &rsaquo; ${row.item_name}` : ''}</p>
+                                  </td>
+                                  <td align="right">
+                                    <span style="font-size:12px;color:#64748b;">${formatTime(row.start_time)} — ${formatTime(row.end_time)}</span>
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+      `;
+
+      // Employee deviations
+      if (row.employee_deviations.length > 0) {
+        html += `
+                          <tr>
+                            <td style="padding:10px 18px 4px;">
+                              <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Empleados</p>
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+                                <thead>
+                                  <tr style="background:#f1f5f9;">
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Nombre</th>
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">CUIL</th>
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Rol</th>
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Desv&iacute;os</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+        `;
+
+        for (let ei = 0; ei < row.employee_deviations.length; ei++) {
+          const emp = row.employee_deviations[ei];
+          const empBg = ei % 2 === 0 ? '#ffffff' : '#fafafa';
+          html += `
+                                  <tr style="background:${empBg};">
+                                    <td style="padding:7px 10px;font-size:12px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${emp.employee_name}</td>
+                                    <td style="padding:7px 10px;font-size:12px;color:#64748b;font-family:monospace;border-bottom:1px solid #f1f5f9;">${emp.employee_cuil}</td>
+                                    <td style="padding:7px 10px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;">${ROLE_LABELS[emp.role] || emp.role}</td>
+                                    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;">${employeeDeviationBadges(emp)}</td>
+                                  </tr>
+          `;
+        }
+
+        html += `
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
+        `;
+      }
+
+      // Equipment deviations
+      if (row.equipment_deviations.length > 0) {
+        html += `
+                          <tr>
+                            <td style="padding:10px 18px 4px;">
+                              <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos</p>
+                              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+                                <thead>
+                                  <tr style="background:#f1f5f9;">
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Dominio</th>
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">N&deg; Interno</th>
+                                    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#475569;border-bottom:1px solid #e2e8f0;">Desv&iacute;os</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+        `;
+
+        for (let qi = 0; qi < row.equipment_deviations.length; qi++) {
+          const eq = row.equipment_deviations[qi];
+          const eqBg = qi % 2 === 0 ? '#ffffff' : '#fafafa';
+          html += `
+                                  <tr style="background:${eqBg};">
+                                    <td style="padding:7px 10px;font-size:12px;color:#1e293b;font-weight:500;font-family:monospace;border-bottom:1px solid #f1f5f9;">${eq.equipment_domain}</td>
+                                    <td style="padding:7px 10px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;">#${eq.equipment_intern_number}</td>
+                                    <td style="padding:7px 10px;border-bottom:1px solid #f1f5f9;">${equipmentDeviationBadges(eq)}</td>
+                                  </tr>
+          `;
+        }
+
+        html += `
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
+        `;
+      }
+
+      // Row bottom padding
+      html += `
+                          <tr><td style="padding:6px 0;"></td></tr>
                         </table>
                       </td>
                     </tr>
+      `;
+    }
+
+    // Close customer group
+    html += `
                   </table>
     `;
   }
 
-  // Duplicates table
-  if (duplicates.length > 0) {
-    html += `
-                  <!-- DUPLICATES TABLE -->
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="padding-bottom:12px;">
-                        <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;">Empleados Duplicados</p>
-                        <div style="width:40px;height:3px;background:#7c3aed;border-radius:2px;margin-top:6px;"></div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-                          <thead>
-                            <tr style="background:#1e293b;">
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Empleado</th>
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">CUIL</th>
-                              <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Veces</th>
-                              <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:600;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.5px;">Asignaciones</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-    `;
-
-    for (let i = 0; i < duplicates.length; i++) {
-      const d = duplicates[i];
-      const bgColor = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-      html += `
-                            <tr style="background:${bgColor};">
-                              <td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${d.employee_name}</td>
-                              <td style="padding:10px 14px;font-size:13px;color:#64748b;font-family:monospace;border-bottom:1px solid #f1f5f9;">${d.employee_cuil}</td>
-                              <td style="padding:10px 14px;text-align:center;border-bottom:1px solid #f1f5f9;">
-                                <span style="background:#f5f3ff;color:#7c3aed;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:700;">${d.times_assigned}</span>
-                              </td>
-                              <td style="padding:10px 14px;font-size:12px;color:#475569;border-bottom:1px solid #f1f5f9;line-height:1.5;">${d.assignments.join('<br>')}</td>
-                            </tr>
-      `;
-    }
-
-    html += `
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
-    `;
-  }
-
+  // CTA Button
   html += `
+                  <!-- CTA BUTTON -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+                    <tr>
+                      <td align="center" style="padding:16px 0 4px;">
+                        <a href="${viewUrl}" target="_blank" style="display:inline-block;background:#ff9800;color:#ffffff;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.2px;">Ver Parte Diario</a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="center" style="padding:4px 0 0;">
+                        <a href="${viewUrl}" target="_blank" style="font-size:11px;color:#94a3b8;text-decoration:underline;">${viewUrl}</a>
+                      </td>
+                    </tr>
+                  </table>
+
                 </td>
               </tr>
 
               <!-- FOOTER -->
               <tr>
                 <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;text-align:center;">
-                  <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">Este es un correo automático generado por el sistema de gestión.</p>
-                  <p style="margin:0;font-size:12px;color:#94a3b8;">Grupo Horizonte — Por favor no responda a este correo.</p>
+                  <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">Este es un correo autom&aacute;tico generado por el sistema de gesti&oacute;n.</p>
+                  <p style="margin:0;font-size:12px;color:#94a3b8;">Grupo Horizonte &mdash; Por favor no responda a este correo.</p>
                 </td>
               </tr>
 
@@ -266,6 +400,10 @@ function formatDeviationsEmail(data: DeviationsResult): string {
   return html;
 }
 
+// ========================================
+// MAIN HANDLER
+// ========================================
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -273,10 +411,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { daily_report_id, recipient_email } = await req.json();
+    const { daily_report_id, recipient_email, report_date, app_url } = await req.json();
 
-    if (!daily_report_id) {
-      return new Response(JSON.stringify({ error: 'daily_report_id is required' }), {
+    if (!daily_report_id || !report_date) {
+      return new Response(JSON.stringify({ error: 'daily_report_id and report_date are required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -287,19 +425,20 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get deviations using the SQL function
+    // Get deviations using the RPC function
     const { data: deviationsData, error: deviationsError } = await supabase.rpc('get_daily_report_deviations', {
       p_daily_report_id: daily_report_id,
+      p_report_date: report_date,
     });
 
     if (deviationsError) {
       throw new Error(`Error getting deviations: ${deviationsError.message}`);
     }
 
-    const deviations = deviationsData as DeviationsResult;
+    const deviations = deviationsData as unknown as DeviationsResult;
 
     // Check if there are any deviations
-    if (deviations.summary.total_deviations === 0 && deviations.summary.total_duplicates === 0) {
+    if (deviations.rows_with_deviations.length === 0) {
       return new Response(
         JSON.stringify({
           success: true,
@@ -322,7 +461,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const emailTo = recipient_email || 'yordanpz@hotmail.com';
-    const emailHtml = formatDeviationsEmail(deviations);
+    const baseUrl = app_url || Deno.env.get('APP_URL') || 'https://gestion.grupohorizonte.com.ar';
+    const emailHtml = formatDeviationsEmail(deviations, report_date, daily_report_id, baseUrl);
 
     const nodemailer = (await import('npm:nodemailer@6')).default;
 
@@ -342,7 +482,7 @@ Deno.serve(async (req: Request) => {
     const emailResult = await transporter.sendMail({
       from: `"Grupo Horizonte" <${SMTP_USER}>`,
       to: emailTo,
-      subject: `⚠️ Desvíos del Parte Diario - ${deviations.report_date}`,
+      subject: `Desv\u00edos del Parte Diario - ${report_date}`,
       html: emailHtml,
     });
 

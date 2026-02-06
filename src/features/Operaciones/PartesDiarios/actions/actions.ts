@@ -937,8 +937,9 @@ export type ValidationEquipment = ResourceValidationData['equipments'][number];
 
 export interface EmployeeDeviation {
   employee_id: string;
-  row_id: string;
-  customer_id: string;
+  employee_name: string;
+  employee_cuil: string;
+  role: string;
   is_duplicated: boolean;
   is_unassigned_to_client: boolean;
   has_no_diagram: boolean;
@@ -948,21 +949,41 @@ export interface EmployeeDeviation {
 
 export interface EquipmentDeviation {
   equipment_id: string;
-  row_id: string;
-  customer_id: string;
+  equipment_domain: string;
+  equipment_intern_number: string;
+  condition: string;
   is_duplicated: boolean;
   is_unassigned_to_client: boolean;
-  condition: string | null;
 }
 
-export interface DailyReportDeviationsResult {
+export interface RowWithDeviations {
+  row_id: string;
+  customer_id: string;
+  customer_name: string;
+  service_name: string;
+  item_name: string;
+  start_time: string | null;
+  end_time: string | null;
   employee_deviations: EmployeeDeviation[];
   equipment_deviations: EquipmentDeviation[];
 }
 
+export interface DeviationsSummary {
+  total_employee_deviations: number;
+  total_equipment_deviations: number;
+  total_duplicated_employees: number;
+  total_duplicated_equipment: number;
+  total_rows_with_deviations: number;
+}
+
+export interface DailyReportDeviationsResult {
+  rows_with_deviations: RowWithDeviations[];
+  summary: DeviationsSummary;
+}
+
 /**
  * Obtiene todos los desvíos de empleados y equipos de un parte diario en una sola query RPC.
- * Reemplaza: getResourceValidationData + getDuplicatedEmployees + getDuplicatedEquipments
+ * Devuelve desvíos agrupados por row, con datos enriquecidos (nombres, CUIL, dominio, etc.)
  */
 export async function getDailyReportDeviations(
   dailyReportId: string,
@@ -984,8 +1005,14 @@ export async function getDailyReportDeviations(
   const result = data as unknown as DailyReportDeviationsResult;
 
   return {
-    employee_deviations: result?.employee_deviations || [],
-    equipment_deviations: result?.equipment_deviations || [],
+    rows_with_deviations: result?.rows_with_deviations || [],
+    summary: result?.summary || {
+      total_employee_deviations: 0,
+      total_equipment_deviations: 0,
+      total_duplicated_employees: 0,
+      total_duplicated_equipment: 0,
+      total_rows_with_deviations: 0,
+    },
   };
 }
 

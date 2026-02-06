@@ -8,12 +8,9 @@ export const VALIDATION_QUERY_KEY = ['daily-report-deviations'] as const;
 
 /**
  * Hook para obtener desvíos del parte diario via RPC.
- * Una sola query SQL devuelve todos los desvíos de empleados y equipos:
- * - Duplicados (empleado/equipo en múltiples filas)
- * - No asignado al cliente de la fila
- * - Sin diagrama cargado (empleados)
- * - Día no laboral (empleados)
- * - Condición del vehículo (equipos)
+ * La RPC devuelve rows_with_deviations agrupados por row.
+ * Este hook aplana los desvíos en maps employee_id:row_id y equipment_id:row_id
+ * para acceso rápido por celda en la tabla.
  */
 export function useValidationData(dailyReportId: string, reportDate: string) {
   const { data, isLoading } = useQuery({
@@ -23,23 +20,29 @@ export function useValidationData(dailyReportId: string, reportDate: string) {
     staleTime: 30 * 1000, // 30 segundos, consistente con el hook de datos
   });
 
-  // Map de desvíos de empleados: clave compuesta employee_id:row_id
+  // Aplanar rows_with_deviations en map de employee_id:row_id
   const employeeDeviationMap = useMemo(() => {
     const map = new Map<string, EmployeeDeviation>();
-    data?.employee_deviations.forEach((dev) => {
-      map.set(`${dev.employee_id}:${dev.row_id}`, dev);
-    });
+    if (!data?.rows_with_deviations) return map;
+    for (const row of data.rows_with_deviations) {
+      for (const dev of row.employee_deviations) {
+        map.set(`${dev.employee_id}:${row.row_id}`, dev);
+      }
+    }
     return map;
-  }, [data?.employee_deviations]);
+  }, [data?.rows_with_deviations]);
 
-  // Map de desvíos de equipos: clave compuesta equipment_id:row_id
+  // Aplanar rows_with_deviations en map de equipment_id:row_id
   const equipmentDeviationMap = useMemo(() => {
     const map = new Map<string, EquipmentDeviation>();
-    data?.equipment_deviations.forEach((dev) => {
-      map.set(`${dev.equipment_id}:${dev.row_id}`, dev);
-    });
+    if (!data?.rows_with_deviations) return map;
+    for (const row of data.rows_with_deviations) {
+      for (const dev of row.equipment_deviations) {
+        map.set(`${dev.equipment_id}:${row.row_id}`, dev);
+      }
+    }
     return map;
-  }, [data?.equipment_deviations]);
+  }, [data?.rows_with_deviations]);
 
   // Helper: obtener desvíos de un empleado en una fila específica
   const getEmployeeDeviation = (employeeId: string, rowId: string): EmployeeDeviation | null => {
