@@ -376,6 +376,43 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
   return data;
 }
 
+/**
+ * Cuenta el número total de prepartes (sin límite)
+ */
+export async function countPrepartes(): Promise<number> {
+  const supabase = await supabaseServer();
+
+  const { count, error } = await supabase.from('preparte').select('*', { count: 'exact', head: true });
+
+  if (error) {
+    logger.error('Error counting prepartes', { data: { error } });
+    return 0;
+  }
+
+  return count || 0;
+}
+
+/**
+ * Cuenta prepartes por estado específico
+ */
+export async function countPrepartesByStatus(
+  status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado' | 'vencido'
+): Promise<number> {
+  const supabase = await supabaseServer();
+
+  const { count, error } = await supabase
+    .from('preparte')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', status);
+
+  if (error) {
+    logger.error('Error counting prepartes by status', { data: { error, status } });
+    return 0;
+  }
+
+  return count || 0;
+}
+
 export async function getLastOrderNumber() {
   const supabase = await supabaseServer();
 

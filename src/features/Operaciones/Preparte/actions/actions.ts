@@ -21,7 +21,7 @@ export async function fetchCustomersWithRelations() {
         customer_id,
         service_sectors(id, sector_id, service_id, sectors(id, name)),
         service_areas(id, area_id, service_id, areas_cliente(id, nombre)),
-        service_items(id, item_name, customer_service_id, unit_id, measure_units(id, name, abbreviation))
+        service_items(id, item_name, customer_service_id, unit_id, measure_units(*))
       )
     `
     )

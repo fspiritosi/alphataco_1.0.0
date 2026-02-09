@@ -64,6 +64,13 @@ interface PreparteTableProps {
 
   // Estado de carga
   isLoading?: boolean;
+
+  // Status Cards como prop (renderizadas desde nivel superior con Suspense)
+  statusCards?: React.ReactNode;
+
+  // Estado externo del filtro de status (opcional - usa interno si no se proporciona)
+  statusFilter?: Status | null;
+  onStatusFilterChange?: (status: Status | null) => void;
 }
 
 interface StatusFilter {
@@ -809,14 +816,19 @@ export function PreparteTable({
   fetchData,
   fetchAllData,
   isLoading = false,
+  statusCards,
+  statusFilter: externalStatusFilter,
+  onStatusFilterChange,
 }: PreparteTableProps) {
   const { canUpdate } = usePermissions();
   const canEdit = canUpdate('operaciones', 'preparte');
   const queryClient = useQueryClient();
 
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-  // Filtro de estado para inyectar al server-side
-  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+  // Filtro de estado - usa externo si se proporciona, sino usa interno
+  const [internalStatusFilter, setInternalStatusFilter] = useState<Status | null>(null);
+  const statusFilter = externalStatusFilter !== undefined ? externalStatusFilter : internalStatusFilter;
+  const setStatusFilter = onStatusFilterChange || setInternalStatusFilter;
 
   // Estados para edición masiva
   const [selectedRows, setSelectedRows] = useState<PreparteItem[]>([]);
@@ -877,13 +889,18 @@ export function PreparteTable({
 
   return (
     <>
-      <div className="flex w-full">
-        <StatusCards
-          data={tableDataProp}
-          onStatusClick={(status) => setStatusFilter(status)}
-          selectedStatus={statusFilter}
-        />
-      </div>
+      {/* Renderizar statusCards si se proporciona, sino usar el componente legacy */}
+      {statusCards ? (
+        statusCards
+      ) : (
+        <div className="flex w-full">
+          <StatusCards
+            data={tableDataProp}
+            onStatusClick={(status) => setStatusFilter(status)}
+            selectedStatus={statusFilter}
+          />
+        </div>
+      )}
       <BaseDataTable
         columns={getColumns(
           onEdit,

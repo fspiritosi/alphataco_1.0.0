@@ -116,6 +116,9 @@ interface PreparteManagerProps {
   contratos: Contrato[];
   prepartes: PreparteItem[];
   // itemsList removed - items now loaded on-demand via useServiceItems hook
+  statusCards?: React.ReactNode;
+  statusFilter?: any; // Status | null
+  onStatusFilterChange?: (status: any) => void;
 }
 
 export interface Contrato {
@@ -149,7 +152,14 @@ const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
   return dates;
 };
 
-export function PreparteManager({ Customers, contratos, prepartes }: PreparteManagerProps) {
+export function PreparteManager({
+  Customers,
+  contratos,
+  prepartes,
+  statusCards,
+  statusFilter,
+  onStatusFilterChange,
+}: PreparteManagerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
   const [open, setOpen] = useState(false);
@@ -761,6 +771,9 @@ export function PreparteManager({ Customers, contratos, prepartes }: PreparteMan
             savedVisibility={savedVisibility}
             fetchData={handleFetchData}
             isLoading={isLoading}
+            statusCards={statusCards}
+            statusFilter={statusFilter}
+            onStatusFilterChange={onStatusFilterChange}
           />
         </CardContent>
       </Card>

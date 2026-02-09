@@ -1,6 +1,6 @@
 import { fetchAllContracts } from '@/app/dashboard/employee/action/actions/actions';
 import { listPrepartes } from '@/features/Operaciones/Preparte/actions/preparte';
-import { PreparteManager } from './PreparteManager';
+import { PrepartePageWrapper } from './PrepartePageWrapper';
 
 // NOTA: fetchServiceItems ahora requiere customer_service_id, por lo que no se puede
 // pre-cargar todos los items aquí. Los items se cargan dinámicamente en el formulario
@@ -39,13 +39,10 @@ export async function PreparteDetailTableWrapper() {
   ]);
 
   return (
-    <div className="flex flex-col">
-      <PreparteManager
-        // items={mockPreparteItems as any}
-        Customers={customers as Cliente[]}
-        contratos={contratos as Contrato[]}
-        prepartes={prepartes as any}
-      />
-    </div>
+    <PrepartePageWrapper
+      Customers={customers as Cliente[]}
+      contratos={contratos as Contrato[]}
+      prepartes={prepartes as any}
+    />
   );
 }
