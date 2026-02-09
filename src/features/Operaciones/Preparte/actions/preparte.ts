@@ -671,13 +671,19 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
 
 /**
  * Obtiene el historial de cambios de un preparte con el nombre del usuario que realizó el cambio.
+ * OPTIMIZADO: Usa JOIN con profile para obtener nombres en una sola query.
  */
 export async function getPreparteChangeLogs(preparteId: string) {
   const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('preparte_change_logs')
-    .select('*')
+    .select(
+      `
+      *,
+      profile:changed_by(credential_id, fullname)
+    `
+    )
     .eq('preparte_id', preparteId)
     .order('changed_at', { ascending: false });
 
@@ -688,59 +694,31 @@ export async function getPreparteChangeLogs(preparteId: string) {
 
   if (!data || data.length === 0) return [];
 
-  // Obtener los user IDs únicos para resolver nombres
-  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
-
-  let userMap = new Map<string, string>();
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from('profile')
-      .select('credential_id, fullname')
-      .in('credential_id', userIds);
-
-    if (profiles) {
-      profiles.forEach((p) => {
-        if (p.credential_id && p.fullname) {
-          userMap.set(p.credential_id, p.fullname);
-        }
-      });
-    }
-  }
-
-  // Enriquecer los logs con el nombre del usuario
+  // Mapear datos con nombre de usuario del JOIN
   return data.map((log) => ({
     ...log,
-    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+    changed_by_name: (log as any).profile?.fullname || null,
+    profile: undefined, // Remover objeto anidado
   }));
 }
 
 /**
  * Obtiene el historial de cambios de todos los prepartes con el mismo numero_pedido.
+ * OPTIMIZADO: Usa doble JOIN (preparte + profile) para obtener todo en una sola query.
  */
 export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
   const supabase = await supabaseServer();
 
-  // Primero obtenemos todos los preparte_ids con ese numero_pedido
-  const { data: prepartes, error: prepError } = await supabase
-    .from('preparte')
-    .select('id')
-    .eq('numero_pedido', numeroPedido);
-
-  if (prepError) {
-    logger.error('Error fetching prepartes by order number', { data: { prepError } });
-    throw new Error('Error al obtener los prepartes');
-  }
-
-  if (!prepartes || prepartes.length === 0) {
-    return [];
-  }
-
-  const preparteIds = prepartes.map((p) => p.id);
-
   const { data, error } = await supabase
     .from('preparte_change_logs')
-    .select('*')
-    .in('preparte_id', preparteIds)
+    .select(
+      `
+      *,
+      preparte!inner(numero_pedido),
+      profile:changed_by(credential_id, fullname)
+    `
+    )
+    .eq('preparte.numero_pedido', numeroPedido)
     .order('changed_at', { ascending: false });
 
   if (error) {
@@ -750,28 +728,11 @@ export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
 
   if (!data || data.length === 0) return [];
 
-  // Obtener los user IDs únicos para resolver nombres
-  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
-
-  let userMap = new Map<string, string>();
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from('profile')
-      .select('credential_id, fullname')
-      .in('credential_id', userIds);
-
-    if (profiles) {
-      profiles.forEach((p) => {
-        if (p.credential_id && p.fullname) {
-          userMap.set(p.credential_id, p.fullname);
-        }
-      });
-    }
-  }
-
-  // Enriquecer los logs con el nombre del usuario
+  // Mapear datos con nombre de usuario del JOIN
   return data.map((log) => ({
     ...log,
-    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+    changed_by_name: (log as any).profile?.fullname || null,
+    preparte: undefined, // Remover objeto anidado
+    profile: undefined, // Remover objeto anidado
   }));
 }
