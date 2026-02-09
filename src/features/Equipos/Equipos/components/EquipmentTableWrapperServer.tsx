@@ -18,7 +18,7 @@ async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: Equipm
     sorting: [],
     columnFilters: [],
     filters: [],
-    // server: true,
+    server: true,
   });
 
   return (
