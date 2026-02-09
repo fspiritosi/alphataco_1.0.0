@@ -114,8 +114,8 @@ interface PreparteManagerProps {
   // items: PreparteItem[];
   Customers: Cliente[];
   contratos: Contrato[];
-  itemsList: Array<{ id: string; item_name: string }>;
   prepartes: PreparteItem[];
+  // itemsList removed - items now loaded on-demand via useServiceItems hook
 }
 
 export interface Contrato {
@@ -149,7 +149,7 @@ const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
   return dates;
 };
 
-export function PreparteManager({ itemsList, Customers, contratos, prepartes }: PreparteManagerProps) {
+export function PreparteManager({ Customers, contratos, prepartes }: PreparteManagerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<PreparteItem | null>(null);
   const [open, setOpen] = useState(false);
@@ -755,7 +755,6 @@ export function PreparteManager({ itemsList, Customers, contratos, prepartes }: 
             data={prepartes}
             Customers={Customers}
             contratos={contratos}
-            items={itemsList}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onConfirm={handleConfirm}

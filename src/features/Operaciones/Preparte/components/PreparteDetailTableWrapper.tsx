@@ -1,7 +1,12 @@
 import { fetchAllContracts } from '@/app/dashboard/employee/action/actions/actions';
-import { fetchServiceItems } from '@/features/Operaciones/Preparte/actions/actions';
 import { listPrepartes } from '@/features/Operaciones/Preparte/actions/preparte';
 import { PreparteManager } from './PreparteManager';
+
+// NOTA: fetchServiceItems ahora requiere customer_service_id, por lo que no se puede
+// pre-cargar todos los items aquí. Los items se cargan dinámicamente en el formulario
+// usando el hook useServiceItems cuando se selecciona un contrato.
+// La tabla usa los IDs de items almacenados en el preparte JSONB.
+
 interface PreparteItem {
   id: string;
   clienteId: string;
@@ -26,11 +31,10 @@ type Contrato = {
 };
 
 export async function PreparteDetailTableWrapper() {
-  const [customers, contratos, itemsList, prepartes] = await Promise.all([
+  const [customers, contratos, prepartes] = await Promise.all([
     // Traer clientes con relaciones anidadas (sectores, áreas, equipos)
     (await import('@/features/Operaciones/Preparte/actions/actions')).fetchCustomersWithRelations(),
     fetchAllContracts(),
-    fetchServiceItems(),
     listPrepartes(),
   ]);
 
@@ -40,7 +44,6 @@ export async function PreparteDetailTableWrapper() {
         // items={mockPreparteItems as any}
         Customers={customers as Cliente[]}
         contratos={contratos as Contrato[]}
-        itemsList={itemsList as any}
         prepartes={prepartes as any}
       />
     </div>

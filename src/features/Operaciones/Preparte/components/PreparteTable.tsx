@@ -41,7 +41,7 @@ interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
   contratos: Contrato[];
-  items: Array<{ id: string; item_name: string }>;
+  items?: Array<{ id: string; item_name: string }>; // Optional - will show item ID if not provided
   onEdit: (item: PreparteItem) => void;
   onDelete: (id: string) => void;
   onConfirm: (item: PreparteItem) => void;
@@ -801,7 +801,7 @@ export function PreparteTable({
   data: tableDataProp,
   Customers,
   contratos,
-  items,
+  items = [], // Default to empty array
   onEdit,
   onDelete,
   onConfirm,
