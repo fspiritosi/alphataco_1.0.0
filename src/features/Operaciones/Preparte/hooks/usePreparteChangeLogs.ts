@@ -17,6 +17,8 @@ export function usePreparteChangeLogs(preparteId: string | undefined) {
       return getPreparteChangeLogs(preparteId);
     },
     enabled: !!preparteId,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000, // 5 minutos en cache
   });
 }
 
@@ -32,6 +34,8 @@ export function usePreparteChangeLogsByOrderNumber(numeroPedido: string | undefi
       return getPreparteChangeLogsByOrderNumber(numeroPedido);
     },
     enabled: !!numeroPedido,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000, // 5 minutos en cache
   });
 }
 

@@ -20,7 +20,7 @@ import {
 } from '@/features/Empresa/Clientes/actions/create';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -62,9 +62,48 @@ function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSele
   });
 
   const { reset } = form;
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
-  // Cargar datos cuando cambia el modo o el área seleccionada
+  // Mutation for creating sector
+  const createMutation = useMutation({
+    mutationFn: createSector,
+    onSuccess: (response) => {
+      if (response?.status === 200) {
+        toast.success(response.body || 'Sector creado correctamente');
+        // Invalidate queries to refetch data
+        queryClient.invalidateQueries({ queryKey: ['preparte-sectors'] });
+        queryClient.invalidateQueries({ queryKey: ['preparte-contratos'] });
+        reset();
+      } else {
+        toast.error(response?.body || 'Error al crear el sector');
+      }
+    },
+    onError: (error) => {
+      toast.error('Error inesperado al crear el sector');
+    },
+  });
+
+  // Mutation for updating sector
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: SectorFormValues }) => updateSector({ ...data, id }),
+    onSuccess: (response) => {
+      if (response?.status === 200) {
+        toast.success(response.body || 'Sector actualizado correctamente');
+        // Invalidate queries to refetch data
+        queryClient.invalidateQueries({ queryKey: ['preparte-sectors'] });
+        setMode('create');
+        setSelectedSector(null);
+        reset();
+      } else {
+        toast.error(response?.body || 'Error al actualizar el sector');
+      }
+    },
+    onError: (error) => {
+      toast.error('Error inesperado al actualizar el sector');
+    },
+  });
+
+  // Cargar datos cuando cambia el modo o el sector seleccionado
   useEffect(() => {
     if (mode === 'edit' && selectedSector) {
       reset({
@@ -82,31 +121,10 @@ function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSele
   }, [mode, selectedSector, reset]);
 
   const handleSubmit = async (values: SectorFormValues) => {
-    try {
-      if (mode === 'edit' && selectedSector) {
-        const response = await updateSector({ ...values, id: selectedSector.sector_id });
-        if (response?.status === 200) {
-          toast.success(response.body || 'Sector actualizado correctamente');
-          reset();
-          setSelectedSector(null);
-          setMode('create');
-          router.refresh();
-        } else {
-          toast.error(response?.body || 'Error al actualizar el sector');
-        }
-      } else {
-        const response = await createSector(values);
-        if (response?.status === 200) {
-          toast.success(response.body || 'Sector creado correctamente');
-          reset();
-          router.refresh();
-        } else {
-          toast.error(response?.body || 'Error al crear el área');
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error('Error inesperado al procesar la solicitud');
+    if (mode === 'edit' && selectedSector) {
+      updateMutation.mutate({ id: selectedSector.sector_id, data: values });
+    } else {
+      createMutation.mutate(values);
     }
   };
 
@@ -204,8 +222,12 @@ function SectorForm({ customers, sectors, mode, setMode, selectedSector, setSele
         /> */}
 
           <div className="flex gap-4">
-            <Button type="submit" variant="gh_orange">
-              {mode === 'create' ? 'Crear' : 'Actualizar'}
+            <Button type="submit" variant="gh_orange" disabled={createMutation.isPending || updateMutation.isPending}>
+              {createMutation.isPending || updateMutation.isPending
+                ? 'Guardando...'
+                : mode === 'create'
+                  ? 'Crear'
+                  : 'Actualizar'}
             </Button>
             <Button type="button" variant="outline" onClick={handleCancel}>
               Cancelar
