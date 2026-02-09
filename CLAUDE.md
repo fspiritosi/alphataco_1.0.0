@@ -82,6 +82,9 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | DataTable Server-Side                       | @.claude/rules/datatable.md         | Tablas con paginacion                             |
 | Estructura de Features                      | @.claude/rules/feature-structure.md | Al crear/modificar features                       |
 
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+
 ---
 
 ## Reglas de Oro (Siempre Activas)
