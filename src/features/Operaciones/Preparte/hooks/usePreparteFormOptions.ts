@@ -29,6 +29,7 @@ export function useContratos(clienteId: string | undefined) {
     },
     enabled: !!clienteId,
     staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos en cache
   });
 }
 
@@ -45,6 +46,7 @@ export function useServiceItems(contratoId: string | undefined) {
     },
     enabled: !!contratoId,
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000, // 10 minutos en cache
   });
 }
 
@@ -61,6 +63,7 @@ export function useSectors(contratoId: string | undefined) {
     },
     enabled: !!contratoId,
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000, // 10 minutos en cache
   });
 }
 
@@ -77,6 +80,7 @@ export function useAreas(contratoId: string | undefined) {
     },
     enabled: !!contratoId,
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000, // 10 minutos en cache
   });
 }
 
@@ -93,6 +97,7 @@ export function useEquipments(clienteId: string | undefined) {
     },
     enabled: !!clienteId,
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000, // 10 minutos en cache
   });
 }
 

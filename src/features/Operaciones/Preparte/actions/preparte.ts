@@ -32,6 +32,8 @@ export type Preparte = {
   updated_at?: string;
   // Nuevo campo: indica si el pedido está sujeto a disponibilidad operativa
   subject_to_availability?: boolean;
+  // FK a preparte.id (self-referential) para pedidos reprogramados
+  reprogram?: string | null;
 };
 
 // Tipo para registrar cambios en el log
@@ -73,78 +75,79 @@ export async function createPreparte(
       throw new Error('No hay datos válidos para insertar');
     }
 
-    // Normalizar claves foráneas antes de insertar
-    const normalized = await Promise.all(
-      dataToInsert.map(async (item) => {
-        let sector_fk: string | null | undefined = item.sector_service_id ?? null;
-        let area_fk: string | null | undefined = item.areas_service_id ?? null;
-        try {
-          // Si viene un id de service_sectors, obtener el service_sectors.id correspondiente al sector_id
-          if (sector_fk) {
-            // Primero verificar si el ID existe en service_sectors
-            const { data: ss, error: ssErr } = await supabase
-              .from('service_sectors')
-              .select('id, sector_id')
-              .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${item.contrato_id})`)
-              .maybeSingle?.();
-            // .maybeSingle puede no existir según versión; fallback a single
-            // @ts-ignore
-            if (!ss && !ssErr) {
-              const { data: ss2 } = await supabase
-                .from('service_sectors')
-                .select('id, sector_id')
-                .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${item.contrato_id})`)
-                .single();
-              // @ts-ignore
-              if (ss2) {
-                // @ts-ignore
-                sector_fk = ss2.id as string | undefined;
-              }
-            } else if (ss) {
-              // @ts-ignore
-              sector_fk = ss.id as string | undefined;
-            }
-          }
-        } catch (e) {
-          console.warn('No se pudo normalizar sector_service_id, usando valor original:', e);
-        }
+    // ============================================
+    // OPTIMIZACIÓN: Batch lookup para evitar N+1 queries
+    // ============================================
 
-        try {
-          // Si viene un id de service_areas desde el form, obtener el service_areas.id correspondiente al area_id
-          if (area_fk) {
-            // Primero verificar si el ID existe en service_areas
-            const { data: sa, error: saErr } = await supabase
-              .from('service_areas')
-              .select('id, area_id')
-              .or(`id.eq.${area_fk},and(area_id.eq.${area_fk},service_id.eq.${item.contrato_id})`)
-              .maybeSingle?.();
+    // 1. Extraer IDs únicos para pre-cargar lookups
+    const uniqueServiceIds = [...new Set(dataToInsert.map((item) => item.contrato_id))];
+    const uniqueSectorIds = [
+      ...new Set(dataToInsert.map((item) => item.sector_service_id).filter(Boolean) as string[]),
+    ];
+    const uniqueAreaIds = [...new Set(dataToInsert.map((item) => item.areas_service_id).filter(Boolean) as string[])];
 
-            if (sa) {
-              // Si encontramos el registro, usar el ID de service_areas
-              area_fk = sa.id;
-            } else if (!saErr) {
-              // Si no hay error pero no se encontró, intentar con el ID directo
-              console.warn('No se encontró el área en service_areas, usando ID directo');
-            } else {
-              console.error('Error buscando el área:', saErr);
-              area_fk = null;
-            }
-          }
-        } catch (e) {
-          console.warn('No se pudo normalizar areas_service_id, usando valor original:', e);
-        }
+    // 2. Batch query para service_sectors (1 query en lugar de N)
+    let serviceSectorsMap = new Map<string, string>();
+    if (uniqueSectorIds.length > 0 && uniqueServiceIds.length > 0) {
+      const { data: serviceSectors } = await supabase
+        .from('service_sectors')
+        .select('id, sector_id, service_id')
+        .in('service_id', uniqueServiceIds)
+        .in('sector_id', uniqueSectorIds);
 
-        return {
-          ...item,
-          sector_service_id: sector_fk ?? null,
-          areas_service_id: area_fk ?? null,
-          // Guardar solo el primer equipo seleccionado (si viene array del form)
-          equipos_cliente: Array.isArray(item.equipos_cliente)
-            ? item.equipos_cliente[0] ?? null
-            : item.equipos_cliente ?? null,
-        };
-      })
-    );
+      serviceSectors?.forEach((ss) => {
+        // Crear múltiples claves para diferentes lookups
+        serviceSectorsMap.set(`${ss.service_id}:${ss.sector_id}`, ss.id);
+        serviceSectorsMap.set(ss.sector_id, ss.id);
+        serviceSectorsMap.set(ss.id, ss.id); // También por ID directo
+      });
+    }
+
+    // 3. Batch query para service_areas (1 query en lugar de N)
+    let serviceAreasMap = new Map<string, string>();
+    if (uniqueAreaIds.length > 0 && uniqueServiceIds.length > 0) {
+      const { data: serviceAreas } = await supabase
+        .from('service_areas')
+        .select('id, area_id, service_id')
+        .in('service_id', uniqueServiceIds)
+        .in('area_id', uniqueAreaIds);
+
+      serviceAreas?.forEach((sa) => {
+        // Crear múltiples claves para diferentes lookups
+        serviceAreasMap.set(`${sa.service_id}:${sa.area_id}`, sa.id);
+        serviceAreasMap.set(sa.area_id, sa.id);
+        serviceAreasMap.set(sa.id, sa.id); // También por ID directo
+      });
+    }
+
+    // 4. Normalizar usando maps (sin queries adicionales)
+    const normalized = dataToInsert.map((item) => {
+      let sector_fk: string | null = null;
+      let area_fk: string | null = null;
+
+      // Normalizar sector usando el map pre-cargado
+      if (item.sector_service_id) {
+        const key = `${item.contrato_id}:${item.sector_service_id}`;
+        sector_fk =
+          serviceSectorsMap.get(key) || serviceSectorsMap.get(item.sector_service_id) || item.sector_service_id;
+      }
+
+      // Normalizar área usando el map pre-cargado
+      if (item.areas_service_id) {
+        const key = `${item.contrato_id}:${item.areas_service_id}`;
+        area_fk = serviceAreasMap.get(key) || serviceAreasMap.get(item.areas_service_id) || item.areas_service_id;
+      }
+
+      return {
+        ...item,
+        sector_service_id: sector_fk,
+        areas_service_id: area_fk,
+        // Guardar solo el primer equipo seleccionado (si viene array del form)
+        equipos_cliente: Array.isArray(item.equipos_cliente)
+          ? item.equipos_cliente[0] ?? null
+          : item.equipos_cliente ?? null,
+      };
+    });
 
     const validatedData = normalized.map((item) => ({
       cliente_id: item.cliente_id,
@@ -174,13 +177,13 @@ export async function createPreparte(
       .select();
 
     if (error) {
-      console.error('🔴 Error Supabase:', error);
+      logger.error('Error Supabase', { data: { error } });
       throw error;
     }
 
     return data || [];
   } catch (error) {
-    console.error('🔴 Error en createPreparte:', error);
+    logger.error('Error en createPreparte', { data: { error } });
     throw new Error('Error al crear los prepartes: ' + (error as Error).message);
   }
 }
@@ -206,87 +209,65 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
       : preparteData.equipos_cliente ?? null;
   }
 
-  // Sector: normalizar solo si la clave está presente y tiene valor
-  if ('sector_service_id' in preparteData) {
-    let sector_fk: string | null | undefined = preparteData.sector_service_id ?? null;
-    if (sector_fk) {
-      // Obtener cliente_id solo si es necesario para normalizar
-      let clienteId = preparteData.cliente_id as string | undefined;
-      if (!clienteId) {
-        const { data: current } = await supabase
-          .from('preparte' as any)
-          .select('cliente_id')
-          .eq('id', id)
-          .single();
-        clienteId = current?.cliente_id as string | undefined;
-      }
+  // ============================================
+  // OPTIMIZACIÓN: Ejecutar lookups de sector y área en paralelo
+  // ============================================
+  const needsSectorLookup = 'sector_service_id' in preparteData && preparteData.sector_service_id;
+  const needsAreaLookup = 'areas_service_id' in preparteData && preparteData.areas_service_id;
 
-      try {
-        const { data: ss, error: ssErr } = await supabase
-          .from('service_sectors')
-          .select('id, sector_id')
-          .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${clienteId})`)
-          .maybeSingle?.();
-        // @ts-ignore fallback
-        if (!ss && !ssErr) {
-          const { data: ss2 } = await supabase
+  if (needsSectorLookup || needsAreaLookup) {
+    // Obtener contrato_id si no está en el payload (puede ser necesario para ambos lookups)
+    let contratoId = preparteData.contrato_id as string | undefined;
+    if (!contratoId) {
+      const { data: current } = await supabase
+        .from('preparte' as any)
+        .select('contrato_id')
+        .eq('id', id)
+        .single();
+      contratoId = current?.contrato_id;
+    }
+
+    if (contratoId) {
+      // Preparar promises para ejecutar en paralelo
+      const sectorPromise = needsSectorLookup
+        ? supabase
             .from('service_sectors')
             .select('id, sector_id')
-            .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${clienteId})`)
-            .single();
-          // @ts-ignore
-          if (ss2) {
-            // @ts-ignore
-            sector_fk = ss2.id as string | undefined;
-          }
-        } else if (ss) {
-          // @ts-ignore
-          sector_fk = ss.id as string | undefined;
-        }
-      } catch (e) {
-        console.warn('[updatePreparte] No se pudo normalizar sector_service_id, usando valor original:', e);
+            .eq('service_id', contratoId)
+            .eq('sector_id', preparteData.sector_service_id!)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      const areaPromise = needsAreaLookup
+        ? supabase
+            .from('service_areas')
+            .select('id, area_id')
+            .eq('service_id', contratoId)
+            .eq('area_id', preparteData.areas_service_id!)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      // Ejecutar lookups en paralelo
+      const [sectorResult, areaResult] = await Promise.all([sectorPromise, areaPromise]);
+
+      // Aplicar resultados de sector
+      if (needsSectorLookup) {
+        payload.sector_service_id = sectorResult.data?.id || preparteData.sector_service_id;
+      }
+
+      // Aplicar resultados de área
+      if (needsAreaLookup) {
+        payload.areas_service_id = areaResult.data?.id || preparteData.areas_service_id;
+      }
+    } else {
+      // Si no hay contratoId, usar valores originales
+      if (needsSectorLookup) {
+        payload.sector_service_id = preparteData.sector_service_id;
+      }
+      if (needsAreaLookup) {
+        payload.areas_service_id = preparteData.areas_service_id;
       }
     }
-    payload.sector_service_id = sector_fk; // puede ser string o null si explícitamente se envió null
-  }
-
-  // Área: normalizar solo si la clave está presente y tiene valor
-  if ('areas_service_id' in preparteData) {
-    let area_fk: string | null | undefined = preparteData.areas_service_id ?? null;
-    if (area_fk) {
-      // Obtener contrato_id solo si es necesario para normalizar
-      let contratoId = preparteData.contrato_id as string | undefined;
-      if (!contratoId) {
-        const { data: current } = await supabase
-          .from('preparte' as any)
-          .select('contrato_id')
-          .eq('id', id)
-          .single();
-        contratoId = current?.contrato_id as string | undefined;
-      }
-
-      try {
-        const { data: sa, error: saErr } = await supabase
-          .from('service_areas')
-          .select('id, area_id')
-          .or(`id.eq.${area_fk},and(area_id.eq.${area_fk},service_id.eq.${contratoId})`)
-          .maybeSingle?.();
-
-        if (sa) {
-          // Si encontramos el registro, usar el ID de service_areas
-          area_fk = sa.id;
-        } else if (!saErr) {
-          // Si no hay error pero no se encontró, intentar con el ID directo
-          console.warn('[updatePreparte] No se encontró el área en service_areas, usando ID directo');
-        } else {
-          console.error('[updatePreparte] Error buscando el área:', saErr);
-          area_fk = null;
-        }
-      } catch (e) {
-        console.warn('[updatePreparte] No se pudo normalizar areas_service_id, usando valor original:', e);
-      }
-    }
-    payload.areas_service_id = area_fk; // puede ser string o null si explícitamente se envió null
   }
 
   // Si viene la url/route de la imagen, incluirla tal cual
@@ -301,7 +282,7 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
     .single();
 
   if (error) {
-    console.error('Error updating preparte:', error);
+    logger.error('Error updating preparte', { data: { error } });
     throw new Error('Error al actualizar el preparte');
   }
 
@@ -310,7 +291,7 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
     try {
       await updatePreparteImageByOrderNumber(payload.numero_pedido, payload.preparteImage);
     } catch (error) {
-      console.error('Error al actualizar imágenes de todas las líneas:', error);
+      logger.error('Error al actualizar imágenes de todas las líneas', { data: { error } });
       // No lanzamos el error para no fallar la actualización principal
     }
   }
@@ -327,7 +308,7 @@ export async function deletePreparte(id: string) {
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting preparte:', error);
+    logger.error('Error deleting preparte', { data: { error } });
     throw new Error('Error al eliminar el preparte');
   }
 
@@ -344,7 +325,7 @@ export async function updatePreparteImageByOrderNumber(numero_pedido: string, im
     .select();
 
   if (error) {
-    console.error('❌ [updatePreparteImageByOrderNumber] Error:', error);
+    logger.error('[updatePreparteImageByOrderNumber] Error', { data: { error } });
     throw new Error('Error al actualizar la imagen del pedido');
   }
 
@@ -357,7 +338,7 @@ export async function getPreparteById(id: string) {
   const { data, error } = await supabase.from('preparte').select('*').eq('id', id).single();
 
   if (error) {
-    console.error('Error fetching preparte:', error);
+    logger.error('Error fetching preparte', { data: { error } });
     throw new Error('Error al obtener el preparte');
   }
 
@@ -373,7 +354,15 @@ type ListPrepartesOptions = {
 
 export async function listPrepartes(options?: ListPrepartesOptions) {
   const supabase = await supabaseServer();
-  let query = supabase.from('preparte').select('*').order('created_at', { ascending: false });
+
+  const defaultLimit = 100;
+  const limit = options?.limit ?? defaultLimit;
+
+  let query = supabase
+    .from('preparte')
+    .select('*, service_items(id, item_name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
   if (options?.status) {
     query = query.eq('status', options.status);
@@ -383,18 +372,51 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
     query = query.eq('cliente_id', options.cliente_id);
   }
 
-  if (options?.limit) {
-    query = query.limit(options.limit);
-  }
-
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error listing prepartes:', error);
+    logger.error('Error listing prepartes', { data: { error } });
     throw new Error('Error al listar los prepartes');
   }
 
   return data;
+}
+
+/**
+ * Cuenta el número total de prepartes (sin límite)
+ */
+export async function countPrepartes(): Promise<number> {
+  const supabase = await supabaseServer();
+
+  const { count, error } = await supabase.from('preparte').select('*', { count: 'exact', head: true });
+
+  if (error) {
+    logger.error('Error counting prepartes', { data: { error } });
+    return 0;
+  }
+
+  return count || 0;
+}
+
+/**
+ * Cuenta prepartes por estado específico
+ */
+export async function countPrepartesByStatus(
+  status: 'pendiente' | 'reprogramado' | 'cancelado' | 'rechazado' | 'confirmado' | 'vencido'
+): Promise<number> {
+  const supabase = await supabaseServer();
+
+  const { count, error } = await supabase
+    .from('preparte')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', status);
+
+  if (error) {
+    logger.error('Error counting prepartes by status', { data: { error, status } });
+    return 0;
+  }
+
+  return count || 0;
 }
 
 export async function getLastOrderNumber() {
@@ -404,7 +426,7 @@ export async function getLastOrderNumber() {
   const { data, error } = await supabase.rpc('get_max_order_number');
 
   if (error) {
-    console.error('Error al obtener el último número de pedido:', error);
+    logger.error('Error al obtener el último número de pedido', { data: { error } });
     return 'PED-0000';
   }
 
@@ -427,7 +449,7 @@ export async function fetchPrepartes({
 
   try {
     // Construir la consulta base
-    let query = supabase.from('preparte' as any).select('*', { count: 'exact' });
+    let query = supabase.from('preparte').select('*, service_items(id, item_name)', { count: 'exact' });
 
     // Aplicar ordenamiento
     if (sorting.length > 0) {
@@ -491,7 +513,7 @@ export async function fetchPrepartes({
       rowCount: count || 0,
     };
   } catch (error) {
-    console.error('Error al cargar prepartes:', error);
+    logger.error('Error al cargar prepartes', { data: { error } });
     return {
       rows: [],
       pageCount: 0,
@@ -578,7 +600,7 @@ export async function movePreparteFile(
     try {
       const { data: listData, error: listErr } = await supabase.storage.from(BUCKET).list(parentDir);
       if (listErr) {
-        console.warn('⚠️ No se pudo listar el bucket para resolver nombre real:', listErr.message);
+        logger.warn('No se pudo listar el bucket para resolver nombre real', { data: { message: listErr.message } });
         return candidate; // continuar con candidate aunque pueda fallar
       }
       // Buscar match ignorando espacios y case-sensitive básico
@@ -590,7 +612,7 @@ export async function movePreparteFile(
       }
       return candidate;
     } catch (e) {
-      console.warn('⚠️ Error resolviendo nombre real del objeto:', e);
+      logger.warn('Error resolviendo nombre real del objeto', { data: { error: e } });
       return candidate;
     }
   };
@@ -614,7 +636,7 @@ export async function movePreparteFile(
       error = retry.error as any;
     }
     if (error) {
-      console.error('❌ Error moviendo archivo:', error);
+      logger.error('Error moviendo archivo', { data: { error } });
       throw new Error(`No se pudo mover el archivo en Storage: ${error.message}`);
     }
   }
@@ -692,13 +714,19 @@ export async function logPreparteChange(changeLog: PreparteChangeLog) {
 
 /**
  * Obtiene el historial de cambios de un preparte con el nombre del usuario que realizó el cambio.
+ * OPTIMIZADO: Usa JOIN con profile para obtener nombres en una sola query.
  */
 export async function getPreparteChangeLogs(preparteId: string) {
   const supabase = await supabaseServer();
 
   const { data, error } = await supabase
     .from('preparte_change_logs')
-    .select('*')
+    .select(
+      `
+      *,
+      profile:changed_by(credential_id, fullname)
+    `
+    )
     .eq('preparte_id', preparteId)
     .order('changed_at', { ascending: false });
 
@@ -709,59 +737,33 @@ export async function getPreparteChangeLogs(preparteId: string) {
 
   if (!data || data.length === 0) return [];
 
-  // Obtener los user IDs únicos para resolver nombres
-  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
+  // Mapear datos con nombre de usuario del JOIN
+  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
 
-  let userMap = new Map<string, string>();
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from('profile')
-      .select('credential_id, fullname')
-      .in('credential_id', userIds);
-
-    if (profiles) {
-      profiles.forEach((p) => {
-        if (p.credential_id && p.fullname) {
-          userMap.set(p.credential_id, p.fullname);
-        }
-      });
-    }
-  }
-
-  // Enriquecer los logs con el nombre del usuario
-  return data.map((log) => ({
+  return data.map((log: LogWithProfile) => ({
     ...log,
-    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+    changed_by_name: log.profile?.fullname || null,
+    profile: undefined, // Remover objeto anidado
   }));
 }
 
 /**
  * Obtiene el historial de cambios de todos los prepartes con el mismo numero_pedido.
+ * OPTIMIZADO: Usa doble JOIN (preparte + profile) para obtener todo en una sola query.
  */
 export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
   const supabase = await supabaseServer();
 
-  // Primero obtenemos todos los preparte_ids con ese numero_pedido
-  const { data: prepartes, error: prepError } = await supabase
-    .from('preparte')
-    .select('id')
-    .eq('numero_pedido', numeroPedido);
-
-  if (prepError) {
-    logger.error('Error fetching prepartes by order number', { data: { prepError } });
-    throw new Error('Error al obtener los prepartes');
-  }
-
-  if (!prepartes || prepartes.length === 0) {
-    return [];
-  }
-
-  const preparteIds = prepartes.map((p) => p.id);
-
   const { data, error } = await supabase
     .from('preparte_change_logs')
-    .select('*')
-    .in('preparte_id', preparteIds)
+    .select(
+      `
+      *,
+      preparte!inner(numero_pedido),
+      profile:changed_by(credential_id, fullname)
+    `
+    )
+    .eq('preparte.numero_pedido', numeroPedido)
     .order('changed_at', { ascending: false });
 
   if (error) {
@@ -771,28 +773,13 @@ export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
 
   if (!data || data.length === 0) return [];
 
-  // Obtener los user IDs únicos para resolver nombres
-  const userIds = [...new Set(data.filter((log) => log.changed_by).map((log) => log.changed_by as string))];
+  // Mapear datos con nombre de usuario del JOIN
+  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
 
-  let userMap = new Map<string, string>();
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from('profile')
-      .select('credential_id, fullname')
-      .in('credential_id', userIds);
-
-    if (profiles) {
-      profiles.forEach((p) => {
-        if (p.credential_id && p.fullname) {
-          userMap.set(p.credential_id, p.fullname);
-        }
-      });
-    }
-  }
-
-  // Enriquecer los logs con el nombre del usuario
-  return data.map((log) => ({
+  return data.map((log: LogWithProfile) => ({
     ...log,
-    changed_by_name: log.changed_by ? userMap.get(log.changed_by) || null : null,
+    changed_by_name: log.profile?.fullname || null,
+    preparte: undefined, // Remover objeto anidado
+    profile: undefined, // Remover objeto anidado
   }));
 }

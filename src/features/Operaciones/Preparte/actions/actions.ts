@@ -1,25 +1,9 @@
 'use server';
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
-export async function fetchServiceItems() {
-  const cookiesStore = await cookies();
-  const company_id = cookiesStore.get('actualComp')?.value;
-  const supabase = await supabaseServer();
-
-  if (!company_id) return [];
-
-  const { data, error } = await supabase
-    .from('service_items')
-    .select('id,item_name')
-    .order('item_name', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching service items:', error);
-    return [];
-  }
-  return data;
-}
+const logger = new Logger('preparte-actions');
 
 export async function fetchCustomersWithRelations() {
   const cookiesStore = await cookies();
@@ -31,21 +15,23 @@ export async function fetchCustomersWithRelations() {
     .from('customers')
     .select(
       `
-      *,
-      equipos_clientes(*),
-      sector_customer(*, sectors(*)),
+      id,
+      name,
+      equipos_clientes(id, name),
+      sector_customer(id, customer_id, sector_id, sectors(id, name)),
       customer_services!customer_services_customer_id_fkey(
-        *,
-        service_sectors(*, sectors(*) ),
-        service_areas(*, areas_cliente(*)),
-        service_items(*,measure_units(*))  
+        id,
+        customer_id,
+        service_sectors(id, sector_id, service_id, sectors(id, name)),
+        service_areas(id, area_id, service_id, areas_cliente(id, nombre)),
+        service_items(*)
       )
     `
     )
     .eq('company_id', company_id);
 
   if (error) {
-    console.error('Error fetching customers with relations:', error);
+    logger.error('Error fetching customers with relations', { data: { error } });
     return [];
   }
   return data;
@@ -71,7 +57,7 @@ export async function fetchSectorsByContract(serviceId: string) {
     .eq('service_id', serviceId);
 
   if (error) {
-    console.error('[fetchSectorsByContract] error:', error);
+    logger.error('[fetchSectorsByContract] error', { data: { error } });
     return [];
   }
 
@@ -105,7 +91,7 @@ export async function fetchAreasByContract(serviceId: string) {
     .order('id');
 
   if (error) {
-    console.error('Error fetching areas by contract:', error);
+    logger.error('Error fetching areas by contract', { data: { error } });
     return [];
   }
 
@@ -126,7 +112,7 @@ export async function fetchEquipmentsByCustomer(customerId: string) {
     .eq('customer_id', customerId)
     .order('name', { ascending: true });
   if (error) {
-    console.error('Error fetching equipments by customer:', error);
+    logger.error('Error fetching equipments by customer', { data: { error } });
     return [];
   }
   return data || [];
