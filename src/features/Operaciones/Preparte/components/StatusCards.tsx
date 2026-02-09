@@ -24,7 +24,10 @@ const statusConfig: Record<Status, { label: string; color: string }> = {
 export function StatusCards({ data, onStatusClick, selectedStatus }: StatusCardsProps) {
   const statusCounts = data.reduce(
     (acc, item) => {
-      acc[item.status] = (acc[item.status] || 0) + 1;
+      const status = item.status;
+      if (status) {
+        acc[status] = (acc[status] || 0) + 1;
+      }
       return acc;
     },
     {} as Record<Status, number>

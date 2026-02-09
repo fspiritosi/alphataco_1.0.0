@@ -41,7 +41,6 @@ interface PreparteTableProps {
   data: PreparteItem[];
   Customers: Cliente[];
   contratos: Contrato[];
-  items: Array<{ id: string; item_name: string }>;
   onEdit: (item: PreparteItem) => void;
   onDelete: (id: string) => void;
   onConfirm: (item: PreparteItem) => void;
@@ -64,6 +63,13 @@ interface PreparteTableProps {
 
   // Estado de carga
   isLoading?: boolean;
+
+  // Status Cards como prop (renderizadas desde nivel superior con Suspense)
+  statusCards?: React.ReactNode;
+
+  // Estado externo del filtro de status (opcional - usa interno si no se proporciona)
+  statusFilter?: Status | null;
+  onStatusFilterChange?: (status: Status | null) => void;
 }
 
 interface StatusFilter {
@@ -79,7 +85,6 @@ const getColumns = (
   setDeleteItemId: (id: string | null) => void,
   Customers: Cliente[],
   contratos: Contrato[],
-  items: Array<{ id: string; item_name: string }>,
   canEdit: boolean
 ): ColumnDef<PreparteItem>[] => {
   const columns: ColumnDef<PreparteItem>[] = [];
@@ -231,7 +236,7 @@ const getColumns = (
         const contratoId = row.original.contrato_id;
         if (!sectorServiceId) return '-';
         const cliente = Customers.find((c) => c.id === clienteId);
-        const service = cliente?.customer_services?.find((s) => s.service_id === contratoId);
+        const service = cliente?.customer_services?.find((s) => s.id === contratoId);
         const sectorLink =
           service?.service_sectors?.find((ss) => ss.id === sectorServiceId || ss?.sectors?.id === sectorServiceId) ||
           // Fallback: search across all customers/services
@@ -261,7 +266,7 @@ const getColumns = (
         const contratoId = row.original.contrato_id;
         if (!areaServiceId) return '-';
         const cliente = Customers.find((c) => c.id === clienteId);
-        const service = cliente?.customer_services?.find((s) => s.service_id === contratoId);
+        const service = cliente?.customer_services?.find((s) => s.id === contratoId);
         const areaLink =
           service?.service_areas?.find((sa) => sa.id === areaServiceId || sa?.areas_cliente?.id === areaServiceId) ||
           // Fallback: search across all customers/services
@@ -283,8 +288,7 @@ const getColumns = (
         const value: any = (row.original as any).equipos_cliente;
         if (!value) return '-';
         const cliente = Customers.find((c) => c.id === row.original.cliente_id);
-        const equiposCatalog: Array<{ id: string; name: string }> =
-          cliente?.equipos_clientes || cliente?.customer_services?.flatMap((cs) => cs.equipos_clientes || []) || [];
+        const equiposCatalog: Array<{ id: string; name: string }> = cliente?.equipos_clientes || [];
         const toName = (id: string) => equiposCatalog.find((e) => e.id === id)?.name || id;
         if (Array.isArray(value)) return value.length ? value.map((id) => toName(id)).join(', ') : '-';
         return <div>{typeof value === 'string' ? toName(value) : '-'}</div>;
@@ -298,37 +302,13 @@ const getColumns = (
       },
     },
     {
-      accessorKey: 'item',
+      accessorKey: 'service_items.item_name',
+      id: 'service_items.item_name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Item" />,
       cell: ({ row }) => {
-        const itemValue = row.original.item;
-
-        // Handle case where item is an array of objects
-        if (Array.isArray(itemValue)) {
-          return (
-            <div>
-              {itemValue.map((item, index) => (
-                <div key={index}>
-                  {items.find((i) => i.id === item.id)?.item_name || item.id || '-'}
-                  {item.quantity ? ` (${item.quantity})` : ''}
-                </div>
-              ))}
-            </div>
-          );
-        }
-
-        // Handle case where item is a string ID
-        const itemId = itemValue;
-        if (!itemId) return <div>-</div>;
-
-        // Find the item by ID
-        const itemFila = items.find((i) => i.id === itemId);
-        return <div>{itemFila?.item_name || itemId || '-'}</div>;
+        const serviceItem = (row.original as Record<string, unknown>).service_items as { item_name?: string } | null;
+        return <div>{serviceItem?.item_name || row.original.item || '-'}</div>;
       },
-      // filterFn: (row, id, value) => {
-      //   if (!value || value.length === 0) return true;
-      //   return value.includes(row.getValue(id));
-      // },
       enableColumnFilter: true,
     },
     {
@@ -577,12 +557,7 @@ const getColumns = (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-                    <PreparteDetailModal
-                      preparteData={row.original}
-                      Customers={Customers}
-                      contratos={contratos}
-                      items={items}
-                    />
+                    <PreparteDetailModal preparteData={row.original} Customers={Customers} contratos={contratos} />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -801,7 +776,6 @@ export function PreparteTable({
   data: tableDataProp,
   Customers,
   contratos,
-  items,
   onEdit,
   onDelete,
   onConfirm,
@@ -809,14 +783,19 @@ export function PreparteTable({
   fetchData,
   fetchAllData,
   isLoading = false,
+  statusCards,
+  statusFilter: externalStatusFilter,
+  onStatusFilterChange,
 }: PreparteTableProps) {
   const { canUpdate } = usePermissions();
   const canEdit = canUpdate('operaciones', 'preparte');
   const queryClient = useQueryClient();
 
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-  // Filtro de estado para inyectar al server-side
-  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+  // Filtro de estado - usa externo si se proporciona, sino usa interno
+  const [internalStatusFilter, setInternalStatusFilter] = useState<Status | null>(null);
+  const statusFilter = externalStatusFilter !== undefined ? externalStatusFilter : internalStatusFilter;
+  const setStatusFilter = onStatusFilterChange || setInternalStatusFilter;
 
   // Estados para edición masiva
   const [selectedRows, setSelectedRows] = useState<PreparteItem[]>([]);
@@ -868,34 +847,22 @@ export function PreparteTable({
     }
   });
 
-  // Para items, necesitarías aplanar el array de items primero
-  const allItemIds = tableDataProp.flatMap((item) =>
-    Array.isArray(item.item) ? item.item.map((i) => i.id) : [item.item]
-  );
-  const uniqueItemIds = [...new Set(allItemIds)];
-  const filteredItems = items.filter((item) => uniqueItemIds.includes(item.id));
-
   return (
     <>
-      <div className="flex w-full">
-        <StatusCards
-          data={tableDataProp}
-          onStatusClick={(status) => setStatusFilter(status)}
-          selectedStatus={statusFilter}
-        />
-      </div>
+      {/* Renderizar statusCards si se proporciona, sino usar el componente legacy */}
+      {statusCards ? (
+        statusCards
+      ) : (
+        <div className="flex w-full">
+          <StatusCards
+            data={tableDataProp}
+            onStatusClick={(status) => setStatusFilter(status)}
+            selectedStatus={statusFilter}
+          />
+        </div>
+      )}
       <BaseDataTable
-        columns={getColumns(
-          onEdit,
-          onDelete,
-          onConfirm,
-          deleteItemId,
-          setDeleteItemId,
-          Customers,
-          contratos,
-          items,
-          canEdit
-        )}
+        columns={getColumns(onEdit, onDelete, onConfirm, deleteItemId, setDeleteItemId, Customers, contratos, canEdit)}
         data={tableData}
         tableId="preparte-table"
         savedVisibility={savedVisibility}
@@ -953,7 +920,7 @@ export function PreparteTable({
                 mapper: (data: Array<{ col_value: string; col_count: number }>) => {
                   return data.map((item) => {
                     const contrato = contratos.find((c) => c.id === item.col_value);
-                    const displayName = contrato ? contrato.service_name : `Contrato ${item.col_value}`;
+                    const displayName = contrato?.service_name || `Contrato ${item.col_value}`;
                     return {
                       label: displayName,
                       value: item.col_value,
@@ -1029,10 +996,7 @@ export function PreparteTable({
                     let label = id || '-';
                     // Buscar en catálogo de equipos de todos los clientes
                     outer: for (const c of Customers) {
-                      const allEquipos = [
-                        ...(c.equipos_clientes || []),
-                        ...(c.customer_services || []).flatMap((cs) => cs.equipos_clientes || []),
-                      ];
+                      const allEquipos = c.equipos_clientes || [];
                       const eq = allEquipos.find((e) => e.id === id);
                       if (eq?.name) {
                         label = eq.name;
@@ -1065,17 +1029,12 @@ export function PreparteTable({
               config: {
                 tableName: 'preparte' as any,
                 select: 'jornada' as any,
-                // p_filters: { company_id: company_id! },
                 mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                  return data.map((item) => {
-                    const item1 = items.find((c) => c.id === item.col_value);
-                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                    return {
-                      label: displayName,
-                      value: item.col_value,
-                      count: item.col_count,
-                    };
-                  });
+                  return data.map((item) => ({
+                    label: String(item.col_value),
+                    value: item.col_value,
+                    count: item.col_count,
+                  }));
                 },
               },
             },
@@ -1085,17 +1044,12 @@ export function PreparteTable({
               config: {
                 tableName: 'preparte' as any,
                 select: 'tipo' as any,
-                // p_filters: { company_id: company_id! },
                 mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                  return data.map((item) => {
-                    const item1 = items.find((c) => c.id === item.col_value);
-                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                    return {
-                      label: displayName,
-                      value: item.col_value,
-                      count: item.col_count,
-                    };
-                  });
+                  return data.map((item) => ({
+                    label: String(item.col_value),
+                    value: item.col_value,
+                    count: item.col_count,
+                  }));
                 },
               },
             },
@@ -1125,37 +1079,28 @@ export function PreparteTable({
               config: {
                 tableName: 'preparte' as any,
                 select: 'numero_pedido' as any,
-                // p_filters: { company_id: company_id! },
                 mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                  return data.map((item) => {
-                    const item1 = items.find((c) => c.id === item.col_value);
-                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                    return {
-                      label: displayName,
-                      value: item.col_value,
-                      count: item.col_count,
-                    };
-                  });
+                  return data.map((item) => ({
+                    label: String(item.col_value),
+                    value: item.col_value,
+                    count: item.col_count,
+                  }));
                 },
               },
             },
             {
-              columnId: 'item',
+              columnId: 'service_items.item_name',
               title: 'Item',
               config: {
                 tableName: 'preparte' as any,
-                select: 'item' as any,
-                // p_filters: { company_id: company_id! },
-                mapper: (data: Array<{ col_value: string; col_count: number }>) => {
-                  return data.map((item) => {
-                    const item1 = items.find((c) => c.id === item.col_value);
-                    const displayName = item1 ? item1.item_name : `${item.col_value}`;
-                    return {
-                      label: displayName,
-                      value: item.col_value,
-                      count: item.col_count,
-                    };
-                  });
+                select: 'service_items.item_name' as any,
+                relation: '{"service_items": "item"}',
+                mapper: (data: Array<{ col_value: string; display_value: string; col_count: number }>) => {
+                  return data.map((item) => ({
+                    label: String(item.display_value || item.col_value),
+                    value: String(item.col_value),
+                    count: item.col_count,
+                  }));
                 },
               },
             },

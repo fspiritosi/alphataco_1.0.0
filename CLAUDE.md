@@ -64,6 +64,13 @@ Los siguientes MCPs estan a tu disposicion:
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados
 4. **MCP de Context7**: SIEMPRE usar como PRIMERA OPCION para consultar documentacion actualizada de librerias, frameworks o herramientas. Si Context7 no tiene la documentacion necesaria, entonces buscar en internet
 
+## Agentes Personalizados
+
+**REGLA CRITICA**: Usar estos agentes cuando el usuario lo solicite:
+
+- **Commitear / hacer commit / push**: SIEMPRE usar el agente `.claude/agents/branch-reviewer.md` (subagent_type: `branch-reviewer`)
+- **Optimizar queries / performance**: SIEMPRE usar el agente `.claude/agents/supabase-query-optimizer.md` (subagent_type: `supabase-query-optimizer`)
+
 ---
 
 ## Reglas Criticas - Guias Detalladas
@@ -124,7 +131,9 @@ Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 
 - **NO** realizar N+1 queries
 - **NO** traer todos los datos y filtrar en el frontend
+- **NO** traer catalogos completos para hacer lookups en el frontend
 - **SIEMPRE** filtrar en la query (hook useQuery o server action)
+- **SIEMPRE** resolver nombres/relaciones con JOINs en la query, NO con lookups client-side
 - **SIEMPRE** optimizar las peticiones
 
 ```typescript
@@ -134,6 +143,15 @@ const activeEmployees = allEmployees.filter((e) => e.is_active);
 
 // ✅ CORRECTO - Filtrar en la query
 const activeEmployees = await getActiveEmployees();
+
+// ❌ INCORRECTO - Traer catalogo completo para resolver nombres en frontend
+const allItems = await getAllItems();
+// En la tabla: items.find(i => i.id === row.item)?.name
+const itemName = allItems.find((i) => i.id === row.item)?.item_name;
+
+// ✅ CORRECTO - Resolver con JOIN en la query de Supabase
+const { data } = await supabase.from('preparte').select('*, service_items(id, item_name)');
+// En la tabla: row.service_items?.item_name (ya viene resuelto)
 ```
 
 ---

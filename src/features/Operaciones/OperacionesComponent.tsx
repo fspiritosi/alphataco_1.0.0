@@ -4,6 +4,7 @@ import { ClipboardList, Package } from 'lucide-react';
 import { Suspense } from 'react';
 import PartesDiariosTabContent from './PartesDiarios/PartesDiariosTabContent';
 import PreparteTabContent from './Preparte/PreparteTabContent';
+import { PreparteSkeleton } from './Preparte/fallback/PreparteSkeleton';
 
 export default async function OperacionesComponent({
   searchParams,
@@ -32,7 +33,7 @@ export default async function OperacionesComponent({
             moduleSlug: 'operaciones',
             tabSlug: 'preparte',
             content: (
-              <Suspense fallback={<div>Cargando pedidos...</div>}>
+              <Suspense fallback={<PreparteSkeleton />}>
                 <PreparteTabContent />
               </Suspense>
             ),

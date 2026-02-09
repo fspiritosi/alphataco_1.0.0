@@ -147,11 +147,12 @@ const formSchema = z
       path: ['item'],
     }
   );
-type PreparteItem = z.infer<typeof formSchema>;
+export type PreparteFormData = z.infer<typeof formSchema>;
+type PreparteItem = PreparteFormData;
 
 interface Contrato {
   id: string;
-  service_name: string;
+  service_name: string | null;
 }
 
 interface Item {
@@ -506,7 +507,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                   <MultiSelectCombobox
                     data-testid="contrato-select"
                     options={contratos.map((contrato) => ({
-                      label: contrato.service_name,
+                      label: contrato.service_name || 'Sin nombre',
                       value: contrato.id,
                     }))}
                     selectedValues={field.value ? [field.value] : []}
@@ -759,7 +760,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 // If current selected value isn't in options, try to derive label from relations and inject it
                 let sectorOptions = baseSectorOptions;
                 if (field.value && !baseSectorOptions.some((o) => o.value === field.value)) {
-                  const svc = selectedCustomer?.customer_services?.find((s) => s.service_id === selectedServiceId);
+                  const svc = selectedCustomer?.customer_services?.find((s) => s.id === selectedServiceId);
                   const matchByServiceSectorId = svc?.service_sectors?.find((ss) => ss.id === field.value);
                   const matchBySectorId = svc?.service_sectors?.find((ss) => ss.sectors?.id === field.value);
                   // Fallback across all services for the cliente if contrato_id not matched yet
@@ -846,7 +847,7 @@ export function PreparteForm({ formData, clientes, isEditing, onInputChange, onS
                 // If current selected value isn't in options, try to derive label from relations and inject it
                 let areaOptions = baseAreaOptions;
                 if (field.value && !baseAreaOptions.some((o) => o.value === field.value)) {
-                  const svc = selectedCustomer?.customer_services?.find((s) => s.service_id === selectedServiceId);
+                  const svc = selectedCustomer?.customer_services?.find((s) => s.id === selectedServiceId);
                   const matchByServiceAreaId = svc?.service_areas?.find((sa) => sa.id === field.value);
                   const matchByAreaClienteId = svc?.service_areas?.find((sa) => sa.areas_cliente?.id === field.value);
                   // Fallback across all services for the cliente
