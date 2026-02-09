@@ -373,7 +373,11 @@ type ListPrepartesOptions = {
 
 export async function listPrepartes(options?: ListPrepartesOptions) {
   const supabase = await supabaseServer();
-  let query = supabase.from('preparte').select('*').order('created_at', { ascending: false });
+
+  const defaultLimit = 100;
+  const limit = options?.limit ?? defaultLimit;
+
+  let query = supabase.from('preparte').select('*').order('created_at', { ascending: false }).limit(limit);
 
   if (options?.status) {
     query = query.eq('status', options.status);
@@ -381,10 +385,6 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
 
   if (options?.cliente_id) {
     query = query.eq('cliente_id', options.cliente_id);
-  }
-
-  if (options?.limit) {
-    query = query.limit(options.limit);
   }
 
   const { data, error } = await query;
