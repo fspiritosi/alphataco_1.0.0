@@ -124,7 +124,9 @@ Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 
 - **NO** realizar N+1 queries
 - **NO** traer todos los datos y filtrar en el frontend
+- **NO** traer catalogos completos para hacer lookups en el frontend
 - **SIEMPRE** filtrar en la query (hook useQuery o server action)
+- **SIEMPRE** resolver nombres/relaciones con JOINs en la query, NO con lookups client-side
 - **SIEMPRE** optimizar las peticiones
 
 ```typescript
@@ -134,6 +136,15 @@ const activeEmployees = allEmployees.filter((e) => e.is_active);
 
 // ✅ CORRECTO - Filtrar en la query
 const activeEmployees = await getActiveEmployees();
+
+// ❌ INCORRECTO - Traer catalogo completo para resolver nombres en frontend
+const allItems = await getAllItems();
+// En la tabla: items.find(i => i.id === row.item)?.name
+const itemName = allItems.find((i) => i.id === row.item)?.item_name;
+
+// ✅ CORRECTO - Resolver con JOIN en la query de Supabase
+const { data } = await supabase.from('preparte').select('*, service_items(id, item_name)');
+// En la tabla: row.service_items?.item_name (ya viene resuelto)
 ```
 
 ---

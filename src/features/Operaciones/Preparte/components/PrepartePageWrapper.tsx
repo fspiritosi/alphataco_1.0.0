@@ -1,23 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import type { PreparteItem } from './PreparteManager';
-import { PreparteManager, type Cliente } from './PreparteManager';
-import type { Status } from './StatusCardServer';
-import { StatusCardsServerContainer } from './StatusCardsServerContainer';
+import { PreparteManager, type Cliente, type Contrato, type PreparteItem } from './PreparteManager';
+import { StatusFilterProvider, useStatusFilter } from './StatusCardsClientWrapper';
 
 interface PrepartePageWrapperProps {
   Customers: Cliente[];
-  contratos: Array<{ id: string; service_name: string }>;
+  contratos: Contrato[];
   prepartes: PreparteItem[];
+  statusCardsSlot: React.ReactNode; // Server component pasado como slot
 }
 
 /**
- * Client wrapper que maneja el estado del filtro de status y coordina
- * StatusCardsServerContainer (server) con PreparteManager/Table (client)
+ * Client wrapper interno que consume el contexto del filtro
  */
-export function PrepartePageWrapper({ Customers, contratos, prepartes }: PrepartePageWrapperProps) {
-  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+function PreparteContent({ Customers, contratos, prepartes, statusCardsSlot }: PrepartePageWrapperProps) {
+  const { statusFilter, setStatusFilter } = useStatusFilter();
 
   return (
     <div className="flex flex-col">
@@ -27,13 +24,20 @@ export function PrepartePageWrapper({ Customers, contratos, prepartes }: Prepart
         prepartes={prepartes}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
-        statusCards={
-          <StatusCardsServerContainer
-            onStatusClick={(status) => setStatusFilter(status)}
-            selectedStatus={statusFilter}
-          />
-        }
+        statusCards={statusCardsSlot}
       />
     </div>
+  );
+}
+
+/**
+ * Client wrapper que provee el contexto del filtro de status
+ * Recibe las StatusCards pre-renderizadas desde el servidor como slot
+ */
+export function PrepartePageWrapper(props: PrepartePageWrapperProps) {
+  return (
+    <StatusFilterProvider>
+      <PreparteContent {...props} />
+    </StatusFilterProvider>
   );
 }

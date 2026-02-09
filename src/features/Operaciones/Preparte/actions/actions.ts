@@ -1,6 +1,9 @@
 'use server';
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('preparte-actions');
 
 export async function fetchCustomersWithRelations() {
   const cookiesStore = await cookies();
@@ -21,14 +24,14 @@ export async function fetchCustomersWithRelations() {
         customer_id,
         service_sectors(id, sector_id, service_id, sectors(id, name)),
         service_areas(id, area_id, service_id, areas_cliente(id, nombre)),
-        service_items(id, item_name, customer_service_id, unit_id, measure_units(*))
+        service_items(*)
       )
     `
     )
     .eq('company_id', company_id);
 
   if (error) {
-    console.error('Error fetching customers with relations:', error);
+    logger.error('Error fetching customers with relations', { data: { error } });
     return [];
   }
   return data;
@@ -54,7 +57,7 @@ export async function fetchSectorsByContract(serviceId: string) {
     .eq('service_id', serviceId);
 
   if (error) {
-    console.error('[fetchSectorsByContract] error:', error);
+    logger.error('[fetchSectorsByContract] error', { data: { error } });
     return [];
   }
 
@@ -88,7 +91,7 @@ export async function fetchAreasByContract(serviceId: string) {
     .order('id');
 
   if (error) {
-    console.error('Error fetching areas by contract:', error);
+    logger.error('Error fetching areas by contract', { data: { error } });
     return [];
   }
 
@@ -109,7 +112,7 @@ export async function fetchEquipmentsByCustomer(customerId: string) {
     .eq('customer_id', customerId)
     .order('name', { ascending: true });
   if (error) {
-    console.error('Error fetching equipments by customer:', error);
+    logger.error('Error fetching equipments by customer', { data: { error } });
     return [];
   }
   return data || [];

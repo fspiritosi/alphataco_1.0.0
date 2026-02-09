@@ -12,10 +12,9 @@ interface PreparteDetailModalProps {
   preparteData: PreparteItem;
   Customers: Cliente[];
   contratos: Contrato[];
-  items: Array<{ id: string; item_name: string }>;
 }
 
-export function PreparteDetailModal({ preparteData, Customers, contratos, items }: PreparteDetailModalProps) {
+export function PreparteDetailModal({ preparteData, Customers, contratos }: PreparteDetailModalProps) {
   // Hook para obtener el historial de cambios del preparte
   const { data: changeLogs = [], isLoading: isLoadingChangeLogs } = usePreparteChangeLogs(preparteData?.id);
 
@@ -53,23 +52,10 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
   // Buscar contrato por ID
   const contrato = contratos.find((c) => c.id === preparteData.contrato_id);
 
-  // Buscar item por ID
-  const getItemName = (itemId: string | any) => {
-    if (!itemId) return 'No especificado';
-
-    // Si es un array de objetos
-    if (Array.isArray(itemId)) {
-      return itemId
-        .map((item) => {
-          const foundItem = items.find((i) => i.id === item.id);
-          return `${foundItem?.item_name || item.id || '-'}${item.quantity ? ` (${item.quantity})` : ''}`;
-        })
-        .join(', ');
-    }
-
-    // Si es un string (ID)
-    const foundItem = items.find((i) => i.id === itemId);
-    return foundItem?.item_name || itemId || 'No especificado';
+  // Obtener nombre del item del JOIN (service_items viene resuelto de la query)
+  const getItemName = () => {
+    const serviceItem = (preparteData as Record<string, unknown>).service_items as { item_name?: string } | null;
+    return serviceItem?.item_name || preparteData.item || 'No especificado';
   };
 
   // Obtener sector
@@ -110,8 +96,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
     const value = preparteData.equipos_cliente;
     if (!value) return [];
 
-    const equiposCatalog: Array<{ id: string; name: string; type?: string }> =
-      cliente?.equipos_clientes || cliente?.customer_services?.flatMap((cs) => cs.equipos_clientes || []) || [];
+    const equiposCatalog: Array<{ id: string; name: string; type?: string }> = cliente?.equipos_clientes || [];
 
     const toEquipo = (id: string) => {
       const equipo = equiposCatalog.find((e) => e.id === id);
@@ -167,7 +152,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="h-4 w-4" />
-                <span>Solicitud: {formatDate(preparteData.requestDate)}</span>
+                <span>Solicitud: {preparteData.requestDate ? formatDate(preparteData.requestDate) : '-'}</span>
               </div>
               {preparteData.executionDate && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -177,7 +162,9 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
               )}
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className={getStatusColor(preparteData.status || 'pendiente')}>
-                  {preparteData.status?.charAt(0).toUpperCase() + preparteData.status?.slice(1) || 'Pendiente'}
+                  {preparteData.status
+                    ? preparteData.status.charAt(0).toUpperCase() + preparteData.status.slice(1)
+                    : 'Pendiente'}
                 </Badge>
                 {preparteData.tipo && <Badge variant="secondary">{preparteData.tipo}</Badge>}
               </div>
@@ -263,7 +250,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos, items 
               </div>
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="font-medium text-gray-900 mb-1">Item</div>
-                <div className="text-gray-700">{getItemName(preparteData.item)}</div>
+                <div className="text-gray-700">{getItemName()}</div>
               </div>
               {preparteData.quantity && (
                 <div className="bg-gray-50 rounded-lg p-3">

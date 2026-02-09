@@ -3,11 +3,6 @@ import { StatusCardServer, type Status } from './StatusCardServer';
 import { StatusCardSkeleton } from './StatusCardSkeleton';
 import { StatusCardWrapper, StatusCardsContainer } from './StatusCardsWrapper';
 
-interface StatusCardsServerContainerProps {
-  onStatusClick: (status: Status | null) => void;
-  selectedStatus: Status | null;
-}
-
 const statusConfig: Record<Status, { label: string; color: string }> = {
   pendiente: { label: 'Pendientes', color: 'text-black dark:text-white' },
   reprogramado: { label: 'Reprogramados', color: 'text-yellow-600' },
@@ -18,28 +13,28 @@ const statusConfig: Record<Status, { label: string; color: string }> = {
 };
 
 /**
- * Contenedor que coordina las StatusCards del servidor con el estado del cliente
+ * Server Component que renderiza las StatusCards con COUNT queries
+ * El estado y clicks se manejan vía StatusFilterContext (cliente)
  * Cada card se carga independientemente con su propio Suspense
  */
-export function StatusCardsServerContainer({ onStatusClick, selectedStatus }: StatusCardsServerContainerProps) {
+export function StatusCardsServerContainer() {
   return (
     <StatusCardsContainer>
       {/* Total Card */}
-      <StatusCardWrapper status={null} onStatusClick={onStatusClick} selectedStatus={selectedStatus}>
+      <StatusCardWrapper status={null}>
         <Suspense fallback={<StatusCardSkeleton />}>
-          <StatusCardServer status={null} label="Todos" color={selectedStatus === null ? 'text-primary' : undefined} />
+          <StatusCardServer status={null} label="Todos" />
         </Suspense>
       </StatusCardWrapper>
 
       {/* Status Cards */}
       {(Object.keys(statusConfig) as Status[]).map((status) => {
         const { label, color } = statusConfig[status];
-        const isSelected = selectedStatus === status;
 
         return (
-          <StatusCardWrapper key={status} status={status} onStatusClick={onStatusClick} selectedStatus={selectedStatus}>
+          <StatusCardWrapper key={status} status={status}>
             <Suspense fallback={<StatusCardSkeleton />}>
-              <StatusCardServer status={status} label={label} color={isSelected ? 'text-primary' : color} />
+              <StatusCardServer status={status} label={label} color={color} />
             </Suspense>
           </StatusCardWrapper>
         );

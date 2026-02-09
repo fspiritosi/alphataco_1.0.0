@@ -2,19 +2,20 @@
 
 import { cn } from '@/lib/utils';
 import type { Status } from './StatusCardServer';
+import { useStatusFilter } from './StatusCardsClientWrapper';
 
 interface StatusCardsWrapperProps {
   children: React.ReactNode;
-  onStatusClick: (status: Status | null) => void;
-  selectedStatus: Status | null;
   status: Status | null; // El estado que representa esta card
 }
 
 /**
  * Client Component que envuelve cada StatusCard para manejar clicks y estilos
+ * Usa contexto para comunicarse con PreparteTable
  */
-export function StatusCardWrapper({ children, onStatusClick, selectedStatus, status }: StatusCardsWrapperProps) {
-  const isSelected = selectedStatus === status;
+export function StatusCardWrapper({ children, status }: StatusCardsWrapperProps) {
+  const { statusFilter, setStatusFilter } = useStatusFilter();
+  const isSelected = statusFilter === status;
 
   return (
     <div
@@ -23,7 +24,7 @@ export function StatusCardWrapper({ children, onStatusClick, selectedStatus, sta
         'cursor-pointer transition-all hover:shadow-md flex-1 min-w-0',
         isSelected ? 'border-2 border-primary rounded-lg' : 'focus:border-2 focus:border-primary focus:rounded-lg'
       )}
-      onClick={() => onStatusClick(status)}
+      onClick={() => setStatusFilter(status)}
     >
       {children}
     </div>

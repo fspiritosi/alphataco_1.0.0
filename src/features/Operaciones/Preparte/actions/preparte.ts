@@ -32,6 +32,8 @@ export type Preparte = {
   updated_at?: string;
   // Nuevo campo: indica si el pedido está sujeto a disponibilidad operativa
   subject_to_availability?: boolean;
+  // FK a preparte.id (self-referential) para pedidos reprogramados
+  reprogram?: string | null;
 };
 
 // Tipo para registrar cambios en el log
@@ -175,13 +177,13 @@ export async function createPreparte(
       .select();
 
     if (error) {
-      console.error('🔴 Error Supabase:', error);
+      logger.error('Error Supabase', { data: { error } });
       throw error;
     }
 
     return data || [];
   } catch (error) {
-    console.error('🔴 Error en createPreparte:', error);
+    logger.error('Error en createPreparte', { data: { error } });
     throw new Error('Error al crear los prepartes: ' + (error as Error).message);
   }
 }
@@ -280,7 +282,7 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
     .single();
 
   if (error) {
-    console.error('Error updating preparte:', error);
+    logger.error('Error updating preparte', { data: { error } });
     throw new Error('Error al actualizar el preparte');
   }
 
@@ -289,7 +291,7 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
     try {
       await updatePreparteImageByOrderNumber(payload.numero_pedido, payload.preparteImage);
     } catch (error) {
-      console.error('Error al actualizar imágenes de todas las líneas:', error);
+      logger.error('Error al actualizar imágenes de todas las líneas', { data: { error } });
       // No lanzamos el error para no fallar la actualización principal
     }
   }
@@ -306,7 +308,7 @@ export async function deletePreparte(id: string) {
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting preparte:', error);
+    logger.error('Error deleting preparte', { data: { error } });
     throw new Error('Error al eliminar el preparte');
   }
 
@@ -323,7 +325,7 @@ export async function updatePreparteImageByOrderNumber(numero_pedido: string, im
     .select();
 
   if (error) {
-    console.error('❌ [updatePreparteImageByOrderNumber] Error:', error);
+    logger.error('[updatePreparteImageByOrderNumber] Error', { data: { error } });
     throw new Error('Error al actualizar la imagen del pedido');
   }
 
@@ -336,7 +338,7 @@ export async function getPreparteById(id: string) {
   const { data, error } = await supabase.from('preparte').select('*').eq('id', id).single();
 
   if (error) {
-    console.error('Error fetching preparte:', error);
+    logger.error('Error fetching preparte', { data: { error } });
     throw new Error('Error al obtener el preparte');
   }
 
@@ -356,7 +358,11 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
   const defaultLimit = 100;
   const limit = options?.limit ?? defaultLimit;
 
-  let query = supabase.from('preparte').select('*').order('created_at', { ascending: false }).limit(limit);
+  let query = supabase
+    .from('preparte')
+    .select('*, service_items(id, item_name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
   if (options?.status) {
     query = query.eq('status', options.status);
@@ -369,7 +375,7 @@ export async function listPrepartes(options?: ListPrepartesOptions) {
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error listing prepartes:', error);
+    logger.error('Error listing prepartes', { data: { error } });
     throw new Error('Error al listar los prepartes');
   }
 
@@ -420,7 +426,7 @@ export async function getLastOrderNumber() {
   const { data, error } = await supabase.rpc('get_max_order_number');
 
   if (error) {
-    console.error('Error al obtener el último número de pedido:', error);
+    logger.error('Error al obtener el último número de pedido', { data: { error } });
     return 'PED-0000';
   }
 
@@ -443,7 +449,7 @@ export async function fetchPrepartes({
 
   try {
     // Construir la consulta base
-    let query = supabase.from('preparte' as any).select('*', { count: 'exact' });
+    let query = supabase.from('preparte').select('*, service_items(id, item_name)', { count: 'exact' });
 
     // Aplicar ordenamiento
     if (sorting.length > 0) {
@@ -507,7 +513,7 @@ export async function fetchPrepartes({
       rowCount: count || 0,
     };
   } catch (error) {
-    console.error('Error al cargar prepartes:', error);
+    logger.error('Error al cargar prepartes', { data: { error } });
     return {
       rows: [],
       pageCount: 0,
@@ -594,7 +600,7 @@ export async function movePreparteFile(
     try {
       const { data: listData, error: listErr } = await supabase.storage.from(BUCKET).list(parentDir);
       if (listErr) {
-        console.warn('⚠️ No se pudo listar el bucket para resolver nombre real:', listErr.message);
+        logger.warn('No se pudo listar el bucket para resolver nombre real', { data: { message: listErr.message } });
         return candidate; // continuar con candidate aunque pueda fallar
       }
       // Buscar match ignorando espacios y case-sensitive básico
@@ -606,7 +612,7 @@ export async function movePreparteFile(
       }
       return candidate;
     } catch (e) {
-      console.warn('⚠️ Error resolviendo nombre real del objeto:', e);
+      logger.warn('Error resolviendo nombre real del objeto', { data: { error: e } });
       return candidate;
     }
   };
@@ -630,7 +636,7 @@ export async function movePreparteFile(
       error = retry.error as any;
     }
     if (error) {
-      console.error('❌ Error moviendo archivo:', error);
+      logger.error('Error moviendo archivo', { data: { error } });
       throw new Error(`No se pudo mover el archivo en Storage: ${error.message}`);
     }
   }
@@ -732,9 +738,11 @@ export async function getPreparteChangeLogs(preparteId: string) {
   if (!data || data.length === 0) return [];
 
   // Mapear datos con nombre de usuario del JOIN
-  return data.map((log) => ({
+  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
+
+  return data.map((log: LogWithProfile) => ({
     ...log,
-    changed_by_name: (log as any).profile?.fullname || null,
+    changed_by_name: log.profile?.fullname || null,
     profile: undefined, // Remover objeto anidado
   }));
 }
@@ -766,9 +774,11 @@ export async function getPreparteChangeLogsByOrderNumber(numeroPedido: string) {
   if (!data || data.length === 0) return [];
 
   // Mapear datos con nombre de usuario del JOIN
-  return data.map((log) => ({
+  type LogWithProfile = (typeof data)[number] & { profile?: { fullname?: string | null } | null };
+
+  return data.map((log: LogWithProfile) => ({
     ...log,
-    changed_by_name: (log as any).profile?.fullname || null,
+    changed_by_name: log.profile?.fullname || null,
     preparte: undefined, // Remover objeto anidado
     profile: undefined, // Remover objeto anidado
   }));
