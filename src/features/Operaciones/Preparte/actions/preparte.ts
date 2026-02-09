@@ -207,87 +207,65 @@ export async function updatePreparte(id: string, preparteData: Partial<Preparte>
       : preparteData.equipos_cliente ?? null;
   }
 
-  // Sector: normalizar solo si la clave está presente y tiene valor
-  if ('sector_service_id' in preparteData) {
-    let sector_fk: string | null | undefined = preparteData.sector_service_id ?? null;
-    if (sector_fk) {
-      // Obtener cliente_id solo si es necesario para normalizar
-      let clienteId = preparteData.cliente_id as string | undefined;
-      if (!clienteId) {
-        const { data: current } = await supabase
-          .from('preparte' as any)
-          .select('cliente_id')
-          .eq('id', id)
-          .single();
-        clienteId = current?.cliente_id as string | undefined;
-      }
+  // ============================================
+  // OPTIMIZACIÓN: Ejecutar lookups de sector y área en paralelo
+  // ============================================
+  const needsSectorLookup = 'sector_service_id' in preparteData && preparteData.sector_service_id;
+  const needsAreaLookup = 'areas_service_id' in preparteData && preparteData.areas_service_id;
 
-      try {
-        const { data: ss, error: ssErr } = await supabase
-          .from('service_sectors')
-          .select('id, sector_id')
-          .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${clienteId})`)
-          .maybeSingle?.();
-        // @ts-ignore fallback
-        if (!ss && !ssErr) {
-          const { data: ss2 } = await supabase
+  if (needsSectorLookup || needsAreaLookup) {
+    // Obtener contrato_id si no está en el payload (puede ser necesario para ambos lookups)
+    let contratoId = preparteData.contrato_id as string | undefined;
+    if (!contratoId) {
+      const { data: current } = await supabase
+        .from('preparte' as any)
+        .select('contrato_id')
+        .eq('id', id)
+        .single();
+      contratoId = current?.contrato_id;
+    }
+
+    if (contratoId) {
+      // Preparar promises para ejecutar en paralelo
+      const sectorPromise = needsSectorLookup
+        ? supabase
             .from('service_sectors')
             .select('id, sector_id')
-            .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${clienteId})`)
-            .single();
-          // @ts-ignore
-          if (ss2) {
-            // @ts-ignore
-            sector_fk = ss2.id as string | undefined;
-          }
-        } else if (ss) {
-          // @ts-ignore
-          sector_fk = ss.id as string | undefined;
-        }
-      } catch (e) {
-        console.warn('[updatePreparte] No se pudo normalizar sector_service_id, usando valor original:', e);
+            .eq('service_id', contratoId)
+            .eq('sector_id', preparteData.sector_service_id!)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      const areaPromise = needsAreaLookup
+        ? supabase
+            .from('service_areas')
+            .select('id, area_id')
+            .eq('service_id', contratoId)
+            .eq('area_id', preparteData.areas_service_id!)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      // Ejecutar lookups en paralelo
+      const [sectorResult, areaResult] = await Promise.all([sectorPromise, areaPromise]);
+
+      // Aplicar resultados de sector
+      if (needsSectorLookup) {
+        payload.sector_service_id = sectorResult.data?.id || preparteData.sector_service_id;
+      }
+
+      // Aplicar resultados de área
+      if (needsAreaLookup) {
+        payload.areas_service_id = areaResult.data?.id || preparteData.areas_service_id;
+      }
+    } else {
+      // Si no hay contratoId, usar valores originales
+      if (needsSectorLookup) {
+        payload.sector_service_id = preparteData.sector_service_id;
+      }
+      if (needsAreaLookup) {
+        payload.areas_service_id = preparteData.areas_service_id;
       }
     }
-    payload.sector_service_id = sector_fk; // puede ser string o null si explícitamente se envió null
-  }
-
-  // Área: normalizar solo si la clave está presente y tiene valor
-  if ('areas_service_id' in preparteData) {
-    let area_fk: string | null | undefined = preparteData.areas_service_id ?? null;
-    if (area_fk) {
-      // Obtener contrato_id solo si es necesario para normalizar
-      let contratoId = preparteData.contrato_id as string | undefined;
-      if (!contratoId) {
-        const { data: current } = await supabase
-          .from('preparte' as any)
-          .select('contrato_id')
-          .eq('id', id)
-          .single();
-        contratoId = current?.contrato_id as string | undefined;
-      }
-
-      try {
-        const { data: sa, error: saErr } = await supabase
-          .from('service_areas')
-          .select('id, area_id')
-          .or(`id.eq.${area_fk},and(area_id.eq.${area_fk},service_id.eq.${contratoId})`)
-          .maybeSingle?.();
-
-        if (sa) {
-          // Si encontramos el registro, usar el ID de service_areas
-          area_fk = sa.id;
-        } else if (!saErr) {
-          // Si no hay error pero no se encontró, intentar con el ID directo
-          console.warn('[updatePreparte] No se encontró el área en service_areas, usando ID directo');
-        } else {
-          console.error('[updatePreparte] Error buscando el área:', saErr);
-          area_fk = null;
-        }
-      } catch (e) {
-        console.warn('[updatePreparte] No se pudo normalizar areas_service_id, usando valor original:', e);
-      }
-    }
-    payload.areas_service_id = area_fk; // puede ser string o null si explícitamente se envió null
   }
 
   // Si viene la url/route de la imagen, incluirla tal cual
