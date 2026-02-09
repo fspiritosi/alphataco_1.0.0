@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import TanstackQueryInicializador from '../dashboard/TanstackQueryInicializador';
 import { MaintenanceLayoutProvider } from './maintenance-layout-provider';
 
 export default async function MaintenanceLayout({ children }: { children: React.ReactNode }) {
@@ -40,8 +41,10 @@ export default async function MaintenanceLayout({ children }: { children: React.
   const employeeCuil = employeeData?.cuil || null;
 
   return (
-    <MaintenanceLayoutProvider employeeName={employeeFullName} employeeCuil={employeeCuil}>
-      {children}
-    </MaintenanceLayoutProvider>
+    <TanstackQueryInicializador>
+      <MaintenanceLayoutProvider employeeName={employeeFullName} employeeCuil={employeeCuil}>
+        {children}
+      </MaintenanceLayoutProvider>
+    </TanstackQueryInicializador>
   );
 }
