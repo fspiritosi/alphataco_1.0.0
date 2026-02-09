@@ -277,6 +277,7 @@ const ServiceTable = ({
   const [loading, setLoading] = useState(true);
   const [editingService, setEditingService] = useState<ServiceTableProps['services'][number] | null>(null);
   const [openDetail, setOpenDetail] = useState(false);
+  const [initialFormData, setInitialFormData] = useState<Record<string, unknown> | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [filteredServices, setFilteredServices] = useState<ServiceTableProps['services']>([]);
   const [editing, setEditing] = useState(false);
@@ -369,9 +370,29 @@ const ServiceTable = ({
   };
 
   const handleOpenDetail = (service: ServiceTableProps['services'][number]) => {
+    const areaIds = service.service_areas?.map((a) => a.area_id) || [];
+    const sectorIds = service.service_sectors?.map((s) => s.sector_id) || [];
+
+    const serviceStartDate = new Date(service.service_start || new Date());
+    const serviceValidityDate = new Date(service.service_validity || new Date());
+    serviceStartDate.setDate(serviceStartDate.getDate() + 1);
+    serviceValidityDate.setDate(serviceValidityDate.getDate() + 1);
+
+    const formData = {
+      id: service.id,
+      customer_id: service.customer_id,
+      area_id: areaIds,
+      sector_id: sectorIds,
+      service_name: service.service_name,
+      contract_number: service.contract_number || '',
+      service_start: serviceStartDate,
+      service_validity: serviceValidityDate,
+      is_active: service.is_active ?? true,
+    };
+
     setEditingService(service);
+    setInitialFormData(formData);
     setOpenDetail(true);
-    //Agregar una query a la url
   };
   // Get customer_service_id from editingService
   const customerServiceId = editingService?.id || '';
@@ -436,7 +457,7 @@ const ServiceTable = ({
                     <Button onClick={() => setOpenDetail(false)}>Cerrar</Button>
                   </div> */}
 
-                <Tabs defaultValue="detail">
+                <Tabs defaultValue="detail" key={editingService?.id}>
                   <div className="flex justify-between items-center mr-3">
                     <TabsList className="flex gap-1 bg-gh_contrast/50">
                       {/* Hereda permisos de comercial/service/detalle-contrato */}
@@ -458,13 +479,22 @@ const ServiceTable = ({
                         </TabsTrigger>
                       </PermissionGuard>
                     </TabsList>
-                    <Button onClick={() => setOpenDetail(false)}>Cerrar</Button>
+                    <Button
+                      onClick={() => {
+                        setEditingService(null);
+                        setInitialFormData(null);
+                        setOpenDetail(false);
+                      }}
+                    >
+                      Cerrar
+                    </Button>
                   </div>
                   {/* Hereda permisos de comercial/service/detalle-contrato */}
                   <PermissionGuard module="comercial" tab="detalle-contrato" action="view">
                     <TabsContent value="detail">
                       <ServicesForm
                         editingService={editingService as any}
+                        initialFormData={initialFormData}
                         company_id={company_id}
                         areas={areas}
                         sectors={sectors}
