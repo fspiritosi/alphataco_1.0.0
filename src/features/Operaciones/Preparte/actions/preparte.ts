@@ -73,78 +73,79 @@ export async function createPreparte(
       throw new Error('No hay datos válidos para insertar');
     }
 
-    // Normalizar claves foráneas antes de insertar
-    const normalized = await Promise.all(
-      dataToInsert.map(async (item) => {
-        let sector_fk: string | null | undefined = item.sector_service_id ?? null;
-        let area_fk: string | null | undefined = item.areas_service_id ?? null;
-        try {
-          // Si viene un id de service_sectors, obtener el service_sectors.id correspondiente al sector_id
-          if (sector_fk) {
-            // Primero verificar si el ID existe en service_sectors
-            const { data: ss, error: ssErr } = await supabase
-              .from('service_sectors')
-              .select('id, sector_id')
-              .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${item.contrato_id})`)
-              .maybeSingle?.();
-            // .maybeSingle puede no existir según versión; fallback a single
-            // @ts-ignore
-            if (!ss && !ssErr) {
-              const { data: ss2 } = await supabase
-                .from('service_sectors')
-                .select('id, sector_id')
-                .or(`id.eq.${sector_fk},and(sector_id.eq.${sector_fk},service_id.eq.${item.contrato_id})`)
-                .single();
-              // @ts-ignore
-              if (ss2) {
-                // @ts-ignore
-                sector_fk = ss2.id as string | undefined;
-              }
-            } else if (ss) {
-              // @ts-ignore
-              sector_fk = ss.id as string | undefined;
-            }
-          }
-        } catch (e) {
-          console.warn('No se pudo normalizar sector_service_id, usando valor original:', e);
-        }
+    // ============================================
+    // OPTIMIZACIÓN: Batch lookup para evitar N+1 queries
+    // ============================================
 
-        try {
-          // Si viene un id de service_areas desde el form, obtener el service_areas.id correspondiente al area_id
-          if (area_fk) {
-            // Primero verificar si el ID existe en service_areas
-            const { data: sa, error: saErr } = await supabase
-              .from('service_areas')
-              .select('id, area_id')
-              .or(`id.eq.${area_fk},and(area_id.eq.${area_fk},service_id.eq.${item.contrato_id})`)
-              .maybeSingle?.();
+    // 1. Extraer IDs únicos para pre-cargar lookups
+    const uniqueServiceIds = [...new Set(dataToInsert.map((item) => item.contrato_id))];
+    const uniqueSectorIds = [
+      ...new Set(dataToInsert.map((item) => item.sector_service_id).filter(Boolean) as string[]),
+    ];
+    const uniqueAreaIds = [...new Set(dataToInsert.map((item) => item.areas_service_id).filter(Boolean) as string[])];
 
-            if (sa) {
-              // Si encontramos el registro, usar el ID de service_areas
-              area_fk = sa.id;
-            } else if (!saErr) {
-              // Si no hay error pero no se encontró, intentar con el ID directo
-              console.warn('No se encontró el área en service_areas, usando ID directo');
-            } else {
-              console.error('Error buscando el área:', saErr);
-              area_fk = null;
-            }
-          }
-        } catch (e) {
-          console.warn('No se pudo normalizar areas_service_id, usando valor original:', e);
-        }
+    // 2. Batch query para service_sectors (1 query en lugar de N)
+    let serviceSectorsMap = new Map<string, string>();
+    if (uniqueSectorIds.length > 0 && uniqueServiceIds.length > 0) {
+      const { data: serviceSectors } = await supabase
+        .from('service_sectors')
+        .select('id, sector_id, service_id')
+        .in('service_id', uniqueServiceIds)
+        .in('sector_id', uniqueSectorIds);
 
-        return {
-          ...item,
-          sector_service_id: sector_fk ?? null,
-          areas_service_id: area_fk ?? null,
-          // Guardar solo el primer equipo seleccionado (si viene array del form)
-          equipos_cliente: Array.isArray(item.equipos_cliente)
-            ? item.equipos_cliente[0] ?? null
-            : item.equipos_cliente ?? null,
-        };
-      })
-    );
+      serviceSectors?.forEach((ss) => {
+        // Crear múltiples claves para diferentes lookups
+        serviceSectorsMap.set(`${ss.service_id}:${ss.sector_id}`, ss.id);
+        serviceSectorsMap.set(ss.sector_id, ss.id);
+        serviceSectorsMap.set(ss.id, ss.id); // También por ID directo
+      });
+    }
+
+    // 3. Batch query para service_areas (1 query en lugar de N)
+    let serviceAreasMap = new Map<string, string>();
+    if (uniqueAreaIds.length > 0 && uniqueServiceIds.length > 0) {
+      const { data: serviceAreas } = await supabase
+        .from('service_areas')
+        .select('id, area_id, service_id')
+        .in('service_id', uniqueServiceIds)
+        .in('area_id', uniqueAreaIds);
+
+      serviceAreas?.forEach((sa) => {
+        // Crear múltiples claves para diferentes lookups
+        serviceAreasMap.set(`${sa.service_id}:${sa.area_id}`, sa.id);
+        serviceAreasMap.set(sa.area_id, sa.id);
+        serviceAreasMap.set(sa.id, sa.id); // También por ID directo
+      });
+    }
+
+    // 4. Normalizar usando maps (sin queries adicionales)
+    const normalized = dataToInsert.map((item) => {
+      let sector_fk: string | null = null;
+      let area_fk: string | null = null;
+
+      // Normalizar sector usando el map pre-cargado
+      if (item.sector_service_id) {
+        const key = `${item.contrato_id}:${item.sector_service_id}`;
+        sector_fk =
+          serviceSectorsMap.get(key) || serviceSectorsMap.get(item.sector_service_id) || item.sector_service_id;
+      }
+
+      // Normalizar área usando el map pre-cargado
+      if (item.areas_service_id) {
+        const key = `${item.contrato_id}:${item.areas_service_id}`;
+        area_fk = serviceAreasMap.get(key) || serviceAreasMap.get(item.areas_service_id) || item.areas_service_id;
+      }
+
+      return {
+        ...item,
+        sector_service_id: sector_fk,
+        areas_service_id: area_fk,
+        // Guardar solo el primer equipo seleccionado (si viene array del form)
+        equipos_cliente: Array.isArray(item.equipos_cliente)
+          ? item.equipos_cliente[0] ?? null
+          : item.equipos_cliente ?? null,
+      };
+    });
 
     const validatedData = normalized.map((item) => ({
       cliente_id: item.cliente_id,
