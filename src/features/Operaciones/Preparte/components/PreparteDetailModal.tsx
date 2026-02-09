@@ -4,7 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Building2, Calendar, Clock, EyeIcon, FileText, History, Wrench } from 'lucide-react';
+import { useState } from 'react';
 import { usePreparteChangeLogs } from '../hooks';
 import { Cliente, Contrato, PreparteItem } from './PreparteManager';
 
@@ -15,8 +17,10 @@ interface PreparteDetailModalProps {
 }
 
 export function PreparteDetailModal({ preparteData, Customers, contratos }: PreparteDetailModalProps) {
-  // Hook para obtener el historial de cambios del preparte
-  const { data: changeLogs = [], isLoading: isLoadingChangeLogs } = usePreparteChangeLogs(preparteData?.id);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Solo fetchea cuando el modal está abierto
+  const { data: changeLogs = [], isLoading: isLoadingChangeLogs } = usePreparteChangeLogs(preparteData?.id, isOpen);
 
   if (!preparteData) return null;
 
@@ -132,7 +136,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
   const reason = getReason();
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" className="h-8 w-8 p-0">
           <EyeIcon className="h-4 w-4" />
@@ -344,7 +348,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
           )}
 
           {/* Historial de Cambios */}
-          {changeLogs.length > 0 && (
+          {(isLoadingChangeLogs || changeLogs.length > 0) && (
             <>
               <Separator />
               <div className="space-y-3">
@@ -354,7 +358,18 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
                 </h3>
                 <div className="space-y-2">
                   {isLoadingChangeLogs ? (
-                    <div className="text-sm text-gray-500">Cargando historial...</div>
+                    <div className="space-y-3">
+                      {Array.from({ length: 2 }).map((_, i) => (
+                        <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-5 w-32" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                          <Skeleton className="h-4 w-48" />
+                          <Skeleton className="h-4 w-40" />
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     changeLogs.map((log, index) => {
                       const metadata = log.metadata as Record<string, string | number | boolean | null> | null;

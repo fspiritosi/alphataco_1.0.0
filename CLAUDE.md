@@ -64,6 +64,13 @@ Los siguientes MCPs estan a tu disposicion:
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados
 4. **MCP de Context7**: SIEMPRE usar como PRIMERA OPCION para consultar documentacion actualizada de librerias, frameworks o herramientas. Si Context7 no tiene la documentacion necesaria, entonces buscar en internet
 
+## Agentes Personalizados
+
+**REGLA CRITICA**: Usar estos agentes cuando el usuario lo solicite:
+
+- **Commitear / hacer commit / push**: SIEMPRE usar el agente `.claude/agents/branch-reviewer.md` (subagent_type: `branch-reviewer`)
+- **Optimizar queries / performance**: SIEMPRE usar el agente `.claude/agents/supabase-query-optimizer.md` (subagent_type: `supabase-query-optimizer`)
+
 ---
 
 ## Reglas Criticas - Guias Detalladas

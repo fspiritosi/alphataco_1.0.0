@@ -9,14 +9,14 @@ export type PreparteChangeLogEntry = Awaited<ReturnType<typeof getPreparteChange
 /**
  * Hook para obtener el historial de cambios de un preparte específico
  */
-export function usePreparteChangeLogs(preparteId: string | undefined) {
+export function usePreparteChangeLogs(preparteId: string | undefined, isOpen = true) {
   return useQuery({
     queryKey: ['preparte-change-logs', preparteId],
     queryFn: async () => {
       if (!preparteId) return [];
       return getPreparteChangeLogs(preparteId);
     },
-    enabled: !!preparteId,
+    enabled: !!preparteId && isOpen,
     staleTime: 2 * 60 * 1000, // 2 minutos
     gcTime: 5 * 60 * 1000, // 5 minutos en cache
   });
