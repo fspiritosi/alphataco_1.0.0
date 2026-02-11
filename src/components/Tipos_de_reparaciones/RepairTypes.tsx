@@ -7,10 +7,11 @@ import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimie
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
 import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { AlertTriangle, Calendar, ClipboardCheck, Plus, Settings, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardCheck, ClipboardList, Plus, Settings, Users, Wrench } from 'lucide-react';
 import { Suspense } from 'react';
 import MaintenanceGroupsWrapper from './MaintenanceGroupsWrapper';
 import RepairEntryWrapper from './RepairEntryWrapper';
+import RepairSolicitudesWrapper from './RepairSolicitudesWrapper';
 import RepairTypeFormWrapper from './RepairTypeFormWrapper';
 
 export default async function RepairTypes({
@@ -29,22 +30,22 @@ export default async function RepairTypes({
   permissions: Record<string, boolean>;
 }) {
   const allTabs = [
-    // {
-    //   value: 'created_solicitudes',
-    //   label: (
-    //     <span className="flex items-center gap-2">
-    //       <ClipboardList className="h-4 w-4" />
-    //       {mechanic ? 'Solicitudes Activas' : 'Solicitudes'}
-    //     </span>
-    //   ),
-    //   moduleSlug: moduleSlug,
-    //   tabSlug: 'created_solicitudes' as const,
-    //   content: (
-    //     <Suspense fallback={<div>Cargando solicitudes...</div>}>
-    //       <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />
-    //     </Suspense>
-    //   ),
-    // },
+    {
+      value: 'created_solicitudes',
+      label: (
+        <span className="flex items-center gap-2">
+          <ClipboardList className="h-4 w-4" />
+          {mechanic ? 'Solicitudes Activas' : 'Solicitudes'}
+        </span>
+      ),
+      moduleSlug: moduleSlug,
+      tabSlug: 'created_solicitudes' as const,
+      content: (
+        <Suspense fallback={<div>Cargando solicitudes...</div>}>
+          <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />
+        </Suspense>
+      ),
+    },
     {
       value: 'equipments_with_deviations',
       label: (
