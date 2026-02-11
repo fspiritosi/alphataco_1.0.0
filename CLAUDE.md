@@ -96,7 +96,32 @@ Always use Context7 MCP when I need library/API documentation, code generation, 
 
 ## Reglas de Oro (Siempre Activas)
 
-### 1. moment.js para Fechas
+### 1. Idioma del Codigo: Ingles
+
+**TODO el codigo debe estar en ingles**: nombres de archivos, carpetas, funciones, variables, componentes, hooks, tipos, constantes, etc.
+
+**Excepciones en espanol**: comentarios, strings de UI visibles al usuario (labels, placeholders, mensajes), y slugs/IDs que ya existen en la base de datos.
+
+```typescript
+// ❌ INCORRECTO - Nombres en espanol
+function obtenerEmpleadosActivos() { ... }
+const empleadoSeleccionado = useState(null);
+export function BandejaAprobaciones() { ... }
+
+// ✅ CORRECTO - Nombres en ingles, UI en espanol
+function getActiveEmployees() { ... }
+const selectedEmployee = useState(null);
+export function ApprovalInbox() { ... }
+
+// ✅ CORRECTO - Strings de UI en espanol
+<Button>Crear Nuevo</Button>
+<CardTitle>Seguimiento en Taller</CardTitle>
+toast.success('Empleado creado exitosamente');
+```
+
+**La comunicacion con Claude (chat) debe ser en espanol.**
+
+### 2. moment.js para Fechas
 
 **SIEMPRE** usar moment.js para cualquier manejo de fechas, NO date-fns.
 
@@ -110,11 +135,11 @@ moment(date).format('DD/MM/YYYY');
 moment(date1).isBefore(date2);
 ```
 
-### 2. No Crear Archivos .md
+### 3. No Crear Archivos .md
 
 **NO** crear archivos markdown (.md) a menos que se solicite explicitamente.
 
-### 3. NUNCA Co-Authored-By en Commits
+### 4. NUNCA Co-Authored-By en Commits
 
 **ESTRICTAMENTE PROHIBIDO** agregar `Co-Authored-By` en los mensajes de commit. JAMAS incluir referencias a IA, Claude, o cualquier co-autor automatico en los commits.
 
@@ -128,7 +153,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 git commit -m "feat: something"
 ```
 
-### 4. Queries Eficientes
+### 4. shadcn/ui MCP
+
+**SIEMPRE** usar el MCP de shadcn para buscar componentes disponibles antes de implementar UI. Consultar ejemplos y documentacion de componentes con las herramientas del MCP antes de escribir codigo de UI.
+
+### 6. Queries Eficientes
 
 Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 

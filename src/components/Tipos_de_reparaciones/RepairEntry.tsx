@@ -541,11 +541,12 @@ export default function RepairNewEntry({
                 reparation_type: e.repair,
                 equipment_id:
                   equipment.find((equip) => equip.domain === e.domain)?.id ||
-                  equipment.find((equip) => equip.serie === e.domain)?.id,
+                  equipment.find((equip) => equip.serie === e.domain)?.id ||
+                  '',
                 user_description: e.description,
                 user_id,
-                user_images,
-                state: 'Pendiente',
+                user_images: user_images?.filter((img): img is string => img !== undefined) || null,
+                state: 'Pendiente' as const,
                 employee_id,
                 kilometer: e.kilometer,
               };

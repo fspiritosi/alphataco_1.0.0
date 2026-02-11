@@ -1,9 +1,12 @@
 'use server';
 
 import { Filter, queryWithPagination } from '@/app/server/GET/probando';
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('RepairTypeActions');
 
 export async function fetchAllTypesOfRepairs() {
   const supabase = await supabaseServer();
@@ -19,7 +22,7 @@ export async function fetchAllTypesOfRepairs() {
     // .eq('company_id', company_id || '');
 
     if (error) {
-      console.error(error);
+      logger.error('Error fetching types of repairs', { data: { error } });
       return [];
     }
     return types_of_repairs || [];
@@ -28,7 +31,7 @@ export async function fetchAllTypesOfRepairs() {
   }
 }
 
-export async function createTypeOfRepair(body: any) {
+export async function createTypeOfRepair(body: Database['public']['Tables']['types_of_repairs']['Insert']) {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
@@ -49,7 +52,7 @@ export async function createTypeOfRepair(body: any) {
   }
 }
 
-export async function updateTypeOfRepair(body: any, id: string) {
+export async function updateTypeOfRepair(body: Database['public']['Tables']['types_of_repairs']['Update'], id: string) {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
@@ -166,7 +169,9 @@ export async function fetchAllRepairSolicitudes() {
   }
 }
 
-export async function createRepairSolicitud(data: any) {
+type RepairSolicitudInsert = Database['public']['Tables']['repair_solicitudes']['Insert'];
+
+export async function createRepairSolicitud(data: RepairSolicitudInsert | RepairSolicitudInsert[]) {
   const supabase = await supabaseServer();
   const cookieStore = await cookies();
   const company_id = cookieStore.get('actualComp')?.value;
@@ -176,7 +181,11 @@ export async function createRepairSolicitud(data: any) {
   }
 
   try {
-    const { data: repair_solicitudes, error } = await supabase.from('repair_solicitudes').insert(data).select();
+    // Type assertion needed since Supabase accepts both single and array
+    const { data: repair_solicitudes, error } = await supabase
+      .from('repair_solicitudes')
+      .insert(data as RepairSolicitudInsert)
+      .select();
 
     if (error) {
       return [];
@@ -184,5 +193,65 @@ export async function createRepairSolicitud(data: any) {
     return repair_solicitudes || [];
   } catch (error) {
     return [];
+  }
+}
+
+export async function fetchAllWorkshopSectorsForConfig() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('workshop_sectors')
+    .select('id, name, workshop_id, workshops(id, name)')
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+
+  if (error) {
+    logger.error('Error fetching workshop sectors', { data: { error } });
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function fetchSectorsForRepairType(repairTypeId: string) {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('sector_repair_types')
+    .select('workshop_sector_id')
+    .eq('repair_type_id', repairTypeId);
+
+  if (error) {
+    logger.error('Error fetching sectors for repair type', { data: { error } });
+    return [];
+  }
+
+  return data?.map((d) => d.workshop_sector_id) || [];
+}
+
+export async function updateRepairTypeSectors(repairTypeId: string, sectorIds: string[]) {
+  const supabase = await supabaseServer();
+
+  // Delete existing
+  const { error: deleteError } = await supabase.from('sector_repair_types').delete().eq('repair_type_id', repairTypeId);
+
+  if (deleteError) {
+    logger.error('Error deleting sector repair types', { data: { error: deleteError } });
+    throw deleteError;
+  }
+
+  // Insert new ones
+  if (sectorIds.length > 0) {
+    const rows = sectorIds.map((sectorId) => ({
+      workshop_sector_id: sectorId,
+      repair_type_id: repairTypeId,
+    }));
+
+    const { error: insertError } = await supabase.from('sector_repair_types').insert(rows);
+
+    if (insertError) {
+      logger.error('Error inserting sector repair types', { data: { error: insertError } });
+      throw insertError;
+    }
   }
 }

@@ -11,13 +11,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { useLoggedUserStore } from '@/store/loggedUser';
-// import { TypeOfRepair } from '@/types/types';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
+import { Logger } from '@/lib/logger';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
+import { useLoggedUserStore } from '@/store/loggedUser';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -26,11 +27,23 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
+import { Checkbox } from '../ui/checkbox';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Switch } from '../ui/switch';
 import { Textarea } from '../ui/textarea';
-import { createTypeOfRepair, deleteTypeOfRepair, updateTypeOfRepair } from './actions/actions';
+import {
+  createTypeOfRepair,
+  deleteTypeOfRepair,
+  fetchAllWorkshopSectorsForConfig,
+  fetchSectorsForRepairType,
+  updateRepairTypeSectors,
+  updateTypeOfRepair,
+} from './actions/actions';
+
+const logger = new Logger('RepairTypeForm');
 
 export function getRepairTypeColumns(
   onEdit: (repair: TypeOfRepair) => void,
@@ -103,6 +116,20 @@ export function getRepairTypeColumns(
         return value.includes(row.getValue(id));
       },
     },
+    {
+      accessorKey: 'autorizable',
+      id: 'Autorizable',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Autorizable" />,
+      cell: ({ row }) => (
+        <Badge variant={row.original.autorizable ? 'warning' : 'outline'}>
+          {row.original.autorizable ? 'Sí' : 'No'}
+        </Badge>
+      ),
+      filterFn: (row, id, value) => {
+        const val = row.original.autorizable ? 'Sí' : 'No';
+        return value.includes(val);
+      },
+    },
   ];
 
   if (canEdit) {
@@ -152,6 +179,7 @@ export function RepairTypeForm({
       .default(company_id || '')
       .optional(),
     type_of_maintenance: z.enum(['Correctivo', 'Preventivo', 'Otro']),
+    autorizable: z.boolean().default(false).optional(),
   });
 
   type Repair = z.infer<typeof typeOfRepair>;
@@ -163,14 +191,26 @@ export function RepairTypeForm({
     },
   });
 
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+
+  const { data: workshopSectors = [] } = useQuery({
+    queryKey: ['workshop-sectors-config'],
+    queryFn: () => fetchAllWorkshopSectorsForConfig(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const onSubmit = async (data: Repair) => {
     toast.promise(
       async () => {
         try {
-          await createTypeOfRepair(data);
+          const result = await createTypeOfRepair(data);
+          if (result && result.length > 0) {
+            await updateRepairTypeSectors(result[0].id, selectedSectors);
+          }
+          setSelectedSectors([]);
           router.refresh();
         } catch (error) {
-          console.error(error);
+          logger.error('Error en tipo de reparacion', { data: { error } });
         }
       },
       {
@@ -186,11 +226,15 @@ export function RepairTypeForm({
       async () => {
         try {
           await updateTypeOfRepair(data, selectedRepair?.id || '');
+          if (selectedRepair?.id) {
+            await updateRepairTypeSectors(selectedRepair.id, selectedSectors);
+          }
           router.refresh();
           setSelectedRepair(null);
+          setSelectedSectors([]);
           form.reset();
         } catch (error) {
-          console.error(error);
+          logger.error('Error en tipo de reparacion', { data: { error } });
         }
       },
       {
@@ -208,9 +252,10 @@ export function RepairTypeForm({
           await deleteTypeOfRepair(id);
           router.refresh();
           setSelectedRepair(null);
+          setSelectedSectors([]);
           form.reset();
         } catch (error) {
-          console.error(error);
+          logger.error('Error en tipo de reparacion', { data: { error } });
         }
       },
       {
@@ -225,8 +270,14 @@ export function RepairTypeForm({
     setSelectedRepair(repair);
     form.setValue('name', repair.name);
     form.setValue('description', repair.description);
-    form.setValue('criticity', repair.criticity || ('' as any));
+    form.setValue('criticity', (repair.criticity as 'Alta' | 'Media' | 'Baja') || 'Baja');
     form.setValue('type_of_maintenance', repair.type_of_maintenance || 'Correctivo');
+    form.setValue('autorizable', repair.autorizable ?? false);
+
+    // Load sectors for this repair type
+    fetchSectorsForRepairType(repair.id).then((sectors) => {
+      setSelectedSectors(sectors);
+    });
   };
   const names = createFilterOptions(
     types_of_repairs,
@@ -238,11 +289,8 @@ export function RepairTypeForm({
     (repair) => repair.criticity
     // FileText // Icono para documentos
   );
-  const maintenanceOptions = createFilterOptions(
-    types_of_repairs,
-    (repair) => repair.type_of_maintenance
-    // FileText // Icono para documentos
-  );
+  const maintenanceOptions = createFilterOptions(types_of_repairs, (repair) => repair.type_of_maintenance);
+  const autorizableOptions = createFilterOptions(types_of_repairs, (repair) => (repair.autorizable ? 'Sí' : 'No'));
 
   return (
     <ResizablePanelGroup direction="horizontal" className="pt-6">
@@ -321,6 +369,57 @@ export function RepairTypeForm({
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="autorizable"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>Autorizable</FormLabel>
+                        <FormDescription>
+                          Requiere aprobacion del Jefe de Taller al ser agregada por un operario
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {/* Sectores que realizan esta reparación */}
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Sectores de taller</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Selecciona los sectores que pueden realizar esta reparación
+                    </p>
+                  </div>
+                  {workshopSectors.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto">
+                      {workshopSectors.map((sector) => (
+                        <div key={sector.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`sector-${sector.id}`}
+                            checked={selectedSectors.includes(sector.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedSectors((prev) =>
+                                checked ? [...prev, sector.id] : prev.filter((id) => id !== sector.id)
+                              );
+                            }}
+                          />
+                          <label
+                            htmlFor={`sector-${sector.id}`}
+                            className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {sector.workshops?.name ? `${sector.name} - ${sector.workshops.name}` : sector.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No hay sectores disponibles</p>
+                  )}
+                </div>
                 {selectedRepair ? (
                   <div className="flex justify-between mt-4">
                     <Button type="submit">Actualizar tipo de reparación</Button>
@@ -384,6 +483,11 @@ export function RepairTypeForm({
                 columnId: 'Tipo de Mantenimiento',
                 title: 'Tipo de Mantenimiento',
                 options: maintenanceOptions,
+              },
+              {
+                columnId: 'Autorizable',
+                title: 'Autorizable',
+                options: autorizableOptions,
               },
             ],
           }}

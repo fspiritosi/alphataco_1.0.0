@@ -13,6 +13,7 @@ import { EmployeeHeader } from '@/features/Employees/EmpleadoID/components/emplo
 import { EmployeeTabs } from '@/features/Employees/EmpleadoID/components/employee-tabs';
 import { EmployeeHeaderSkeleton } from '@/features/Employees/EmpleadoID/components/skeletons/employee-header-skeleton';
 import {
+  fetchActiveWorkshopSectors,
   fetchAllCostCenters,
   fetchCategories,
   fetchCitiesByProvinceId,
@@ -79,6 +80,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
   const cities = fetchCitiesByProvinceId(employee?.provinces?.id!);
   const typeOfContracts = fetchAllContractTypes();
   const aptitudes = fetchAllAptitudesTecnicas();
+  const workshopSectors = fetchActiveWorkshopSectors();
 
   const historyData = (await fetchDiagramsHistoryByEmployeeId(employee_id)).map((item) => ({
     date: moment.utc(item.prev_date).format('DD/MM/YYYY'),
@@ -143,6 +145,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             citiesPromise={cities}
             typeOfContractsPromise={typeOfContracts}
             aptitudesPromise={aptitudes}
+            workshopSectorsPromise={workshopSectors}
           />
         </div>
       </Card>

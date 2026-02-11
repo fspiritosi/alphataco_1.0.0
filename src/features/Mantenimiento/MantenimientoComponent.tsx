@@ -1,22 +1,27 @@
 import MaintenanceGroupsWrapper from '@/components/Tipos_de_reparaciones/MaintenanceGroupsWrapper';
 import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairTypeFormWrapper';
+import { ApprovalInboxSkeleton, ApprovalInboxTabContent } from '@/features/Mantenimiento/ApprovalInbox';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
+import { MaintenanceOrdersSkeleton, MaintenanceOrdersTabContent } from '@/features/Mantenimiento/MaintenanceOrders';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
 import { ParaTallerTabContent } from '@/features/Mantenimiento/Operaciones/ParaTaller';
 import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/fallback';
-import { OrdenesTrabajoSkeleton, OrdenesTrabajoTabContent } from '@/features/Mantenimiento/OrdenesTrabajo';
+import { OrderManagementSkeleton, OrderManagementTabContent } from '@/features/Mantenimiento/OrderManagement';
 import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
 import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
 import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
+import { WorkshopTrackingSkeleton, WorkshopTrackingTabContent } from '@/features/Mantenimiento/WorkshopTracking';
 import { TabsManagerServer } from '@/features/TabsManager';
 import {
   AlertTriangle,
   Calendar,
   ClipboardCheck,
   ClipboardList,
+  Eye,
   FileText,
+  Inbox,
   Plus,
   Settings,
   Users,
@@ -26,8 +31,6 @@ import {
 import { Suspense } from 'react';
 import { PendientesEjecutarTabContent } from './PendientesEjecutar';
 import { PendientesEjecutarSkeleton } from './PendientesEjecutar/fallback';
-import { PlanificacionTabContent } from './Planificacion';
-import { PlanificacionTableSkeleton } from './Planificacion/fallback';
 
 interface MantenimientoComponentProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -43,11 +46,13 @@ interface MantenimientoComponentProps {
  *   - Pendientes de Ejecutar
  *   - Nuevo Pedido
  *   - Para Taller
+ *   - Seguimiento en Taller
  *
  * - Taller (maint_taller)
  *   - Pedidos de Mantenimiento
- *   - Planificación
- *   - Órdenes de Trabajo
+ *   - Gestión de Órdenes
+ *   - Bandeja de Aprobaciones
+ *   - Órdenes de Mantenimiento
  *
  * - Configuración (maint_configuracion)
  *   - Tipos de Reparación
@@ -162,6 +167,22 @@ export default async function MantenimientoComponent({ searchParams, permissions
                     </Suspense>
                   ),
                 },
+                {
+                  value: 'seguimiento_taller',
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <Eye className="h-4 w-4" />
+                      Seguimiento en Taller
+                    </span>
+                  ),
+                  moduleSlug: 'mantenimiento',
+                  tabSlug: 'seguimiento_taller',
+                  content: (
+                    <Suspense fallback={<WorkshopTrackingSkeleton />}>
+                      <WorkshopTrackingTabContent />
+                    </Suspense>
+                  ),
+                },
               ]}
             />
           ),
@@ -204,34 +225,50 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   ),
                 },
                 {
-                  value: 'planificacion',
+                  value: 'gestion_ordenes',
                   label: (
                     <span className="flex items-center gap-2">
                       <Wrench className="h-4 w-4" />
-                      Planificación
+                      Gestión de Órdenes
                     </span>
                   ),
                   moduleSlug: 'mantenimiento',
-                  tabSlug: 'planificacion',
+                  tabSlug: 'gestion_ordenes',
                   content: (
-                    <Suspense fallback={<PlanificacionTableSkeleton />}>
-                      <PlanificacionTabContent />
+                    <Suspense fallback={<OrderManagementSkeleton />}>
+                      <OrderManagementTabContent />
                     </Suspense>
                   ),
                 },
                 {
-                  value: 'ordenes_trabajo',
+                  value: 'bandeja_aprobaciones',
                   label: (
                     <span className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Órdenes de Trabajo
+                      <Inbox className="h-4 w-4" />
+                      Bandeja de Aprobaciones
                     </span>
                   ),
                   moduleSlug: 'mantenimiento',
-                  tabSlug: 'ordenes_trabajo',
+                  tabSlug: 'bandeja_aprobaciones',
                   content: (
-                    <Suspense fallback={<OrdenesTrabajoSkeleton />}>
-                      <OrdenesTrabajoTabContent />
+                    <Suspense fallback={<ApprovalInboxSkeleton />}>
+                      <ApprovalInboxTabContent />
+                    </Suspense>
+                  ),
+                },
+                {
+                  value: 'ordenes_mantenimiento',
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Órdenes de Mantenimiento
+                    </span>
+                  ),
+                  moduleSlug: 'mantenimiento',
+                  tabSlug: 'ordenes_mantenimiento',
+                  content: (
+                    <Suspense fallback={<MaintenanceOrdersSkeleton />}>
+                      <MaintenanceOrdersTabContent />
                     </Suspense>
                   ),
                 },

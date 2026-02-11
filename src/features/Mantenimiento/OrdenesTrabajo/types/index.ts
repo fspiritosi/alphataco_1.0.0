@@ -150,4 +150,7 @@ export const WORK_ORDER_ITEM_STATUS_LABELS: Record<WorkOrderItemStatus, string> 
   in_progress: 'En Proceso',
   completed: 'Completado',
   cancelled: 'Cancelado',
+  pending_approval: 'Pendiente Aprobación',
+  reassignment_requested: 'Reasignación',
+  rejected: 'Rechazado',
 };

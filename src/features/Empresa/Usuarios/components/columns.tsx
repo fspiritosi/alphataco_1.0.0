@@ -21,14 +21,15 @@ import { supabaseBrowser } from '@/lib/supabase/browser';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { useLoggedUserStore } from '@/store/loggedUser';
 import { ColumnDef } from '@tanstack/react-table';
-import { formatRelative } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { Loader2, Shield } from 'lucide-react';
+import moment from 'moment';
+import 'moment/locale/es';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { fetchCompanyUsers } from '../actions/server-actions';
 import { useUserRoles } from '../hooks/useUserRoles';
+import { LinkEmployeeCell } from './LinkEmployeeCell';
 
 // Extended ColumnDef to include exportFormatter
 export type ExtendedColumnDef<TData, TValue = unknown> = ColumnDef<TData, TValue> & {
@@ -257,6 +258,27 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
     },
   },
   {
+    id: 'linked_employee',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado vinculado" />,
+    cell: ({ row }) => {
+      const profile = row.original.profile as Record<string, unknown> | null;
+      const employee = profile?.employees as
+        | { id: string; firstname: string; lastname: string; cuil: string }
+        | null
+        | undefined;
+      const profileId = profile?.id as string | undefined;
+
+      if (!profileId) return <span className="text-muted-foreground">-</span>;
+
+      return <LinkEmployeeCell profileId={profileId} employee={employee} />;
+    },
+    exportFormatter: (_value, row) => {
+      const profile = row.profile as Record<string, unknown> | null;
+      const employee = profile?.employees as { firstname: string; lastname: string } | null | undefined;
+      return employee ? `${employee.lastname} ${employee.firstname}` : 'Sin vincular';
+    },
+  },
+  {
     accessorKey: 'created_at',
     id: 'created_at',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de alta" />,
@@ -266,17 +288,17 @@ export const columnsUsers: ExtendedColumnDef<CompanyUserData>[] = [
       return (
         <div className="flex items-center">
           <span>
-            {formatRelative(new Date(date as string), new Date(), {
-              locale: es,
-            })}
+            {moment(date as string)
+              .locale('es')
+              .fromNow()}
           </span>
         </div>
       );
     },
-    filterFn: (row, id, value) => {
+    filterFn: () => {
       return true;
     },
-    exportFormatter: (value) => (value ? new Date(value).toLocaleDateString() : ''),
+    exportFormatter: (value) => (value ? moment(value).format('DD/MM/YYYY') : ''),
   },
   {
     id: 'actions',

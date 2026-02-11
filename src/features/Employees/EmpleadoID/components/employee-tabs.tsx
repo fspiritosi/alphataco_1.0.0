@@ -16,6 +16,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
+  fetchActiveWorkshopSectors,
   fetchAllCostCenters,
   fetchCategories,
   fetchCitiesByProvinceId,
@@ -52,6 +53,7 @@ interface EmployeeTabsProps {
   citiesPromise: ReturnType<typeof fetchCitiesByProvinceId>;
   typeOfContractsPromise: ReturnType<typeof fetchAllContractTypes>;
   aptitudesPromise: ReturnType<typeof fetchAllAptitudesTecnicas>;
+  workshopSectorsPromise: ReturnType<typeof fetchActiveWorkshopSectors>;
 }
 
 export function EmployeeTabs({
@@ -77,6 +79,7 @@ export function EmployeeTabs({
   citiesPromise,
   typeOfContractsPromise,
   aptitudesPromise,
+  workshopSectorsPromise,
 }: EmployeeTabsProps) {
   const { canView } = usePermissions();
 
@@ -133,6 +136,7 @@ export function EmployeeTabs({
       category_id: employee?.category_id || undefined,
       cost_center_id: employee?.cost_center_id || undefined,
       cost_type: employee?.cost_type || undefined,
+      workshop_sector_id: employee?.workshop_sector_id || undefined,
     },
   });
 
@@ -206,6 +210,7 @@ export function EmployeeTabs({
                 contractorCompaniesPromise,
                 typeOfContractsPromise,
                 aptitudesPromise,
+                workshopSectorsPromise,
               },
             }}
             form={form}
@@ -248,6 +253,7 @@ export function EmployeeTabs({
                 contractorCompaniesPromise,
                 typeOfContractsPromise,
                 aptitudesPromise,
+                workshopSectorsPromise,
               },
             }}
             activeTab="contactData"
@@ -290,6 +296,7 @@ export function EmployeeTabs({
                 contractorCompaniesPromise,
                 typeOfContractsPromise,
                 aptitudesPromise,
+                workshopSectorsPromise,
               },
             }}
             activeTab="workData"

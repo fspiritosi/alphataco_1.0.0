@@ -1,7 +1,10 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('CatalogActions');
 
 export async function fetchAllCostCenters() {
   const cookiesStore = await cookies();
@@ -13,7 +16,7 @@ export async function fetchAllCostCenters() {
   const { data, error } = await supabase.from('cost_center').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching cost centers:', error);
+    logger.error('Error fetching cost centers', { data: { error } });
     return [];
   }
 
@@ -30,7 +33,7 @@ export async function fetchContractorCompanies() {
   const { data, error } = await supabase.from('customers').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching contractor companies:', error);
+    logger.error('Error fetching contractor companies', { data: { error } });
     return [];
   }
 
@@ -47,7 +50,7 @@ export async function fetchCompanyPositions() {
   const { data, error } = await supabase.from('company_positions').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching company positions:', error);
+    logger.error('Error fetching company positions', { data: { error } });
     return [];
   }
 
@@ -64,7 +67,7 @@ export async function fetchHierarchicalPositions() {
   const { data, error } = await supabase.from('hierarchy').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching hierarchical positions:', error);
+    logger.error('Error fetching hierarchical positions', { data: { error } });
     return [];
   }
 
@@ -81,7 +84,7 @@ export async function fetchGuilds() {
     .eq('is_active', true);
 
   if (error) {
-    console.error('Error fetching guilds:', error);
+    logger.error('Error fetching guilds', { data: { error } });
     return [];
   }
 
@@ -98,7 +101,7 @@ export async function fetchCovenants() {
     .eq('is_active', true);
 
   if (error) {
-    console.error('Error fetching covenants:', error);
+    logger.error('Error fetching covenants', { data: { error } });
     return [];
   }
 
@@ -115,7 +118,7 @@ export async function fetchCategories() {
     .eq('is_active', true);
 
   if (error) {
-    console.error('Error fetching categories:', error);
+    logger.error('Error fetching categories', { data: { error } });
     return [];
   }
 
@@ -128,7 +131,7 @@ export async function fetchCountries() {
   const { data, error } = await supabase.from('countries').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching countries:', error);
+    logger.error('Error fetching countries', { data: { error } });
     return [];
   }
 
@@ -141,7 +144,7 @@ export async function fetchProvinces() {
   const { data, error } = await supabase.from('provinces').select('id,name').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching provinces:', error);
+    logger.error('Error fetching provinces', { data: { error } });
     return [];
   }
 
@@ -156,7 +159,7 @@ export async function fetchCitiesByProvinceId(provinceId: number) {
     .eq('province_id', provinceId);
 
   if (error) {
-    console.error('Error fetching provinces:', error);
+    logger.error('Error fetching cities by province', { data: { error } });
     return [];
   }
 
@@ -169,7 +172,7 @@ export async function fetchCities() {
   const { data, error } = await supabase.from('cities').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching cities:', error);
+    logger.error('Error fetching cities', { data: { error } });
     return [];
   }
 
@@ -185,9 +188,26 @@ export async function fetchWorkflowDiagrams() {
   const { data, error } = await supabase.from('work_diagram').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching workflow diagrams:', error);
+    logger.error('Error fetching workflow diagrams', { data: { error } });
     return [];
   }
 
   return data;
+}
+
+export async function fetchActiveWorkshopSectors() {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('workshop_sectors')
+    .select('id, name, workshop_id, workshops(id, name)')
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+
+  if (error) {
+    logger.error('Error fetching workshop sectors', { data: { error } });
+    return [];
+  }
+
+  return data || [];
 }

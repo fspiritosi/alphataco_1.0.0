@@ -876,6 +876,13 @@ export const PERMISSIONS = {
             parent: 'maint_operaciones',
             allowedActions: ['view', 'update', 'view_all_requests'], // update = aprobar entrada a taller, view_all_requests = ver todas sin filtro de supervisor
           },
+          seguimiento_taller: {
+            slug: 'seguimiento_taller',
+            name: 'Seguimiento en Taller',
+            tabId: '60000000-0000-0000-0000-000000000026',
+            parent: 'maint_operaciones',
+            allowedActions: ['view'],
+          },
         },
       },
       // Tab 2: Taller
@@ -909,19 +916,41 @@ export const PERMISSIONS = {
               },
             },
           },
+          gestion_ordenes: {
+            slug: 'gestion_ordenes',
+            name: 'Gestión de Órdenes',
+            tabId: '60000000-0000-0000-0000-000000000043',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'create', 'update'],
+          },
+          bandeja_aprobaciones: {
+            slug: 'bandeja_aprobaciones',
+            name: 'Bandeja de Aprobaciones',
+            tabId: '60000000-0000-0000-0000-000000000044',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'update'],
+          },
+          ordenes_mantenimiento: {
+            slug: 'ordenes_mantenimiento',
+            name: 'Órdenes de Mantenimiento',
+            tabId: '60000000-0000-0000-0000-000000000045',
+            parent: 'maint_taller',
+            allowedActions: ['view', 'update'],
+          },
+          // Legacy tabs - desconectadas de la UI pero mantenidas para compatibilidad
           planificacion: {
             slug: 'planificacion',
-            name: 'Planificación',
+            name: 'Planificación (Legacy)',
             tabId: '60000000-0000-0000-0000-000000000041',
             parent: 'maint_taller',
-            allowedActions: ['view', 'update'], // update = asignar talleres/sectores a desvíos
+            allowedActions: ['view', 'update'],
           },
           ordenes_trabajo: {
             slug: 'ordenes_trabajo',
-            name: 'Órdenes de Trabajo',
+            name: 'Órdenes de Trabajo (Legacy)',
             tabId: '60000000-0000-0000-0000-000000000042',
             parent: 'maint_taller',
-            allowedActions: ['view', 'create', 'update', 'delete'], // CRUD completo para órdenes de trabajo
+            allowedActions: ['view', 'create', 'update', 'delete'],
           },
         },
       },

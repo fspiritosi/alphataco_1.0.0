@@ -7,12 +7,14 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
 import { fetchAllContractTypes } from '@/features/Empresa/RRHH/components/TypeContract/actions/actions';
+import { Logger } from '@/lib/logger';
 import { fetchCountrys } from '@/shared/actions/employees.actions';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import {
+  fetchActiveWorkshopSectors,
   fetchAllCostCenters,
   fetchCategories,
   fetchCitiesByProvinceId,
@@ -28,6 +30,8 @@ import { createEmployee, updateEmployee } from '../../lib/actions/employee-actio
 import { EmployeeContactDataForm } from './employee-contact-data-form';
 import { EmployeePersonalDataForm } from './employee-personal-data-form';
 import { EmployeeWorkDataForm } from './employee-work-data-form';
+
+const logger = new Logger('EmployeeForm');
 
 export const employeeFormSchema = z.object({
   // Datos Personales
@@ -68,6 +72,7 @@ export const employeeFormSchema = z.object({
   category_id: z.string().optional(),
   cost_center_id: z.string().optional(),
   cost_type: z.string().optional(),
+  workshop_sector_id: z.string().optional(),
 });
 
 export type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -93,6 +98,7 @@ export type Options = {
     contractorCompaniesPromise: ReturnType<typeof fetchContractorCompanies>;
     typeOfContractsPromise: ReturnType<typeof fetchAllContractTypes>;
     aptitudesPromise: ReturnType<typeof fetchAllAptitudesTecnicas>;
+    workshopSectorsPromise: ReturnType<typeof fetchActiveWorkshopSectors>;
   };
 };
 
@@ -141,7 +147,7 @@ export function EmployeeForm({ employee, mode, onSave, form, options, activeTab 
       // onSave?.(data)
       refresh(createdEmployeeId);
     } catch (error) {
-      console.error('Error saving employee:', error);
+      logger.error('Error saving employee', { data: { error } });
     } finally {
       setIsSubmitting(false);
     }
