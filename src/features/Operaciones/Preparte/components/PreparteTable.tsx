@@ -28,6 +28,7 @@ import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, Check, Edit, Eye, Pencil } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
 import { PreparteBulkStatusModal } from './PreparteBulkStatusModal';
@@ -790,6 +791,7 @@ export function PreparteTable({
   const { canUpdate } = usePermissions();
   const canEdit = canUpdate('operaciones', 'preparte');
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   // Filtro de estado - usa externo si se proporciona, sino usa interno
@@ -1117,9 +1119,21 @@ export function PreparteTable({
           // Limpiar selección y refrescar tabla
           setSelectedRows([]);
           setIsBulkStatusModalOpen(false);
-          // Invalidar queries para refrescar la tabla
-          queryClient.invalidateQueries({ queryKey: ['preparte-table'] });
+          // Invalidar todas las queries relacionadas con preparte (consistente con refreshTable)
+          queryClient.invalidateQueries({
+            predicate: (query) => {
+              const key = query.queryKey;
+              if (Array.isArray(key) && typeof key[0] === 'string') {
+                return key[0].startsWith('preparte-table');
+              }
+              return false;
+            },
+          });
           queryClient.invalidateQueries({ queryKey: ['prepartes'] });
+          queryClient.invalidateQueries({ queryKey: ['preparte-change-logs'] });
+          queryClient.invalidateQueries({ queryKey: ['preparte-change-logs-order'] });
+          // Refrescar Server Components (status cards)
+          router.refresh();
         }}
       />
     </>

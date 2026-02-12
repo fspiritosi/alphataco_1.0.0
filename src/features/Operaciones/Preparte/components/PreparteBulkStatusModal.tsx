@@ -11,9 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
-import { updateMultiplePreparteStatus } from '../actions/preparte';
+import { confirmMultiplePrepartesToDailyReport, updateMultiplePreparteStatus } from '../actions/preparte';
 import { PreparteItem } from './PreparteManager';
+
+const logger = new Logger('PreparteBulkStatusModal');
 
 interface PreparteBulkStatusModalProps {
   isOpen: boolean;
@@ -64,30 +67,53 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
     try {
       setIsLoading(true);
 
-      // Obtener los IDs de los prepartes seleccionados
-      const selectedIds = selectedRows.map((row) => row.id);
+      if (status === 'confirmado') {
+        // Para "confirmado": confirmar todos los prepartes y migrarlos al parte diario
+        const selectedIds = selectedRows.map((row) => row.id);
+        const result = await confirmMultiplePrepartesToDailyReport(selectedIds, confirmedBy);
 
-      // Preparar los datos de actualización
-      const updateData: any = { status };
+        if (result.succeeded > 0) {
+          const skippedInfo = result.skipped > 0 ? ` (${result.skipped} ya estaban en el parte diario)` : '';
+          toast({
+            title: 'Pedidos confirmados',
+            description: `Se confirmaron ${result.succeeded} pedido${result.succeeded > 1 ? 's' : ''} y se enviaron al parte diario.${skippedInfo}`,
+          });
+        } else if (result.skipped > 0 && result.errors.length === 0) {
+          toast({
+            title: 'Sin cambios',
+            description: `Los ${result.skipped} pedido${result.skipped > 1 ? 's' : ''} seleccionados ya estaban en el parte diario.`,
+          });
+        }
 
-      // Agregar el campo de motivo según el estado
-      if (status === 'cancelado') {
-        updateData.cancel_reason = reason;
-      } else if (status === 'rechazado') {
-        updateData.rejected_reason = reason;
-      } else if (status === 'reprogramado') {
-        updateData.reprogram_reason = reason;
-      } else if (status === 'confirmado') {
-        updateData.confirmed_by = confirmedBy;
+        if (result.errors.length > 0) {
+          toast({
+            title: `${result.errors.length} pedido${result.errors.length > 1 ? 's' : ''} no se pudieron confirmar`,
+            description: result.errors.join('. '),
+            variant: 'destructive',
+            duration: 10000,
+          });
+        }
+      } else {
+        // Para otros estados: usar la actualización masiva existente
+        const selectedIds = selectedRows.map((row) => row.id);
+
+        const updateData: Record<string, string> = { status };
+
+        if (status === 'cancelado') {
+          updateData.cancel_reason = reason;
+        } else if (status === 'rechazado') {
+          updateData.rejected_reason = reason;
+        } else if (status === 'reprogramado') {
+          updateData.reprogram_reason = reason;
+        }
+
+        await updateMultiplePreparteStatus(selectedIds, updateData);
+
+        toast({
+          title: 'Éxito',
+          description: `Se actualizó el estado de ${selectedRows.length} pedido${selectedRows.length > 1 ? 's' : ''} a "${status}".`,
+        });
       }
-
-      // Actualizar el estado de todos los prepartes seleccionados
-      await updateMultiplePreparteStatus(selectedIds, updateData);
-
-      toast({
-        title: 'Éxito',
-        description: `Se actualizó el estado de ${selectedRows.length} pedido${selectedRows.length > 1 ? 's' : ''} a "${status}".`,
-      });
 
       // Llamar onSuccess para refrescar la tabla
       if (onSuccess) {
@@ -96,7 +122,7 @@ export function PreparteBulkStatusModal({ isOpen, onClose, selectedRows, onSucce
 
       onClose();
     } catch (error) {
-      console.error('Error al actualizar estados:', error);
+      logger.error('Error al actualizar estados', { data: { error } });
       toast({
         title: 'Error',
         description: 'Ocurrió un error al actualizar los estados.',

@@ -1,8 +1,14 @@
 'use server';
 
+import {
+  checkDailyReportExists,
+  createDailyReport,
+  createDailyReportCustomerEquipmentRelations,
+  createDailyReportRow,
+} from '@/features/Operaciones/PartesDiarios/actions/actions';
 import { Logger } from '@/lib/logger';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
-// import { cookies } from 'next/headers';
+import moment from 'moment';
 
 const logger = new Logger('preparte-actions');
 
@@ -673,6 +679,161 @@ export async function updateMultiplePreparteStatus(
   }
 
   return data;
+}
+
+/**
+ * Confirma un preparte individual y lo migra al parte diario.
+ * Fuente única de verdad para la lógica de confirmación.
+ * Usado desde handleConfirm (individual) y confirmMultiplePrepartesToDailyReport (masivo).
+ *
+ * @param overrideExecutionDate - Fecha de ejecución override (para el flujo vencido con nueva fecha)
+ * @param confirmedBy - Nombre de quien confirma (opcional; si no se pasa, no se actualiza)
+ * @param dailyReportCache - Cache interno de dailyReportId por fecha (para optimizar bulk)
+ */
+async function _confirmSinglePreparte(
+  preparteId: string,
+  overrideExecutionDate?: string,
+  confirmedBy?: string,
+  dailyReportCache?: Map<string, string>
+) {
+  const supabase = await supabaseServer();
+
+  // 1. Verificar si ya tiene fila en dailyreportrows (protección contra duplicados / UNIQUE constraint)
+  const { data: existingRow } = await supabase
+    .from('dailyreportrows')
+    .select('id')
+    .eq('preparte_id', preparteId)
+    .maybeSingle();
+
+  if (existingRow) {
+    // Ya migrado: solo actualizar confirmed_by si se proporcionó
+    if (confirmedBy) {
+      await updatePreparte(preparteId, { confirmed_by: confirmedBy });
+    }
+    return { success: true, dailyReportRowId: existingRow.id, alreadyExisted: true };
+  }
+
+  // 2. Obtener datos actuales del preparte
+  const preparte = await getPreparteById(preparteId);
+  if (!preparte) {
+    throw new Error('No se encontró el pedido');
+  }
+
+  // 3. Determinar fecha de ejecución (override tiene prioridad sobre la de BD)
+  const rawDate = overrideExecutionDate || preparte.executionDate;
+  const execDateValue = rawDate ? new Date(rawDate) : null;
+
+  if (preparte.subject_to_availability && !execDateValue) {
+    throw new Error(`${preparte.numero_pedido || preparteId}: sujeto a disponibilidad sin fecha asignada`);
+  }
+
+  if (!execDateValue || isNaN(execDateValue.getTime())) {
+    throw new Error(`${preparte.numero_pedido || preparteId}: sin fecha de ejecución válida`);
+  }
+
+  // 4. Verificar/crear daily report para la fecha (con cache para bulk)
+  const executionDate = moment(execDateValue).format('YYYY-MM-DD');
+  let dailyReportId = dailyReportCache?.get(executionDate);
+
+  if (!dailyReportId) {
+    const existingReports = await checkDailyReportExists([executionDate]);
+    dailyReportId = existingReports[0]?.id;
+
+    if (!dailyReportId) {
+      const newReport = await createDailyReport([executionDate]);
+      if (!newReport?.[0]?.id) {
+        throw new Error('No se pudo crear el parte diario');
+      }
+      dailyReportId = newReport[0].id;
+    }
+
+    dailyReportCache?.set(executionDate, dailyReportId);
+  }
+
+  // 5. Crear fila en dailyreportrows
+  const dailyReportData = {
+    daily_report_id: dailyReportId,
+    customer_id: preparte.cliente_id,
+    service_id: preparte.contrato_id,
+    item_id: preparte.item,
+    start_time: preparte.start_time || null,
+    end_time: preparte.end_time || null,
+    working_day: preparte.jornada,
+    description: preparte.observaciones || '',
+    sector_service_id: preparte.sector_service_id,
+    areas_service_id: preparte.areas_service_id,
+    type_service: preparte.tipo as 'mensual' | 'adicional' | 'adicional_permanente',
+    status: 'sin_recursos_asignados' as const,
+    preparte_id: preparteId,
+  };
+
+  const createdRows = await createDailyReportRow([dailyReportData]);
+  const createdRowId = createdRows?.[0]?.id;
+
+  if (!createdRowId) {
+    throw new Error('No se pudo crear la fila en el parte diario');
+  }
+
+  // 6. Asociar equipos del cliente si existen
+  if (preparte.equipos_cliente) {
+    const equipmentIds = Array.isArray(preparte.equipos_cliente)
+      ? preparte.equipos_cliente
+      : [preparte.equipos_cliente].filter(Boolean);
+
+    if (equipmentIds.length > 0) {
+      await createDailyReportCustomerEquipmentRelations(createdRowId, equipmentIds);
+    }
+  }
+
+  // 7. Actualizar status del preparte
+  const statusUpdate: Partial<Preparte> = {
+    status: preparte.status === 'vencido' ? 'vencido' : 'confirmado',
+  };
+  if (confirmedBy) {
+    statusUpdate.confirmed_by = confirmedBy;
+  }
+  await updatePreparte(preparteId, statusUpdate);
+
+  return { success: true, dailyReportRowId: createdRowId, alreadyExisted: false };
+}
+
+/**
+ * Server action: Confirma un preparte individual y lo migra al parte diario.
+ * Usado desde handleConfirm (individual) en PreparteManager.
+ *
+ * @param overrideExecutionDate - ISO string de fecha override (para vencidos con nueva fecha)
+ */
+export async function confirmPreparteToDailyReport(preparteId: string, overrideExecutionDate?: string) {
+  return _confirmSinglePreparte(preparteId, overrideExecutionDate);
+}
+
+/**
+ * Server action: Confirma múltiples prepartes y los migra al parte diario.
+ * Usado desde PreparteBulkStatusModal (masivo).
+ * Gestiona un cache interno de daily reports por fecha para optimizar.
+ */
+export async function confirmMultiplePrepartesToDailyReport(preparteIds: string[], confirmedBy: string) {
+  const dailyReportCache = new Map<string, string>();
+  let succeeded = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const id of preparteIds) {
+    try {
+      const result = await _confirmSinglePreparte(id, undefined, confirmedBy, dailyReportCache);
+      if (result.alreadyExisted) {
+        skipped++;
+      } else {
+        succeeded++;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      errors.push(message);
+      logger.error('Error al confirmar preparte en bulk', { data: { preparteId: id, error } });
+    }
+  }
+
+  return { succeeded, skipped, errors };
 }
 
 /**
