@@ -1,4 +1,6 @@
 import MaintenanceGroupsWrapper from '@/components/Tipos_de_reparaciones/MaintenanceGroupsWrapper';
+import RepairEntryWrapper from '@/components/Tipos_de_reparaciones/RepairEntryWrapper';
+import RepairSolicitudesWrapper from '@/components/Tipos_de_reparaciones/RepairSolicitudesWrapper';
 import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairTypeFormWrapper';
 import { ApprovalInboxSkeleton, ApprovalInboxTabContent } from '@/features/Mantenimiento/ApprovalInbox';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
@@ -66,6 +68,38 @@ export default async function MantenimientoComponent({ searchParams, permissions
       defaultTab="maint_operaciones"
       permissions={permissions}
       tabs={[
+        {
+          value: 'created_solicitudes',
+          label: (
+            <span className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              {true ? 'Solicitudes Activas' : 'Solicitudes'}
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'created_solicitudes' as const,
+          content: (
+            <Suspense fallback={<div>Cargando solicitudes...</div>}>
+              <RepairSolicitudesWrapper mechanic={true} />
+            </Suspense>
+          ),
+        },
+        {
+          value: 'type_of_repair_new_entry',
+          label: (
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nueva Solicitud
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'type_of_repair_new_entry' as const,
+          content: (
+            <Suspense fallback={<div>Cargando formulario...</div>}>
+              <RepairEntryWrapper searchParams={searchParams} permissions={permissions} />
+            </Suspense>
+          ),
+        },
         // ============================================
         // TAB 1: OPERACIONES
         // ============================================
