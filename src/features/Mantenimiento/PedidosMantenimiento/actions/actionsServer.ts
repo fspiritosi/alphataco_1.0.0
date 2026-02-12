@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { generateMaintenanceOrderNumber } from '../../OrderManagement/actions/actionsServer';
 import type { ApproveWorkshopEntryInput, MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
@@ -363,6 +364,9 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
     });
     throw updateVehicleError;
   }
+
+  // Generar número de orden de mantenimiento (OM-DOMAIN-XXXXXX)
+  await generateMaintenanceOrderNumber(input.orderId);
 
   serverLogger.info('Entrada a taller aprobada exitosamente', {
     data: { orderId: input.orderId, kilometer: input.kilometer, engine_hours: input.engine_hours },

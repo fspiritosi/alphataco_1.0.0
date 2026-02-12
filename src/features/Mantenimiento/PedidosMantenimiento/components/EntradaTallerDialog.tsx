@@ -18,6 +18,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ORDER_MANAGEMENT_QUERY_KEY } from '../../OrderManagement/hooks/useOrderManagement';
 import { PLANIFICACION_QUERY_KEY } from '../../Planificacion/hooks/usePlanificacion';
 import { PEDIDOS_CONFIRMADOS_QUERY_KEY } from '../Confirmados/components/ConfirmadosTableClient';
 import { approveWorkshopEntryFromOrder, type MaintenanceOrderData } from '../actions/actionsServer';
@@ -127,7 +128,9 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
       queryClient.invalidateQueries({ queryKey: PEDIDOS_PENDIENTES_QUERY_KEY });
       // Invalidar Planificación ya que el equipo ahora está en taller
       queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
-      // Invalidar queries de vehículos (se actualiza condición, km y horómetro)
+      // Invalidar Gestión de Órdenes ya que el equipo entra al taller
+      queryClient.invalidateQueries({ queryKey: [...ORDER_MANAGEMENT_QUERY_KEY] });
+      // Invalidar queries de vehículos (se actualiza condición y km)
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
     },

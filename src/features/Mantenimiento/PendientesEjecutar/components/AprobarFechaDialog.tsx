@@ -18,6 +18,11 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PEDIDOS_CONFIRMADOS_QUERY_KEY } from '../../PedidosMantenimiento/Confirmados/components/ConfirmadosTableClient';
+import {
+  MAINTENANCE_ORDERS_QUERY_KEY,
+  PEDIDOS_PENDIENTES_QUERY_KEY,
+} from '../../PedidosMantenimiento/hooks/useMaintenanceOrders';
 import { approveMaintenanceOrderDate, type MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
 import { PENDIENTES_EJECUTAR_QUERY_KEY } from '../hooks/usePendientesEjecutar';
 
@@ -50,6 +55,9 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
       });
 
       queryClient.invalidateQueries({ queryKey: PENDIENTES_EJECUTAR_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PEDIDOS_CONFIRMADOS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PEDIDOS_PENDIENTES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: MAINTENANCE_ORDERS_QUERY_KEY });
       onClose();
     } catch (error) {
       logger.error('Error al aprobar fecha', { data: { error, orderId: order.id } });

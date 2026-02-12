@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { PENDIENTES_EJECUTAR_QUERY_KEY } from '../../PendientesEjecutar/hooks/usePendientesEjecutar';
 import type { MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
 import { getMaintenanceOrders, scheduleMaintenanceOrder } from '../actions/actionsServer';
 
@@ -26,6 +27,7 @@ export function useScheduleMaintenanceOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MAINTENANCE_ORDERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: PEDIDOS_PENDIENTES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PENDIENTES_EJECUTAR_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['maintenance-operations'] });
     },
   });

@@ -6,6 +6,7 @@ import type { QueryClient } from '@tanstack/react-query';
  */
 export function invalidateAllMaintenanceQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+  queryClient.invalidateQueries({ queryKey: ['maintenance', 'order-management'] });
   queryClient.invalidateQueries({ queryKey: ['ordenes-trabajo'] });
   queryClient.invalidateQueries({ queryKey: ['vehicles'] });
   queryClient.invalidateQueries({ queryKey: ['equipment'] });
