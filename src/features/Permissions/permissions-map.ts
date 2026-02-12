@@ -833,6 +833,24 @@ export const PERMISSIONS = {
     name: 'Mantenimiento',
     moduleId: '421e96da-5235-4857-bf81-e63336447f13',
     tabs: {
+      // Solicitudes Activas
+      created_solicitudes: {
+        slug: 'created_solicitudes',
+        name: 'Solicitudes Activas',
+        tabId: '60000000-0000-0000-0000-000000000011',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
+      // Nueva Solicitud
+      type_of_repair_new_entry: {
+        slug: 'type_of_repair_new_entry',
+        name: 'Nueva Solicitud',
+        tabId: '60000000-0000-0000-0000-000000000013',
+        parent: null,
+        allowedActions: ['view'],
+        subtabs: {},
+      },
       // Tab 1: Operaciones
       maint_operaciones: {
         slug: 'maint_operaciones',
