@@ -36,6 +36,11 @@ npm run migration-status # Check migration status
 # Testing
 npm run test:e2e         # Run Cypress E2E tests headless
 npm run test:e2e:open    # Open Cypress test runner
+
+# Git Worktree (trabajo paralelo)
+git worktree add ../gh_gestion-<nombre> -b <branch>   # Crear worktree + branch
+git worktree list                                       # Listar worktrees activos
+git worktree remove ../gh_gestion-<nombre>              # Eliminar worktree
 ```
 
 ## MCPs Disponibles
@@ -158,7 +163,11 @@ moment(date1).isBefore(date2);
 
 **NO** crear archivos markdown (.md) a menos que se solicite explicitamente.
 
-### 4. NUNCA Co-Authored-By en Commits
+### 4. NO Commit Automatico
+
+**NUNCA** realizar commits automaticamente. Solo hacer commit cuando el usuario lo indique explicitamente (ej: "commitea", "hace commit", "push", etc.). No asumir que se debe commitear despues de completar una tarea.
+
+### 5. NUNCA Co-Authored-By en Commits
 
 **ESTRICTAMENTE PROHIBIDO** agregar `Co-Authored-By` en los mensajes de commit. JAMAS incluir referencias a IA, Claude, o cualquier co-autor automatico en los commits.
 
