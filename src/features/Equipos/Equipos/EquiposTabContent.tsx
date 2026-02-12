@@ -1,4 +1,5 @@
 import { TabsManagerServer } from '@/features/TabsManager';
+import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Car, Package, XCircle } from 'lucide-react';
 import { Suspense } from 'react';
 import EquipmentTableWrapperServer from './components/EquipmentTableWrapperServer';
@@ -30,7 +31,7 @@ export default function EquiposTabContent({
           moduleSlug: 'equipos',
           tabSlug: 'vehicles',
           content: (
-            <Suspense fallback={<div>Cargando vehículos...</div>}>
+            <Suspense fallback={<DataTableSkeleton columns={7} />}>
               <EquipmentTableWrapperServer types_of_vehicles="Vehículos" />
             </Suspense>
           ),
@@ -46,7 +47,7 @@ export default function EquiposTabContent({
           moduleSlug: 'equipos',
           tabSlug: 'others',
           content: (
-            <Suspense fallback={<div>Cargando otros equipos...</div>}>
+            <Suspense fallback={<DataTableSkeleton columns={7} />}>
               <OtrosEquipmentTableWrapperServer types_of_vehicles="Otros" />
             </Suspense>
           ),
@@ -62,7 +63,7 @@ export default function EquiposTabContent({
           moduleSlug: 'equipos',
           tabSlug: 'inactive',
           content: (
-            <Suspense fallback={<div>Cargando equipos dados de baja...</div>}>
+            <Suspense fallback={<DataTableSkeleton columns={7} />}>
               <EquipmentTableWrapperServerInactive types_of_vehicles="all" />
             </Suspense>
           ),

@@ -137,8 +137,8 @@ async function fetchEmployeesBase(options: FetchEmployeesOptions, isActive: bool
   // Aplicar filtro de is_active
   query = query.eq('is_active', isActive);
 
-  // Aplicar ordenamiento + default por lastname
-  const allSorting = [...options.sorting, { id: 'lastname', desc: true }];
+  // Aplicar ordenamiento + default por lastname (A→Z)
+  const allSorting = [...options.sorting, { id: 'lastname', desc: false }];
   for (const sort of allSorting) {
     if (sort.id.includes('.')) {
       const parts = sort.id.split('.');

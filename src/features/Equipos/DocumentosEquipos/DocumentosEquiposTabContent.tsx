@@ -3,6 +3,7 @@ import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosE
 import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
@@ -37,7 +38,7 @@ export default async function DocumentosEquiposTabContent({
             moduleSlug: 'equipos',
             tabSlug: 'docs-equipos-permanentes',
             content: (
-              <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
+              <Suspense fallback={<DataTableSkeleton columns={5} />}>
                 <PermanentEquipmentDocumentsWrapper />
               </Suspense>
             ),
@@ -53,7 +54,7 @@ export default async function DocumentosEquiposTabContent({
             moduleSlug: 'equipos',
             tabSlug: 'docs-equipos-mensuales',
             content: (
-              <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
+              <Suspense fallback={<DataTableSkeleton columns={5} />}>
                 <MonthlyEquipmentDocumentsWrapper />
               </Suspense>
             ),

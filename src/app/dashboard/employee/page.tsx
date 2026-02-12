@@ -9,6 +9,7 @@ import EmpleadosInactivosTable from '@/features/Employees/Empleados/EmpleadosTab
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -91,7 +92,7 @@ export default async function EmployeePage({
                       moduleSlug: 'empleados',
                       tabSlug: 'empleados-activos',
                       content: (
-                        <Suspense fallback={<div>Cargando empleados activos...</div>}>
+                        <Suspense fallback={<DataTableSkeleton columns={7} />}>
                           <EmployeeTable />
                         </Suspense>
                       ),
@@ -107,7 +108,7 @@ export default async function EmployeePage({
                       moduleSlug: 'empleados',
                       tabSlug: 'empleados-inactivos',
                       content: (
-                        <Suspense fallback={<div>Cargando empleados inactivos...</div>}>
+                        <Suspense fallback={<DataTableSkeleton columns={7} />}>
                           <EmpleadosInactivosTable />
                         </Suspense>
                       ),
@@ -151,7 +152,7 @@ export default async function EmployeePage({
                       moduleSlug: 'empleados',
                       tabSlug: 'docs-empleados-permanentes',
                       content: (
-                        <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
+                        <Suspense fallback={<DataTableSkeleton columns={5} />}>
                           <PermanentDocuments />
                         </Suspense>
                       ),
@@ -167,7 +168,7 @@ export default async function EmployeePage({
                       moduleSlug: 'empleados',
                       tabSlug: 'docs-empleados-mensuales',
                       content: (
-                        <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
+                        <Suspense fallback={<DataTableSkeleton columns={5} />}>
                           <MonthlyDocuments />
                         </Suspense>
                       ),
@@ -201,7 +202,7 @@ export default async function EmployeePage({
             moduleSlug: 'documentacion' as const,
             tabSlug: 'tipos-de-documentos' as const,
             content: (
-              <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
+              <Suspense fallback={<DataTableSkeleton columns={4} />}>
                 <TiposDocumentosTabContent
                   searchParams={resolvedSearchParams}
                   showOnlyPersonas={true}
@@ -221,7 +222,7 @@ export default async function EmployeePage({
             moduleSlug: 'empleados' as const,
             tabSlug: 'covenant' as const,
             content: (
-              <Suspense fallback={<div>Cargando convenios...</div>}>
+              <Suspense fallback={<DataTableSkeleton columns={3} rows={5} />}>
                 <CovenantTreeFileWrapper />
               </Suspense>
             ),
