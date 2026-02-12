@@ -25,12 +25,13 @@ const statusConfig: Record<string, { label: string; variant: NonNullable<BadgePr
   in_progress: { label: 'En Progreso', variant: 'default' },
   paused: { label: 'Pausado', variant: 'warning' },
   completed: { label: 'Completado', variant: 'success' },
-  completed_partial: { label: 'Completado Parcial', variant: 'warning' },
+  completed_partial: { label: 'Parcial', variant: 'warning' },
 };
 
 export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
   const router = useRouter();
   const isBlocked = workOrder.is_blocked;
+  const isCompleted = workOrder.status === 'completed' || workOrder.status === 'completed_partial';
 
   const handleClick = () => {
     if (isBlocked) return;
@@ -43,35 +44,39 @@ export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
   const totalRepairs = allRepairs.length;
   const progress = totalRepairs > 0 ? Math.round((completedRepairs.length / totalRepairs) * 100) : 0;
 
-  // Get vehicle info from equipment_id relation
+  // Get vehicle info
   const vehicle = workOrder.vehicles;
-  const vehicleInfo = vehicle?.domain || vehicle?.serie || 'Sin vehículo';
+  const vehicleDomain = vehicle?.domain || vehicle?.serie || 'Sin vehiculo';
   const internNumber = vehicle?.intern_number ? `#${vehicle.intern_number}` : '';
 
-  // Get OM number from first work_order_item -> maintenance_order_items -> maintenance_orders
+  // Get OM number
   const omNumber = workOrder.work_order_items?.[0]?.maintenance_order_items?.maintenance_orders?.order_number || 'N/A';
 
-  // Check for pending DIAGNÓSTICO
+  // Check for pending DIAGNOSTICO
   const hasPendingDiagnostico = allRepairs.some((r) => r.is_diagnostico && r.status !== 'completed');
 
-  // Priority config
+  // Priority & Status config
   const priority = workOrder.priority || 'medium';
   const priorityData = priorityConfig[priority] || priorityConfig.medium;
-
-  // Status config
   const status = workOrder.status || 'pending';
   const statusData = statusConfig[status] || statusConfig.pending;
 
   return (
     <Card
-      className={`transition-colors ${isBlocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-accent/50'}`}
+      className={`transition-all duration-200 ${
+        isBlocked
+          ? 'opacity-50 cursor-not-allowed'
+          : isCompleted
+            ? 'opacity-60 cursor-pointer hover:bg-accent/50'
+            : 'cursor-pointer hover:bg-accent/50 active:scale-[0.98]'
+      }`}
       onClick={handleClick}
     >
-      <CardContent className="p-4 relative">
+      <CardContent className="p-4 sm:p-5 relative min-h-[120px]">
         {/* Blocked overlay */}
         {isBlocked && (
-          <div className="absolute inset-0 bg-muted/20 rounded-lg flex items-center justify-center z-10">
-            <div className="flex items-center gap-2 bg-background/90 px-3 py-1.5 rounded-full border shadow-sm">
+          <div className="absolute inset-0 bg-muted/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
+            <div className="flex items-center gap-2 bg-background/95 px-4 py-2 rounded-full border shadow-sm">
               <Lock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-muted-foreground">
                 Esperando {workOrder.blocked_by_sector || 'sector anterior'}
@@ -80,60 +85,59 @@ export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
           </div>
         )}
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex-1 space-y-3">
-            {/* Header: Work Order Number and OM */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold text-lg">OT {workOrder.order_number}</h3>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-sm text-muted-foreground">OM {omNumber}</span>
+            {/* Vehicle info - PRIMARY hierarchy */}
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold sm:text-xl">{vehicleDomain}</h3>
+                {internNumber && <span className="text-base font-medium text-muted-foreground">{internNumber}</span>}
+              </div>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
+                <span>OT {workOrder.order_number}</span>
+                <span>·</span>
+                <span>OM {omNumber}</span>
+              </div>
             </div>
 
-            {/* Vehicle Info */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium">{vehicleInfo}</span>
-              {internNumber && (
-                <>
-                  <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground">{internNumber}</span>
-                </>
-              )}
-            </div>
-
-            {/* Badges: Priority and Status */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={priorityData.variant}>{priorityData.label}</Badge>
-              <Badge variant={statusData.variant}>{statusData.label}</Badge>
+            {/* Badges */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge variant={priorityData.variant} className="text-xs sm:text-sm">
+                {priorityData.label}
+              </Badge>
+              <Badge variant={statusData.variant} className="text-xs sm:text-sm">
+                {statusData.label}
+              </Badge>
               {hasPendingDiagnostico && !isBlocked && (
-                <Badge variant="warning" className="gap-1">
+                <Badge variant="warning" className="gap-1 text-xs sm:text-sm">
                   <Stethoscope className="h-3 w-3" />
-                  Diagnóstico pendiente
+                  Diagnostico
                 </Badge>
               )}
             </div>
 
-            {/* Progress */}
-            <div className="space-y-2">
+            {/* Progress bar - thicker */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Progreso</span>
-                <span className="font-medium">
-                  {completedRepairs.length} / {totalRepairs}
+                <span className="font-semibold tabular-nums">
+                  {completedRepairs.length}/{totalRepairs}
                 </span>
               </div>
-              <Progress value={progress} />
+              <Progress value={progress} className="h-2.5" />
             </div>
 
-            {/* Planned Start Date */}
+            {/* Date */}
             {workOrder.planned_start_date && (
-              <div className="text-sm text-muted-foreground">
-                Inicio planeado: {moment(workOrder.planned_start_date).format('DD/MM/YYYY')}
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Inicio: {moment(workOrder.planned_start_date).format('DD/MM/YYYY')}
+              </p>
             )}
           </div>
 
-          {/* Chevron Icon */}
-          {!isBlocked && (
-            <div className="flex-shrink-0 self-center">
+          {/* Chevron */}
+          {!isBlocked && !isCompleted && (
+            <div className="flex-shrink-0">
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </div>
           )}

@@ -1,5 +1,6 @@
 'use server';
 
+import { DIAGNOSTICO_REPAIR_TYPE_ID } from '@/features/Mantenimiento/utils/constants';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -210,7 +211,10 @@ async function getWorkOrderBlockingStatus(
         if (seq >= mySeq) continue;
 
         // Check if any WO in this lower sector is NOT completed
+        // Skip items from the same sector - they shouldn't block each other
         const hasIncomplete = seqItems.some((si) => {
+          if (si.assigned_sector_id === myItem.assigned_sector_id) return false;
+
           const wo = si.work_orders;
           if (!wo || typeof wo !== 'object') return true;
           const status = 'status' in wo ? wo.status : null;
@@ -242,8 +246,12 @@ async function getWorkOrderBlockingStatus(
 // WORK ORDERS - LIST
 // =============================================================================
 
-export async function getWorkOrdersForOperator(sectorId: string) {
+export async function getWorkOrdersForOperator(sectorId: string, includeCompleted?: boolean) {
   const supabase = await supabaseServer();
+
+  const statuses = includeCompleted
+    ? ['pending', 'in_progress', 'paused', 'completed', 'completed_partial']
+    : ['pending', 'in_progress', 'paused'];
 
   const { data, error } = await supabase
     .from('work_orders')
@@ -261,9 +269,10 @@ export async function getWorkOrdersForOperator(sectorId: string) {
     `
     )
     .eq('sector_id', sectorId)
-    .in('status', ['pending', 'in_progress', 'paused'])
+    .in('status', statuses)
     .order('priority', { ascending: true })
-    .order('planned_start_date', { ascending: true, nullsFirst: false });
+    .order('planned_start_date', { ascending: true, nullsFirst: false })
+    .limit(50);
 
   if (error) {
     logger.error('Error fetching operator work orders', { data: { error } });
@@ -523,7 +532,9 @@ export async function getRepairTypesForSector(sectorId: string) {
     throw error;
   }
 
-  return (data || []).map((d) => d.types_of_repairs).filter((rt): rt is NonNullable<typeof rt> => rt !== null);
+  return (data || [])
+    .map((d) => d.types_of_repairs)
+    .filter((rt): rt is NonNullable<typeof rt> => rt !== null && rt.id !== DIAGNOSTICO_REPAIR_TYPE_ID);
 }
 
 export async function getAllRepairTypes() {
@@ -533,6 +544,7 @@ export async function getAllRepairTypes() {
     .from('types_of_repairs')
     .select('id, name, autorizable, criticity')
     .eq('is_active', true)
+    .neq('id', DIAGNOSTICO_REPAIR_TYPE_ID)
     .order('name');
 
   if (error) {
