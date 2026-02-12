@@ -4,17 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
-  checkDailyReportExists,
-  createDailyReport,
-  createDailyReportCustomerEquipmentRelations,
-  createDailyReportRow,
-} from '@/features/Operaciones/PartesDiarios/actions/actions';
-import {
+  confirmPreparteToDailyReport,
   createPreparte,
   deletePreparte,
   fetchPrepartes,
   getLastOrderNumber,
-  getPreparteById,
   listPrepartes,
   movePreparteFile,
   updatePreparte,
@@ -24,7 +18,7 @@ import { PermissionGuard } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { VisibilityState } from '@tanstack/react-table';
-import { format } from 'date-fns';
+
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -443,8 +437,7 @@ export function PreparteManager({
 
   const handleConfirm = async (item: PreparteItem) => {
     try {
-      // Normalizar executionDate: puede venir como string ISO de la BD o como objeto { from, to } del formulario
-      // executionDate viene de la BD como string ISO o null
+      // executionDate puede venir como string ISO de la BD o como Date (flujo vencido con fecha seleccionada)
       const execDateValue: Date | null = item.executionDate ? new Date(item.executionDate) : null;
 
       // Verificar si está sujeto a disponibilidad y no tiene fecha
@@ -464,71 +457,9 @@ export function PreparteManager({
         throw new Error('El pedido no tiene fecha de ejecución válida');
       }
 
-      // 1. Format execution date
-      const executionDate = format(execDateValue, 'yyyy-MM-dd');
+      // Confirmar y migrar al parte diario via server action
+      await confirmPreparteToDailyReport(item.id, execDateValue.toISOString());
 
-      // 2. Check if daily report exists for this date
-      const existingReports = await checkDailyReportExists([executionDate]);
-      let dailyReportId = existingReports[0]?.id;
-
-      // 3. Create new daily report if it doesn't exist
-      if (!dailyReportId) {
-        const newReport = await createDailyReport([executionDate]);
-        if (!newReport?.[0]?.id) {
-          throw new Error('No se pudo crear el parte diario');
-        }
-        dailyReportId = newReport[0].id;
-      }
-
-      // 4. Get the current preparte record to ensure we have the latest data
-      const currentItem = await getPreparteById(item.id);
-
-      if (!currentItem) {
-        throw new Error('No se pudo cargar el pedido');
-      }
-
-      // 5. Create daily report row
-      const dailyReportData = {
-        daily_report_id: dailyReportId,
-        customer_id: currentItem.cliente_id,
-        service_id: currentItem.contrato_id,
-        item_id: currentItem.item,
-        start_time: currentItem.start_time || null,
-        end_time: currentItem.end_time || null,
-        working_day: currentItem.jornada,
-        description: currentItem.observaciones || '',
-        sector_service_id: currentItem.sector_service_id,
-        areas_service_id: currentItem.areas_service_id,
-        type_service: currentItem.tipo as 'mensual' | 'adicional' | 'adicional_permanente',
-        status: 'sin_recursos_asignados' as const,
-        preparte_id: item.id,
-      };
-
-      const createdRows = await createDailyReportRow([dailyReportData]);
-      const createdRowId = createdRows?.[0]?.id;
-
-      if (!createdRowId) {
-        throw new Error('No se pudo crear la fila en el parte diario');
-      }
-
-      // 6. Handle equipment if needed
-      if (currentItem.equipos_cliente) {
-        const equipmentIds = Array.isArray(currentItem.equipos_cliente)
-          ? currentItem.equipos_cliente
-          : [currentItem.equipos_cliente].filter(Boolean);
-
-        if (equipmentIds.length > 0) {
-          await createDailyReportCustomerEquipmentRelations(createdRowId, equipmentIds);
-        }
-      }
-
-      // 7. Update preparte status
-      await updatePreparte(currentItem.id, {
-        status: currentItem.status === 'vencido' ? 'vencido' : 'confirmado',
-        updated_at: new Date().toISOString(),
-      });
-
-      // Refresh de la tabla
       refreshTable();
       toast.success('Pedido confirmado y enviado al parte diario');
     } catch (error) {

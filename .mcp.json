@@ -13,8 +13,10 @@
       "url": "https://mcp.supabase.com/mcp?project_ref=oqoeijyxugxzsqzzefnt"
     },
     "shadcn": {
-      "command": "npx",
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "shadcn@latest",
         "mcp"
       ]
