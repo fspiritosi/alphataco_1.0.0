@@ -26,6 +26,7 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
   const contractorCompanies = use(options.contractorCompaniesPromise).filter((c: any) => c.is_active);
   const typeOfContracts = use(options.typeOfContractsPromise);
   const aptitudes = use(options.aptitudesPromise);
+  const workshopSectors = use(options.workshopSectorsPromise);
 
   const allocatedTo = form.watch('allocated_to') || [];
   const selectedAptitudes = form.watch('aptitudes') || [];
@@ -445,6 +446,32 @@ export function EmployeeWorkDataForm({ form, readOnly, options }: EmployeeWorkDa
                 <SelectContent>
                   <SelectItem value="Directo">Directo</SelectItem>
                   <SelectItem value="Indirecto">Indirecto</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Sector de Taller */}
+        <FormField
+          control={form.control}
+          name="workshop_sector_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Sector de Taller</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={readOnly}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione el sector de taller" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {workshopSectors.map((sector) => (
+                    <SelectItem key={sector.id} value={sector.id}>
+                      {sector.workshops?.name ? `${sector.name} - ${sector.workshops.name}` : sector.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />

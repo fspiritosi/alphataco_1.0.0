@@ -265,7 +265,7 @@ export default function RepairNewEntryMultiple({
             equipment_id: repair.vehicle_id,
             user_description: repair.description,
             user_id,
-            state: 'Pendiente',
+            state: 'Pendiente' as const,
             employee_id,
             kilometer: repair.kilometer,
           }));

@@ -1,0 +1,99 @@
+'use client';
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+
+export type SectorStatus = 'blocked' | 'pending' | 'in_progress' | 'completed';
+
+export interface SectorTimelineItem {
+  sectorId: string;
+  sectorName: string;
+  sequenceOrder: number;
+  status: SectorStatus;
+  totalTasks: number;
+  completedTasks: number;
+  diagnosticoCompleted: boolean;
+}
+
+interface SectorTimelineProps {
+  sectors: SectorTimelineItem[];
+}
+
+const statusColors: Record<SectorStatus, string> = {
+  blocked: 'bg-muted border-muted-foreground/30 text-muted-foreground',
+  pending: 'bg-blue-100 border-blue-500 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  in_progress: 'bg-yellow-100 border-yellow-500 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+  completed: 'bg-green-100 border-green-500 text-green-700 dark:bg-green-950 dark:text-green-300',
+};
+
+const statusLineColors: Record<SectorStatus, string> = {
+  blocked: 'bg-muted-foreground/30',
+  pending: 'bg-blue-300',
+  in_progress: 'bg-yellow-300',
+  completed: 'bg-green-500',
+};
+
+const statusLabels: Record<SectorStatus, string> = {
+  blocked: 'Bloqueado',
+  pending: 'Pendiente',
+  in_progress: 'En progreso',
+  completed: 'Completado',
+};
+
+export function SectorTimeline({ sectors }: SectorTimelineProps) {
+  const sorted = [...sectors].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+
+  if (sorted.length === 0) {
+    return <p className="text-sm text-muted-foreground text-center py-4">Sin sectores asignados</p>;
+  }
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <div className="flex items-center gap-0 overflow-x-auto py-2">
+        {sorted.map((sector, index) => (
+          <div key={sector.sectorId} className="flex items-center">
+            {/* Sector circle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex flex-col items-center min-w-[80px]">
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold',
+                      statusColors[sector.status]
+                    )}
+                  >
+                    {sector.sequenceOrder}
+                  </div>
+                  <span className="text-xs mt-1 text-center truncate max-w-[80px]">{sector.sectorName}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {sector.completedTasks}/{sector.totalTasks}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs">
+                  <p className="font-medium">{sector.sectorName}</p>
+                  <p>Estado: {statusLabels[sector.status]}</p>
+                  <p>
+                    Tareas: {sector.completedTasks}/{sector.totalTasks}
+                  </p>
+                  <p>Diagnostico: {sector.diagnosticoCompleted ? 'Completado' : 'Pendiente'}</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Connecting line */}
+            {index < sorted.length - 1 && (
+              <div
+                className={cn(
+                  'h-0.5 w-8 mx-1',
+                  statusLineColors[sorted[index + 1].status === 'blocked' ? 'blocked' : sector.status]
+                )}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </TooltipProvider>
+  );
+}

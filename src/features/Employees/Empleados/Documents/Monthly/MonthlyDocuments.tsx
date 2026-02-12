@@ -14,10 +14,9 @@ async function MonthlyDocuments({}) {
   // 🔑 IMPORTANTE: Carga de datos iniciales en el servidor (reemplaza client-side loading)
   const initialData = await fetchMonthlyDocumentsData({
     pageIndex: 0,
-    pageSize: 10, // ✅ MEJORA: Paginación en lugar de cargar todo
+    pageSize: 10,
     sorting: [],
     columnFilters: [],
-    filters: [], // Filtros permanentes se aplican automáticamente en la función
   });
 
   // ✅ MANTENER: Misma estructura visual, pero ahora server-side optimizado

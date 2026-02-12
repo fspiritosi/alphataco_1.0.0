@@ -17,7 +17,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { MAINTENANCE_ORDERS_QUERY_KEY } from '../../../MaintenanceOrders/hooks/useMaintenanceOrders';
+import { ORDER_MANAGEMENT_QUERY_KEY } from '../../../OrderManagement/hooks/useOrderManagement';
 import { PLANIFICACION_QUERY_KEY } from '../../../Planificacion/hooks/usePlanificacion';
+import { WORKSHOP_TRACKING_QUERY_KEY } from '../../../WorkshopTracking/hooks/useWorkshopTracking';
 import { approveWorkshopEntry, type OrderForWorkshopData } from '../../actions/actionsServer';
 import { PARA_TALLER_QUERY_KEY } from './ParaTallerTableClient';
 
@@ -38,6 +41,10 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
       queryClient.invalidateQueries({ queryKey: PARA_TALLER_QUERY_KEY });
       // Invalidar Planificación ya que el equipo ahora está en taller
       queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
+      // Invalidar Gestion de Ordenes, Ordenes de Mantenimiento y Seguimiento en Taller
+      queryClient.invalidateQueries({ queryKey: [...ORDER_MANAGEMENT_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [...MAINTENANCE_ORDERS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [...WORKSHOP_TRACKING_QUERY_KEY] });
       // Invalidar otras vistas relacionadas
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'operaciones'] });
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'pedidos'] });

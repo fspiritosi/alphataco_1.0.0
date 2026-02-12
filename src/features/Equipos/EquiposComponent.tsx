@@ -3,6 +3,7 @@ import { buttonVariants } from '@/components/ui/button';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -75,7 +76,7 @@ export default async function EquiposComponent({
             moduleSlug: 'documentacion',
             tabSlug: 'tipos-de-documentos',
             content: (
-              <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
+              <Suspense fallback={<DataTableSkeleton columns={4} />}>
                 <TiposDocumentosTabContent
                   searchParams={searchParams}
                   showOnlyEquipos={true}

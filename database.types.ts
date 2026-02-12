@@ -2310,6 +2310,7 @@ export type Database = {
           termination_date: string | null;
           type_of_contract: string | null;
           workflow_diagram: string | null;
+          workshop_sector_id: string | null;
         };
         Insert: {
           affiliate_status?: Database['public']['Enums']['affiliate_status_enum'] | null;
@@ -2352,6 +2353,7 @@ export type Database = {
           termination_date?: string | null;
           type_of_contract?: string | null;
           workflow_diagram?: string | null;
+          workshop_sector_id?: string | null;
         };
         Update: {
           affiliate_status?: Database['public']['Enums']['affiliate_status_enum'] | null;
@@ -2394,6 +2396,7 @@ export type Database = {
           termination_date?: string | null;
           type_of_contract?: string | null;
           workflow_diagram?: string | null;
+          workshop_sector_id?: string | null;
         };
         Relationships: [
           {
@@ -2478,6 +2481,13 @@ export type Database = {
             columns: ['workflow_diagram'];
             isOneToOne: false;
             referencedRelation: 'work_diagram';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'employees_workshop_sector_id_fkey';
+            columns: ['workshop_sector_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshop_sectors';
             referencedColumns: ['id'];
           },
         ];
@@ -3055,11 +3065,13 @@ export type Database = {
           id: string;
           images: string[] | null;
           is_critical: boolean | null;
+          is_diagnostico: boolean;
           maintenance_order_id: string;
           maintenance_request_item_id: string | null;
           planned_end_date: string | null;
           planned_start_date: string | null;
           repair_type_id: string | null;
+          sector_sequence_order: number | null;
           work_order_id: string | null;
         };
         Insert: {
@@ -3072,11 +3084,13 @@ export type Database = {
           id?: string;
           images?: string[] | null;
           is_critical?: boolean | null;
+          is_diagnostico?: boolean;
           maintenance_order_id: string;
           maintenance_request_item_id?: string | null;
           planned_end_date?: string | null;
           planned_start_date?: string | null;
           repair_type_id?: string | null;
+          sector_sequence_order?: number | null;
           work_order_id?: string | null;
         };
         Update: {
@@ -3089,11 +3103,13 @@ export type Database = {
           id?: string;
           images?: string[] | null;
           is_critical?: boolean | null;
+          is_diagnostico?: boolean;
           maintenance_order_id?: string;
           maintenance_request_item_id?: string | null;
           planned_end_date?: string | null;
           planned_start_date?: string | null;
           repair_type_id?: string | null;
+          sector_sequence_order?: number | null;
           work_order_id?: string | null;
         };
         Relationships: [
@@ -3160,6 +3176,10 @@ export type Database = {
           id: string;
           kilometer_at_entry: string | null;
           maintenance_request_id: string | null;
+          operations_validated_at: string | null;
+          operations_validated_by: string | null;
+          operations_validation_notes: string | null;
+          order_number: string | null;
           rejected_at: string | null;
           rejected_by: string | null;
           rejection_reason: string | null;
@@ -3171,6 +3191,8 @@ export type Database = {
           updated_at: string | null;
           workshop_approved_by: string | null;
           workshop_entry_date: string | null;
+          workshop_validated_at: string | null;
+          workshop_validation_notes: string | null;
         };
         Insert: {
           created_at?: string | null;
@@ -3183,6 +3205,10 @@ export type Database = {
           id?: string;
           kilometer_at_entry?: string | null;
           maintenance_request_id?: string | null;
+          operations_validated_at?: string | null;
+          operations_validated_by?: string | null;
+          operations_validation_notes?: string | null;
+          order_number?: string | null;
           rejected_at?: string | null;
           rejected_by?: string | null;
           rejection_reason?: string | null;
@@ -3194,6 +3220,8 @@ export type Database = {
           updated_at?: string | null;
           workshop_approved_by?: string | null;
           workshop_entry_date?: string | null;
+          workshop_validated_at?: string | null;
+          workshop_validation_notes?: string | null;
         };
         Update: {
           created_at?: string | null;
@@ -3206,6 +3234,10 @@ export type Database = {
           id?: string;
           kilometer_at_entry?: string | null;
           maintenance_request_id?: string | null;
+          operations_validated_at?: string | null;
+          operations_validated_by?: string | null;
+          operations_validation_notes?: string | null;
+          order_number?: string | null;
           rejected_at?: string | null;
           rejected_by?: string | null;
           rejection_reason?: string | null;
@@ -3217,6 +3249,8 @@ export type Database = {
           updated_at?: string | null;
           workshop_approved_by?: string | null;
           workshop_entry_date?: string | null;
+          workshop_validated_at?: string | null;
+          workshop_validation_notes?: string | null;
         };
         Relationships: [
           {
@@ -3844,6 +3878,7 @@ export type Database = {
           created_at: string | null;
           credential_id: string | null;
           email: string | null;
+          employee_id: string | null;
           fullname: string | null;
           id: string;
           modulos: Database['public']['Enums']['modulos'][] | null;
@@ -3854,6 +3889,7 @@ export type Database = {
           created_at?: string | null;
           credential_id?: string | null;
           email?: string | null;
+          employee_id?: string | null;
           fullname?: string | null;
           id: string;
           modulos?: Database['public']['Enums']['modulos'][] | null;
@@ -3864,12 +3900,20 @@ export type Database = {
           created_at?: string | null;
           credential_id?: string | null;
           email?: string | null;
+          employee_id?: string | null;
           fullname?: string | null;
           id?: string;
           modulos?: Database['public']['Enums']['modulos'][] | null;
           role?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'profile_employee_id_fkey';
+            columns: ['employee_id'];
+            isOneToOne: false;
+            referencedRelation: 'employees';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'profile_role_fkey';
             columns: ['role'];
@@ -4239,6 +4283,42 @@ export type Database = {
             columns: ['sector_id'];
             isOneToOne: false;
             referencedRelation: 'sectors';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      sector_repair_types: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          repair_type_id: string;
+          workshop_sector_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          repair_type_id: string;
+          workshop_sector_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          repair_type_id?: string;
+          workshop_sector_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sector_repair_types_repair_type_id_fkey';
+            columns: ['repair_type_id'];
+            isOneToOne: false;
+            referencedRelation: 'types_of_repairs';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sector_repair_types_workshop_sector_id_fkey';
+            columns: ['workshop_sector_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshop_sectors';
             referencedColumns: ['id'];
           },
         ];
@@ -4692,6 +4772,7 @@ export type Database = {
       };
       types_of_repairs: {
         Row: {
+          autorizable: boolean;
           company_id: string | null;
           created_at: string;
           criticity: string | null;
@@ -4704,6 +4785,7 @@ export type Database = {
           type_of_maintenance: Database['public']['Enums']['type_of_maintenance_ENUM'] | null;
         };
         Insert: {
+          autorizable?: boolean;
           company_id?: string | null;
           created_at?: string;
           criticity?: string | null;
@@ -4716,6 +4798,7 @@ export type Database = {
           type_of_maintenance?: Database['public']['Enums']['type_of_maintenance_ENUM'] | null;
         };
         Update: {
+          autorizable?: boolean;
           company_id?: string | null;
           created_at?: string;
           criticity?: string | null;
@@ -5103,33 +5186,57 @@ export type Database = {
       };
       work_order_item_repairs: {
         Row: {
+          added_by: string | null;
+          approved_at: string | null;
+          approved_by: string | null;
           completed_at: string | null;
           completed_by: string | null;
           created_at: string | null;
           id: string;
+          is_diagnostico: boolean;
+          is_operator_added: boolean | null;
+          original_sector_id: string | null;
+          rejection_reason: string | null;
           repair_type_id: string;
+          return_reason: string | null;
           status: Database['public']['Enums']['work_order_item_status'];
           technician_notes: string | null;
           updated_at: string | null;
           work_order_item_id: string;
         };
         Insert: {
+          added_by?: string | null;
+          approved_at?: string | null;
+          approved_by?: string | null;
           completed_at?: string | null;
           completed_by?: string | null;
           created_at?: string | null;
           id?: string;
+          is_diagnostico?: boolean;
+          is_operator_added?: boolean | null;
+          original_sector_id?: string | null;
+          rejection_reason?: string | null;
           repair_type_id: string;
+          return_reason?: string | null;
           status?: Database['public']['Enums']['work_order_item_status'];
           technician_notes?: string | null;
           updated_at?: string | null;
           work_order_item_id: string;
         };
         Update: {
+          added_by?: string | null;
+          approved_at?: string | null;
+          approved_by?: string | null;
           completed_at?: string | null;
           completed_by?: string | null;
           created_at?: string | null;
           id?: string;
+          is_diagnostico?: boolean;
+          is_operator_added?: boolean | null;
+          original_sector_id?: string | null;
+          rejection_reason?: string | null;
           repair_type_id?: string;
+          return_reason?: string | null;
           status?: Database['public']['Enums']['work_order_item_status'];
           technician_notes?: string | null;
           updated_at?: string | null;
@@ -5137,10 +5244,31 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: 'work_order_item_repairs_added_by_fkey';
+            columns: ['added_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_order_item_repairs_approved_by_fkey';
+            columns: ['approved_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
             foreignKeyName: 'work_order_item_repairs_completed_by_fkey';
             columns: ['completed_by'];
             isOneToOne: false;
             referencedRelation: 'profile';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'work_order_item_repairs_original_sector_id_fkey';
+            columns: ['original_sector_id'];
+            isOneToOne: false;
+            referencedRelation: 'workshop_sectors';
             referencedColumns: ['id'];
           },
           {
@@ -5740,6 +5868,7 @@ export type Database = {
           termination_date: string | null;
           type_of_contract: string | null;
           workflow_diagram: string | null;
+          workshop_sector_id: string | null;
         }[];
         SetofOptions: {
           from: '*';
@@ -6201,7 +6330,14 @@ export type Database = {
       type_equipment: 'Perforador' | 'Perforador Spudder' | 'Work over' | 'Fractura' | 'Coiled Tubing';
       type_of_contract_enum: 'Período de prueba' | 'A tiempo indeterminado' | 'Plazo fijo';
       type_of_maintenance_ENUM: 'Correctivo' | 'Preventivo' | 'Otro';
-      work_order_item_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+      work_order_item_status:
+        | 'pending'
+        | 'in_progress'
+        | 'completed'
+        | 'cancelled'
+        | 'pending_approval'
+        | 'reassignment_requested'
+        | 'rejected';
       work_order_priority: 'urgent' | 'high' | 'medium' | 'low';
       work_order_status: 'pending' | 'in_progress' | 'paused' | 'completed' | 'completed_partial' | 'cancelled';
       workshop_type: 'interno' | 'externo';
@@ -6401,7 +6537,15 @@ export const Constants = {
       type_equipment: ['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing'],
       type_of_contract_enum: ['Período de prueba', 'A tiempo indeterminado', 'Plazo fijo'],
       type_of_maintenance_ENUM: ['Correctivo', 'Preventivo', 'Otro'],
-      work_order_item_status: ['pending', 'in_progress', 'completed', 'cancelled'],
+      work_order_item_status: [
+        'pending',
+        'in_progress',
+        'completed',
+        'cancelled',
+        'pending_approval',
+        'reassignment_requested',
+        'rejected',
+      ],
       work_order_priority: ['urgent', 'high', 'medium', 'low'],
       work_order_status: ['pending', 'in_progress', 'paused', 'completed', 'completed_partial', 'cancelled'],
       workshop_type: ['interno', 'externo'],

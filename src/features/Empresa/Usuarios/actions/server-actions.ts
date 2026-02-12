@@ -2,9 +2,11 @@
 
 import { fetchCurrentCompany } from '@/app/server/GET/actions';
 import { queryWithPagination, type Filter } from '@/app/server/GET/probando';
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
-// import { supabaseBrowser } from '@/lib/supabase/browser';
+
+const logger = new Logger('UserActions');
 
 /**
  * 🔑 Helper: Obtiene los profile_ids de usuarios que tienen los roles especificados
@@ -63,28 +65,34 @@ export async function fetchAllCompanyUsersData(options: {
     }
   }
 
-  const data = await queryWithPagination('share_company_users', 'id,created_at,company_id,profile(*)', {
-    pageIndex: 0,
-    pageSize: 10000, // 🔑 Tamaño grande para exportación
-    sorting: options.sorting,
-    columnFilters: otherFilters,
-    server: options.server,
-    permanent_filter: (query) => {
-      let filteredQuery = query.order('fullname', { nullsFirst: false, referencedTable: 'profile', ascending: true });
+  const data = await queryWithPagination(
+    'share_company_users',
+    'id,created_at,company_id,profile(*,employees:employee_id(id,firstname,lastname,cuil))',
+    {
+      pageIndex: 0,
+      pageSize: 10000,
+      sorting: options.sorting,
+      columnFilters: otherFilters,
+      server: options.server,
+      permanent_filter: (query) => {
+        let filteredQuery = query.order('fullname', {
+          nullsFirst: false,
+          referencedTable: 'profile',
+          ascending: true,
+        });
 
-      // 🔑 Aplicar filtro por profile_ids que tienen los roles seleccionados
-      if (profileIdsWithRoles && profileIdsWithRoles.length > 0) {
-        filteredQuery = filteredQuery.in('profile_id', profileIdsWithRoles);
-      } else if (profileIdsWithRoles !== undefined && profileIdsWithRoles.length === 0) {
-        // Si no hay usuarios con esos roles, retornar vacío usando un ID imposible
-        filteredQuery = filteredQuery.eq('id', '00000000-0000-0000-0000-000000000000');
-      }
+        if (profileIdsWithRoles && profileIdsWithRoles.length > 0) {
+          filteredQuery = filteredQuery.in('profile_id', profileIdsWithRoles);
+        } else if (profileIdsWithRoles !== undefined && profileIdsWithRoles.length === 0) {
+          filteredQuery = filteredQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+        }
 
-      return filteredQuery;
-    },
-  });
+        return filteredQuery;
+      },
+    }
+  );
 
-  return { rows: data.rows }; // Mantener estructura para compatibilidad
+  return { rows: data.rows };
 }
 
 export async function fetchCompanyUsers(options: FetchDataOptions) {
@@ -101,23 +109,25 @@ export async function fetchCompanyUsers(options: FetchDataOptions) {
     }
   }
 
-  const data = await queryWithPagination('share_company_users', 'id,created_at,company_id,profile(*)', {
-    pageIndex: options.pageIndex,
-    pageSize: options.pageSize,
-    sorting: options.sorting.length > 0 ? options.sorting : [{ id: 'profile.fullname', desc: true }],
-    columnFilters: otherFilters,
-    server: true,
-    permanent_filter: (query) => {
-      // 🔑 Aplicar filtro por profile_ids que tienen los roles seleccionados
-      if (profileIdsWithRoles && profileIdsWithRoles.length > 0) {
-        query = query.in('profile_id', profileIdsWithRoles);
-      } else if (profileIdsWithRoles !== undefined && profileIdsWithRoles.length === 0) {
-        // Si no hay usuarios con esos roles, retornar vacío usando un ID imposible
-        query = query.eq('id', '00000000-0000-0000-0000-000000000000');
-      }
-      return query;
-    },
-  });
+  const data = await queryWithPagination(
+    'share_company_users',
+    'id,created_at,company_id,profile(*,employees:employee_id(id,firstname,lastname,cuil))',
+    {
+      pageIndex: options.pageIndex,
+      pageSize: options.pageSize,
+      sorting: options.sorting.length > 0 ? options.sorting : [{ id: 'profile.fullname', desc: true }],
+      columnFilters: otherFilters,
+      server: true,
+      permanent_filter: (query) => {
+        if (profileIdsWithRoles && profileIdsWithRoles.length > 0) {
+          query = query.in('profile_id', profileIdsWithRoles);
+        } else if (profileIdsWithRoles !== undefined && profileIdsWithRoles.length === 0) {
+          query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+        }
+        return query;
+      },
+    }
+  );
 
   return data;
 }
@@ -148,7 +158,7 @@ export async function fetchRoles() {
   const { data, error } = await supabase.from('roles').select('*').eq('intern', false).neq('name', 'Invitado');
 
   if (error) {
-    console.error('Error fetching roles:', error);
+    logger.error('Error fetching roles', { data: { error } });
     return [];
   }
   return data;
@@ -167,7 +177,7 @@ export async function fetchOwner() {
     .single();
 
   if (error) {
-    console.error('Error fetching owner:', error);
+    logger.error('Error fetching owner', { data: { error } });
     return null;
   }
 
@@ -185,4 +195,68 @@ export async function fetchOwner() {
       owner: data,
     },
   };
+}
+
+export async function searchEmployeesForLink(query: string) {
+  const supabase = await supabaseServer();
+  const cookieStore = (await import('next/headers')).cookies;
+  const company_id = (await cookieStore()).get('actualComp')?.value;
+
+  if (!company_id || !query || query.length < 2) return [];
+
+  // Get profile IDs that already have an employee linked
+  const { data: linkedProfiles } = await supabase.from('profile').select('employee_id').not('employee_id', 'is', null);
+
+  const linkedEmployeeIds = linkedProfiles?.map((p) => p.employee_id).filter(Boolean) || [];
+
+  let employeeQuery = supabase
+    .from('employees')
+    .select('id, firstname, lastname, cuil')
+    .eq('company_id', company_id)
+    .eq('is_active', true)
+    .or(`firstname.ilike.%${query}%,lastname.ilike.%${query}%,cuil.ilike.%${query}%`)
+    .order('lastname', { ascending: true })
+    .limit(20);
+
+  // Exclude already linked employees
+  if (linkedEmployeeIds.length > 0) {
+    employeeQuery = employeeQuery.not('id', 'in', `(${linkedEmployeeIds.join(',')})`);
+  }
+
+  const { data, error } = await employeeQuery;
+
+  if (error) {
+    logger.error('Error searching employees for link', { data: { error } });
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function linkEmployeeToProfile(profileId: string, employeeId: string | null) {
+  const supabase = await supabaseServer();
+
+  const { error } = await supabase.from('profile').update({ employee_id: employeeId }).eq('id', profileId);
+
+  if (error) {
+    logger.error('Error linking employee to profile', { data: { error } });
+    throw error;
+  }
+}
+
+export async function getLinkedEmployeeForProfile(profileId: string) {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('profile')
+    .select('employee_id, employees:employee_id(id, firstname, lastname, cuil)')
+    .eq('id', profileId)
+    .single();
+
+  if (error) {
+    logger.error('Error getting linked employee', { data: { error } });
+    return null;
+  }
+
+  return data;
 }

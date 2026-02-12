@@ -1,0 +1,725 @@
+'use client';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
+import { Logger } from '@/lib/logger';
+import { useQueryClient } from '@tanstack/react-query';
+import { ClipboardList, Loader2, Plus, Save, Trash2, Wrench } from 'lucide-react';
+import moment from 'moment';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import {
+  saveOrderChanges,
+  type ExternalWorkshop,
+  type OrderChangeSet,
+  type OrderManagementItem,
+  type WorkshopSector,
+} from '../actions/actionsServer';
+import { AddItemDialog } from './AddItemDialog';
+import { AssignRepairTypesDialog } from './AssignRepairTypesDialog';
+import { AssignSectorsPanel } from './AssignSectorsPanel';
+import { GenerateWorkOrderDialog } from './GenerateWorkOrderDialog';
+
+const logger = new Logger('ManageOrderDialog');
+
+interface ManageOrderDialogProps {
+  order: OrderManagementItem | null;
+  open: boolean;
+  onClose: () => void;
+  sectors: WorkshopSector[];
+  repairTypes: Array<{ id: string; name: string }>;
+  externalWorkshops: ExternalWorkshop[];
+}
+
+type OrderItem = OrderManagementItem['maintenance_order_items'][number];
+
+// Tipo para items locales (puede incluir items temporales aun no guardados)
+interface LocalItem {
+  id: string;
+  description: string | null;
+  is_diagnostico: boolean;
+  maintenance_request_item_id: string | null;
+  repair_type_id: string | null;
+  assigned_sector_id: string | null;
+  assigned_workshop_id: string | null;
+  sector_sequence_order: number | null;
+  types_of_repairs: OrderItem['types_of_repairs'];
+  maintenance_order_item_repair_types: OrderItem['maintenance_order_item_repair_types'];
+  maintenance_request_items: OrderItem['maintenance_request_items'];
+  workshop_sectors: OrderItem['workshop_sectors'];
+  work_order_id: string | null;
+  _isTemp?: boolean;
+  _tempRepairTypeIds?: string[];
+  _deleted?: boolean;
+}
+
+export function ManageOrderDialog({
+  order,
+  open,
+  onClose,
+  sectors,
+  repairTypes,
+  externalWorkshops,
+}: ManageOrderDialogProps) {
+  const queryClient = useQueryClient();
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [editingRepairTypesItem, setEditingRepairTypesItem] = useState<OrderItem | null>(null);
+  const [generateWoOpen, setGenerateWoOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Local items state for batch editing
+  const [localItems, setLocalItems] = useState<LocalItem[]>([]);
+  const [pendingChanges, setPendingChanges] = useState<OrderChangeSet>({
+    deletes: [],
+    adds: [],
+    sectorAssignments: [],
+    repairTypeUpdates: [],
+    sequenceUpdates: [],
+    descriptionUpdates: [],
+    workshopAssignments: [],
+  });
+
+  // Sync local items when order changes (fresh data from query)
+  useEffect(() => {
+    if (order && open) {
+      const items = order.maintenance_order_items || [];
+      setLocalItems(
+        items.map((item) => ({
+          id: item.id,
+          description: item.description,
+          is_diagnostico: item.is_diagnostico,
+          maintenance_request_item_id: item.maintenance_request_item_id,
+          repair_type_id: item.repair_type_id,
+          assigned_sector_id: item.assigned_sector_id,
+          assigned_workshop_id: item.assigned_workshop_id,
+          sector_sequence_order: item.sector_sequence_order,
+          types_of_repairs: item.types_of_repairs,
+          maintenance_order_item_repair_types: item.maintenance_order_item_repair_types,
+          maintenance_request_items: item.maintenance_request_items,
+          workshop_sectors: item.workshop_sectors,
+          work_order_id: item.work_order_id,
+        }))
+      );
+      setPendingChanges({
+        deletes: [],
+        adds: [],
+        sectorAssignments: [],
+        repairTypeUpdates: [],
+        sequenceUpdates: [],
+        descriptionUpdates: [],
+        workshopAssignments: [],
+      });
+    }
+  }, [order, open]);
+
+  const hasChanges = useMemo(() => {
+    const c = pendingChanges;
+    return (
+      c.deletes.length > 0 ||
+      c.adds.length > 0 ||
+      c.sectorAssignments.length > 0 ||
+      c.repairTypeUpdates.length > 0 ||
+      c.sequenceUpdates.length > 0 ||
+      c.descriptionUpdates.length > 0 ||
+      c.workshopAssignments.length > 0
+    );
+  }, [pendingChanges]);
+
+  const regularItems = useMemo(() => {
+    return localItems.filter((item) => !item.is_diagnostico && !item._deleted);
+  }, [localItems]);
+
+  // Check if eligible for generating work orders
+  const canGenerateWorkOrders = useMemo(() => {
+    if (hasChanges) return false;
+    const eligibleItems = regularItems.filter((item) => !item.work_order_id);
+    if (eligibleItems.length === 0) return false;
+    // All eligible items must have sector or external workshop, and at least 1 repair type
+    return eligibleItems.every((item) => {
+      const hasRepairType =
+        (item.maintenance_order_item_repair_types && item.maintenance_order_item_repair_types.length > 0) ||
+        !!item.types_of_repairs;
+      const hasAssignment = item.assigned_sector_id || item.assigned_workshop_id;
+      return hasAssignment && hasRepairType;
+    });
+  }, [hasChanges, regularItems]);
+
+  const vehicle = order?.vehicles;
+
+  // --- Handlers ---
+
+  const handleAddItem = useCallback((description: string, repairTypeIds: string[]) => {
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const newItem: LocalItem = {
+      id: tempId,
+      description,
+      is_diagnostico: false,
+      maintenance_request_item_id: null,
+      repair_type_id: repairTypeIds[0] || null,
+      assigned_sector_id: null,
+      assigned_workshop_id: null,
+      sector_sequence_order: null,
+      types_of_repairs: null,
+      maintenance_order_item_repair_types: [],
+      maintenance_request_items: null,
+      workshop_sectors: null,
+      work_order_id: null,
+      _isTemp: true,
+      _tempRepairTypeIds: repairTypeIds,
+    };
+
+    setLocalItems((prev) => [...prev, newItem]);
+    setPendingChanges((prev) => ({
+      ...prev,
+      adds: [...prev.adds, { description, repairTypeIds }],
+    }));
+    toast.info('Item agregado (pendiente de guardar)');
+  }, []);
+
+  const handleDeleteItem = useCallback(
+    (itemId: string) => {
+      const item = localItems.find((i) => i.id === itemId);
+      if (!item) return;
+
+      // Solo se pueden eliminar items manuales (sin maintenance_request_item_id) o temporales
+      if (item._isTemp) {
+        setLocalItems((prev) => prev.filter((i) => i.id !== itemId));
+        setPendingChanges((prev) => ({
+          ...prev,
+          adds: prev.adds.filter((a) => a.description !== item.description),
+        }));
+        return;
+      }
+
+      if (item.maintenance_request_item_id) {
+        toast.error('No se puede eliminar un item que proviene de una solicitud');
+        return;
+      }
+
+      setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, _deleted: true } : i)));
+      setPendingChanges((prev) => ({
+        ...prev,
+        deletes: [...prev.deletes, itemId],
+      }));
+      toast.info('Item marcado para eliminar (pendiente de guardar)');
+    },
+    [localItems]
+  );
+
+  const handleUpdateRepairTypes = useCallback(
+    (itemId: string, repairTypeIds: string[]) => {
+      const item = localItems.find((i) => i.id === itemId);
+      if (!item) return;
+
+      if (item._isTemp) {
+        // Update temp item
+        setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, _tempRepairTypeIds: repairTypeIds } : i)));
+        // Update the corresponding add in pending changes
+        setPendingChanges((prev) => ({
+          ...prev,
+          adds: prev.adds.map((a) => (a.description === item.description ? { ...a, repairTypeIds } : a)),
+        }));
+      } else {
+        // Mark repair types visually
+        const repairTypeObjs = repairTypeIds
+          .map((rtId) => {
+            const rt = repairTypes.find((r) => r.id === rtId);
+            return rt
+              ? { repair_type_id: rtId, types_of_repairs: { id: rt.id, name: rt.name, autorizable: false } }
+              : null;
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+
+        setLocalItems((prev) =>
+          prev.map((i) =>
+            i.id === itemId
+              ? {
+                  ...i,
+                  repair_type_id: repairTypeIds[0] || null,
+                  maintenance_order_item_repair_types: repairTypeObjs,
+                }
+              : i
+          )
+        );
+
+        // Add/update pending change
+        setPendingChanges((prev) => {
+          const existing = prev.repairTypeUpdates.findIndex((u) => u.itemId === itemId);
+          const updated = [...prev.repairTypeUpdates];
+          if (existing >= 0) {
+            updated[existing] = { itemId, repairTypeIds };
+          } else {
+            updated.push({ itemId, repairTypeIds });
+          }
+          return { ...prev, repairTypeUpdates: updated };
+        });
+      }
+      toast.info('Tipos de reparacion actualizados (pendiente de guardar)');
+    },
+    [localItems, repairTypes]
+  );
+
+  const handleSectorAssignments = useCallback(
+    (
+      assignments: Array<{
+        sectorId: string;
+        sectorName: string;
+        sequenceOrder: number;
+        itemIds: string[];
+      }>
+    ) => {
+      // Update local items with sector info
+      for (const assignment of assignments) {
+        const sector = sectors.find((s) => s.id === assignment.sectorId);
+        setLocalItems((prev) =>
+          prev.map((item) => {
+            if (assignment.itemIds.includes(item.id)) {
+              return {
+                ...item,
+                assigned_sector_id: assignment.sectorId,
+                sector_sequence_order: assignment.sequenceOrder,
+                workshop_sectors: sector ? { id: sector.id, name: sector.name } : item.workshop_sectors,
+              };
+            }
+            return item;
+          })
+        );
+      }
+
+      setPendingChanges((prev) => ({
+        ...prev,
+        sectorAssignments: [
+          ...prev.sectorAssignments,
+          ...assignments.map((a) => ({
+            itemIds: a.itemIds,
+            sectorId: a.sectorId,
+            sequenceOrder: a.sequenceOrder,
+          })),
+        ],
+      }));
+      toast.info('Asignaciones de sector agregadas (pendiente de guardar)');
+    },
+    [sectors]
+  );
+
+  const handleExternalWorkshopAssignments = useCallback(
+    (
+      assignments: Array<{
+        workshopId: string;
+        workshopName: string;
+        itemIds: string[];
+      }>
+    ) => {
+      // Update local items with workshop info (no sector)
+      for (const assignment of assignments) {
+        setLocalItems((prev) =>
+          prev.map((item) => {
+            if (assignment.itemIds.includes(item.id)) {
+              return {
+                ...item,
+                assigned_workshop_id: assignment.workshopId,
+                assigned_sector_id: null,
+                sector_sequence_order: null,
+                workshop_sectors: null,
+              };
+            }
+            return item;
+          })
+        );
+      }
+
+      setPendingChanges((prev) => ({
+        ...prev,
+        workshopAssignments: [
+          ...prev.workshopAssignments,
+          ...assignments.map((a) => ({
+            itemIds: a.itemIds,
+            workshopId: a.workshopId,
+          })),
+        ],
+      }));
+      toast.info('Asignaciones a taller externo agregadas (pendiente de guardar)');
+    },
+    []
+  );
+
+  const handleSequenceChange = useCallback((itemId: string, newSequence: number) => {
+    setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, sector_sequence_order: newSequence } : i)));
+
+    setPendingChanges((prev) => {
+      const existing = prev.sequenceUpdates.findIndex((u) => u.itemId === itemId);
+      const updated = [...prev.sequenceUpdates];
+      if (existing >= 0) {
+        updated[existing] = { itemId, sequenceOrder: newSequence };
+      } else {
+        updated.push({ itemId, sequenceOrder: newSequence });
+      }
+      return { ...prev, sequenceUpdates: updated };
+    });
+  }, []);
+
+  const handleDescriptionChange = useCallback((itemId: string, newDescription: string) => {
+    setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, description: newDescription } : i)));
+
+    setPendingChanges((prev) => {
+      const existing = prev.descriptionUpdates.findIndex((u) => u.itemId === itemId);
+      const updated = [...prev.descriptionUpdates];
+      if (existing >= 0) {
+        updated[existing] = { itemId, description: newDescription };
+      } else {
+        updated.push({ itemId, description: newDescription });
+      }
+      return { ...prev, descriptionUpdates: updated };
+    });
+  }, []);
+
+  const handleSave = async () => {
+    if (!order || !hasChanges) return;
+
+    // Validate no duplicate sequence orders within same sector
+    const sectorSequences = new Map<string, number[]>();
+    for (const item of localItems.filter((i) => !i._deleted && !i.is_diagnostico && i.assigned_sector_id)) {
+      const sectorId = item.assigned_sector_id!;
+      const seq = item.sector_sequence_order;
+      if (seq !== null && seq !== undefined) {
+        const existing = sectorSequences.get(sectorId) || [];
+        if (existing.includes(seq)) {
+          toast.error(`Secuencia duplicada (${seq}) en el mismo sector. Corrija antes de guardar.`);
+          return;
+        }
+        existing.push(seq);
+        sectorSequences.set(sectorId, existing);
+      }
+    }
+
+    setIsSaving(true);
+    try {
+      await saveOrderChanges(order.id, pendingChanges);
+      toast.success('Cambios guardados exitosamente');
+      invalidateAllMaintenanceQueries(queryClient);
+      setPendingChanges({
+        deletes: [],
+        adds: [],
+        sectorAssignments: [],
+        repairTypeUpdates: [],
+        sequenceUpdates: [],
+        descriptionUpdates: [],
+        workshopAssignments: [],
+      });
+    } catch (error) {
+      logger.error('Error guardando cambios', { data: { error } });
+      toast.error(error instanceof Error ? error.message : 'Error al guardar cambios');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (hasChanges) {
+      const confirmed = window.confirm('Hay cambios sin guardar. ¿Desea descartarlos?');
+      if (!confirmed) return;
+    }
+    onClose();
+  };
+
+  if (!order) return null;
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+        <DialogContent className="max-w-3xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {order.order_number ? <span className="text-primary">{order.order_number}</span> : 'Gestionar Orden'}
+              <Badge variant="outline">{vehicle?.domain || vehicle?.serie || 'Sin patente'}</Badge>
+              {vehicle?.vehicle_type?.name && <Badge variant="secondary">{vehicle.vehicle_type.name}</Badge>}
+              {hasChanges && (
+                <Badge variant="warning" className="text-xs">
+                  Cambios sin guardar
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Info del equipo */}
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">N. Interno:</span>{' '}
+              <span className="font-medium">{vehicle?.intern_number || '-'}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Ingreso:</span>{' '}
+              <span className="font-medium">
+                {order.workshop_entry_date ? moment(order.workshop_entry_date).format('DD/MM/YYYY') : '-'}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Km:</span>{' '}
+              <span className="font-medium">
+                {String(order.maintenance_requests?.kilometer || vehicle?.kilometer || '-')}
+              </span>
+            </div>
+          </div>
+
+          <Separator />
+
+          <Tabs defaultValue="items" className="flex-1">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="items">Items del pedido ({regularItems.length})</TabsTrigger>
+              <TabsTrigger value="asignar">Asignacion a Sectores</TabsTrigger>
+            </TabsList>
+
+            <ScrollArea className="h-[50vh] mt-4">
+              <TabsContent value="items" className="mt-0">
+                <div className="space-y-3">
+                  {/* Header con botones */}
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-medium">Items de reparacion</h4>
+                    <div className="flex items-center gap-2">
+                      <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="create">
+                        <Button variant="outline" size="sm" onClick={() => setAddItemOpen(true)}>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Agregar item
+                        </Button>
+                      </PermissionGuard>
+                    </div>
+                  </div>
+
+                  {/* Lista de items */}
+                  {regularItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No hay items en este pedido</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {regularItems.map((item) => {
+                        // Obtener tipos de reparacion
+                        let repairTypeNames: string[] = [];
+                        let hasAutorizable = false;
+
+                        if (item._isTemp && item._tempRepairTypeIds) {
+                          repairTypeNames = item._tempRepairTypeIds
+                            .map((id) => repairTypes.find((rt) => rt.id === id)?.name)
+                            .filter((name): name is string => !!name);
+                        } else {
+                          const pivotRepairTypes = item.maintenance_order_item_repair_types || [];
+                          repairTypeNames =
+                            pivotRepairTypes.length > 0
+                              ? pivotRepairTypes
+                                  .map((rt) => rt.types_of_repairs?.name)
+                                  .filter((name): name is string => !!name)
+                              : item.types_of_repairs?.name
+                                ? [String(item.types_of_repairs.name)]
+                                : [];
+                          hasAutorizable =
+                            pivotRepairTypes.some((rt) => rt.types_of_repairs?.autorizable) ||
+                            !!item.types_of_repairs?.autorizable;
+                        }
+
+                        const deviation = item.maintenance_request_items?.checklist_deviations;
+                        const sectorName =
+                          item.workshop_sectors &&
+                          typeof item.workshop_sectors === 'object' &&
+                          'name' in item.workshop_sectors
+                            ? String(item.workshop_sectors.name)
+                            : null;
+
+                        const canDelete = item._isTemp || !item.maintenance_request_item_id;
+                        const hasWorkOrder = !!item.work_order_id;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`flex items-start justify-between p-3 border rounded-lg ${
+                              item._isTemp ? 'border-dashed border-blue-300 bg-blue-50/30' : ''
+                            }`}
+                          >
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {item._isTemp && (
+                                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                                    Nuevo
+                                  </Badge>
+                                )}
+                                {hasWorkOrder && (
+                                  <Badge variant="success" className="text-xs">
+                                    OT generada
+                                  </Badge>
+                                )}
+                                {repairTypeNames.length > 0 ? (
+                                  repairTypeNames.map((name, idx) => (
+                                    <Badge key={idx} variant="default">
+                                      {name}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Sin tipo asignado
+                                  </Badge>
+                                )}
+                                {hasAutorizable && (
+                                  <Badge variant="warning" className="text-xs">
+                                    Autorizable
+                                  </Badge>
+                                )}
+                                {!item._isTemp && !hasWorkOrder && (
+                                  <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="update">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => {
+                                        // Find the original item for the dialog
+                                        const originalItem = (order.maintenance_order_items || []).find(
+                                          (i) => i.id === item.id
+                                        );
+                                        if (originalItem) setEditingRepairTypesItem(originalItem);
+                                      }}
+                                      title="Asignar tipos de reparacion"
+                                    >
+                                      <Wrench className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </PermissionGuard>
+                                )}
+                              </div>
+                              {!hasWorkOrder ? (
+                                <Input
+                                  value={item.description || ''}
+                                  onChange={(e) => handleDescriptionChange(item.id, e.target.value)}
+                                  placeholder="Descripcion del item"
+                                  className="h-7 text-sm mt-1"
+                                />
+                              ) : (
+                                item.description && (
+                                  <p className="text-sm text-muted-foreground">{String(item.description)}</p>
+                                )
+                              )}
+                              {deviation && (
+                                <p className="text-xs text-muted-foreground">
+                                  Desvio: {String(deviation.item_label || deviation.item_code)}
+                                  {deviation.driver_comment && ` - ${String(deviation.driver_comment)}`}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {sectorName ? (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline">{sectorName}</Badge>
+                                  {!hasWorkOrder && (
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      className="w-14 h-7 text-xs"
+                                      value={item.sector_sequence_order ?? ''}
+                                      onChange={(e) => handleSequenceChange(item.id, Number(e.target.value))}
+                                      title="Orden de secuencia"
+                                    />
+                                  )}
+                                </div>
+                              ) : item.assigned_workshop_id ? (
+                                <Badge variant="outline" className="text-xs gap-1 border-blue-400 text-blue-600">
+                                  Taller Externo
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="text-xs">
+                                  Sin sector
+                                </Badge>
+                              )}
+                              {canDelete && !hasWorkOrder && (
+                                <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="delete">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteItem(item.id)}
+                                    title="Eliminar item"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </PermissionGuard>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="asignar" className="mt-0">
+                <AssignSectorsPanel
+                  items={localItems.filter((i) => !i._deleted) as unknown as OrderItem[]}
+                  sectors={sectors}
+                  externalWorkshops={externalWorkshops}
+                  onAssign={handleSectorAssignments}
+                  onAssignExternalWorkshop={handleExternalWorkshopAssignments}
+                />
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+
+          {/* Footer con botones de accion */}
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {hasChanges && (
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="create">
+                <Button
+                  variant="default"
+                  disabled={!canGenerateWorkOrders}
+                  onClick={() => setGenerateWoOpen(true)}
+                  title={
+                    hasChanges
+                      ? 'Guarde los cambios primero'
+                      : !canGenerateWorkOrders
+                        ? 'Todos los items deben tener sector y tipo de reparacion asignados'
+                        : 'Generar ordenes de trabajo'
+                  }
+                >
+                  <ClipboardList className="h-4 w-4 mr-1" />
+                  Generar OT
+                </Button>
+              </PermissionGuard>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AddItemDialog
+        open={addItemOpen}
+        onClose={() => setAddItemOpen(false)}
+        repairTypes={repairTypes}
+        onAdd={handleAddItem}
+      />
+
+      {editingRepairTypesItem && (
+        <AssignRepairTypesDialog
+          key={editingRepairTypesItem.id}
+          item={editingRepairTypesItem}
+          repairTypes={repairTypes}
+          open={!!editingRepairTypesItem}
+          onClose={() => setEditingRepairTypesItem(null)}
+          onUpdate={handleUpdateRepairTypes}
+        />
+      )}
+
+      {order && (
+        <GenerateWorkOrderDialog open={generateWoOpen} onClose={() => setGenerateWoOpen(false)} orderId={order.id} />
+      )}
+    </>
+  );
+}

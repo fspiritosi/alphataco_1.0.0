@@ -24,7 +24,6 @@ export default function MonthlyDocumentsTableServer({
     const result = await fetchAllMonthlyDocumentsData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
-      server: true,
     });
     return result.rows;
   };

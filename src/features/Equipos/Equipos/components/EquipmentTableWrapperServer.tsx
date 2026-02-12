@@ -1,6 +1,6 @@
 import TablaEquipmentServer from '@/app/dashboard/equipment/data-equipment-server';
-import { fetchEquipmentData } from '@/app/server/GET/probando';
 import { Card } from '@/components/ui/card';
+import { fetchVehiclesData } from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
 import { cookies } from 'next/headers';
 
 type EquipmentTableWrapperProps = {
@@ -12,13 +12,11 @@ async function EquipmentTableWrapperServer({ types_of_vehicles = 'all' }: Equipm
   const savedVisibility = cookiesStore.get(`equipmentServerTable-Vehículos`)?.value;
   const savedFilters = cookiesStore.get(`equipmentServerTable-Vehículos-filters`)?.value;
 
-  const initialData = await fetchEquipmentData({
+  const initialData = await fetchVehiclesData({
     pageIndex: 0,
     pageSize: 10,
     sorting: [],
     columnFilters: [],
-    filters: [],
-    server: true,
   });
 
   return (

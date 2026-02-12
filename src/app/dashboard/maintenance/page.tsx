@@ -1,5 +1,5 @@
-import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
+import MantenimientoComponent from '@/features/Mantenimiento/MantenimientoComponent';
 import { getUserPermissionsMapServer } from '@/features/Permissions/actionsServer';
 import { cookies } from 'next/headers';
 
@@ -32,7 +32,7 @@ export default async function MantenimientoPage({
 
   return (
     <div>
-      <RepairTypes mechanic searchParams={resolvedSearchParams} moduleSlug="mantenimiento" permissions={permissions} />
+      <MantenimientoComponent searchParams={resolvedSearchParams} permissions={permissions} />
     </div>
   );
 }

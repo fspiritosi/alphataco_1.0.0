@@ -1,4 +1,4 @@
-import { fetchEmployeesData } from '@/app/server/GET/probando';
+import { fetchActiveEmployees } from '@/features/Employees/Empleados/lib/actions/fetch-employees-action';
 import { cookies } from 'next/headers';
 import TablaEmployeesSupabase from './components/EmployeesTableServer';
 
@@ -7,7 +7,7 @@ async function EmployeeTable() {
   const savedVisibility = cookiesStore.get(`activeEmployeesServerTable`)?.value;
   const savedFilters = cookiesStore.get(`activeEmployeesServerTable-filters`)?.value;
 
-  const initialData = await fetchEmployeesData({
+  const initialData = await fetchActiveEmployees({
     pageIndex: 0,
     pageSize: 10,
     sorting: [],
