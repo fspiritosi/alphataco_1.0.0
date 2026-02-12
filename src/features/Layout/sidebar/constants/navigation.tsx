@@ -1,4 +1,5 @@
 import { HandshakeIcon } from '@/components/Icons';
+import type { LucideIcon } from 'lucide-react';
 import {
   Building2,
   Calendar,
@@ -10,15 +11,14 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
-import { JSX } from 'react';
 
-const sizeIcons = 24;
+export type SidebarIcon = LucideIcon | React.ComponentType<{ className?: string }>;
 
 export type NavigationLink = {
   name: string;
   moduleSlug: string;
   href: string;
-  icon: JSX.Element;
+  icon: SidebarIcon;
   position: number;
 };
 
@@ -27,70 +27,70 @@ export const navigationLinks: NavigationLink[] = [
     name: 'Dashboard',
     moduleSlug: 'dashboard',
     href: '/dashboard',
-    icon: <LayoutDashboard size={sizeIcons} />,
+    icon: LayoutDashboard,
     position: 1,
   },
   {
     name: 'Empresa',
     moduleSlug: 'empresa',
     href: '/dashboard/company/actualCompany',
-    icon: <Building2 size={sizeIcons} />,
+    icon: Building2,
     position: 2,
   },
   {
     name: 'Empleados',
     moduleSlug: 'empleados',
     href: '/dashboard/employee',
-    icon: <Users size={sizeIcons} />,
+    icon: Users,
     position: 3,
   },
   {
     name: 'Equipos',
     moduleSlug: 'equipos',
     href: '/dashboard/equipment',
-    icon: <Truck size={sizeIcons} />,
+    icon: Truck,
     position: 4,
   },
   {
     name: 'Comercial',
     moduleSlug: 'comercial',
     href: '/dashboard/comercial',
-    icon: <HandshakeIcon />,
+    icon: HandshakeIcon,
     position: 5,
   },
   {
     name: 'Documentación',
     moduleSlug: 'documentacion',
     href: '/dashboard/document',
-    icon: <FileText size={sizeIcons} />,
+    icon: FileText,
     position: 6,
   },
   {
     name: 'Operaciones',
     moduleSlug: 'operaciones',
     href: '/dashboard/operations',
-    icon: <Calendar size={sizeIcons} />,
+    icon: Calendar,
     position: 7,
   },
   {
     name: 'Mantenimiento',
     moduleSlug: 'mantenimiento',
     href: '/dashboard/maintenance',
-    icon: <Wrench size={sizeIcons} />,
+    icon: Wrench,
     position: 8,
   },
   {
     name: 'Formularios',
     moduleSlug: 'formularios',
     href: '/dashboard/forms',
-    icon: <ClipboardList size={sizeIcons} />,
+    icon: ClipboardList,
     position: 9,
   },
   {
     name: 'Ayuda',
     moduleSlug: 'ayuda',
     href: '/dashboard/help',
-    icon: <HelpCircle size={sizeIcons} />,
+    icon: HelpCircle,
     position: 10,
   },
 ];
