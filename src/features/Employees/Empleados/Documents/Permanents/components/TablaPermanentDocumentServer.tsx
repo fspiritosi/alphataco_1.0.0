@@ -1,10 +1,9 @@
 'use client';
 
-import type { VisibilityState } from '@tanstack/react-table';
-// import { fetchEmployeesData } from "@/lib/supabase-query"
 import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Card } from '@/components/ui/card';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import type { VisibilityState } from '@tanstack/react-table';
 import { fetchAllPermanentDocumentsData, fetchInitialPermanentDocuments } from '../lib/actions/actions';
 import { columnsEmployeeDocumentServer } from './table-colum';
 
@@ -24,7 +23,6 @@ export default function TablaPermanentDocumentServer({
     const result = await fetchAllPermanentDocumentsData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
-      server: true,
     });
     return result.rows; // Solo devolver los datos, no la estructura de paginación
   };

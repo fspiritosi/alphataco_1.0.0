@@ -1,27 +1,27 @@
 'use client';
 
-import { Checkbox } from '@/components/ui/checkbox';
-import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { Mail, User } from 'lucide-react';
-// import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchInactiveEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
+import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { fetchInactiveEmployees } from '@/features/Employees/Empleados/lib/actions/fetch-employees-action';
+import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { Mail, User } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 
 // Tipo inferido automáticamente del retorno de Supabase
-type EmployeeData = Awaited<ReturnType<typeof fetchInactiveEmployeesData>>['rows'][0];
+type EmployeeData = Awaited<ReturnType<typeof fetchInactiveEmployees>>['rows'][0];
 
 export default function TablaEmployeesInactiveServer({
   initialData,
   savedFilters,
   savedVisibility,
 }: {
-  initialData: Awaited<ReturnType<typeof fetchInactiveEmployeesData>>;
+  initialData: Awaited<ReturnType<typeof fetchInactiveEmployees>>;
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
@@ -477,7 +477,7 @@ export default function TablaEmployeesInactiveServer({
         tableId="inactiveEmployeesServerTable"
         enableRowSelection={true}
         serverSide={true}
-        fetchData={fetchInactiveEmployeesData}
+        fetchData={fetchInactiveEmployees}
         queryKey="inactive-employees-supabase"
         toolbarOptions={{
           initialVisibleFilters: savedFilters,

@@ -23,7 +23,6 @@ export default function MonthlyEquipmentDocumentsTableServer({
     const result = await fetchAllMonthlyEquipmentDocumentsData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
-      server: true,
     });
     return result.rows;
   };

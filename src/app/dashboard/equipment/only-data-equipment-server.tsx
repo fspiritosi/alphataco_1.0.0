@@ -1,27 +1,25 @@
 'use client';
 
-import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
-// import { fetchEmployeesData } from "@/lib/supabase-query"
-import {
-  fetchEquipmentData,
-  onlyFetchEquipmentData,
-  otrosFetchAllEquipmentsData,
-  querySelectDistinct,
-} from '@/app/server/GET/probando';
+import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatNumber } from '@/components/ui/price-currency-input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  fetchAllOtherEquipmentData,
+  fetchOtherEquipmentData,
+} from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
+import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
+import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import React from 'react';
 import { RiToolsFill } from 'react-icons/ri';
 
 // Tipo inferido automáticamente del retorno de Supabase
-type EquipmentTableData = Awaited<ReturnType<typeof fetchEquipmentData>>['rows'][0];
+type EquipmentTableData = Awaited<ReturnType<typeof fetchOtherEquipmentData>>['rows'][0];
 
 // Tipo extendido para columnas con exportFormatter
 type ExtendedColumnDef<T> = ColumnDef<T> & {
@@ -52,20 +50,19 @@ export default function OtrosTablaEquipmentServer({
   savedVisibility,
   types_of_vehicles = 'all',
 }: {
-  initialData: Awaited<ReturnType<typeof fetchEquipmentData>>;
+  initialData: Awaited<ReturnType<typeof fetchOtherEquipmentData>>;
   savedFilters: string[];
   savedVisibility: VisibilityState;
   types_of_vehicles: 'all' | 'Vehículos' | 'Otros';
 }) {
   const company_id = Cookies.get('actualComp');
   // Función wrapper para la exportación que devuelve solo los datos
-  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
-    const result = await otrosFetchAllEquipmentsData({
+  const handleFetchAllData = async (options: { sorting: SortingState; columnFilters: ColumnFiltersState }) => {
+    const result = await fetchAllOtherEquipmentData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
-      server: true,
     });
-    return result.rows; // Solo devolver los datos, no la estructura de paginación
+    return result.rows;
   };
   // Definición de columnas
   const columns: ExtendedColumnDef<EquipmentTableData>[] = [
@@ -385,7 +382,7 @@ export default function OtrosTablaEquipmentServer({
       tableId={`equipmentServerTable-Otros`}
       enableRowSelection={true}
       serverSide={true}
-      fetchData={onlyFetchEquipmentData}
+      fetchData={fetchOtherEquipmentData}
       fetchAllData={handleFetchAllData}
       queryKey={`equipment-supabase-Otros`}
       toolbarOptions={{

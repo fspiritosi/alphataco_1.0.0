@@ -12,7 +12,6 @@ async function PermanentDocuments() {
     pageSize: 10,
     sorting: [],
     columnFilters: [],
-    filters: [],
   });
 
   return (

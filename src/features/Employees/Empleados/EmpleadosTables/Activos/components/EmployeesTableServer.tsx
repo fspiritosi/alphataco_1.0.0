@@ -1,16 +1,19 @@
 'use client';
 
-import { Checkbox } from '@/components/ui/checkbox';
-import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
-import type { ColumnDef, VisibilityState } from '@tanstack/react-table';
-import { Mail, User } from 'lucide-react';
-// import { fetchEmployeesData } from "@/lib/supabase-query"
-import { fetchAllEmployeesData, fetchEmployeesData, querySelectDistinct } from '@/app/server/GET/probando';
+import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  fetchActiveEmployees,
+  fetchAllActiveEmployees,
+} from '@/features/Employees/Empleados/lib/actions/fetch-employees-action';
+import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
+import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
+import { Mail, User } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 
@@ -21,26 +24,25 @@ type ExtendedColumnDef<TData> = ColumnDef<TData> & {
 };
 
 // Tipo inferido automáticamente del retorno de Supabase
-type EmployeeData = Awaited<ReturnType<typeof fetchEmployeesData>>['rows'][0];
+type EmployeeData = Awaited<ReturnType<typeof fetchActiveEmployees>>['rows'][0];
 
 export default function TablaEmployeesSupabase({
   initialData,
   savedFilters,
   savedVisibility,
 }: {
-  initialData?: Awaited<ReturnType<typeof fetchEmployeesData>>;
+  initialData?: Awaited<ReturnType<typeof fetchActiveEmployees>>;
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
   const company_id = Cookies.get('actualComp');
   // Función wrapper para la exportación que devuelve solo los datos
-  const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
-    const result = await fetchAllEmployeesData({
+  const handleFetchAllData = async (options: { sorting: SortingState; columnFilters: ColumnFiltersState }) => {
+    const result = await fetchAllActiveEmployees({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
-      server: true,
     });
-    return result.rows; // Solo devolver los datos, no la estructura de paginación
+    return result.rows;
   };
   // Definición de columnas
   const columns: ExtendedColumnDef<EmployeeData>[] = [
@@ -582,7 +584,7 @@ export default function TablaEmployeesSupabase({
         // Configuración para server-side con Supabase
 
         serverSide={true}
-        fetchData={fetchEmployeesData}
+        fetchData={fetchActiveEmployees}
         fetchAllData={handleFetchAllData}
         queryKey="active-employees-supabase"
         toolbarOptions={{

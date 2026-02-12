@@ -4,25 +4,27 @@ import { logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 
-const actionLogger = logger.withScope('FetchPermanentEmployeeDocs');
+const actionLogger = logger.withScope('FetchEquipmentAction');
 
-const PERMANENT_DOCS_SELECT =
-  '*,document_types(*),employees(id,lastname,firstname,email,picture,document_number)' as const;
+const EQUIPMENT_SELECT =
+  '*,brand_vehicles(id,name),model_vehicles(id,name),type(id,name),sub_type(id,name),types_of_vehicles(id,name),contractor_equipment(customers(*)),equipment_owners(id,name),hierarchy(id,name)' as const;
 
-interface FetchPermanentDocumentsOptions {
+interface FetchEquipmentOptions {
   pageIndex: number;
   pageSize: number;
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
 }
 
-export async function fetchInitialPermanentDocuments(options: FetchPermanentDocumentsOptions) {
+type EquipmentType = 'vehicles' | 'others' | 'inactive';
+
+async function buildEquipmentQuery(options: FetchEquipmentOptions, equipmentType: EquipmentType) {
   const supabase = await supabaseServer();
 
   const from = options.pageIndex * options.pageSize;
   const to = from + options.pageSize - 1;
 
-  let query = supabase.from('documents_employees').select(PERMANENT_DOCS_SELECT, { count: 'exact' });
+  let query = supabase.from('vehicles').select(EQUIPMENT_SELECT, { count: 'exact' });
 
   // Aplicar filtros de columnas
   if (options.columnFilters?.length) {
@@ -52,31 +54,15 @@ export async function fetchInitialPermanentDocuments(options: FetchPermanentDocu
         if (Array.isArray(value) && value.length > 0 && value[0] !== 'null' && value[0] !== null) {
           query = query.in(id, value);
         } else if (typeof value === 'string' && value.trim()) {
-          const columnName = parts[parts.length - 1];
-          if (columnName === 'lastname') {
-            const foreignPath = parts.slice(0, -1).join('.');
-            const searchWords = value
-              .trim()
-              .split(/\s+/)
-              .filter((word) => word.length > 0);
-            if (searchWords.length === 1) {
-              query = query.or(`lastname.ilike.*${searchWords[0]}*,firstname.ilike.*${searchWords[0]}*`, {
-                referencedTable: foreignPath,
-              });
-            } else {
-              searchWords.forEach((word) => {
-                query = query.or(`lastname.ilike.*${word}*,firstname.ilike.*${word}*`, {
-                  referencedTable: foreignPath,
-                });
-              });
-            }
-          } else {
-            query = query.ilike(id, `%${value}%`);
-          }
+          query = query.ilike(id, `%${value}%`);
         }
       } else {
         if (typeof value === 'string' && value.trim()) {
-          query = query.ilike(id, `%${value}%`);
+          if (id === 'domain') {
+            query = query.ilike(id, `%${value}%`);
+          } else {
+            query = query.ilike(id, `%${value}%`);
+          }
         }
         if (Array.isArray(value) && value.length > 0) {
           const nullValues = value.filter((v) => v === 'null' || v === null || v === '' || v === undefined);
@@ -104,15 +90,17 @@ export async function fetchInitialPermanentDocuments(options: FetchPermanentDocu
     }
   }
 
-  // Filtros permanentes: solo documentos permanentes con empleados activos
-  query = query
-    .eq('document_types.is_it_montlhy', false)
-    .eq('employees.is_active', true)
-    .not('employees', 'is', null)
-    .not('document_types', 'is', null);
+  // Aplicar filtros específicos de cada tipo
+  if (equipmentType === 'vehicles') {
+    query = query.eq('is_active', true).eq('type_of_vehicle', 1);
+  } else if (equipmentType === 'others') {
+    query = query.eq('is_active', true).eq('type_of_vehicle', 2);
+  } else {
+    query = query.eq('is_active', false);
+  }
 
-  // Ordenamiento
-  const allSorting = [...(options.sorting || [])];
+  // Ordenamiento + default por domain
+  const allSorting = [...options.sorting, { id: 'domain', desc: true }];
   for (const sort of allSorting) {
     if (sort.id.includes('.')) {
       const parts = sort.id.split('.');
@@ -128,7 +116,7 @@ export async function fetchInitialPermanentDocuments(options: FetchPermanentDocu
   const { data, error, count } = await query;
 
   if (error) {
-    actionLogger.error('Error fetching permanent employee documents', { data: error });
+    actionLogger.error('Error fetching equipment', { data: error });
     throw error;
   }
 
@@ -140,14 +128,53 @@ export async function fetchInitialPermanentDocuments(options: FetchPermanentDocu
   };
 }
 
-export async function fetchAllPermanentDocumentsData(options: {
+// Vehículos (type_of_vehicle = 1, activos)
+export async function fetchVehiclesData(options: FetchEquipmentOptions) {
+  return buildEquipmentQuery(options, 'vehicles');
+}
+
+export async function fetchAllVehiclesData(options: { sorting: SortingState; columnFilters: ColumnFiltersState }) {
+  const result = await fetchVehiclesData({
+    pageIndex: 0,
+    pageSize: 10000,
+    sorting: options.sorting,
+    columnFilters: options.columnFilters,
+  });
+  return result;
+}
+
+// Otros (type_of_vehicle = 2, activos)
+export async function fetchOtherEquipmentData(options: FetchEquipmentOptions) {
+  return buildEquipmentQuery(options, 'others');
+}
+
+export async function fetchAllOtherEquipmentData(options: {
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
 }) {
-  return fetchInitialPermanentDocuments({
+  const result = await fetchOtherEquipmentData({
     pageIndex: 0,
-    pageSize: 1000000,
-    sorting: options.sorting || [],
+    pageSize: 10000,
+    sorting: options.sorting,
     columnFilters: options.columnFilters,
   });
+  return result;
+}
+
+// Dados de Baja (inactivos, sin filtro de tipo)
+export async function fetchInactiveEquipmentData(options: FetchEquipmentOptions) {
+  return buildEquipmentQuery(options, 'inactive');
+}
+
+export async function fetchAllInactiveEquipmentData(options: {
+  sorting: SortingState;
+  columnFilters: ColumnFiltersState;
+}) {
+  const result = await fetchInactiveEquipmentData({
+    pageIndex: 0,
+    pageSize: 10000,
+    sorting: options.sorting,
+    columnFilters: options.columnFilters,
+  });
+  return result;
 }

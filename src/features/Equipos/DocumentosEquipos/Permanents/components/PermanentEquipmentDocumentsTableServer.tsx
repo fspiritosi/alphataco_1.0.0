@@ -23,7 +23,6 @@ export default function PermanentEquipmentDocumentsTableServer({
     const result = await fetchAllPermanentEquipmentDocumentsData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
-      server: true,
     });
     return result.rows;
   };

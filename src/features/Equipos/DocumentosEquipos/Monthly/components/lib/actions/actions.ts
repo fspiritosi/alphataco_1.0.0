@@ -1,78 +1,140 @@
 'use server';
 
-import { queryWithPagination, type Filter } from '@/app/server/GET/probando';
+import { logger } from '@/lib/logger';
+import { supabaseServer } from '@/lib/supabase/server';
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
 
-// 🔑 INTERFAZ ESTÁNDAR para documentos mensuales de equipos
+const actionLogger = logger.withScope('FetchMonthlyEquipmentDocs');
+
+const MONTHLY_EQUIPMENT_DOCS_SELECT =
+  '*,documents_equipment_logs(updated_at),document_types!inner(*),vehicles(*,contractor_equipment(*, customers(*)))' as const;
+
 interface FetchMonthlyEquipmentDocumentsOptions {
   pageIndex: number;
   pageSize: number;
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
-  filters?: Filter<'documents_equipment'>[];
 }
 
-// ✅ PATRÓN CORRECTO: Documentos mensuales de equipos con queryWithPagination
 export async function fetchMonthlyEquipmentDocumentsData(options: FetchMonthlyEquipmentDocumentsOptions) {
-  const data = await queryWithPagination(
-    'documents_equipment', // 🔑 Tabla principal
-    `*,documents_equipment_logs(updated_at),document_types!inner(*),vehicles(*,contractor_equipment(*, customers(*)))`,
-    {
-      ...options,
-      sorting: [...options.sorting, { id: 'created_at', desc: true }],
-      permanent_filter: (query) => {
-        return query
-          .eq('document_types.is_it_montlhy', true)
-          .eq('document_types.is_active', true)
-          .eq('vehicles.is_active', true)
-          .not('vehicles', 'is', null)
-          .not('document_types', 'is', null);
-      },
-      filters: options.filters || [],
-      server: true,
-    }
-  );
+  const supabase = await supabaseServer();
 
-  return data;
+  const from = options.pageIndex * options.pageSize;
+  const to = from + options.pageSize - 1;
+
+  let query = supabase.from('documents_equipment').select(MONTHLY_EQUIPMENT_DOCS_SELECT, { count: 'exact' });
+
+  // Aplicar filtros de columnas
+  if (options.columnFilters?.length) {
+    for (const filter of options.columnFilters) {
+      const id = filter.id;
+      const value = filter.value as string | string[] | null | { from?: Date | null; to?: Date | null };
+
+      if (!value) continue;
+
+      if (id.includes('.')) {
+        const parts = id.split('.');
+
+        if (value === null || (Array.isArray(value) && (value[0] === 'null' || value[0] === null))) {
+          query = query.is(id, null);
+        } else {
+          if (parts.length > 2) {
+            for (let i = 0; i < parts.length - 1; i++) {
+              const relationPath = parts.slice(0, i + 1).join('.');
+              query = query.not(relationPath, 'is', null);
+            }
+          } else {
+            const [relationTable] = parts;
+            query = query.not(relationTable, 'is', null);
+          }
+        }
+
+        if (Array.isArray(value) && value.length > 0 && value[0] !== 'null' && value[0] !== null) {
+          query = query.in(id, value);
+        } else if (typeof value === 'string' && value.trim()) {
+          query = query.ilike(id, `%${value}%`);
+        }
+      } else {
+        if (typeof value === 'string' && value.trim()) {
+          query = query.ilike(id, `%${value}%`);
+        }
+        if (Array.isArray(value) && value.length > 0) {
+          const nullValues = value.filter((v) => v === 'null' || v === null || v === '' || v === undefined);
+          const normalValues = value.filter((v) => v !== 'null' && v !== null && v !== '' && v !== undefined);
+          if (nullValues.length > 0) {
+            if (normalValues.length > 0) {
+              query = query.or(`${id}.in.(${normalValues.join(',')}),${id}.is.null`);
+            } else {
+              query = query.is(id, null);
+            }
+          } else {
+            query = query.in(id, value);
+          }
+        }
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          const dateRange = value as { from?: Date | null; to?: Date | null };
+          if (dateRange.from) {
+            query = query.gte(id, new Date(dateRange.from).toISOString().split('T')[0]);
+          }
+          if (dateRange.to) {
+            query = query.lte(id, new Date(dateRange.to).toISOString().split('T')[0]);
+          }
+        }
+      }
+    }
+  }
+
+  // Filtros permanentes: documentos mensuales activos con equipos activos
+  query = query
+    .eq('document_types.is_it_montlhy', true)
+    .eq('document_types.is_active', true)
+    .eq('vehicles.is_active', true)
+    .not('vehicles', 'is', null)
+    .not('document_types', 'is', null);
+
+  // Ordenamiento + default
+  const allSorting = [...options.sorting, { id: 'created_at', desc: true }];
+  for (const sort of allSorting) {
+    if (sort.id.includes('.')) {
+      const parts = sort.id.split('.');
+      if (parts.length > 2) continue;
+      query = query.order(parts[1], { ascending: !sort.desc, referencedTable: parts[0] });
+    } else {
+      query = query.order(sort.id, { ascending: !sort.desc });
+    }
+  }
+
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    actionLogger.error('Error fetching monthly equipment documents', { data: error });
+    throw error;
+  }
+
+  const totalRows = count || 0;
+  return {
+    rows: data || [],
+    pageCount: Math.ceil(totalRows / options.pageSize),
+    rowCount: totalRows,
+  };
 }
 
-// ✅ PATRÓN CORRECTO: Exportación completa para documentos mensuales de equipos
 export async function fetchAllMonthlyEquipmentDocumentsData(options: {
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
-  server?: boolean;
 }) {
-  const data = await queryWithPagination(
-    'documents_equipment',
-    `*,documents_equipment_logs(updated_at),document_types!inner(*),vehicles(*,contractor_equipment(*, customers(*)))`,
-    {
-      pageIndex: 0,
-      pageSize: 10000, // 🔑 Tamaño grande para exportación
-      sorting: options.sorting,
-      columnFilters: options.columnFilters,
-      server: options.server,
-      // 🔑 PERMANENT_FILTER: Left joins + not null + filtros mensuales
-      permanent_filter: (query) => {
-        return (
-          query
-            // Filtros para documentos mensuales
-            .eq('document_types.is_it_montlhy', true)
-            .eq('document_types.applies', 'Equipos')
-            .eq('document_types.is_active', true)
-            // Filtros not null (reemplazando inner joins)
-            .not('vehicles', 'is', null)
-            .not('document_types', 'is', null)
-        );
-      },
-    }
-  );
+  const result = await fetchMonthlyEquipmentDocumentsData({
+    pageIndex: 0,
+    pageSize: 10000,
+    sorting: options.sorting,
+    columnFilters: options.columnFilters,
+  });
 
-  return { rows: data.rows }; // Mantener estructura para compatibilidad
+  return { rows: result.rows };
 }
 
-// 🔑 IMPORTANTE: Función auxiliar para obtener tipos de documentos mensuales de equipos
 export async function getMonthlyEquipmentDocumentTypes() {
-  // Esta función puede ser útil para configurar los filtros dinámicamente
-  // Los tipos mensuales son similares a empleados pero para equipos
   return [];
 }

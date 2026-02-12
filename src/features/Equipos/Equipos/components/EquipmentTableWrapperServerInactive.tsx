@@ -1,6 +1,6 @@
 import TablaEquipmentServerInactive from '@/app/dashboard/equipment/data-equipment-server-inactive';
-import { fetchInactiveEquipmentData } from '@/app/server/GET/probando';
 import { Card } from '@/components/ui/card';
+import { fetchInactiveEquipmentData } from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
 import { cookies } from 'next/headers';
 
 type EquipmentTableWrapperProps = {
@@ -17,9 +17,6 @@ async function EquipmentTableWrapperServerInactive({ types_of_vehicles = 'all' }
     pageSize: 10,
     sorting: [],
     columnFilters: [],
-
-    filters: [],
-    server: true,
   });
 
   return (
