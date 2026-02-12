@@ -1,6 +1,7 @@
 import { fetchAllEquipment, fetchChecklistTemplateById, getCurrentProfile } from '@/app/server/GET/actions';
 import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedChecklistForm';
 import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
+import { fetchActiveCustomersForChecklist } from '@/features/Checklist';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -84,8 +85,12 @@ export default async function ChecklistFormPage({
   const selectedEquipment = equipments.find((eq) => eq.id === resolvedParams.id);
   const defaultKilometer = selectedEquipment?.kilometer ?? equipmentData?.kilometer ?? '0';
 
-  // Obtener perfil del usuario actual
-  const currentUser = user?.id ? (await getCurrentProfile())?.find((p) => p.credential_id === user.id) || null : null;
+  // Obtener perfil del usuario actual y clientes activos
+  const [currentUserProfiles, customers] = await Promise.all([
+    user?.id ? getCurrentProfile() : Promise.resolve(null),
+    fetchActiveCustomersForChecklist(),
+  ]);
+  const currentUser = currentUserProfiles?.find((p) => p.credential_id === user?.id) || null;
 
   // Obtener nombre completo del empleado
   const employeeFullName = employeeData
@@ -106,6 +111,7 @@ export default async function ChecklistFormPage({
         <NormalizedChecklistForm
           template={template}
           equipments={equipmentsForComboBox}
+          customers={customers}
           currentUser={currentUser}
           defaultEquipmentId={resolvedParams.id}
           defaultEmployeeId={employee || undefined}
