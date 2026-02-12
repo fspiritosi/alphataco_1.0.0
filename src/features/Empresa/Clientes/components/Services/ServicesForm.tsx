@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 // import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -110,6 +110,7 @@ export default function ServicesForm({
   customers,
   company_id,
   editingService,
+  initialFormData,
   areas,
   sectors,
   id,
@@ -118,235 +119,50 @@ export default function ServicesForm({
   customers: Service[];
   company_id: string;
   editingService?: Service;
+  initialFormData?: Record<string, unknown> | null;
   areas: any[];
   sectors: any[];
   id?: string;
   setOpen?: ((open: boolean) => void) | undefined;
 }) {
-  // Función para obtener los IDs de área válidos basados en las opciones disponibles
-  const getValidAreaIds = (serviceAreas: any[] | undefined, allAreas: any[]) => {
-    if (!serviceAreas || !Array.isArray(serviceAreas)) return [];
-
-    // Normalizar los IDs a string para comparación
-    const normalizeId = (id: any) => String(id).trim();
-
-    // Obtener todos los IDs de áreas disponibles como strings
-    const availableAreaIds = allAreas.map((area) => normalizeId(area.id));
-
-    // Extraer los IDs de las áreas del servicio y filtrar los que existen
-    if (!serviceAreas) return [];
-
-    return serviceAreas.map((id) => normalizeId(id)).filter((id) => availableAreaIds.includes(id));
-  };
-
   const form = useForm<z.infer<typeof ServiceSchema>>({
     resolver: zodResolver(ServiceSchema),
-    defaultValues: {
-      customer_id: '',
-      area_id: [],
-      sector_id: [],
-      service_name: '',
-      contract_number: '',
-      service_start: new Date(),
-      service_validity: new Date(),
-      is_active: true,
-    },
+    defaultValues: initialFormData
+      ? (initialFormData as z.infer<typeof ServiceSchema>)
+      : {
+          customer_id: '',
+          area_id: [],
+          sector_id: [],
+          service_name: '',
+          contract_number: '',
+          service_start: new Date(),
+          service_validity: new Date(),
+          is_active: true,
+        },
     mode: 'onChange',
   });
 
-  // Watch form values
-  const formValues = form.watch();
-
   const { reset } = form;
   const router = useRouter();
-  const [view, setView] = useState(false);
   const [isEditing, setIsEditing] = useState(!!editingService);
 
-  // Efecto para cargar los datos cuando cambia el servicio a editar
-  useEffect(() => {
-    if (editingService) {
-      // Extraer los IDs de las áreas del servicio
-      const areaIds = editingService.service_areas?.map((a: any) => a.area_id) || [];
-      const sectorIds = editingService.service_sectors?.map((s) => s.sector_id) || [];
-
-      if (editingService.customer_id) {
-        // 1. Filtrar áreas por el cliente
-        const filteredAreas = areas.filter((area) => area.customers?.id === editingService.customer_id);
-        setFilteredAreas(filteredAreas);
-
-        // 2. Filtrar sectores por el cliente
-        const newFilteredSectors =
-          sectors
-            ?.filter((sector: any) => sector.customer_id === editingService.customer_id)
-            .map((sector: any) => sector.sectors) || [];
-
-        // 3. Asegurarse de que los sectores seleccionados estén en la lista
-        if (sectorIds.length > 0) {
-          const missingSectors = sectorIds.filter((id: string) => !newFilteredSectors.some((s: any) => s.id === id));
-
-          if (missingSectors.length > 0) {
-            const additionalSectors = (sectors || [])
-              .filter((s: any) => missingSectors.includes(s.id))
-              .map((s: any) => s.sectors || s);
-            setFilteredSectors([...newFilteredSectors, ...additionalSectors]);
-          } else {
-            setFilteredSectors(newFilteredSectors);
-          }
-        } else {
-          setFilteredSectors(newFilteredSectors);
-        }
-
-        // 4. Crear el objeto de datos después de que las áreas y sectores estén listos
-        const formData = {
-          id: editingService.id,
-          customer_id: editingService.customer_id,
-          service_name: editingService.service_name,
-          sector_id: sectorIds,
-          contract_number: editingService.contract_number || '',
-          service_start: editingService.service_start ? new Date(editingService.service_start) : new Date(),
-          service_validity: editingService.service_validity ? new Date(editingService.service_validity) : new Date(),
-          is_active: editingService.is_active ?? true,
-          area_id: areaIds,
-          service_areas: editingService.service_areas,
-          service_sectors: editingService.service_sectors,
-        };
-
-        // 5. Usar setTimeout para asegurar que los estados se actualicen antes de resetear
-        const timer = setTimeout(() => {
-          // Verificar que las áreas del servicio existan en las áreas filtradas
-          const validAreaIds = areaIds.filter((id) => filteredAreas.some((area) => area.id === id));
-
-          // Crear un nuevo formData con solo las áreas válidas
-          const finalFormData = {
-            ...formData,
-            area_id: validAreaIds,
-          };
-
-          reset(finalFormData);
-          setIsEditing(true);
-        }, 300);
-
-        return () => clearTimeout(timer);
-      }
-    } else {
-      reset({
-        customer_id: '',
-        area_id: [],
-        sector_id: [],
-        service_name: '',
-        contract_number: '',
-        service_start: new Date(),
-        service_validity: new Date(),
-        is_active: true,
-      });
-      setFilteredAreas([]);
-      setIsEditing(false);
+  const [filteredAreas, setFilteredAreas] = useState<any[]>(() => {
+    if (editingService?.customer_id) {
+      return areas.filter((area) => area.customers?.id === editingService.customer_id);
     }
-  }, [editingService, reset, areas, sectors]);
-
-  const [filteredServices, setFilteredServices] = useState<Service[] | undefined>(
-    editingService ? [editingService] : []
-  );
-
-  const [filteredAreas, setFilteredAreas] = useState<any[]>([]);
-  const [filteredSectors, setFilteredSectors] = useState<any[]>([]);
-  const customerId = form.watch('customer_id');
-  useEffect(() => {
-    if (id) {
-      setView(true);
+    return [];
+  });
+  const [filteredSectors, setFilteredSectors] = useState<any[]>(() => {
+    if (editingService?.customer_id) {
+      return (
+        sectors
+          ?.filter((sector: any) => sector.customer_id === editingService.customer_id)
+          .map((sector: any) => sector.sectors) || []
+      );
     }
-  }, [id]);
-  // Efecto para manejar cambios en el cliente y filtrar áreas/sectores
-  useEffect(() => {
-    // Limpiar selecciones cuando cambia el cliente
-    form.setValue('area_id', []);
-    form.setValue('sector_id', []);
-
-    if (customerId) {
-      // Filtrar áreas por el cliente seleccionado
-      const filteredAreasByCustomer =
-        areas?.filter((area: any) => {
-          // Verificar si el área pertenece al cliente seleccionado
-          return area.customers?.id === customerId;
-        }) || [];
-
-      setFilteredAreas(filteredAreasByCustomer);
-
-      // Filtrar sectores por el cliente seleccionado
-      const filteredSectorsByCustomer =
-        sectors?.filter((sector: any) => sector.customer_id === customerId).map((sector: any) => sector.sectors) || [];
-
-      setFilteredSectors(filteredSectorsByCustomer);
-    } else {
-      // Si no hay cliente seleccionado, limpiar las opciones
-      setFilteredAreas([]);
-      setFilteredSectors([]);
-    }
-  }, [customerId, areas, sectors, form]);
-  useEffect(() => {
-    if (editingService) {
-      const serviceStartDate = new Date(editingService.service_start);
-      const serviceValidityDate = new Date(editingService.service_validity);
-
-      serviceStartDate.setDate(serviceStartDate.getDate() + 1);
-      serviceValidityDate.setDate(serviceValidityDate.getDate() + 1);
-
-      // Extraer los IDs de los sectores del array service_sectors
-      const sectorIds = (editingService as Service).service_sectors?.map((sector) => sector.sector_id) || [];
-
-      // Extraer los IDs de áreas
-      const areaIds =
-        (editingService as Service).service_areas?.map((area) => area.area_id) ||
-        (Array.isArray(editingService.area_id) ? editingService.area_id : [editingService.area_id]);
-
-      reset({
-        id: editingService.id,
-        customer_id: editingService.customer_id,
-        area_id: areaIds,
-        sector_id: sectorIds,
-        service_name: editingService.service_name,
-        contract_number: editingService.contract_number || '',
-        service_start: serviceStartDate,
-        service_validity: serviceValidityDate,
-        is_active: editingService.is_active,
-      });
-
-      // Forzar una actualización de los sectores filtrados
-      const filtered =
-        sectors?.filter((sector: any) =>
-          sector.sector_customer?.some((sc: any) => sc.customer_id?.id === editingService.customer_id)
-        ) || [];
-
-      // Asegurarse de que los sectores seleccionados estén en la lista
-      if (sectorIds.length > 0) {
-        const missingSectors = sectorIds.filter((id: string) => !filtered.some((s: any) => s.id === id));
-
-        if (missingSectors.length > 0) {
-          const additionalSectors = sectors.filter((s: any) => missingSectors.includes(s.id));
-          setFilteredSectors([...filtered, ...additionalSectors]);
-          return;
-        }
-      }
-
-      setFilteredSectors(filtered);
-      setIsEditing(true);
-    } else {
-      reset({
-        id: '',
-        customer_id: '',
-        area_id: [],
-        sector_id: [],
-        service_name: '',
-        contract_number: '',
-        service_start: new Date(),
-        service_validity: new Date(),
-        is_active: true,
-      });
-      setIsEditing(false);
-    }
-  }, [editingService, reset]);
-  const modified_editing_service_id = editingService?.id?.toString().replace(/"/g, '') ?? '';
-
+    return [];
+  });
+  const [view, setView] = useState(!!id);
   const onSubmit = async (values: z.infer<typeof ServiceSchema>) => {
     // Incluir solo los campos necesarios con valores por defecto
     const submissionData = {
@@ -496,10 +312,18 @@ export default function ServicesForm({
                     <Select
                       disabled={view}
                       onValueChange={(value) => {
-                        // Limpiar áreas y sectores cuando cambia el cliente
+                        field.onChange(value);
                         form.setValue('area_id', []);
                         form.setValue('sector_id', []);
-                        field.onChange(value);
+
+                        const filteredAreasByCustomer = areas?.filter((area) => area.customers?.id === value) || [];
+                        setFilteredAreas(filteredAreasByCustomer);
+
+                        const filteredSectorsByCustomer =
+                          sectors
+                            ?.filter((sector: any) => sector.customer_id === value)
+                            .map((sector: any) => sector.sectors) || [];
+                        setFilteredSectors(filteredSectorsByCustomer);
                       }}
                       value={field.value || editingService?.customer_id}
                     >

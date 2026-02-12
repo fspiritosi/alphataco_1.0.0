@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**IDIOMA**: SIEMPRE comunicarte, planificar, comentar y documentar en **espanol**. Todos los mensajes, planes, analisis y explicaciones deben ser en espanol.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Tech Stack
@@ -88,6 +90,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | Sistema de Permisos                         | @.claude/rules/permissions.md       | Botones CRUD, nuevas tabs                         |
 | DataTable Server-Side                       | @.claude/rules/datatable.md         | Tablas con paginacion                             |
 | Estructura de Features                      | @.claude/rules/feature-structure.md | Al crear/modificar features                       |
+| Evitar useEffect innecesarios               | @.claude/rules/no-useeffect.md      | Siempre al escribir logica reactiva               |
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
@@ -184,6 +187,41 @@ const itemName = allItems.find((i) => i.id === row.item)?.item_name;
 // ✅ CORRECTO - Resolver con JOIN en la query de Supabase
 const { data } = await supabase.from('preparte').select('*, service_items(id, item_name)');
 // En la tabla: row.service_items?.item_name (ya viene resuelto)
+```
+
+### 5. Evitar useEffect Innecesarios
+
+**NUNCA** usar `useEffect` para reaccionar a cambios de estado que nosotros mismos provocamos. Mover la logica al punto de origen.
+
+- Si se ejecuta al hacer click → mover al `onClick`
+- Si se ejecuta al actualizar un registro → mover a la funcion de update/submit
+- Si se ejecuta cuando cambia una prop → evaluar si se puede derivar directamente
+- `useEffect` solo para: suscripciones, event listeners del DOM, sincronizacion con APIs externas
+
+```typescript
+// ❌ INCORRECTO - useEffect para reaccionar a cambio de estado propio
+const [count, setCount] = useState(0);
+const [message, setMessage] = useState('');
+useEffect(() => {
+  setMessage(`Count is ${count}`);
+}, [count]);
+
+// ✅ CORRECTO - Derivar directamente
+const [count, setCount] = useState(0);
+const message = `Count is ${count}`;
+
+// ❌ INCORRECTO - useEffect para logica de click
+useEffect(() => {
+  if (selectedItem) {
+    form.reset(prepareFormData(selectedItem));
+  }
+}, [selectedItem]);
+
+// ✅ CORRECTO - Mover al handler
+const handleSelectItem = (item) => {
+  setSelectedItem(item);
+  form.reset(prepareFormData(item));
+};
 ```
 
 ---
