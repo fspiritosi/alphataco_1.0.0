@@ -87,6 +87,15 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
               equipment_id={resolvedSearchParams.id}
               moduleSlug="equipos"
               permissions={permissions}
+              hiddenTabs={[
+                'equipments_with_deviations',
+                'type_of_repair',
+                'type_of_repair_new_entry',
+                'maintenance_groups',
+                'maintenance_requests',
+                'maintenance_orders',
+                'maintenance_operations',
+              ]}
             />
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
