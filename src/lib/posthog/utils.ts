@@ -84,7 +84,18 @@ export function normalizeError(err: unknown): Error {
 
     // Crear Error real y copiar propiedades del objeto original
     const error = new Error(message);
-    error.name = typeof obj.name === 'string' ? obj.name : 'UnknownError';
+
+    // Detectar PostgrestError de Supabase: { code, message, details, hint }
+    // Los objetos de Supabase no extienden Error, son plain objects sin .name
+    const isPostgrestError = 'code' in obj && 'details' in obj && 'hint' in obj && typeof obj.message === 'string';
+
+    if (isPostgrestError) {
+      error.name = 'PostgrestError';
+    } else if (typeof obj.name === 'string' && obj.name) {
+      error.name = obj.name;
+    } else {
+      error.name = 'UnknownError';
+    }
 
     // Adjuntar propiedades originales para contexto adicional
     Object.assign(error, obj);

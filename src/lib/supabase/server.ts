@@ -138,11 +138,98 @@ export const supabaseServer = async () => {
 export const adminSupabaseServer = async () => {
   const cookieStore = await cookies();
 
+  // Extraer distinctId/sessionId de PostHog para vincular errores admin al usuario
+  const allCookies = cookieStore.getAll();
+  const postHogCookieEntry = allCookies.find((c) => /ph_phc_.*_posthog$/.test(c.name));
+  let posthogDistinctId: string | undefined;
+  let posthogSessionId: string | undefined;
+
+  if (postHogCookieEntry) {
+    try {
+      const cookieString = `${postHogCookieEntry.name}=${postHogCookieEntry.value}`;
+      const cookieData = extractPostHogCookieData(cookieString);
+      posthogDistinctId = cookieData.distinctId;
+      posthogSessionId = cookieData.sessionId;
+    } catch {
+      // Silenciar
+    }
+  }
+
+  const interceptedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? 'GET';
+    const requestBody = init?.body;
+
+    try {
+      const response = await fetch(input, init);
+
+      if (!response.ok) {
+        let responseBody: Record<string, unknown> | string | undefined;
+        try {
+          responseBody = await response.clone().json();
+        } catch {
+          try {
+            responseBody = await response.clone().text();
+          } catch {
+            responseBody = undefined;
+          }
+        }
+
+        let errorMessage = `Supabase Admin ${response.status} ${response.statusText}: ${method} ${url}`;
+        if (responseBody && typeof responseBody === 'object' && typeof responseBody.message === 'string') {
+          errorMessage = `${responseBody.message} [${response.status}] ${method} ${url}`;
+        }
+
+        const error = new Error(errorMessage);
+        error.name = 'SupabaseAdminError';
+
+        const posthog = getPostHogServer();
+        posthog.captureException(error, posthogDistinctId, {
+          ...(posthogSessionId ? { $session_id: posthogSessionId } : {}),
+          method,
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          response_body: serializeForPostHog(responseBody),
+          request_body: requestBody
+            ? serializeForPostHog(typeof requestBody === 'string' ? requestBody.substring(0, 500) : requestBody)
+            : undefined,
+          is_admin_operation: true,
+        });
+
+        supabaseLogger.error('Supabase Admin Error', {
+          data: { status: response.status, method, url, responseBody },
+        });
+      }
+
+      return response;
+    } catch (error) {
+      supabaseLogger.error('Supabase Admin Network Error', {
+        data: { method, url, error: error instanceof Error ? error.message : String(error) },
+      });
+
+      if (error instanceof Error) {
+        const posthog = getPostHogServer();
+        posthog.captureException(error, posthogDistinctId, {
+          ...(posthogSessionId ? { $session_id: posthogSessionId } : {}),
+          method,
+          url,
+          is_admin_operation: true,
+        });
+      }
+
+      throw error;
+    }
+  };
+
   return createServerClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
       detectSessionInUrl: false,
+    },
+    global: {
+      fetch: interceptedFetch,
     },
     cookies: {
       get(name: string) {
