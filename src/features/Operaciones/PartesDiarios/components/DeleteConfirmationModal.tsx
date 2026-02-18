@@ -1,5 +1,6 @@
 'use client';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Trash2 } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
 import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -23,9 +24,15 @@ interface DeleteConfirmationModalProps {
   dailyReportId: string;
   date: string;
   refetchData?: () => void;
+  preparteInfo?: { numero_pedido: string | null } | null;
 }
 
-export function DeleteConfirmationModal({ dailyReportId, date, refetchData }: DeleteConfirmationModalProps) {
+export function DeleteConfirmationModal({
+  dailyReportId,
+  date,
+  refetchData,
+  preparteInfo,
+}: DeleteConfirmationModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
@@ -34,18 +41,23 @@ export function DeleteConfirmationModal({ dailyReportId, date, refetchData }: De
       toast.promise(
         async () => {
           setIsDeleting(true);
-          await deleteDailyReportRow(dailyReportId);
+          const result = await deleteDailyReportRow(dailyReportId);
           if (refetchData) refetchData();
           router.refresh();
+          return result;
         },
         {
           loading: 'Eliminando registro...',
-          success: 'Registro eliminado exitosamente!',
+          success: (result) => {
+            if (result?.revertedPreparte?.numero_pedido) {
+              return `Registro eliminado. El pedido ${result.revertedPreparte.numero_pedido} volvió a estado Pendiente.`;
+            }
+            return 'Registro eliminado exitosamente!';
+          },
           error: 'Ocurrió un error al eliminar el registro',
         }
       );
     } catch (error) {
-      console.error('Error al eliminar:', error);
       toast.error('Ocurrió un error al eliminar el registro');
     } finally {
       setIsDeleting(false);
@@ -72,6 +84,15 @@ export function DeleteConfirmationModal({ dailyReportId, date, refetchData }: De
           <DialogTitle>Eliminar registro</DialogTitle>
           <DialogDescription>¿Estás seguro de eliminar este registro?</DialogDescription>
         </DialogHeader>
+        {preparteInfo?.numero_pedido && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Este registro está vinculado al pedido <strong>{preparteInfo.numero_pedido}</strong>. Al eliminarlo, el
+              pedido volverá a estado <strong>Pendiente</strong>.
+            </AlertDescription>
+          </Alert>
+        )}
         <DialogFooter>
           <DialogClose>
             <Button variant="outline" disabled={isDeleting}>
