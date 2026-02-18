@@ -466,17 +466,13 @@ export async function fetchPrepartes({
     }
 
     // Aplicar filtros
-    const toStartOfDayISO = (d: any) => {
-      const date = typeof d === 'string' || typeof d === 'number' ? new Date(d) : (d as Date);
-      if (Number.isNaN(date?.getTime?.())) return undefined;
-      date.setHours(0, 0, 0, 0);
-      return date.toISOString();
+    const toStartOfDay = (d: unknown) => {
+      const m = moment(d as string | number | Date);
+      return m.isValid() ? m.startOf('day').format('YYYY-MM-DD') : undefined;
     };
-    const toEndOfDayISO = (d: any) => {
-      const date = typeof d === 'string' || typeof d === 'number' ? new Date(d) : (d as Date);
-      if (Number.isNaN(date?.getTime?.())) return undefined;
-      date.setHours(23, 59, 59, 999);
-      return date.toISOString();
+    const toEndOfDay = (d: unknown) => {
+      const m = moment(d as string | number | Date);
+      return m.isValid() ? m.endOf('day').format('YYYY-MM-DD') : undefined;
     };
 
     for (const filter of columnFilters || []) {
@@ -485,10 +481,10 @@ export async function fetchPrepartes({
 
       // Rango de fechas: { from?: Date|string|null, to?: Date|string|null }
       if (typeof value === 'object' && value !== null && ('from' in value || 'to' in value)) {
-        const fromISO = (value as any)?.from ? toStartOfDayISO((value as any).from) : undefined;
-        const toISO = (value as any)?.to ? toEndOfDayISO((value as any).to) : undefined;
-        if (fromISO) query = query.gte(id, fromISO);
-        if (toISO) query = query.lte(id, toISO);
+        const fromDate = (value as any)?.from ? toStartOfDay((value as any).from) : undefined;
+        const toDate = (value as any)?.to ? toEndOfDay((value as any).to) : undefined;
+        if (fromDate) query = query.gte(id, fromDate);
+        if (toDate) query = query.lte(id, toDate);
         continue;
       }
 
@@ -721,18 +717,18 @@ async function _confirmSinglePreparte(
 
   // 3. Determinar fecha de ejecución (override tiene prioridad sobre la de BD)
   const rawDate = overrideExecutionDate || preparte.executionDate;
-  const execDateValue = rawDate ? new Date(rawDate) : null;
+  const parsedDate = rawDate ? moment(rawDate) : null;
 
-  if (preparte.subject_to_availability && !execDateValue) {
+  if (preparte.subject_to_availability && !parsedDate?.isValid()) {
     throw new Error(`${preparte.numero_pedido || preparteId}: sujeto a disponibilidad sin fecha asignada`);
   }
 
-  if (!execDateValue || isNaN(execDateValue.getTime())) {
+  if (!parsedDate || !parsedDate.isValid()) {
     throw new Error(`${preparte.numero_pedido || preparteId}: sin fecha de ejecución válida`);
   }
 
   // 4. Verificar/crear daily report para la fecha (con cache para bulk)
-  const executionDate = moment(execDateValue).format('YYYY-MM-DD');
+  const executionDate = parsedDate.format('YYYY-MM-DD');
   let dailyReportId = dailyReportCache?.get(executionDate);
 
   if (!dailyReportId) {

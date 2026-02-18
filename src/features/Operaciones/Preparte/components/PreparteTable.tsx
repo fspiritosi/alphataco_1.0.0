@@ -28,6 +28,7 @@ import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { format, isFuture, isToday, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, Check, Edit, Eye, Pencil } from 'lucide-react';
+import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { updatePreparte } from '../actions/preparte';
@@ -131,7 +132,7 @@ const getColumns = (
       enableHiding: false,
       cell: ({ row }) => {
         const requestDate = row.getValue('requestDate');
-        const data = requestDate ? new Date(requestDate as string).toLocaleDateString() : '-';
+        const data = requestDate ? moment(requestDate as string).format('DD/MM/YYYY') : '-';
         return <div>{data}</div>;
       },
       sortingFn: (rowA, rowB, columnId) => {
@@ -156,7 +157,7 @@ const getColumns = (
           );
         }
 
-        return <div>{executionDate ? new Date(executionDate as any).toLocaleDateString() : '-'}</div>;
+        return <div>{executionDate ? moment(executionDate as string).format('DD/MM/YYYY') : '-'}</div>;
       },
       enableColumnFilter: true,
       filterFn: (row, id, value) => {
