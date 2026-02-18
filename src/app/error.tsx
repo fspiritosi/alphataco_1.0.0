@@ -16,24 +16,23 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    const url = window.location.href;
-    const userAgent = navigator.userAgent;
-    const timestamp = new Date().toISOString();
-
     logger.error('Application Error', { data: { message: error.message, digest: error.digest } });
 
-    setErrorDetails(
-      `Error Message: ${error.message}\nError Digest: ${error.digest ?? 'N/A'}\nStack Trace:\n${error.stack ?? 'No stack trace available'}\nTimestamp: ${timestamp}\nUser Agent: ${userAgent}\nURL: ${url}`.trim()
-    );
+    const details = `
+Error Message: ${error.message}
+Error Digest: ${error.digest || 'N/A'}
+Stack Trace:
+${error.stack || 'No stack trace available'}
+Timestamp: ${new Date().toISOString()}
+User Agent: ${navigator.userAgent}
+URL: ${window.location.href}
+    `.trim();
 
-    // Capturar en PostHog con contexto completo — un solo useEffect en lugar de dos
-    posthog.captureException(error, {
-      $exception_source: 'ErrorBoundary',
-      digest: error.digest ?? null,
-      url,
-      user_agent: userAgent,
-      timestamp,
-    });
+    setErrorDetails(details);
+  }, [error]);
+
+  useEffect(() => {
+    posthog.captureException(error);
   }, [error]);
 
   const copyErrorToClipboard = () => {

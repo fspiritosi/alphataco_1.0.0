@@ -2,36 +2,20 @@ import { createBrowserClient } from '@supabase/ssr';
 import Cookies from 'js-cookie';
 import posthog from 'posthog-js';
 import { Database } from '../../../database.types';
-import { serializeForPostHog } from '../posthog/utils';
 
-/**
- * Captura un error en PostHog desde el cliente de forma segura.
- * Verifica que PostHog esté inicializado antes de llamar captureException,
- * resolviendo la race condition entre supabaseBrowser() y posthog.init().
- */
-function captureSupabaseBrowserError(error: Error, properties: Record<string, unknown>) {
-  try {
-    // posthog.__loaded es la señal interna de que posthog.init() se completó
-    if (posthog.__loaded) {
-      posthog.captureException(error, properties);
-    }
-    // Si PostHog no está inicializado aún, silenciar en lugar de perder el evento en la queue
-    // (posthog-js no hace queuing de captureException antes de init)
-  } catch {
-    // Silenciar para no interrumpir el flujo de la app
-  }
-}
-
+// Interceptor de fetch para loguear peticiones y enviar errores a PostHog
 const interceptedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-  const method = init?.method ?? 'GET';
+  const method = init?.method || 'GET';
   const requestBody = init?.body;
 
   try {
     const response = await fetch(input, init);
 
+    // Si hay error HTTP, capturar y enviar a PostHog
     if (!response.ok) {
-      let responseBody: Record<string, unknown> | string | undefined;
+      // Leer el body de la respuesta para más contexto
+      let responseBody: string | object | undefined;
       try {
         responseBody = await response.clone().json();
       } catch {
@@ -42,38 +26,37 @@ const interceptedFetch = async (input: RequestInfo | URL, init?: RequestInit) =>
         }
       }
 
-      // Construir mensaje legible — nunca [object Object]
-      // PostgrestError tiene: { code, message, details, hint }
-      let errorMessage = `Supabase ${response.status} ${response.statusText}: ${method} ${url}`;
-      if (responseBody && typeof responseBody === 'object' && typeof responseBody.message === 'string') {
-        errorMessage = `${responseBody.message} [${response.status}] ${method} ${url}`;
+      // Enviar error a PostHog
+      try {
+        const error = new Error(`Supabase Browser Error: ${method} ${url} - ${response.status} ${response.statusText}`);
+        posthog.captureException(error, {
+          $exception_type: 'Supabase Browser Error',
+          method,
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: typeof responseBody === 'object' ? JSON.stringify(responseBody) : responseBody,
+          requestBody: requestBody ? String(requestBody).substring(0, 1000) : undefined,
+        });
+      } catch {
+        // Silenciar errores de PostHog para no interrumpir el flujo
       }
-
-      const error = new Error(errorMessage);
-      error.name = 'SupabaseBrowserError';
-
-      captureSupabaseBrowserError(error, {
-        method,
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        response_body: serializeForPostHog(responseBody),
-        request_body: requestBody
-          ? serializeForPostHog(typeof requestBody === 'string' ? requestBody.substring(0, 500) : requestBody)
-          : undefined,
-      });
     }
 
     return response;
   } catch (error) {
-    if (error instanceof Error) {
-      captureSupabaseBrowserError(error, {
-        method,
-        url,
-        request_body: requestBody
-          ? serializeForPostHog(typeof requestBody === 'string' ? requestBody.substring(0, 500) : requestBody)
-          : undefined,
-      });
+    // Error de red - enviar a PostHog
+    try {
+      if (error instanceof Error) {
+        posthog.captureException(error, {
+          $exception_type: 'Supabase Browser Network Error',
+          method,
+          url,
+          requestBody: requestBody ? String(requestBody).substring(0, 1000) : undefined,
+        });
+      }
+    } catch {
+      // Silenciar errores de PostHog para no interrumpir el flujo
     }
 
     throw error;
