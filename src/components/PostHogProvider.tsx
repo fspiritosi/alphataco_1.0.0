@@ -13,7 +13,6 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
   const initialized = useRef(false);
 
   useEffect(() => {
-    // Solo inicializar si hay key y no se ha inicializado
     if (!process.env.NEXT_PUBLIC_POSTHOG_KEY || initialized.current) {
       return;
     }
@@ -27,30 +26,38 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
 
     initialized.current = true;
 
-    // Configurar listener de Supabase con cleanup
     const supabase = supabaseBrowser();
+
+    // CRÍTICO: Identificar al usuario si ya tiene sesión activa al cargar la app.
+    // Sin esto, el identify solo se llama en SIGNED_IN (al hacer login), pero si
+    // el usuario recarga la página con sesión existente, todos los eventos quedan
+    // como anónimos hasta que haga logout+login de nuevo.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        posthog.identify(session.user.id, {
+          email: session.user.email ?? undefined,
+        });
+      }
+    });
+
+    // Listener de cambios de estado de autenticación para login/logout posteriores
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        // Usar user.id como distinctId (según documentación)
         posthog.identify(session.user.id, {
-          email: session.user.email,
-          // Agregar más propiedades del usuario si es necesario
+          email: session.user.email ?? undefined,
         });
       } else if (event === 'SIGNED_OUT') {
-        // Resetear cuando el usuario cierra sesión
         posthog.reset();
       }
     });
 
-    // Cleanup importante para evitar memory leaks
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  // Solo renderizar provider si PostHog está configurado
   if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) {
     return <>{children}</>;
   }

@@ -1,6 +1,7 @@
 'use server';
 import { logger } from '@/lib/logger';
 import { getPostHogServer } from '@/lib/posthog-server';
+import { extractPostHogCookieData, serializeForPostHog } from '@/lib/posthog/utils';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Database } from '../../../database.types';
@@ -10,19 +11,34 @@ const supabaseLogger = logger.withScope('Supabase Server');
 export const supabaseServer = async () => {
   const cookieStore = await cookies();
 
-  // Interceptor de fetch para loguear peticiones y enviar errores a PostHog
+  // Extraer distinctId y sessionId de las cookies de PostHog para vincular errores al usuario
+  const allCookies = cookieStore.getAll();
+  const postHogCookieEntry = allCookies.find((c) => /ph_phc_.*_posthog$/.test(c.name));
+  let posthogDistinctId: string | undefined;
+  let posthogSessionId: string | undefined;
+
+  if (postHogCookieEntry) {
+    try {
+      const cookieString = `${postHogCookieEntry.name}=${postHogCookieEntry.value}`;
+      const cookieData = extractPostHogCookieData(cookieString);
+      posthogDistinctId = cookieData.distinctId;
+      posthogSessionId = cookieData.sessionId;
+    } catch {
+      // Silenciar — no interrumpir el flujo
+    }
+  }
+
   const interceptedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-    const method = init?.method || 'GET';
+    const method = init?.method ?? 'GET';
     const requestBody = init?.body;
 
     try {
       const response = await fetch(input, init);
 
-      // Si hay error HTTP, capturar y enviar a PostHog
       if (!response.ok) {
-        // Leer el body de la respuesta para más contexto
-        let responseBody: string | object | undefined;
+        // Leer el body para obtener el mensaje de error de Supabase/PostgreSQL
+        let responseBody: Record<string, unknown> | string | undefined;
         try {
           responseBody = await response.clone().json();
         } catch {
@@ -33,42 +49,55 @@ export const supabaseServer = async () => {
           }
         }
 
-        // Enviar error a PostHog
-        const posthog = getPostHogServer();
+        // Construir un mensaje de error legible
+        // PostgrestError tiene: { code, message, details, hint }
+        let errorMessage = `Supabase ${response.status} ${response.statusText}: ${method} ${url}`;
+        if (responseBody && typeof responseBody === 'object' && typeof responseBody.message === 'string') {
+          errorMessage = `${responseBody.message} [${response.status}] ${method} ${url}`;
+        }
 
-        const error = new Error(`Supabase Server Error: ${method} ${url} - ${response.status} ${response.statusText}`);
-        posthog.captureException(error, undefined, {
-          $exception_type: 'Supabase Server Error',
+        const error = new Error(errorMessage);
+        error.name = 'SupabaseServerError';
+
+        const posthog = getPostHogServer();
+        posthog.captureException(error, posthogDistinctId, {
+          ...(posthogSessionId ? { $session_id: posthogSessionId } : {}),
           method,
           url,
           status: response.status,
           statusText: response.statusText,
-          responseBody: typeof responseBody === 'object' ? JSON.stringify(responseBody) : responseBody,
-          requestBody: requestBody ? String(requestBody).substring(0, 1000) : undefined,
+          // Serializar el body correctamente — nunca pasar objetos crudos
+          response_body: serializeForPostHog(responseBody),
+          request_body: requestBody
+            ? serializeForPostHog(typeof requestBody === 'string' ? requestBody.substring(0, 500) : requestBody)
+            : undefined,
+        });
+
+        supabaseLogger.error('Supabase Server Error', {
+          data: { status: response.status, method, url, responseBody },
         });
       }
 
       return response;
     } catch (error) {
-      // Error de red
-      const errorData = {
-        method,
-        url,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        requestBody: requestBody ? String(requestBody).substring(0, 1000) : undefined,
-        timestamp: new Date().toISOString(),
-      };
-
-      supabaseLogger.error('Supabase Server Network Error', { data: errorData });
-
-      // Enviar error a PostHog
-      if (error instanceof Error) {
-        const posthog = getPostHogServer();
-        posthog.captureException(error, undefined, {
-          $exception_type: 'Supabase Server Network Error',
+      // Error de red — la request no llegó al servidor
+      supabaseLogger.error('Supabase Server Network Error', {
+        data: {
           method,
           url,
-          requestBody: requestBody ? String(requestBody).substring(0, 1000) : undefined,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      if (error instanceof Error) {
+        const posthog = getPostHogServer();
+        posthog.captureException(error, posthogDistinctId, {
+          ...(posthogSessionId ? { $session_id: posthogSessionId } : {}),
+          method,
+          url,
+          request_body: requestBody
+            ? serializeForPostHog(typeof requestBody === 'string' ? requestBody.substring(0, 500) : requestBody)
+            : undefined,
         });
       }
 
@@ -91,16 +120,14 @@ export const supabaseServer = async () => {
           try {
             cookieStore.set({ name, value, ...options });
           } catch {
-            // The `set` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing user sessions.
+            // Ignorar si se llama desde un Server Component (sin middleware)
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options });
           } catch {
-            // The `delete` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing user sessions.
+            // Ignorar si se llama desde un Server Component (sin middleware)
           }
         },
       },
@@ -125,14 +152,14 @@ export const adminSupabaseServer = async () => {
         try {
           cookieStore.set({ name, value, ...options });
         } catch {
-          // Ignorar errores en componentes del servidor
+          // Ignorar
         }
       },
       remove(name: string, options: CookieOptions) {
         try {
           cookieStore.set({ name, value: '', ...options });
         } catch {
-          // Ignorar errores en componentes del servidor
+          // Ignorar
         }
       },
     },
