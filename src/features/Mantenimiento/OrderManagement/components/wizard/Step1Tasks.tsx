@@ -10,8 +10,6 @@ import { useState } from 'react';
 import type { OrderManagementItem } from '../../actions/actionsServer';
 import type { LocalItem } from '../ManageOrderWizard';
 
-type OrderItem = OrderManagementItem['maintenance_order_items'][number];
-
 interface Step1TasksProps {
   order: OrderManagementItem;
   localItems: LocalItem[];
@@ -171,7 +169,7 @@ export function Step1Tasks({
                           onClick={() => onEditRepairTypes(item)}
                         >
                           <Wrench className="h-3 w-3 mr-1" />
-                          Asignar tipo
+                          Asignar tarea
                         </Button>
                       </PermissionGuard>
                     )}
