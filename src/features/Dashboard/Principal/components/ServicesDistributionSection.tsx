@@ -21,7 +21,7 @@ import { ServicesDetailByClient } from '../../../../components/Graficos/Services
 
 import { CardFooter } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { ChecklistDeviationsDashboard } from './ChecklistDeviationsDashboard';
+// import { ChecklistDeviationsDashboard } from './ChecklistDeviationsDashboard';
 
 export const description = 'A pie chart with a label';
 
@@ -245,7 +245,7 @@ export function ServicesDistributionSection({ servicesSummary }: { servicesSumma
       </Card>
 
       {/* Componente de Desvíos de Checklist */}
-      <ChecklistDeviationsDashboard />
+      {/* <ChecklistDeviationsDashboard /> */}
     </div>
   );
 }
