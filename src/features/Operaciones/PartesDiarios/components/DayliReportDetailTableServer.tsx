@@ -638,14 +638,13 @@ export default function DayliReportDetailTableServer({
       filterFn: (row, _id, value) => {
         const relations = row.original.dailyreportemployeerelations || [];
         if (!Array.isArray(relations) || !Array.isArray(value)) return false;
-        return value.some((val) =>
-          relations.some((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}` === val)
-        );
+        return value.some((val) => relations.some((rel) => rel.employees?.full_name === val));
       },
       exportFormatter: (value, row) => {
         return (
           row.dailyreportemployeerelations
-            ?.map((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}`)
+            ?.map((rel) => rel.employees?.full_name || '')
+            .filter(Boolean)
             .join(', ') || ''
         );
       },
@@ -1246,7 +1245,7 @@ export default function DayliReportDetailTableServer({
                         to_column: 'id',
                       },
                     ],
-                    final_column: 'employees.lastname',
+                    final_column: 'employees.full_name',
                   },
                   p_filters: { daily_report_id: dailyReportId },
                   mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
