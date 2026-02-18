@@ -635,11 +635,11 @@ export default function DayliReportDetailTableServer({
           </div>
         );
       },
-      filterFn: (row, id, value) => {
-        const rowValues = row.getValue(id) || [];
-        if (!Array.isArray(rowValues) || !Array.isArray(value)) return false;
+      filterFn: (row, _id, value) => {
+        const relations = row.original.dailyreportemployeerelations || [];
+        if (!Array.isArray(relations) || !Array.isArray(value)) return false;
         return value.some((val) =>
-          rowValues.some((rel: any) => `${rel.employees?.lastname} ${rel.employees?.firstname}` === val)
+          relations.some((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}` === val)
         );
       },
       exportFormatter: (value, row) => {
@@ -776,11 +776,11 @@ export default function DayliReportDetailTableServer({
           </div>
         );
       },
-      filterFn: (row, id, value) => {
-        const rowValues = row.getValue(id) || [];
-        if (!Array.isArray(rowValues) || !Array.isArray(value)) return false;
+      filterFn: (row, _id, value) => {
+        const relations = row.original.dailyreportequipmentrelations || [];
+        if (!Array.isArray(relations) || !Array.isArray(value)) return false;
         return value.some((val) =>
-          rowValues.some((rel: any) => (rel.vehicles?.domain || rel.vehicles?.intern_number) === val)
+          relations.some((rel) => (rel.vehicles?.domain || rel.vehicles?.intern_number) === val)
         );
       },
       exportFormatter: (value, row) => {
