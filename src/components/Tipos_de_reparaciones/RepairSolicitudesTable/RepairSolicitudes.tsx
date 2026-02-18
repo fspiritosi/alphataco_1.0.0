@@ -11,24 +11,37 @@ export type RepairSolicitudeData = Awaited<ReturnType<typeof fetchRepairSolicitu
 export default function RepairSolicitudes({
   mechanic,
   initialData,
+  equipment_id,
   savedFilters,
   savedVisibility,
 }: {
   mechanic?: boolean;
   initialData?: Awaited<ReturnType<typeof fetchRepairSolicitudes>>;
-  default_equipment_id?: string;
+  equipment_id?: string;
   savedFilters: string[];
   savedVisibility: VisibilityState;
 }) {
   const company_id = Cookies.get('actualComp');
 
+  const equipmentFilter = equipment_id
+    ? [{ column: 'equipment_id' as const, operator: 'eq' as const, value: equipment_id }]
+    : undefined;
+
+  const handleFetchData = async (options: Parameters<typeof fetchRepairSolicitudes>[0]) => {
+    return fetchRepairSolicitudes({
+      ...options,
+      filters: equipmentFilter,
+    });
+  };
+
   const handleFetchAllData = async (options: { sorting: any; columnFilters: any }) => {
     const result = await fetchAllRepairSolicitudesData({
       sorting: options.sorting,
       columnFilters: options.columnFilters,
+      filters: equipmentFilter,
       server: true,
     });
-    return result.rows; // Solo devolver los datos, no la estructura de paginación
+    return result.rows;
   };
 
   return (
@@ -37,12 +50,12 @@ export default function RepairSolicitudes({
         columns={mechanic ? mechanicColums : repairSolicitudesColums}
         savedVisibility={savedVisibility}
         initialData={initialData}
-        tableId="repair-solicitudes-table"
+        tableId={equipment_id ? `repair-solicitudes-table-${equipment_id}` : 'repair-solicitudes-table'}
         enableRowSelection={true}
         serverSide={true}
-        fetchData={fetchRepairSolicitudes}
+        fetchData={handleFetchData}
         fetchAllData={handleFetchAllData}
-        queryKey="repair-solicitudes-supabase"
+        queryKey={equipment_id ? `repair-solicitudes-${equipment_id}` : 'repair-solicitudes-supabase'}
         toolbarOptions={{
           initialVisibleFilters: savedFilters,
           showExport: true,
