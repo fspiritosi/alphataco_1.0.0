@@ -960,6 +960,7 @@ export default function DayliReportDetailTableServer({
                     refetchData={refetchDailyReport}
                     date={reportDate}
                     dailyReportId={row.original.id}
+                    preparteInfo={row.original.preparte}
                   />
                 </TooltipTrigger>
                 <TooltipContent side="top">
