@@ -65,6 +65,8 @@ export function TaskList({
   const isDiagnosticoComplete = diagnosticoRepair?.status === 'completed';
   const isBlockedByDiag = hasDiagnostico && !isDiagnosticoComplete;
   const isPending = workOrderStatus === 'pending';
+  const isPaused = workOrderStatus === 'paused';
+  const isReadOnly = isPending || isPaused;
 
   // Flatten all regular repairs (non-diagnostico) with their description, sorted by criticity
   const sortedRegularRepairs = workOrderItems
@@ -124,7 +126,7 @@ export function TaskList({
           notes={technicianNotes[diagnosticoRepair.id] || diagnosticoRepair.technician_notes || ''}
           savedNotes={diagnosticoRepair.technician_notes || ''}
           isMutating={isMutating}
-          isDisabled={isPending}
+          isDisabled={isReadOnly}
           onToggle={onToggleRepair}
           onNotesChange={onNotesChange}
           onNotesSave={onNotesSave}
@@ -141,7 +143,7 @@ export function TaskList({
           repair={repair}
           description={description}
           isBlockedByDiag={isBlockedByDiag}
-          isBlockedByPending={isPending}
+          isBlockedByPending={isReadOnly}
           isMutating={isMutating}
           localNotes={technicianNotes[repair.id] || repair.technician_notes || ''}
           onToggle={onToggleRepair}

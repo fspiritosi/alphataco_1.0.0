@@ -486,10 +486,7 @@ export function ManageOrderDialog({
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span className="text-muted-foreground">
-                Km:{' '}
-                <span className="text-foreground font-medium">
-                  {String(order.maintenance_requests?.kilometer || vehicle?.kilometer || '-')}
-                </span>
+                Km: <span className="text-foreground font-medium">{String(vehicle?.kilometer || '-')}</span>
               </span>
             </div>
           </DialogHeader>

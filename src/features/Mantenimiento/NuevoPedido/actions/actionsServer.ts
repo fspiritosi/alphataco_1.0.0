@@ -20,7 +20,6 @@ export type CreateMaintenanceOrderItemInput = {
 export type CreateMaintenanceOrderDirectInput = {
   equipment_id: string;
   kilometer?: string;
-  engine_hours?: string;
   items: CreateMaintenanceOrderItemInput[];
 };
 
@@ -47,7 +46,6 @@ export async function createMaintenanceOrderDirect(input: CreateMaintenanceOrder
       maintenance_request_id: null, // Sin solicitud previa
       status: 'pending_scheduling',
       kilometer_at_entry: input.kilometer || null,
-      engine_hours_at_entry: input.engine_hours || null,
     })
     .select()
     .single();
@@ -75,17 +73,31 @@ export async function createMaintenanceOrderDirect(input: CreateMaintenanceOrder
     throw new Error(`Error al crear items del pedido: ${itemsError.message}`);
   }
 
-  // 3. Actualizar kilometraje y/o horómetro del vehículo si se proporcionaron
-  if (input.kilometer || input.engine_hours) {
-    const vehicleUpdate: { kilometer?: string; engine_hours?: string } = {};
-    if (input.kilometer) vehicleUpdate.kilometer = input.kilometer;
-    if (input.engine_hours) vehicleUpdate.engine_hours = input.engine_hours;
+  // 3. Actualizar el kilometraje del vehículo si se proporcionó (solo si es mayor al actual)
+  if (input.kilometer) {
+    const { data: currentVehicle } = await supabase
+      .from('vehicles')
+      .select('kilometer')
+      .eq('id', input.equipment_id)
+      .single();
 
-    const { error: vehicleError } = await supabase.from('vehicles').update(vehicleUpdate).eq('id', input.equipment_id);
+    const currentKm = Number(currentVehicle?.kilometer) || 0;
+    const newKm = Number(input.kilometer);
 
-    if (vehicleError) {
-      serverLogger.warn('No se pudo actualizar kilometraje/horómetro del vehículo', {
-        data: { error: vehicleError },
+    if (newKm >= currentKm) {
+      const { error: vehicleError } = await supabase
+        .from('vehicles')
+        .update({ kilometer: input.kilometer })
+        .eq('id', input.equipment_id);
+
+      if (vehicleError) {
+        serverLogger.warn('No se pudo actualizar kilometraje del vehículo', {
+          data: { error: vehicleError },
+        });
+      }
+    } else {
+      serverLogger.warn('Kilometraje ignorado: menor al actual', {
+        data: { newKm, currentKm, equipmentId: input.equipment_id },
       });
     }
   }
@@ -245,7 +257,6 @@ export async function createMaintenanceOrderFromDeviations(input: {
   equipmentId: string;
   supervisorId: string;
   kilometer?: string;
-  engine_hours?: string;
   deviations: CreateDeviationFromNuevoPedido[];
 }) {
   const supabase = await supabaseServer();
@@ -299,7 +310,6 @@ export async function createMaintenanceOrderFromDeviations(input: {
       approved_at: new Date().toISOString(),
       user_id: user.id,
       kilometer: input.kilometer || null,
-      engine_hours: input.engine_hours || null,
       source: 'manual',
     })
     .select()
@@ -319,12 +329,14 @@ export async function createMaintenanceOrderFromDeviations(input: {
   }
 
   // 3. Crear maintenance_request_items vinculados a los desvíos
+  // supervisor_comment se usa para el comentario del supervisor (separado del driver_comment)
   const requestItemInserts = createdDeviations.map((dev, idx) => ({
     maintenance_request_id: request.id,
     checklist_deviation_id: dev.id,
     status: 'approved' as const,
     description: input.deviations[idx]?.comment || null,
-    driver_comment: input.deviations[idx]?.comment || null,
+    supervisor_comment: input.deviations[idx]?.comment || null,
+    supervisor_comment_by: input.deviations[idx]?.comment ? user.id : null,
   }));
 
   const { data: requestItems, error: reqItemsError } = await supabase
@@ -354,7 +366,6 @@ export async function createMaintenanceOrderFromDeviations(input: {
       maintenance_request_id: request.id,
       status: 'pending_scheduling',
       kilometer_at_entry: input.kilometer || null,
-      engine_hours_at_entry: input.engine_hours || null,
       source: 'manual',
     })
     .select()
@@ -401,16 +412,31 @@ export async function createMaintenanceOrderFromDeviations(input: {
     throw new Error('Error al crear los items del pedido');
   }
 
-  // 6. Actualizar el kilometraje del vehículo si se proporcionó
+  // 6. Actualizar el kilometraje del vehículo si se proporcionó (solo si es mayor al actual)
   if (input.kilometer) {
-    const { error: vehicleError } = await supabase
+    const { data: currentVehicle } = await supabase
       .from('vehicles')
-      .update({ kilometer: input.kilometer })
-      .eq('id', input.equipmentId);
+      .select('kilometer')
+      .eq('id', input.equipmentId)
+      .single();
 
-    if (vehicleError) {
-      serverLogger.warn('No se pudo actualizar kilometraje del vehículo', {
-        data: { error: vehicleError },
+    const currentKm = Number(currentVehicle?.kilometer) || 0;
+    const newKm = Number(input.kilometer);
+
+    if (newKm >= currentKm) {
+      const { error: vehicleError } = await supabase
+        .from('vehicles')
+        .update({ kilometer: input.kilometer })
+        .eq('id', input.equipmentId);
+
+      if (vehicleError) {
+        serverLogger.warn('No se pudo actualizar kilometraje del vehículo', {
+          data: { error: vehicleError },
+        });
+      }
+    } else {
+      serverLogger.warn('Kilometraje ignorado: menor al actual', {
+        data: { newKm, currentKm, equipmentId: input.equipmentId },
       });
     }
   }
@@ -458,7 +484,6 @@ export async function createMaintenanceRequestPendingApproval(input: {
   equipmentId: string;
   supervisorId: string;
   kilometer?: string;
-  engine_hours?: string;
   deviations: CreateDeviationFromNuevoPedido[];
 }) {
   const supabase = await supabaseServer();
@@ -510,7 +535,6 @@ export async function createMaintenanceRequestPendingApproval(input: {
       status: 'pending_approval', // Pendiente de aprobación
       user_id: user.id,
       kilometer: input.kilometer || null,
-      engine_hours: input.engine_hours || null,
       source: 'manual',
       // Sin approved_by ni approved_at ya que está pendiente
     })
@@ -531,12 +555,14 @@ export async function createMaintenanceRequestPendingApproval(input: {
   }
 
   // 3. Crear maintenance_request_items vinculados a los desvíos
+  // supervisor_comment se usa para el comentario del supervisor (separado del driver_comment)
   const requestItemInserts = createdDeviations.map((dev, idx) => ({
     maintenance_request_id: request.id,
     checklist_deviation_id: dev.id,
     status: 'pending' as const, // Pendiente de aprobación
     description: input.deviations[idx]?.comment || null,
-    driver_comment: input.deviations[idx]?.comment || null,
+    supervisor_comment: input.deviations[idx]?.comment || null,
+    supervisor_comment_by: input.deviations[idx]?.comment ? user.id : null,
   }));
 
   const { data: requestItems, error: reqItemsError } = await supabase

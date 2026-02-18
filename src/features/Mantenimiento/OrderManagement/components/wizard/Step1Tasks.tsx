@@ -1,11 +1,21 @@
 'use client';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
-import { AlertTriangle, MessageSquare, Pencil, Plus, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Ban, MessageSquare, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import type { OrderManagementItem } from '../../actions/actionsServer';
 import type { LocalItem } from '../ManageOrderWizard';
@@ -16,6 +26,8 @@ interface Step1TasksProps {
   repairTypes: Array<{ id: string; name: string }>;
   onAddItem: () => void;
   onDeleteItem: (itemId: string) => void;
+  onRejectItem?: (itemId: string, reason: string) => void;
+  onRestoreItem?: (itemId: string) => void;
   onEditRepairTypes: (item: LocalItem) => void;
   onDescriptionChange: (itemId: string, description: string) => void;
   onChiefCommentChange: (itemId: string, comment: string) => void;
@@ -27,13 +39,18 @@ export function Step1Tasks({
   repairTypes,
   onAddItem,
   onDeleteItem,
+  onRejectItem,
+  onRestoreItem,
   onEditRepairTypes,
   onDescriptionChange,
   onChiefCommentChange,
 }: Step1TasksProps) {
   const [editingCommentItemId, setEditingCommentItemId] = useState<string | null>(null);
+  const [rejectDialogItemId, setRejectDialogItemId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  const regularItems = localItems.filter((item) => !item.is_diagnostico && !item._deleted);
+  const regularItems = localItems.filter((item) => !item.is_diagnostico && !item._deleted && !item._rejected);
+  const rejectedItems = localItems.filter((item) => !item.is_diagnostico && !item._deleted && item._rejected);
 
   // Items sin repair type asignado
   const itemsWithoutRepairType = regularItems.filter((item) => {
@@ -173,6 +190,23 @@ export function Step1Tasks({
                         </Button>
                       </PermissionGuard>
                     )}
+                    {!canDelete && !hasWorkOrder && !item._rejected && onRejectItem && (
+                      <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="update">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-destructive/60 hover:text-destructive"
+                          onClick={() => {
+                            setRejectDialogItemId(item.id);
+                            setRejectionReason('');
+                          }}
+                          title="Rechazar item"
+                        >
+                          <Ban className="h-3 w-3 mr-1" />
+                          Rechazar
+                        </Button>
+                      </PermissionGuard>
+                    )}
                     {canDelete && !hasWorkOrder && (
                       <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="delete">
                         <Button
@@ -250,6 +284,76 @@ export function Step1Tasks({
           })}
         </div>
       )}
+
+      {/* Rejected items section */}
+      {rejectedItems.length > 0 && (
+        <div className="space-y-2 mt-4">
+          <h4 className="text-sm font-medium text-destructive">Items rechazados ({rejectedItems.length})</h4>
+          {rejectedItems.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between p-3 border border-destructive/30 rounded-lg bg-destructive/5 opacity-70"
+            >
+              <div className="space-y-1 flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                    Rechazado
+                  </Badge>
+                </div>
+                {item.description && <p className="text-sm text-foreground line-through">{String(item.description)}</p>}
+                {item._rejectionReason && (
+                  <p className="text-xs text-destructive italic">Motivo: {item._rejectionReason}</p>
+                )}
+              </div>
+              {onRestoreItem && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs ml-3 shrink-0"
+                  onClick={() => onRestoreItem(item.id)}
+                  title="Restaurar item"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Restaurar
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Reject confirmation dialog */}
+      <AlertDialog open={!!rejectDialogItemId} onOpenChange={(open) => !open && setRejectDialogItemId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rechazar item</AlertDialogTitle>
+            <AlertDialogDescription>
+              El item rechazado no se incluira en las ordenes de trabajo. Ingrese el motivo del rechazo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            placeholder="Motivo del rechazo..."
+            className="min-h-[80px]"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!rejectionReason.trim()}
+              onClick={() => {
+                if (rejectDialogItemId && rejectionReason.trim() && onRejectItem) {
+                  onRejectItem(rejectDialogItemId, rejectionReason.trim());
+                  setRejectDialogItemId(null);
+                  setRejectionReason('');
+                }
+              }}
+            >
+              Rechazar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

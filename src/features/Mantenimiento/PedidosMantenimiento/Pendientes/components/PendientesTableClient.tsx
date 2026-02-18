@@ -33,6 +33,7 @@ export function PendientesTableClient({ initialData }: PendientesTableClientProp
     queryKey: PEDIDOS_PENDIENTES_QUERY_KEY,
     queryFn: () => getMaintenanceOrdersPending(),
     initialData,
+    staleTime: 0,
   });
 
   const equipmentOptions = useMemo(() => {

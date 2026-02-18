@@ -18,7 +18,7 @@ import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, ClipboardList, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ClipboardList, Loader2, Save } from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -62,6 +62,8 @@ export interface LocalItem {
   _isTemp?: boolean;
   _tempRepairTypeIds?: string[];
   _deleted?: boolean;
+  _rejected?: boolean;
+  _rejectionReason?: string;
 }
 
 interface ManageOrderWizardProps {
@@ -133,6 +135,8 @@ export function ManageOrderWizard({
         workshop_sectors: item.workshop_sectors,
         work_order_id: item.work_order_id,
         workshop_chief_comment: item.workshop_chief_comment,
+        _rejected: item.is_rejected || false,
+        _rejectionReason: item.rejection_reason || undefined,
       }));
       setLocalItems(mapped);
       setPendingChanges({
@@ -151,7 +155,7 @@ export function ManageOrderWizard({
       setPlannedEndDate(moment().add(7, 'days').format('YYYY-MM-DD'));
 
       // Calculate initial step based on item data
-      const eligible = mapped.filter((i) => !i.is_diagnostico && !i.work_order_id);
+      const eligible = mapped.filter((i) => !i.is_diagnostico && !i.work_order_id && !i._rejected);
 
       if (eligible.length === 0) {
         setCurrentStep(1);
@@ -218,7 +222,18 @@ export function ManageOrderWizard({
 
   const regularItems = useMemo(() => localItems.filter((item) => !item.is_diagnostico && !item._deleted), [localItems]);
 
-  const eligibleItems = useMemo(() => regularItems.filter((item) => !item.work_order_id), [regularItems]);
+  const eligibleItems = useMemo(
+    () => regularItems.filter((item) => !item.work_order_id && !item._rejected),
+    [regularItems]
+  );
+
+  const rejectedItems = useMemo(() => regularItems.filter((item) => item._rejected), [regularItems]);
+
+  // All non-OT items are rejected → allow saving rejections directly
+  const allItemsRejected = useMemo(
+    () => eligibleItems.length === 0 && rejectedItems.length > 0,
+    [eligibleItems, rejectedItems]
+  );
 
   const vehicle = order?.vehicles;
 
@@ -282,6 +297,33 @@ export function ManageOrderWizard({
     },
     [localItems]
   );
+
+  const handleRejectItem = useCallback((itemId: string, reason: string) => {
+    setLocalItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, _rejected: true, _rejectionReason: reason } : i))
+    );
+    setPendingChanges((prev) => ({
+      ...prev,
+      rejections: [...(prev.rejections || []), { itemId, reason }],
+    }));
+    toast.info('Item rechazado');
+  }, []);
+
+  const handleRestoreItem = useCallback((itemId: string) => {
+    setLocalItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, _rejected: false, _rejectionReason: undefined } : i))
+    );
+    setPendingChanges((prev) => {
+      const updatedRejections = (prev.rejections || []).filter((r) => r.itemId !== itemId);
+      // If restoring an item that was already rejected in DB (not a pending rejection), track as restoration
+      const wasPendingRejection = (prev.rejections || []).some((r) => r.itemId === itemId);
+      const updatedRestorations = wasPendingRejection
+        ? prev.restorations || []
+        : [...(prev.restorations || []), itemId];
+      return { ...prev, rejections: updatedRejections, restorations: updatedRestorations };
+    });
+    toast.info('Item restaurado');
+  }, []);
 
   const handleUpdateRepairTypes = useCallback(
     (itemId: string, repairTypeIds: string[]) => {
@@ -484,6 +526,8 @@ export function ManageOrderWizard({
     descriptionUpdates: [],
     chiefCommentUpdates: [],
     workshopAssignments: [],
+    rejections: [],
+    restorations: [],
   };
 
   const hasStep1Changes = useMemo(() => {
@@ -493,7 +537,9 @@ export function ManageOrderWizard({
       c.deletes.length > 0 ||
       c.repairTypeUpdates.length > 0 ||
       c.descriptionUpdates.length > 0 ||
-      c.chiefCommentUpdates.length > 0
+      c.chiefCommentUpdates.length > 0 ||
+      (c.rejections || []).length > 0 ||
+      (c.restorations || []).length > 0
     );
   }, [pendingChanges]);
 
@@ -518,6 +564,8 @@ export function ManageOrderWizard({
           workshop_sectors: item.workshop_sectors,
           work_order_id: item.work_order_id,
           workshop_chief_comment: item.workshop_chief_comment,
+          _rejected: item.is_rejected || false,
+          _rejectionReason: item.rejection_reason || undefined,
         }))
       );
       setPendingChanges({ ...emptyChanges });
@@ -637,6 +685,22 @@ export function ManageOrderWizard({
     onClose();
   };
 
+  const handleSaveRejectionsAndClose = async () => {
+    if (!order || !hasStep1Changes) return;
+    try {
+      setIsSavingStep(true);
+      await saveOrderChanges(order.id, pendingChanges);
+      invalidateAllMaintenanceQueries(queryClient);
+      toast.success('Cambios guardados exitosamente');
+      onClose();
+    } catch (error) {
+      logger.error('Error guardando rechazos', { data: { error } });
+      toast.error('Error al guardar los cambios');
+    } finally {
+      setIsSavingStep(false);
+    }
+  };
+
   if (!order) return null;
 
   return (
@@ -669,10 +733,7 @@ export function ManageOrderWizard({
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span className="text-muted-foreground">
-                Km:{' '}
-                <span className="text-foreground font-medium">
-                  {String(order.maintenance_requests?.kilometer || vehicle?.kilometer || '-')}
-                </span>
+                Km: <span className="text-foreground font-medium">{String(vehicle?.kilometer || '-')}</span>
               </span>
             </div>
 
@@ -684,7 +745,7 @@ export function ManageOrderWizard({
           <div className="flex-1 min-h-0 overflow-y-auto mt-4 pr-1">
             {currentStep === 1 && order && (
               <>
-                {eligibleItems.length === 0 && regularItems.length > 0 && (
+                {eligibleItems.length === 0 && regularItems.length > 0 && !allItemsRejected && (
                   <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 mb-4">
                     <ClipboardList className="h-4 w-4 shrink-0" />
                     <span className="text-xs">
@@ -698,6 +759,8 @@ export function ManageOrderWizard({
                   repairTypes={repairTypes}
                   onAddItem={() => setAddItemOpen(true)}
                   onDeleteItem={handleDeleteItem}
+                  onRejectItem={handleRejectItem}
+                  onRestoreItem={handleRestoreItem}
                   onEditRepairTypes={setEditingRepairTypesItem}
                   onDescriptionChange={handleDescriptionChange}
                   onChiefCommentChange={handleChiefCommentChange}
@@ -750,7 +813,21 @@ export function ManageOrderWizard({
             </Button>
 
             <div className="flex items-center gap-2">
-              {currentStep < 4 ? (
+              {currentStep === 1 && allItemsRejected && hasStep1Changes ? (
+                <Button size="sm" onClick={handleSaveRejectionsAndClose} disabled={isSavingStep}>
+                  {isSavingStep ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-1" />
+                      Guardar cambios
+                    </>
+                  )}
+                </Button>
+              ) : currentStep < 4 ? (
                 <Button
                   size="sm"
                   onClick={handleNext}

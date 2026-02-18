@@ -397,7 +397,44 @@ export async function getWorkOrderDetailForOperator(workOrderId: string, sectorI
     return null;
   }
 
-  return data;
+  // Verificar si hay otra OT hermana (misma OM) en in_progress
+  let hasActiveSiblingWo = false;
+  let activeSiblingSector: string | null = null;
+
+  if (data) {
+    const firstItem = data.work_order_items?.[0];
+    const moItemRaw = firstItem?.maintenance_order_items;
+    const moItem = Array.isArray(moItemRaw) ? moItemRaw[0] : moItemRaw;
+    const maintenanceOrderId = moItem && 'maintenance_order_id' in moItem ? moItem.maintenance_order_id : null;
+
+    if (maintenanceOrderId) {
+      // Buscar todas las OTs de la misma OM que estén in_progress (excepto esta)
+      const { data: siblingItems } = await supabase
+        .from('maintenance_order_items')
+        .select('work_order_id')
+        .eq('maintenance_order_id', maintenanceOrderId)
+        .not('work_order_id', 'is', null)
+        .neq('work_order_id', workOrderId);
+
+      const siblingWoIds = [...new Set((siblingItems || []).map((i) => i.work_order_id).filter(Boolean))] as string[];
+
+      if (siblingWoIds.length > 0) {
+        const { data: activeWos } = await supabase
+          .from('work_orders')
+          .select('id, sector:workshop_sectors!work_orders_sector_id_fkey(name)')
+          .in('id', siblingWoIds)
+          .eq('status', 'in_progress');
+
+        if (activeWos && activeWos.length > 0) {
+          hasActiveSiblingWo = true;
+          const sectorData = activeWos[0].sector;
+          activeSiblingSector = Array.isArray(sectorData) ? sectorData[0]?.name || null : sectorData?.name || null;
+        }
+      }
+    }
+  }
+
+  return { ...data, has_active_sibling_wo: hasActiveSiblingWo, active_sibling_sector: activeSiblingSector };
 }
 
 export type OperatorWorkOrderDetail = NonNullable<Awaited<ReturnType<typeof getWorkOrderDetailForOperator>>>;
@@ -631,9 +668,13 @@ export async function uncompleteRepair(repairId: string) {
 export async function updateTechnicianNotes(repairId: string, notes: string) {
   const supabase = await supabaseServer();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { error } = await supabase
     .from('work_order_item_repairs')
-    .update({ technician_notes: notes })
+    .update({ technician_notes: notes, technician_notes_by: user?.id ?? null })
     .eq('id', repairId);
 
   if (error) {

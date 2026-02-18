@@ -38,6 +38,7 @@ export function WorkshopTrackingClient({ initialData }: WorkshopTrackingClientPr
       pending_workshop_validation: 'Pend. Validación Taller',
       pending_operations_validation: 'Pend. Validación Operaciones',
       operations_rejected: 'Rechazada por Ops',
+      workshop_rejected: 'Rechazada por Taller',
       completed: 'Completada',
     };
     const found = new Set<string>();

@@ -81,6 +81,7 @@ export function DiagnosticoCard({
                 }}
                 rows={3}
                 className="text-sm resize-none"
+                disabled={isDisabled}
               />
             </div>
           </div>

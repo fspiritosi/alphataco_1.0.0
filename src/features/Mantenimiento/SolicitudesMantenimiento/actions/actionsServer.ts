@@ -147,6 +147,11 @@ export async function createMaintenanceRequest(input: {
 
   serverLogger.info('Creando solicitud de mantenimiento', { data: input });
 
+  // Obtener usuario actual para tracking de autor
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   // Crear la solicitud
   const { data: request, error: requestError } = await supabase
     .from('maintenance_requests')
@@ -187,6 +192,7 @@ export async function createMaintenanceRequest(input: {
       checklist_deviation_id: item.deviationId,
       repair_type_id: item.repairTypeId || null, // Mantener por compatibilidad, pero no se usa
       driver_comment: item.driverComment || null,
+      driver_comment_by: item.driverComment ? user?.id ?? null : null,
       status: 'pending' as const,
     }));
   } else if (input.deviationIds && input.deviationIds.length > 0) {
@@ -251,6 +257,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
       .update({
         status: 'approved',
         validator_comment: item.validatorComment || null,
+        validator_comment_by: item.validatorComment ? user?.id ?? null : null,
       })
       .eq('id', item.itemId);
 
@@ -268,6 +275,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         status: 'rejected',
         rejection_reason: item.reason,
         validator_comment: item.validatorComment || null,
+        validator_comment_by: item.validatorComment ? user?.id ?? null : null,
       })
       .eq('id', item.itemId);
 
@@ -503,6 +511,11 @@ export async function createOrUpdateMaintenanceRequest(input: {
         return { ok: false, error: 'Error al actualizar el supervisor' };
       }
 
+      // Obtener user_id para tracking
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
       // Actualizar comentarios en los desvíos y items
       for (const deviation of input.deviations) {
         if (deviation.comment) {
@@ -513,7 +526,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
 
           await supabase
             .from('maintenance_request_items')
-            .update({ driver_comment: deviation.comment })
+            .update({ driver_comment: deviation.comment, driver_comment_by: currentUser?.id ?? null })
             .eq('checklist_deviation_id', deviation.deviationId);
         }
       }
@@ -575,6 +588,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
       checklist_deviation_id: d.deviationId,
       repair_type_id: null,
       driver_comment: d.comment || null,
+      driver_comment_by: d.comment ? userId ?? null : null,
       status: 'pending' as const,
     }));
 

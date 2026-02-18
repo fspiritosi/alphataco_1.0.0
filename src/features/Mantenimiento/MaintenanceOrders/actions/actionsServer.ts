@@ -25,8 +25,15 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
         types_of_repairs(id, name, autorizable),
         workshop_sectors(id, name),
         workshops(id, name, type),
+        rejected_by_profile:rejected_by(id, fullname),
+        workshop_chief_comment_profile:workshop_chief_comment_by(id, fullname),
         maintenance_request_items:maintenance_request_item_id(
           driver_comment, validator_comment, description,
+          supervisor_comment, supervisor_comment_by,
+          driver_comment_by, validator_comment_by,
+          driver_comment_profile:driver_comment_by(id, fullname),
+          validator_comment_profile:validator_comment_by(id, fullname),
+          supervisor_comment_profile:supervisor_comment_by(id, fullname),
           checklist_deviations(id, item_code, item_label)
         ),
         work_orders(
@@ -35,6 +42,8 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             id, status, maintenance_order_item_id,
             work_order_item_repairs(
               id, status, repair_type_id, is_diagnostico, is_operator_added,
+              technician_notes,
+              technician_notes_profile:technician_notes_by(id, fullname),
               types_of_repairs(id, name, autorizable, criticity)
             )
           )
@@ -58,6 +67,7 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
       'pending_workshop_validation',
       'pending_operations_validation',
       'operations_rejected',
+      'workshop_rejected',
       'completed',
     ]);
   }
@@ -93,8 +103,15 @@ export async function getMaintenanceOrderDetail(orderId: string) {
         types_of_repairs(id, name, autorizable),
         workshop_sectors(id, name),
         workshops(id, name, type),
+        rejected_by_profile:rejected_by(id, fullname),
+        workshop_chief_comment_profile:workshop_chief_comment_by(id, fullname),
         maintenance_request_items:maintenance_request_item_id(
           driver_comment, validator_comment, description,
+          supervisor_comment, supervisor_comment_by,
+          driver_comment_by, validator_comment_by,
+          driver_comment_profile:driver_comment_by(id, fullname),
+          validator_comment_profile:validator_comment_by(id, fullname),
+          supervisor_comment_profile:supervisor_comment_by(id, fullname),
           checklist_deviations(id, item_code, item_label)
         ),
         work_orders(
@@ -103,6 +120,8 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             id, status,
             work_order_item_repairs(
               id, status, repair_type_id, is_diagnostico, is_operator_added, rejection_reason,
+              technician_notes,
+              technician_notes_profile:technician_notes_by(id, fullname),
               types_of_repairs(id, name, autorizable, criticity)
             )
           )
@@ -667,6 +686,8 @@ export async function getValidationHistory(orderId: string) {
       'workshop_disagreed_ops_rejection',
       'workshop_approved',
       'operations_approved',
+      'workshop_rejected_all_items',
+      'workshop_restored_from_rejected',
       'status_change',
     ])
     .order('performed_at', { ascending: false });

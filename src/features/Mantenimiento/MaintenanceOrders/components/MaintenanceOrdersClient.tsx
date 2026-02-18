@@ -28,6 +28,7 @@ type StatusFilter =
   | 'pending_workshop_validation'
   | 'pending_operations_validation'
   | 'operations_rejected'
+  | 'workshop_rejected'
   | 'completed'
   | 'all';
 
@@ -108,6 +109,7 @@ export function MaintenanceOrdersClient({
           <TabsTrigger value="pending_workshop_validation">Pend. Validación Taller</TabsTrigger>
           <TabsTrigger value="pending_operations_validation">Pend. Validación Operaciones</TabsTrigger>
           <TabsTrigger value="operations_rejected">Rechazada por Ops</TabsTrigger>
+          <TabsTrigger value="workshop_rejected">Rechazada por Taller</TabsTrigger>
           <TabsTrigger value="completed">Completadas</TabsTrigger>
           <TabsTrigger value="all">Todas</TabsTrigger>
         </TabsList>

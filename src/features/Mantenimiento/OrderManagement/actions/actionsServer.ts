@@ -30,8 +30,13 @@ export async function getMaintenanceOrdersForManagement() {
       maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
+        rejected_by_profile:rejected_by(id, fullname),
+        workshop_chief_comment_profile:workshop_chief_comment_by(id, fullname),
         maintenance_request_items(
           *,
+          driver_comment_profile:driver_comment_by(id, fullname),
+          validator_comment_profile:validator_comment_by(id, fullname),
+          supervisor_comment_profile:supervisor_comment_by(id, fullname),
           checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
         types_of_repairs(id, name, autorizable),
@@ -79,8 +84,13 @@ export async function getOrderForManagement(orderId: string) {
       maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
+        rejected_by_profile:rejected_by(id, fullname),
+        workshop_chief_comment_profile:workshop_chief_comment_by(id, fullname),
         maintenance_request_items(
           *,
+          driver_comment_profile:driver_comment_by(id, fullname),
+          validator_comment_profile:validator_comment_by(id, fullname),
+          supervisor_comment_profile:supervisor_comment_by(id, fullname),
           checklist_deviations(id, item_code, item_label, section_code, driver_comment)
         ),
         types_of_repairs(id, name, autorizable),
@@ -437,6 +447,13 @@ export interface OrderChangeSet {
     itemIds: string[];
     workshopId: string;
   }>;
+  /** Items rejected by workshop chief (won't travel to WO) */
+  rejections?: Array<{
+    itemId: string;
+    reason: string;
+  }>;
+  /** Items restored from rejected state */
+  restorations?: string[];
 }
 
 /**
@@ -609,7 +626,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
   for (const commentUpdate of changes.chiefCommentUpdates) {
     await supabase
       .from('maintenance_order_items')
-      .update({ workshop_chief_comment: commentUpdate.comment })
+      .update({ workshop_chief_comment: commentUpdate.comment, workshop_chief_comment_by: user.id })
       .eq('id', commentUpdate.itemId);
   }
 
@@ -628,6 +645,98 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
 
     if (wsError) {
       logger.error('Error asignando taller externo en batch', { data: { error: wsError } });
+    }
+  }
+
+  // 9. REJECTIONS - Marcar items como rechazados
+  if (changes.rejections && changes.rejections.length > 0) {
+    for (const rejection of changes.rejections) {
+      const { error: rejectError } = await supabase
+        .from('maintenance_order_items')
+        .update({
+          is_rejected: true,
+          rejection_reason: rejection.reason,
+          rejected_by: user.id,
+          rejected_at: new Date().toISOString(),
+        })
+        .eq('id', rejection.itemId);
+
+      if (rejectError) {
+        logger.error('Error rechazando item en batch', { data: { error: rejectError } });
+      }
+    }
+  }
+
+  // 10. RESTORATIONS - Restaurar items rechazados
+  if (changes.restorations && changes.restorations.length > 0) {
+    for (const itemId of changes.restorations) {
+      const { error: restoreError } = await supabase
+        .from('maintenance_order_items')
+        .update({
+          is_rejected: false,
+          rejection_reason: null,
+          rejected_by: null,
+          rejected_at: null,
+        })
+        .eq('id', itemId);
+
+      if (restoreError) {
+        logger.error('Error restaurando item rechazado', { data: { error: restoreError } });
+      }
+    }
+  }
+
+  // After rejections/restorations, check if order needs status transition
+  if (
+    (changes.rejections && changes.rejections.length > 0) ||
+    (changes.restorations && changes.restorations.length > 0) ||
+    changes.adds.length > 0
+  ) {
+    const { data: currentOrder } = await supabase
+      .from('maintenance_orders')
+      .select('status')
+      .eq('id', orderId)
+      .single();
+
+    const { data: allItems } = await supabase
+      .from('maintenance_order_items')
+      .select('id, is_rejected, is_diagnostico')
+      .eq('maintenance_order_id', orderId);
+
+    const regularItems = (allItems || []).filter((item) => !item.is_diagnostico);
+    const allRejected = regularItems.length > 0 && regularItems.every((item) => item.is_rejected);
+    const hasNonRejected = regularItems.some((item) => !item.is_rejected);
+
+    if (allRejected && currentOrder?.status !== 'workshop_rejected') {
+      // All items rejected → mark as workshop_rejected
+      await supabase
+        .from('maintenance_orders')
+        .update({ status: 'workshop_rejected', updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+
+      await supabase.from('maintenance_activity_log').insert({
+        maintenance_order_id: orderId,
+        action_type: 'workshop_rejected_all_items',
+        performed_by: user.id,
+        previous_status: currentOrder?.status || 'in_workshop',
+        new_status: 'workshop_rejected',
+        notes: `Todos los items rechazados por taller (${regularItems.length} item(s))`,
+      });
+    } else if (hasNonRejected && currentOrder?.status === 'workshop_rejected') {
+      // Some items restored or new items added → back to in_workshop
+      await supabase
+        .from('maintenance_orders')
+        .update({ status: 'in_workshop', updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+
+      await supabase.from('maintenance_activity_log').insert({
+        maintenance_order_id: orderId,
+        action_type: 'workshop_restored_from_rejected',
+        performed_by: user.id,
+        previous_status: 'workshop_rejected',
+        new_status: 'in_workshop',
+        notes: 'Orden restaurada - items disponibles para gestionar',
+      });
     }
   }
 
@@ -653,7 +762,7 @@ export async function getOrderGenerationPreview(orderId: string) {
       vehicles(id, domain, serie, company_id),
       maintenance_order_items(
         id, description, assigned_sector_id, assigned_workshop_id, sector_sequence_order,
-        is_diagnostico, work_order_id,
+        is_diagnostico, is_rejected, work_order_id,
         workshop_sectors(id, name),
         workshops:assigned_workshop_id(id, name, type),
         maintenance_order_item_repair_types(
@@ -672,9 +781,13 @@ export async function getOrderGenerationPreview(orderId: string) {
     throw new Error('Error al obtener datos de la orden');
   }
 
-  // Filtrar items regulares sin OT generada, con sector o taller externo asignado
+  // Filtrar items regulares sin OT generada, no rechazados, con sector o taller externo asignado
   const eligibleItems = (order.maintenance_order_items || []).filter(
-    (item) => !item.is_diagnostico && (item.assigned_sector_id || item.assigned_workshop_id) && !item.work_order_id
+    (item) =>
+      !item.is_diagnostico &&
+      !item.is_rejected &&
+      (item.assigned_sector_id || item.assigned_workshop_id) &&
+      !item.work_order_id
   );
 
   // Agrupar por sector (internos) o por workshop (externos)
@@ -1126,7 +1239,7 @@ export async function setupAndGenerateWorkOrders(
   for (const commentUpdate of itemChanges.chiefCommentUpdates) {
     await supabase
       .from('maintenance_order_items')
-      .update({ workshop_chief_comment: commentUpdate.comment })
+      .update({ workshop_chief_comment: commentUpdate.comment, workshop_chief_comment_by: user.id })
       .eq('id', commentUpdate.itemId);
   }
 

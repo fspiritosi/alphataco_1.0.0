@@ -156,6 +156,7 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
           pending_workshop_validation: { label: 'Pend. Validación Taller', variant: 'yellow' },
           pending_operations_validation: { label: 'Pend. Validación Operaciones', variant: 'yellow' },
           operations_rejected: { label: 'Rechazada por Ops', variant: 'destructive' },
+          workshop_rejected: { label: 'Rechazada por Taller', variant: 'destructive' },
           completed: { label: 'Completada', variant: 'success' },
         };
         const config = statusMap[status ?? ''] || { label: status || 'Sin estado', variant: 'secondary' as const };

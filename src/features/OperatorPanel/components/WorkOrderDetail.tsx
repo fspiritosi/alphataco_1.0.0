@@ -222,6 +222,8 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
         isPausing={pauseMutation.isPending}
         onResume={() => resumeMutation.mutate()}
         isResuming={resumeMutation.isPending}
+        isBlockedByOtherSector={data.has_active_sibling_wo}
+        blockedBySectorName={data.active_sibling_sector}
       />
 
       {/* Scrollable task list */}
@@ -243,7 +245,12 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
       {/* Footer - floating action bar */}
       <div className="flex-none border-t bg-card p-3 sm:p-4">
         <div className="flex gap-2">
-          <Button onClick={() => setAddTaskOpen(true)} variant="outline" className="flex-1 h-11 gap-2">
+          <Button
+            onClick={() => setAddTaskOpen(true)}
+            variant="outline"
+            className="flex-1 h-11 gap-2"
+            disabled={data.status !== 'in_progress'}
+          >
             <Plus className="h-4 w-4" />
             Agregar Tarea
           </Button>

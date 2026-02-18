@@ -100,6 +100,7 @@ export function getMaintenanceOrdersColumns({
           | 'pending_workshop_validation'
           | 'pending_operations_validation'
           | 'operations_rejected'
+          | 'workshop_rejected'
           | 'completed';
 
         const statusLabels: Record<StatusType, string> = {
@@ -108,6 +109,7 @@ export function getMaintenanceOrdersColumns({
           pending_workshop_validation: 'Pend. Validación Taller',
           pending_operations_validation: 'Pend. Validación Operaciones',
           operations_rejected: 'Rechazada por Ops',
+          workshop_rejected: 'Rechazada por Taller',
           completed: 'Completada',
         };
 
@@ -117,6 +119,7 @@ export function getMaintenanceOrdersColumns({
           pending_workshop_validation: 'yellow',
           pending_operations_validation: 'yellow',
           operations_rejected: 'destructive',
+          workshop_rejected: 'destructive',
           completed: 'success',
         };
 
@@ -174,9 +177,9 @@ export function getMaintenanceOrdersColumns({
       header: 'Acciones',
       cell: ({ row }) => {
         const order = row.original;
-        const isInWorkshop = order.status === 'in_workshop';
+        const canManage = order.status === 'in_workshop' || order.status === 'workshop_rejected';
 
-        if (isInWorkshop && onManageOrder) {
+        if (canManage && onManageOrder) {
           return (
             <div className="flex gap-1">
               <Button variant="ghost" size="sm" onClick={() => onManageOrder(order)}>

@@ -29,6 +29,7 @@ export function PedidosTableClient({ initialData }: PedidosTableClientProps) {
     queryKey: MAINTENANCE_ORDERS_QUERY_KEY,
     queryFn: () => getMaintenanceOrders(),
     initialData,
+    staleTime: 0,
   });
 
   // Generar opciones de equipos dinámicamente desde los datos

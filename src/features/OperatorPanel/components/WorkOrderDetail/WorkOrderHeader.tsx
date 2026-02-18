@@ -4,7 +4,7 @@ import type { BadgeProps } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Calendar, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Calendar, Lock, Pause, Play } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 
@@ -63,6 +63,8 @@ interface WorkOrderHeaderProps {
   isPausing?: boolean;
   onResume?: () => void;
   isResuming?: boolean;
+  isBlockedByOtherSector?: boolean;
+  blockedBySectorName?: string | null;
 }
 
 export function WorkOrderHeader({
@@ -80,6 +82,8 @@ export function WorkOrderHeader({
   isPausing,
   onResume,
   isResuming,
+  isBlockedByOtherSector,
+  blockedBySectorName,
 }: WorkOrderHeaderProps) {
   const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
@@ -94,8 +98,8 @@ export function WorkOrderHeader({
             </Button>
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold truncate sm:text-xl tracking-tight">OT {orderNumber}</h1>
-            <p className="text-xs text-muted-foreground font-mono">OM {maintenanceOrderNumber}</p>
+            <h1 className="text-lg font-bold truncate sm:text-xl tracking-tight">{orderNumber}</h1>
+            <p className="text-xs text-muted-foreground font-mono">{maintenanceOrderNumber}</p>
           </div>
           {status === 'pending' && (
             <Button onClick={onStart} disabled={isStarting} size="default" className="gap-2 h-10 sm:h-11 rounded-xl">
@@ -118,13 +122,42 @@ export function WorkOrderHeader({
             </Button>
           )}
           {status === 'paused' && onResume && (
-            <Button onClick={onResume} disabled={isResuming} size="default" className="gap-2 h-10 sm:h-11 rounded-xl">
+            <Button
+              onClick={onResume}
+              disabled={isResuming || isBlockedByOtherSector}
+              size="default"
+              className="gap-2 h-10 sm:h-11 rounded-xl"
+              title={
+                isBlockedByOtherSector
+                  ? `Bloqueada: ${blockedBySectorName || 'otro sector'} tiene una OT en progreso`
+                  : undefined
+              }
+            >
               <Play className="h-4 w-4" />
-              <span className="hidden sm:inline">Reanudar OT</span>
-              <span className="sm:hidden">Reanudar</span>
+              <span className="hidden sm:inline">{isBlockedByOtherSector ? 'Bloqueada' : 'Reanudar OT'}</span>
+              <span className="sm:hidden">{isBlockedByOtherSector ? 'Bloqueada' : 'Reanudar'}</span>
             </Button>
           )}
         </div>
+
+        {/* Blocked banner */}
+        {status === 'paused' && isBlockedByOtherSector && (
+          <div className="flex items-center gap-2.5 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive">
+            <Lock className="h-4 w-4 shrink-0" />
+            <p className="text-sm font-medium">
+              No se puede reanudar: el sector <span className="font-bold">{blockedBySectorName || 'otro sector'}</span>{' '}
+              tiene una OT en progreso para esta orden de mantenimiento.
+            </p>
+          </div>
+        )}
+
+        {/* Paused banner */}
+        {status === 'paused' && !isBlockedByOtherSector && (
+          <div className="flex items-center gap-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
+            <Pause className="h-4 w-4 shrink-0" />
+            <p className="text-sm font-medium">Orden de trabajo pausada. Reanude para poder completar tareas.</p>
+          </div>
+        )}
 
         {/* Row 2: Vehicle info bar */}
         {vehicle && (

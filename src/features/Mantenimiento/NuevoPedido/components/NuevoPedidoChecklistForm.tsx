@@ -224,6 +224,15 @@ export function NuevoPedidoChecklistForm({
       return;
     }
 
+    // Validar que el kilometraje no sea menor al actual
+    if (isVehicle && kilometer) {
+      const currentKm = Number(selectedEquipment?.kilometer) || 0;
+      if (Number(kilometer) < currentKm) {
+        toast.error(`El kilometraje no puede ser menor al actual (${currentKm} km)`);
+        return;
+      }
+    }
+
     // Si es supervisor actual, usar su ID; si no, usar el seleccionado
     const supervisorId = isCurrentUserSupervisor ? currentUser?.id : selectedSupervisorId;
 
@@ -343,7 +352,13 @@ export function NuevoPedidoChecklistForm({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Selecciona el equipo</Label>
-        <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
+        <Popover
+          open={equipmentOpen}
+          onOpenChange={(open) => {
+            setEquipmentOpen(open);
+            if (!open) setSearchTerm('');
+          }}
+        >
           <PopoverTrigger asChild>
             <Button
               variant="outline"

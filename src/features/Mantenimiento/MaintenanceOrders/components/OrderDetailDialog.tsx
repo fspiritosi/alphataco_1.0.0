@@ -16,11 +16,21 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { getItemComments, type CommentEntry } from '@/features/Mantenimiento/utils/driverInfo';
+import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
+import { getItemComments, getTechnicianComments, type CommentEntry } from '@/features/Mantenimiento/utils/driverInfo';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, Clock, History, MessageSquare, XCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  HardHat,
+  History,
+  MessageSquare,
+  XCircle,
+} from 'lucide-react';
 import moment from 'moment';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -456,7 +466,11 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
       if (item.is_diagnostico) return;
 
       const comments = getItemComments(item, order?.maintenance_requests?.source);
-      if (comments.length === 0) return;
+      // Add technician notes from work_order_item_repairs
+      const techComments = getTechnicianComments(item);
+      const allComments = [...comments, ...techComments];
+
+      if (allComments.length === 0) return;
 
       // Get a meaningful label for this item (deviation label > repair type > generic)
       const reqItem = item.maintenance_request_items as
@@ -468,7 +482,7 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
       const itemLabel =
         deviation?.item_label || (item.types_of_repairs?.name ? String(item.types_of_repairs.name) : null) || 'Item';
 
-      result.push({ itemLabel, comments });
+      result.push({ itemLabel, comments: allComments });
     });
 
     return result;
@@ -609,26 +623,103 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
     );
   };
 
-  /** Renders the validation history timeline */
+  /** Renders the validation history as a vertical timeline with connecting line */
   const renderValidationHistory = (history: ValidationHistoryData) => {
     if (history.length === 0) return null;
 
-    const actionLabels: Record<string, { label: string; icon: typeof CheckCircle2; color: string }> = {
-      workshop_approved: { label: 'Aprobado por Jefe de Taller', icon: CheckCircle2, color: 'text-emerald-600' },
-      operations_approved: { label: 'Aprobado por Operaciones', icon: CheckCircle2, color: 'text-emerald-600' },
-      workshop_item_rejected: { label: 'Items rechazados por Jefe de Taller', icon: XCircle, color: 'text-red-600' },
-      operations_item_rejected: { label: 'Items rechazados por Operaciones', icon: XCircle, color: 'text-red-600' },
+    // Action config: label describes the action, role identifies the performer type
+    const actionConfig: Record<
+      string,
+      {
+        label: string;
+        icon: typeof CheckCircle2;
+        color: string;
+        dotColor: string;
+        role: string;
+        roleIcon: typeof HardHat;
+      }
+    > = {
+      workshop_approved: {
+        label: 'Aprobacion de Taller',
+        icon: CheckCircle2,
+        color: 'text-emerald-600',
+        dotColor: 'bg-emerald-500',
+        role: 'Jefe de Taller',
+        roleIcon: HardHat,
+      },
+      operations_approved: {
+        label: 'Aprobacion de Operaciones',
+        icon: CheckCircle2,
+        color: 'text-emerald-600',
+        dotColor: 'bg-emerald-500',
+        role: 'Operaciones',
+        roleIcon: ClipboardList,
+      },
+      workshop_item_rejected: {
+        label: 'Items rechazados',
+        icon: XCircle,
+        color: 'text-red-600',
+        dotColor: 'bg-red-500',
+        role: 'Jefe de Taller',
+        roleIcon: HardHat,
+      },
+      operations_item_rejected: {
+        label: 'Items rechazados',
+        icon: XCircle,
+        color: 'text-red-600',
+        dotColor: 'bg-red-500',
+        role: 'Operaciones',
+        roleIcon: ClipboardList,
+      },
       workshop_agreed_ops_rejection: {
-        label: 'Jefe de Taller de acuerdo con rechazo',
+        label: 'De acuerdo con rechazo',
         icon: AlertTriangle,
         color: 'text-amber-600',
+        dotColor: 'bg-amber-500',
+        role: 'Jefe de Taller',
+        roleIcon: HardHat,
       },
       workshop_disagreed_ops_rejection: {
-        label: 'Jefe de Taller en desacuerdo con rechazo',
+        label: 'En desacuerdo con rechazo',
         icon: AlertTriangle,
         color: 'text-amber-600',
+        dotColor: 'bg-amber-500',
+        role: 'Jefe de Taller',
+        roleIcon: HardHat,
       },
-      status_change: { label: 'Cambio de estado', icon: Clock, color: 'text-blue-600' },
+      workshop_rejected_all_items: {
+        label: 'Todos los items rechazados',
+        icon: XCircle,
+        color: 'text-red-600',
+        dotColor: 'bg-red-500',
+        role: 'Jefe de Taller',
+        roleIcon: HardHat,
+      },
+      workshop_restored_from_rejected: {
+        label: 'Orden restaurada',
+        icon: CheckCircle2,
+        color: 'text-emerald-600',
+        dotColor: 'bg-emerald-500',
+        role: 'Jefe de Taller',
+        roleIcon: HardHat,
+      },
+      status_change: {
+        label: 'Cambio de estado',
+        icon: Clock,
+        color: 'text-blue-600',
+        dotColor: 'bg-blue-500',
+        role: 'Sistema',
+        roleIcon: Clock,
+      },
+    };
+
+    const defaultConfig = {
+      label: 'Evento',
+      icon: Clock,
+      color: 'text-muted-foreground',
+      dotColor: 'bg-muted-foreground',
+      role: 'Sistema',
+      roleIcon: Clock as typeof HardHat,
     };
 
     return (
@@ -639,35 +730,54 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
             <History className="h-4 w-4" />
             Historial de Validaciones
           </h4>
-          <div className="space-y-2">
-            {history.map((entry) => {
-              const config = actionLabels[entry.action_type] || {
-                label: entry.action_type,
-                icon: Clock,
-                color: 'text-muted-foreground',
-              };
-              const Icon = config.icon;
-              const performer = entry.performed_by_profile as { fullname?: string | null } | null;
-              const performerName = performer?.fullname || 'Sistema';
+          {/* Timeline con línea conectora */}
+          <div className="relative pl-6">
+            {/* Línea vertical conectora */}
+            <div className="absolute left-[9px] top-2 bottom-2 w-px bg-border" />
 
-              const metadata = entry.metadata as {
-                rejected_items?: Array<{ repair_name: string; sector_name: string; comment: string }>;
-              } | null;
-              const rejectedItems = metadata?.rejected_items || [];
+            <div className="space-y-0">
+              {history.map((entry, index) => {
+                const cfg = actionConfig[entry.action_type] || defaultConfig;
+                const Icon = cfg.icon;
+                const RoleIcon = cfg.roleIcon;
+                const performer = entry.performed_by_profile as { fullname?: string | null } | null;
+                const performerName = performer?.fullname || 'Sistema';
+                const isLast = index === history.length - 1;
 
-              return (
-                <div key={entry.id} className="border rounded-md p-3 text-sm">
-                  <div className="flex items-start gap-2">
-                    <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${config.color}`} />
-                    <div className="flex-1 min-w-0">
+                const metadata = entry.metadata as {
+                  rejected_items?: Array<{ repair_name: string; sector_name: string; comment: string }>;
+                } | null;
+                const rejectedItems = metadata?.rejected_items || [];
+
+                return (
+                  <div key={entry.id} className={`relative ${!isLast ? 'pb-4' : ''}`}>
+                    {/* Dot en la línea */}
+                    <div
+                      className={`absolute -left-6 top-2.5 h-[18px] w-[18px] rounded-full border-2 border-background ${cfg.dotColor} flex items-center justify-center`}
+                    >
+                      <Icon className="h-2.5 w-2.5 text-white" />
+                    </div>
+
+                    {/* Contenido del evento */}
+                    <div className="border rounded-md p-3 text-sm ml-1">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className={`font-medium ${config.color}`}>{config.label}</span>
+                        <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
                         <span className="text-xs text-muted-foreground">
                           {moment(entry.performed_at).format('DD/MM/YYYY HH:mm')}
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">por {performerName}</div>
-                      {entry.notes && <p className="text-xs mt-1 text-muted-foreground italic">{entry.notes}</p>}
+
+                      {/* Autor: [icono] Nombre [Badge Rol] */}
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <RoleIcon className={`h-3 w-3 shrink-0 ${cfg.color}`} />
+                        <span className="text-xs font-semibold">{performerName}</span>
+                        <Badge variant="outline" className={`text-[9px] px-1 py-0 ${cfg.color} border-current/30`}>
+                          {cfg.role}
+                        </Badge>
+                      </div>
+
+                      {entry.notes && <p className="text-xs mt-1.5 text-muted-foreground italic">{entry.notes}</p>}
+
                       {rejectedItems.length > 0 && (
                         <div className="mt-2 space-y-1">
                           {rejectedItems.map((item, idx) => (
@@ -677,16 +787,16 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                             >
                               <span className="font-medium">{item.repair_name}</span>
                               <span className="text-muted-foreground"> ({item.sector_name})</span>
-                              {item.comment && <span className="text-destructive/80"> - {item.comment}</span>}
+                              {item.comment && <span className="text-destructive/80"> &ndash; {item.comment}</span>}
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </>
@@ -795,33 +905,17 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         {group.itemLabel}
                       </span>
-                      {group.comments.map((comment, cidx) => (
-                        <div
-                          key={cidx}
-                          className={`text-sm p-2.5 rounded-md ${
-                            comment.style === 'driver'
-                              ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800'
-                              : comment.style === 'validator'
-                                ? 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800'
-                                : 'bg-muted border'
-                          }`}
-                        >
-                          <span
-                            className={`text-xs font-medium ${
-                              comment.style === 'driver'
-                                ? 'text-amber-700 dark:text-amber-300'
-                                : comment.style === 'validator'
-                                  ? 'text-blue-700 dark:text-blue-300'
-                                  : 'text-muted-foreground'
-                            }`}
-                          >
-                            {comment.label}
-                          </span>
-                          <p className={`text-sm mt-0.5 ${comment.style !== 'description' ? 'italic' : ''}`}>
-                            {comment.text}
-                          </p>
-                        </div>
-                      ))}
+                      {group.comments.map((comment, cidx) => {
+                        const cfg = commentStyleConfig[comment.style];
+                        return (
+                          <div key={cidx} className={`text-sm p-2.5 rounded-md border ${cfg.container} ${cfg.border}`}>
+                            <CommentAuthorLine comment={comment} />
+                            <p className={`text-sm mt-0.5 ${comment.style !== 'description' ? 'italic' : ''}`}>
+                              {comment.text}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -1101,6 +1195,117 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                   <p className="text-xs text-muted-foreground">
                     Los items rechazados estan siendo revisados por el jefe de taller.
                   </p>
+                </div>
+              </>
+            )}
+
+            {/* ================================================================ */}
+            {/* WORKSHOP REJECTED - show rejected items with reasons             */}
+            {/* ================================================================ */}
+            {status === 'workshop_rejected' && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4">
+                    <h4 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-2">
+                      <XCircle className="h-4 w-4" />
+                      Items Rechazados por Taller
+                    </h4>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      El jefe de taller rechazo los siguientes items de esta orden.
+                    </p>
+                    {(() => {
+                      const rejectedItems = items.filter((item) => item.is_rejected);
+                      if (rejectedItems.length === 0) {
+                        return <p className="text-xs text-muted-foreground">No se encontraron detalles del rechazo.</p>;
+                      }
+                      return (
+                        <div className="space-y-3">
+                          {rejectedItems.map((item) => {
+                            const reqItem = item.maintenance_request_items as
+                              | { checklist_deviations?: { item_label?: string; item_code?: string } | null }
+                              | null
+                              | undefined;
+                            const deviation = reqItem?.checklist_deviations;
+                            const itemLabel =
+                              deviation?.item_label ||
+                              (item.types_of_repairs?.name ? String(item.types_of_repairs.name) : null) ||
+                              'Item sin nombre';
+
+                            const sectorName =
+                              item.workshop_sectors &&
+                              typeof item.workshop_sectors === 'object' &&
+                              'name' in item.workshop_sectors
+                                ? (item.workshop_sectors.name as string)
+                                : null;
+
+                            const itemComments = getItemComments(item, order?.maintenance_requests?.source);
+
+                            // Get rejected_by profile name
+                            const rejectedByProfile = (item as Record<string, unknown>)?.rejected_by_profile as {
+                              fullname?: string | null;
+                            } | null;
+                            const rejectedByName = rejectedByProfile?.fullname || null;
+
+                            return (
+                              <div key={item.id} className="bg-background border rounded-md p-3 text-sm space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{itemLabel}</span>
+                                  {sectorName && (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {sectorName}
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                {itemComments.length > 0 && (
+                                  <div className="space-y-1">
+                                    {itemComments.map((comment, cidx) => {
+                                      const cfg = commentStyleConfig[comment.style];
+                                      return (
+                                        <div
+                                          key={cidx}
+                                          className={`text-xs p-2 rounded border ${cfg.container} ${cfg.border}`}
+                                        >
+                                          <CommentAuthorLine comment={comment} size="xs" />
+                                          <span
+                                            className={`mt-0.5 block ${comment.style !== 'description' ? 'italic' : ''}`}
+                                          >
+                                            {comment.text}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {item.rejection_reason && (
+                                  <div className="bg-destructive/5 border border-destructive/10 rounded px-2.5 py-2 text-xs space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-medium text-destructive">Motivo del rechazo:</span>
+                                    </div>
+                                    {rejectedByName && (
+                                      <div className="flex items-center gap-1.5">
+                                        <HardHat className="h-3 w-3 shrink-0 text-destructive" />
+                                        <span className="font-semibold text-destructive">{rejectedByName}</span>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[9px] px-1 py-0 border-destructive/30 text-destructive"
+                                        >
+                                          Jefe de Taller
+                                        </Badge>
+                                      </div>
+                                    )}
+                                    <p className="italic">{item.rejection_reason}</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </>
             )}
