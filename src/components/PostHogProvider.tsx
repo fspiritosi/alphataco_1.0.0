@@ -121,6 +121,7 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
       api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       capture_exceptions: true,
+      enable_recording_console_log: true,
       defaults: '2025-11-30',
       person_profiles: 'identified_only',
       debug: false,

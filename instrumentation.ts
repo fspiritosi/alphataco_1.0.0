@@ -14,6 +14,10 @@
  * NOTA: El middleware en src/middleware.ts inyecta X-POSTHOG-SESSION-ID
  * y X-POSTHOG-DISTINCT-ID en los headers de cada request, haciendo posible
  * el session linking sin parsear cookies aquí.
+ *
+ * Los logs del Logger (warn/error) se envían a PostHog vía OTLP HTTP directo
+ * desde src/lib/posthog-logs.ts (sin depender del SDK de OTEL, que tiene
+ * problemas de singleton con Turbopack en Windows).
  */
 
 export function register() {
