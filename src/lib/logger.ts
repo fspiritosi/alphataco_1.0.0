@@ -1,13 +1,8 @@
 /**
  * Logger liviano para debug en Next.js (cliente/servidor).
- * - Solo emite logs a consola si `NEXT_PUBLIC_SHOW_LOGS === 'true'`
+ * - Solo emite logs si `NEXT_PUBLIC_SHOW_LOGS === 'true'`
  * - Soporta niveles, agrupación (group/groupCollapsed) y helpers (table/time/separator)
- * - Los logs de nivel `warn` y `error` se envían SIEMPRE a PostHog:
- *   - Server-side: vía OTLP HTTP directo (fetch) al endpoint /i/v1/logs
- *   - Client-side: vía session replay (enable_recording_console_log captura console.warn/error)
  */
-
-import { sendLogToPostHog } from './posthog-logs';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type LogData = Record<string, unknown> | unknown[] | string | number | boolean | null | undefined;
@@ -115,12 +110,6 @@ export class Logger {
   }
 
   private emit(level: LogLevel, message: string, meta?: LogMeta) {
-    // Enviar warn/error a PostHog SIEMPRE (independiente de SHOW_LOGS)
-    if (level === 'warn' || level === 'error') {
-      sendLogToPostHog(level === 'warn' ? 'WARN' : 'ERROR', message, this.scope, meta?.data);
-    }
-
-    // Console output solo si SHOW_LOGS está activo
     if (!isLogsEnabled()) return;
 
     const header = `${prefix(level, this.scope)}${message}`;
