@@ -2289,6 +2289,7 @@ export type Database = {
           email: string | null;
           file: string;
           firstname: string;
+          full_name: string | null;
           gender: Database['public']['Enums']['gender_enum'] | null;
           guild_id: string | null;
           hierarchical_position: string | null;
@@ -2332,6 +2333,7 @@ export type Database = {
           email?: string | null;
           file: string;
           firstname: string;
+          full_name?: string | null;
           gender?: Database['public']['Enums']['gender_enum'] | null;
           guild_id?: string | null;
           hierarchical_position?: string | null;
@@ -2375,6 +2377,7 @@ export type Database = {
           email?: string | null;
           file?: string;
           firstname?: string;
+          full_name?: string | null;
           gender?: Database['public']['Enums']['gender_enum'] | null;
           guild_id?: string | null;
           hierarchical_position?: string | null;
@@ -3073,6 +3076,7 @@ export type Database = {
           repair_type_id: string | null;
           sector_sequence_order: number | null;
           work_order_id: string | null;
+          workshop_chief_comment: string | null;
         };
         Insert: {
           assigned_at?: string | null;
@@ -3092,6 +3096,7 @@ export type Database = {
           repair_type_id?: string | null;
           sector_sequence_order?: number | null;
           work_order_id?: string | null;
+          workshop_chief_comment?: string | null;
         };
         Update: {
           assigned_at?: string | null;
@@ -3111,6 +3116,7 @@ export type Database = {
           repair_type_id?: string | null;
           sector_sequence_order?: number | null;
           work_order_id?: string | null;
+          workshop_chief_comment?: string | null;
         };
         Relationships: [
           {
@@ -3863,6 +3869,13 @@ export type Database = {
           reason?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'preparte_change_logs_changed_by_fkey';
+            columns: ['changed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profile';
+            referencedColumns: ['credential_id'];
+          },
           {
             foreignKeyName: 'preparte_change_logs_preparte_id_fkey';
             columns: ['preparte_id'];
@@ -5847,6 +5860,7 @@ export type Database = {
           email: string | null;
           file: string;
           firstname: string;
+          full_name: string | null;
           gender: Database['public']['Enums']['gender_enum'] | null;
           guild_id: string | null;
           hierarchical_position: string | null;

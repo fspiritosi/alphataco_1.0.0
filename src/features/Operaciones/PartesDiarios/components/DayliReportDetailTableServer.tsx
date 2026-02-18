@@ -635,17 +635,16 @@ export default function DayliReportDetailTableServer({
           </div>
         );
       },
-      filterFn: (row, id, value) => {
-        const rowValues = row.getValue(id) || [];
-        if (!Array.isArray(rowValues) || !Array.isArray(value)) return false;
-        return value.some((val) =>
-          rowValues.some((rel: any) => `${rel.employees?.lastname} ${rel.employees?.firstname}` === val)
-        );
+      filterFn: (row, _id, value) => {
+        const relations = row.original.dailyreportemployeerelations || [];
+        if (!Array.isArray(relations) || !Array.isArray(value)) return false;
+        return value.some((val) => relations.some((rel) => rel.employees?.full_name === val));
       },
       exportFormatter: (value, row) => {
         return (
           row.dailyreportemployeerelations
-            ?.map((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}`)
+            ?.map((rel) => rel.employees?.full_name || '')
+            .filter(Boolean)
             .join(', ') || ''
         );
       },
@@ -776,11 +775,11 @@ export default function DayliReportDetailTableServer({
           </div>
         );
       },
-      filterFn: (row, id, value) => {
-        const rowValues = row.getValue(id) || [];
-        if (!Array.isArray(rowValues) || !Array.isArray(value)) return false;
+      filterFn: (row, _id, value) => {
+        const relations = row.original.dailyreportequipmentrelations || [];
+        if (!Array.isArray(relations) || !Array.isArray(value)) return false;
         return value.some((val) =>
-          rowValues.some((rel: any) => (rel.vehicles?.domain || rel.vehicles?.intern_number) === val)
+          relations.some((rel) => (rel.vehicles?.domain || rel.vehicles?.intern_number) === val)
         );
       },
       exportFormatter: (value, row) => {
@@ -1246,7 +1245,7 @@ export default function DayliReportDetailTableServer({
                         to_column: 'id',
                       },
                     ],
-                    final_column: 'employees.lastname',
+                    final_column: 'employees.full_name',
                   },
                   p_filters: { daily_report_id: dailyReportId },
                   mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'dailyreportrows', 'id'>>>) => {
