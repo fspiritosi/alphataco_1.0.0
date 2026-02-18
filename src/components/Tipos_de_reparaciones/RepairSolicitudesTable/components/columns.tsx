@@ -9,13 +9,13 @@ import RepairModal from './RepairModal';
 
 type RepairLog = NonNullable<RepairSolicitudeData['repairlogs']>[number];
 
-function getClosingLog(row: RepairSolicitudeData): RepairLog | undefined {
+export function getClosingLog(row: RepairSolicitudeData): RepairLog | undefined {
   return row.repairlogs
     ?.filter((log) => log.title === 'Finalizado')
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 }
 
-function getClosingPersonName(log: RepairLog): string {
+export function getClosingPersonName(log: RepairLog): string {
   const employee = log.modified_by_employee;
   if (employee && typeof employee === 'object' && 'firstname' in employee) {
     const emp = employee as Record<string, string>;
@@ -29,7 +29,7 @@ function getClosingPersonName(log: RepairLog): string {
 }
 
 // Tipo extendido para columnas con propiedades adicionales de exportación
-type ExtendedColumnDef<TData> = ColumnDef<TData> & {
+export type ExtendedColumnDef<TData> = ColumnDef<TData> & {
   exportFormatter?: (value: any, row: TData) => string;
   excludeFromExport?: boolean;
   exportHeader?: string;

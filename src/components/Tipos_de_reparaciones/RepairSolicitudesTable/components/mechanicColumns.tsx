@@ -20,7 +20,6 @@ import { formatDocumentTypeName } from '@/lib/utils/utils';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PersonIcon } from '@radix-ui/react-icons';
-import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
@@ -34,6 +33,7 @@ import { z } from 'zod';
 import { RepairSolicitudeData } from '../RepairSolicitudes';
 import { criticidad, labels, statuses } from '../data';
 import RepairModal from './RepairModal';
+import { ExtendedColumnDef, getClosingLog, getClosingPersonName } from './columns';
 
 // const Allrepairs = default_equipment_id
 //   ? repair_solicitudes.filter((repair) => repair.equipment_id === default_equipment_id)
@@ -73,7 +73,7 @@ import RepairModal from './RepairModal';
 //   };
 // });
 
-export const mechanicColums: ColumnDef<RepairSolicitudeData>[] = [
+export const mechanicColums: ExtendedColumnDef<RepairSolicitudeData>[] = [
   {
     accessorKey: 'vehicles.domain',
     id: 'vehicles.domain',
@@ -242,6 +242,34 @@ export const mechanicColums: ColumnDef<RepairSolicitudeData>[] = [
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
+    },
+  },
+  {
+    id: 'closed_by',
+    exportHeader: 'Cerrada por',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Cerrada por" />,
+    cell: ({ row }) => {
+      const closingLog = getClosingLog(row.original);
+      if (!closingLog) return <span className="text-muted-foreground">-</span>;
+      return <span>{getClosingPersonName(closingLog)}</span>;
+    },
+    exportFormatter: (_value: unknown, row: RepairSolicitudeData) => {
+      const closingLog = getClosingLog(row);
+      return closingLog ? getClosingPersonName(closingLog) : '-';
+    },
+  },
+  {
+    id: 'closed_at',
+    exportHeader: 'Fecha de cierre',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de cierre" />,
+    cell: ({ row }) => {
+      const closingLog = getClosingLog(row.original);
+      if (!closingLog) return <span className="text-muted-foreground">-</span>;
+      return <span>{moment(closingLog.created_at).format('DD/MM/YYYY HH:mm')}</span>;
+    },
+    exportFormatter: (_value: unknown, row: RepairSolicitudeData) => {
+      const closingLog = getClosingLog(row);
+      return closingLog ? moment(closingLog.created_at).format('DD/MM/YYYY HH:mm') : '-';
     },
   },
   {
