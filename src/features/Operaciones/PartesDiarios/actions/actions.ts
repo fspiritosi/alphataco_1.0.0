@@ -1561,12 +1561,40 @@ export async function deleteDailyReportRow(id: string) {
   const supabase = await supabaseServer();
 
   try {
-    // Finalmente eliminamos la fila del reporte
+    // Obtener la fila antes de borrarla para verificar si tiene preparte vinculado
+    const { data: row } = await supabase
+      .from('dailyreportrows')
+      .select('id, preparte_id, preparte(id, numero_pedido, status)')
+      .eq('id', id)
+      .single();
+
+    // Eliminar la fila del reporte
     const { error: rowError } = await supabase.from('dailyreportrows').delete().eq('id', id);
 
     if (rowError) throw rowError;
 
-    return { success: true };
+    // Si tenía preparte vinculado, revertir a pendiente y registrar en el log
+    const preparte = row?.preparte;
+    if (row?.preparte_id && preparte) {
+      const { updatePreparte, logPreparteChange } = await import('@/features/Operaciones/Preparte/actions/preparte');
+
+      await updatePreparte(row.preparte_id, { status: 'pendiente' });
+      await logPreparteChange({
+        preparte_id: row.preparte_id,
+        field_name: 'status',
+        old_value: preparte.status || 'confirmado',
+        new_value: 'pendiente',
+        reason: 'La línea del parte diario fue eliminada manualmente',
+        metadata: { daily_report_row_id: id, action: 'daily_report_row_deleted' },
+      });
+
+      return {
+        success: true,
+        revertedPreparte: { numero_pedido: preparte.numero_pedido },
+      };
+    }
+
+    return { success: true, revertedPreparte: null };
   } catch (error) {
     logger.error('Error deleting daily report row', { data: { error } });
     throw error;

@@ -18,6 +18,7 @@ import { PermissionGuard } from '@/features/Permissions';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { VisibilityState } from '@tanstack/react-table';
+import moment from 'moment';
 
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -166,11 +167,11 @@ export function PreparteManager({
           end_time: firstItem?.end_time || null,
           executionDate:
             itemExecutionDate && typeof itemExecutionDate === 'object' && itemExecutionDate.from
-              ? itemExecutionDate.from.toISOString()
+              ? moment(itemExecutionDate.from).format('YYYY-MM-DD')
               : null,
           subject_to_availability: itemSubjectToAvailability,
           updated_at: new Date().toISOString(),
-          requestDate: formData.requestDate.toISOString(),
+          requestDate: moment(formData.requestDate).format('YYYY-MM-DD'),
           numero_pedido: formData.numero_pedido,
           // Si el estado es 'reprogramado', guardamos el ID del preparte original
           reprogram: formData.status === 'reprogramado' ? currentItem.id : undefined,
@@ -230,7 +231,7 @@ export function PreparteManager({
                 status: 'pendiente',
                 item: item.id,
                 executionDate: null, // Sin fecha
-                requestDate: formData.requestDate?.toISOString() || new Date().toISOString(),
+                requestDate: moment(formData.requestDate).format('YYYY-MM-DD'),
                 quantity: 1,
                 numero_pedido: numeroPedido,
                 sector_service_id: formData.sector_service_id || null,
@@ -266,8 +267,8 @@ export function PreparteManager({
                   status: 'pendiente',
                   item: item.id,
                   quantity: 1,
-                  executionDate: date.toISOString(),
-                  requestDate: formData.requestDate.toISOString(),
+                  executionDate: moment(date).format('YYYY-MM-DD'),
+                  requestDate: moment(formData.requestDate).format('YYYY-MM-DD'),
                   numero_pedido: numeroPedido,
                   sector_service_id: formData.sector_service_id || null,
                   areas_service_id: formData.areas_service_id || null,
@@ -437,11 +438,11 @@ export function PreparteManager({
 
   const handleConfirm = async (item: PreparteItem) => {
     try {
-      // executionDate puede venir como string ISO de la BD o como Date (flujo vencido con fecha seleccionada)
-      const execDateValue: Date | null = item.executionDate ? new Date(item.executionDate) : null;
+      // executionDate puede venir como string YYYY-MM-DD de la BD o como Date
+      const execDate = item.executionDate ? moment(item.executionDate) : null;
 
       // Verificar si está sujeto a disponibilidad y no tiene fecha
-      if (item.subject_to_availability && !execDateValue) {
+      if (item.subject_to_availability && !execDate?.isValid()) {
         toast.error(
           'Este pedido está sujeto a disponibilidad operativa. Debe asignar una fecha de ejecución antes de confirmar.',
           { duration: 5000 }
@@ -452,13 +453,13 @@ export function PreparteManager({
       }
 
       // Verificar que tenga fecha de ejecución
-      if (!execDateValue || isNaN(execDateValue.getTime())) {
+      if (!execDate || !execDate.isValid()) {
         toast.error('El pedido debe tener una fecha de ejecución para poder confirmarse.');
         throw new Error('El pedido no tiene fecha de ejecución válida');
       }
 
       // Confirmar y migrar al parte diario via server action
-      await confirmPreparteToDailyReport(item.id, execDateValue.toISOString());
+      await confirmPreparteToDailyReport(item.id, execDate.format('YYYY-MM-DD'));
 
       refreshTable();
       toast.success('Pedido confirmado y enviado al parte diario');

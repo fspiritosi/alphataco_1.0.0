@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Building2, Calendar, Clock, EyeIcon, FileText, History, Wrench } from 'lucide-react';
+import moment from 'moment';
+import 'moment/locale/es';
 import { useState } from 'react';
 import { usePreparteChangeLogs } from '../hooks';
 import { Cliente, Contrato, PreparteItem } from './PreparteManager';
@@ -43,11 +45,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
 
   const formatDate = (dateString: string | Date) => {
     if (!dateString) return 'No disponible';
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return moment(dateString).locale('es').format('D [de] MMMM [de] YYYY');
   };
 
   // Buscar cliente por ID
@@ -376,13 +374,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
                       const oldItemName = metadata?.old_item_name || log.old_value;
                       const newItemName = metadata?.new_item_name || log.new_value;
                       const changedAt = log.changed_at
-                        ? new Date(log.changed_at).toLocaleDateString('es-ES', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
+                        ? moment(log.changed_at).locale('es').format('D MMM YYYY, HH:mm')
                         : 'Fecha no disponible';
 
                       return (
