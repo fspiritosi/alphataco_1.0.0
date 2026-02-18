@@ -6,12 +6,15 @@ import { usePostHog as usePostHogHook } from 'posthog-js/react';
  * Hook personalizado para usar PostHog en componentes del cliente.
  * Proporciona helpers adicionales y asegura que PostHog esté disponible.
  *
+ * Nota: con `defaults: '2025-11-30'`, las pageviews se trackean automáticamente
+ * vía History API. No es necesario llamar trackPageView manualmente.
+ *
  * @example
  * ```typescript
- * const posthog = usePostHog();
+ * const { trackEvent, captureError } = usePostHog();
  *
  * const handleClick = () => {
- *   posthog?.trackEvent('button_clicked', { button: 'submit' });
+ *   trackEvent('button_clicked', { button: 'submit' });
  * };
  * ```
  */
@@ -19,18 +22,18 @@ export function usePostHog() {
   const posthog = usePostHogHook();
 
   return {
-    ...posthog,
+    posthog,
     /**
-     * Rastrea una vista de página
+     * Rastrea un evento personalizado con propiedades tipadas.
      */
-    trackPageView: (path: string) => {
-      posthog?.capture('$pageview', { path });
+    trackEvent: (eventName: string, properties?: Record<string, string | number | boolean>) => {
+      posthog?.capture(eventName, properties);
     },
     /**
-     * Rastrea un evento personalizado
+     * Captura un error en PostHog desde un componente cliente.
      */
-    trackEvent: (eventName: string, properties?: Record<string, any>) => {
-      posthog?.capture(eventName, properties);
+    captureError: (error: Error, properties?: Record<string, string | number | boolean>) => {
+      posthog?.captureException(error, properties);
     },
   };
 }

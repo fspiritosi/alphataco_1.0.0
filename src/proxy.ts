@@ -11,7 +11,8 @@ const logger = new Logger('Proxy');
  * Responsabilidades:
  * 1. Verificar autenticación para /dashboard/*
  * 2. Verificar que usuarios autenticados tengan compañía asignada
- * 3. Delegar control de permisos granulares a PermissionGuard en componentes
+ * 3. Inyectar headers X-POSTHOG-SESSION-ID y X-POSTHOG-DISTINCT-ID para session linking
+ * 4. Delegar control de permisos granulares a PermissionGuard en componentes
  *
  * Notas:
  * - /maintenance/* NO está protegido (acceso anónimo para empleados con CUIL)
@@ -45,7 +46,25 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard/company/new', req.url));
   }
 
-  // 5. Usuario autenticado con compañía - permitir acceso
+  // 5. Inyectar headers de PostHog para session linking en instrumentation.ts
+  //    Cookie: ph_<API_KEY>_posthog = { distinct_id, $sesid: [startTs, sessionId, activityTs] }
+  const phKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  if (phKey) {
+    const phCookie = req.cookies.get(`ph_${phKey}_posthog`);
+    if (phCookie?.value) {
+      try {
+        const phData = JSON.parse(decodeURIComponent(phCookie.value));
+        const distinctId: string | undefined = phData.distinct_id;
+        const sessionId: string | undefined = phData.$sesid?.[1] ?? phData.$session_id;
+        if (distinctId) response.headers.set('X-POSTHOG-DISTINCT-ID', distinctId);
+        if (sessionId) response.headers.set('X-POSTHOG-SESSION-ID', sessionId);
+      } catch {
+        // Cookie malformada — continuar sin headers de PostHog
+      }
+    }
+  }
+
+  // 6. Usuario autenticado con compañía - permitir acceso
   // Los permisos granulares se manejan con PermissionGuard en los componentes
   return response;
 }
