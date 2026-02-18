@@ -1,5 +1,6 @@
 'use server';
 
+import { logger } from '@/lib/logger';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
@@ -60,7 +61,7 @@ export async function registerUserWithRole(values: any) {
       ]);
 
       if (shareError) {
-        console.error('Error insertando en share_company_users:', shareError);
+        logger.error('Error insertando en share_company_users', { data: { error: shareError } });
         throw new Error(shareError.message);
       }
 
@@ -85,7 +86,7 @@ export async function registerUserWithRole(values: any) {
           ]);
 
           if (userRoleError) {
-            console.error('Error asignando rol al usuario existente:', userRoleError);
+            logger.error('Error asignando rol al usuario existente', { data: { error: userRoleError } });
           }
         }
       }
@@ -93,23 +94,24 @@ export async function registerUserWithRole(values: any) {
       // 3. Si no existe el perfil, invitar nuevo usuario usando Supabase Auth
       const fullname = values.firstname && values.lastname ? `${values.firstname} ${values.lastname}`.trim() : '';
 
-      // Invitar usuario usando el método nativo de Supabase
-      const { data: authData, error: authError } = await adminSupabase.auth.admin.inviteUserByEmail(values.email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
-        data: {
+      // Crear usuario auto-verificado (sin necesidad de confirmar email)
+      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+        email: values.email,
+        email_confirm: true,
+        user_metadata: {
           fullname: fullname,
-          needs_password_change: true, // Flag para indicar que necesita cambiar contraseña
+          needs_password_change: true,
         },
       });
 
       if (authError) {
-        console.error('❌ [INVITE] Error invitando usuario:', authError);
-        throw new Error(`Error al invitar usuario: ${authError.message}`);
+        logger.error('Error creando usuario', { data: { error: authError } });
+        throw new Error(`Error al crear usuario: ${authError.message}`);
       }
 
       userId = authData.user?.id;
       if (!userId) {
-        console.error('❌ [INVITE] No se pudo obtener el ID del usuario');
+        logger.error('No se pudo obtener el ID del usuario');
         throw new Error('No se pudo obtener el ID del usuario');
       }
 
@@ -137,7 +139,7 @@ export async function registerUserWithRole(values: any) {
       ]);
 
       if (profileCreateError) {
-        console.error('❌ [INVITE] Error creando perfil:', profileCreateError);
+        logger.error('Error creando perfil', { data: { error: profileCreateError } });
         // ROLLBACK: Eliminar usuario si falla la creación del perfil
         await adminSupabase.auth.admin.deleteUser(userId);
 
@@ -152,7 +154,7 @@ export async function registerUserWithRole(values: any) {
       });
 
       if (metadataError) {
-        console.error('❌ [INVITE] Error asignando metadata:', metadataError);
+        logger.error('Error asignando metadata', { data: { error: metadataError } });
         // ROLLBACK: Eliminar usuario y perfil si falla la asignación de metadata
         await adminSupabase.from('profile').delete().eq('id', userId);
         await adminSupabase.auth.admin.deleteUser(userId);
@@ -170,7 +172,7 @@ export async function registerUserWithRole(values: any) {
       ]);
 
       if (shareError) {
-        console.error('❌ [INVITE] Error compartiendo empresa:', shareError);
+        logger.error('Error compartiendo empresa', { data: { error: shareError } });
         // ROLLBACK: Eliminar usuario y perfil si falla la asignación de empresa
         await adminSupabase.from('profile').delete().eq('id', userId);
         await adminSupabase.auth.admin.deleteUser(userId);
@@ -192,12 +194,12 @@ export async function registerUserWithRole(values: any) {
       ]);
 
       if (userRoleError) {
-        console.error('❌ Error asignando rol al usuario:', userRoleError);
+        logger.error('Error asignando rol al usuario', { data: { error: userRoleError } });
         // No hacer rollback, el usuario ya fue creado exitosamente
         // El rol se puede asignar manualmente después
       }
     } else {
-      console.warn('⚠️ El rol proporcionado no es un ID válido:', values.role);
+      logger.warn('El rol proporcionado no es un ID válido', { data: { role: values.role } });
     }
 
     return {
@@ -205,7 +207,7 @@ export async function registerUserWithRole(values: any) {
       message: 'Usuario creado exitosamente',
     };
   } catch (error) {
-    console.error('❌ Error en registerUserWithRole:', error);
+    logger.error('Error en registerUserWithRole', { data: { error } });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Error al procesar la solicitud',
