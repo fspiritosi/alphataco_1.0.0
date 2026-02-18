@@ -95,18 +95,28 @@ export async function registerUserWithRole(values: any) {
       const fullname = values.firstname && values.lastname ? `${values.firstname} ${values.lastname}`.trim() : '';
 
       // Crear usuario auto-verificado (sin necesidad de confirmar email)
+      const hasPassword = values.password && values.password.trim().length > 0;
       const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
         email: values.email,
+        password: hasPassword ? values.password : undefined,
         email_confirm: true,
         user_metadata: {
           fullname: fullname,
-          needs_password_change: true,
+          needs_password_change: !hasPassword,
         },
       });
 
       if (authError) {
         logger.error('Error creando usuario', { data: { error: authError } });
         throw new Error(`Error al crear usuario: ${authError.message}`);
+      }
+
+      // Si no se proporcionó contraseña (invitación), enviar email de recuperación
+      // para que el usuario pueda establecer su propia contraseña
+      if (!hasPassword) {
+        await supabase.auth.resetPasswordForEmail(values.email, {
+          redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
+        });
       }
 
       userId = authData.user?.id;
