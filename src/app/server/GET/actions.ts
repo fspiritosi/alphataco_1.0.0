@@ -11,15 +11,17 @@ export const setNewCompanyUserMetadata = async (company_id: string) => {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user?.app_metadata?.company !== company_id && company_id) {
-    const { data, error } = await supabase.auth.admin.updateUserById(user?.id || '', {
+  // Guard: sin user o sin ID no podemos actualizar → causaba 405 PUT /auth/v1/admin/users/ (sin ID en URL)
+  if (!user?.id) return;
+
+  if (user.app_metadata?.company !== company_id && company_id) {
+    const { error } = await supabase.auth.admin.updateUserById(user.id, {
       app_metadata: {
         company: company_id,
       },
     });
 
     if (error) {
-      // console.error('Error updating user metadata:', error);
       return;
     }
   }
