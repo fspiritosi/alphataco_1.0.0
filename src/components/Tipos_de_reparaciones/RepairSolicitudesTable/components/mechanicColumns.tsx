@@ -222,9 +222,13 @@ export const mechanicColums: ExtendedColumnDef<RepairSolicitudeData>[] = [
   {
     accessorKey: 'created_at',
     id: 'created_at',
+    exportHeader: 'Fecha',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
       return <div className="flex items-center">{moment(row.original.created_at).format('DD/MM/YYYY')}</div>;
+    },
+    exportFormatter: (_value: unknown, row: RepairSolicitudeData) => {
+      return row.created_at ? moment(row.created_at).format('DD/MM/YYYY') : '-';
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -232,6 +236,7 @@ export const mechanicColums: ExtendedColumnDef<RepairSolicitudeData>[] = [
   },
   {
     accessorKey: 'updated_at',
+    exportHeader: 'Fecha de modificacion',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de modificacion" />,
     cell: ({ row }) => {
       return (
@@ -239,6 +244,9 @@ export const mechanicColums: ExtendedColumnDef<RepairSolicitudeData>[] = [
           {row.original.updated_at ? moment(row.original.updated_at).format('DD/MM/YYYY HH:mm') : '-'}
         </div>
       );
+    },
+    exportFormatter: (_value: unknown, row: RepairSolicitudeData) => {
+      return row.updated_at ? moment(row.updated_at).format('DD/MM/YYYY HH:mm') : '-';
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
