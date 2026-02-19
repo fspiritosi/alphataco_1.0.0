@@ -61,7 +61,7 @@ export function Step2SectorAssignment({
     queryKey: ['sector-candidates', allRepairTypeIds],
     queryFn: () => getSectorCandidatesForRepairTypes(allRepairTypeIds),
     enabled: allRepairTypeIds.length > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   // Build mapping: repairTypeId → sectorIds[]
