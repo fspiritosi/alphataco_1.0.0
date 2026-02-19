@@ -132,7 +132,7 @@ const getColumns = (
       enableHiding: false,
       cell: ({ row }) => {
         const requestDate = row.getValue('requestDate');
-        const data = requestDate ? moment(requestDate as string).format('DD/MM/YYYY') : '-';
+        const data = requestDate ? moment.utc(requestDate as string).format('DD/MM/YYYY') : '-';
         return <div>{data}</div>;
       },
       sortingFn: (rowA, rowB, columnId) => {
@@ -157,7 +157,7 @@ const getColumns = (
           );
         }
 
-        return <div>{executionDate ? moment(executionDate as string).format('DD/MM/YYYY') : '-'}</div>;
+        return <div>{executionDate ? moment.utc(executionDate as string).format('DD/MM/YYYY') : '-'}</div>;
       },
       enableColumnFilter: true,
       filterFn: (row, id, value) => {

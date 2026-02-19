@@ -45,7 +45,7 @@ export function PreparteDetailModal({ preparteData, Customers, contratos }: Prep
 
   const formatDate = (dateString: string | Date) => {
     if (!dateString) return 'No disponible';
-    return moment(dateString).locale('es').format('D [de] MMMM [de] YYYY');
+    return moment.utc(dateString).locale('es').format('D [de] MMMM [de] YYYY');
   };
 
   // Buscar cliente por ID

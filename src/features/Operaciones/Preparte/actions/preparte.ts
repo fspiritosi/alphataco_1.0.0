@@ -717,7 +717,7 @@ async function _confirmSinglePreparte(
 
   // 3. Determinar fecha de ejecución (override tiene prioridad sobre la de BD)
   const rawDate = overrideExecutionDate || preparte.executionDate;
-  const parsedDate = rawDate ? moment(rawDate) : null;
+  const parsedDate = rawDate ? moment.utc(rawDate) : null;
 
   if (preparte.subject_to_availability && !parsedDate?.isValid()) {
     throw new Error(`${preparte.numero_pedido || preparteId}: sujeto a disponibilidad sin fecha asignada`);
