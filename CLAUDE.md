@@ -68,10 +68,21 @@ Los siguientes MCPs estan a tu disposicion:
 
 ## Agentes Personalizados
 
-**REGLA CRITICA**: Usar estos agentes cuando el usuario lo solicite:
+Hay 4 agentes personalizados disponibles. Usarlos segun el contexto:
 
-- **Commitear / hacer commit / push**: SIEMPRE usar el agente `.claude/agents/branch-reviewer.md` (subagent_type: `branch-reviewer`)
-- **Optimizar queries / performance**: SIEMPRE usar el agente `.claude/agents/supabase-query-optimizer.md` (subagent_type: `supabase-query-optimizer`)
+| Agente                       | Cuando usarlo                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `branch-reviewer`            | Commitear / hacer commit / push / revisar cambios antes de push                   |
+| `supabase-query-optimizer`   | Optimizar queries, N+1, performance de DB, diseñar queries para nuevas tablas     |
+| `project-standards-enforcer` | Implementar features, corregir bugs, refactorizar codigo (uso PROACTIVO)          |
+| `ui-architect`               | Diseñar/implementar nueva UI: formularios, modales, dashboards, tabs, componentes |
+
+**REGLAS DE USO**:
+
+- **`branch-reviewer`**: Usar SIEMPRE que el usuario pida commitear, pushear o revisar cambios antes de commit.
+- **`supabase-query-optimizer`**: Usar SIEMPRE que el usuario pida optimizar queries, o al crear queries para nuevas tablas paginadas.
+- **`project-standards-enforcer`**: Usar PROACTIVAMENTE para cualquier cambio de codigo (features, bugs, refactors, server actions). No esperar que el usuario lo pida.
+- **`ui-architect`**: Usar PROACTIVAMENTE cuando el usuario necesite una nueva pantalla, componente visual, formulario, modal o rediseño de UI.
 
 ---
 
