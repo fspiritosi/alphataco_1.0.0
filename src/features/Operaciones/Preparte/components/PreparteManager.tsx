@@ -47,6 +47,13 @@ interface PreparteManagerProps {
   onStatusFilterChange?: (status: Status | null) => void;
 }
 
+// Helper para parsear fechas de BD (timestamptz guardadas como UTC midnight)
+// en Date objects de medianoche local para el componente Calendar
+const parseDBDateForCalendar = (dateStr: string): Date => {
+  const d = moment.utc(dateStr);
+  return new Date(d.year(), d.month(), d.date());
+};
+
 // Helper function to get all dates between two dates
 const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
   const dates: Date[] = [];
@@ -337,7 +344,7 @@ export function PreparteManager({
 
     if (!existingSubjectToAvailability && item.executionDate) {
       existingExecutionDate = {
-        from: new Date(item.executionDate),
+        from: parseDBDateForCalendar(item.executionDate),
         to: undefined,
       };
     }
@@ -418,7 +425,7 @@ export function PreparteManager({
       cliente_id: item.cliente_id,
       contrato_id: item.contrato_id || '',
       item: itemArray,
-      requestDate: item.requestDate ? new Date(item.requestDate) : new Date(),
+      requestDate: item.requestDate ? parseDBDateForCalendar(item.requestDate) : new Date(),
       solicitante: item.solicitante || '',
       status: item.status || 'pendiente',
       quantity: item.quantity || 1,
@@ -439,7 +446,7 @@ export function PreparteManager({
   const handleConfirm = async (item: PreparteItem) => {
     try {
       // executionDate puede venir como string YYYY-MM-DD de la BD o como Date
-      const execDate = item.executionDate ? moment(item.executionDate) : null;
+      const execDate = item.executionDate ? moment.utc(item.executionDate) : null;
 
       // Verificar si está sujeto a disponibilidad y no tiene fecha
       if (item.subject_to_availability && !execDate?.isValid()) {
