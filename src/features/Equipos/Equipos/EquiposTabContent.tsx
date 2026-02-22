@@ -2,9 +2,10 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Car, Package, XCircle } from 'lucide-react';
 import { Suspense } from 'react';
+import { OtherEquipmentTabContent } from '../OtherEquipment/OtherEquipmentTabContent';
+import { OtherEquipmentTableSkeleton } from '../OtherEquipment/fallback/OtherEquipmentTableSkeleton';
 import EquipmentTableWrapperServer from './components/EquipmentTableWrapperServer';
 import EquipmentTableWrapperServerInactive from './components/EquipmentTableWrapperServerInactive';
-import OtrosEquipmentTableWrapperServer from './components/OnlyEquipmentTableWrapperServer';
 
 export default function EquiposTabContent({
   searchParams,
@@ -47,8 +48,8 @@ export default function EquiposTabContent({
           moduleSlug: 'equipos',
           tabSlug: 'others',
           content: (
-            <Suspense fallback={<DataTableSkeleton columns={7} />}>
-              <OtrosEquipmentTableWrapperServer types_of_vehicles="Otros" />
+            <Suspense fallback={<OtherEquipmentTableSkeleton />}>
+              <OtherEquipmentTabContent />
             </Suspense>
           ),
         },
