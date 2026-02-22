@@ -19,7 +19,7 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
       `
       *,
       vehicles(id, domain, serie, intern_number, kilometer, condition, vehicle_type:type(id, name)),
-      maintenance_requests(id, kilometer, created_at, source),
+      maintenance_requests(id, kilometer, created_at, source, supervisor_id),
       maintenance_order_items(
         *,
         types_of_repairs(id, name, autorizable),
@@ -97,7 +97,7 @@ export async function getMaintenanceOrderDetail(orderId: string) {
       `
       *,
       vehicles(id, domain, serie, intern_number, kilometer, condition, vehicle_type:type(id, name)),
-      maintenance_requests(id, kilometer, created_at, source),
+      maintenance_requests(id, kilometer, created_at, source, supervisor_id),
       maintenance_order_items(
         *,
         types_of_repairs(id, name, autorizable),
@@ -143,9 +143,11 @@ export async function getMaintenanceOrderDetail(orderId: string) {
 export type MaintenanceOrderDetailData = Awaited<ReturnType<typeof getMaintenanceOrderDetail>>;
 
 /**
- * Workshop chief validates order and sends to operations
+ * Workshop chief validates order and sends to operations.
+ * Also updates the supervisor assigned to the maintenance_request
+ * so the correct operations supervisor receives the order for validation.
  */
-export async function workshopChiefValidateOrder(orderId: string, notes?: string) {
+export async function workshopChiefValidateOrder(orderId: string, notes?: string, operationsSupervisorId?: string) {
   const supabase = await supabaseServer();
 
   // Get current user
@@ -174,6 +176,36 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
     throw error;
   }
 
+  // Actualizar el supervisor de operaciones en la maintenance_request asociada
+  if (operationsSupervisorId) {
+    const { data: orderData, error: fetchError } = await supabase
+      .from('maintenance_orders')
+      .select('maintenance_request_id')
+      .eq('id', orderId)
+      .single();
+
+    if (fetchError || !orderData?.maintenance_request_id) {
+      logger.warn('No se pudo obtener maintenance_request_id para actualizar supervisor', {
+        data: { fetchError, orderId },
+      });
+    } else {
+      const { error: supervisorError } = await supabase
+        .from('maintenance_requests')
+        .update({ supervisor_id: operationsSupervisorId })
+        .eq('id', orderData.maintenance_request_id);
+
+      if (supervisorError) {
+        logger.warn('No se pudo actualizar el supervisor en maintenance_request', {
+          data: { supervisorError, requestId: orderData.maintenance_request_id },
+        });
+      } else {
+        logger.info('Supervisor de operaciones actualizado en maintenance_request', {
+          data: { requestId: orderData.maintenance_request_id, operationsSupervisorId },
+        });
+      }
+    }
+  }
+
   // Audit log
   await supabase.from('maintenance_activity_log').insert({
     maintenance_order_id: orderId,
@@ -184,7 +216,7 @@ export async function workshopChiefValidateOrder(orderId: string, notes?: string
     notes: notes || 'Aprobado por jefe de taller',
   });
 
-  logger.info('Orden validada por jefe de taller', { data: { orderId, notes } });
+  logger.info('Orden validada por jefe de taller', { data: { orderId, notes, operationsSupervisorId } });
   revalidatePath('/dashboard/maintenance');
 }
 

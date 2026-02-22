@@ -684,7 +684,10 @@ export function NuevoPedidoChecklistForm({
                             <CommandItem
                               key={supervisor.id}
                               value={supervisor.fullName}
+                              disabled={!supervisor.isAvailable}
+                              className={cn(!supervisor.isAvailable && 'opacity-50')}
                               onSelect={() => {
+                                if (!supervisor.isAvailable) return;
                                 setSelectedSupervisorId(supervisor.id);
                                 setSupervisorOpen(false);
                               }}
@@ -696,7 +699,19 @@ export function NuevoPedidoChecklistForm({
                                 )}
                               />
                               <div className="flex flex-col">
-                                <span>{supervisor.fullName}</span>
+                                <div className="flex items-center gap-2">
+                                  <span>{supervisor.fullName}</span>
+                                  {!supervisor.hasLinkedEmployee && (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      Sin empleado vinculado
+                                    </Badge>
+                                  )}
+                                  {supervisor.hasLinkedEmployee && !supervisor.hasActiveDiagram && (
+                                    <Badge variant="warning" className="text-[10px]">
+                                      Sin diagrama activo
+                                    </Badge>
+                                  )}
+                                </div>
                                 <span className="text-xs text-muted-foreground">{supervisor.email}</span>
                               </div>
                             </CommandItem>

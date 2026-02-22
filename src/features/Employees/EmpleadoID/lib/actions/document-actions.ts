@@ -1,7 +1,14 @@
 'use server';
 
-import { supabaseServer } from '@/lib/supabase/server';
+import { Logger } from '@/lib/logger';
+import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
 import moment from 'moment';
+import type { Database } from '../../../../../../database.types';
+
+const logger = new Logger('document-actions');
+
+type ReasonForTermination = Database['public']['Enums']['reason_for_termination_enum'];
+type DocumentState = Database['public']['Enums']['state'];
 
 export async function fetchDocumentTypes() {
   const supabase = await supabaseServer();
@@ -9,7 +16,7 @@ export async function fetchDocumentTypes() {
   const { data, error } = await supabase.from('document_types').select('*').order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching document types:', error);
+    logger.error('Error fetching document types', { data: { error } });
     return [];
   }
 
@@ -18,7 +25,7 @@ export async function fetchDocumentTypes() {
 export async function toggleEmployeeStatus(
   employeeId: string,
   activate: boolean,
-  reason_for_termination?: any,
+  reason_for_termination?: ReasonForTermination,
   termination_date?: Date
 ) {
   const supabase = await supabaseServer();
@@ -32,14 +39,42 @@ export async function toggleEmployeeStatus(
     })
     .eq('id', employeeId);
 
-  // Después de actualizar el empleado, agregar:
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // Actualizar diagrama del empleado
   await supabase.rpc('update_employee_diagram_status', {
-    p_employee_id: employeeId, // usar el ID del empleado
+    p_employee_id: employeeId,
     p_is_active: activate,
   });
 
-  if (error) {
-    throw new Error(error.message);
+  // Ban/unban del usuario vinculado al empleado
+  try {
+    const { data: profile } = await supabase
+      .from('profile')
+      .select('credential_id')
+      .eq('employee_id', employeeId)
+      .maybeSingle();
+
+    if (profile?.credential_id) {
+      const adminSupabase = await adminSupabaseServer();
+      const { error: banError } = await adminSupabase.auth.admin.updateUserById(profile.credential_id, {
+        ban_duration: activate ? 'none' : '876600h',
+      });
+
+      if (banError) {
+        logger.warn('No se pudo actualizar ban del usuario', {
+          data: { error: banError, employeeId, activate },
+        });
+      } else {
+        logger.info(`Usuario ${activate ? 'desbaneado' : 'baneado'} exitosamente`, {
+          data: { employeeId, credentialId: profile.credential_id },
+        });
+      }
+    }
+  } catch (banErr) {
+    logger.error('Error en proceso de ban/unban', { data: { error: banErr, employeeId } });
   }
 }
 export async function uploadEmployeeDocument(
@@ -65,7 +100,7 @@ export async function uploadEmployeeDocument(
     .single();
 
   if (error) {
-    console.error('Error uploading document:', error);
+    logger.error('Error uploading document', { data: { error } });
     throw new Error(error.message);
   }
 
@@ -78,14 +113,14 @@ export async function deleteEmployeeDocument(documentId: string) {
   const { error } = await supabase.from('documents_employees').delete().eq('id', documentId);
 
   if (error) {
-    console.error('Error deleting document:', error);
+    logger.error('Error deleting document', { data: { error } });
     throw new Error(error.message);
   }
 
   return true;
 }
 
-export async function updateDocumentStatus(documentId: string, status: any) {
+export async function updateDocumentStatus(documentId: string, status: DocumentState) {
   const supabase = await supabaseServer();
 
   const { data, error } = await supabase
@@ -96,7 +131,7 @@ export async function updateDocumentStatus(documentId: string, status: any) {
     .single();
 
   if (error) {
-    console.error('Error updating document status:', error);
+    logger.error('Error updating document status', { data: { error } });
     throw new Error(error.message);
   }
 

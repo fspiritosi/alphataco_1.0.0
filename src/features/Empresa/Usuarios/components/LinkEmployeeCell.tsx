@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Logger } from '@/lib/logger';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link2, Loader2, Search, Unlink, UserCheck, UserX } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { linkEmployeeToProfile, searchEmployeesForLink } from '../actions/server-actions';
@@ -40,7 +40,7 @@ export function LinkEmployeeCell({ profileId, employee }: LinkEmployeeCellProps)
   const [results, setResults] = useState<EmployeeSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleSearch = async () => {
     if (searchQuery.length < 2) return;
@@ -61,7 +61,7 @@ export function LinkEmployeeCell({ profileId, employee }: LinkEmployeeCellProps)
       await linkEmployeeToProfile(profileId, employeeId);
       toast.success('Empleado vinculado exitosamente');
       setOpen(false);
-      router.refresh();
+      queryClient.invalidateQueries({ queryKey: ['users-employ-table'] });
     } catch (error) {
       logger.error('Error linking employee', { data: { error } });
       toast.error('Error al vincular empleado');
@@ -75,7 +75,7 @@ export function LinkEmployeeCell({ profileId, employee }: LinkEmployeeCellProps)
     try {
       await linkEmployeeToProfile(profileId, null);
       toast.success('Empleado desvinculado');
-      router.refresh();
+      queryClient.invalidateQueries({ queryKey: ['users-employ-table'] });
     } catch (error) {
       logger.error('Error unlinking employee', { data: { error } });
       toast.error('Error al desvincular empleado');

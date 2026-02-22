@@ -14,8 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { CommentAuthorLine, commentStyleConfig } from '@/features/Mantenimiento/components/ItemComments';
 import { getItemComments, getTechnicianComments, type CommentEntry } from '@/features/Mantenimiento/utils/driverInfo';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
@@ -88,6 +91,14 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
   const [showOperationsRejectDialog, setShowOperationsRejectDialog] = useState(false);
   const [showOpsItemRejectDialog, setShowOpsItemRejectDialog] = useState(false);
 
+  // Supervisor de operaciones a asignar al validar (Jefe de Taller → Operaciones)
+  const [selectedOperationsSupervisorId, setSelectedOperationsSupervisorId] = useState<string | undefined>(
+    // Pre-cargar con el supervisor actual de la maintenance_request
+    order?.maintenance_requests && !Array.isArray(order.maintenance_requests)
+      ? order.maintenance_requests.supervisor_id ?? undefined
+      : undefined
+  );
+
   // Item-level rejection state: { repairId: comment }
   const [selectedRejections, setSelectedRejections] = useState<Record<string, string>>({});
 
@@ -114,12 +125,21 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
     enabled: !!order?.id && open,
   });
 
+  // Supervisores de operaciones para el select de validación (Jefe de Taller)
+  const { data: operationsSupervisors, isLoading: isLoadingOperationsSupervisors } = useQuery({
+    queryKey: ['supervisors-for-checklist'],
+    queryFn: () => fetchSupervisorsForChecklist(),
+    staleTime: 5 * 60 * 1000,
+    enabled: open && context === 'workshop' && status === 'pending_workshop_validation',
+  });
+
   // ============================================================================
   // MUTATIONS
   // ============================================================================
 
   const workshopValidateMutation = useMutation({
-    mutationFn: () => workshopChiefValidateOrder(order!.id, validationNotes || undefined),
+    mutationFn: () =>
+      workshopChiefValidateOrder(order!.id, validationNotes || undefined, selectedOperationsSupervisorId || undefined),
     onSuccess: () => {
       toast.success('Orden validada y enviada a operaciones');
       invalidateAllMaintenanceQueries(queryClient);
@@ -389,9 +409,15 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
     });
   }, [sectorGroups]);
 
-  // Reset local timeline override when switching to a different order
+  // Reset local timeline override cuando cambia la orden
   useEffect(() => {
     setLocalTimelineData(null);
+    // Pre-cargar el supervisor actual de la maintenance_request
+    const currentSupervisorId =
+      order?.maintenance_requests && !Array.isArray(order.maintenance_requests)
+        ? order.maintenance_requests.supervisor_id ?? undefined
+        : undefined;
+    setSelectedOperationsSupervisorId(currentSupervisorId);
   }, [order?.id]);
 
   // Build task list for each sector card
@@ -993,43 +1019,6 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                         })}
                       </div>
                     </div>
-
-                    <Textarea
-                      placeholder="Notas de validacion (opcional)"
-                      value={validationNotes}
-                      onChange={(e) => setValidationNotes(e.target.value)}
-                      className="mb-3"
-                    />
-
-                    <PermissionGuard module="mantenimiento" tab="ordenes_mantenimiento" action="update">
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => workshopValidateMutation.mutate()}
-                          disabled={workshopValidateMutation.isPending}
-                          className="flex-1"
-                        >
-                          {workshopValidateMutation.isPending ? 'Validando...' : 'Validar y Enviar a Operaciones'}
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            resetRejectionState();
-                            setShowItemRejectDialog(true);
-                          }}
-                          variant="destructive"
-                          disabled={workshopRejectItemsMutation.isPending}
-                        >
-                          Rechazar Items
-                        </Button>
-                        <Button
-                          onClick={() => setShowReturnDialog(true)}
-                          variant="outline"
-                          disabled={workshopReturnMutation.isPending}
-                          size="sm"
-                        >
-                          Devolver Todo
-                        </Button>
-                      </div>
-                    </PermissionGuard>
                   </div>
                 </div>
               </>
@@ -1352,6 +1341,89 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
             {validationHistory && validationHistory.length > 0 && renderValidationHistory(validationHistory)}
           </div>
         </div>
+
+        {/* Footer fijo: Supervisor de Operaciones (solo en pending_workshop_validation + workshop) */}
+        {status === 'pending_workshop_validation' && context === 'workshop' && (
+          <div className="border-t pt-4 space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="ops-supervisor-select">Supervisor de Operaciones que validará</Label>
+              {isLoadingOperationsSupervisors ? (
+                <div className="text-sm text-muted-foreground">Cargando supervisores...</div>
+              ) : (
+                <Select
+                  value={selectedOperationsSupervisorId}
+                  onValueChange={setSelectedOperationsSupervisorId}
+                  disabled={workshopValidateMutation.isPending}
+                >
+                  <SelectTrigger id="ops-supervisor-select">
+                    <SelectValue placeholder="Seleccionar supervisor de operaciones..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {operationsSupervisors && operationsSupervisors.length > 0 ? (
+                      operationsSupervisors.map((supervisor) => (
+                        <SelectItem key={supervisor.id} value={supervisor.id} disabled={!supervisor.isAvailable}>
+                          <div className="flex items-center gap-2">
+                            <span>{supervisor.fullName}</span>
+                            {!supervisor.hasLinkedEmployee && (
+                              <Badge variant="outline" className="text-[10px]">
+                                Sin empleado vinculado
+                              </Badge>
+                            )}
+                            {supervisor.hasLinkedEmployee && !supervisor.hasActiveDiagram && (
+                              <Badge variant="warning" className="text-[10px]">
+                                Sin diagrama activo
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="__none__" disabled>
+                        No hay supervisores disponibles
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <Textarea
+              placeholder="Notas de validacion (opcional)"
+              value={validationNotes}
+              onChange={(e) => setValidationNotes(e.target.value)}
+            />
+
+            <PermissionGuard module="mantenimiento" tab="ordenes_mantenimiento" action="update">
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => workshopValidateMutation.mutate()}
+                  disabled={workshopValidateMutation.isPending}
+                  className="flex-1"
+                >
+                  {workshopValidateMutation.isPending ? 'Validando...' : 'Validar y Enviar a Operaciones'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    resetRejectionState();
+                    setShowItemRejectDialog(true);
+                  }}
+                  variant="destructive"
+                  disabled={workshopRejectItemsMutation.isPending}
+                >
+                  Rechazar Items
+                </Button>
+                <Button
+                  onClick={() => setShowReturnDialog(true)}
+                  variant="outline"
+                  disabled={workshopReturnMutation.isPending}
+                  size="sm"
+                >
+                  Devolver Todo
+                </Button>
+              </div>
+            </PermissionGuard>
+          </div>
+        )}
       </DialogContent>
 
       {/* ================================================================ */}

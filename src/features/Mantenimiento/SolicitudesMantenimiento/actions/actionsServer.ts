@@ -712,6 +712,32 @@ export async function updateDeviationCommentsAndSupervisor(input: {
 }
 
 /**
+ * Reasigna el supervisor de una solicitud de mantenimiento pendiente de aprobación.
+ * Solo aplica a solicitudes en estado 'pending_approval'.
+ */
+export async function reassignRequestSupervisor(requestId: string, newSupervisorId: string) {
+  const supabase = await supabaseServer();
+
+  serverLogger.info('Reasignando supervisor de solicitud', {
+    data: { requestId, newSupervisorId },
+  });
+
+  const { error } = await supabase
+    .from('maintenance_requests')
+    .update({ supervisor_id: newSupervisorId })
+    .eq('id', requestId);
+
+  if (error) {
+    serverLogger.error('Error al reasignar supervisor', { data: { error, requestId, newSupervisorId } });
+    throw error;
+  }
+
+  serverLogger.info('Supervisor reasignado exitosamente', { data: { requestId, newSupervisorId } });
+
+  return { success: true };
+}
+
+/**
  * Rechaza una solicitud de mantenimiento completa
  * @deprecated Usar rejectMaintenanceRequestItems para rechazar items específicos
  */

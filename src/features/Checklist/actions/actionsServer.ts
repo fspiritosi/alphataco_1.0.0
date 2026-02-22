@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import moment from 'moment';
 import { cookies } from 'next/headers';
 
 const serverLogger = new Logger('Checklist/actions');
@@ -276,8 +277,15 @@ export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployee
 
 /**
  * Obtiene la lista de supervisores de turno (usuarios con rol "Administrador Operaciones")
- * Estos son los usuarios que el chofer puede seleccionar al registrar desvíos
- * Filtra por la compañía actual usando share_company_users
+ * Estos son los usuarios que el chofer puede seleccionar al registrar desvíos.
+ * Filtra por la compañía actual usando share_company_users.
+ *
+ * FILTRO DE DIAGRAMA ACTIVO:
+ * - Si el profile tiene employee_id → solo se incluye si tiene un registro en employees_diagram
+ *   para el día actual con is_active = true.
+ * - Si el profile NO tiene employee_id → se incluye siempre (sin restricción de diagrama).
+ *
+ * posible cambio: en el futuro podrían ocultarse también los supervisores sin empleado vinculado
  */
 export async function fetchSupervisorsForChecklist() {
   const cookiesStore = await cookies();
@@ -330,10 +338,10 @@ export async function fetchSupervisorsForChecklist() {
 
   const filteredUserIds = companyUsersData.map((cu) => cu.profile_id);
 
-  // Paso 3: Obtener los datos de profile para los user_ids filtrados
+  // Paso 3: Obtener los datos de profile (incluyendo employee_id para filtro de diagrama)
   const { data: profilesData, error: profilesError } = await supabase
     .from('profile')
-    .select('id, fullname, email')
+    .select('id, fullname, email, employee_id')
     .in('id', filteredUserIds);
 
   if (profilesError) {
@@ -346,12 +354,67 @@ export async function fetchSupervisorsForChecklist() {
     return [];
   }
 
-  // Formatear los resultados
-  return profilesData.map((profile) => ({
-    id: profile.id,
-    fullName: profile.fullname || profile.email || 'Sin nombre',
-    email: profile.email,
-  }));
+  // Paso 4: Filtrar por diagrama laboralmente activo del día actual
+  // Solo aplica a supervisores que tienen employee_id vinculado
+  const profilesWithEmployee = profilesData.filter((p) => p.employee_id !== null);
+  const profilesWithoutEmployee = profilesData.filter((p) => p.employee_id === null);
+
+  let activeEmployeeIds = new Set<string>();
+
+  if (profilesWithEmployee.length > 0) {
+    const now = moment().utcOffset(-3);
+    const today = {
+      day: now.date(),
+      month: now.month() + 1, // month() retorna 0-indexed
+      year: now.year(),
+    };
+
+    const employeeIdsToCheck = profilesWithEmployee.map((p) => p.employee_id).filter((id): id is string => id !== null);
+
+    // Una sola query para obtener todos los employee_ids con diagrama activo hoy
+    const { data: diagramData, error: diagramError } = await supabase
+      .from('employees_diagram')
+      .select('employee_id')
+      .in('employee_id', employeeIdsToCheck)
+      .eq('day', today.day)
+      .eq('month', today.month)
+      .eq('year', today.year)
+      .eq('is_active', true);
+
+    if (diagramError) {
+      serverLogger.warn('Error al verificar diagramas activos de supervisores', {
+        data: { error: diagramError },
+      });
+      // En caso de error, incluir todos para no bloquear la operación
+      employeeIdsToCheck.forEach((id) => activeEmployeeIds.add(id));
+    } else {
+      (diagramData || []).forEach((d) => {
+        if (d.employee_id) activeEmployeeIds.add(d.employee_id);
+      });
+    }
+
+    serverLogger.debug('Supervisores con diagrama activo hoy', {
+      data: {
+        checked: employeeIdsToCheck.length,
+        active: activeEmployeeIds.size,
+        today,
+      },
+    });
+  }
+
+  // Retornar TODOS los supervisores con metadata de disponibilidad
+  return profilesData.map((profile) => {
+    const hasLinkedEmployee = profile.employee_id !== null;
+    const hasActiveDiagram = hasLinkedEmployee ? activeEmployeeIds.has(profile.employee_id!) : false;
+    return {
+      id: profile.id,
+      fullName: profile.fullname || profile.email || 'Sin nombre',
+      email: profile.email,
+      hasLinkedEmployee,
+      hasActiveDiagram,
+      isAvailable: hasLinkedEmployee && hasActiveDiagram,
+    };
+  });
 }
 
 export type SupervisorForChecklist = Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>[number];
