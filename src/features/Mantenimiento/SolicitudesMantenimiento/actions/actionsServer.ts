@@ -26,7 +26,7 @@ export async function getMaintenanceRequests(filters?: MaintenanceRequestFilters
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, condition),
+      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
       employees(id, firstname, lastname),
       profile!maintenance_requests_user_id_fkey(id, fullname),
       supervisor:profile!maintenance_requests_supervisor_id_fkey(id, fullname, email),

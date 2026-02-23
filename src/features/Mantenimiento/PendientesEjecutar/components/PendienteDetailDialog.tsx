@@ -14,6 +14,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
+import type { Database } from '@/../database.types';
+
+type MaintenanceRequestRow = Database['public']['Tables']['maintenance_requests']['Row'];
 
 interface PendienteDetailDialogProps {
   order: MaintenanceOrderPendingApprovalData;
@@ -54,7 +57,9 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Tipo</span>
-                <p className="font-medium">{(vehicle as any)?.vehicle_type?.name || '-'}</p>
+                <p className="font-medium">
+                  {(vehicle as { vehicle_type?: { name?: string } } | null)?.vehicle_type?.name || '-'}
+                </p>
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Condición</span>
@@ -69,6 +74,14 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
                 <p className="font-medium">
                   {order.maintenance_requests?.kilometer
                     ? `${order.maintenance_requests.kilometer.toLocaleString()} km`
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Hs al Solicitar</span>
+                <p className="font-medium">
+                  {(order.maintenance_requests as MaintenanceRequestRow | null)?.engine_hours
+                    ? `${Number((order.maintenance_requests as MaintenanceRequestRow).engine_hours).toLocaleString()} hs`
                     : '-'}
                 </p>
               </div>

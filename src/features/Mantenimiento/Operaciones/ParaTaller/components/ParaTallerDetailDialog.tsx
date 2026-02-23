@@ -67,6 +67,12 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                     <p className="font-medium">{Number(order.vehicles.kilometer).toLocaleString('es-AR')} km</p>
                   </div>
                 )}
+                {order.vehicles?.engine_hours && (
+                  <div>
+                    <span className="text-sm text-muted-foreground">Horómetro:</span>
+                    <p className="font-medium">{order.vehicles.engine_hours} hs</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

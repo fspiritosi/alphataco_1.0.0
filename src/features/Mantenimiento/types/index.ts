@@ -60,6 +60,7 @@ export interface ScheduleOrderInput {
 export interface ApproveWorkshopEntryInput {
   orderId: string;
   kilometer: string;
+  engine_hours?: string;
 }
 
 export interface RejectOperationInput {

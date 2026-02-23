@@ -11,6 +11,7 @@ async function CheckListAnwersTable({ answers }: { answers: CheckListAnswerWithF
           id: e.id,
           name: (e.answer as { dominio: string })?.dominio,
           kilometer: (e.answer as { kilometraje: string })?.kilometraje,
+          engine_hours: (e.answer as { horometro: string })?.horometro || '-',
           created_at: e.created_at,
           domain: (e.answer as { dominio: string })?.dominio,
         };

@@ -18,8 +18,8 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, condition, vehicle_type:type(id, name)),
-      maintenance_requests(id, kilometer, created_at),
+      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition, vehicle_type:type(id, name)),
+      maintenance_requests(id, kilometer, engine_hours, created_at),
       maintenance_order_items(
         *,
         types_of_repairs(id, name, autorizable),
@@ -76,8 +76,8 @@ export async function getMaintenanceOrderDetail(orderId: string) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, condition, vehicle_type:type(id, name)),
-      maintenance_requests(id, kilometer, created_at),
+      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition, vehicle_type:type(id, name)),
+      maintenance_requests(id, kilometer, engine_hours, created_at),
       maintenance_order_items(
         *,
         types_of_repairs(id, name, autorizable),

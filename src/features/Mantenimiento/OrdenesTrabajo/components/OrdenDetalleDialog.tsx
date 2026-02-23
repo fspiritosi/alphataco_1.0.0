@@ -381,6 +381,12 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                       <span>{detail.vehicleKilometer} km</span>
                     </div>
                   )}
+                  {detail.vehicleEngineHours != null && (
+                    <div>
+                      <span className="text-muted-foreground">Horómetro: </span>
+                      <span>{detail.vehicleEngineHours} hs</span>
+                    </div>
+                  )}
                   {detail.vehicleCondition && (
                     <div>
                       <span className="text-muted-foreground">Condición: </span>

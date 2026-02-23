@@ -25,7 +25,7 @@ import { AlertCircle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } fro
 import moment from 'moment';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { FieldValues, UseFormReturn, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { DevAutoFillButton } from './DevAutoFillButton';
 // Tipos basados en la estructura de la base de datos
@@ -49,6 +49,7 @@ type Equipment = {
   domain: string | null;
   serie: string | null;
   kilometer: string;
+  engine_hours: string;
   model: string | null;
   brand: string | null;
   intern_number: string;
@@ -84,6 +85,7 @@ type NormalizedChecklistFormProps = {
   defaultKilometer?: string;
   defaultHitchEquipmentId?: string | null; // ID del enganche cuando está en modo view
   defaultCustomerId?: string | null; // ID del cliente cuando está en modo view
+  defaultHorometro?: string;
 };
 
 /**
@@ -97,6 +99,7 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
     fecha: z.string().min(1, 'Debe ingresar la fecha'),
     hora: z.string().min(1, 'Debe ingresar la hora'),
     kilometraje: z.string().optional(),
+    horometro: z.string().optional(),
     observaciones: z.string().optional(),
   };
 
@@ -196,21 +199,36 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
 /**
  * Genera los valores por defecto del formulario
  */
+type DefaultAnswerSectionValue = Record<string, unknown>;
+type DefaultAnswers = {
+  equipment_id?: string;
+  customer_id?: string;
+  chofer?: string;
+  fecha?: string;
+  hora?: string;
+  kilometraje?: string;
+  horometro?: string;
+  observaciones?: string;
+  [sectionCode: string]: DefaultAnswerSectionValue | string | undefined;
+};
+
 const generateDefaultValues = (
   template: NonNullable<ChecklistTemplate>,
-  defaultAnswers?: any,
+  defaultAnswers?: DefaultAnswers,
   defaultEquipmentId?: string,
   defaultEmployeeName?: string,
   defaultKilometer?: string,
-  defaultCustomerId?: string | null
+  defaultCustomerId?: string | null,
+  defaultHorometro?: string
 ) => {
-  const defaults: Record<string, any> = {
+  const defaults: Record<string, string> = {
     equipment_id: defaultEquipmentId || '',
     customer_id: defaultCustomerId || '',
     chofer: defaultEmployeeName || '',
     fecha: moment().format('YYYY-MM-DD'),
     hora: moment().format('HH:mm'),
     kilometraje: defaultKilometer || '',
+    horometro: defaultHorometro || '',
     observaciones: '',
   };
 
@@ -222,12 +240,14 @@ const generateDefaultValues = (
     if (defaultAnswers.fecha) defaults.fecha = defaultAnswers.fecha;
     if (defaultAnswers.hora) defaults.hora = defaultAnswers.hora;
     if (defaultAnswers.kilometraje) defaults.kilometraje = defaultAnswers.kilometraje;
+    if (defaultAnswers.horometro) defaults.horometro = defaultAnswers.horometro;
     if (defaultAnswers.observaciones) defaults.observaciones = defaultAnswers.observaciones;
 
     // Cargar respuestas por sección
     template.checklist_template_sections?.forEach((section) => {
       const sectionCode = section.code || section.section?.code || `section_${section.id}`;
-      const sectionAnswers = defaultAnswers[sectionCode] || {};
+      const rawSection = defaultAnswers[sectionCode];
+      const sectionAnswers: DefaultAnswerSectionValue = rawSection && typeof rawSection === 'object' ? rawSection : {};
 
       section.checklist_template_items?.forEach((item) => {
         const itemCode = item.code || `item_${item.id}`;
@@ -236,8 +256,9 @@ const generateDefaultValues = (
 
         if (isSideValidationItem(item)) {
           if (itemAnswer && typeof itemAnswer === 'object') {
-            const leftValue = normalizeChecklistValue(itemAnswer.left);
-            const rightValue = normalizeChecklistValue(itemAnswer.right);
+            const sideAnswer = itemAnswer as { left?: unknown; right?: unknown };
+            const leftValue = normalizeChecklistValue(sideAnswer.left);
+            const rightValue = normalizeChecklistValue(sideAnswer.right);
             defaults[`${fieldName}_left`] = leftValue;
             defaults[`${fieldName}_right`] = rightValue;
           } else {
@@ -368,7 +389,7 @@ const ChecklistItemField = ({
 }: {
   item: ChecklistTemplateItem;
   sectionCode: string;
-  form: ReturnType<typeof useForm>;
+  form: UseFormReturn<FieldValues>;
   readOnly?: boolean;
 }) => {
   const itemCode = item.code || `item_${item.id}`;
@@ -681,13 +702,14 @@ export function NormalizedChecklistForm({
   defaultKilometer,
   defaultHitchEquipmentId,
   defaultCustomerId,
+  defaultHorometro,
 }: NormalizedChecklistFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [criticalItemsFailed, setCriticalItemsFailed] = useState<string[]>([]);
   const [showDeviationsModal, setShowDeviationsModal] = useState(false);
-  const [pendingDeviations, setPendingDeviations] = useState<any[]>([]);
+  const [pendingDeviations, setPendingDeviations] = useState<Awaited<ReturnType<typeof getPendingDeviations>>>([]);
   const [supervisors, setSupervisors] = useState<Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>>([]);
   const [currentEquipmentId, setCurrentEquipmentId] = useState<string | undefined>(defaultEquipmentId);
   const [createdAnswerId, setCreatedAnswerId] = useState<string | null>(null);
@@ -695,6 +717,10 @@ export function NormalizedChecklistForm({
   // Estado para validación de kilometraje mínimo
   const [minKilometer, setMinKilometer] = useState<number | null>(null);
   const [kilometerError, setKilometerError] = useState<string | null>(null);
+
+  // Estado para validación de horómetro mínimo
+  const [minEngineHours, setMinEngineHours] = useState<number | null>(null);
+  const [engineHoursError, setEngineHoursError] = useState<string | null>(null);
 
   // Estado para manejo de enganche (COD-290)
   const [selectedHitchEquipment, setSelectedHitchEquipment] = useState<string | null>(defaultHitchEquipmentId || null);
@@ -717,9 +743,18 @@ export function NormalizedChecklistForm({
         defaultEquipmentId,
         defaultEmployeeName,
         defaultKilometer,
-        defaultCustomerId
+        defaultCustomerId,
+        defaultHorometro
       ),
-    [template, defaultAnswers, defaultEquipmentId, defaultEmployeeName, defaultKilometer, defaultCustomerId]
+    [
+      template,
+      defaultAnswers,
+      defaultEquipmentId,
+      defaultEmployeeName,
+      defaultKilometer,
+      defaultCustomerId,
+      defaultHorometro,
+    ]
   );
 
   const form = useForm({
@@ -805,7 +840,7 @@ export function NormalizedChecklistForm({
     checkEquipmentHitch();
   }, [selectedEquipmentId, readOnly, defaultHitchEquipmentId]);
 
-  // Auto-poblar kilometraje cuando se selecciona un equipo
+  // Auto-poblar kilometraje y horómetro cuando se selecciona un equipo
   useEffect(() => {
     if (!selectedEquipmentId || readOnly) {
       return;
@@ -814,6 +849,7 @@ export function NormalizedChecklistForm({
     const selectedEquipment = equipments.find((eq) => eq.value === selectedEquipmentId);
     if (selectedEquipment) {
       const equipmentKilometer = selectedEquipment.kilometer;
+      const equipmentEngineHours = selectedEquipment.engine_hours;
 
       // Guardar el kilometraje mínimo para validación
       const kilometerNumber = equipmentKilometer ? parseInt(equipmentKilometer, 10) : null;
@@ -825,8 +861,20 @@ export function NormalizedChecklistForm({
         // Limpiar cualquier error previo
         setKilometerError(null);
       }
+
+      // Guardar el horómetro mínimo para validación
+      const engineHoursNumber = equipmentEngineHours ? parseInt(equipmentEngineHours, 10) : null;
+      setMinEngineHours(isNaN(engineHoursNumber!) ? null : engineHoursNumber);
+
+      // Auto-poblar el campo de horómetro con el valor actual del equipo
+      if (equipmentEngineHours) {
+        form.setValue('horometro', equipmentEngineHours);
+        // Limpiar cualquier error previo
+        setEngineHoursError(null);
+      }
     } else {
       setMinKilometer(null);
+      setMinEngineHours(null);
     }
   }, [selectedEquipmentId, equipments, form, readOnly]);
 
@@ -868,6 +916,7 @@ export function NormalizedChecklistForm({
     setIsSubmitting(true);
     setCriticalItemsFailed([]);
     setKilometerError(null);
+    setEngineHoursError(null);
 
     // Validar que el kilometraje no sea menor al kilometraje actual del equipo
     if (minKilometer !== null && data.kilometraje) {
@@ -881,6 +930,22 @@ export function NormalizedChecklistForm({
         const { toast } = await import('sonner');
         toast.error('Error de validación', {
           description: `El kilometraje no puede ser menor a ${minKilometer.toLocaleString('es-AR')} km`,
+        });
+        return;
+      }
+    }
+
+    // Validar que el horómetro no sea menor al horómetro actual del equipo
+    if (minEngineHours !== null && data.horometro) {
+      const enteredEngineHours = parseInt(data.horometro, 10);
+      if (!isNaN(enteredEngineHours) && enteredEngineHours < minEngineHours) {
+        setEngineHoursError(
+          `El horómetro ingresado (${enteredEngineHours.toLocaleString('es-AR')} hs) no puede ser menor al horómetro actual del equipo (${minEngineHours.toLocaleString('es-AR')} hs)`
+        );
+        setIsSubmitting(false);
+        const { toast } = await import('sonner');
+        toast.error('Error de validación', {
+          description: `El horómetro no puede ser menor a ${minEngineHours.toLocaleString('es-AR')} hs`,
         });
         return;
       }
@@ -969,6 +1034,7 @@ export function NormalizedChecklistForm({
         fecha: data.fecha,
         hora: data.hora,
         kilometraje: data.kilometraje,
+        horometro: data.horometro,
         observaciones: data.observaciones,
         answers: answersBySection,
         failed_items: failedItems, // Nuevo formato con is_critical
@@ -990,6 +1056,7 @@ export function NormalizedChecklistForm({
             fecha: data.fecha,
             hora: data.hora,
             kilometraje: data.kilometraje,
+            horometro: data.horometro,
             observaciones: data.observaciones,
             answers: answersBySection, // Mismo resultado para ambos equipos
             critical_items_failed: [], // NO crear desvíos para el enganche
@@ -1013,15 +1080,20 @@ export function NormalizedChecklistForm({
 
         // Obtener los desvíos creados y los supervisores disponibles para el modal
         try {
-          console.log('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id:', data.equipment_id);
+          logger.info('[NormalizedChecklistForm] Obteniendo desvíos para equipment_id', {
+            data: { equipmentId: data.equipment_id },
+          });
           const [deviations, supervisorsList] = await Promise.all([
             getPendingDeviations(data.equipment_id),
             fetchSupervisorsForChecklist(),
           ]);
 
-          console.log('[NormalizedChecklistForm] Desvíos obtenidos:', deviations?.length || 0);
-          console.log('[NormalizedChecklistForm] Desvíos detalle:', JSON.stringify(deviations, null, 2));
-          console.log('[NormalizedChecklistForm] Supervisores:', supervisorsList?.length || 0);
+          logger.debug('[NormalizedChecklistForm] Desvíos obtenidos', {
+            data: { count: deviations?.length || 0, deviations },
+          });
+          logger.debug('[NormalizedChecklistForm] Supervisores obtenidos', {
+            data: { count: supervisorsList?.length || 0 },
+          });
 
           setPendingDeviations(deviations);
           setSupervisors(supervisorsList);
@@ -1327,7 +1399,9 @@ export function NormalizedChecklistForm({
                         </FormItem>
                       )}
                     />
+                  </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="kilometraje"
@@ -1370,6 +1444,54 @@ export function NormalizedChecklistForm({
                           </FormControl>
                           <FormMessage />
                           {kilometerError && <p className="text-sm font-medium text-destructive">{kilometerError}</p>}
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="horometro"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Horómetro
+                            {minEngineHours !== null && !readOnly && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                (mín: {minEngineHours.toLocaleString('es-AR')} hs)
+                              </span>
+                            )}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Horómetro"
+                              disabled={readOnly}
+                              type="number"
+                              min={minEngineHours ?? undefined}
+                              className={engineHoursError ? 'border-destructive' : ''}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                // Validar que el horómetro no sea menor al mínimo
+                                const value = e.target.value;
+                                if (value && minEngineHours !== null) {
+                                  const enteredHours = parseInt(value, 10);
+                                  if (!isNaN(enteredHours) && enteredHours < minEngineHours) {
+                                    setEngineHoursError(
+                                      `El horómetro no puede ser menor a ${minEngineHours.toLocaleString('es-AR')} hs (actual del equipo)`
+                                    );
+                                  } else {
+                                    setEngineHoursError(null);
+                                  }
+                                } else {
+                                  setEngineHoursError(null);
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                          {engineHoursError && (
+                            <p className="text-sm font-medium text-destructive">{engineHoursError}</p>
+                          )}
                         </FormItem>
                       )}
                     />
@@ -1615,8 +1737,8 @@ export function NormalizedChecklistForm({
             item_code: d.item_code,
             item_label: d.item_label,
             section_code: d.section_code,
-            is_critical: d.is_critical || false,
-            created_at: d.created_at,
+            is_critical: d.is_critical ?? false,
+            created_at: d.created_at ?? new Date().toISOString(),
           }))}
           equipmentId={currentEquipmentId}
         />

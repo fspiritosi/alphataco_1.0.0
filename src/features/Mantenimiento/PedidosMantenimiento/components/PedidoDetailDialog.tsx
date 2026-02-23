@@ -79,6 +79,12 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                     <p className="font-medium">{order.maintenance_requests.kilometer} km</p>
                   </div>
                 )}
+                {order.maintenance_requests?.engine_hours && (
+                  <div>
+                    <span className="text-sm text-muted-foreground">Horómetro:</span>
+                    <p className="font-medium">{order.maintenance_requests.engine_hours} hs</p>
+                  </div>
+                )}
               </div>
 
               {order.date_rejection_reason && (

@@ -32,7 +32,12 @@ interface ParaTallerEntradaDialogProps {
 
 export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntradaDialogProps) {
   const [kilometer, setKilometer] = useState(order.vehicles?.kilometer?.toString() || '');
+  const [engineHours, setEngineHours] = useState(order.vehicles?.engine_hours?.toString() || '');
+  const [engineHoursError, setEngineHoursError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Valor mínimo permitido para horómetro
+  const currentEngineHours = Number(order.vehicles?.engine_hours) || 0;
 
   const approveMutation = useMutation({
     mutationFn: approveWorkshopEntry,
@@ -52,6 +57,23 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
     },
   });
+
+  // Validar horómetro cuando cambia
+  const handleEngineHoursChange = (value: string) => {
+    setEngineHours(value);
+    if (value.trim()) {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue) && currentEngineHours > 0 && numValue < currentEngineHours) {
+        setEngineHoursError(
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+        );
+      } else {
+        setEngineHoursError(null);
+      }
+    } else {
+      setEngineHoursError(null);
+    }
+  };
 
   const handleApprove = async () => {
     if (!kilometer.trim()) {
@@ -73,10 +95,22 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
       return;
     }
 
+    // Validar horómetro si fue ingresado
+    if (engineHours.trim()) {
+      const numEngineHours = parseFloat(engineHours);
+      if (!isNaN(numEngineHours) && currentEngineHours > 0 && numEngineHours < currentEngineHours) {
+        toast.error(
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+        );
+        return;
+      }
+    }
+
     try {
       await approveMutation.mutateAsync({
         orderId: order.id,
         kilometer: kilometer.trim(),
+        ...(engineHours.trim() && { engine_hours: engineHours.trim() }),
       });
       toast.success('Entrada a taller aprobada. El equipo ahora está "No Operativo"');
       onClose();
@@ -113,6 +147,7 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
                   </Badge>
                 </li>
                 <li>El kilometraje se actualizará al valor ingresado</li>
+                <li>El horómetro se actualizará si se ingresa un valor</li>
               </ul>
             </div>
           </div>
@@ -129,6 +164,12 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
               <span className="text-sm text-muted-foreground">Km actual:</span>
               <span className="font-medium">{order.vehicles?.kilometer || '-'} km</span>
             </div>
+            {order.vehicles?.engine_hours && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Horómetro actual:</span>
+                <span className="font-medium">{order.vehicles.engine_hours} hs</span>
+              </div>
+            )}
             {order.scheduled_date && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Fecha programada:</span>
@@ -152,10 +193,14 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                    const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                    const pivotRepairTypes = (
+                      item as {
+                        maintenance_order_item_repair_types?: { types_of_repairs?: { name: string } }[];
+                      }
+                    ).maintenance_order_item_repair_types || [];
                     const repairTypeNames: string[] =
                       pivotRepairTypes.length > 0
-                        ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                        ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name ?? '').filter(Boolean)
                         : item.types_of_repairs?.name
                           ? [item.types_of_repairs.name]
                           : [];
@@ -172,11 +217,13 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
                             </span>
                           )}
                         </div>
-                        {((item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment) && (
+                        {((item.maintenance_request_items as { driver_comment?: string } | null)?.driver_comment ||
+                          deviation?.driver_comment) && (
                           <div className="text-xs mt-1">
                             <span className="text-muted-foreground">Chofer: </span>
                             <span className="italic">
-                              {(item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment}
+                              {(item.maintenance_request_items as { driver_comment?: string } | null)?.driver_comment ||
+                                deviation?.driver_comment}
                             </span>
                           </div>
                         )}
@@ -188,25 +235,51 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
             </div>
           )}
 
-          {/* Input de kilometraje */}
-          <div className="space-y-2">
-            <Label htmlFor="kilometer">Kilometraje actual del equipo *</Label>
-            <Input
-              id="kilometer"
-              type="number"
-              min={order.vehicles?.kilometer && Number(order.vehicles.kilometer) > 0 ? order.vehicles.kilometer : 0}
-              value={kilometer}
-              onChange={(e) => setKilometer(e.target.value)}
-              placeholder="Ej: 150000"
-            />
-            <p className="text-xs text-muted-foreground">
-              Ingrese el kilometraje actual al momento de la entrada al taller
-              {order.vehicles?.kilometer && Number(order.vehicles.kilometer) > 0 && (
-                <span className="block mt-1 text-yellow-600">
-                  Mínimo permitido: {Number(order.vehicles.kilometer).toLocaleString('es-AR')} km (actual del equipo)
-                </span>
+          {/* Campos de KM y Horómetro en grilla de 2 columnas */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Input de kilometraje */}
+            <div className="space-y-2">
+              <Label htmlFor="kilometer">Kilometraje actual *</Label>
+              <Input
+                id="kilometer"
+                type="number"
+                min={order.vehicles?.kilometer && Number(order.vehicles.kilometer) > 0 ? order.vehicles.kilometer : 0}
+                value={kilometer}
+                onChange={(e) => setKilometer(e.target.value)}
+                placeholder="Ej: 150000"
+              />
+              <p className="text-xs text-muted-foreground">
+                {order.vehicles?.kilometer && Number(order.vehicles.kilometer) > 0 ? (
+                  <span className="text-yellow-600">
+                    Mín. {Number(order.vehicles.kilometer).toLocaleString('es-AR')} km (actual del equipo)
+                  </span>
+                ) : (
+                  'Kilometraje al momento de la entrada'
+                )}
+              </p>
+            </div>
+
+            {/* Input de horómetro */}
+            <div className="space-y-2">
+              <Label htmlFor="engine-hours">Horómetro actual</Label>
+              <Input
+                id="engine-hours"
+                type="text"
+                value={engineHours}
+                onChange={(e) => handleEngineHoursChange(e.target.value)}
+                placeholder="Ej: 1250"
+                className={engineHoursError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+              />
+              {engineHoursError ? (
+                <p className="text-xs text-red-600">{engineHoursError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {currentEngineHours > 0
+                    ? `Mín. ${currentEngineHours.toLocaleString('es-AR')} hs (actual del equipo)`
+                    : 'Horómetro al momento de la entrada (opcional)'}
+                </p>
               )}
-            </p>
+            </div>
           </div>
         </div>
 
@@ -214,7 +287,10 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleApprove} disabled={approveMutation.isPending || !kilometer.trim()}>
+          <Button
+            onClick={handleApprove}
+            disabled={approveMutation.isPending || !kilometer.trim() || !!engineHoursError}
+          >
             {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Entrada
           </Button>

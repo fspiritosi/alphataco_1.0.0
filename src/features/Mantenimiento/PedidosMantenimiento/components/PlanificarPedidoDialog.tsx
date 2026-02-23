@@ -105,6 +105,12 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                     {order.maintenance_requests?.kilometer || order.vehicles?.kilometer || '-'} km
                   </p>
                 </div>
+                <div>
+                  <span className="text-muted-foreground">Horómetro:</span>
+                  <p className="font-medium">
+                    {order.maintenance_requests?.engine_hours || order.vehicles?.engine_hours || '-'} hs
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

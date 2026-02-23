@@ -53,6 +53,10 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                   <p className="font-medium">{operation.vehicles?.kilometer || '-'} km</p>
                 </div>
                 <div>
+                  <span className="text-sm text-muted-foreground">Horómetro actual:</span>
+                  <p className="font-medium">{operation.vehicles?.engine_hours || '-'} hs</p>
+                </div>
+                <div>
                   <span className="text-sm text-muted-foreground">Fecha planificada:</span>
                   <p className="font-medium">{formatDateOnly(operation.scheduled_date)}</p>
                 </div>

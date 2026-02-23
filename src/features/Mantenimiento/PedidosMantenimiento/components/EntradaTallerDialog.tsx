@@ -36,7 +36,6 @@ interface EntradaTallerDialogProps {
  * 2. Kilometraje del vehículo (fallback)
  */
 function getInitialKilometer(order: MaintenanceOrderData): { value: string; source: 'checklist' | 'vehicle' | 'none' } {
-  // Buscar kilometraje en las respuestas del checklist
   const items = order.maintenance_order_items || [];
   for (const item of items) {
     const deviation = item.maintenance_request_items?.checklist_deviations;
@@ -68,6 +67,15 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   const initialKm = useMemo(() => getInitialKilometer(order), [order]);
   const [kilometer, setKilometer] = useState(initialKm.value);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Estado del horómetro — se precarga desde el vehículo si existe
+  const [engineHours, setEngineHours] = useState(order.vehicles?.engine_hours?.toString() || '');
+  const [engineHoursError, setEngineHoursError] = useState<string | null>(null);
+  const minEngineHours = useMemo(() => {
+    const parsed = parseFloat(order.vehicles?.engine_hours?.toString() || '');
+    return !isNaN(parsed) && parsed > 0 ? parsed : 0;
+  }, [order.vehicles?.engine_hours]);
+
   const queryClient = useQueryClient();
 
   // Valor mínimo permitido (el valor precargado)
@@ -79,19 +87,34 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
   // Validar kilometraje cuando cambia
   const handleKilometerChange = (value: string) => {
     setKilometer(value);
-
-    // Validar que no sea menor al valor precargado
     if (value.trim()) {
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && minKilometer > 0 && numValue < minKilometer) {
         setValidationError(
-          `El kilometraje no puede ser menor a ${minKilometer.toLocaleString()} km (valor registrado)`
+          `El kilometraje no puede ser menor a ${minKilometer.toLocaleString()} km (valor registrado)`,
         );
       } else {
         setValidationError(null);
       }
     } else {
       setValidationError(null);
+    }
+  };
+
+  // Validar horómetro cuando cambia
+  const handleEngineHoursChange = (value: string) => {
+    setEngineHours(value);
+    if (value.trim()) {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue) && minEngineHours > 0 && numValue < minEngineHours) {
+        setEngineHoursError(
+          `El horómetro no puede ser menor a ${minEngineHours.toLocaleString()} hs (valor registrado)`,
+        );
+      } else {
+        setEngineHoursError(null);
+      }
+    } else {
+      setEngineHoursError(null);
     }
   };
 
@@ -104,7 +127,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
       queryClient.invalidateQueries({ queryKey: PEDIDOS_PENDIENTES_QUERY_KEY });
       // Invalidar Planificación ya que el equipo ahora está en taller
       queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
-      // Invalidar queries de vehículos (se actualiza condición y km)
+      // Invalidar queries de vehículos (se actualiza condición, km y horómetro)
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       queryClient.invalidateQueries({ queryKey: ['equipment'] });
     },
@@ -123,10 +146,20 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
       return;
     }
 
+    // Validar horómetro si fue ingresado
+    if (engineHours.trim()) {
+      const numEngineHours = parseFloat(engineHours);
+      if (!isNaN(numEngineHours) && minEngineHours > 0 && numEngineHours < minEngineHours) {
+        toast.error(`El horómetro no puede ser menor a ${minEngineHours.toLocaleString()} hs`);
+        return;
+      }
+    }
+
     try {
       await approveMutation.mutateAsync({
         orderId: order.id,
         kilometer: kilometer.trim(),
+        ...(engineHours.trim() && { engine_hours: engineHours.trim() }),
       });
       toast.success('Entrada a taller aprobada. El equipo ahora está "No Operativo"');
       onClose();
@@ -163,6 +196,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                   </Badge>
                 </li>
                 <li>El kilometraje se actualizará al valor ingresado</li>
+                <li>El horómetro se actualizará si se ingresa un valor</li>
               </ul>
             </div>
           </div>
@@ -179,6 +213,12 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
               <span className="text-sm text-muted-foreground">Km actual:</span>
               <span className="font-medium">{order.vehicles?.kilometer || '-'} km</span>
             </div>
+            {order.vehicles?.engine_hours && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Horómetro actual:</span>
+                <span className="font-medium">{order.vehicles.engine_hours} hs</span>
+              </div>
+            )}
             {order.scheduled_date && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Fecha programada:</span>
@@ -202,10 +242,14 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                    const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                    const pivotRepairTypes = (
+                      item as {
+                        maintenance_order_item_repair_types?: { types_of_repairs?: { name: string } }[];
+                      }
+                    ).maintenance_order_item_repair_types || [];
                     const repairTypeNames: string[] =
                       pivotRepairTypes.length > 0
-                        ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                        ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name ?? '').filter(Boolean)
                         : item.types_of_repairs?.name
                           ? [item.types_of_repairs.name]
                           : [];
@@ -241,36 +285,55 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
             </div>
           )}
 
-          {/* Input de kilometraje */}
-          <div className="space-y-2">
-            <Label htmlFor="kilometer">Kilometraje actual del equipo *</Label>
-            <Input
-              id="kilometer"
-              type="text"
-              value={kilometer}
-              onChange={(e) => handleKilometerChange(e.target.value)}
-              placeholder="Ej: 150000"
-              className={validationError ? 'border-red-500 focus-visible:ring-red-500' : ''}
-            />
-            {validationError ? (
-              <p className="text-xs text-red-600">{validationError}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {initialKm.source === 'checklist' ? (
-                  <>
-                    Valor precargado desde el checklist ({minKilometer.toLocaleString()} km). El nuevo valor no puede
-                    ser menor.
-                  </>
-                ) : initialKm.source === 'vehicle' ? (
-                  <>
-                    Valor precargado desde el vehículo ({minKilometer.toLocaleString()} km). El nuevo valor no puede ser
-                    menor.
-                  </>
-                ) : (
-                  'Ingrese el kilometraje actual al momento de la entrada al taller'
-                )}
-              </p>
-            )}
+          {/* Campos de KM y Horómetro en grilla de 2 columnas */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Input de kilometraje */}
+            <div className="space-y-2">
+              <Label htmlFor="kilometer">Kilometraje actual *</Label>
+              <Input
+                id="kilometer"
+                type="text"
+                value={kilometer}
+                onChange={(e) => handleKilometerChange(e.target.value)}
+                placeholder="Ej: 150000"
+                className={validationError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+              />
+              {validationError ? (
+                <p className="text-xs text-red-600">{validationError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {initialKm.source === 'checklist' ? (
+                    <>Precargado desde checklist ({minKilometer.toLocaleString()} km). No puede ser menor.</>
+                  ) : initialKm.source === 'vehicle' ? (
+                    <>Precargado desde el vehículo ({minKilometer.toLocaleString()} km). No puede ser menor.</>
+                  ) : (
+                    'Kilometraje al momento de la entrada'
+                  )}
+                </p>
+              )}
+            </div>
+
+            {/* Input de horómetro */}
+            <div className="space-y-2">
+              <Label htmlFor="engine-hours">Horómetro actual</Label>
+              <Input
+                id="engine-hours"
+                type="text"
+                value={engineHours}
+                onChange={(e) => handleEngineHoursChange(e.target.value)}
+                placeholder="Ej: 1250"
+                className={engineHoursError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+              />
+              {engineHoursError ? (
+                <p className="text-xs text-red-600">{engineHoursError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {minEngineHours > 0
+                    ? `Mín. ${minEngineHours.toLocaleString()} hs (actual del equipo)`
+                    : 'Horómetro al momento de la entrada (opcional)'}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -280,7 +343,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
           </Button>
           <Button
             onClick={handleApprove}
-            disabled={approveMutation.isPending || !kilometer.trim() || !!validationError}
+            disabled={approveMutation.isPending || !kilometer.trim() || !!validationError || !!engineHoursError}
           >
             {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Entrada

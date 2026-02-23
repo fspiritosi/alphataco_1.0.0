@@ -118,6 +118,7 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
         serie,
         intern_number,
         kilometer,
+        engine_hours,
         condition,
         types_of_vehicles (name)
       ),
@@ -275,6 +276,7 @@ export async function getWorkOrderDetail(workOrderId: string): Promise<WorkOrder
     vehicleInternNumber: (wo.vehicles as any)?.intern_number || null,
     vehicleType: (wo.vehicles as any)?.types_of_vehicles?.name || null,
     vehicleKilometer: (wo.vehicles as any)?.kilometer || null,
+    vehicleEngineHours: (wo.vehicles as any)?.engine_hours ?? null,
     vehicleCondition: (wo.vehicles as any)?.condition || null,
     workshopId: wo.workshop_id,
     workshopName: (wo.workshops as any)?.name || '',

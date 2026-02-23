@@ -31,6 +31,7 @@ export type VehicleFormData = {
   serie?: string;
   domain?: string;
   kilometer?: string;
+  engine_hours?: string;
   intern_number?: string;
   picture?: string | null;
   allocated_to?: string[];

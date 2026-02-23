@@ -26,11 +26,35 @@ interface EntradaTallerDialogProps {
 }
 
 export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDialogProps) {
-  const [kilometer, setKilometer] = useState(request.vehicles?.kilometer || '');
+  const [kilometer, setKilometer] = useState(request.vehicles?.kilometer?.toString() || '');
+  const [engineHours, setEngineHours] = useState(request.vehicles?.engine_hours?.toString() || '');
+  const [engineHoursError, setEngineHoursError] = useState<string | null>(null);
   const approveMutation = useApproveWorkshopEntryFromRequest();
+
+  // Valor mínimo permitido para horómetro
+  const currentEngineHours = Number(request.vehicles?.engine_hours) || 0;
+  // Valor mínimo permitido para kilometraje
+  const currentKm = Number(request.vehicles?.kilometer) || 0;
 
   // Obtener el maintenance_order con fecha confirmada
   const maintenanceOrder = request.maintenance_orders?.[0];
+
+  // Validar horómetro cuando cambia
+  const handleEngineHoursChange = (value: string) => {
+    setEngineHours(value);
+    if (value.trim()) {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue) && currentEngineHours > 0 && numValue < currentEngineHours) {
+        setEngineHoursError(
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+        );
+      } else {
+        setEngineHoursError(null);
+      }
+    } else {
+      setEngineHoursError(null);
+    }
+  };
 
   const handleApprove = async () => {
     if (!kilometer.toString().trim()) {
@@ -43,10 +67,22 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
       return;
     }
 
+    // Validar horómetro si fue ingresado
+    if (engineHours.trim()) {
+      const numEngineHours = parseFloat(engineHours);
+      if (!isNaN(numEngineHours) && currentEngineHours > 0 && numEngineHours < currentEngineHours) {
+        toast.error(
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+        );
+        return;
+      }
+    }
+
     try {
       await approveMutation.mutateAsync({
         orderId: maintenanceOrder.id,
         kilometer: kilometer.toString().trim(),
+        ...(engineHours.trim() && { engine_hours: engineHours.trim() }),
       });
       toast.success('Entrada a taller aprobada. El equipo ahora está "No Operativo"');
       onClose();
@@ -85,6 +121,7 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
                   </Badge>
                 </li>
                 <li>El kilometraje se actualizará al valor ingresado</li>
+                <li>El horómetro se actualizará si se ingresa un valor</li>
               </ul>
             </div>
           </div>
@@ -101,6 +138,12 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
               <span className="text-sm text-muted-foreground">Km actual:</span>
               <span className="font-medium">{request.vehicles?.kilometer || '-'} km</span>
             </div>
+            {request.vehicles?.engine_hours && (
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Horómetro actual:</span>
+                <span className="font-medium">{request.vehicles.engine_hours} hs</span>
+              </div>
+            )}
             {maintenanceOrder?.scheduled_date && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Fecha programada:</span>
@@ -142,19 +185,46 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
             </div>
           )}
 
-          {/* Input de kilometraje */}
-          <div className="space-y-2">
-            <Label htmlFor="kilometer">Kilometraje actual del equipo *</Label>
-            <Input
-              id="kilometer"
-              type="text"
-              value={kilometer}
-              onChange={(e) => setKilometer(e.target.value)}
-              placeholder="Ej: 150000"
-            />
-            <p className="text-xs text-muted-foreground">
-              Ingrese el kilometraje actual al momento de la entrada al taller
-            </p>
+          {/* Campos de KM y Horómetro en grilla de 2 columnas */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Input de kilometraje */}
+            <div className="space-y-2">
+              <Label htmlFor="kilometer">Kilometraje actual *</Label>
+              <Input
+                id="kilometer"
+                type="text"
+                value={kilometer}
+                onChange={(e) => setKilometer(e.target.value)}
+                placeholder="Ej: 150000"
+              />
+              <p className="text-xs text-muted-foreground">
+                {currentKm > 0
+                  ? `Mín. ${currentKm.toLocaleString('es-AR')} km (actual del equipo)`
+                  : 'Kilometraje al momento de la entrada'}
+              </p>
+            </div>
+
+            {/* Input de horómetro */}
+            <div className="space-y-2">
+              <Label htmlFor="engine-hours">Horómetro actual</Label>
+              <Input
+                id="engine-hours"
+                type="text"
+                value={engineHours}
+                onChange={(e) => handleEngineHoursChange(e.target.value)}
+                placeholder="Ej: 1250"
+                className={engineHoursError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+              />
+              {engineHoursError ? (
+                <p className="text-xs text-red-600">{engineHoursError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {currentEngineHours > 0
+                    ? `Mín. ${currentEngineHours.toLocaleString('es-AR')} hs (actual del equipo)`
+                    : 'Horómetro al momento de la entrada (opcional)'}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -162,7 +232,10 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleApprove} disabled={approveMutation.isPending || !kilometer.toString().trim()}>
+          <Button
+            onClick={handleApprove}
+            disabled={approveMutation.isPending || !kilometer.toString().trim() || !!engineHoursError}
+          >
             {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Entrada
           </Button>

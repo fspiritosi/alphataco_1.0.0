@@ -79,7 +79,7 @@ Hay 4 agentes personalizados disponibles. Usarlos segun el contexto:
 
 **REGLAS DE USO**:
 
-- **`branch-reviewer`**: Usar SIEMPRE que el usuario pida commitear, pushear o revisar cambios antes de commit.
+- **`branch-reviewer`**: Usar SIEMPRE que el usuario pida commitear, pushear, crear PR o revisar cambios. Incluye revision diferencial automatica (analisis de riesgo, blast radius y consistencia via git diff) antes de cada commit/push.
 - **`supabase-query-optimizer`**: Usar SIEMPRE que el usuario pida optimizar queries, o al crear queries para nuevas tablas paginadas.
 - **`project-standards-enforcer`**: Usar PROACTIVAMENTE para cualquier cambio de codigo (features, bugs, refactors, server actions). No esperar que el usuario lo pida.
 - **`ui-architect`**: Usar PROACTIVAMENTE cuando el usuario necesite una nueva pantalla, componente visual, formulario, modal o rediseño de UI.
@@ -102,6 +102,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | DataTable Server-Side                       | @.claude/rules/datatable.md         | Tablas con paginacion                             |
 | Estructura de Features                      | @.claude/rules/feature-structure.md | Al crear/modificar features                       |
 | Evitar useEffect innecesarios               | @.claude/rules/no-useeffect.md      | Siempre al escribir logica reactiva               |
+| Revision Diferencial pre-commit             | Integrado en `branch-reviewer`      | Al commitear, pushear o crear PR                  |
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.

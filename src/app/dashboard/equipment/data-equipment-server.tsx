@@ -307,6 +307,17 @@ export default function TablaEquipmentServer({
       },
     },
     {
+      accessorKey: 'engine_hours',
+      id: 'engine_hours',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Horómetro" />,
+      cell: ({ row }) => {
+        return <Badge variant={'outline'}>{row.original.engine_hours || '0'} hs</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'model_vehicles.name',
       id: 'model_vehicles.name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Modelo" />,
@@ -669,6 +680,22 @@ export default function TablaEquipmentServer({
               select: 'kilometer' as '*',
               p_filters: { is_active: 'true', company_id: company_id! },
               mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'kilometer'>>>) => {
+                return data.map((value) => ({
+                  label: String(value.display_value),
+                  value: String(value.col_value),
+                  count: value.col_count,
+                }));
+              },
+            },
+          },
+          {
+            columnId: 'engine_hours',
+            title: 'Horómetro',
+            config: {
+              tableName: 'vehicles',
+              select: 'engine_hours' as '*',
+              p_filters: { is_active: 'true', company_id: company_id! },
+              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'engine_hours'>>>) => {
                 return data.map((value) => ({
                   label: String(value.display_value),
                   value: String(value.col_value),

@@ -303,6 +303,10 @@ export function OrderDetailDialog({ order, open, onClose, readOnly = false }: Or
             <span className="text-muted-foreground">Km:</span>{' '}
             <span className="font-medium">{String(vehicle?.kilometer || '-')}</span>
           </div>
+          <div>
+            <span className="text-muted-foreground">Hs:</span>{' '}
+            <span className="font-medium">{String(vehicle?.engine_hours || '-')}</span>
+          </div>
         </div>
 
         <Separator />

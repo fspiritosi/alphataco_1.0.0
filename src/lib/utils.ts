@@ -444,6 +444,7 @@ export const mapEquipmentToChecklistFormat = (
     domain: equipment.domain,
     serie: equipment.serie,
     kilometer: equipment.kilometer ?? '0',
+    engine_hours: equipment.engine_hours ?? '0',
     model: equipment.model?.name || 'N/A',
     brand: equipment.brand?.name || 'N/A',
     intern_number: equipment.intern_number || '',

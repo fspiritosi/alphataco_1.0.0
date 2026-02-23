@@ -33,7 +33,7 @@ export default async function EquipmentDashboardPage({
   const { data: equipmentData, error: equipmentError } = await supabase
     .from('vehicles')
     .select(
-      'id, domain, serie, intern_number, picture, brand:brand_vehicles(name), model:model_vehicles(name), year, kilometer, condition, company_id, type:type(id, name), sub_type:subType(id, name), is_active'
+      'id, domain, serie, intern_number, picture, brand:brand_vehicles(name), model:model_vehicles(name), year, kilometer, engine_hours, condition, company_id, type:type(id, name), sub_type:subType(id, name), is_active'
     )
     .eq('id', resolvedParams.id)
     .single();
@@ -74,6 +74,7 @@ export default async function EquipmentDashboardPage({
         model: (equipmentData.model as any)?.name || '',
         year: equipmentData.year || '',
         kilometer: equipmentData.kilometer || '0',
+        engine_hours: equipmentData.engine_hours ?? null,
         condition: equipmentData.condition || 'operativo',
         type: (equipmentData.type as any)?.name || '',
         sub_type: (equipmentData.sub_type as any)?.name || '',

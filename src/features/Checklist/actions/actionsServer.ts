@@ -3,6 +3,7 @@
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import type { Json } from '../../../../database.types';
 
 const serverLogger = new Logger('Checklist/actions');
 
@@ -15,7 +16,33 @@ const serverLogger = new Logger('Checklist/actions');
  * - En su lugar, crea una maintenance_request que debe ser aprobada
  * - El kilometraje y condición se actualizan cuando se aprueba la entrada a taller
  */
-export const CreateChecklistAnswer = async (templateId: string, answerData: any) => {
+type ChecklistAnswerInput = {
+  equipment_id: string;
+  customer_id?: string | null;
+  employee_id?: string | null;
+  chofer?: string;
+  fecha?: string;
+  hora?: string;
+  kilometraje?: string;
+  horometro?: string;
+  observaciones?: string;
+  answers?: Record<string, Record<string, unknown>>;
+  failed_items?: Array<{
+    item_code: string;
+    item_label: string;
+    section_code: string;
+    is_critical: boolean;
+  }>;
+  critical_items_failed?: Array<{
+    item_code: string;
+    item_label: string;
+    section_code: string;
+    is_critical: boolean;
+  }>;
+  ut_checklist_answer_id?: string | null;
+};
+
+export const CreateChecklistAnswer = async (templateId: string, answerData: ChecklistAnswerInput) => {
   const cookiesStore = await cookies();
   const supabase = await supabaseServer();
   const {
@@ -54,8 +81,8 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
   // Obtener employee_id del cookie o metadata si no viene en answerData
   const employeeId = answerData.employee_id || cookiesStore.get('empleado_id')?.value;
   const employeeIdFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
+    ((user?.app_metadata as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as Record<string, unknown>)?.employee_id as string | undefined);
   const finalEmployeeId = employeeId || employeeIdFromMetadata || null;
 
   // Preparar los datos de la respuesta según la estructura de la tabla
@@ -74,11 +101,13 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
       fecha: answerData.fecha,
       hora: answerData.hora,
       kilometraje: answerData.kilometraje,
-    } as any, // answer_data es Json type, pero TypeScript necesita ayuda con el tipado dinámico
+      horometro: answerData.horometro,
+    } as { [key: string]: Json | undefined },
     observations: answerData.observaciones || null,
     result: computedResult,
     // Guardar los items fallidos (nuevo formato incluye is_critical)
-    critical_items_failed: failedItems.length > 0 ? failedItems : null,
+    // La columna es JSONB pero los tipos generados la definen como string[] — cast necesario
+    critical_items_failed: (failedItems.length > 0 ? failedItems : null) as string[] | null,
   };
 
   const { data, error } = await supabase.from('checklist_answers').insert(answerPayload).select().single();
@@ -96,7 +125,17 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
   // NUEVO FLUJO: Ahora se detectan TODOS los items con valor "M", no solo los críticos
   if (failedItems.length > 0 && data && !answerData.ut_checklist_answer_id) {
     // Crear registros de desvíos para cada item fallido (crítico o no)
-    const deviationsToInsert = failedItems.map((item: any) => {
+    type FailedItemRaw =
+      | string
+      | {
+          item_code?: string;
+          item_label?: string;
+          section_code?: string;
+          is_critical?: boolean;
+          driver_comment?: string;
+        };
+
+    const deviationsToInsert = failedItems.map((item: FailedItemRaw) => {
       // Soporta tanto formato antiguo (string) como nuevo (objeto)
       if (typeof item === 'string') {
         // Formato antiguo: solo label, necesitamos buscar el código en el template
@@ -143,6 +182,51 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: any)
       // Los desvíos quedan registrados sin solicitud de mantenimiento.
       // El usuario debe crear la solicitud desde el modal que aparece al finalizar
       // o desde la tabla de "Equipos con Desvíos" en el módulo de Mantenimiento.
+    }
+  }
+
+  // Actualizar km y horómetro del vehículo al responder el checklist (solo si es mayor al actual)
+  if (answerData.equipment_id) {
+    const updateFields: Record<string, string> = {};
+
+    // Traer valores actuales del vehículo en una sola query
+    const { data: vehicle } = await supabase
+      .from('vehicles')
+      .select('kilometer, engine_hours')
+      .eq('id', answerData.equipment_id)
+      .single();
+
+    if (answerData.kilometraje) {
+      const newKm = Number(answerData.kilometraje);
+      const currentKm = Number(vehicle?.kilometer) || 0;
+      if (!isNaN(newKm) && newKm > 0 && newKm > currentKm) {
+        updateFields.kilometer = String(newKm);
+      }
+    }
+
+    if (answerData.horometro) {
+      const newHs = Number(answerData.horometro);
+      const currentHs = Number(vehicle?.engine_hours) || 0;
+      if (!isNaN(newHs) && newHs > 0 && newHs > currentHs) {
+        updateFields.engine_hours = String(newHs);
+      }
+    }
+
+    if (Object.keys(updateFields).length > 0) {
+      const { error: vehicleError } = await supabase
+        .from('vehicles')
+        .update(updateFields)
+        .eq('id', answerData.equipment_id);
+
+      if (vehicleError) {
+        serverLogger.warn('No se pudo actualizar km/hs del vehículo al responder checklist', {
+          data: { error: vehicleError },
+        });
+      } else {
+        serverLogger.info('Km/Hs del vehículo actualizado al responder checklist', {
+          data: { equipmentId: answerData.equipment_id, updateFields },
+        });
+      }
     }
   }
 
