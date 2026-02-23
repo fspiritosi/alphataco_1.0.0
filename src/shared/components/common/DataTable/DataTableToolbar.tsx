@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 
 import { DataTableDateRangeFilter } from './DataTableDateRangeFilter';
 import { DataTableFacetedFilter } from './DataTableFacetedFilter';
@@ -13,25 +14,13 @@ import { DataTableViewOptions } from './DataTableViewOptions';
 import type { DataTableToolbarProps } from './types';
 
 /**
- * Barra de herramientas con búsqueda, filtros y acciones
+ * Barra de herramientas con busqueda, filtros y acciones.
  *
- * @example
- * ```tsx
- * <DataTableToolbar
- *   table={table}
- *   searchPlaceholder="Buscar empleados..."
- *   searchColumn="name"
- *   facetedFilters={[
- *     { columnId: 'status', title: 'Estado', options: statusOptions },
- *     { columnId: 'createdAt', title: 'Fecha', type: 'dateRange' },
- *   ]}
- *   toolbarActions={<Button>Nueva acción</Button>}
- *   tableId="employees-table"
- *   showFilterToggle={true}
- *   filterVisibility={{ status: true, createdAt: false }}
- *   onFilterVisibilityChange={setFilterVisibility}
- * />
- * ```
+ * Los filtros se organizan en dos zonas visuales:
+ * 1. Fila principal: buscador global + filtros facetados (seleccion multiple)
+ * 2. Fila secundaria: filtros de texto + filtros de rango de fecha
+ *
+ * La fila secundaria solo se muestra si hay filtros de ese tipo visibles.
  */
 export function DataTableToolbar<TData>({
   table,
@@ -49,7 +38,6 @@ export function DataTableToolbar<TData>({
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
 
-  // Si hay searchColumn específico, usar ese; si no, usar filtro global
   const searchValue = searchColumn
     ? (table.getColumn(searchColumn)?.getFilterValue() as string) ?? ''
     : (table.getState().globalFilter as string) ?? '';
@@ -62,89 +50,108 @@ export function DataTableToolbar<TData>({
     }
   };
 
-  // Filtros visibles (excluir los que están ocultos)
+  // Filtros visibles (excluir los que estan ocultos)
   const visibleFilters = facetedFilters.filter((f) => filterVisibility[f.columnId] !== false);
 
+  // Separar filtros en dos grupos
+  const primaryFilters = visibleFilters.filter((f) => f.type !== 'text' && f.type !== 'dateRange');
+  const secondaryFilters = visibleFilters.filter((f) => f.type === 'text' || f.type === 'dateRange');
+
+  const hasSecondaryFilters = secondaryFilters.length > 0;
+
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-1 flex-wrap items-center gap-2">
-        {/* Input de búsqueda */}
-        {showSearch && (
-          <Input
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(event) => handleSearchChange(event.target.value)}
-            className="h-8 w-[150px] lg:w-[250px]"
-            data-testid="search-input"
-          />
-        )}
+    <div className="space-y-2">
+      {/* Fila principal: busqueda + filtros facetados + acciones */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {/* Input de busqueda */}
+          {showSearch && (
+            <Input
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              className="h-8 w-[150px] lg:w-[250px]"
+              data-testid="search-input"
+            />
+          )}
 
-        {/* Filtros visibles */}
-        {visibleFilters.map((filter) => {
-          if (filter.type === 'dateRange') {
-            return <DataTableDateRangeFilter key={filter.columnId} columnId={filter.columnId} title={filter.title} />;
-          }
+          {/* Filtros facetados (principal) */}
+          {primaryFilters.map((filter) => {
+            const column = table.getColumn(filter.columnId);
+            if (!column) return null;
 
-          if (filter.type === 'text') {
             return (
-              <DataTableTextFilter
+              <DataTableFacetedFilter
                 key={filter.columnId}
-                columnId={filter.columnId}
+                column={column}
                 title={filter.title}
-                placeholder={filter.placeholder}
+                options={filter.options ?? []}
+                externalCounts={filter.externalCounts}
+                disabled={filter.disabled}
               />
             );
-          }
+          })}
 
-          const column = table.getColumn(filter.columnId);
-          if (!column) return null;
+          {/* Boton para limpiar filtros */}
+          {isFiltered && (
+            <Button
+              variant="ghost"
+              onClick={() => table.resetColumnFilters()}
+              className="h-8 px-2 lg:px-3"
+              data-testid="clear-filters"
+            >
+              Limpiar
+              <X className="ml-2 h-4 w-4" />
+            </Button>
+          )}
+        </div>
 
-          return (
-            <DataTableFacetedFilter
-              key={filter.columnId}
-              column={column}
-              title={filter.title}
-              options={filter.options ?? []}
-              externalCounts={filter.externalCounts}
-              disabled={filter.disabled}
+        <div className="flex items-center space-x-2 shrink-0">
+          {exportActions}
+
+          {showFilterToggle && tableId && facetedFilters.length > 0 && onFilterVisibilityChange && (
+            <DataTableFilterOptions
+              filters={facetedFilters}
+              filterVisibility={filterVisibility}
+              onFilterVisibilityChange={onFilterVisibilityChange}
+              tableId={tableId}
             />
-          );
-        })}
+          )}
 
-        {/* Botón para limpiar filtros */}
-        {isFiltered && (
-          <Button
-            variant="ghost"
-            onClick={() => table.resetColumnFilters()}
-            className="h-8 px-2 lg:px-3"
-            data-testid="clear-filters"
-          >
-            Limpiar
-            <X className="ml-2 h-4 w-4" />
-          </Button>
-        )}
+          {showColumnToggle && <DataTableViewOptions table={table} />}
+
+          {toolbarActions}
+        </div>
       </div>
 
-      <div className="flex items-center space-x-2">
-        {/* Botón de exportar */}
-        {exportActions}
+      {/* Fila secundaria: filtros de texto + rango de fecha */}
+      {hasSecondaryFilters && (
+        <>
+          <Separator className="opacity-50" />
+          <div className="flex flex-wrap items-center gap-2">
+            {secondaryFilters.map((filter) => {
+              if (filter.type === 'dateRange') {
+                return (
+                  <DataTableDateRangeFilter key={filter.columnId} columnId={filter.columnId} title={filter.title} />
+                );
+              }
 
-        {/* Toggle de visibilidad de filtros */}
-        {showFilterToggle && tableId && facetedFilters.length > 0 && onFilterVisibilityChange && (
-          <DataTableFilterOptions
-            filters={facetedFilters}
-            filterVisibility={filterVisibility}
-            onFilterVisibilityChange={onFilterVisibilityChange}
-            tableId={tableId}
-          />
-        )}
+              if (filter.type === 'text') {
+                return (
+                  <DataTableTextFilter
+                    key={filter.columnId}
+                    columnId={filter.columnId}
+                    title={filter.title}
+                    placeholder={filter.placeholder}
+                  />
+                );
+              }
 
-        {/* Toggle de columnas */}
-        {showColumnToggle && <DataTableViewOptions table={table} />}
-
-        {/* Acciones personalizadas */}
-        {toolbarActions}
-      </div>
+              return null;
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

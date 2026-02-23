@@ -79,17 +79,28 @@ const ENUM_LABEL_MAPS: Record<string, Record<string, string>> = {
 // HELPER: Build faceted filter options
 // ============================================================================
 
+/**
+ * Converts a plain Record<string, number> (from server action) into a Map<string, number>
+ * (required by DataTableFacetedFilter which uses Map API for compatibility with TanStack Table).
+ *
+ * Server actions return Records instead of Maps to ensure proper serialization
+ * via React Flight protocol.
+ */
+function recordToMap(record: Record<string, number>): Map<string, number> {
+  return new Map(Object.entries(record));
+}
+
 function buildEnumFacetFilter(
   columnId: string,
   title: string,
   facets: EmployeeFacets | undefined,
   iconMap?: Record<string, LucideIcon>
 ): DataTableFacetedFilterConfig {
-  const facet = facets?.[columnId as keyof EmployeeFacets] as { counts: Map<string, number> } | undefined;
+  const facet = facets?.[columnId as keyof EmployeeFacets] as { counts: Record<string, number> } | undefined;
   const labelMap = ENUM_LABEL_MAPS[columnId];
-  const counts = facet?.counts ?? new Map<string, number>();
+  const countsRecord = facet?.counts ?? {};
 
-  const options = Array.from(counts.keys())
+  const options = Object.keys(countsRecord)
     .filter((key) => key !== NULL_FILTER_VALUE)
     .map((key) => ({
       value: key,
@@ -98,7 +109,7 @@ function buildEnumFacetFilter(
     }));
 
   // Add "Sin asignar" option if there are null values
-  const nullCount = counts.get(NULL_FILTER_VALUE);
+  const nullCount = countsRecord[NULL_FILTER_VALUE];
   if (nullCount && nullCount > 0) {
     options.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar' });
   }
@@ -109,7 +120,7 @@ function buildEnumFacetFilter(
     type: 'faceted',
     disabled: !facets,
     options,
-    externalCounts: counts,
+    externalCounts: recordToMap(countsRecord),
   };
 }
 
@@ -119,14 +130,14 @@ function buildFkFacetFilter(
   facets: EmployeeFacets | undefined
 ): DataTableFacetedFilterConfig {
   const facet = facets?.[columnId as keyof EmployeeFacets] as
-    | { counts: Map<string, number>; options: Array<{ value: string; label: string }> }
+    | { counts: Record<string, number>; options: Array<{ value: string; label: string }> }
     | undefined;
 
-  const counts = facet?.counts ?? new Map<string, number>();
+  const countsRecord = facet?.counts ?? {};
   const options = [...(facet?.options ?? [])];
 
   // Add "Sin asignar" option if there are null values
-  const nullCount = counts.get(NULL_FILTER_VALUE);
+  const nullCount = countsRecord[NULL_FILTER_VALUE];
   if (nullCount && nullCount > 0) {
     options.push({ value: NULL_FILTER_VALUE, label: 'Sin asignar' });
   }
@@ -137,7 +148,7 @@ function buildFkFacetFilter(
     type: 'faceted',
     disabled: !facets,
     options,
-    externalCounts: counts,
+    externalCounts: recordToMap(countsRecord),
   };
 }
 

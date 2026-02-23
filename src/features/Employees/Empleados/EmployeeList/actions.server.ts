@@ -567,37 +567,35 @@ export async function getEmployeesFacets(isActive: boolean) {
   ]);
 
   // Build enum counts (value → count), including null bucket
-  const buildEnumCounts = <T extends Record<string, unknown>>(rows: T[], key: keyof T): Map<string, number> => {
-    const map = new Map<string, number>();
+  // IMPORTANT: Returns Record (plain object) instead of Map to ensure proper
+  // serialization when returned from server actions via React Flight protocol.
+  const buildEnumCounts = <T extends Record<string, unknown>>(rows: T[], key: keyof T): Record<string, number> => {
+    const counts: Record<string, number> = {};
     for (const row of rows) {
       const val = row[key];
       if (val == null) {
-        map.set(
-          NULL_FILTER_VALUE,
-          (map.get(NULL_FILTER_VALUE) ?? 0) + ((row as Record<string, unknown>)._count as number)
-        );
+        counts[NULL_FILTER_VALUE] =
+          (counts[NULL_FILTER_VALUE] ?? 0) + ((row as Record<string, unknown>)._count as number);
       } else {
-        map.set(String(val), (row as Record<string, unknown>)._count as number);
+        counts[String(val)] = (row as Record<string, unknown>)._count as number;
       }
     }
-    return map;
+    return counts;
   };
 
   // Build FK counts (fkId → count), including null bucket
-  const buildFkCounts = <T extends Record<string, unknown>>(rows: T[], key: keyof T): Map<string, number> => {
-    const map = new Map<string, number>();
+  const buildFkCounts = <T extends Record<string, unknown>>(rows: T[], key: keyof T): Record<string, number> => {
+    const counts: Record<string, number> = {};
     for (const row of rows) {
       const val = row[key];
       if (val == null) {
-        map.set(
-          NULL_FILTER_VALUE,
-          (map.get(NULL_FILTER_VALUE) ?? 0) + ((row as Record<string, unknown>)._count as number)
-        );
+        counts[NULL_FILTER_VALUE] =
+          (counts[NULL_FILTER_VALUE] ?? 0) + ((row as Record<string, unknown>)._count as number);
       } else {
-        map.set(String(val), (row as Record<string, unknown>)._count as number);
+        counts[String(val)] = (row as Record<string, unknown>)._count as number;
       }
     }
-    return map;
+    return counts;
   };
 
   // Build FK options (id + name)
@@ -618,12 +616,12 @@ export async function getEmployeesFacets(isActive: boolean) {
       where: { ...baseWhere, contractor_employee: { none: {} } },
     }),
   ]);
-  const contractorCounts = new Map<string, number>();
+  const contractorCounts: Record<string, number> = {};
   for (const r of contractorCountsRaw) {
-    if (r.contractor_id) contractorCounts.set(r.contractor_id, r._count);
+    if (r.contractor_id) contractorCounts[r.contractor_id] = r._count;
   }
   if (noContractorCount > 0) {
-    contractorCounts.set(NULL_FILTER_VALUE, noContractorCount);
+    contractorCounts[NULL_FILTER_VALUE] = noContractorCount;
   }
 
   // Get aptitud counts
@@ -637,12 +635,12 @@ export async function getEmployeesFacets(isActive: boolean) {
       where: { ...baseWhere, empleado_aptitudes: { none: {} } },
     }),
   ]);
-  const aptitudCounts = new Map<string, number>();
+  const aptitudCounts: Record<string, number> = {};
   for (const r of aptitudCountsRaw) {
-    if (r.aptitud_id) aptitudCounts.set(r.aptitud_id, r._count);
+    if (r.aptitud_id) aptitudCounts[r.aptitud_id] = r._count;
   }
   if (noAptitudCount > 0) {
-    aptitudCounts.set(NULL_FILTER_VALUE, noAptitudCount);
+    aptitudCounts[NULL_FILTER_VALUE] = noAptitudCount;
   }
 
   return {
