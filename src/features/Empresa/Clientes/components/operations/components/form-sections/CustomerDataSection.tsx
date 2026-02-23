@@ -245,7 +245,12 @@ export function CustomerDataSection({
                             <CommandItem
                               value={`${item.id}-${item.item_name}`}
                               key={item.id}
-                              onSelect={() => form.setValue('item', item.id)}
+                              onSelect={() => {
+                                form.setValue('item', item.id);
+                                // Limpiar recursos que el nuevo item no requiere
+                                if (!item.needs_personnel) form.setValue('employees', []);
+                                if (!item.needs_equipment) form.setValue('equipment', []);
+                              }}
                               disabled={disabled}
                             >
                               <div className="flex items-center justify-between w-full">

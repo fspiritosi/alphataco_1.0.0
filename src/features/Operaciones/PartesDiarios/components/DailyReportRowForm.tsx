@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building, CalendarIcon, Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
+import { Building, CalendarIcon, Check, ChevronsUpDown, Info, Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
@@ -734,6 +734,13 @@ export function DailyReportForm({
     return selectedService?.service_items?.filter((item) => item.is_active) || [];
   }, [selectedCustomer, selectedServiceId]);
 
+  // Derivar flags del item seleccionado (sin useEffect, derivado reactivo)
+  const watchedItemId = form.watch('item');
+  const selectedServiceItem = serviceItems?.find((item) => item.id === watchedItemId);
+  const itemNeedsPersonnel = selectedServiceItem?.needs_personnel ?? true;
+  const itemNeedsEquipment = selectedServiceItem?.needs_equipment ?? true;
+  const selectedItemName = selectedServiceItem?.item_name || 'El item seleccionado';
+
   // ✅ Los empleados y equipos ya se filtran arriba con los helpers optimizados
 
   // Manejar cambio de cliente
@@ -1098,6 +1105,17 @@ export function DailyReportForm({
                                                   data-testid={`item-option-${item.id}`}
                                                   onSelect={() => {
                                                     form.setValue('item', item.id);
+                                                    // Limpiar recursos que el nuevo item no requiere
+                                                    if (!item.needs_personnel) {
+                                                      form.setValue('employees', []);
+                                                      form.setValue('chofer_dia', '');
+                                                      form.setValue('chofer_noche', '');
+                                                      form.setValue('ayudante_dia', '');
+                                                      form.setValue('ayudante_noche', '');
+                                                    }
+                                                    if (!item.needs_equipment) {
+                                                      form.setValue('equipment', []);
+                                                    }
                                                   }}
                                                   className={cn('group', isSelected ? '' : '')}
                                                 >
@@ -1703,135 +1721,450 @@ export function DailyReportForm({
                   )}
 
                   {/* Empleados - Campos condicionales según jornada */}
-                  {(() => {
-                    const workingDayValue = form.watch('working_day')?.toLowerCase() || '';
-                    const is12Hours = workingDayValue === 'jornada 12 horas';
-                    const is24Hours = workingDayValue === 'jornada 24 horas';
-                    const hasRoleFields = is12Hours || is24Hours;
+                  {!itemNeedsPersonnel ? (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-sm font-medium">Empleados</span>
+                      <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>{selectedItemName} no requiere personal</span>
+                      </div>
+                    </div>
+                  ) : (
+                    (() => {
+                      const workingDayValue = form.watch('working_day')?.toLowerCase() || '';
+                      const is12Hours = workingDayValue === 'jornada 12 horas';
+                      const is24Hours = workingDayValue === 'jornada 24 horas';
+                      const hasRoleFields = is12Hours || is24Hours;
 
-                    // IDs de empleados seleccionados en otros roles (para deshabilitar)
-                    const choferDiaId = form.watch('chofer_dia');
-                    const choferNocheId = form.watch('chofer_noche');
-                    const ayudanteDiaId = form.watch('ayudante_dia');
-                    const ayudanteNocheId = form.watch('ayudante_noche');
+                      // IDs de empleados seleccionados en otros roles (para deshabilitar)
+                      const choferDiaId = form.watch('chofer_dia');
+                      const choferNocheId = form.watch('chofer_noche');
+                      const ayudanteDiaId = form.watch('ayudante_dia');
+                      const ayudanteNocheId = form.watch('ayudante_noche');
 
-                    if (hasRoleFields) {
-                      return (
-                        <div className="space-y-4">
-                          <div className="text-sm font-medium text-muted-foreground mb-2">
-                            {is12Hours
-                              ? 'Asignación de Personal - Jornada 12 Horas'
-                              : 'Asignación de Personal - Jornada 24 Horas'}
+                      if (hasRoleFields) {
+                        return (
+                          <div className="space-y-4">
+                            <div className="text-sm font-medium text-muted-foreground mb-2">
+                              {is12Hours
+                                ? 'Asignación de Personal - Jornada 12 Horas'
+                                : 'Asignación de Personal - Jornada 24 Horas'}
+                            </div>
+
+                            {/* Chofer de Día */}
+                            <FormField
+                              control={form.control}
+                              name="chofer_dia"
+                              render={({ field }) => (
+                                <EmployeeRoleSelect
+                                  field={field}
+                                  employees={allEmployees}
+                                  selectedCustomerId={selectedCustomerId}
+                                  label="Chofer de Día"
+                                  placeholder="Seleccionar chofer de día"
+                                  disabledEmployeeIds={
+                                    [choferNocheId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
+                                  }
+                                />
+                              )}
+                            />
+
+                            {/* Ayudante de Día */}
+                            <FormField
+                              control={form.control}
+                              name="ayudante_dia"
+                              render={({ field }) => (
+                                <EmployeeRoleSelect
+                                  field={field}
+                                  employees={allEmployees}
+                                  selectedCustomerId={selectedCustomerId}
+                                  label="Ayudante de Día (opcional)"
+                                  placeholder="Seleccionar ayudante de día"
+                                  disabledEmployeeIds={
+                                    [choferDiaId, choferNocheId, ayudanteNocheId].filter(Boolean) as string[]
+                                  }
+                                />
+                              )}
+                            />
+
+                            {is24Hours && (
+                              <>
+                                {/* Chofer de Noche */}
+                                <FormField
+                                  control={form.control}
+                                  name="chofer_noche"
+                                  render={({ field }) => (
+                                    <EmployeeRoleSelect
+                                      field={field}
+                                      employees={allEmployees}
+                                      selectedCustomerId={selectedCustomerId}
+                                      label="Chofer de Noche"
+                                      placeholder="Seleccionar chofer de noche"
+                                      disabledEmployeeIds={
+                                        [choferDiaId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
+                                      }
+                                    />
+                                  )}
+                                />
+
+                                {/* Ayudante de Noche */}
+                                <FormField
+                                  control={form.control}
+                                  name="ayudante_noche"
+                                  render={({ field }) => (
+                                    <EmployeeRoleSelect
+                                      field={field}
+                                      employees={allEmployees}
+                                      selectedCustomerId={selectedCustomerId}
+                                      label="Ayudante de Noche (opcional)"
+                                      placeholder="Seleccionar ayudante de noche"
+                                      disabledEmployeeIds={
+                                        [choferDiaId, choferNocheId, ayudanteDiaId].filter(Boolean) as string[]
+                                      }
+                                    />
+                                  )}
+                                />
+                              </>
+                            )}
                           </div>
+                        );
+                      }
 
-                          {/* Chofer de Día */}
-                          <FormField
-                            control={form.control}
-                            name="chofer_dia"
-                            render={({ field }) => (
-                              <EmployeeRoleSelect
-                                field={field}
-                                employees={allEmployees}
-                                selectedCustomerId={selectedCustomerId}
-                                label="Chofer de Día"
-                                placeholder="Seleccionar chofer de día"
-                                disabledEmployeeIds={
-                                  [choferNocheId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
-                                }
-                              />
-                            )}
-                          />
-
-                          {/* Ayudante de Día */}
-                          <FormField
-                            control={form.control}
-                            name="ayudante_dia"
-                            render={({ field }) => (
-                              <EmployeeRoleSelect
-                                field={field}
-                                employees={allEmployees}
-                                selectedCustomerId={selectedCustomerId}
-                                label="Ayudante de Día (opcional)"
-                                placeholder="Seleccionar ayudante de día"
-                                disabledEmployeeIds={
-                                  [choferDiaId, choferNocheId, ayudanteNocheId].filter(Boolean) as string[]
-                                }
-                              />
-                            )}
-                          />
-
-                          {is24Hours && (
-                            <>
-                              {/* Chofer de Noche */}
-                              <FormField
-                                control={form.control}
-                                name="chofer_noche"
-                                render={({ field }) => (
-                                  <EmployeeRoleSelect
-                                    field={field}
-                                    employees={allEmployees}
-                                    selectedCustomerId={selectedCustomerId}
-                                    label="Chofer de Noche"
-                                    placeholder="Seleccionar chofer de noche"
-                                    disabledEmployeeIds={
-                                      [choferDiaId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
-                                    }
-                                  />
-                                )}
-                              />
-
-                              {/* Ayudante de Noche */}
-                              <FormField
-                                control={form.control}
-                                name="ayudante_noche"
-                                render={({ field }) => (
-                                  <EmployeeRoleSelect
-                                    field={field}
-                                    employees={allEmployees}
-                                    selectedCustomerId={selectedCustomerId}
-                                    label="Ayudante de Noche (opcional)"
-                                    placeholder="Seleccionar ayudante de noche"
-                                    disabledEmployeeIds={
-                                      [choferDiaId, choferNocheId, ayudanteDiaId].filter(Boolean) as string[]
-                                    }
-                                  />
-                                )}
-                              />
-                            </>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    // Campos normales para otras jornadas
-                    return null;
-                  })()}
+                      // Campos normales para otras jornadas
+                      return null;
+                    })()
+                  )}
 
                   {/* Empleados - Selección múltiple (para jornadas que no son 12/24 hrs, o retrocompatibilidad) */}
-                  {(() => {
-                    const workingDayLower = form.watch('working_day')?.toLowerCase() || '';
-                    const isRoleBasedJornada = ['jornada 12 horas', 'jornada 24 horas'].includes(workingDayLower);
-                    // Retrocompatibilidad: mostrar campo legacy si estamos editando y el registro tiene empleados sin roles
-                    const hasLegacyEmployees =
-                      !!selectedRow &&
-                      (selectedRow.employees_references?.length ?? 0) > 0 &&
-                      !selectedRow.employees_references?.some(
-                        (emp: { role?: string | null }) =>
-                          emp.role === 'chofer_dia' ||
-                          emp.role === 'chofer_noche' ||
-                          emp.role === 'ayudante_dia' ||
-                          emp.role === 'ayudante_noche'
-                      );
-                    const showLegacyField = !isRoleBasedJornada || hasLegacyEmployees;
-                    return showLegacyField;
-                  })() && (
+                  {itemNeedsPersonnel &&
+                    (() => {
+                      const workingDayLower = form.watch('working_day')?.toLowerCase() || '';
+                      const isRoleBasedJornada = ['jornada 12 horas', 'jornada 24 horas'].includes(workingDayLower);
+                      // Retrocompatibilidad: mostrar campo legacy si estamos editando y el registro tiene empleados sin roles
+                      const hasLegacyEmployees =
+                        !!selectedRow &&
+                        (selectedRow.employees_references?.length ?? 0) > 0 &&
+                        !selectedRow.employees_references?.some(
+                          (emp: { role?: string | null }) =>
+                            emp.role === 'chofer_dia' ||
+                            emp.role === 'chofer_noche' ||
+                            emp.role === 'ayudante_dia' ||
+                            emp.role === 'ayudante_noche'
+                        );
+                      const showLegacyField = !isRoleBasedJornada || hasLegacyEmployees;
+                      return showLegacyField;
+                    })() && (
+                      <FormField
+                        control={form.control}
+                        name="employees"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Empleados</FormLabel>
+                            {duplicateEmployees.length > 0 && (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
+                                <div className="flex items-start">
+                                  <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h3 className="text-sm font-medium text-yellow-800">
+                                      Empleados duplicados detectados
+                                    </h3>
+                                    <div className="mt-2 text-sm text-yellow-700">
+                                      <p>
+                                        Los siguientes empleados ya están asignados en otras filas del parte diario:
+                                      </p>
+                                      <ul className="list-disc list-inside mt-1">
+                                        {duplicateEmployees.map((employee, index) => (
+                                          <li key={index}>{employee}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {unassignedEmployeesSelected.length > 0 && (
+                              <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
+                                <div className="flex items-start">
+                                  <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h3 className="text-sm font-medium text-orange-800">
+                                      Empleados no asignados al cliente
+                                    </h3>
+                                    <div className="mt-2 text-sm text-orange-700">
+                                      <p>Los siguientes empleados no están asignados al cliente seleccionado:</p>
+                                      <ul className="list-disc list-inside mt-1">
+                                        {unassignedEmployeesSelected.map((employeeId) => {
+                                          const employee = employees?.find((emp) => emp.id === employeeId);
+                                          return employee ? (
+                                            <li key={employeeId}>
+                                              {employee.lastname.charAt(0).toUpperCase() +
+                                                employee.lastname.slice(1).toLowerCase()}{' '}
+                                              {employee.firstname.charAt(0).toUpperCase() +
+                                                employee.firstname.slice(1).toLowerCase()}
+                                            </li>
+                                          ) : null;
+                                        })}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            <SearchEmployee
+                              field={field as any}
+                              employees={allEmployees}
+                              selectedCustomerId={selectedCustomerId}
+                            />
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    disabled={!selectedCustomerId}
+                                    className={cn(
+                                      'w-full justify-between',
+                                      !field.value?.length && 'text-muted-foreground',
+                                      !selectedCustomerId && 'opacity-50 cursor-not-allowed'
+                                    )}
+                                  >
+                                    {field.value?.length
+                                      ? `${field.value.length} empleado${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
+                                      : selectedCustomerId
+                                        ? 'Seleccionar empleados'
+                                        : 'Seleccione un cliente primero'}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-full p-0">
+                                <Command>
+                                  <CommandInput placeholder="Buscar empleados..." />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      {!selectedCustomerId
+                                        ? 'Seleccione un cliente primero.'
+                                        : allEmployees.length === 0
+                                          ? 'No hay empleados activos disponibles.'
+                                          : 'No se encontraron empleados que coincidan.'}
+                                    </CommandEmpty>
+                                    {selectedCustomerId && (
+                                      <div className="px-3 py-1.5 text-xs text-muted-foreground">
+                                        Nota: Los empleados marcados en naranja no están asignados al cliente
+                                        seleccionado.
+                                      </div>
+                                    )}
+
+                                    {!selectedCustomerId && (
+                                      <div className="py-6 text-center text-sm text-muted-foreground">
+                                        Por favor, seleccione un cliente primero.
+                                      </div>
+                                    )}
+
+                                    {selectedCustomerId && allEmployees.length === 0 && (
+                                      <div className="py-6 text-center text-sm text-muted-foreground">
+                                        No hay empleados activos disponibles.
+                                      </div>
+                                    )}
+
+                                    {selectedCustomerId &&
+                                      allEmployees.length > 0 &&
+                                      (() => {
+                                        // Obtener todas las posiciones únicas para todos los empleados
+                                        const positionsMap: Record<string, (typeof allEmployees)[0][]> = {};
+
+                                        // Agrupar todos los empleados por posición
+                                        allEmployees.forEach((employee) => {
+                                          const position = employee.company_positions?.name || 'Sin posición';
+
+                                          if (!positionsMap[position]) {
+                                            positionsMap[position] = [];
+                                          }
+                                          positionsMap[position].push(employee);
+                                        });
+
+                                        // Convertir a array y ordenar por posición
+                                        const positionsArray = Object.keys(positionsMap).sort();
+
+                                        return positionsArray.map((position) => (
+                                          <CommandGroup
+                                            key={position}
+                                            heading={position.charAt(0).toUpperCase() + position.slice(1)}
+                                          >
+                                            {positionsMap[position].map((employee) => {
+                                              // Verificar si el empleado está asignado al cliente
+                                              const isAssigned = employee.contractor_employee?.some(
+                                                (ce) => ce.customers?.id === selectedCustomerId
+                                              );
+
+                                              return (
+                                                <CommandItem
+                                                  value={`${employee.lastname} ${employee.firstname}`}
+                                                  key={employee.id}
+                                                  onSelect={() => {
+                                                    const currentValues = field.value || [];
+                                                    const newValues = currentValues.includes(employee.id)
+                                                      ? currentValues.filter((id) => id !== employee.id)
+                                                      : [...currentValues, employee.id];
+
+                                                    field.onChange(newValues);
+                                                  }}
+                                                  className={cn(
+                                                    !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                                  )}
+                                                >
+                                                  <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center">
+                                                      <Check
+                                                        className={cn(
+                                                          'mr-2 h-4 w-4 capitalize',
+                                                          !isAssigned && 'text-orange-600',
+                                                          field.value?.includes(employee.id)
+                                                            ? 'opacity-100'
+                                                            : 'opacity-0'
+                                                        )}
+                                                      />
+                                                      {employee.lastname.replace(
+                                                        /\w\S*/g,
+                                                        (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                                      ) +
+                                                        ' ' +
+                                                        employee.firstname.replace(
+                                                          /\w\S*/g,
+                                                          (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
+                                                        )}
+                                                    </div>
+                                                    {!isAssigned && (
+                                                      <Badge
+                                                        variant="outline"
+                                                        className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
+                                                      >
+                                                        No asignado
+                                                      </Badge>
+                                                    )}
+                                                    {employee.deviation_no_diagram && (
+                                                      <Badge
+                                                        variant="outline"
+                                                        className="ml-1 bg-red-100 text-red-800 border-red-300"
+                                                      >
+                                                        Sin diagrama
+                                                      </Badge>
+                                                    )}
+                                                    {employee.deviation_non_work_day && (
+                                                      <Badge
+                                                        variant="outline"
+                                                        className="ml-1 bg-yellow-100 text-yellow-800 border-yellow-300"
+                                                      >
+                                                        {employee.current_diagram?.diagram_type?.name || 'No laboral'}
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                </CommandItem>
+                                              );
+                                            })}
+                                          </CommandGroup>
+                                        ));
+                                      })()}
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {field.value?.map((employeeId) => {
+                                const employee = employees?.find((emp) => emp.id === employeeId);
+                                if (!employee) return null;
+
+                                const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
+
+                                // Verificar si el empleado está asignado al cliente
+                                const isAssigned = employee.contractor_employee?.some(
+                                  (ce) => ce.customers?.id === selectedCustomerId
+                                );
+
+                                return (
+                                  <div
+                                    key={employeeId}
+                                    className={cn(
+                                      'text-xs px-2 py-1 rounded-md flex items-center gap-1',
+                                      isAssigned
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                    )}
+                                  >
+                                    {displayName}
+                                    {!isAssigned && (
+                                      <Badge
+                                        variant="outline"
+                                        className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
+                                      >
+                                        No asignado
+                                      </Badge>
+                                    )}
+                                    {employee.deviation_no_diagram && (
+                                      <Badge
+                                        variant="outline"
+                                        className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
+                                      >
+                                        Sin diagrama
+                                      </Badge>
+                                    )}
+                                    {employee.deviation_non_work_day && (
+                                      <Badge
+                                        variant="outline"
+                                        className="ml-1 bg-yellow-200 text-yellow-900 border-yellow-400 text-[10px] px-1 py-0"
+                                      >
+                                        {employee.current_diagram?.diagram_type?.name || 'No laboral'}
+                                      </Badge>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const currentValues = field.value || [];
+                                        const newValues = currentValues.filter((id) => id !== employeeId);
+                                        field.onChange(newValues);
+                                      }}
+                                      className={cn(
+                                        'ml-1 hover:opacity-80',
+                                        isAssigned ? 'text-primary' : 'text-orange-800'
+                                      )}
+                                    >
+                                      <X className="h-3 w-3 text-red-500" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                  {/* Equipos */}
+                  {itemNeedsEquipment ? (
                     <FormField
                       control={form.control}
-                      name="employees"
+                      name="equipment"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Empleados</FormLabel>
-                          {duplicateEmployees.length > 0 && (
+                          <FormLabel>Equipos propios</FormLabel>
+                          {duplicateEquipments.length > 0 && (
                             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
                               <div className="flex items-start">
                                 <div className="flex-shrink-0">
@@ -1844,14 +2177,12 @@ export function DailyReportForm({
                                   </svg>
                                 </div>
                                 <div className="ml-3">
-                                  <h3 className="text-sm font-medium text-yellow-800">
-                                    Empleados duplicados detectados
-                                  </h3>
+                                  <h3 className="text-sm font-medium text-yellow-800">Equipos duplicados detectados</h3>
                                   <div className="mt-2 text-sm text-yellow-700">
-                                    <p>Los siguientes empleados ya están asignados en otras filas del parte diario:</p>
+                                    <p>Los siguientes equipos ya están asignados en otras filas del parte diario:</p>
                                     <ul className="list-disc list-inside mt-1">
-                                      {duplicateEmployees.map((employee, index) => (
-                                        <li key={index}>{employee}</li>
+                                      {duplicateEquipments.map((equipment, index) => (
+                                        <li key={index}>{equipment}</li>
                                       ))}
                                     </ul>
                                   </div>
@@ -1859,7 +2190,7 @@ export function DailyReportForm({
                               </div>
                             </div>
                           )}
-                          {unassignedEmployeesSelected.length > 0 && (
+                          {unassignedEquipmentsSelected.length > 0 && (
                             <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
                               <div className="flex items-start">
                                 <div className="flex-shrink-0">
@@ -1873,19 +2204,50 @@ export function DailyReportForm({
                                 </div>
                                 <div className="ml-3">
                                   <h3 className="text-sm font-medium text-orange-800">
-                                    Empleados no asignados al cliente
+                                    Equipos no asignados al cliente
                                   </h3>
                                   <div className="mt-2 text-sm text-orange-700">
-                                    <p>Los siguientes empleados no están asignados al cliente seleccionado:</p>
+                                    <p>Los siguientes equipos no están asignados al cliente seleccionado:</p>
                                     <ul className="list-disc list-inside mt-1">
-                                      {unassignedEmployeesSelected.map((employeeId) => {
-                                        const employee = employees?.find((emp) => emp.id === employeeId);
-                                        return employee ? (
-                                          <li key={employeeId}>
-                                            {employee.lastname.charAt(0).toUpperCase() +
-                                              employee.lastname.slice(1).toLowerCase()}{' '}
-                                            {employee.firstname.charAt(0).toUpperCase() +
-                                              employee.firstname.slice(1).toLowerCase()}
+                                      {unassignedEquipmentsSelected.map((equipmentId) => {
+                                        const equipment = equipments?.find((eq) => eq.id === equipmentId);
+                                        return equipment ? (
+                                          <li key={equipmentId}>{equipment.domain || equipment.serie}</li>
+                                        ) : null;
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {/* PO-1: Warning para equipos con problemas de condición */}
+                          {equipmentsWithConditionIssues.length > 0 && (
+                            <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-2">
+                              <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                </div>
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-red-800">
+                                    Equipos con problemas de condición
+                                  </h3>
+                                  <div className="mt-2 text-sm text-red-700">
+                                    <p>Los siguientes equipos tienen desvíos de condición:</p>
+                                    <ul className="list-disc list-inside mt-1">
+                                      {equipmentsWithConditionIssues.map((equipmentId) => {
+                                        const equipment = equipments?.find((eq) => eq.id === equipmentId);
+                                        const deviationInfo = getEquipmentDeviationInfo(equipmentId);
+                                        return equipment ? (
+                                          <li key={equipmentId}>
+                                            {equipment.domain || equipment.serie} -{' '}
+                                            <span className="font-medium">{deviationInfo?.conditionLabel}</span>
                                           </li>
                                         ) : null;
                                       })}
@@ -1895,9 +2257,9 @@ export function DailyReportForm({
                               </div>
                             </div>
                           )}
-                          <SearchEmployee
+                          <SearchEquipment
                             field={field as any}
-                            employees={allEmployees}
+                            equipment={allEquipments}
                             selectedCustomerId={selectedCustomerId}
                           />
                           <Popover>
@@ -1914,9 +2276,9 @@ export function DailyReportForm({
                                   )}
                                 >
                                   {field.value?.length
-                                    ? `${field.value.length} empleado${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
+                                    ? `${field.value.length} equipo${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
                                     : selectedCustomerId
-                                      ? 'Seleccionar empleados'
+                                      ? 'Seleccionar equipos'
                                       : 'Seleccione un cliente primero'}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
@@ -1924,19 +2286,26 @@ export function DailyReportForm({
                             </PopoverTrigger>
                             <PopoverContent align="start" className="w-full p-0">
                               <Command>
-                                <CommandInput placeholder="Buscar empleados..." />
+                                <CommandInput placeholder="Buscar equipos..." />
                                 <CommandList>
                                   <CommandEmpty>
                                     {!selectedCustomerId
                                       ? 'Seleccione un cliente primero.'
-                                      : allEmployees.length === 0
-                                        ? 'No hay empleados activos disponibles.'
-                                        : 'No se encontraron empleados que coincidan.'}
+                                      : allEquipments.length === 0
+                                        ? 'No hay equipos activos disponibles.'
+                                        : 'No se encontraron equipos que coincidan.'}
                                   </CommandEmpty>
                                   {selectedCustomerId && (
-                                    <div className="px-3 py-1.5 text-xs text-muted-foreground">
-                                      Nota: Los empleados marcados en naranja no están asignados al cliente
-                                      seleccionado.
+                                    <div className="px-3 py-1.5 text-xs text-muted-foreground space-y-1">
+                                      <p>
+                                        Nota: Los equipos marcados en{' '}
+                                        <span className="text-orange-600 font-medium">naranja</span> no están asignados
+                                        al cliente.
+                                      </p>
+                                      <p>
+                                        Los equipos marcados en <span className="text-red-600 font-medium">rojo</span>{' '}
+                                        tienen problemas de condición.
+                                      </p>
                                     </div>
                                   )}
 
@@ -1946,101 +2315,101 @@ export function DailyReportForm({
                                     </div>
                                   )}
 
-                                  {selectedCustomerId && allEmployees.length === 0 && (
+                                  {selectedCustomerId && allEquipments.length === 0 && (
                                     <div className="py-6 text-center text-sm text-muted-foreground">
-                                      No hay empleados activos disponibles.
+                                      No hay equipos activos disponibles.
                                     </div>
                                   )}
 
                                   {selectedCustomerId &&
-                                    allEmployees.length > 0 &&
+                                    allEquipments.length > 0 &&
                                     (() => {
-                                      // Obtener todas las posiciones únicas para todos los empleados
-                                      const positionsMap: Record<string, (typeof allEmployees)[0][]> = {};
+                                      // Obtener todos los tipos únicos para todos los equipos
+                                      const typesMap: Record<string, (typeof allEquipments)[0][]> = {};
 
-                                      // Agrupar todos los empleados por posición
-                                      allEmployees.forEach((employee) => {
-                                        const position = employee.company_positions?.name || 'Sin posición';
+                                      // Agrupar todos los equipos por tipo
+                                      allEquipments.forEach((equipment) => {
+                                        const type = equipment.type?.name || 'Sin tipo';
 
-                                        if (!positionsMap[position]) {
-                                          positionsMap[position] = [];
+                                        if (!typesMap[type]) {
+                                          typesMap[type] = [];
                                         }
-                                        positionsMap[position].push(employee);
+                                        typesMap[type].push(equipment);
                                       });
 
-                                      // Convertir a array y ordenar por posición
-                                      const positionsArray = Object.keys(positionsMap).sort();
+                                      // Convertir a array y ordenar por tipo
+                                      const typesArray = Object.keys(typesMap).sort();
 
-                                      return positionsArray.map((position) => (
-                                        <CommandGroup
-                                          key={position}
-                                          heading={position.charAt(0).toUpperCase() + position.slice(1)}
-                                        >
-                                          {positionsMap[position].map((employee) => {
-                                            // Verificar si el empleado está asignado al cliente
-                                            const isAssigned = employee.contractor_employee?.some(
+                                      return typesArray.map((type) => (
+                                        <CommandGroup key={type} heading={type.charAt(0).toUpperCase() + type.slice(1)}>
+                                          {typesMap[type].map((equipment) => {
+                                            // Verificar si el equipo está asignado al cliente
+                                            const isAssigned = equipment.contractor_equipment?.some(
                                               (ce) => ce.customers?.id === selectedCustomerId
                                             );
+                                            // PO-1: Verificar desvíos de condición
+                                            const condition = equipment.condition || 'operativo';
+                                            const hasConditionIssue = ['no operativo', 'en reparacion'].includes(
+                                              condition
+                                            );
+                                            const conditionLabel =
+                                              condition === 'no operativo'
+                                                ? 'No operativo'
+                                                : condition === 'en reparacion'
+                                                  ? 'En reparación'
+                                                  : null;
+                                            const hasAnyDeviation = !isAssigned || hasConditionIssue;
 
                                             return (
                                               <CommandItem
-                                                value={`${employee.lastname} ${employee.firstname}`}
-                                                key={employee.id}
+                                                value={equipment.domain || ''}
+                                                key={equipment.id}
                                                 onSelect={() => {
                                                   const currentValues = field.value || [];
-                                                  const newValues = currentValues.includes(employee.id)
-                                                    ? currentValues.filter((id) => id !== employee.id)
-                                                    : [...currentValues, employee.id];
-
+                                                  const newValues = currentValues.includes(equipment.id)
+                                                    ? currentValues.filter((id) => id !== equipment.id)
+                                                    : [...currentValues, equipment.id];
                                                   field.onChange(newValues);
                                                 }}
                                                 className={cn(
-                                                  !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                                  hasConditionIssue && 'text-red-700 bg-red-50 hover:bg-red-100',
+                                                  !isAssigned &&
+                                                    !hasConditionIssue &&
+                                                    'text-orange-700 bg-orange-50 hover:bg-orange-100'
                                                 )}
                                               >
                                                 <div className="flex items-center justify-between w-full">
                                                   <div className="flex items-center">
                                                     <Check
                                                       className={cn(
-                                                        'mr-2 h-4 w-4 capitalize',
-                                                        !isAssigned && 'text-orange-600',
-                                                        field.value?.includes(employee.id) ? 'opacity-100' : 'opacity-0'
+                                                        'mr-2 h-4 w-4',
+                                                        hasConditionIssue && 'text-red-600',
+                                                        !isAssigned && !hasConditionIssue && 'text-orange-600',
+                                                        field.value?.includes(equipment.id)
+                                                          ? 'opacity-100'
+                                                          : 'opacity-0'
                                                       )}
                                                     />
-                                                    {employee.lastname.replace(
-                                                      /\w\S*/g,
-                                                      (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                                    ) +
-                                                      ' ' +
-                                                      employee.firstname.replace(
-                                                        /\w\S*/g,
-                                                        (txt) => txt.charAt(0).toUpperCase() + txt.slice(1)
-                                                      )}
+                                                    {equipment.domain || equipment.serie}
                                                   </div>
-                                                  {!isAssigned && (
-                                                    <Badge
-                                                      variant="outline"
-                                                      className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
-                                                    >
-                                                      No asignado
-                                                    </Badge>
-                                                  )}
-                                                  {employee.deviation_no_diagram && (
-                                                    <Badge
-                                                      variant="outline"
-                                                      className="ml-1 bg-red-100 text-red-800 border-red-300"
-                                                    >
-                                                      Sin diagrama
-                                                    </Badge>
-                                                  )}
-                                                  {employee.deviation_non_work_day && (
-                                                    <Badge
-                                                      variant="outline"
-                                                      className="ml-1 bg-yellow-100 text-yellow-800 border-yellow-300"
-                                                    >
-                                                      {employee.current_diagram?.diagram_type?.name || 'No laboral'}
-                                                    </Badge>
-                                                  )}
+                                                  <div className="flex gap-1">
+                                                    {hasConditionIssue && (
+                                                      <Badge
+                                                        variant="outline"
+                                                        className="ml-2 bg-red-100 text-red-800 border-red-300"
+                                                      >
+                                                        {conditionLabel}
+                                                      </Badge>
+                                                    )}
+                                                    {!isAssigned && (
+                                                      <Badge
+                                                        variant="outline"
+                                                        className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
+                                                      >
+                                                        No asignado
+                                                      </Badge>
+                                                    )}
+                                                  </div>
                                                 </div>
                                               </CommandItem>
                                             );
@@ -2053,28 +2422,48 @@ export function DailyReportForm({
                             </PopoverContent>
                           </Popover>
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {field.value?.map((employeeId) => {
-                              const employee = employees?.find((emp) => emp.id === employeeId);
-                              if (!employee) return null;
+                            {field.value?.map((equipmentId) => {
+                              const equipment = equipments?.find((eq) => eq.id === equipmentId);
+                              if (!equipment) return null;
 
-                              const displayName = `${employee.lastname.charAt(0).toUpperCase() + employee.lastname.slice(1).toLowerCase()} ${employee.firstname.charAt(0).toUpperCase() + employee.firstname.slice(1).toLowerCase()}`;
+                              const displayName = equipment.domain || equipment.serie;
 
-                              // Verificar si el empleado está asignado al cliente
-                              const isAssigned = employee.contractor_employee?.some(
+                              // Verificar si el equipo está asignado al cliente
+                              const isAssigned = equipment.contractor_equipment?.some(
                                 (ce) => ce.customers?.id === selectedCustomerId
                               );
 
+                              // PO-1: Verificar desvíos de condición
+                              const condition = equipment.condition || 'operativo';
+                              const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+                              const conditionLabel =
+                                condition === 'no operativo'
+                                  ? 'No operativo'
+                                  : condition === 'en reparacion'
+                                    ? 'En reparación'
+                                    : null;
+
                               return (
                                 <div
-                                  key={employeeId}
+                                  key={equipmentId}
                                   className={cn(
                                     'text-xs px-2 py-1 rounded-md flex items-center gap-1',
-                                    isAssigned
-                                      ? 'bg-primary/10 text-primary'
-                                      : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                    hasConditionIssue
+                                      ? 'bg-red-100 text-red-800 border border-red-300'
+                                      : isAssigned
+                                        ? 'bg-primary/10 text-primary'
+                                        : 'bg-orange-100 text-orange-800 border border-orange-300'
                                   )}
                                 >
                                   {displayName}
+                                  {hasConditionIssue && (
+                                    <Badge
+                                      variant="outline"
+                                      className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
+                                    >
+                                      {conditionLabel}
+                                    </Badge>
+                                  )}
                                   {!isAssigned && (
                                     <Badge
                                       variant="outline"
@@ -2083,32 +2472,20 @@ export function DailyReportForm({
                                       No asignado
                                     </Badge>
                                   )}
-                                  {employee.deviation_no_diagram && (
-                                    <Badge
-                                      variant="outline"
-                                      className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
-                                    >
-                                      Sin diagrama
-                                    </Badge>
-                                  )}
-                                  {employee.deviation_non_work_day && (
-                                    <Badge
-                                      variant="outline"
-                                      className="ml-1 bg-yellow-200 text-yellow-900 border-yellow-400 text-[10px] px-1 py-0"
-                                    >
-                                      {employee.current_diagram?.diagram_type?.name || 'No laboral'}
-                                    </Badge>
-                                  )}
                                   <button
                                     type="button"
                                     onClick={() => {
                                       const currentValues = field.value || [];
-                                      const newValues = currentValues.filter((id) => id !== employeeId);
+                                      const newValues = currentValues.filter((id) => id !== equipmentId);
                                       field.onChange(newValues);
                                     }}
                                     className={cn(
                                       'ml-1 hover:opacity-80',
-                                      isAssigned ? 'text-primary' : 'text-orange-800'
+                                      hasConditionIssue
+                                        ? 'text-red-800'
+                                        : isAssigned
+                                          ? 'text-primary'
+                                          : 'text-orange-800'
                                     )}
                                   >
                                     <X className="h-3 w-3 text-red-500" />
@@ -2121,339 +2498,15 @@ export function DailyReportForm({
                         </FormItem>
                       )}
                     />
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-sm font-medium">Equipos propios</span>
+                      <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>{selectedItemName} no requiere equipos</span>
+                      </div>
+                    </div>
                   )}
-
-                  {/* Equipos */}
-                  <FormField
-                    control={form.control}
-                    name="equipment"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Equipos propios</FormLabel>
-                        {duplicateEquipments.length > 0 && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-2">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </div>
-                              <div className="ml-3">
-                                <h3 className="text-sm font-medium text-yellow-800">Equipos duplicados detectados</h3>
-                                <div className="mt-2 text-sm text-yellow-700">
-                                  <p>Los siguientes equipos ya están asignados en otras filas del parte diario:</p>
-                                  <ul className="list-disc list-inside mt-1">
-                                    {duplicateEquipments.map((equipment, index) => (
-                                      <li key={index}>{equipment}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {unassignedEquipmentsSelected.length > 0 && (
-                          <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-2">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </div>
-                              <div className="ml-3">
-                                <h3 className="text-sm font-medium text-orange-800">Equipos no asignados al cliente</h3>
-                                <div className="mt-2 text-sm text-orange-700">
-                                  <p>Los siguientes equipos no están asignados al cliente seleccionado:</p>
-                                  <ul className="list-disc list-inside mt-1">
-                                    {unassignedEquipmentsSelected.map((equipmentId) => {
-                                      const equipment = equipments?.find((eq) => eq.id === equipmentId);
-                                      return equipment ? (
-                                        <li key={equipmentId}>{equipment.domain || equipment.serie}</li>
-                                      ) : null;
-                                    })}
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {/* PO-1: Warning para equipos con problemas de condición */}
-                        {equipmentsWithConditionIssues.length > 0 && (
-                          <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-2">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </div>
-                              <div className="ml-3">
-                                <h3 className="text-sm font-medium text-red-800">Equipos con problemas de condición</h3>
-                                <div className="mt-2 text-sm text-red-700">
-                                  <p>Los siguientes equipos tienen desvíos de condición:</p>
-                                  <ul className="list-disc list-inside mt-1">
-                                    {equipmentsWithConditionIssues.map((equipmentId) => {
-                                      const equipment = equipments?.find((eq) => eq.id === equipmentId);
-                                      const deviationInfo = getEquipmentDeviationInfo(equipmentId);
-                                      return equipment ? (
-                                        <li key={equipmentId}>
-                                          {equipment.domain || equipment.serie} -{' '}
-                                          <span className="font-medium">{deviationInfo?.conditionLabel}</span>
-                                        </li>
-                                      ) : null;
-                                    })}
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <SearchEquipment
-                          field={field as any}
-                          equipment={allEquipments}
-                          selectedCustomerId={selectedCustomerId}
-                        />
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                disabled={!selectedCustomerId}
-                                className={cn(
-                                  'w-full justify-between',
-                                  !field.value?.length && 'text-muted-foreground',
-                                  !selectedCustomerId && 'opacity-50 cursor-not-allowed'
-                                )}
-                              >
-                                {field.value?.length
-                                  ? `${field.value.length} equipo${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
-                                  : selectedCustomerId
-                                    ? 'Seleccionar equipos'
-                                    : 'Seleccione un cliente primero'}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent align="start" className="w-full p-0">
-                            <Command>
-                              <CommandInput placeholder="Buscar equipos..." />
-                              <CommandList>
-                                <CommandEmpty>
-                                  {!selectedCustomerId
-                                    ? 'Seleccione un cliente primero.'
-                                    : allEquipments.length === 0
-                                      ? 'No hay equipos activos disponibles.'
-                                      : 'No se encontraron equipos que coincidan.'}
-                                </CommandEmpty>
-                                {selectedCustomerId && (
-                                  <div className="px-3 py-1.5 text-xs text-muted-foreground space-y-1">
-                                    <p>
-                                      Nota: Los equipos marcados en{' '}
-                                      <span className="text-orange-600 font-medium">naranja</span> no están asignados al
-                                      cliente.
-                                    </p>
-                                    <p>
-                                      Los equipos marcados en <span className="text-red-600 font-medium">rojo</span>{' '}
-                                      tienen problemas de condición.
-                                    </p>
-                                  </div>
-                                )}
-
-                                {!selectedCustomerId && (
-                                  <div className="py-6 text-center text-sm text-muted-foreground">
-                                    Por favor, seleccione un cliente primero.
-                                  </div>
-                                )}
-
-                                {selectedCustomerId && allEquipments.length === 0 && (
-                                  <div className="py-6 text-center text-sm text-muted-foreground">
-                                    No hay equipos activos disponibles.
-                                  </div>
-                                )}
-
-                                {selectedCustomerId &&
-                                  allEquipments.length > 0 &&
-                                  (() => {
-                                    // Obtener todos los tipos únicos para todos los equipos
-                                    const typesMap: Record<string, (typeof allEquipments)[0][]> = {};
-
-                                    // Agrupar todos los equipos por tipo
-                                    allEquipments.forEach((equipment) => {
-                                      const type = equipment.type?.name || 'Sin tipo';
-
-                                      if (!typesMap[type]) {
-                                        typesMap[type] = [];
-                                      }
-                                      typesMap[type].push(equipment);
-                                    });
-
-                                    // Convertir a array y ordenar por tipo
-                                    const typesArray = Object.keys(typesMap).sort();
-
-                                    return typesArray.map((type) => (
-                                      <CommandGroup key={type} heading={type.charAt(0).toUpperCase() + type.slice(1)}>
-                                        {typesMap[type].map((equipment) => {
-                                          // Verificar si el equipo está asignado al cliente
-                                          const isAssigned = equipment.contractor_equipment?.some(
-                                            (ce) => ce.customers?.id === selectedCustomerId
-                                          );
-                                          // PO-1: Verificar desvíos de condición
-                                          const condition = equipment.condition || 'operativo';
-                                          const hasConditionIssue = ['no operativo', 'en reparacion'].includes(
-                                            condition
-                                          );
-                                          const conditionLabel =
-                                            condition === 'no operativo'
-                                              ? 'No operativo'
-                                              : condition === 'en reparacion'
-                                                ? 'En reparación'
-                                                : null;
-                                          const hasAnyDeviation = !isAssigned || hasConditionIssue;
-
-                                          return (
-                                            <CommandItem
-                                              value={equipment.domain || ''}
-                                              key={equipment.id}
-                                              onSelect={() => {
-                                                const currentValues = field.value || [];
-                                                const newValues = currentValues.includes(equipment.id)
-                                                  ? currentValues.filter((id) => id !== equipment.id)
-                                                  : [...currentValues, equipment.id];
-                                                field.onChange(newValues);
-                                              }}
-                                              className={cn(
-                                                hasConditionIssue && 'text-red-700 bg-red-50 hover:bg-red-100',
-                                                !isAssigned &&
-                                                  !hasConditionIssue &&
-                                                  'text-orange-700 bg-orange-50 hover:bg-orange-100'
-                                              )}
-                                            >
-                                              <div className="flex items-center justify-between w-full">
-                                                <div className="flex items-center">
-                                                  <Check
-                                                    className={cn(
-                                                      'mr-2 h-4 w-4',
-                                                      hasConditionIssue && 'text-red-600',
-                                                      !isAssigned && !hasConditionIssue && 'text-orange-600',
-                                                      field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
-                                                    )}
-                                                  />
-                                                  {equipment.domain || equipment.serie}
-                                                </div>
-                                                <div className="flex gap-1">
-                                                  {hasConditionIssue && (
-                                                    <Badge
-                                                      variant="outline"
-                                                      className="ml-2 bg-red-100 text-red-800 border-red-300"
-                                                    >
-                                                      {conditionLabel}
-                                                    </Badge>
-                                                  )}
-                                                  {!isAssigned && (
-                                                    <Badge
-                                                      variant="outline"
-                                                      className="ml-2 bg-orange-100 text-orange-800 border-orange-300"
-                                                    >
-                                                      No asignado
-                                                    </Badge>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </CommandItem>
-                                          );
-                                        })}
-                                      </CommandGroup>
-                                    ));
-                                  })()}
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {field.value?.map((equipmentId) => {
-                            const equipment = equipments?.find((eq) => eq.id === equipmentId);
-                            if (!equipment) return null;
-
-                            const displayName = equipment.domain || equipment.serie;
-
-                            // Verificar si el equipo está asignado al cliente
-                            const isAssigned = equipment.contractor_equipment?.some(
-                              (ce) => ce.customers?.id === selectedCustomerId
-                            );
-
-                            // PO-1: Verificar desvíos de condición
-                            const condition = equipment.condition || 'operativo';
-                            const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
-                            const conditionLabel =
-                              condition === 'no operativo'
-                                ? 'No operativo'
-                                : condition === 'en reparacion'
-                                  ? 'En reparación'
-                                  : null;
-
-                            return (
-                              <div
-                                key={equipmentId}
-                                className={cn(
-                                  'text-xs px-2 py-1 rounded-md flex items-center gap-1',
-                                  hasConditionIssue
-                                    ? 'bg-red-100 text-red-800 border border-red-300'
-                                    : isAssigned
-                                      ? 'bg-primary/10 text-primary'
-                                      : 'bg-orange-100 text-orange-800 border border-orange-300'
-                                )}
-                              >
-                                {displayName}
-                                {hasConditionIssue && (
-                                  <Badge
-                                    variant="outline"
-                                    className="ml-1 bg-red-200 text-red-900 border-red-400 text-[10px] px-1 py-0"
-                                  >
-                                    {conditionLabel}
-                                  </Badge>
-                                )}
-                                {!isAssigned && (
-                                  <Badge
-                                    variant="outline"
-                                    className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
-                                  >
-                                    No asignado
-                                  </Badge>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const currentValues = field.value || [];
-                                    const newValues = currentValues.filter((id) => id !== equipmentId);
-                                    field.onChange(newValues);
-                                  }}
-                                  className={cn(
-                                    'ml-1 hover:opacity-80',
-                                    hasConditionIssue ? 'text-red-800' : isAssigned ? 'text-primary' : 'text-orange-800'
-                                  )}
-                                >
-                                  <X className="h-3 w-3 text-red-500" />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   {/* reasigment_reason */}
 

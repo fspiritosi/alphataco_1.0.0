@@ -201,13 +201,17 @@ export function DailyReportRowFormRefactored() {
     }
   }, [form, isCreating, isOpen, serviceItems]);
 
-  // 8. Query client para invalidar queries
+  // 8. Derivar flags del item seleccionado (sin useEffect, derivado reactivo)
+  const watchedItemId = form.watch('item');
+  const selectedServiceItem = serviceItems?.find((item) => item.id === watchedItemId);
+
+  // 9. Query client para invalidar queries
   const queryClient = useQueryClient();
 
-  // 9. Manejar envío
+  // 10. Manejar envío
   const { onSubmit } = useFormSubmit(isCreating, selectedRow, () => {}, reset, queryClient, serviceItems);
 
-  // 10. Obtener fecha del parte diario
+  // 11. Obtener fecha del parte diario
   const formDate = form.watch('date');
   const reportDate = React.useMemo(() => {
     if (isCreating) {
@@ -235,7 +239,7 @@ export function DailyReportRowFormRefactored() {
     }
   }, [isCreating, selectedRow, formDate]);
 
-  // 11. Manejar cancelación
+  // 12. Manejar cancelación
   const handleCancel = () => {
     form.reset(defaultValues);
     setSelectedCustomer(null);
@@ -287,8 +291,16 @@ export function DailyReportRowFormRefactored() {
               {/* Sección 2: Fecha y Horarios */}
               <DateTimeSection form={form} isCreating={isCreating} disabled={false} />
 
-              {/* Sección 3: Recursos (Empleados y Equipos) */}
-              <ResourcesSection form={form} isCreating={isCreating} selectedRow={selectedRow} disabled={false} />
+              {/* Sección 3: Recursos (Empleados y Equipos) - dinámico según flags del item */}
+              <ResourcesSection
+                form={form}
+                isCreating={isCreating}
+                selectedRow={selectedRow}
+                disabled={false}
+                itemNeedsPersonnel={selectedServiceItem?.needs_personnel ?? true}
+                itemNeedsEquipment={selectedServiceItem?.needs_equipment ?? true}
+                itemName={selectedServiceItem?.item_name}
+              />
 
               {/* Sección 4: Estado y Remito */}
               <StatusSection form={form} isCreating={isCreating} currentStatus={selectedRow?.status} disabled={false} />
