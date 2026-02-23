@@ -16,7 +16,7 @@ import {
 } from './actions/maintenanceGroupActions';
 
 const MaintenanceGroupSchema = z.object({
-  name: z.string().nonempty({ message: 'El nombre es requerido' }),
+  name: z.string().min(1, { message: 'El nombre es requerido' }),
   description: z.string().optional(),
   is_active: z.boolean(),
   type_ids: z.array(z.string()).optional(),

@@ -14,9 +14,9 @@ import { createMeasureUnit, fetchMeasureUnits, updateMeasureUnit } from './actio
 
 // Definir el esquema de validación con Zod
 const formSchema = z.object({
-  simbol: z.string().nonempty({ message: 'El símbolo es requerido' }),
-  tipo: z.string().nonempty({ message: 'El tipo es requerido' }),
-  unit: z.string().nonempty({ message: 'La unidad es requerida' }),
+  simbol: z.string().min(1, { message: 'El símbolo es requerido' }),
+  tipo: z.string().min(1, { message: 'El tipo es requerido' }),
+  unit: z.string().min(1, { message: 'La unidad es requerida' }),
 });
 
 interface MensureUnitsFormProps {

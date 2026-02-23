@@ -795,9 +795,9 @@ export const covenantSchema = z.object({
 
 export const dailyReportSchema = z
   .object({
-    customer: z.string().nonempty('El cliente es obligatorio'),
-    services: z.string().nonempty('El servicio es obligatorio'),
-    item: z.string().nonempty('El item es obligatorio'),
+    customer: z.string().min(1, 'El cliente es obligatorio'),
+    services: z.string().min(1, 'El servicio es obligatorio'),
+    item: z.string().min(1, 'El item es obligatorio'),
     employees: z.array(z.string()).optional(),
     equipment: z.array(z.string()).optional(),
     working_day: z.string().optional(),

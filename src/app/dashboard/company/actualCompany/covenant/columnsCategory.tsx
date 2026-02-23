@@ -53,7 +53,7 @@ import { z } from 'zod';
 // import { supabase } from '../../../../../../supabase/supabase';
 
 const editCategorySchema = z.object({
-  category: z.string().nonempty('El nombre de la categoría es requerido.'),
+  category: z.string().min(1, 'El nombre de la categoría es requerido.'),
 });
 
 const formSchema = z.object({

@@ -27,9 +27,9 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const SectorSchema = z.object({
-  name: z.string().nonempty({ message: 'El nombre es requerido' }),
-  descripcion_corta: z.string().nonempty({ message: 'La descripción es requerida' }),
-  customer_id: z.string().nonempty({ message: 'El cliente es requerido' }),
+  name: z.string().min(1, { message: 'El nombre es requerido' }),
+  descripcion_corta: z.string().min(1, { message: 'La descripción es requerida' }),
+  customer_id: z.string().min(1, { message: 'El cliente es requerido' }),
 });
 
 // interface Sector {

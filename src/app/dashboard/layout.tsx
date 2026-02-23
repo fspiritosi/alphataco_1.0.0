@@ -31,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   await getUserPermissionsMapServer();
 
   return (
-    <div className={`grid grid-rows-[auto,1fr] grid-cols-[auto,1fr] h-screen `} suppressHydrationWarning>
+    <div className={`grid grid-rows-[auto_1fr] grid-cols-[auto_1fr] h-screen`} suppressHydrationWarning>
       <FilterCleanupInitializer />
       <div className="row-span-2 ">
         <SidebarFeat />

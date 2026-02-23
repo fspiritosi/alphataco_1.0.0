@@ -48,9 +48,9 @@ export function Mail() {
   return (
     <TooltipProvider delayDuration={0}>
       <ResizablePanelGroup
-        direction="horizontal"
-        onLayout={(sizes: number[]) => {
-          document.cookie = `react-resizable-panels:layout=${JSON.stringify(sizes)}`;
+        orientation="horizontal"
+        onLayoutChange={(layout) => {
+          document.cookie = `react-resizable-panels:layout=${JSON.stringify(layout)}`;
         }}
         className="h-full max-h-[800px] items-stretch p-0 m-0"
       >
