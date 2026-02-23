@@ -24,11 +24,15 @@
     "cypress": "cypress open",
     "cypress:headless": "cypress run --spec 'cypress/e2e/**/*.cy.ts'",
     "test:e2e": "cypress run --spec 'cypress/e2e/**/*.cy.ts'",
-    "test:e2e:open": "cypress open"
+    "test:e2e:open": "cypress open",
+    "db:generate": "prisma generate",
+    "db:pull": "prisma db pull",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@posthog/nextjs-config": "^1.7.5",
+    "@prisma/client": "^7.4.1",
     "@radix-ui/react-accordion": "^1.1.2",
     "@radix-ui/react-alert-dialog": "1.0.5",
     "@radix-ui/react-aspect-ratio": "^1.0.3",
@@ -68,6 +72,7 @@
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^10.18.0",
     "html-to-image": "^1.11.11",
@@ -108,6 +113,7 @@
     "zustand": "4.5.0"
   },
   "devDependencies": {
+    "@prisma/adapter-pg": "^7.4.1",
     "@tailwindcss/postcss": "^4",
     "@types/file-saver": "^2.0.7",
     "@types/js-cookie": "^3.0.6",
@@ -126,6 +132,7 @@
     "lint-staged": "^15.4.3",
     "postcss": "^8",
     "prettier": "^3.1.1",
+    "prisma": "^7.4.1",
     "shadcn": "^3.8.4",
     "supabase": "^2.54.11",
     "tailwindcss": "^4",

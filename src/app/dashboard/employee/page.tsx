@@ -4,8 +4,7 @@ import { buttonVariants } from '@/components/ui/button';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
-import EmployeeTable from '@/features/Employees/Empleados/EmpleadosTables/Activos/employee_table';
-import EmpleadosInactivosTable from '@/features/Employees/Empleados/EmpleadosTables/Inactivos/EmpleadosInactivosTable';
+import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
@@ -93,7 +92,7 @@ export default async function EmployeePage({
                       tabSlug: 'empleados-activos',
                       content: (
                         <Suspense fallback={<DataTableSkeleton columns={7} />}>
-                          <EmployeeTable />
+                          <EmployeeList searchParams={resolvedSearchParams} isActive={true} permissions={permissions} />
                         </Suspense>
                       ),
                     },
@@ -109,7 +108,11 @@ export default async function EmployeePage({
                       tabSlug: 'empleados-inactivos',
                       content: (
                         <Suspense fallback={<DataTableSkeleton columns={7} />}>
-                          <EmpleadosInactivosTable />
+                          <EmployeeList
+                            searchParams={resolvedSearchParams}
+                            isActive={false}
+                            permissions={permissions}
+                          />
                         </Suspense>
                       ),
                     },
