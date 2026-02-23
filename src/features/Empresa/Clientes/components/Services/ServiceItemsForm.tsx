@@ -1,10 +1,12 @@
 'use client';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { handleSubmit } from '@/features/Empresa/Clientes/actions/itemsService';
 import { PermissionGuard } from '@/features/Permissions';
+import { logger } from '@/lib/logger';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -24,6 +26,8 @@ const ItemsSchema = z.object({
   item_price: z.preprocess((val) => Number(val), z.number().min(0, { message: 'Debe ingresar un precio válido' })),
   item_measure_units: z.string().min(1, { message: 'Debe seleccionar la unidad de medida' }),
   is_active: z.boolean().default(true),
+  needs_personnel: z.boolean().default(true),
+  needs_equipment: z.boolean().default(true),
 });
 
 const EditItemSchema = z.object({
@@ -39,14 +43,16 @@ const EditItemSchema = z.object({
   ),
   item_measure_units: z.string().optional(),
   is_active: z.boolean().optional(),
+  needs_personnel: z.boolean().default(true),
+  needs_equipment: z.boolean().default(true),
 });
 
 interface ServiceItemsFormProps {
   measure_units: MeasureUnit[];
   customers: Customer[];
-  services: any[];
+  services: { id?: string; company_id?: string | null; [key: string]: unknown }[];
   company_id: string;
-  editService: (service: any) => void;
+  editService: { id?: string; company_id?: string | null; [key: string]: unknown } | null | undefined;
   editingService?: Awaited<ReturnType<typeof fetchServiceItems>>[number] | null;
   open?: boolean;
   onSuccess?: () => void;
@@ -67,6 +73,8 @@ export default function ServiceItemsForm({
     defaultValues: {
       item_price: 0,
       is_active: true,
+      needs_personnel: true,
+      needs_equipment: true,
     },
   });
 
@@ -83,6 +91,8 @@ export default function ServiceItemsForm({
         code_item: editingService.code_item || '',
         item_number: editingService.item_number || '',
         is_active: editingService.is_active ?? true,
+        needs_personnel: editingService.needs_personnel ?? true,
+        needs_equipment: editingService.needs_equipment ?? true,
       });
       setIsEditing(true);
     } else {
@@ -94,6 +104,8 @@ export default function ServiceItemsForm({
         code_item: '',
         item_number: '',
         is_active: true,
+        needs_personnel: true,
+        needs_equipment: true,
       });
       setIsEditing(false);
     }
@@ -108,7 +120,7 @@ export default function ServiceItemsForm({
         if (onSuccess) onSuccess();
       });
     } catch (error) {
-      console.error('Error al guardar el ítem:', error);
+      logger.error('Error al guardar el ítem', { data: { error } });
     }
   };
 
@@ -121,8 +133,8 @@ export default function ServiceItemsForm({
       code_item: '',
       item_number: '',
       is_active: true,
-      // customer_id: '',
-      // customer_service_id: '',
+      needs_personnel: true,
+      needs_equipment: true,
     });
 
     setIsEditing(false);
@@ -275,6 +287,35 @@ export default function ServiceItemsForm({
                 );
               }}
             />
+
+            {/* Campos de requerimientos de recursos */}
+            <div className="flex flex-row gap-6 pt-2">
+              <FormField
+                control={form.control}
+                name="needs_personnel"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">Necesita Personal</FormLabel>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="needs_equipment"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">Necesita Equipos</FormLabel>
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
           {/* Botones de acción */}

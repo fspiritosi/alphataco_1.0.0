@@ -170,20 +170,28 @@ export function DailyReportRowFormRefactored() {
   React.useEffect(() => {
     if (!isCreating && isOpen) {
       const subscription = form.watch((value, { name }) => {
-        // Solo actuar si cambian los recursos
-        if (name === 'employees' || name === 'equipment') {
+        // Solo actuar si cambian los recursos o el item
+        if (name === 'employees' || name === 'equipment' || name === 'item') {
           const employees = value.employees || [];
           const equipment = value.equipment || [];
           const currentStatus = value.status;
+          const currentItemId = value.item;
 
-          const hasResources = employees.length > 0 || equipment.length > 0;
+          // Obtener los flags del item seleccionado
+          const selectedItem = serviceItems?.find((item) => item.id === currentItemId);
+          const itemNeedsPersonnel = selectedItem?.needs_personnel ?? true;
+          const itemNeedsEquipment = selectedItem?.needs_equipment ?? true;
 
-          // Si está en "sin_recursos_asignados" y ahora tiene recursos -> cambiar a "pendiente"
-          if (currentStatus === 'sin_recursos_asignados' && hasResources) {
+          // Solo considerar falta de recursos si el item los requiere
+          const missingRequiredResources =
+            (itemNeedsPersonnel && employees.length === 0) || (itemNeedsEquipment && equipment.length === 0);
+
+          // Si está en "sin_recursos_asignados" y ahora tiene los recursos requeridos -> cambiar a "pendiente"
+          if (currentStatus === 'sin_recursos_asignados' && !missingRequiredResources) {
             form.setValue('status', 'pendiente', { shouldValidate: true });
           }
-          // Si está en "pendiente" y ya no tiene recursos -> cambiar a "sin_recursos_asignados"
-          else if (currentStatus === 'pendiente' && !hasResources) {
+          // Si está en "pendiente" y ya no tiene los recursos requeridos -> cambiar a "sin_recursos_asignados"
+          else if (currentStatus === 'pendiente' && missingRequiredResources) {
             form.setValue('status', 'sin_recursos_asignados', { shouldValidate: true });
           }
         }
@@ -191,13 +199,13 @@ export function DailyReportRowFormRefactored() {
 
       return () => subscription.unsubscribe();
     }
-  }, [form, isCreating, isOpen]);
+  }, [form, isCreating, isOpen, serviceItems]);
 
   // 8. Query client para invalidar queries
   const queryClient = useQueryClient();
 
   // 9. Manejar envío
-  const { onSubmit } = useFormSubmit(isCreating, selectedRow, () => {}, reset, queryClient);
+  const { onSubmit } = useFormSubmit(isCreating, selectedRow, () => {}, reset, queryClient, serviceItems);
 
   // 10. Obtener fecha del parte diario
   const formDate = form.watch('date');
