@@ -91,7 +91,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
       const numValue = parseInt(value, 10);
       if (!isNaN(numValue) && minKilometer > 0 && numValue < minKilometer) {
         setValidationError(
-          `El kilometraje no puede ser menor a ${minKilometer.toLocaleString()} km (valor registrado)`,
+          `El kilometraje no puede ser menor a ${minKilometer.toLocaleString()} km (valor registrado)`
         );
       } else {
         setValidationError(null);
@@ -108,7 +108,7 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
       const numValue = parseFloat(value);
       if (!isNaN(numValue) && minEngineHours > 0 && numValue < minEngineHours) {
         setEngineHoursError(
-          `El horómetro no puede ser menor a ${minEngineHours.toLocaleString()} hs (valor registrado)`,
+          `El horómetro no puede ser menor a ${minEngineHours.toLocaleString()} hs (valor registrado)`
         );
       } else {
         setEngineHoursError(null);
@@ -242,11 +242,12 @@ export function EntradaTallerDialog({ order, open, onClose }: EntradaTallerDialo
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                    const pivotRepairTypes = (
-                      item as {
-                        maintenance_order_item_repair_types?: { types_of_repairs?: { name: string } }[];
-                      }
-                    ).maintenance_order_item_repair_types || [];
+                    const pivotRepairTypes =
+                      (
+                        item as {
+                          maintenance_order_item_repair_types?: { types_of_repairs?: { name: string } }[];
+                        }
+                      ).maintenance_order_item_repair_types || [];
                     const repairTypeNames: string[] =
                       pivotRepairTypes.length > 0
                         ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name ?? '').filter(Boolean)

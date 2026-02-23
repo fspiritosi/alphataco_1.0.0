@@ -186,7 +186,13 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
     maintenance_orders?: {
       id?: string;
       order_number?: string;
-      vehicles?: { domain?: string; serie?: string; intern_number?: string; kilometer?: number; engine_hours?: string | null } | null;
+      vehicles?: {
+        domain?: string;
+        serie?: string;
+        intern_number?: string;
+        kilometer?: number;
+        engine_hours?: string | null;
+      } | null;
     } | null;
     description?: string | null;
   };

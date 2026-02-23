@@ -1,5 +1,6 @@
 'use client';
 
+import type { Database } from '@/../database.types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +15,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
-import type { Database } from '@/../database.types';
 
 type MaintenanceRequestRow = Database['public']['Tables']['maintenance_requests']['Row'];
 

@@ -65,7 +65,7 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
       const numValue = parseFloat(value);
       if (!isNaN(numValue) && currentEngineHours > 0 && numValue < currentEngineHours) {
         setEngineHoursError(
-          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`
         );
       } else {
         setEngineHoursError(null);
@@ -100,7 +100,7 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
       const numEngineHours = parseFloat(engineHours);
       if (!isNaN(numEngineHours) && currentEngineHours > 0 && numEngineHours < currentEngineHours) {
         toast.error(
-          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`
         );
         return;
       }
@@ -193,11 +193,12 @@ export function ParaTallerEntradaDialog({ order, open, onClose }: ParaTallerEntr
                     const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
                     // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                    const pivotRepairTypes = (
-                      item as {
-                        maintenance_order_item_repair_types?: { types_of_repairs?: { name: string } }[];
-                      }
-                    ).maintenance_order_item_repair_types || [];
+                    const pivotRepairTypes =
+                      (
+                        item as {
+                          maintenance_order_item_repair_types?: { types_of_repairs?: { name: string } }[];
+                        }
+                      ).maintenance_order_item_repair_types || [];
                     const repairTypeNames: string[] =
                       pivotRepairTypes.length > 0
                         ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name ?? '').filter(Boolean)

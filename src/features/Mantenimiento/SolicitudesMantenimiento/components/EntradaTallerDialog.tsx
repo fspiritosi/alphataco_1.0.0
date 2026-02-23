@@ -46,7 +46,7 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
       const numValue = parseFloat(value);
       if (!isNaN(numValue) && currentEngineHours > 0 && numValue < currentEngineHours) {
         setEngineHoursError(
-          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`
         );
       } else {
         setEngineHoursError(null);
@@ -72,7 +72,7 @@ export function EntradaTallerDialog({ request, open, onClose }: EntradaTallerDia
       const numEngineHours = parseFloat(engineHours);
       if (!isNaN(numEngineHours) && currentEngineHours > 0 && numEngineHours < currentEngineHours) {
         toast.error(
-          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`
         );
         return;
       }

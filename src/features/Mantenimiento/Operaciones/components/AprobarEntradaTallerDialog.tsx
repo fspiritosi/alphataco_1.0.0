@@ -42,7 +42,7 @@ export function AprobarEntradaTallerDialog({ operation, open, onClose }: Aprobar
       const numValue = parseFloat(value);
       if (!isNaN(numValue) && currentEngineHours > 0 && numValue < currentEngineHours) {
         setEngineHoursError(
-          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`
         );
       } else {
         setEngineHoursError(null);
@@ -75,7 +75,7 @@ export function AprobarEntradaTallerDialog({ operation, open, onClose }: Aprobar
       const numEngineHours = parseFloat(engineHours);
       if (!isNaN(numEngineHours) && currentEngineHours > 0 && numEngineHours < currentEngineHours) {
         toast.error(
-          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`,
+          `El horómetro no puede ser menor al actual del equipo (${currentEngineHours.toLocaleString('es-AR')} hs)`
         );
         return;
       }
@@ -166,7 +166,9 @@ export function AprobarEntradaTallerDialog({ operation, open, onClose }: Aprobar
               />
               <p className="text-xs text-muted-foreground">
                 {currentKm > 0 ? (
-                  <span className="text-yellow-600">Mín. {currentKm.toLocaleString('es-AR')} km (actual del equipo)</span>
+                  <span className="text-yellow-600">
+                    Mín. {currentKm.toLocaleString('es-AR')} km (actual del equipo)
+                  </span>
                 ) : (
                   'Kilometraje al momento de la entrada'
                 )}
