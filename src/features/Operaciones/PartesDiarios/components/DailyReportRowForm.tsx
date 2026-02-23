@@ -201,6 +201,7 @@ export function DailyReportForm({
   // Estados locales (no del store)
   const [isSectorDisabled, setIsSectorDisabled] = useState<boolean>(true);
   const [isAreaDisabled, setIsAreaDisabled] = useState<boolean>(true);
+  const [shiftSelection, setShiftSelection] = useState<'dia' | 'noche'>('dia');
 
   // Estados para índices de empleados y equipos
   const [employeeIndex, setEmployeeIndex] = useState<Map<string, NonNullable<typeof employees>>>(new Map());
@@ -422,7 +423,7 @@ export function DailyReportForm({
       if (data.ayudante_dia) {
         employeesWithRoles.push({ employeeId: data.ayudante_dia, role: 'ayudante_dia' });
       }
-      if (is24Hours) {
+      if (is24Hours || is12Hours) {
         if (data.chofer_noche) {
           employeesWithRoles.push({ employeeId: data.chofer_noche, role: 'chofer_noche' });
         }
@@ -693,6 +694,15 @@ export function DailyReportForm({
         if (choferNoche?.id) form.setValue('chofer_noche', choferNoche.id);
         if (ayudanteDia?.id) form.setValue('ayudante_dia', ayudanteDia.id);
         if (ayudanteNoche?.id) form.setValue('ayudante_noche', ayudanteNoche.id);
+
+        // Inferir turno para jornada 12h
+        if (is12Hours) {
+          if (choferNoche?.id || ayudanteNoche?.id) {
+            setShiftSelection('noche');
+          } else {
+            setShiftSelection('dia');
+          }
+        }
       } else {
         // Setear empleados sin rol (forma tradicional)
         // Esto cubre: jornadas que no son 12/24hr, y retrocompatibilidad (12/24hr sin roles)
@@ -1637,6 +1647,9 @@ export function DailyReportForm({
                                             form.setValue('start_time', '');
                                             form.setValue('end_time', '');
                                           }
+
+                                          // Resetear selección de turno al cambiar jornada
+                                          setShiftSelection('dia');
                                         }}
                                       >
                                         {day.label}
@@ -1751,43 +1764,80 @@ export function DailyReportForm({
                                 : 'Asignación de Personal - Jornada 24 Horas'}
                             </div>
 
-                            {/* Chofer de Día */}
-                            <FormField
-                              control={form.control}
-                              name="chofer_dia"
-                              render={({ field }) => (
-                                <EmployeeRoleSelect
-                                  field={field}
-                                  employees={allEmployees}
-                                  selectedCustomerId={selectedCustomerId}
-                                  label="Chofer de Día"
-                                  placeholder="Seleccionar chofer de día"
-                                  disabledEmployeeIds={
-                                    [choferNocheId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
-                                  }
-                                />
-                              )}
-                            />
+                            {/* Selector Día/Noche para Jornada 12h */}
+                            {is12Hours && (
+                              <div className="flex flex-row gap-4 items-center">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    checked={shiftSelection === 'dia'}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setShiftSelection('dia');
+                                        form.setValue('chofer_noche', '');
+                                        form.setValue('ayudante_noche', '');
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-sm font-normal">Día</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    checked={shiftSelection === 'noche'}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setShiftSelection('noche');
+                                        form.setValue('chofer_dia', '');
+                                        form.setValue('ayudante_dia', '');
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-sm font-normal">Noche</span>
+                                </div>
+                              </div>
+                            )}
 
-                            {/* Ayudante de Día */}
-                            <FormField
-                              control={form.control}
-                              name="ayudante_dia"
-                              render={({ field }) => (
-                                <EmployeeRoleSelect
-                                  field={field}
-                                  employees={allEmployees}
-                                  selectedCustomerId={selectedCustomerId}
-                                  label="Ayudante de Día (opcional)"
-                                  placeholder="Seleccionar ayudante de día"
-                                  disabledEmployeeIds={
-                                    [choferDiaId, choferNocheId, ayudanteNocheId].filter(Boolean) as string[]
-                                  }
+                            {/* Chofer de Día y Ayudante de Día (visibles si no es 12h, o si 12h y turno = día) */}
+                            {(!is12Hours || shiftSelection === 'dia') && (
+                              <>
+                                {/* Chofer de Día */}
+                                <FormField
+                                  control={form.control}
+                                  name="chofer_dia"
+                                  render={({ field }) => (
+                                    <EmployeeRoleSelect
+                                      field={field}
+                                      employees={allEmployees}
+                                      selectedCustomerId={selectedCustomerId}
+                                      label="Chofer de Día"
+                                      placeholder="Seleccionar chofer de día"
+                                      disabledEmployeeIds={
+                                        [choferNocheId, ayudanteDiaId, ayudanteNocheId].filter(Boolean) as string[]
+                                      }
+                                    />
+                                  )}
                                 />
-                              )}
-                            />
 
-                            {is24Hours && (
+                                {/* Ayudante de Día */}
+                                <FormField
+                                  control={form.control}
+                                  name="ayudante_dia"
+                                  render={({ field }) => (
+                                    <EmployeeRoleSelect
+                                      field={field}
+                                      employees={allEmployees}
+                                      selectedCustomerId={selectedCustomerId}
+                                      label="Ayudante de Día (opcional)"
+                                      placeholder="Seleccionar ayudante de día"
+                                      disabledEmployeeIds={
+                                        [choferDiaId, choferNocheId, ayudanteNocheId].filter(Boolean) as string[]
+                                      }
+                                    />
+                                  )}
+                                />
+                              </>
+                            )}
+
+                            {(is24Hours || (is12Hours && shiftSelection === 'noche')) && (
                               <>
                                 {/* Chofer de Noche */}
                                 <FormField
