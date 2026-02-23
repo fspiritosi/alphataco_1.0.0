@@ -3,6 +3,7 @@
 import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
@@ -328,175 +329,177 @@ export function OtherEquipmentTableClient({
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <BaseDataTable
-      columns={columns}
-      savedVisibility={savedVisibility}
-      initialData={initialData}
-      tableId="otherEquipmentTable"
-      enableRowSelection={true}
-      serverSide={true}
-      fetchData={fetchActiveOtherEquipment}
-      fetchAllData={handleFetchAllData}
-      queryKey="other-equipment-table"
-      toolbarOptions={{
-        initialVisibleFilters: savedFilters,
-        showExport: true,
-        showFilterOptions: true,
-        searchableColumns: [
-          { columnId: 'serial_number', placeholder: 'Buscar por N° Serie...' },
-          { columnId: 'intern_number', placeholder: 'Buscar por N° Interno...' },
-        ],
-        extraActions: newEquipmentButton,
-        filterableColumns: [
-          {
-            columnId: 'type.name',
-            title: 'Tipo',
-            config: {
-              tableName: 'other_equipment',
-              select: 'type.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              // FK real en other_equipment: type_id → type.id
-              relation: '{"type": "type_id"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'type.name'>>>) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-            },
-          },
-          {
-            columnId: 'sub_type.name',
-            title: 'Subtipo',
-            config: {
-              tableName: 'other_equipment',
-              select: 'sub_type.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              // FK real en other_equipment: sub_type_id → sub_type.id
-              relation: '{"sub_type": "sub_type_id"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'sub_type.name'>>>) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-            },
-          },
-          {
-            columnId: 'condition',
-            title: 'Condición',
-            config: {
-              tableName: 'other_equipment',
-              select: 'condition' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'condition'>>>) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-            },
-          },
-          {
-            columnId: 'status',
-            title: 'Estado',
-            config: {
-              tableName: 'other_equipment',
-              select: 'status' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'status'>>>) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-            },
-          },
-          {
-            columnId: 'hierarchy.name',
-            title: 'Sector',
-            config: {
-              tableName: 'other_equipment',
-              select: 'hierarchy.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              // FK real en other_equipment: sector → hierarchy.id
-              relation: '{"hierarchy": "sector"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'hierarchy.name'>>>) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-            },
-          },
-          {
-            columnId: 'cost_type',
-            title: 'Tipo de costo',
-            config: {
-              tableName: 'other_equipment',
-              select: 'cost_type' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'cost_type'>>>) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-            },
-          },
-          {
-            columnId: 'equipment_owners.name',
-            title: 'Propietario',
-            config: {
-              tableName: 'other_equipment',
-              select: 'equipment_owners.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              // FK real en other_equipment: owner_id → equipment_owners.id
-              relation: '{"equipment_owners": "owner_id"}',
-              mapper: (
-                data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'equipment_owners.name'>>>
-              ) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
-            },
-          },
-          {
-            columnId: 'contractor_other_equipment.customers.name',
-            title: 'Afectaciones',
-            config: {
-              tableName: 'other_equipment' as const,
-              select: 'id' as '*',
-              multiJoinPaths: {
-                joins: [
-                  {
-                    from_table: 'other_equipment',
-                    to_table: 'contractor_other_equipment',
-                    from_column: 'id',
-                    to_column: 'equipment_id',
-                  },
-                  {
-                    from_table: 'contractor_other_equipment',
-                    to_table: 'customers',
-                    from_column: 'contractor_id',
-                    to_column: 'id',
-                  },
-                ],
-                final_column: 'customers.name',
+    <Card className="p-4">
+      <BaseDataTable
+        columns={columns}
+        savedVisibility={savedVisibility}
+        initialData={initialData}
+        tableId="otherEquipmentTable"
+        enableRowSelection={true}
+        serverSide={true}
+        fetchData={fetchActiveOtherEquipment}
+        fetchAllData={handleFetchAllData}
+        queryKey="other-equipment-table"
+        toolbarOptions={{
+          initialVisibleFilters: savedFilters,
+          showExport: true,
+          showFilterOptions: true,
+          searchableColumns: [
+            { columnId: 'serial_number', placeholder: 'Buscar por N° Serie...' },
+            { columnId: 'intern_number', placeholder: 'Buscar por N° Interno...' },
+          ],
+          extraActions: newEquipmentButton,
+          filterableColumns: [
+            {
+              columnId: 'type.name',
+              title: 'Tipo',
+              config: {
+                tableName: 'other_equipment',
+                select: 'type.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                // FK real en other_equipment: type_id → type.id
+                relation: '{"type": "type_id"}',
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'type.name'>>>) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
               },
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'id'>>>) =>
-                data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                })),
             },
-          },
-        ],
-      }}
-    />
+            {
+              columnId: 'sub_type.name',
+              title: 'Subtipo',
+              config: {
+                tableName: 'other_equipment',
+                select: 'sub_type.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                // FK real en other_equipment: sub_type_id → sub_type.id
+                relation: '{"sub_type": "sub_type_id"}',
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'sub_type.name'>>>) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
+              },
+            },
+            {
+              columnId: 'condition',
+              title: 'Condición',
+              config: {
+                tableName: 'other_equipment',
+                select: 'condition' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'condition'>>>) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
+              },
+            },
+            {
+              columnId: 'status',
+              title: 'Estado',
+              config: {
+                tableName: 'other_equipment',
+                select: 'status' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'status'>>>) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
+              },
+            },
+            {
+              columnId: 'hierarchy.name',
+              title: 'Sector',
+              config: {
+                tableName: 'other_equipment',
+                select: 'hierarchy.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                // FK real en other_equipment: sector → hierarchy.id
+                relation: '{"hierarchy": "sector"}',
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'hierarchy.name'>>>) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
+              },
+            },
+            {
+              columnId: 'cost_type',
+              title: 'Tipo de costo',
+              config: {
+                tableName: 'other_equipment',
+                select: 'cost_type' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'cost_type'>>>) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
+              },
+            },
+            {
+              columnId: 'equipment_owners.name',
+              title: 'Propietario',
+              config: {
+                tableName: 'other_equipment',
+                select: 'equipment_owners.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                // FK real en other_equipment: owner_id → equipment_owners.id
+                relation: '{"equipment_owners": "owner_id"}',
+                mapper: (
+                  data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'equipment_owners.name'>>>
+                ) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
+              },
+            },
+            {
+              columnId: 'contractor_other_equipment.customers.name',
+              title: 'Afectaciones',
+              config: {
+                tableName: 'other_equipment' as const,
+                select: 'id' as '*',
+                multiJoinPaths: {
+                  joins: [
+                    {
+                      from_table: 'other_equipment',
+                      to_table: 'contractor_other_equipment',
+                      from_column: 'id',
+                      to_column: 'equipment_id',
+                    },
+                    {
+                      from_table: 'contractor_other_equipment',
+                      to_table: 'customers',
+                      from_column: 'contractor_id',
+                      to_column: 'id',
+                    },
+                  ],
+                  final_column: 'customers.name',
+                },
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'other_equipment', 'id'>>>) =>
+                  data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  })),
+              },
+            },
+          ],
+        }}
+      />
+    </Card>
   );
 }
