@@ -25,6 +25,7 @@
     "cypress:headless": "cypress run --spec 'cypress/e2e/**/*.cy.ts'",
     "test:e2e": "cypress run --spec 'cypress/e2e/**/*.cy.ts'",
     "test:e2e:open": "cypress open",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:pull": "prisma db pull",
     "db:studio": "prisma studio"
