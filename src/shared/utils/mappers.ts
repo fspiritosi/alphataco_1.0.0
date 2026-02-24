@@ -67,6 +67,55 @@ export const reasonForTerminationLabels: Record<string, string> = {
 };
 
 // ============================================================================
+// OTHER EQUIPMENT ENUM LABELS
+// ============================================================================
+
+/**
+ * Labels para condition_enum (state prisma: operativo, no_operativo, en_reparacion,
+ * operativo_condicionado, en_preparacion)
+ */
+export const conditionLabels: Record<string, string> = {
+  operativo: 'Operativo',
+  no_operativo: 'No operativo',
+  en_reparacion: 'En reparación',
+  operativo_condicionado: 'Operativo condicionado',
+  en_preparacion: 'En preparación',
+};
+
+/**
+ * Labels para status_type aplicado a equipos (Avalado, No_avalado, Incompleto,
+ * Completo, Completo_con_doc_vencida)
+ */
+export const otherEquipmentStatusLabels: Record<string, string> = {
+  Avalado: 'Avalado',
+  No_avalado: 'No avalado',
+  Incompleto: 'Incompleto',
+  Completo: 'Completo',
+  Completo_con_doc_vencida: 'Completo con doc vencida',
+};
+
+/**
+ * Labels para currency_enum (USD, EUR, GBP, ARS)
+ */
+export const currencyLabels: Record<string, string> = {
+  USD: 'USD',
+  EUR: 'EUR',
+  GBP: 'GBP',
+  ARS: 'ARS',
+};
+
+/**
+ * Labels para termination_reason_enum aplicado a equipos
+ * (venta, destrucción total, devolución, otro)
+ */
+export const terminationReasonEquipmentLabels: Record<string, string> = {
+  venta: 'Venta',
+  destrucci_n_total: 'Destrucción total',
+  devoluci_n: 'Devolución',
+  otro: 'Otro',
+};
+
+// ============================================================================
 // BADGE CONFIGS
 // ============================================================================
 

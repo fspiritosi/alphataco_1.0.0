@@ -49,7 +49,7 @@ export default function EquiposTabContent({
           tabSlug: 'others',
           content: (
             <Suspense fallback={<OtherEquipmentTableSkeleton />}>
-              <OtherEquipmentTabContent />
+              <OtherEquipmentTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },

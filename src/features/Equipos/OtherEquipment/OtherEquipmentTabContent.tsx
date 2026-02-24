@@ -1,30 +1,22 @@
-import { cookies } from 'next/headers';
-import { fetchActiveOtherEquipment } from './actions/fetchOtherEquipmentAction';
-import { OtherEquipmentTableClient } from './components/OtherEquipmentTableClient';
+import { OtherEquipmentList } from './list/OtherEquipmentList';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface Props {
+  searchParams: Record<string, string | string[] | undefined>;
+  permissions: Record<string, boolean>;
+}
+
+// ============================================================================
+// SERVER COMPONENT
+// ============================================================================
 
 /**
- * Server Component que carga datos iniciales de la tabla de Otros Equipos.
- * Lee cookies para persistir visibilidad de columnas y filtros activos.
- * Pasa initialData al Client Component para evitar flash de carga.
+ * TabContent de "Otros" equipos.
+ * Punto de entrada de la subtab — delega al Server Component OtherEquipmentList.
  */
-export async function OtherEquipmentTabContent() {
-  const cookiesStore = await cookies();
-
-  const savedVisibility = cookiesStore.get('otherEquipmentTable')?.value;
-  const savedFilters = cookiesStore.get('otherEquipmentTable-filters')?.value;
-
-  const initialData = await fetchActiveOtherEquipment({
-    pageIndex: 0,
-    pageSize: 10,
-    sorting: [],
-    columnFilters: [],
-  });
-
-  return (
-    <OtherEquipmentTableClient
-      initialData={initialData}
-      savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-      savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-    />
-  );
+export async function OtherEquipmentTabContent({ searchParams, permissions }: Props) {
+  return <OtherEquipmentList searchParams={searchParams} permissions={permissions} />;
 }
