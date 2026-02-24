@@ -285,27 +285,41 @@ export default function NewDocumentType({
   const selectOptions = optionChildrenProp === 'all' ? 'Personas, Equipos o Empresa' : optionChildrenProp;
 
   const isOptional = items.length < 5;
-  const FormSchema = z.object({
-    name: z
-      .string({ required_error: 'Este campo es requerido' })
-      .min(3, { message: 'El nombre debe contener mas de 3 caracteres' })
-      .max(50, { message: 'El nombre debe contener menos de 50 caracteres' }),
-    applies: z.enum(['Persona', 'Equipos', 'Empresa'], {
-      required_error: 'Este campo es requerido',
-    }),
-    multiresource: isOptional
-      ? z.boolean().optional()
-      : z.boolean({
-          required_error: 'Se debe seleccionar una opcion',
-        }),
-    mandatory: isOptional ? z.boolean().optional() : z.boolean({ required_error: 'Se debe seleccionar una opcion' }),
-    explired: z.boolean({ required_error: 'Se debe seleccionar una opcion' }),
-    special: isOptional ? z.boolean().optional() : z.boolean({ required_error: 'Este campo es requerido' }),
-    description: z.string().optional(),
-    is_it_montlhy: z.boolean({ required_error: 'Este campo es requerido' }),
-    private: z.boolean({ required_error: 'Este campo es requerido' }),
-    down_document: z.boolean({ required_error: 'Este campo es requerido' }),
-  });
+  const FormSchema = z
+    .object({
+      name: z
+        .string({ required_error: 'Este campo es requerido' })
+        .min(3, { message: 'El nombre debe contener mas de 3 caracteres' })
+        .max(50, { message: 'El nombre debe contener menos de 50 caracteres' }),
+      applies: z.enum(['Persona', 'Equipos', 'Empresa'], {
+        required_error: 'Este campo es requerido',
+      }),
+      equipment_type: z.enum(['vehicle', 'other_equipment']).nullable().optional(),
+      multiresource: isOptional
+        ? z.boolean().optional()
+        : z.boolean({
+            required_error: 'Se debe seleccionar una opcion',
+          }),
+      mandatory: isOptional ? z.boolean().optional() : z.boolean({ required_error: 'Se debe seleccionar una opcion' }),
+      explired: z.boolean({ required_error: 'Se debe seleccionar una opcion' }),
+      special: isOptional ? z.boolean().optional() : z.boolean({ required_error: 'Este campo es requerido' }),
+      description: z.string().optional(),
+      is_it_montlhy: z.boolean({ required_error: 'Este campo es requerido' }),
+      private: z.boolean({ required_error: 'Este campo es requerido' }),
+      down_document: z.boolean({ required_error: 'Este campo es requerido' }),
+    })
+    .refine(
+      (data) => {
+        if (data.applies === 'Equipos') {
+          return data.equipment_type !== null && data.equipment_type !== undefined;
+        }
+        return true;
+      },
+      {
+        message: 'Debes seleccionar el tipo de equipo',
+        path: ['equipment_type'],
+      }
+    );
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -318,6 +332,7 @@ export default function NewDocumentType({
       down_document: false,
       private: false,
       is_it_montlhy: false,
+      equipment_type: null,
       applies: selectOptions === 'all' ? undefined : (selectOptions as 'Empresa' | 'Persona' | 'Equipos' | undefined),
     },
   });
@@ -482,6 +497,8 @@ export default function NewDocumentType({
       special: isOptional ? false : values.special,
       down_document: isOptional ? false : values.down_document,
       private: values.private,
+      // Tipo de equipo (solo cuando applies === 'Equipos')
+      equipment_type: values.applies === 'Equipos' ? values.equipment_type : null,
       // Añadir las condiciones serializadas
       conditions: serializedConditions ? serializedConditions : null,
     };
@@ -947,6 +964,11 @@ export default function NewDocumentType({
                       setItems(defaultValues);
                     }
 
+                    // Limpiar equipment_type si no es Equipos
+                    if (value !== 'Equipos') {
+                      form.setValue('equipment_type', null);
+                    }
+
                     setShowEmployeePreview(false);
                     setShowVehiclePreview(false);
 
@@ -977,6 +999,37 @@ export default function NewDocumentType({
             </FormItem>
           )}
         />
+        {/* Sub-selector: Tipo de equipo (solo visible cuando applies === 'Equipos') */}
+        {form.watch('applies') === 'Equipos' && (
+          <FormField
+            control={form.control}
+            name="equipment_type"
+            render={({ field }) => (
+              <FormItem>
+                <div>
+                  <FormLabel>Tipo de equipo</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(value as 'vehicle' | 'other_equipment');
+                    }}
+                    value={field.value ?? undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar tipo de equipo" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="vehicle">Vehículos</SelectItem>
+                      <SelectItem value="other_equipment">Otros Equipos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <div className="grid md:grid-cols-2 grid-cols-1 gap-2 items-stretch justify-between">
           <TooltipProvider delayDuration={150}>
             {items?.map((item) => {

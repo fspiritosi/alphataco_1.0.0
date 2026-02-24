@@ -1906,6 +1906,7 @@ export type Database = {
           created_at: string;
           description: string | null;
           down_document: boolean | null;
+          equipment_type: string | null;
           explired: boolean;
           id: string;
           is_active: boolean;
@@ -1923,6 +1924,7 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           down_document?: boolean | null;
+          equipment_type?: string | null;
           explired: boolean;
           id?: string;
           is_active?: boolean;
@@ -1940,6 +1942,7 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           down_document?: boolean | null;
+          equipment_type?: string | null;
           explired?: boolean;
           id?: string;
           is_active?: boolean;
@@ -3240,6 +3243,7 @@ export type Database = {
           date_rejected_at: string | null;
           date_rejected_by: string | null;
           date_rejection_reason: string | null;
+          engine_hours_at_entry: string | null;
           equipment_id: string;
           id: string;
           kilometer_at_entry: string | null;
@@ -3269,6 +3273,7 @@ export type Database = {
           date_rejected_at?: string | null;
           date_rejected_by?: string | null;
           date_rejection_reason?: string | null;
+          engine_hours_at_entry?: string | null;
           equipment_id: string;
           id?: string;
           kilometer_at_entry?: string | null;
@@ -3298,6 +3303,7 @@ export type Database = {
           date_rejected_at?: string | null;
           date_rejected_by?: string | null;
           date_rejection_reason?: string | null;
+          engine_hours_at_entry?: string | null;
           equipment_id?: string;
           id?: string;
           kilometer_at_entry?: string | null;
@@ -3504,6 +3510,7 @@ export type Database = {
           checklist_answer_id: string | null;
           created_at: string | null;
           employee_id: string | null;
+          engine_hours: string | null;
           equipment_id: string;
           id: string;
           kilometer: string | null;
@@ -3522,6 +3529,7 @@ export type Database = {
           checklist_answer_id?: string | null;
           created_at?: string | null;
           employee_id?: string | null;
+          engine_hours?: string | null;
           equipment_id: string;
           id?: string;
           kilometer?: string | null;
@@ -3540,6 +3548,7 @@ export type Database = {
           checklist_answer_id?: string | null;
           created_at?: string | null;
           employee_id?: string | null;
+          engine_hours?: string | null;
           equipment_id?: string;
           id?: string;
           kilometer?: string | null;
@@ -4710,6 +4719,8 @@ export type Database = {
           item_name: string;
           item_number: string | null;
           item_price: number;
+          needs_equipment: boolean;
+          needs_personnel: boolean;
         };
         Insert: {
           code_item?: string | null;
@@ -4723,6 +4734,8 @@ export type Database = {
           item_name: string;
           item_number?: string | null;
           item_price: number;
+          needs_equipment?: boolean;
+          needs_personnel?: boolean;
         };
         Update: {
           code_item?: string | null;
@@ -4736,6 +4749,8 @@ export type Database = {
           item_name?: string;
           item_number?: string | null;
           item_price?: number;
+          needs_equipment?: boolean;
+          needs_personnel?: boolean;
         };
         Relationships: [
           {
@@ -4976,6 +4991,7 @@ export type Database = {
       };
       type: {
         Row: {
+          applies_to: string | null;
           company_id: string | null;
           created_at: string;
           generates_qr: boolean | null;
@@ -4986,6 +5002,7 @@ export type Database = {
           name: string;
         };
         Insert: {
+          applies_to?: string | null;
           company_id?: string | null;
           created_at?: string;
           generates_qr?: boolean | null;
@@ -4996,6 +5013,7 @@ export type Database = {
           name: string;
         };
         Update: {
+          applies_to?: string | null;
           company_id?: string | null;
           created_at?: string;
           generates_qr?: boolean | null;
@@ -5244,6 +5262,27 @@ export type Database = {
           },
         ];
       };
+      user_table_preferences: {
+        Row: {
+          created_at: string;
+          preferences: Json;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          preferences?: Json;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          preferences?: Json;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       vehicles: {
         Row: {
           allocated_to: string[] | null;
@@ -5260,6 +5299,7 @@ export type Database = {
           currency: Database['public']['Enums']['currency_enum'] | null;
           domain: string | null;
           engine: string;
+          engine_hours: string | null;
           id: string;
           intern_number: string | null;
           is_active: boolean | null;
@@ -5296,6 +5336,7 @@ export type Database = {
           currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
           engine: string;
+          engine_hours?: string | null;
           id?: string;
           intern_number?: string | null;
           is_active?: boolean | null;
@@ -5332,6 +5373,7 @@ export type Database = {
           currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
           engine?: string;
+          engine_hours?: string | null;
           id?: string;
           intern_number?: string | null;
           is_active?: boolean | null;

@@ -1,6 +1,5 @@
 'use client';
 
-import { fetchTypeVehicles } from '@/app/server/GET/actions';
 import {
   MultiSelect,
   MultiSelectContent,
@@ -9,12 +8,11 @@ import {
   MultiSelectTrigger,
   MultiSelectValue,
 } from '@/components/ui/multi-select';
-import { useEffect, useState } from 'react';
+import { getVehicleTypes } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
+import { Logger } from '@/lib/logger';
+import { useQuery } from '@tanstack/react-query';
 
-interface VehicleType {
-  id: string;
-  name: string;
-}
+const logger = new Logger('TypeMultiSelect');
 
 interface TypeMultiSelectProps {
   selectedValues: string[];
@@ -23,24 +21,11 @@ interface TypeMultiSelectProps {
 }
 
 export function TypeMultiSelect({ selectedValues, onChange, disabled = false }: TypeMultiSelectProps) {
-  const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadVehicleTypes = async () => {
-      setLoading(true);
-      try {
-        const types = await fetchTypeVehicles();
-        setVehicleTypes(types);
-      } catch (error) {
-        console.error('Error loading vehicle types:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadVehicleTypes();
-  }, []);
+  const { data: vehicleTypes = [], isLoading: loading } = useQuery({
+    queryKey: ['vehicle-types', 'vehicle'],
+    queryFn: () => getVehicleTypes('vehicle'),
+    staleTime: 5 * 60 * 1000,
+  });
 
   if (loading) {
     return <div className="w-full max-w-[400px] h-9 bg-gray-100 animate-pulse rounded-md"></div>;

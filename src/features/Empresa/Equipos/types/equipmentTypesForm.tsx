@@ -34,6 +34,7 @@ interface EquipmentTypesFormProps {
 const formSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'El nombre es requerido'),
+  applies_to: z.enum(['vehicle', 'other_equipment']).default('vehicle'),
   is_active: z.boolean().default(true),
   is_tractor_unit: z.boolean().default(false),
   has_hitch: z.boolean().default(false),
@@ -63,6 +64,7 @@ function EquipmentTypesForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
+      applies_to: 'vehicle',
       is_active: true,
       is_tractor_unit: false,
       has_hitch: false,
@@ -92,6 +94,7 @@ function EquipmentTypesForm({
       reset({
         id: initialData.id,
         name: initialData.name,
+        applies_to: (initialData.applies_to as 'vehicle' | 'other_equipment') ?? 'vehicle',
         is_active: initialData.is_active ?? true,
         is_tractor_unit: initialData.is_tractor_unit ?? false,
         has_hitch: initialData.has_hitch ?? false,
@@ -101,6 +104,7 @@ function EquipmentTypesForm({
     } else {
       reset({
         name: '',
+        applies_to: 'vehicle',
         is_active: true,
         is_tractor_unit: false,
         has_hitch: false,
@@ -144,6 +148,7 @@ function EquipmentTypesForm({
         await updateTypeOfVehicle({
           id: data.id!,
           name: data.name,
+          applies_to: data.applies_to,
           is_active: data.is_active,
           is_tractor_unit: data.is_tractor_unit,
           has_hitch: data.has_hitch,
@@ -157,6 +162,7 @@ function EquipmentTypesForm({
       } else {
         const createdType = await createTypeOfVehicle({
           name: data.name,
+          applies_to: data.applies_to,
           is_active: data.is_active,
           is_tractor_unit: data.is_tractor_unit,
           has_hitch: data.has_hitch,
@@ -276,6 +282,7 @@ function EquipmentTypesForm({
         await updateTypeOfVehicle({
           id: values.id!,
           name: values.name,
+          applies_to: values.applies_to,
           is_active: values.is_active,
           is_tractor_unit: values.is_tractor_unit,
           has_hitch: values.has_hitch,
@@ -318,6 +325,34 @@ function EquipmentTypesForm({
               </FormItem>
             )}
           />
+          {/* Aplica a: Vehículos u Otros Equipos */}
+          <FormField
+            control={form.control}
+            name="applies_to"
+            render={({ field }) => (
+              <FormItem className="space-y-3">
+                <FormLabel>Aplica a</FormLabel>
+                <FormControl>
+                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-1">
+                    <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <RadioGroupItem value="vehicle" />
+                      </FormControl>
+                      <FormLabel className="font-normal">Vehículos</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <RadioGroupItem value="other_equipment" />
+                      </FormControl>
+                      <FormLabel className="font-normal">Otros Equipos</FormLabel>
+                    </FormItem>
+                  </RadioGroup>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="is_active"

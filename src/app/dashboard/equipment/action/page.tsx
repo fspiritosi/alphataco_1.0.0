@@ -68,7 +68,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
 
     // Catálogos compartidos con vehículos
     const brandsPromise = getVehicleBrands();
-    const typesPromise = getVehicleTypes();
+    const typesPromise = getVehicleTypes('other_equipment');
     const ownersPromise = getVehicleOwners();
     const modelsPromise = getModelsByBrand(equipment?.brand_vehicles?.id ?? 0);
     const subTypesPromise = getSubTypesByType(equipment?.type?.id ?? '');
@@ -163,7 +163,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           contractorsPromise={fetchAllContractorForVehicles()}
           costCentersPromise={fetchAllCostCenters()}
           brandsPromise={getVehicleBrands()}
-          typesPromise={getVehicleTypes()}
+          typesPromise={getVehicleTypes('vehicle')}
           ownersPromise={getVehicleOwners()}
           subTypesPromise={getSubTypesByType(vehicle?.type.id!)}
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}

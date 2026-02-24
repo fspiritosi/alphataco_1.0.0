@@ -99,6 +99,7 @@ export async function createOtherEquipment(data: OtherEquipmentInsertWithContrac
     .from('other_equipment')
     .insert({
       ...equipmentData,
+      condition: 'operativo', // Asignar automáticamente el estado operativo
       company_id,
     })
     .select()

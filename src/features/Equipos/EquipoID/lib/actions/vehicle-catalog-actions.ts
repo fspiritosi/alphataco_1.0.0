@@ -68,19 +68,25 @@ export async function getVehicleOwners() {
   return data || [];
 }
 export type getVehicleOwnersType = Awaited<ReturnType<typeof getVehicleOwners>>;
-export async function getVehicleTypes() {
+export async function getVehicleTypes(appliesTo?: 'vehicle' | 'other_equipment') {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('type')
     .select('*')
     .or(`company_id.eq.${company_id},company_id.is.null`)
-    .eq('is_active', true)
-    .order('name');
+    .eq('is_active', true);
+
+  // Filtrar por applies_to si se proporciona
+  if (appliesTo) {
+    query = query.eq('applies_to', appliesTo);
+  }
+
+  const { data, error } = await query.order('name');
 
   if (error) {
     console.error('Error fetching vehicle types:', error);

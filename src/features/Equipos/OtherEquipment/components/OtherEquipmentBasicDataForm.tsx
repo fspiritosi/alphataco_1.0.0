@@ -7,7 +7,6 @@ import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessa
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PriceCurrencyInput } from '@/components/ui/price-currency-input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   getModelsByBrand,
@@ -380,33 +379,6 @@ export function OtherEquipmentBasicDataForm({
               />
             </FormControl>
             <FormDescription>Año de fabricación</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      {/* Condición */}
-      <FormField
-        control={form.control}
-        name="condition"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Condición</FormLabel>
-            <Select disabled={readOnly} value={field.value ?? undefined} onValueChange={field.onChange}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar condición" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {CONDITION_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FormDescription>Estado operativo actual del equipo</FormDescription>
             <FormMessage />
           </FormItem>
         )}

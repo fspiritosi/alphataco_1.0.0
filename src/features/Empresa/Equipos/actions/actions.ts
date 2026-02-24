@@ -32,6 +32,7 @@ export type FetchTypeOfVehiclesType = Awaited<ReturnType<typeof FetchTypeOfVehic
 
 export async function createTypeOfVehicle({
   name,
+  applies_to = 'vehicle',
   is_active = false,
   is_tractor_unit = false,
   has_hitch = false,
@@ -39,6 +40,7 @@ export async function createTypeOfVehicle({
   checklist_ids = [],
 }: {
   name: string;
+  applies_to?: 'vehicle' | 'other_equipment';
   is_active?: boolean;
   is_tractor_unit?: boolean;
   has_hitch?: boolean;
@@ -54,6 +56,7 @@ export async function createTypeOfVehicle({
       .from('type')
       .insert({
         name,
+        applies_to,
         is_active,
         company_id,
         is_tractor_unit,
@@ -184,6 +187,7 @@ export async function FetchTypeOfVehiclesPagination(options: {
 export async function updateTypeOfVehicle({
   id,
   name,
+  applies_to,
   is_active,
   is_tractor_unit,
   has_hitch,
@@ -192,6 +196,7 @@ export async function updateTypeOfVehicle({
 }: {
   id: string;
   name: string;
+  applies_to?: 'vehicle' | 'other_equipment';
   is_active?: boolean;
   is_tractor_unit?: boolean;
   has_hitch?: boolean;
@@ -203,12 +208,16 @@ export async function updateTypeOfVehicle({
     // Preparamos los datos a actualizar
     const updateData: {
       name: string;
+      applies_to?: string;
       is_active?: boolean;
       is_tractor_unit?: boolean;
       has_hitch?: boolean;
     } = { name };
 
     // Solo incluimos campos si se proporcionan explícitamente
+    if (applies_to !== undefined) {
+      updateData.applies_to = applies_to;
+    }
     if (is_active !== undefined) {
       updateData.is_active = is_active;
     }
