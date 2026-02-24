@@ -14,7 +14,7 @@ interface TotalDeVisitoresProps {
 const chartConfig = {
   admission: {
     label: 'Fecha de Ingreso',
-    color: 'hsl(var(--chart-2))',
+    color: 'var(--chart-2)',
   },
 } satisfies ChartConfig;
 

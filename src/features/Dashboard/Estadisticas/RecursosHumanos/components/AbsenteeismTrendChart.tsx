@@ -15,7 +15,7 @@ import { AbsenteeismTrendChartComponent } from './charts/absenteeism-trend-chart
 const chartConfig = {
   percentage: {
     label: 'Ausentismo',
-    color: 'hsl(var(--chart-1))',
+    color: 'var(--chart-1)',
   },
 } satisfies ChartConfig;
 

@@ -17,7 +17,7 @@ const generateChartConfig = (data: any, category: string) => {
 
     categoryConfig[key] = {
       label: item.name.replace(/_/g, ' ') || `Item ${index + 1}`,
-      color: 'hsl(var(--chart-5))',
+      color: 'var(--chart-5)',
     };
   });
 

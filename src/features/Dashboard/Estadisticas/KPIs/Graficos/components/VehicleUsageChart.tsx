@@ -29,7 +29,7 @@ const EXPECTED_INDICATOR_PERCENTAGE = 35;
 const chartConfig = {
   indicator: {
     label: 'Indicador (%)',
-    color: 'hsl(var(--chart-1))',
+    color: 'var(--chart-1)',
   },
 } satisfies ChartConfig;
 
@@ -285,7 +285,7 @@ export function VehicleUsageChart() {
             <Line
               dataKey="indicator"
               type="monotone"
-              stroke="hsl(var(--muted-foreground) / 0.3)"
+              stroke="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
               strokeWidth={2}
               dot={(props: any) => {
                 const { cx, cy, payload } = props;

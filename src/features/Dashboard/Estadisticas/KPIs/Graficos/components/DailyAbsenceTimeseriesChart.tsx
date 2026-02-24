@@ -26,15 +26,15 @@ import { useChartData } from '../hooks/useChartData';
 const chartConfig = {
   'total-ausentes': {
     label: 'Total Ausentes',
-    color: 'hsl(var(--chart-1))',
+    color: 'var(--chart-1)',
   },
   vacaciones: {
     label: 'Vacaciones',
-    color: 'hsl(var(--chart-2))',
+    color: 'var(--chart-2)',
   },
   dotacion: {
     label: 'Dotación',
-    color: 'hsl(var(--chart-3))',
+    color: 'var(--chart-3)',
   },
 } satisfies ChartConfig;
 

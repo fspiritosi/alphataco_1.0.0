@@ -88,7 +88,7 @@ export function ChartBarServiceHistory({ dailyReports }: { dailyReports: getDail
     const seriesKeys = customerNames.map((n) => slugify(n) || 'sin-cliente');
 
     // Usar paleta de colores variados del sistema
-    const getChartColor = (index: number) => `hsl(var(--chart-${(index % 5) + 1}))`;
+    const getChartColor = (index: number) => `var(--chart-${(index % 5) + 1})`;
 
     // Construir config del chart dinámicamente por cliente
     const chartConfig: ChartConfig = {

@@ -40,12 +40,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {/* <NavBar /> */}
         <NavbarFeat />
       </div>
-      <TanstackQueryInicializador>
-        <PasswordChangeAlertWrapper />
-        <PermissionsProvider>
-          <div className="px-6">{children}</div>
-        </PermissionsProvider>
-      </TanstackQueryInicializador>
+      <div className="min-h-0 overflow-y-auto">
+        <TanstackQueryInicializador>
+          <PasswordChangeAlertWrapper />
+          <PermissionsProvider>
+            <div className="px-6">{children}</div>
+          </PermissionsProvider>
+        </TanstackQueryInicializador>
+      </div>
     </div>
   );
 }
