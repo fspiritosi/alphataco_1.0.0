@@ -1092,10 +1092,13 @@ model dailyreportequipmentrelations {
   daily_report_row_id String?          @db.Uuid
   equipment_id        String?          @db.Uuid
   created_at          DateTime?        @default(now()) @db.Timestamp(6)
+  other_equipment_id  String?          @db.Uuid
   dailyreportrows     dailyreportrows? @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   vehicles            vehicles?        @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_equipment     other_equipment? @relation(fields: [other_equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([daily_report_row_id], map: "idx_dailyreportequipmentrelations_row_id")
+  @@index([other_equipment_id], map: "idx_daily_equip_rel_other_equipment", where: raw("(other_equipment_id IS NOT NULL)"))
   @@schema("public")
 }
 
@@ -1216,11 +1219,13 @@ model document_types {
   private             Boolean?
   down_document       Boolean?
   conditions          Json[]
+  equipment_type      String?               @db.VarChar(20)
   company             company?              @relation(fields: [company_id], references: [id], onDelete: Cascade)
   documents_company   documents_company[]
   documents_employees documents_employees[]
   documents_equipment documents_equipment[]
 
+  @@index([equipment_type], map: "idx_document_types_equipment_type")
   @@schema("public")
 }
 
@@ -1723,6 +1728,7 @@ model maintenance_orders {
   operations_validated_by                                  String?                    @db.Uuid
   operations_validated_at                                  DateTime?                  @db.Timestamptz(6)
   operations_validation_notes                              String?
+  engine_hours_at_entry                                    String?
   maintenance_activity_log                                 maintenance_activity_log[]
   maintenance_order_items                                  maintenance_order_items[]
   profile_maintenance_orders_date_approved_byToprofile     profile?                   @relation("maintenance_orders_date_approved_byToprofile", fields: [date_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1805,6 +1811,7 @@ model maintenance_requests {
   updated_at                                          DateTime?                   @default(now()) @db.Timestamptz(6)
   supervisor_id                                       String?                     @db.Uuid
   source                                              String?                     @default("checklist")
+  engine_hours                                        String?
   maintenance_activity_log                            maintenance_activity_log[]
   maintenance_orders                                  maintenance_orders[]
   maintenance_request_items                           maintenance_request_items[]
@@ -1913,6 +1920,7 @@ model other_equipment {
   user_id                        String?                          @db.Uuid
   created_at                     DateTime                         @default(now()) @db.Timestamptz(6)
   contractor_other_equipment     contractor_other_equipment[]
+  dailyreportequipmentrelations  dailyreportequipmentrelations[]
   brand_vehicles                 brand_vehicles?                  @relation(fields: [brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company                        company                          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   cost_center                    cost_center?                     @relation(fields: [cost_center_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2279,6 +2287,8 @@ model service_items {
   is_active           Boolean?          @default(true)
   code_item           String?
   item_number         String?
+  needs_personnel     Boolean           @default(true)
+  needs_equipment     Boolean           @default(true)
   dailyreportrows     dailyreportrows[]
   preparte            preparte[]
   company             company           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_service_items_company_id_fkey")
@@ -2386,6 +2396,8 @@ model type {
   has_hitch                                                  Boolean?                   @default(false)
   is_tractor_unit                                            Boolean?                   @default(false)
   generates_qr                                               Boolean?                   @default(true)
+  applies_to                                                 String?                    @default("vehicle") @db.VarChar(20)
+  is_operative                                               Boolean?                   @default(false)
   checklist_template_types                                   checklist_template_types[]
   other_equipment                                            other_equipment[]
   sub_type_sub_type_typeTotype                               sub_type[]                 @relation("sub_type_typeTotype")
@@ -2394,6 +2406,7 @@ model type {
   type_hitch_types_type_hitch_types_type_idTotype            type_hitch_types[]         @relation("type_hitch_types_type_idTotype")
   vehicles_vehicles_typeTotype                               vehicles[]                 @relation("vehicles_typeTotype")
 
+  @@index([applies_to], map: "idx_type_applies_to")
   @@schema("public")
 }
 
@@ -2545,6 +2558,7 @@ model vehicles {
   price                         Decimal?                        @db.Decimal(15, 2)
   cost_type                     cost_type_enum?
   sector                        String?                         @db.Uuid
+  engine_hours                  String?                         @default("0")
   assing_customer               assing_customer[]
   checklist_answers             checklist_answers[]
   checklist_deviations          checklist_deviations[]

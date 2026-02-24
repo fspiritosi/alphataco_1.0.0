@@ -1584,18 +1584,21 @@ export type Database = {
           daily_report_row_id: string | null;
           equipment_id: string | null;
           id: string;
+          other_equipment_id: string | null;
         };
         Insert: {
           created_at?: string | null;
           daily_report_row_id?: string | null;
           equipment_id?: string | null;
           id?: string;
+          other_equipment_id?: string | null;
         };
         Update: {
           created_at?: string | null;
           daily_report_row_id?: string | null;
           equipment_id?: string | null;
           id?: string;
+          other_equipment_id?: string | null;
         };
         Relationships: [
           {
@@ -1617,6 +1620,13 @@ export type Database = {
             columns: ['equipment_id'];
             isOneToOne: false;
             referencedRelation: 'vehicles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'dailyreportequipmentrelations_other_equipment_id_fkey';
+            columns: ['other_equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'other_equipment';
             referencedColumns: ['id'];
           },
         ];
@@ -4998,6 +5008,7 @@ export type Database = {
           has_hitch: boolean | null;
           id: string;
           is_active: boolean | null;
+          is_operative: boolean | null;
           is_tractor_unit: boolean | null;
           name: string;
         };
@@ -5009,6 +5020,7 @@ export type Database = {
           has_hitch?: boolean | null;
           id?: string;
           is_active?: boolean | null;
+          is_operative?: boolean | null;
           is_tractor_unit?: boolean | null;
           name: string;
         };
@@ -5020,6 +5032,7 @@ export type Database = {
           has_hitch?: boolean | null;
           id?: string;
           is_active?: boolean | null;
+          is_operative?: boolean | null;
           is_tractor_unit?: boolean | null;
           name?: string;
         };

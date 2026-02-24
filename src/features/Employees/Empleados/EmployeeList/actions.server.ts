@@ -152,7 +152,7 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
   for (const key of IGNORED_PARAMS) {
     delete state.filters[key];
   }
-  const { skip, take, orderBy } = stateToPrismaParams(state);
+  const { skip, take } = stateToPrismaParams(state);
 
   // Build where clauses
   const searchWhere = buildSearchWhere(state.search, ['lastname', 'firstname', 'cuil', 'file']);
@@ -265,11 +265,14 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
   };
 
-  // Safe orderBy: only allow valid sort fields
-  const safeOrderBy =
-    orderBy && state.sortBy && VALID_SORT_FIELDS.has(state.sortBy)
-      ? [orderBy, { lastname: 'asc' as const }]
-      : [{ lastname: 'asc' as const }];
+  // Safe orderBy: multi-sort, solo campos válidos
+  const resolvedSorts: Record<string, unknown>[] = [];
+  for (const s of state.sorting) {
+    if (VALID_SORT_FIELDS.has(s.id)) {
+      resolvedSorts.push({ [s.id]: s.desc ? 'desc' : 'asc' });
+    }
+  }
+  const safeOrderBy = [...resolvedSorts, { lastname: 'asc' as const }];
 
   const [data, total] = await Promise.all([
     prisma.employees.findMany({
