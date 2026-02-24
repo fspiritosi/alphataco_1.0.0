@@ -36,7 +36,7 @@ const generateChartConfig = (data: any, category: string) => {
 
     categoryConfig[key] = {
       label: item.name.replace(/_/g, ' ') || `Item ${index + 1}`,
-      color: 'hsl(var(--chart-5))',
+      color: 'var(--chart-5)',
     };
   });
 
@@ -544,7 +544,7 @@ function CreatedForm() {
         </Card>
       ) : (
         <TooltipProvider delayDuration={0}>
-          <ResizablePanelGroup direction="horizontal" className="h-full max-h-[800px] items-stretch p-0 m-0">
+          <ResizablePanelGroup orientation="horizontal" className="h-full max-h-[800px] items-stretch p-0 m-0">
             <ResizablePanel minSize={30}>
               <DisplayCreatedForms createdForms={createdFormsState} setSelectedForm={setSelectedForm} />
             </ResizablePanel>

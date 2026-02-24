@@ -53,7 +53,7 @@ export function ServicesDistributionSection({ servicesSummary }: { servicesSumma
         const clientData: ClientServiceData[] = servicesDetail.map((item, index) => ({
           client_name: item.client_name,
           total_count: item.total_count,
-          fill: `hsl(var(--chart-${(index % 5) + 1}))`,
+          fill: `var(--chart-${(index % 5) + 1})`,
         }));
 
         // Crear chartConfig2 dinámicamente

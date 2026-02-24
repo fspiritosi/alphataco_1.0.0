@@ -45,6 +45,8 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
   searchParams,
   dependentParams = [],
   permissions: providedPermissions,
+  variant,
+  actions,
 }: TabsManagerServerProps<M>) {
   // En Next.js 16, searchParams es una Promise, necesitamos hacer await
   const resolvedSearchParams = await searchParams;
@@ -141,6 +143,8 @@ export async function TabsManagerServer<M extends ModuleSlug = ModuleSlug>({
       tabs={filteredTabs}
       defaultTab={effectiveDefaultTab}
       dependentParams={dependentParams}
+      variant={variant}
+      actions={actions}
     />
   );
 }

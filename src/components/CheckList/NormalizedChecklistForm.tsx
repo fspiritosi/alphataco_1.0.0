@@ -25,7 +25,7 @@ import { AlertCircle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } fro
 import moment from 'moment';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Control, type FieldValues, type UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { DevAutoFillButton } from './DevAutoFillButton';
 // Tipos basados en la estructura de la base de datos
@@ -368,9 +368,10 @@ const ChecklistItemField = ({
 }: {
   item: ChecklistTemplateItem;
   sectionCode: string;
-  form: ReturnType<typeof useForm>;
+  form: UseFormReturn<FieldValues>;
   readOnly?: boolean;
 }) => {
+  const typedControl = form.control as Control<FieldValues>;
   const itemCode = item.code || `item_${item.id}`;
   const fieldName = `${sectionCode}__${itemCode}`;
   const label = cleanLabel(item.label || 'Sin etiqueta');
@@ -392,7 +393,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
@@ -443,7 +444,7 @@ const ChecklistItemField = ({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            control={form.control}
+            control={typedControl}
             name={`${fieldName}_left`}
             render={({ field }) => {
               return (
@@ -475,7 +476,7 @@ const ChecklistItemField = ({
             }}
           />
           <FormField
-            control={form.control}
+            control={typedControl}
             name={`${fieldName}_right`}
             render={({ field }) => {
               return (
@@ -516,7 +517,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => {
             return (
@@ -565,7 +566,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
@@ -595,7 +596,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
@@ -624,7 +625,7 @@ const ChecklistItemField = ({
   return (
     <div className="border rounded-lg p-4 bg-muted/20">
       <FormField
-        control={form.control}
+        control={typedControl}
         name={fieldName}
         render={({ field }) => (
           <FormItem>
@@ -728,6 +729,9 @@ export function NormalizedChecklistForm({
     mode: 'onSubmit', // Validar solo al hacer submit la primera vez
     reValidateMode: 'onBlur', // Re-validar solo el campo específico cuando el usuario sale de él
   });
+
+  // Typed control compatible con Controller/FormField (react-hook-form 7.71+ con schemas dinamicos)
+  const typedControl = form.control as Control<FieldValues>;
 
   // Ordenar secciones por order_index
   const sortedSections = [...(template.checklist_template_sections || [])].sort(
@@ -1127,7 +1131,7 @@ export function NormalizedChecklistForm({
                 <CardContent className="space-y-4">
                   <div className="space-y-4">
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="equipment_id"
                       render={({ field }) => (
                         <FormItem>
@@ -1237,7 +1241,7 @@ export function NormalizedChecklistForm({
                     {/* Campo de cliente */}
                     {customers.length > 0 && (
                       <FormField
-                        control={form.control}
+                        control={typedControl}
                         name="customer_id"
                         render={({ field }) => (
                           <FormItem>
@@ -1265,7 +1269,7 @@ export function NormalizedChecklistForm({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="chofer"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
@@ -1329,7 +1333,7 @@ export function NormalizedChecklistForm({
                     />
 
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="kilometraje"
                       render={({ field }) => (
                         <FormItem>
@@ -1377,7 +1381,7 @@ export function NormalizedChecklistForm({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="fecha"
                       render={({ field }) => (
                         <FormItem>
@@ -1391,7 +1395,7 @@ export function NormalizedChecklistForm({
                     />
 
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="hora"
                       render={({ field }) => (
                         <FormItem>
@@ -1406,7 +1410,7 @@ export function NormalizedChecklistForm({
                   </div>
 
                   <FormField
-                    control={form.control}
+                    control={typedControl}
                     name="observaciones"
                     render={({ field }) => (
                       <FormItem>

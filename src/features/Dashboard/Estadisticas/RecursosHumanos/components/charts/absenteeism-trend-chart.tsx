@@ -78,7 +78,7 @@ export function AbsenteeismTrendChartComponent({ chartConfig, data, showLabels }
         <Line
           dataKey="percentage"
           type="monotone"
-          stroke="hsl(var(--muted-foreground) / 0.3)"
+          stroke="color-mix(in oklch, var(--muted-foreground) 30%, transparent)"
           strokeWidth={2}
           dot={(props: any) => {
             const { cx, cy, payload } = props;

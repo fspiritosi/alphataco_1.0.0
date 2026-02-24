@@ -60,3 +60,5 @@ settings.local.json
 .zed
 .agents
 /local
+
+/src/generated/prisma

@@ -26,7 +26,7 @@ import { useChartData } from '../hooks/useChartData';
 const chartConfig = {
   percentage: {
     label: 'Tendencia de Ausentismo (%)',
-    color: 'hsl(var(--chart-1))',
+    color: 'var(--chart-1)',
   },
 } satisfies ChartConfig;
 

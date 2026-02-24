@@ -26,15 +26,15 @@ import { useChartData } from '../hooks/useChartData';
 const chartConfig = {
   'total-count': {
     label: 'Total',
-    color: 'hsl(var(--chart-1))',
+    color: 'var(--chart-1)',
   },
   'vehicle-count': {
     label: 'Vehículos',
-    color: 'hsl(var(--chart-2))',
+    color: 'var(--chart-2)',
   },
   'employee-count': {
     label: 'Empleados',
-    color: 'hsl(var(--chart-3))',
+    color: 'var(--chart-3)',
   },
 } satisfies ChartConfig;
 
