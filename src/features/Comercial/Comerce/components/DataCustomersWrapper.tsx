@@ -21,7 +21,7 @@ export default async function DataCustomersWrapper() {
     fechAllCustomers(),
     fetchAreasWithProvinces(),
     fetchAllSectors(),
-    fetchServices(actualCompany || ''),
+    fetchServices(),
     fetchAllEmployeesOnlyName(),
     fetchMeasureUnits(),
   ]);

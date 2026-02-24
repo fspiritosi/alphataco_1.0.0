@@ -170,20 +170,28 @@ export function DailyReportRowFormRefactored() {
   React.useEffect(() => {
     if (!isCreating && isOpen) {
       const subscription = form.watch((value, { name }) => {
-        // Solo actuar si cambian los recursos
-        if (name === 'employees' || name === 'equipment') {
+        // Solo actuar si cambian los recursos o el item
+        if (name === 'employees' || name === 'equipment' || name === 'item') {
           const employees = value.employees || [];
           const equipment = value.equipment || [];
           const currentStatus = value.status;
+          const currentItemId = value.item;
 
-          const hasResources = employees.length > 0 || equipment.length > 0;
+          // Obtener los flags del item seleccionado
+          const selectedItem = serviceItems?.find((item) => item.id === currentItemId);
+          const itemNeedsPersonnel = selectedItem?.needs_personnel ?? true;
+          const itemNeedsEquipment = selectedItem?.needs_equipment ?? true;
 
-          // Si está en "sin_recursos_asignados" y ahora tiene recursos -> cambiar a "pendiente"
-          if (currentStatus === 'sin_recursos_asignados' && hasResources) {
+          // Solo considerar falta de recursos si el item los requiere
+          const missingRequiredResources =
+            (itemNeedsPersonnel && employees.length === 0) || (itemNeedsEquipment && equipment.length === 0);
+
+          // Si está en "sin_recursos_asignados" y ahora tiene los recursos requeridos -> cambiar a "pendiente"
+          if (currentStatus === 'sin_recursos_asignados' && !missingRequiredResources) {
             form.setValue('status', 'pendiente', { shouldValidate: true });
           }
-          // Si está en "pendiente" y ya no tiene recursos -> cambiar a "sin_recursos_asignados"
-          else if (currentStatus === 'pendiente' && !hasResources) {
+          // Si está en "pendiente" y ya no tiene los recursos requeridos -> cambiar a "sin_recursos_asignados"
+          else if (currentStatus === 'pendiente' && missingRequiredResources) {
             form.setValue('status', 'sin_recursos_asignados', { shouldValidate: true });
           }
         }
@@ -191,15 +199,19 @@ export function DailyReportRowFormRefactored() {
 
       return () => subscription.unsubscribe();
     }
-  }, [form, isCreating, isOpen]);
+  }, [form, isCreating, isOpen, serviceItems]);
 
-  // 8. Query client para invalidar queries
+  // 8. Derivar flags del item seleccionado (sin useEffect, derivado reactivo)
+  const watchedItemId = form.watch('item');
+  const selectedServiceItem = serviceItems?.find((item) => item.id === watchedItemId);
+
+  // 9. Query client para invalidar queries
   const queryClient = useQueryClient();
 
-  // 9. Manejar envío
-  const { onSubmit } = useFormSubmit(isCreating, selectedRow, () => {}, reset, queryClient);
+  // 10. Manejar envío
+  const { onSubmit } = useFormSubmit(isCreating, selectedRow, () => {}, reset, queryClient, serviceItems);
 
-  // 10. Obtener fecha del parte diario
+  // 11. Obtener fecha del parte diario
   const formDate = form.watch('date');
   const reportDate = React.useMemo(() => {
     if (isCreating) {
@@ -227,7 +239,7 @@ export function DailyReportRowFormRefactored() {
     }
   }, [isCreating, selectedRow, formDate]);
 
-  // 11. Manejar cancelación
+  // 12. Manejar cancelación
   const handleCancel = () => {
     form.reset(defaultValues);
     setSelectedCustomer(null);
@@ -279,8 +291,16 @@ export function DailyReportRowFormRefactored() {
               {/* Sección 2: Fecha y Horarios */}
               <DateTimeSection form={form} isCreating={isCreating} disabled={false} />
 
-              {/* Sección 3: Recursos (Empleados y Equipos) */}
-              <ResourcesSection form={form} isCreating={isCreating} selectedRow={selectedRow} disabled={false} />
+              {/* Sección 3: Recursos (Empleados y Equipos) - dinámico según flags del item */}
+              <ResourcesSection
+                form={form}
+                isCreating={isCreating}
+                selectedRow={selectedRow}
+                disabled={false}
+                itemNeedsPersonnel={selectedServiceItem?.needs_personnel ?? true}
+                itemNeedsEquipment={selectedServiceItem?.needs_equipment ?? true}
+                itemName={selectedServiceItem?.item_name}
+              />
 
               {/* Sección 4: Estado y Remito */}
               <StatusSection form={form} isCreating={isCreating} currentStatus={selectedRow?.status} disabled={false} />
