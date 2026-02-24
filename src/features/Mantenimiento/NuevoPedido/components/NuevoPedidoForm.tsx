@@ -34,6 +34,7 @@ const FormSchema = z.object({
     required_error: 'Por favor selecciona un equipo',
   }),
   kilometer: z.string().optional(),
+  engine_hours: z.string().optional(),
   repair_types: z.array(z.string()).min(1, 'Debes seleccionar al menos un tipo de reparación'),
 });
 
@@ -72,6 +73,7 @@ export function NuevoPedidoForm({
     defaultValues: {
       equipment_id: default_equipment_id || '',
       kilometer: defaultEquipment?.kilometer || '',
+      engine_hours: defaultEquipment?.engine_hours || '',
       repair_types: [],
     },
   });
@@ -84,9 +86,6 @@ export function NuevoPedidoForm({
     () => equipment?.find((e) => e.id === selectedEquipmentId),
     [equipment, selectedEquipmentId]
   );
-
-  // Determinar si es un vehículo (para mostrar kilometraje)
-  const isVehicle = selectedEquipment?.types_of_vehicles?.name === 'Vehículos';
 
   // Filtrar equipos por búsqueda
   const filteredEquipment = useMemo(() => {
@@ -111,6 +110,7 @@ export function NuevoPedidoForm({
       if (equip) {
         form.setValue('equipment_id', equip.id);
         form.setValue('kilometer', equip.kilometer || '');
+        form.setValue('engine_hours', equip.engine_hours || '');
         form.setValue('repair_types', []); // Reset repair types al cambiar equipo
       }
       setEquipmentOpen(false);
@@ -203,7 +203,8 @@ export function NuevoPedidoForm({
       // Crear el pedido
       await createMaintenanceOrderDirect({
         equipment_id: data.equipment_id,
-        kilometer: isVehicle ? data.kilometer : undefined,
+        kilometer: data.kilometer || undefined,
+        engine_hours: data.engine_hours || undefined,
         items,
       });
 
@@ -211,6 +212,7 @@ export function NuevoPedidoForm({
       form.reset({
         equipment_id: default_equipment_id || '',
         kilometer: defaultEquipment?.kilometer || '',
+        engine_hours: defaultEquipment?.engine_hours || '',
         repair_types: [],
       });
       router.refresh();
@@ -313,8 +315,8 @@ export function NuevoPedidoForm({
                 )}
               />
 
-              {/* Kilometraje (solo para vehículos) */}
-              {isVehicle && (
+              {/* Kilometraje y Horómetro */}
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="kilometer"
@@ -331,14 +333,38 @@ export function NuevoPedidoForm({
                       </FormControl>
                       {selectedEquipment?.kilometer && (
                         <p className="text-xs text-muted-foreground">
-                          Último kilometraje registrado: {selectedEquipment.kilometer} km
+                          Último registrado: {selectedEquipment.kilometer} km
                         </p>
                       )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
+
+                <FormField
+                  control={form.control}
+                  name="engine_hours"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Horómetro</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="number"
+                          placeholder="Ingrese las horas de motor"
+                          min={Number(selectedEquipment?.engine_hours) || 0}
+                        />
+                      </FormControl>
+                      {selectedEquipment?.engine_hours && (
+                        <p className="text-xs text-muted-foreground">
+                          Último registrado: {selectedEquipment.engine_hours} hs
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <Separator />
 
@@ -515,9 +541,14 @@ export function NuevoPedidoForm({
                 <span>{selectedEquipment.types_of_vehicles?.name}</span>
                 {selectedEquipment.intern_number && <span>Nº Interno: {selectedEquipment.intern_number}</span>}
               </div>
-              {isVehicle && form.watch('kilometer') && (
+              {form.watch('kilometer') && (
                 <p className="text-sm">
                   Kilometraje: <span className="font-medium">{form.watch('kilometer')} km</span>
+                </p>
+              )}
+              {form.watch('engine_hours') && (
+                <p className="text-sm">
+                  Horómetro: <span className="font-medium">{form.watch('engine_hours')} hs</span>
                 </p>
               )}
             </div>

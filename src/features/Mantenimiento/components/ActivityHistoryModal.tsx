@@ -155,6 +155,7 @@ function TimelineItem({
   const totalPausedTime = metadata?.total_paused_time as string | undefined;
   const scheduledDate = metadata?.scheduled_date as string | undefined;
   const kilometerAtEntry = metadata?.kilometer_at_entry as string | undefined;
+  const engineHoursAtEntry = metadata?.engine_hours_at_entry as number | undefined;
 
   return (
     <div className="relative flex items-start gap-3 pl-1">
@@ -236,6 +237,14 @@ function TimelineItem({
           <p className="text-xs text-muted-foreground mt-1">
             <Truck className="h-3 w-3 inline mr-1" />
             Kilometraje: {kilometerAtEntry} km
+          </p>
+        )}
+
+        {/* Horómetro al ingresar */}
+        {engineHoursAtEntry != null && (
+          <p className="text-xs text-muted-foreground mt-1">
+            <Clock className="h-3 w-3 inline mr-1" />
+            Horómetro: {engineHoursAtEntry} hs
           </p>
         )}
 

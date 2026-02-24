@@ -1,8 +1,11 @@
 'use server';
+import { Logger } from '@/lib/logger';
 import { adminSupabaseServer, supabaseServer } from '@/lib/supabase/server';
 import { getActualRole, mapEquipmentToChecklistFormat } from '@/lib/utils';
 import moment from 'moment';
 import { cookies } from 'next/headers';
+
+const actionsLogger = new Logger('GET/actions');
 // Employee-related actions
 
 export const setNewCompanyUserMetadata = async (company_id: string) => {
@@ -939,11 +942,13 @@ export const fetchAllEquipmentBasicData = async () => {
 
   let { data: equipments, error } = await supabase
     .from('vehicles')
-    .select(`id,condition,picture,year,company_id, domain, serie, intern_number,kilometer, types_of_vehicles(name)`)
+    .select(
+      `id,condition,picture,year,company_id, domain, serie, intern_number,kilometer, engine_hours, types_of_vehicles(name)`
+    )
     .eq('company_id', company_id);
 
   if (error) {
-    console.error('Error fetching equipment:', error);
+    actionsLogger.error('Error fetching equipment', { data: { error } });
     return [];
   }
   return equipments || [];

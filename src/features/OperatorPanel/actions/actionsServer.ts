@@ -303,7 +303,7 @@ export async function getWorkOrderDetailForOperator(workOrderId: string, sectorI
         maintenance_order_items:maintenance_order_item_id(
           id, description, maintenance_order_id,
           maintenance_orders:maintenance_order_id(id, order_number, equipment_id,
-            vehicles:equipment_id(id, domain, serie, intern_number, kilometer)
+            vehicles:equipment_id(id, domain, serie, intern_number, kilometer, engine_hours)
           )
         ),
         work_order_item_repairs(

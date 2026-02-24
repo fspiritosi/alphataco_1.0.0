@@ -90,7 +90,43 @@ Si encuentras violaciones, repórtalas claramente:
 
 Pregunta al usuario si quiere que los corrijas antes de hacer el commit.
 
-### 4. Crear el Commit
+### 4. Revision Diferencial (Antes de commitear)
+
+Ejecuta una revision diferencial rapida usando `git diff` contra la rama base para identificar riesgos:
+
+```bash
+# Obtener el diff completo contra main
+git diff main...HEAD --stat
+git diff main...HEAD --name-only
+```
+
+**Clasificar cada archivo modificado por riesgo:**
+
+| Riesgo | Triggers |
+|--------|----------|
+| ALTO | Auth, validaciones eliminadas, queries sin filtros, acceso a datos sensibles, cambios en permisos |
+| MEDIO | Logica de negocio, cambios de estado, nuevas server actions, cambios en queries |
+| BAJO | UI, logging, comentarios, tipos |
+
+**Para archivos de riesgo ALTO, verificar:**
+
+1. **Blast radius**: Buscar todos los archivos que importan/usan las funciones modificadas
+2. **Regresiones**: Revisar con `git blame` si se elimino codigo de seguridad o validacion
+3. **Consistencia**: Verificar que el cambio se aplico en TODOS los lugares necesarios (ej: si se agrega un campo, que se muestre en todos los displays relevantes)
+
+**Generar mini-reporte** al usuario antes de commitear:
+
+```
+📋 Revision diferencial:
+- Archivos modificados: X (Y alto riesgo, Z medio, W bajo)
+- Blast radius: [funciones afectadas]
+- Riesgos detectados: [lista o "Ninguno"]
+- Consistencia: [OK o issues encontrados]
+```
+
+Si se detectan riesgos ALTOS, preguntar al usuario si desea corregir antes de commitear.
+
+### 5. Crear el Commit
 
 - Stagea los archivos apropiados (prefiere archivos específicos sobre `git add -A` cuando sea posible)
 - Crea un mensaje de commit descriptivo siguiendo conventional commits:
@@ -121,7 +157,7 @@ git commit -m "fix stuff"             # No descriptivo
 git commit -m "feat: add feature\n\nCo-Authored-By: ..."  # NUNCA incluir esto
 ```
 
-### 5. Push al Remoto
+### 6. Push al Remoto
 
 - Hace push a la rama actual
 - Si la rama no tiene upstream: usa `git push -u origin <branch-name>`

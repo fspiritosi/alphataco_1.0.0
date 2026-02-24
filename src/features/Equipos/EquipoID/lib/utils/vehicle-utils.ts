@@ -18,7 +18,8 @@ export function getVehicleTypeFields(typeOfVehicle: string) {
   return {
     showDomain: isVehicle,
     showChassis: isVehicle,
-    showKilometer: isVehicle,
+    showKilometer: true,
+    showEngineHours: true,
     showSerie: !isVehicle,
     requireDomain: isVehicle,
     requireChassis: isVehicle,

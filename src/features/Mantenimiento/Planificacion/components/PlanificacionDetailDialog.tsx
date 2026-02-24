@@ -81,6 +81,14 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
                     : '-'}
                 </p>
               </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Hs al Ingreso</span>
+                <p className="font-medium">
+                  {order.engine_hours_at_entry ?? order.maintenance_requests?.engine_hours
+                    ? `${order.engine_hours_at_entry ?? order.maintenance_requests?.engine_hours} hs`
+                    : '-'}
+                </p>
+              </div>
             </div>
 
             <Separator />

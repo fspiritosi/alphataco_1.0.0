@@ -85,6 +85,12 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                     <p className="font-medium">{request.kilometer} km</p>
                   </div>
                 )}
+                {request.engine_hours && (
+                  <div>
+                    <span className="text-sm text-muted-foreground">Horómetro:</span>
+                    <p className="font-medium">{request.engine_hours} hs</p>
+                  </div>
+                )}
               </div>
 
               {request.status === 'rejected' && request.rejection_reason && (

@@ -467,6 +467,12 @@ export function ManageOrderDialog({
                 {String(order.maintenance_requests?.kilometer || vehicle?.kilometer || '-')}
               </span>
             </div>
+            <div>
+              <span className="text-muted-foreground">Hs:</span>{' '}
+              <span className="font-medium">
+                {String(order.maintenance_requests?.engine_hours || vehicle?.engine_hours || '-')}
+              </span>
+            </div>
           </div>
 
           <Separator />
