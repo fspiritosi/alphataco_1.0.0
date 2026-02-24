@@ -57,10 +57,16 @@ export function _OtherEquipmentDataTable({
   initialColumnVisibility,
   initialFilterVisibility,
 }: Props) {
-  // Facets se cargan en el cliente — no bloquean el render inicial
+  // Extraer solo los params relevantes para facets (sin page/sort)
+  const facetParams = useMemo(() => {
+    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
+    return rest;
+  }, [searchParams]);
+
+  // Facets con cross-filtering: se recalculan cuando cambian los filtros
   const { data: facets } = useQuery({
-    queryKey: ['other-equipment-facets'],
-    queryFn: () => getOtherEquipmentFacets(),
+    queryKey: ['other-equipment-facets', facetParams],
+    queryFn: () => getOtherEquipmentFacets(facetParams),
     staleTime: 5 * 60 * 1000,
   });
 
