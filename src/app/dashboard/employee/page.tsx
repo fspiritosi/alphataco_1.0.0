@@ -49,7 +49,7 @@ export default async function EmployeePage({
       defaultTab="employees"
       dependentParams={['subtab']}
       permissions={permissions}
-      variant="line"
+      // variant="line"
       tabs={[
         {
           value: 'employees',

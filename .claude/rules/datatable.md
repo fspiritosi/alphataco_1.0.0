@@ -1,504 +1,194 @@
-# DataTable Server-Side con Supabase
+# DataTable con Prisma (Sistema Actual)
 
-## Cuando Usar Esta Guia
+## Cuando Aplica Esta Regla
 
-Esta documentacion aplica cuando:
+Aplica cuando:
 
-- Estes **creando una nueva tabla** con paginacion server-side
-- Estes **modificando columnas** de una tabla existente
-- Estes **agregando filtros** a una tabla
-- Estes **configurando relaciones** de Supabase en columnas
-- Estes trabajando con `BaseDataTable` o `fetchData` functions
+- Estes **creando** una nueva tabla paginada
+- Estes **modificando** una tabla existente (columnas, filtros, export)
+- Estes **auditando** una tabla para verificar completitud
+- Encuentres una tabla que usa el **sistema viejo** (debe migrarse)
 
-## Arquitectura General
+## Componente y Arquitectura Obligatorios
 
-```
-{Feature}Table.tsx (Server Component)
-    ↓ Carga inicial SSR
-{Feature}TableClient.tsx (Client Component)
-    ↓ Props y configuracion
-BaseDataTable (Componente reutilizable)
-```
-
-## Estructura de Archivos
+**SIEMPRE** usar el `DataTable` de `@/shared/components/common/DataTable/` con Prisma.
 
 ```
-src/features/{Feature}/
-├── {Feature}Table.tsx              # Server Component (entry point)
-├── components/
-│   └── {Feature}TableClient.tsx    # Client Component con columnas
-└── ...
-
-src/app/server/GET/
-└── probando.ts                     # Funciones de fetching genericas
+page.tsx (thin)
+  └── {Entity}List.tsx  (Server Component — fetch Prisma + permisos)
+        └── _{Entity}DataTable.tsx  (Client Component — filtros + interactividad)
+              └── <DataTable />  (componente compartido)
 ```
 
-## Server Component (Entry Point)
+**Documentacion detallada:**
+- **Plantilla completa**: `.claude/skills/new-datatable/SKILL.md`
+- **API del componente**: `src/shared/components/common/DataTable/DOCS.md`
+- **Regla de filtros**: `.claude/rules/datatable-filters.md`
+- **Agente experto**: `.claude/agents/table-expert.md`
+
+## Fetching con Prisma (NO Supabase)
 
 ```typescript
-// {Feature}Table.tsx
-import { fetch{Feature}Data } from '@/app/server/GET/probando';
-import { cookies } from 'next/headers';
-import {Feature}TableClient from './components/{Feature}TableClient';
+// actions.server.ts — SIEMPRE Prisma
+'use server';
+import { prisma } from '@/shared/lib/prisma';
+import {
+  parseSearchParams, stateToPrismaParams,
+  buildSearchWhere, buildFiltersWhere,
+  buildTextFiltersWhere, buildDateRangeFiltersWhere,
+} from '@/shared/components/common/DataTable';
 
-async function {Feature}Table() {
-  const cookiesStore = await cookies();
-
-  // Persistencia de estado en cookies
-  const savedVisibility = cookiesStore.get(`{tableId}`)?.value;
-  const savedFilters = cookiesStore.get(`{tableId}-filters`)?.value;
-
-  // Carga inicial SSR
-  const initialData = await fetch{Feature}Data({
-    pageIndex: 0,
-    pageSize: 10,
-    sorting: [],
-    columnFilters: [],
-  });
-
-  return (
-    <{Feature}TableClient
-      initialData={initialData}
-      savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
-      savedFilters={savedFilters ? JSON.parse(savedFilters) : []}
-    />
-  );
+export async function getEntitysPaginated(searchParams: DataTableSearchParams) {
+  const state = parseSearchParams(searchParams);
+  const { skip, take, orderBy } = stateToPrismaParams(state);
+  // ... where con build*Where helpers ...
+  const [data, total] = await Promise.all([
+    prisma.entity.findMany({ where, skip, take, orderBy, select: { ... } }),
+    prisma.entity.count({ where }),
+  ]);
+  return { data, total };
 }
 
-export default {Feature}Table;
+// Tipo inferido — NUNCA tipar manualmente
+export type EntityListItem = Awaited<ReturnType<typeof getEntitysPaginated>>['data'][number];
 ```
 
-## Funcion de Fetching
+## Props Clave del Nuevo DataTable
 
 ```typescript
-// src/app/server/GET/probando.ts
-export async function fetch{Feature}Data(options: {
-  pageIndex: number;
-  pageSize: number;
-  sorting: SortingState;
-  columnFilters: ColumnFiltersState;
-  filters?: Filter<'{table_name}'>[];
-}) {
-  const data = await queryWithPagination(
-    '{table_name}',
-    // Query con relaciones
-    '*,relation1(id,name),relation2(id,name),pivot_table(related_table(id,name))',
-    {
-      ...options,
-      sorting: [...options.sorting, { id: 'default_sort_column', desc: true }],
-      is_active: true, // Filtro permanente opcional
-    }
-  );
-  return data;
-}
-
-// Funcion para exportacion (todos los datos)
-export async function fetchAll{Feature}Data(options: {
-  sorting: SortingState;
-  columnFilters: ColumnFiltersState;
-}) {
-  const result = await queryWithPagination(
-    '{table_name}',
-    '*,relation1(id,name),relation2(id,name)',
-    {
-      pageIndex: 0,
-      pageSize: 10000,
-      sorting: options.sorting,
-      columnFilters: options.columnFilters,
-      server: false,
-    }
-  );
-  return result;
-}
-```
-
-## Sintaxis de Query de Supabase
-
-```typescript
-// Columnas directas
-'*'; // Todas las columnas de la tabla principal
-
-// Relacion simple (FK directa)
-'relation_alias(id,name)';
-// Donde: relation_alias = nombre de la tabla relacionada
-// La FK se infiere automaticamente por Supabase
-
-// Relacion Many-to-Many (tabla pivot)
-'pivot_table(related_table(id,name))';
-// Ejemplo: contractor_employee(customers(id,name))
-
-// Query completa ejemplo:
-'empleado_aptitudes(aptitudes_tecnicas(nombre)),*,types_of_contract(id,name),hierarchy(id,name),provinces(id,name),contractor_employee(customers(id,name))';
-```
-
-## Definicion de Columnas
-
-### Regla Critica: accessorKey = id
-
-**El `accessorKey` y el `id` de cada columna DEBEN ser identicos y seguir el patron de la query de Supabase.**
-
-```typescript
-// ✅ CORRECTO
-{
-  accessorKey: 'provinces.name',
-  id: 'provinces.name',
-  // ...
-}
-
-// ❌ INCORRECTO
-{
-  accessorKey: 'province',  // No coincide con la query
-  id: 'provinceName',       // Diferente al accessorKey
-}
-```
-
-### Columnas Directas (tabla principal)
-
-```typescript
-{
-  accessorKey: 'lastname',
-  id: 'lastname',
-  header: ({ column }) => <DataTableColumnHeader column={column} title="Apellido" />,
-  cell: ({ row }) => <div>{row.original.lastname || '-'}</div>,
-  filterFn: (row, id, value) => {
-    return value.includes(String(row.getValue(id)));
-  },
-}
-```
-
-### Columnas con Relacion Simple (FK)
-
-```typescript
-// Query: 'provinces(id,name)'
-// FK en tabla principal: province → provinces.id
-{
-  accessorKey: 'provinces.name',  // alias.columna
-  id: 'provinces.name',
-  header: ({ column }) => <DataTableColumnHeader column={column} title="Provincia" />,
-  cell: ({ row }) => <div>{row.original.provinces?.name || '-'}</div>,
-  filterFn: (row, id, value) => {
-    return value.includes(String(row.getValue(id)));
-  },
-}
-```
-
-### Columnas con Relacion Many-to-Many
-
-```typescript
-// Query: 'contractor_employee(customers(id,name))'
-// Relacion: employees ← contractor_employee → customers
-{
-  accessorKey: 'contractor_employee.customers.name',
-  id: 'contractor_employee.customers.name',
-  header: ({ column }) => <DataTableColumnHeader column={column} title="Afectaciones" />,
-  cell: ({ row }) => {
-    const contractors = row.original.contractor_employee || [];
-
-    if (contractors.length === 0) {
-      return <Badge>Sin afectar</Badge>;
-    }
-
-    const contractorNames = contractors
-      .map((c) => c?.customers?.name || '')
-      .filter(Boolean);
-
-    const firstContractor = contractorNames[0] || '—';
-
-    return (
-      <TooltipProvider delayDuration={100}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="inline-flex">
-              <Badge>
-                {firstContractor}
-                {contractorNames.length > 1 && ` +${contractorNames.length - 1}`}
-              </Badge>
-            </div>
-          </TooltipTrigger>
-          {contractorNames.length > 1 && (
-            <TooltipContent className="text-white bg-black rounded-lg p-2">
-              <div className="flex flex-col gap-1">
-                {contractorNames.map((name, index) => (
-                  <span key={index}>{name}</span>
-                ))}
-              </div>
-            </TooltipContent>
-          )}
-        </Tooltip>
-      </TooltipProvider>
-    );
-  },
-  filterFn: (row, id, filterValue) => {
-    if (!filterValue || !Array.isArray(filterValue) || filterValue.length === 0) {
-      return true;
-    }
-    const contractors = row.original.contractor_employee || [];
-    if (contractors.length === 0) return false;
-    return contractors.some((c) => {
-      const name = c?.customers?.name;
-      return name && filterValue.flat().includes(name);
-    });
-  },
-  exportFormatter: (value, row) => {
-    const contractors = row.contractor_employee
-      ?.map((c) => c.customers?.name || '')
-      .filter(Boolean);
-    return contractors?.length > 0 ? contractors.join(', ') : 'Sin afectar';
-  },
-}
-```
-
-### Columnas con Formato de Fecha
-
-```typescript
-{
-  accessorKey: 'date_of_admission',
-  id: 'date_of_admission',
-  header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de ingreso" />,
-  cell: ({ row }) => (
-    <div>
-      {row.original.date_of_admission
-        ? moment(row.original.date_of_admission).format('DD/MM/YYYY')
-        : '-'}
-    </div>
-  ),
-}
-```
-
-### Columnas con Badge de Estado
-
-```typescript
-{
-  accessorKey: 'status',
-  id: 'status',
-  header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
-  cell: ({ row }) => {
-    type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
-    type StatusType = 'Completo' | 'Incompleto' | 'Completo con doc vencida' | 'default';
-
-    const variantStatus: Record<StatusType, BadgeVariant> = {
-      Completo: 'success',
-      Incompleto: 'destructive',
-      'Completo con doc vencida': 'yellow',
-      default: 'default',
-    };
-
-    return (
-      <Badge
-        variant={row.original.status
-          ? variantStatus[row.original.status as StatusType] || 'default'
-          : 'default'}
-        className="capitalize"
-      >
-        {row.original.status || 'Sin estado'}
-      </Badge>
-    );
-  },
-}
-```
-
-## Sistema de Filtros
-
-### Filtros Simples (columnas directas con ENUM)
-
-```typescript
-{
-  columnId: 'gender',
-  title: 'Genero',
-  config: {
-    tableName: 'employees',
-    select: 'gender' as '*',
-    p_filters: { is_active: 'true', company_id: company_id! },
-    mapper: (data) => {
-      return data.map((value) => ({
-        label: String(value.display_value),
-        value: String(value.col_value),
-        count: value.col_count,
-      }));
-    },
-  },
-}
-```
-
-### Filtros con Relacion Simple
-
-```typescript
-{
-  columnId: 'provinces.name',  // DEBE coincidir con el id de la columna
-  title: 'Provincia',
-  config: {
-    tableName: 'employees',
-    select: 'provinces.name' as '*',
-    relation: '{"provinces": "province"}',  // { tabla_relacionada: columna_fk }
-    p_filters: { is_active: 'true', company_id: company_id! },
-    mapper: (data) => {
-      return data.map((value) => ({
-        label: String(value.display_value),
-        value: String(value.col_value),
-        count: value.col_count,
-      }));
-    },
-  },
-}
-```
-
-**Formato de `relation`:**
-
-```typescript
-'{"nombre_tabla_relacionada": "columna_fk_en_tabla_principal"}';
-
-// Ejemplos:
-'{"provinces": "province"}'; // employees.province → provinces.id
-'{"hierarchy": "hierarchical_position"}'; // employees.hierarchical_position → hierarchy.id
-'{"cost_center": "cost_center_id"}'; // employees.cost_center_id → cost_center.id
-```
-
-### Filtros con Multi-Join (Many-to-Many)
-
-```typescript
-{
-  columnId: 'contractor_employee.customers.name',  // DEBE coincidir con el id de la columna
-  title: 'Afectaciones',
-  config: {
-    tableName: 'employees' as const,
-    select: 'id' as '*',
-    multiJoinPaths: {
-      joins: [
-        {
-          from_table: 'employees',
-          to_table: 'contractor_employee',
-          from_column: 'id',
-          to_column: 'employee_id',
-        },
-        {
-          from_table: 'contractor_employee',
-          to_table: 'customers',
-          from_column: 'contractor_id',
-          to_column: 'id',
-        },
-      ],
-      final_column: 'customers.name',
-    },
-    p_filters: { is_active: 'true', company_id: company_id! },
-    mapper: (data) => {
-      return data
-        .filter((value) => value.col_value !== null)
-        .map((value) => ({
-          label: String(value.display_value),
-          value: String(value.col_value),
-          count: value.col_count,
-        }));
-    },
-  },
-}
-```
-
-## Configuracion del BaseDataTable
-
-```typescript
-<BaseDataTable
+<DataTable
   columns={columns}
-  savedVisibility={savedVisibility}
-  initialData={initialData}
-  tableId="{uniqueTableId}"           // ID unico para cookies
-  enableRowSelection={true}
-  serverSide={true}
-  fetchData={fetch{Feature}Data}
-  fetchAllData={handleFetchAllData}   // Para exportacion
-  queryKey="{unique-query-key}"
-  toolbarOptions={{
-    initialVisibleFilters: savedFilters,
-    showExport: true,
-    searchableColumns: [
-      { columnId: 'lastname', placeholder: 'Buscar por nombre' }
-    ],
-    filterableColumns: [
-      // Array de filtros (ver seccion anterior)
-    ],
-    showFilterOptions: true,
-  }}
+  data={data}
+  totalRows={total}
+  searchParams={searchParams}
+  facetedFilters={facetedFilters}     // Filtros con externalCounts
+  exportConfig={exportConfig}         // Excel con formatters
+  tableId="entities"                  // Persistencia de preferencias en BD
+  searchPlaceholder="Buscar..."
+  showFilterToggle={true}
+  emptyMessage="No hay registros"
 />
 ```
 
-## Mapeo de Relaciones DB → Columnas
+## Reglas de Presentacion
 
-| Columna en DB           | FK apunta a            | Query Supabase               | accessorKey/id           | Acceso en cell                         |
-| ----------------------- | ---------------------- | ---------------------------- | ------------------------ | -------------------------------------- |
-| `province`              | `provinces.id`         | `provinces(id,name)`         | `provinces.name`         | `row.original.provinces?.name`         |
-| `city`                  | `cities.id`            | `cities(id,name)`            | `city`                   | `row.original.cities?.name`            |
-| `hierarchical_position` | `hierarchy.id`         | `hierarchy(id,name)`         | `hierarchy.name`         | `row.original.hierarchy?.name`         |
-| `company_position`      | `company_positions.id` | `company_positions(id,name)` | `company_positions.name` | `row.original.company_positions?.name` |
-| `type_of_contract`      | `types_of_contract.id` | `types_of_contract(id,name)` | `types_of_contract.name` | `row.original.types_of_contract?.name` |
+### Card Wrapper Obligatorio
 
-## Relaciones Inversas (Many-to-Many)
-
-| Tabla Pivot           | Relacion                                              | Query                                            | accessorKey/id                                 |
-| --------------------- | ----------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------- |
-| `contractor_employee` | `employees ← contractor_employee → customers`         | `contractor_employee(customers(id,name))`        | `contractor_employee.customers.name`           |
-| `empleado_aptitudes`  | `employees ← empleado_aptitudes → aptitudes_tecnicas` | `empleado_aptitudes(aptitudes_tecnicas(nombre))` | `empleado_aptitudes.aptitudes_tecnicas.nombre` |
-
-## Flujo de Datos Completo
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    FLUJO DE DATOS                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. Query Supabase:                                            │
-│     'provinces(id,name)' ← Define alias de relacion            │
-│                                                                 │
-│  2. accessorKey/id:                                            │
-│     'provinces.name' ← Ruta de acceso (alias.columna)          │
-│                                                                 │
-│  3. cell render:                                               │
-│     row.original.provinces?.name ← Acceso real al dato         │
-│                                                                 │
-│  4. filterFn:                                                  │
-│     row.getValue('provinces.name') ← Usa el id                 │
-│                                                                 │
-│  5. Filter config:                                             │
-│     columnId: 'provinces.name' ← Debe coincidir con id         │
-│     relation: '{"provinces": "province"}' ← FK mapping         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Errores Comunes en DataTable
+**El DataTable DEBE estar envuelto en `<Card><CardContent className="pt-6">`** para dar fondo y contencion visual. Sin esto, la tabla queda con fondo transparente.
 
 ```typescript
-// ❌ accessorKey diferente al id
-{ accessorKey: 'province', id: 'provinceName' }
-// ✅ CORRECTO
-{ accessorKey: 'provinces.name', id: 'provinces.name' }
-
-// ❌ columnId del filtro no coincide con id de columna
-// Columna: id: 'provinces.name'
-// Filtro: columnId: 'province'
-// ✅ CORRECTO
-// Columna: id: 'provinces.name'
-// Filtro: columnId: 'provinces.name'
-
-// ❌ Acceso incorrecto en cell (para relacion provinces)
-cell: ({ row }) => <div>{row.original.province}</div>
-// ✅ CORRECTO
-cell: ({ row }) => <div>{row.original.provinces?.name}</div>
-
-// ❌ Olvidar optional chaining en relaciones
-row.original.provinces.name  // Error si provinces es null
-// ✅ CORRECTO
-row.original.provinces?.name || '-'
+<Card>
+  <CardContent className="pt-6">
+    <_EntityDataTable ... />
+  </CardContent>
+</Card>
 ```
 
-## Checklist
+### Filtros Visibles por Defecto: Maximo 3
 
-- [ ] Crear funcion `fetch{Feature}Data` en `probando.ts`
-- [ ] Crear funcion `fetchAll{Feature}Data` para exportacion
-- [ ] Definir query de Supabase con todas las relaciones necesarias
-- [ ] Crear Server Component con carga de cookies y datos iniciales
-- [ ] Crear Client Component con definicion de columnas
-- [ ] Verificar que cada `accessorKey` = `id` = patron de query
-- [ ] Configurar filtros con `columnId` que coincida con `id` de columna
-- [ ] Para relaciones simples: usar `relation` con formato `{"tabla": "fk"}`
-- [ ] Para Many-to-Many: usar `multiJoinPaths` con cadena de joins
-- [ ] Agregar `exportFormatter` para columnas complejas
-- [ ] Configurar `toolbarOptions` con filtros y busqueda
+**TODOS los filtros se crean, pero solo 3 se muestran inicialmente.** El usuario activa los demas con el toggle de filtros. Si el usuario ya tiene preferencias guardadas, se usan esas en su lugar.
+
+Elegir los 3 filtros mas logicos/comunes para la entidad (ej: estado, tipo, condicion).
+
+## Reglas de Columnas
+
+1. **`meta: { title: 'X' }`** en TODA columna de datos (para toggle y Excel)
+2. **`meta: { excludeFromExport: true }`** en `select` y `actions`
+3. **FK**: usar `id` + `accessorFn` (NO `accessorKey` sobre el ID)
+4. **`filterFn`**: obligatorio en columnas con filtro `faceted`
+5. **Fechas**: `moment(val).format('DD/MM/YYYY')` (NO date-fns)
+6. **Enums**: labels de `@/shared/utils/mappers.ts`
+7. **Sorting**: TODAS las columnas son ordenables excepto `select`, `actions` y M:M. NO poner `enableSorting: false` en columnas FK — usar `FK_SORT_MAP` en el server action para resolver el orderBy con la relacion.
+8. **NULL handling**: Columnas FK nullable DEBEN incluir `NULL_FILTER_VALUE` en el `filterFn` y opcion "Sin asignar" en el filtro facetado.
+
+## Permisos y Acciones (Proteccion Obligatoria)
+
+Los permisos se cargan **en el servidor** con `getModulePermissions()` y se pasan al Client Component como prop. Nunca se re-fetchean en el cliente.
+
+- **Boton "Nuevo"**: Envuelto en `<PermissionGuard module="x" tab="y" action="create">` en el Server Component o Client Component.
+- **Columna actions**: Se genera condicionalmente con `getColumns(permissions)`. Si el usuario no tiene ningun permiso de accion, la columna NO aparece.
+- **Pagina completa**: Envuelta en `<PermissionGuard module="x" action="view" redirect>` en el Server Component.
+
+## Sorting de Columnas FK (Relaciones)
+
+Las columnas FK se ordenan server-side con un mapeo especial (`FK_SORT_MAP`) que traduce el columnId a un `orderBy` de Prisma con relacion:
+
+```typescript
+const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
+  type: (dir) => ({ type: { name: dir } }),
+  brand: (dir) => ({ brand_vehicles: { name: dir } }),
+};
+
+// En safeOrderBy:
+const fkMapper = FK_SORT_MAP[state.sortBy];
+resolvedSort = fkMapper ? fkMapper(dir) : { [state.sortBy]: dir };
+```
+
+## Manejo de Datos Null ("Sin asignar")
+
+Para columnas FK nullable, usar el patron `NULL_FILTER_VALUE` de `helpers.ts`:
+
+1. **Facets**: El `groupBy` incluye filas con null → se mapean a `NULL_FILTER_VALUE` como key en el Map
+2. **Filtro**: Agregar opcion `{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }`
+3. **filterFn**: Si el ID es null, comparar contra `NULL_FILTER_VALUE`
+4. **Server where**: `buildFiltersWhere` ya maneja `NULL_FILTER_VALUE` → genera `{ field: null }`
+
+```typescript
+// filterFn en columns.tsx
+filterFn: (row, _id, value: string[]) => {
+  const id = row.original.relation?.id;
+  if (id == null) return value.includes(NULL_FILTER_VALUE);
+  return value.includes(id);
+},
+```
+
+## Export Excel — Regla Suprema
+
+TODA columna exportable debe tener dato legible:
+- **Enums** → formatter con labels del mapper
+- **Fechas** → formatter con `moment().format('DD/MM/YYYY')`
+- **Booleanos** → formatter `val ? 'Si' : 'No'`
+- **FK con accessorFn** → NO necesita formatter (ya retorna .name)
+
+---
+
+## SISTEMA VIEJO — DETECCION Y MIGRACION OBLIGATORIA
+
+### Marcadores del Sistema Viejo (DEPRECADO)
+
+Si encuentras CUALQUIERA de estos, la tabla usa el sistema viejo y **DEBE ser recreada desde cero**:
+
+| Marcador | Descripcion |
+|----------|-------------|
+| `BaseDataTable` | Componente viejo de `@/shared/components/data-table/base/` |
+| `queryWithPagination` | Helper de Supabase de `probando.ts` |
+| `supabaseServer()` en queries de tabla | Fetching directo con Supabase |
+| `toolbarOptions` prop | Prop del sistema viejo (nuevo usa `facetedFilters`) |
+| `accessorKey: 'relation.field'` | Dot-notation de Supabase (nuevo usa `accessorFn`) |
+| `fetchData` / `fetchAllData` props | Props del BaseDataTable (nuevo usa `exportConfig.fetchAllData`) |
+| `savedVisibility` / `savedFilters` de cookies | Persistencia en cookies (nuevo usa BD) |
+| `filterableColumns` / `searchableColumns` | Config vieja de toolbar |
+| Import de `@/shared/components/data-table/` | Path del componente viejo |
+| `import { cookies }` para tabla | Persistencia vieja |
+
+### Regla de Migracion
+
+**NUNCA parchear** una tabla del sistema viejo. Siempre recrear completamente:
+
+1. Leer el Prisma schema de la entidad
+2. Seguir `.claude/skills/new-datatable/SKILL.md` paso a paso
+3. Crear `actions.server.ts` con Prisma (query paginada + export + facets)
+4. Crear `columns.tsx` con la nueva API
+5. Crear Server Component `{Entity}List.tsx`
+6. Crear Client Component `_{Entity}DataTable.tsx`
+7. Actualizar `page.tsx` para usar el nuevo componente
+8. Eliminar archivos viejos y limpiar imports de Supabase
+
+### Agente Experto
+
+Delegar TODA tarea de DataTable al agente `table-expert`. Tiene modos:
+- **AUDIT**: Verificar completitud de una tabla existente (si detecta sistema viejo → cambia a CREATE)
+- **FIX**: Corregir problemas encontrados en audit
+- **CREATE**: Crear tabla nueva desde cero O rehacer tabla vieja completamente
+
+**Deteccion obligatoria**: Antes de cualquier modo, el agente ejecuta el Step 0 que detecta si la tabla usa el sistema viejo. Si lo usa, automaticamente cambia a CREATE para rehacer desde cero.
