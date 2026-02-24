@@ -2,14 +2,6 @@ alter table "public"."maintenance_orders" drop constraint "maintenance_orders_st
 
 alter table "public"."preparte_change_logs" drop constraint "preparte_change_logs_changed_by_fkey";
 
-alter table "public"."work_order_item_repairs" alter column "status" drop default;
-
-alter table "public"."work_order_items" alter column "status" drop default;
-
-alter type "public"."work_order_item_status" rename to "work_order_item_status__old_version_to_be_dropped";
-
-create type "public"."work_order_item_status" as enum ('pending', 'in_progress', 'completed', 'cancelled', 'pending_approval', 'reassignment_requested', 'rejected');
-
 
   create table "public"."contractor_other_equipment" (
     "id" uuid not null default gen_random_uuid(),
@@ -71,17 +63,6 @@ alter table "public"."other_equipment" enable row level security;
 alter table "public"."other_equipment_certifications" enable row level security;
 
 
-  create table "public"."sector_repair_types" (
-    "id" uuid not null default gen_random_uuid(),
-    "workshop_sector_id" uuid not null,
-    "repair_type_id" uuid not null,
-    "created_at" timestamp with time zone default now()
-      );
-
-
-alter table "public"."sector_repair_types" enable row level security;
-
-
   create table "public"."user_table_preferences" (
     "user_id" text not null,
     "preferences" jsonb not null default '{}'::jsonb,
@@ -92,21 +73,9 @@ alter table "public"."sector_repair_types" enable row level security;
 
 alter table "public"."user_table_preferences" enable row level security;
 
-alter table "public"."work_order_item_repairs" alter column status type "public"."work_order_item_status" using status::text::"public"."work_order_item_status";
-
-alter table "public"."work_order_items" alter column status type "public"."work_order_item_status" using status::text::"public"."work_order_item_status";
-
-alter table "public"."work_order_item_repairs" alter column "status" set default 'pending'::public.work_order_item_status;
-
-alter table "public"."work_order_items" alter column "status" set default 'pending'::public.work_order_item_status;
-
-drop type "public"."work_order_item_status__old_version_to_be_dropped";
+alter table "public"."document_types" add column "equipment_type" character varying(20) default NULL::character varying;
 
 alter table "public"."employees" add column "full_name" text generated always as (((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))) stored;
-
-alter table "public"."employees" add column "workshop_sector_id" uuid;
-
-alter table "public"."maintenance_order_items" add column "is_diagnostico" boolean not null default false;
 
 alter table "public"."maintenance_order_items" add column "is_rejected" boolean not null default false;
 
@@ -116,25 +85,11 @@ alter table "public"."maintenance_order_items" add column "rejected_by" uuid;
 
 alter table "public"."maintenance_order_items" add column "rejection_reason" text;
 
-alter table "public"."maintenance_order_items" add column "sector_sequence_order" integer;
-
 alter table "public"."maintenance_order_items" add column "workshop_chief_comment" text;
 
 alter table "public"."maintenance_order_items" add column "workshop_chief_comment_by" uuid;
 
 alter table "public"."maintenance_orders" add column "engine_hours_at_entry" text;
-
-alter table "public"."maintenance_orders" add column "operations_validated_at" timestamp with time zone;
-
-alter table "public"."maintenance_orders" add column "operations_validated_by" uuid;
-
-alter table "public"."maintenance_orders" add column "operations_validation_notes" text;
-
-alter table "public"."maintenance_orders" add column "order_number" text;
-
-alter table "public"."maintenance_orders" add column "workshop_validated_at" timestamp with time zone;
-
-alter table "public"."maintenance_orders" add column "workshop_validation_notes" text;
 
 alter table "public"."maintenance_request_items" add column "driver_comment_by" uuid;
 
@@ -146,35 +101,17 @@ alter table "public"."maintenance_request_items" add column "validator_comment_b
 
 alter table "public"."maintenance_requests" add column "engine_hours" text;
 
-alter table "public"."profile" add column "employee_id" uuid;
-
 alter table "public"."profile" disable row level security;
 
 alter table "public"."service_items" add column "needs_equipment" boolean not null default true;
 
 alter table "public"."service_items" add column "needs_personnel" boolean not null default true;
 
+alter table "public"."type" add column "applies_to" character varying(20) default 'vehicle'::character varying;
+
 alter table "public"."type" add column "generates_qr" boolean default true;
 
-alter table "public"."types_of_repairs" add column "autorizable" boolean not null default false;
-
 alter table "public"."vehicles" add column "engine_hours" text default '0'::text;
-
-alter table "public"."work_order_item_repairs" add column "added_by" uuid;
-
-alter table "public"."work_order_item_repairs" add column "approved_at" timestamp with time zone;
-
-alter table "public"."work_order_item_repairs" add column "approved_by" uuid;
-
-alter table "public"."work_order_item_repairs" add column "is_diagnostico" boolean not null default false;
-
-alter table "public"."work_order_item_repairs" add column "is_operator_added" boolean default false;
-
-alter table "public"."work_order_item_repairs" add column "original_sector_id" uuid;
-
-alter table "public"."work_order_item_repairs" add column "rejection_reason" text;
-
-alter table "public"."work_order_item_repairs" add column "return_reason" text;
 
 alter table "public"."work_order_item_repairs" add column "technician_notes_by" uuid;
 
@@ -186,9 +123,7 @@ CREATE INDEX idx_contractor_other_equipment_contractor ON public.contractor_othe
 
 CREATE INDEX idx_contractor_other_equipment_equipment ON public.contractor_other_equipment USING btree (equipment_id);
 
-CREATE INDEX idx_employees_workshop_sector_id ON public.employees USING btree (workshop_sector_id);
-
-CREATE INDEX idx_maintenance_orders_order_number ON public.maintenance_orders USING btree (order_number);
+CREATE INDEX idx_document_types_equipment_type ON public.document_types USING btree (equipment_type);
 
 CREATE INDEX idx_other_equipment_certifications_equipment ON public.other_equipment_certifications USING btree (equipment_id);
 
@@ -200,19 +135,11 @@ CREATE INDEX idx_other_equipment_linked_vehicle ON public.other_equipment USING 
 
 CREATE INDEX idx_other_equipment_type_id ON public.other_equipment USING btree (type_id);
 
-CREATE INDEX idx_profile_employee_id ON public.profile USING btree (employee_id);
-
-CREATE INDEX idx_sector_repair_types_repair ON public.sector_repair_types USING btree (repair_type_id);
-
-CREATE INDEX idx_sector_repair_types_sector ON public.sector_repair_types USING btree (workshop_sector_id);
+CREATE INDEX idx_type_applies_to ON public.type USING btree (applies_to);
 
 CREATE UNIQUE INDEX other_equipment_certifications_pkey ON public.other_equipment_certifications USING btree (id);
 
 CREATE UNIQUE INDEX other_equipment_pkey ON public.other_equipment USING btree (id);
-
-CREATE UNIQUE INDEX sector_repair_types_pkey ON public.sector_repair_types USING btree (id);
-
-CREATE UNIQUE INDEX sector_repair_types_workshop_sector_id_repair_type_id_key ON public.sector_repair_types USING btree (workshop_sector_id, repair_type_id);
 
 CREATE UNIQUE INDEX user_table_preferences_pkey ON public.user_table_preferences USING btree (user_id);
 
@@ -221,8 +148,6 @@ alter table "public"."contractor_other_equipment" add constraint "contractor_oth
 alter table "public"."other_equipment" add constraint "other_equipment_pkey" PRIMARY KEY using index "other_equipment_pkey";
 
 alter table "public"."other_equipment_certifications" add constraint "other_equipment_certifications_pkey" PRIMARY KEY using index "other_equipment_certifications_pkey";
-
-alter table "public"."sector_repair_types" add constraint "sector_repair_types_pkey" PRIMARY KEY using index "sector_repair_types_pkey";
 
 alter table "public"."user_table_preferences" add constraint "user_table_preferences_pkey" PRIMARY KEY using index "user_table_preferences_pkey";
 
@@ -236,9 +161,9 @@ alter table "public"."contractor_other_equipment" add constraint "contractor_oth
 
 alter table "public"."contractor_other_equipment" validate constraint "contractor_other_equipment_equipment_id_fkey";
 
-alter table "public"."employees" add constraint "employees_workshop_sector_id_fkey" FOREIGN KEY (workshop_sector_id) REFERENCES public.workshop_sectors(id) ON DELETE SET NULL not valid;
+alter table "public"."document_types" add constraint "document_types_equipment_type_check" CHECK (((equipment_type)::text = ANY ((ARRAY['vehicle'::character varying, 'other_equipment'::character varying])::text[]))) not valid;
 
-alter table "public"."employees" validate constraint "employees_workshop_sector_id_fkey";
+alter table "public"."document_types" validate constraint "document_types_equipment_type_check";
 
 alter table "public"."maintenance_order_items" add constraint "maintenance_order_items_rejected_by_fkey" FOREIGN KEY (rejected_by) REFERENCES public.profile(id) not valid;
 
@@ -247,10 +172,6 @@ alter table "public"."maintenance_order_items" validate constraint "maintenance_
 alter table "public"."maintenance_order_items" add constraint "maintenance_order_items_workshop_chief_comment_by_fkey" FOREIGN KEY (workshop_chief_comment_by) REFERENCES public.profile(id) ON DELETE SET NULL not valid;
 
 alter table "public"."maintenance_order_items" validate constraint "maintenance_order_items_workshop_chief_comment_by_fkey";
-
-alter table "public"."maintenance_orders" add constraint "maintenance_orders_operations_validated_by_fkey" FOREIGN KEY (operations_validated_by) REFERENCES auth.users(id) not valid;
-
-alter table "public"."maintenance_orders" validate constraint "maintenance_orders_operations_validated_by_fkey";
 
 alter table "public"."maintenance_request_items" add constraint "maintenance_request_items_driver_comment_by_fkey" FOREIGN KEY (driver_comment_by) REFERENCES public.profile(id) ON DELETE SET NULL not valid;
 
@@ -308,31 +229,9 @@ alter table "public"."other_equipment_certifications" add constraint "other_equi
 
 alter table "public"."other_equipment_certifications" validate constraint "other_equipment_certifications_equipment_id_fkey";
 
-alter table "public"."profile" add constraint "profile_employee_id_fkey" FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE SET NULL not valid;
+alter table "public"."type" add constraint "type_applies_to_check" CHECK (((applies_to)::text = ANY ((ARRAY['vehicle'::character varying, 'other_equipment'::character varying])::text[]))) not valid;
 
-alter table "public"."profile" validate constraint "profile_employee_id_fkey";
-
-alter table "public"."sector_repair_types" add constraint "sector_repair_types_repair_type_id_fkey" FOREIGN KEY (repair_type_id) REFERENCES public.types_of_repairs(id) ON DELETE CASCADE not valid;
-
-alter table "public"."sector_repair_types" validate constraint "sector_repair_types_repair_type_id_fkey";
-
-alter table "public"."sector_repair_types" add constraint "sector_repair_types_workshop_sector_id_fkey" FOREIGN KEY (workshop_sector_id) REFERENCES public.workshop_sectors(id) ON DELETE CASCADE not valid;
-
-alter table "public"."sector_repair_types" validate constraint "sector_repair_types_workshop_sector_id_fkey";
-
-alter table "public"."sector_repair_types" add constraint "sector_repair_types_workshop_sector_id_repair_type_id_key" UNIQUE using index "sector_repair_types_workshop_sector_id_repair_type_id_key";
-
-alter table "public"."work_order_item_repairs" add constraint "work_order_item_repairs_added_by_fkey" FOREIGN KEY (added_by) REFERENCES public.profile(id) not valid;
-
-alter table "public"."work_order_item_repairs" validate constraint "work_order_item_repairs_added_by_fkey";
-
-alter table "public"."work_order_item_repairs" add constraint "work_order_item_repairs_approved_by_fkey" FOREIGN KEY (approved_by) REFERENCES public.profile(id) not valid;
-
-alter table "public"."work_order_item_repairs" validate constraint "work_order_item_repairs_approved_by_fkey";
-
-alter table "public"."work_order_item_repairs" add constraint "work_order_item_repairs_original_sector_id_fkey" FOREIGN KEY (original_sector_id) REFERENCES public.workshop_sectors(id) not valid;
-
-alter table "public"."work_order_item_repairs" validate constraint "work_order_item_repairs_original_sector_id_fkey";
+alter table "public"."type" validate constraint "type_applies_to_check";
 
 alter table "public"."work_order_item_repairs" add constraint "work_order_item_repairs_technician_notes_by_fkey" FOREIGN KEY (technician_notes_by) REFERENCES public.profile(id) ON DELETE SET NULL not valid;
 
@@ -348,6 +247,75 @@ alter table "public"."preparte_change_logs" validate constraint "preparte_change
 
 set check_function_bodies = off;
 
+CREATE OR REPLACE FUNCTION public.actualizar_estado_daily_reports()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    report_record RECORD;
+    tiene_filas BOOLEAN;
+    todas_completas BOOLEAN;
+BEGIN
+    -- Parte 1: Actualizar filas 'sin_recursos_asignados' que ya tienen los recursos requeridos
+    -- Usa un solo UPDATE set-based en lugar de FOR LOOP
+    UPDATE dailyreportrows dr
+    SET status = 'pendiente',
+        updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')
+    FROM service_items si
+    WHERE dr.item_id = si.id
+      AND dr.status = 'sin_recursos_asignados'
+      AND (
+        (NOT COALESCE(si.needs_personnel, true) OR EXISTS (
+          SELECT 1 FROM dailyreportemployeerelations WHERE daily_report_row_id = dr.id
+        ))
+        AND
+        (NOT COALESCE(si.needs_equipment, true) OR EXISTS (
+          SELECT 1 FROM dailyreportequipmentrelations WHERE daily_report_row_id = dr.id
+        ))
+      );
+
+    -- Parte 2: Cierre de reportes pasados (sin cambios)
+    FOR report_record IN
+        SELECT id
+        FROM dailyreport
+        WHERE date < ( (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date )
+        AND status IN ('abierto', 'cerrado_incompleto')
+    LOOP
+        SELECT EXISTS (SELECT 1 FROM dailyreportrows WHERE daily_report_id = report_record.id) INTO tiene_filas;
+
+        IF NOT tiene_filas THEN
+            UPDATE dailyreport
+            SET status = 'cerrado_completo',
+                updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')
+            WHERE id = report_record.id;
+        ELSE
+            SELECT NOT EXISTS (
+                SELECT 1
+                FROM dailyreportrows
+                WHERE daily_report_id = report_record.id
+                AND (
+                    status NOT IN ('ejecutado', 'reprogramado', 'cancelado')
+                    OR (status = 'ejecutado' AND (document_path IS NULL OR document_path = ''))
+                )
+            ) INTO todas_completas;
+
+            IF todas_completas THEN
+                UPDATE dailyreport
+                SET status = 'cerrado_completo',
+                    updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')
+                WHERE id = report_record.id;
+            ELSE
+                UPDATE dailyreport
+                SET status = 'cerrado_incompleto',
+                    updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')
+                WHERE id = report_record.id;
+            END IF;
+        END IF;
+    END LOOP;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.after_dailyreportrows_update_optimized()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -357,7 +325,7 @@ DECLARE
     v_report_id UUID;
 BEGIN
     -- Recopilar todos los report_ids únicos afectados en esta transacción
-    SELECT ARRAY_AGG(DISTINCT daily_report_id) 
+    SELECT ARRAY_AGG(DISTINCT daily_report_id)
     INTO affected_reports
     FROM (
         SELECT NEW.daily_report_id AS daily_report_id
@@ -365,35 +333,35 @@ BEGIN
         SELECT OLD.daily_report_id AS daily_report_id WHERE TG_OP = 'UPDATE'
     ) reports
     WHERE daily_report_id IS NOT NULL;
-    
+
     IF affected_reports IS NOT NULL AND array_length(affected_reports, 1) > 0 THEN
-        -- Procesar cada reporte afectado
         FOREACH v_report_id IN ARRAY affected_reports
         LOOP
-            -- ÚNICA FUNCIÓN: Actualizar filas 'sin_recursos_asignados' que ahora tienen recursos
-            UPDATE dailyreportrows
+            -- Actualizar filas 'sin_recursos_asignados' que ahora tienen los recursos requeridos
+            -- Respeta los flags needs_personnel y needs_equipment de service_items
+            UPDATE dailyreportrows dr
             SET status = 'pendiente',
                 updated_at = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')
-            WHERE id IN (
-                SELECT dr.id
-                FROM dailyreportrows dr
-                WHERE dr.status = 'sin_recursos_asignados'
-                  AND dr.daily_report_id = v_report_id
-                  AND EXISTS (
-                      SELECT 1 FROM dailyreportemployeerelations 
-                      WHERE daily_report_row_id = dr.id
-                      UNION
-                      SELECT 1 FROM dailyreportequipmentrelations 
-                      WHERE daily_report_row_id = dr.id
-                  )
-            );
-            
+            FROM service_items si
+            WHERE dr.item_id = si.id
+              AND dr.status = 'sin_recursos_asignados'
+              AND dr.daily_report_id = v_report_id
+              AND (
+                (NOT COALESCE(si.needs_personnel, true) OR EXISTS (
+                  SELECT 1 FROM dailyreportemployeerelations WHERE daily_report_row_id = dr.id
+                ))
+                AND
+                (NOT COALESCE(si.needs_equipment, true) OR EXISTS (
+                  SELECT 1 FROM dailyreportequipmentrelations WHERE daily_report_row_id = dr.id
+                ))
+              );
+
             -- NOTA: La lógica de cierre de partes fue removida
             -- El cierre ahora es responsabilidad exclusiva del cronjob
             -- que ejecuta actualizar_estado_daily_reports() a las 00:00 Argentina
         END LOOP;
     END IF;
-    
+
     RETURN COALESCE(NEW, OLD);
 END;
 $function$
@@ -819,34 +787,6 @@ grant truncate on table "public"."other_equipment_certifications" to "service_ro
 
 grant update on table "public"."other_equipment_certifications" to "service_role";
 
-grant delete on table "public"."sector_repair_types" to "anon";
-
-grant insert on table "public"."sector_repair_types" to "anon";
-
-grant references on table "public"."sector_repair_types" to "anon";
-
-grant select on table "public"."sector_repair_types" to "anon";
-
-grant trigger on table "public"."sector_repair_types" to "anon";
-
-grant truncate on table "public"."sector_repair_types" to "anon";
-
-grant update on table "public"."sector_repair_types" to "anon";
-
-grant delete on table "public"."sector_repair_types" to "authenticated";
-
-grant insert on table "public"."sector_repair_types" to "authenticated";
-
-grant references on table "public"."sector_repair_types" to "authenticated";
-
-grant select on table "public"."sector_repair_types" to "authenticated";
-
-grant trigger on table "public"."sector_repair_types" to "authenticated";
-
-grant truncate on table "public"."sector_repair_types" to "authenticated";
-
-grant update on table "public"."sector_repair_types" to "authenticated";
-
 grant delete on table "public"."sector_repair_types" to "postgres";
 
 grant insert on table "public"."sector_repair_types" to "postgres";
@@ -860,20 +800,6 @@ grant trigger on table "public"."sector_repair_types" to "postgres";
 grant truncate on table "public"."sector_repair_types" to "postgres";
 
 grant update on table "public"."sector_repair_types" to "postgres";
-
-grant delete on table "public"."sector_repair_types" to "service_role";
-
-grant insert on table "public"."sector_repair_types" to "service_role";
-
-grant references on table "public"."sector_repair_types" to "service_role";
-
-grant select on table "public"."sector_repair_types" to "service_role";
-
-grant trigger on table "public"."sector_repair_types" to "service_role";
-
-grant truncate on table "public"."sector_repair_types" to "service_role";
-
-grant update on table "public"."sector_repair_types" to "service_role";
 
 grant delete on table "public"."user_table_preferences" to "anon";
 
@@ -967,66 +893,3 @@ using ((equipment_id IN ( SELECT other_equipment.id
 with check ((equipment_id IN ( SELECT other_equipment.id
    FROM public.other_equipment
   WHERE (other_equipment.company_id = public.get_company_for_user(auth.uid())))));
-
-
-
-  create policy "Allow all for authenticated"
-  on "public"."sector_repair_types"
-  as permissive
-  for all
-  to authenticated
-using (true)
-with check (true);
-
-
-drop trigger if exists "objects_delete_delete_prefix" on "storage"."objects";
-
-drop trigger if exists "objects_insert_create_prefix" on "storage"."objects";
-
-drop trigger if exists "objects_update_create_prefix" on "storage"."objects";
-
-drop trigger if exists "prefixes_create_hierarchy" on "storage"."prefixes";
-
-drop trigger if exists "prefixes_delete_hierarchy" on "storage"."prefixes";
-
-
-  create policy "Authenticated users can delete from document-files"
-  on "storage"."objects"
-  as permissive
-  for delete
-  to authenticated
-using ((bucket_id = 'document-files'::text));
-
-
-
-  create policy "Authenticated users can update document-files"
-  on "storage"."objects"
-  as permissive
-  for update
-  to authenticated
-using ((bucket_id = 'document-files'::text));
-
-
-
-  create policy "Authenticated users can upload to document-files"
-  on "storage"."objects"
-  as permissive
-  for insert
-  to authenticated
-with check ((bucket_id = 'document-files'::text));
-
-
-
-  create policy "Public read access on document-files"
-  on "storage"."objects"
-  as permissive
-  for select
-  to public
-using ((bucket_id = 'document-files'::text));
-
-
-CREATE TRIGGER protect_buckets_delete BEFORE DELETE ON storage.buckets FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
-
-CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
-
-
