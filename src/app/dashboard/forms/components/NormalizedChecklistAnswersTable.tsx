@@ -16,6 +16,7 @@ type ChecklistAnswer = {
         fecha?: string;
         hora?: string;
         kilometraje?: string;
+        horometro?: string;
       }
     | any;
   equipment:
@@ -62,6 +63,7 @@ export function NormalizedChecklistAnswersTable({
             <TableHead>Equipo</TableHead>
             <TableHead>Chofer</TableHead>
             <TableHead>Kilometraje</TableHead>
+            <TableHead>Horómetro</TableHead>
             <TableHead>Resultado</TableHead>
             <TableHead>Usuario</TableHead>
             <TableHead>Acciones</TableHead>
@@ -90,6 +92,7 @@ export function NormalizedChecklistAnswersTable({
                 <TableCell>{equipmentLabel}</TableCell>
                 <TableCell>{answer.answer_data?.chofer || 'N/A'}</TableCell>
                 <TableCell>{answer.answer_data?.kilometraje || 'N/A'}</TableCell>
+                <TableCell>{answer.answer_data?.horometro || 'N/A'}</TableCell>
                 <TableCell>
                   {answer.result === 'M' || answer.result === 'failed' ? (
                     <Badge variant="destructive">Fallido</Badge>

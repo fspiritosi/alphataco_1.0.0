@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import moment from 'moment';
@@ -24,6 +25,8 @@ import {
 } from '../lib/actions/vehicle-catalog-actions';
 import { useVehicleFormReset } from '../lib/store/vehicleFormReset';
 import { VehicleFormData, VehicleTabs } from './vehicle-tabs';
+
+const logger = new Logger('VehicleForm');
 
 interface VehicleFormProps {
   vehicle?: VehicleById;
@@ -72,6 +75,7 @@ const vehicleSchema = z
     serie: z.string().optional(),
     domain: z.string().optional().nullable(),
     kilometer: z.string().optional(),
+    engine_hours: z.string().optional(),
     intern_number: z.string().optional(),
     picture: z.string().optional().nullable(),
     contract_expiration_date: z.date().optional().nullable(),
@@ -218,7 +222,7 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       }
       refresh(createdVehicleId);
     } catch (error) {
-      console.error('Error submitting form:', error);
+      logger.error('Error submitting form', { data: { error } });
       toast.error(mode === 'new' ? 'Error al crear el equipo' : 'Error al actualizar el equipo');
     } finally {
       setIsSubmitting(false);
@@ -239,6 +243,7 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
       serie: vehicle?.serie || '',
       domain: vehicle?.domain || '',
       kilometer: vehicle?.kilometer || '',
+      engine_hours: vehicle?.engine_hours || '',
       intern_number: vehicle?.intern_number || '',
       picture: vehicle?.picture || null,
       allocated_to: vehicle?.allocated_to || [],

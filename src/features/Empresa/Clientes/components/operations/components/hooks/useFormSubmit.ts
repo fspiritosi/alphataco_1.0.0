@@ -11,10 +11,18 @@ import {
   updateDailyReportStatusAndRemitNumberClient,
 } from '@/features/Operaciones/PartesDiarios/actions/actionsClient';
 import { createRemitoClient } from '@/features/Operaciones/PartesDiarios/remitManager/actions/actionsClient';
+import { logger } from '@/lib/logger';
+import { QueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
+
+type ServiceItemFlag = {
+  id: string;
+  needs_personnel?: boolean | null;
+  needs_equipment?: boolean | null;
+};
 
 type FormData = {
   date?: Date;
@@ -37,10 +45,11 @@ type FormData = {
 
 export function useFormSubmit(
   isCreating: boolean,
-  selectedRow: any,
+  selectedRow: { id?: string; status?: string; data_to_clone?: { item_id?: string } } | null,
   refetchDailyReport: () => void,
   onClose: () => void,
-  queryClient: any
+  queryClient: QueryClient,
+  serviceItems?: ServiceItemFlag[]
 ) {
   const router = useRouter();
 
@@ -73,24 +82,36 @@ export function useFormSubmit(
       // Determinar completed_day y completed_night según la jornada
       const is24Hours = data.working_day === 'jornada 24 horas';
 
+      // Determinar el estado inicial según los flags del item seleccionado
+      const selectedItem = serviceItems?.find((item) => item.id === data.item);
+      const itemNeedsPersonnel = selectedItem?.needs_personnel ?? true;
+      const itemNeedsEquipment = selectedItem?.needs_equipment ?? true;
+
+      const hasEmployees = (data.employees ?? []).length > 0;
+      const hasEquipment = (data.equipment ?? []).length > 0;
+
+      // Solo considerar falta de recursos si el item los requiere
+      const missingRequiredResources = (itemNeedsPersonnel && !hasEmployees) || (itemNeedsEquipment && !hasEquipment);
+
+      const initialStatus = missingRequiredResources ? 'sin_recursos_asignados' : 'en_certificacion';
+
       const rowData = {
         daily_report_id: dailyReportId,
-        customer_id: data.customer, // ✅ Corregido: customer_id
-        service_id: data.services, // ✅ Corregido: service_id
-        item_id: data.item, // ✅ Corregido: item_id
+        customer_id: data.customer,
+        service_id: data.services,
+        item_id: data.item,
         working_day: data.working_day,
         start_time: data.start_time || null,
         end_time: data.end_time || null,
-        status: 'en_certificacion',
-        // ❌ NO guardar remit_number aquí
-        description: data.observations || null, // Usar 'observations' que es el campo del formulario
+        status: initialStatus,
+        description: data.observations || null,
         sector_service_id: data.sector_service_id || null,
         areas_service_id: data.areas_service_id || null,
         completed_day: is24Hours ? true : null,
         completed_night: is24Hours ? true : null,
       };
 
-      const createdRows = await createDailyReportRowClient([rowData as any]);
+      const createdRows = await createDailyReportRowClient([rowData]);
       if (!createdRows || createdRows.length === 0) {
         toast.error('Error al crear la línea del parte diario.');
         return;
@@ -103,7 +124,7 @@ export function useFormSubmit(
         try {
           await createRemitoClient(newRowId, data.remit_number);
         } catch (error) {
-          console.error('Error al crear remito:', error);
+          logger.error('Error al crear remito', { data: { error } });
           toast.error('Error al crear el remito. La línea se creó pero sin remito.');
         }
       }
@@ -141,11 +162,17 @@ export function useFormSubmit(
 
       router.refresh();
     },
-    [refetchDailyReport, onClose, router, queryClient]
+    [refetchDailyReport, onClose, router, queryClient, serviceItems]
   );
 
   const handleUpdate = useCallback(
     async (data: FormData) => {
+      if (!selectedRow?.id) {
+        toast.error('No se encontró la línea del parte diario.');
+        return;
+      }
+
+      const rowId = selectedRow.id;
       const currentStatusInRow = selectedRow?.status;
       const isChangingToCertificacion = data.status === 'en_certificacion';
 
@@ -155,17 +182,28 @@ export function useFormSubmit(
           return;
         }
       }
-      // Determinar el estado final basado en los recursos
+      // Determinar el estado final basado en los recursos y los flags del item
       const hasEmployees = data.employees && data.employees.length > 0;
       const hasEquipment = data.equipment && data.equipment.length > 0;
-      const hasResources = hasEmployees || hasEquipment;
+
+      // Obtener los flags del item seleccionado (puede venir del selectedRow o de serviceItems)
+      const itemId = data.item || selectedRow?.data_to_clone?.item_id;
+      const selectedItem = serviceItems?.find((item) => item.id === itemId);
+      const itemNeedsPersonnel = selectedItem?.needs_personnel ?? true;
+      const itemNeedsEquipment = selectedItem?.needs_equipment ?? true;
+
+      // Solo hay falta de recursos si el item los requiere y no están presentes
+      const missingRequiredResources = (itemNeedsPersonnel && !hasEmployees) || (itemNeedsEquipment && !hasEquipment);
+
+      // hasResources = tiene todos los recursos que el item requiere
+      const hasRequiredResources = !missingRequiredResources;
 
       let finalStatus = data.status;
 
       // Lógica automática de cambio de estado
-      if (!hasResources && (data.status === 'pendiente' || data.status === 'sin_recursos_asignados')) {
+      if (missingRequiredResources && (data.status === 'pendiente' || data.status === 'sin_recursos_asignados')) {
         finalStatus = 'sin_recursos_asignados';
-      } else if (hasResources && data.status === 'sin_recursos_asignados') {
+      } else if (hasRequiredResources && data.status === 'sin_recursos_asignados') {
         finalStatus = 'pendiente';
       }
 
@@ -179,14 +217,17 @@ export function useFormSubmit(
         areas_service_id: data.areas_service_id || null,
         last_comercial_edit_at: new Date().toISOString(),
       };
-      await updateDailyReportStatusAndRemitNumberClient(selectedRow.id, updateData as any);
+      await updateDailyReportStatusAndRemitNumberClient(
+        rowId,
+        updateData as Parameters<typeof updateDailyReportStatusAndRemitNumberClient>[1]
+      );
 
       // Crear remito en la tabla remitos si se está cambiando a certificación (NUEVO)
       if (isChangingToCertificacion && data.remit_number) {
         try {
-          await createRemitoClient(selectedRow.id, data.remit_number);
+          await createRemitoClient(rowId, data.remit_number);
         } catch (error) {
-          console.error('Error al crear remito:', error);
+          logger.error('Error al crear remito', { data: { error } });
           // Si el remito ya existe, no es un error crítico
           if (error instanceof Error && error.message.includes('Ya existe')) {
             toast.warning('El remito ya existe para esta línea.');
@@ -198,17 +239,17 @@ export function useFormSubmit(
 
       // Sincronizar relaciones de empleados
       if (data.employees !== undefined) {
-        await syncDailyReportEmployeeRelationsClient(selectedRow.id, data.employees || []);
+        await syncDailyReportEmployeeRelationsClient(rowId, data.employees || []);
       }
 
       // Sincronizar relaciones de equipos
       if (data.equipment !== undefined) {
-        await syncDailyReportEquipmentRelationsClient(selectedRow.id, data.equipment || []);
+        await syncDailyReportEquipmentRelationsClient(rowId, data.equipment || []);
       }
 
       // Sincronizar relaciones de equipos de cliente
       if (data.equipos_cliente !== undefined) {
-        await syncDailyReportCustomerEquipmentRelationsClient(selectedRow.id, data.equipos_cliente || []);
+        await syncDailyReportCustomerEquipmentRelationsClient(rowId, data.equipos_cliente || []);
       }
 
       toast.success('Parte diario actualizado exitosamente.');
@@ -232,7 +273,7 @@ export function useFormSubmit(
       // refetchDailyReport();
       // router.refresh();
     },
-    [selectedRow, refetchDailyReport, onClose, router, queryClient]
+    [selectedRow, refetchDailyReport, onClose, router, queryClient, serviceItems]
   );
 
   const onSubmit = useCallback(
@@ -244,7 +285,7 @@ export function useFormSubmit(
           await handleUpdate(data);
         }
       } catch (error) {
-        console.error('Error:', error);
+        logger.error('Error en submit del parte diario', { data: { error } });
         toast.error(isCreating ? 'Error al crear la línea.' : 'Error al actualizar el parte diario.');
       }
     },

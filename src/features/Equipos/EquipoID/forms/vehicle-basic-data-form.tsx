@@ -7,10 +7,11 @@ import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessa
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PriceCurrencyInput } from '@/components/ui/price-currency-input';
+import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { CalendarIcon, Check, ChevronsUpDown, Upload, X } from 'lucide-react';
+import moment from 'moment';
+import 'moment/locale/es';
 import { use, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { VehicleFormData } from '../components/vehicle-tabs';
@@ -23,6 +24,8 @@ import {
   getVehicleTypes,
 } from '../lib/actions/vehicle-catalog-actions';
 import { getVehicleTypeFields } from '../lib/utils/vehicle-utils';
+
+const logger = new Logger('VehicleBasicDataForm');
 
 interface VehicleBasicDataFormProps {
   form: UseFormReturn<VehicleFormData>;
@@ -77,7 +80,7 @@ export function VehicleBasicDataForm({
         const modelsData = await getModelsByBrand(selectedBrand.id);
         setModels(modelsData);
       } catch (error) {
-        console.error('Error loading models:', error);
+        logger.error('Error al cargar modelos', { data: { error } });
       } finally {
         setLoadingModels(false);
       }
@@ -113,7 +116,7 @@ export function VehicleBasicDataForm({
         const subTypesData = await getSubTypesByType(selectedType.id);
         setSubTypes(subTypesData);
       } catch (error) {
-        console.error('Error loading subtypes:', error);
+        logger.error('Error al cargar subtipos', { data: { error } });
       } finally {
         setLoadingSubTypes(false);
       }
@@ -126,7 +129,7 @@ export function VehicleBasicDataForm({
     if (type === 'Leasing' || type === 'Alquiler' || type === 'Prendado') {
       // Filtrar titulares que tengan el tipo de contrato seleccionado en su relación
       const filtered = ownersInitial.filter((owner) => {
-        const contractTypes = (owner as any).equipment_owner_contract_types;
+        const contractTypes = owner.equipment_owner_contract_types;
 
         return contractTypes?.some((ct: { contract_type: string }) => {
           return ct.contract_type === type;
@@ -305,20 +308,6 @@ export function VehicleBasicDataForm({
               </PopoverContent>
             </Popover>
             <FormDescription>Selecciona la marca del equipo</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="kilometer"
-        render={({ field }) => (
-          <FormItem className="flex flex-col">
-            <FormLabel>Kilometraje del equipo</FormLabel>
-            <FormControl className="m-0">
-              <Input className="m-0" {...field} disabled={readOnly} placeholder="Ingrese el kilometraje del equipo" />
-            </FormControl>
-            <FormDescription>Ingrese el kilometraje del equipo</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -594,7 +583,7 @@ export function VehicleBasicDataForm({
           control={form.control}
           name="kilometer"
           render={({ field }) => (
-            <FormItem className={cn('flex flex-col', !hideInput && 'hidden')}>
+            <FormItem className="flex flex-col">
               <FormLabel>Kilometraje</FormLabel>
               <FormControl>
                 <Input {...field} disabled={readOnly} placeholder="Kilometraje" type="number" min="0" />
@@ -605,6 +594,24 @@ export function VehicleBasicDataForm({
           )}
         />
       )}
+
+      {typeFields.showEngineHours && (
+        <FormField
+          control={form.control}
+          name="engine_hours"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Horómetro</FormLabel>
+              <FormControl>
+                <Input {...field} disabled={readOnly} placeholder="Ingrese las horas de motor" type="number" min="0" />
+              </FormControl>
+              <FormDescription>Ingrese las horas de motor del equipo</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
       <FormField
         control={form.control}
         name="type_of_contract"
@@ -726,7 +733,7 @@ export function VehicleBasicDataForm({
                       className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
                     >
                       {field.value ? (
-                        format(field.value, 'PPP', { locale: es })
+                        moment(field.value).locale('es').format('LL')
                       ) : (
                         <span>Seleccionar fecha de inicio</span>
                       )}
@@ -771,7 +778,7 @@ export function VehicleBasicDataForm({
                       className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
                     >
                       {field.value ? (
-                        format(field.value, 'PPP', { locale: es })
+                        moment(field.value).locale('es').format('LL')
                       ) : (
                         <span>Seleccionar fecha de vencimiento</span>
                       )}

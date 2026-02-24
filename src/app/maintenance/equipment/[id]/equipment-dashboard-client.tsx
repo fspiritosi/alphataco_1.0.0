@@ -33,6 +33,7 @@ interface EquipmentDashboardClientProps {
     model: string;
     year: string;
     kilometer: string;
+    engine_hours?: string | null;
     condition: string;
     type: string;
     sub_type: string;
@@ -137,6 +138,12 @@ export default function EquipmentDashboardClient({
                     <p className="text-xs text-muted-foreground">Kilometraje</p>
                     <p className="text-sm font-medium">{equipment.kilometer} km</p>
                   </div>
+                  {equipment.engine_hours && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Horómetro</p>
+                      <p className="text-sm font-medium">{equipment.engine_hours} hs</p>
+                    </div>
+                  )}
                 </div>
 
                 {!equipment.is_active && (

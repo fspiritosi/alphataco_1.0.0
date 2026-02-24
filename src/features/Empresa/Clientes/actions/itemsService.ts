@@ -1,17 +1,24 @@
+import { logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { toast } from 'sonner';
 
-let currentEditingService: any = null;
-let currentEditService: any = null;
-let currentCompanyId: string = '';
-let currentIsEditing: boolean = false;
-let currentGetItems: (() => void) | null = null;
-let currentReset: (() => void) | null = null;
-
 export async function handleSubmit(
-  values: any,
-  editingService: any,
-  editService: any,
+  values: {
+    item_name?: string;
+    item_description?: string | null;
+    code_item?: string | null;
+    item_number?: string | null;
+    item_price?: number;
+    item_measure_units?: string;
+    is_active?: boolean;
+    needs_personnel?: boolean;
+    needs_equipment?: boolean;
+    customer_id?: string;
+    customer_service_id?: string;
+  },
+  editingService: { id?: string } | null | undefined,
+  // editService es el servicio (customer_service) cuyo id se usa como customer_service_id del item
+  editService: { id?: string; company_id?: string | null; [key: string]: unknown } | null | undefined,
   company_id: string,
   isEditing: boolean,
   reset: () => void,
@@ -19,30 +26,34 @@ export async function handleSubmit(
 ) {
   const supabase = supabaseBrowser();
   try {
-    const { data, error } = isEditing
+    const { error } = isEditing
       ? await supabase
           .from('service_items')
           .update({
             item_name: values.item_name,
-            item_description: values.item_description,
+            item_description: values.item_description ?? undefined,
             code_item: values.code_item,
             item_number: values.item_number,
             item_measure_units: Number(values.item_measure_units),
             item_price: values.item_price,
             is_active: values.is_active,
-            company_id: editService?.company_id,
+            needs_personnel: values.needs_personnel ?? true,
+            needs_equipment: values.needs_equipment ?? true,
+            company_id: editService?.company_id ?? undefined,
           })
-          .eq('id', editingService?.id)
+          .eq('id', editingService?.id ?? '')
       : await supabase.from('service_items').insert({
-          customer_service_id: editService?.id,
-          item_name: values.item_name,
-          item_description: values.item_description,
+          customer_service_id: editService?.id ?? '',
+          item_name: values.item_name ?? '',
+          item_description: values.item_description ?? '',
           code_item: values.code_item,
           item_number: values.item_number,
           item_measure_units: Number(values.item_measure_units),
-          item_price: values.item_price,
+          item_price: values.item_price ?? 0,
           is_active: values.is_active,
-          company_id: editService?.company_id,
+          needs_personnel: values.needs_personnel ?? true,
+          needs_equipment: values.needs_equipment ?? true,
+          company_id: editService?.company_id ?? company_id,
         });
 
     if (error) {
@@ -60,7 +71,7 @@ export async function handleSubmit(
       onSuccess();
     }
   } catch (error) {
-    console.error(`Error al ${isEditing ? 'actualizar' : 'crear'} el item:`, error);
+    logger.error(`Error al ${isEditing ? 'actualizar' : 'crear'} el item`, { data: { error } });
     toast.error(`Error al ${isEditing ? 'actualizar' : 'crear'} el item`);
   }
 }
@@ -89,7 +100,7 @@ export async function fetchServiceItems(customer_service_id: string) {
       .eq('customer_service_id', customer_service_id);
 
     if (error) {
-      console.error('Error al obtener items del servicio:', error);
+      logger.error('Error al obtener items del servicio', { data: { error } });
       return [];
     }
 
@@ -107,7 +118,7 @@ export async function fetchServiceItems(customer_service_id: string) {
       .in('id', customerIds);
 
     if (customersError) {
-      console.error('Error al obtener clientes:', customersError);
+      logger.error('Error al obtener clientes', { data: { error: customersError } });
       // Continuamos sin los datos de los clientes
     }
 
@@ -120,7 +131,7 @@ export async function fetchServiceItems(customer_service_id: string) {
       },
     }));
   } catch (error) {
-    console.error('Error inesperado al obtener items del servicio:', error);
+    logger.error('Error inesperado al obtener items del servicio', { data: { error } });
     return [];
   }
 }

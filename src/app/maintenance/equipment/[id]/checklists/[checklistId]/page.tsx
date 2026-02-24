@@ -24,18 +24,18 @@ export default async function ChecklistFormPage({
 
   const employeeFromCookie = cookiesStore.get('empleado_id')?.value;
   const employeeFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
+    ((user?.app_metadata as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as Record<string, unknown>)?.employee_id as string | undefined);
   const employee = employeeFromCookie ?? employeeFromMetadata;
 
   if (!employee && !user?.id) {
     redirect('/maintenance');
   }
 
-  // Obtener company_id y kilometraje del equipo
+  // Obtener company_id, kilometraje y horómetro del equipo
   const { data: equipmentData } = await supabase
     .from('vehicles')
-    .select('company_id, kilometer')
+    .select('company_id, kilometer, engine_hours')
     .eq('id', resolvedParams.id)
     .single();
 
@@ -73,17 +73,19 @@ export default async function ChecklistFormPage({
     domain: equipment.domain,
     serie: equipment.serie,
     kilometer: equipment.kilometer ?? '0',
+    engine_hours: equipment.engine_hours ?? '0',
     model: equipment.model?.name || '',
     brand: equipment.brand?.name || '',
     intern_number: equipment.intern_number || '',
-    sub_type_id: (equipment as any).subType?.id || (equipment as any).sub_type_id || null,
+    sub_type_id: (equipment.subType as { id?: string } | null)?.id || null,
     type_name: equipment.type?.name || 'N/A',
     sub_type_name: equipment.subType?.name || 'N/A',
   }));
 
-  // Obtener el equipo seleccionado para el kilometraje
+  // Obtener el equipo seleccionado para el kilometraje y horómetro
   const selectedEquipment = equipments.find((eq) => eq.id === resolvedParams.id);
   const defaultKilometer = selectedEquipment?.kilometer ?? equipmentData?.kilometer ?? '0';
+  const defaultHorometro = selectedEquipment?.engine_hours ?? equipmentData?.engine_hours ?? '0';
 
   // Obtener perfil del usuario actual y clientes activos
   const [currentUserProfiles, customers] = await Promise.all([
@@ -117,6 +119,7 @@ export default async function ChecklistFormPage({
           defaultEmployeeId={employee || undefined}
           defaultEmployeeName={employeeFullName || undefined}
           defaultKilometer={defaultKilometer}
+          defaultHorometro={defaultHorometro}
         />
       </main>
     </div>

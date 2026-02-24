@@ -186,7 +186,13 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
     maintenance_orders?: {
       id?: string;
       order_number?: string;
-      vehicles?: { domain?: string; serie?: string; intern_number?: string; kilometer?: number } | null;
+      vehicles?: {
+        domain?: string;
+        serie?: string;
+        intern_number?: string;
+        kilometer?: number;
+        engine_hours?: string | null;
+      } | null;
     } | null;
     description?: string | null;
   };
@@ -247,6 +253,12 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
                 <span className="text-muted-foreground">Km:</span>
                 <p className="font-medium">{vehicle.kilometer ? vehicle.kilometer.toLocaleString() : '-'}</p>
               </div>
+              {vehicle.engine_hours && (
+                <div>
+                  <span className="text-muted-foreground">Hs:</span>
+                  <p className="font-medium">{vehicle.engine_hours} hs</p>
+                </div>
+              )}
             </div>
           )}
 

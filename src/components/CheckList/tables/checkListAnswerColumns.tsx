@@ -1,7 +1,5 @@
 'use client';
 
-import { PDFPreviewDialog } from '@/components/pdf-preview-dialog';
-import { TransporteSPANAYCHKHYS04 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS04';
 import { PersonIcon } from '@radix-ui/react-icons';
 import { ColumnDef } from '@tanstack/react-table';
 import moment from 'moment';
@@ -12,6 +10,7 @@ export const checkListAnswerColumns: ColumnDef<{
   domain: string;
   chofer: string;
   kilometer: string;
+  engine_hours: string;
   created_at: string;
 }>[] = [
   {
@@ -61,6 +60,14 @@ export const checkListAnswerColumns: ColumnDef<{
     },
   },
   {
+    accessorKey: 'engine_hours',
+    id: 'Horómetro',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Horómetro" />,
+    cell: ({ row }) => {
+      return <div className="flex w-[100px] items-center">{row.getValue('Horómetro') || '-'}</div>;
+    },
+  },
+  {
     accessorKey: 'created_at',
     id: 'Fecha',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Creación" />,
@@ -100,5 +107,4 @@ export const checkListAnswerColumns: ColumnDef<{
   //       </PDFPreviewDialog>
   //     );
   //   },
-  
 ];

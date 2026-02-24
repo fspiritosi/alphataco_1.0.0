@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
 import { usePermissions } from '@/features/Permissions';
+import { logger } from '@/lib/logger';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
@@ -73,6 +74,30 @@ function getServiceItemsColumns(
       },
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id) === true ? 'Activo' : 'Inactivo');
+      },
+    },
+    {
+      accessorKey: 'needs_personnel',
+      id: 'needs_personnel',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Req. Personal" />,
+      cell: ({ row }) => {
+        const needsPersonnel = row.original.needs_personnel ?? true;
+        return <Badge variant={needsPersonnel ? 'success' : 'destructive'}>{needsPersonnel ? 'Sí' : 'No'}</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: 'needs_equipment',
+      id: 'needs_equipment',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Req. Equipos" />,
+      cell: ({ row }) => {
+        const needsEquipment = row.original.needs_equipment ?? true;
+        return <Badge variant={needsEquipment ? 'success' : 'destructive'}>{needsEquipment ? 'Sí' : 'No'}</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
       },
     },
     {
@@ -184,7 +209,7 @@ export default function ServiceItemsTable({
         setAllItems(serviceItems);
       }
     } catch (err) {
-      console.error('Error al cargar los items:', err);
+      logger.error('Error al cargar los items', { data: { err } });
     }
   }, [customer_service_id]);
 

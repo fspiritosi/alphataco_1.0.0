@@ -76,6 +76,7 @@ export function NuevoPedidoChecklistForm({
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [kilometer, setKilometer] = useState('');
+  const [engineHours, setEngineHours] = useState('');
 
   // Paso 2: Selección de checklist
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -95,9 +96,6 @@ export function NuevoPedidoChecklistForm({
     () => equipment?.find((e) => e.id === selectedEquipmentId),
     [equipment, selectedEquipmentId]
   );
-
-  // Es vehículo (para mostrar kilometraje)
-  const isVehicle = selectedEquipment?.types_of_vehicles?.name === 'Vehículos';
 
   // Filtrar equipos por búsqueda
   const filteredEquipment = useMemo(() => {
@@ -159,6 +157,7 @@ export function NuevoPedidoChecklistForm({
       if (equip) {
         setSelectedEquipmentId(equip.id);
         setKilometer(equip.kilometer || '');
+        setEngineHours(equip.engine_hours || '');
         // Reset estados posteriores
         setSelectedTemplateId('');
         setSelectedDeviations([]);
@@ -247,7 +246,8 @@ export function NuevoPedidoChecklistForm({
         await createMaintenanceOrderFromDeviations({
           equipmentId: selectedEquipmentId,
           supervisorId,
-          kilometer: isVehicle ? kilometer : undefined,
+          kilometer: kilometer || undefined,
+          engine_hours: engineHours || undefined,
           deviations: deviationsToSend,
         });
 
@@ -262,7 +262,8 @@ export function NuevoPedidoChecklistForm({
         await createMaintenanceRequestPendingApproval({
           equipmentId: selectedEquipmentId,
           supervisorId,
-          kilometer: isVehicle ? kilometer : undefined,
+          kilometer: kilometer || undefined,
+          engine_hours: engineHours || undefined,
           deviations: deviationsToSend,
         });
 
@@ -278,6 +279,7 @@ export function NuevoPedidoChecklistForm({
       setCurrentStep(0);
       setSelectedEquipmentId(default_equipment_id || '');
       setKilometer('');
+      setEngineHours('');
       setSelectedTemplateId('');
       setSelectedDeviations([]);
       setDeviationComments({});
@@ -388,22 +390,37 @@ export function NuevoPedidoChecklistForm({
         </Popover>
       </div>
 
-      {selectedEquipment && isVehicle && (
-        <div className="space-y-2">
-          <Label htmlFor="kilometer">Kilometraje actual</Label>
-          <Input
-            id="kilometer"
-            type="number"
-            value={kilometer}
-            onChange={(e) => setKilometer(e.target.value)}
-            placeholder="Ingresa el kilometraje"
-            min={Number(selectedEquipment.kilometer) || 0}
-          />
-          {selectedEquipment.kilometer && (
-            <p className="text-xs text-muted-foreground">
-              Último kilometraje registrado: {selectedEquipment.kilometer} km
-            </p>
-          )}
+      {selectedEquipment && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="kilometer">Kilometraje actual</Label>
+            <Input
+              id="kilometer"
+              type="number"
+              value={kilometer}
+              onChange={(e) => setKilometer(e.target.value)}
+              placeholder="Ingresa el kilometraje"
+              min={Number(selectedEquipment.kilometer) || 0}
+            />
+            {selectedEquipment.kilometer && (
+              <p className="text-xs text-muted-foreground">Último registrado: {selectedEquipment.kilometer} km</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="engineHours">Horómetro</Label>
+            <Input
+              id="engineHours"
+              type="number"
+              value={engineHours}
+              onChange={(e) => setEngineHours(e.target.value)}
+              placeholder="Ingrese las horas de motor"
+              min={Number(selectedEquipment.engine_hours) || 0}
+            />
+            {selectedEquipment.engine_hours && (
+              <p className="text-xs text-muted-foreground">Último registrado: {selectedEquipment.engine_hours} hs</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -742,7 +759,8 @@ export function NuevoPedidoChecklistForm({
           <CardContent>
             <p className="font-medium">{selectedEquipment?.domain || selectedEquipment?.serie}</p>
             <p className="text-sm text-muted-foreground">{selectedEquipment?.types_of_vehicles?.name}</p>
-            {isVehicle && kilometer && <p className="text-sm">Kilometraje: {kilometer} km</p>}
+            {kilometer && <p className="text-sm">Kilometraje: {kilometer} km</p>}
+            {engineHours && <p className="text-sm">Horómetro: {engineHours} hs</p>}
           </CardContent>
         </Card>
 

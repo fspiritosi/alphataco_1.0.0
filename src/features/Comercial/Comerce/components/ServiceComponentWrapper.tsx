@@ -21,7 +21,7 @@ export default async function ServiceComponentWrapper() {
   const areas = await fetchAreasWithProvinces();
   const sectors = await fetchAllSectors();
   const contractorSectors = await fetchAllContractorSectorBySectorIds(sectors?.map((sector) => sector.id) || []);
-  const services = await fetchServices(actualCompany || '');
+  const services = await fetchServices();
   const serviceItems = await fetchServiceItems('');
   const measure_units = await fetchMeasureUnits();
 

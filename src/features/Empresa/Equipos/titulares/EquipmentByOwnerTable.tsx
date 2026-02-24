@@ -285,6 +285,17 @@ export default function EquipmentByOwnerTable({
       },
     },
     {
+      accessorKey: 'engine_hours',
+      id: 'engine_hours',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Horómetro" />,
+      cell: ({ row }) => {
+        return <Badge variant={'outline'}>{row.original.engine_hours || '0'} hs</Badge>;
+      },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
       accessorKey: 'model_vehicles.name',
       id: 'model_vehicles.name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Modelo" />,

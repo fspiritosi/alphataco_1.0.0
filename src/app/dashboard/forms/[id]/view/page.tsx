@@ -42,6 +42,7 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
         domain: equipment.domain,
         serie: equipment.serie,
         kilometer: equipment.kilometer ?? '0',
+        engine_hours: equipment.engine_hours ?? '0',
         model: equipment.model?.name || 'N/A',
         brand: equipment.brand?.name || 'N/A',
         intern_number: equipment.intern_number || '',
@@ -61,6 +62,7 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
       fecha: answerData?.fecha || '',
       hora: answerData?.hora || '',
       kilometraje: answerData?.kilometraje || '',
+      horometro: answerData?.horometro || '',
       observaciones: normalizedAnswer.observations || '',
       ...answerData?.answers, // Respuestas por sección
     };

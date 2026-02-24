@@ -92,6 +92,7 @@ export interface WorkOrderDetail extends WorkOrderRowData {
   items: WorkOrderItemDetail[];
   // Info adicional del equipo
   vehicleKilometer: string | null;
+  vehicleEngineHours: number | null;
   vehicleCondition: string | null;
   // Info adicional
   startedAt: string | null;
