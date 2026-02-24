@@ -61,4 +61,5 @@ settings.local.json
 .agents
 /local
 
-/src/generated/prisma
+# Prisma generated
+/src/generated
