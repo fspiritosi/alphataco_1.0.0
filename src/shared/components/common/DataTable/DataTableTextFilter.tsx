@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
+import { useDataTablePending } from './DataTablePendingContext';
+
 interface DataTableTextFilterProps {
   columnId: string;
   title: string;
@@ -21,6 +23,7 @@ export function DataTableTextFilter({ columnId, title, placeholder }: DataTableT
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { startTransition } = useDataTablePending();
 
   const currentValue = searchParams.get(columnId) ?? '';
   const [inputValue, setInputValue] = React.useState(currentValue);
@@ -39,7 +42,9 @@ export function DataTableTextFilter({ columnId, title, placeholder }: DataTableT
       params.delete(columnId);
     }
     params.set('page', '1');
-    router.replace(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`);
+    });
   };
 
   const clearFilter = () => {

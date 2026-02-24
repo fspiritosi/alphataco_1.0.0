@@ -37,17 +37,11 @@ export function DataTablePagination<TData>({
 
   return (
     <div className="flex items-center justify-between px-2">
-      {/* Información de selección o rango */}
+      {/* Información de total + selección */}
       <div className="flex-1 text-sm text-muted-foreground">
-        {showRowSelection ? (
-          <>
-            {table.getFilteredSelectedRowModel().rows.length} de {table.getFilteredRowModel().rows.length} fila(s)
-            seleccionada(s).
-          </>
-        ) : (
-          <>
-            Mostrando {startRow} a {endRow} de {totalRows} registros
-          </>
+        <span>{totalRows} registros</span>
+        {showRowSelection && table.getFilteredSelectedRowModel().rows.length > 0 && (
+          <span className="ml-1">· {table.getFilteredSelectedRowModel().rows.length} seleccionada(s)</span>
         )}
       </div>
 

@@ -2,7 +2,7 @@
 
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useTransition } from 'react';
 
 import { DEFAULT_PAGE_SIZE, parseSearchParams, stateToSearchParams } from './helpers';
 import type { DataTableSearchParams, DataTableState } from './types';
@@ -49,6 +49,10 @@ interface UseDataTableReturn {
   onGlobalFilterChange: (value: string) => void;
   /** Resetear todos los filtros */
   resetFilters: () => void;
+  /** Indica si hay una navegación pendiente (transición React) */
+  isPending: boolean;
+  /** Función para envolver navegaciones en una transición React */
+  startTransition: (callback: () => void) => void;
 }
 
 /**
@@ -87,6 +91,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   // Parsear estado actual de la URL
   const state = useMemo(() => {
@@ -111,10 +116,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
     [state.page, state.pageSize]
   );
 
-  const sorting: SortingState = useMemo(
-    () => (state.sortBy ? [{ id: state.sortBy, desc: state.sortOrder === 'desc' }] : []),
-    [state.sortBy, state.sortOrder]
-  );
+  const sorting: SortingState = useMemo(() => state.sorting, [state.sorting]);
 
   const columnFilters: ColumnFiltersState = useMemo(() => {
     const filters: ColumnFiltersState = [];
@@ -140,11 +142,13 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
       const merged = { ...state, ...newState };
       const params = stateToSearchParams(merged);
       const queryString = params.toString();
-      router.push(queryString ? `${pathname}?${queryString}` : pathname, {
-        scroll: false,
+      startTransition(() => {
+        router.push(queryString ? `${pathname}?${queryString}` : pathname, {
+          scroll: false,
+        });
       });
     },
-    [state, pathname, router]
+    [state, pathname, router, startTransition]
   );
 
   // Handlers
@@ -162,19 +166,10 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   const onSortingChange = useCallback(
     (updater: SortingState | ((old: SortingState) => SortingState)) => {
       const newSorting = typeof updater === 'function' ? updater(sorting) : updater;
-      if (newSorting.length > 0) {
-        updateURL({
-          sortBy: newSorting[0].id,
-          sortOrder: newSorting[0].desc ? 'desc' : 'asc',
-          page: 0, // Reset to first page on sort change
-        });
-      } else {
-        updateURL({
-          sortBy: null,
-          sortOrder: 'asc',
-          page: 0,
-        });
-      }
+      updateURL({
+        sorting: newSorting,
+        page: 0, // Reset to first page on sort change
+      });
     },
     [sorting, updateURL]
   );
@@ -216,8 +211,10 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   );
 
   const resetFilters = useCallback(() => {
-    router.push(pathname, { scroll: false });
-  }, [pathname, router]);
+    startTransition(() => {
+      router.push(pathname, { scroll: false });
+    });
+  }, [pathname, router, startTransition]);
 
   return {
     state,
@@ -229,5 +226,7 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
     onColumnFiltersChange,
     onGlobalFilterChange,
     resetFilters,
+    isPending,
+    startTransition,
   };
 }

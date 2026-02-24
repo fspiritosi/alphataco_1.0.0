@@ -7,6 +7,9 @@
 // Componente principal
 export { DataTable } from './DataTable';
 
+// Contexto de estado pendiente (para componentes que necesitan compartir startTransition)
+export { DataTablePendingProvider, useDataTablePending } from './DataTablePendingContext';
+
 // Sub-componentes (para uso individual si es necesario)
 export { DataTableColumnHeader } from './DataTableColumnHeader';
 export { DataTableDateRangeFilter } from './DataTableDateRangeFilter';
@@ -58,6 +61,8 @@ export type {
   DataTableToolbarProps,
   DataTableViewOptionsProps,
   PrismaTableParams,
+  // Sorting
+  SortItem,
 } from './types';
 
 // Excel export utilities

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { saveTableFilterVisibility } from '@/shared/actions/table-preferences';
 
+import { useDataTablePending } from './DataTablePendingContext';
 import type { DataTableFacetedFilterConfig } from './types';
 
 interface DataTableFilterOptionsProps {
@@ -32,6 +33,7 @@ export function DataTableFilterOptions({
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { startTransition } = useDataTablePending();
 
   const toggleFilter = (columnId: string, visible: boolean) => {
     const newVisibility = { ...filterVisibility, [columnId]: visible };
@@ -43,7 +45,9 @@ export function DataTableFilterOptions({
       params.delete(columnId);
       params.delete(`${columnId}_from`);
       params.delete(`${columnId}_to`);
-      router.replace(`${pathname}?${params.toString()}`);
+      startTransition(() => {
+        router.replace(`${pathname}?${params.toString()}`);
+      });
     }
 
     // Guardar en DB (fire and forget)

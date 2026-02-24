@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { ArrowUpDown, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,8 @@ export function DataTableToolbar<TData>({
   onFilterVisibilityChange,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
+  const sortingState = table.getState().sorting;
+  const isSorted = sortingState.length > 0;
 
   const searchValue = searchColumn
     ? (table.getColumn(searchColumn)?.getFilterValue() as string) ?? ''
@@ -92,6 +94,20 @@ export function DataTableToolbar<TData>({
             );
           })}
 
+          {/* Boton para limpiar ordenamiento */}
+          {isSorted && (
+            <Button
+              variant="ghost"
+              onClick={() => table.resetSorting()}
+              className="h-8 px-2 lg:px-3"
+              data-testid="clear-sorting"
+            >
+              <ArrowUpDown className="mr-1 h-3.5 w-3.5" />
+              {sortingState.length > 1 ? `Ordenamiento (${sortingState.length})` : 'Ordenamiento'}
+              <X className="ml-1 h-3.5 w-3.5" />
+            </Button>
+          )}
+
           {/* Boton para limpiar filtros */}
           {isFiltered && (
             <Button
@@ -100,7 +116,7 @@ export function DataTableToolbar<TData>({
               className="h-8 px-2 lg:px-3"
               data-testid="clear-filters"
             >
-              Limpiar
+              Limpiar filtros
               <X className="ml-2 h-4 w-4" />
             </Button>
           )}

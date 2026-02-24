@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
+import { useDataTablePending } from './DataTablePendingContext';
+
 interface DataTableDateRangeFilterProps {
   columnId: string;
   title: string;
@@ -20,6 +22,7 @@ export function DataTableDateRangeFilter({ columnId, title }: DataTableDateRange
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { startTransition } = useDataTablePending();
 
   const fromKey = `${columnId}_from`;
   const toKey = `${columnId}_to`;
@@ -40,7 +43,9 @@ export function DataTableDateRangeFilter({ columnId, title }: DataTableDateRange
       params.delete(key);
     }
     params.set('page', '1');
-    router.replace(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`);
+    });
   };
 
   const clearFilter = () => {
@@ -48,7 +53,9 @@ export function DataTableDateRangeFilter({ columnId, title }: DataTableDateRange
     params.delete(fromKey);
     params.delete(toKey);
     params.set('page', '1');
-    router.replace(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`);
+    });
   };
 
   return (

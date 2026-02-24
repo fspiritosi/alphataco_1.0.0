@@ -13,9 +13,11 @@ export interface DataTableSearchParams {
   page?: string;
   /** Cantidad de filas por página */
   pageSize?: string;
-  /** Campo por el cual ordenar */
+  /** Multi-sort compacto: "name.asc,status.desc" */
+  sort?: string;
+  /** @deprecated Usar `sort` — Campo por el cual ordenar (compat legacy) */
   sortBy?: string;
-  /** Dirección del ordenamiento */
+  /** @deprecated Usar `sort` — Dirección del ordenamiento (compat legacy) */
   sortOrder?: 'asc' | 'desc';
   /** Término de búsqueda global */
   search?: string;
@@ -24,13 +26,23 @@ export interface DataTableSearchParams {
 }
 
 /**
+ * Elemento de sorting individual
+ */
+export interface SortItem {
+  /** ID de la columna */
+  id: string;
+  /** true = descendente, false = ascendente */
+  desc: boolean;
+}
+
+/**
  * Estado parseado de los search params
  */
 export interface DataTableState {
   page: number;
   pageSize: number;
-  sortBy: string | null;
-  sortOrder: 'asc' | 'desc';
+  /** Array de ordenamientos (multi-sort) */
+  sorting: SortItem[];
   search: string;
   filters: Record<string, string[]>;
 }
@@ -266,8 +278,8 @@ export interface DataTableViewOptionsProps<TData> {
 export interface DataTableQueryParams {
   page: number;
   pageSize: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  /** Multi-sort array */
+  sorting?: SortItem[];
   search?: string;
   filters?: Record<string, string[]>;
 }
@@ -293,6 +305,6 @@ export interface DataTableQueryResult<TData> {
 export interface PrismaTableParams {
   skip: number;
   take: number;
-  orderBy?: Record<string, 'asc' | 'desc'>;
+  orderBy?: Record<string, 'asc' | 'desc'>[];
   where?: Record<string, unknown>;
 }

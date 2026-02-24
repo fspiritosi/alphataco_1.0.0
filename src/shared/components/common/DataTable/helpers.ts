@@ -3,7 +3,7 @@
  * NO incluye 'use client' para que puedan ser importadas desde server actions
  */
 
-import type { DataTableSearchParams, DataTableState } from './types';
+import type { DataTableSearchParams, DataTableState, SortItem } from './types';
 
 // ============================================================================
 // CONSTANTES
@@ -29,16 +29,30 @@ export function parseSearchParams(searchParams: DataTableSearchParams): DataTabl
   // Parsear pageSize
   const pageSize = searchParams.pageSize ? Number(searchParams.pageSize) : DEFAULT_PAGE_SIZE;
 
-  // Parsear sorting
-  const sortBy = (searchParams.sortBy as string) || null;
-  const sortOrder = (searchParams.sortOrder as 'asc' | 'desc') || 'asc';
+  // Parsear sorting: nuevo formato "sort=name.asc,status.desc"
+  let sorting: SortItem[] = [];
+  if (searchParams.sort) {
+    sorting = String(searchParams.sort)
+      .split(',')
+      .map((s) => {
+        const lastDot = s.lastIndexOf('.');
+        if (lastDot === -1) return { id: s, desc: false };
+        const id = s.substring(0, lastDot);
+        const dir = s.substring(lastDot + 1);
+        return { id, desc: dir === 'desc' };
+      })
+      .filter((s) => s.id);
+  } else if (searchParams.sortBy) {
+    // Backward compat: legacy format "sortBy=name&sortOrder=asc"
+    sorting = [{ id: String(searchParams.sortBy), desc: searchParams.sortOrder === 'desc' }];
+  }
 
   // Parsear búsqueda
   const search = (searchParams.search as string) || '';
 
   // Parsear filtros (todos los params que no son los estándar)
   // Los params _from y _to son parte del sistema de date range y se procesan por separado
-  const reservedKeys = ['page', 'pageSize', 'sortBy', 'sortOrder', 'search'];
+  const reservedKeys = ['page', 'pageSize', 'sort', 'sortBy', 'sortOrder', 'search'];
   const filters: Record<string, string[]> = {};
 
   Object.entries(searchParams).forEach(([key, value]) => {
@@ -48,7 +62,7 @@ export function parseSearchParams(searchParams: DataTableSearchParams): DataTabl
     }
   });
 
-  return { page, pageSize, sortBy, sortOrder, search, filters };
+  return { page, pageSize, sorting, search, filters };
 }
 
 /**
@@ -67,10 +81,10 @@ export function stateToSearchParams(state: Partial<DataTableState>): URLSearchPa
     params.set('pageSize', String(state.pageSize));
   }
 
-  // Sorting
-  if (state.sortBy) {
-    params.set('sortBy', state.sortBy);
-    params.set('sortOrder', state.sortOrder || 'asc');
+  // Multi-sort: "name.asc,status.desc"
+  if (state.sorting && state.sorting.length > 0) {
+    const sortStr = state.sorting.map((s) => `${s.id}.${s.desc ? 'desc' : 'asc'}`).join(',');
+    params.set('sort', sortStr);
   }
 
   // Búsqueda
@@ -123,14 +137,16 @@ export function stateToPrismaParams(state: DataTableState) {
   const params: {
     skip: number;
     take: number;
-    orderBy?: Record<string, 'asc' | 'desc'>;
+    orderBy?: Record<string, 'asc' | 'desc'>[];
   } = {
     skip: state.page * state.pageSize,
     take: state.pageSize,
   };
 
-  if (state.sortBy) {
-    params.orderBy = { [state.sortBy]: state.sortOrder };
+  if (state.sorting.length > 0) {
+    params.orderBy = state.sorting.map((s) => ({
+      [s.id]: (s.desc ? 'desc' : 'asc') as 'asc' | 'desc',
+    }));
   }
 
   return params;
