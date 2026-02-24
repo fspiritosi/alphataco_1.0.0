@@ -1,10 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { MultiSelectCombobox } from '@/components/ui/multi-select-combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import DependencyValidationModal, { DependencyConfig } from '@/shared/components/modal/DependencyValidationModal';
 import { fetchDependenciesForValue, fetchReplacementOptions } from '@/shared/components/modal/dependency-utils';
@@ -17,6 +19,8 @@ import { z } from 'zod';
 import { Database } from '../../../../../database.types';
 import { FetchTypeOfVehicles, createTypeOfVehicle, updateTypeOfVehicle } from '../actions/actions';
 import { useActiveChecklists } from '../sub_types/hooks/useActiveChecklists';
+
+const logger = new Logger('EquipmentTypesForm');
 
 type VehicleType = Database['public']['Tables']['type']['Row'];
 
@@ -36,6 +40,7 @@ const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   applies_to: z.enum(['vehicle', 'other_equipment']).default('vehicle'),
   is_active: z.boolean().default(true),
+  is_operative: z.boolean().default(false),
   is_tractor_unit: z.boolean().default(false),
   has_hitch: z.boolean().default(false),
   hitch_type_ids: z.array(z.string()).default([]),
@@ -66,6 +71,7 @@ function EquipmentTypesForm({
       name: '',
       applies_to: 'vehicle',
       is_active: true,
+      is_operative: false,
       is_tractor_unit: false,
       has_hitch: false,
       hitch_type_ids: [],
@@ -96,6 +102,7 @@ function EquipmentTypesForm({
         name: initialData.name,
         applies_to: (initialData.applies_to as 'vehicle' | 'other_equipment') ?? 'vehicle',
         is_active: initialData.is_active ?? true,
+        is_operative: initialData.is_operative ?? false,
         is_tractor_unit: initialData.is_tractor_unit ?? false,
         has_hitch: initialData.has_hitch ?? false,
         hitch_type_ids: initialHitchTypeIds,
@@ -106,6 +113,7 @@ function EquipmentTypesForm({
         name: '',
         applies_to: 'vehicle',
         is_active: true,
+        is_operative: false,
         is_tractor_unit: false,
         has_hitch: false,
         hitch_type_ids: [],
@@ -150,6 +158,7 @@ function EquipmentTypesForm({
           name: data.name,
           applies_to: data.applies_to,
           is_active: data.is_active,
+          is_operative: data.is_operative,
           is_tractor_unit: data.is_tractor_unit,
           has_hitch: data.has_hitch,
           hitch_type_ids: data.hitch_type_ids,
@@ -164,6 +173,7 @@ function EquipmentTypesForm({
           name: data.name,
           applies_to: data.applies_to,
           is_active: data.is_active,
+          is_operative: data.is_operative,
           is_tractor_unit: data.is_tractor_unit,
           has_hitch: data.has_hitch,
           hitch_type_ids: data.hitch_type_ids,
@@ -188,7 +198,7 @@ function EquipmentTypesForm({
 
       router.refresh();
     } catch (error: unknown) {
-      console.error('Error al guardar el tipo de equipo:', error);
+      logger.error('Error al guardar el tipo de equipo', { data: { error } });
 
       let errorMessage = 'Ocurrió un error al guardar. Por favor, inténtalo de nuevo.';
 
@@ -274,7 +284,7 @@ function EquipmentTypesForm({
           .eq(dependencyConfigs[0].targetColumn, initialData.id);
 
         if (error) {
-          console.error(error);
+          logger.error('Error al reemplazar referencias en tabla vehicles', { data: { error } });
         }
 
         // Ahora sí, desactivar el registro actual
@@ -284,6 +294,7 @@ function EquipmentTypesForm({
           name: values.name,
           applies_to: values.applies_to,
           is_active: values.is_active,
+          is_operative: values.is_operative,
           is_tractor_unit: values.is_tractor_unit,
           has_hitch: values.has_hitch,
           hitch_type_ids: values.hitch_type_ids,
@@ -295,7 +306,7 @@ function EquipmentTypesForm({
         router.refresh();
         if (onSuccess) onSuccess();
       } catch (err) {
-        console.error('Error al reemplazar referencias:', err);
+        logger.error('Error al reemplazar referencias', { data: { err } });
         toast({
           title: 'Error',
           description: 'No se pudieron reemplazar las referencias',
@@ -333,7 +344,17 @@ function EquipmentTypesForm({
               <FormItem className="space-y-3">
                 <FormLabel>Aplica a</FormLabel>
                 <FormControl>
-                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-1">
+                  <RadioGroup
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Al cambiar a vehículo, resetear is_operative ya que no aplica
+                      if (value === 'vehicle') {
+                        form.setValue('is_operative', false);
+                      }
+                    }}
+                    value={field.value}
+                    className="flex space-x-1"
+                  >
                     <FormItem className="flex items-center space-x-3 space-y-0">
                       <FormControl>
                         <RadioGroupItem value="vehicle" />
@@ -352,6 +373,27 @@ function EquipmentTypesForm({
               </FormItem>
             )}
           />
+
+          {/* Switch Es Operativo - solo visible si aplica a otros equipos */}
+          {form.watch('applies_to') === 'other_equipment' && (
+            <FormField
+              control={form.control}
+              name="is_operative"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Es operativo</FormLabel>
+                    <FormDescription>
+                      Los equipos de este tipo aparecerán en el parte diario y podrán tener mantenimiento
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}
