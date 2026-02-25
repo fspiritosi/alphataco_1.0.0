@@ -16,7 +16,7 @@ import { AlertTriangle, CheckCircle2, Clock, Wrench, XCircle } from 'lucide-reac
 import moment from 'moment';
 import Link from 'next/link';
 import React from 'react';
-import type { OtherEquipmentListItem } from './actions.server';
+import type { InactiveOtherEquipmentListItem } from '../actions/actions.server';
 
 // ============================================================================
 // CONDITION CONFIG
@@ -46,6 +46,11 @@ const conditionVariants: Record<string, BadgeVariant> = {
 // HIDDEN COLUMNS BY DEFAULT
 // ============================================================================
 
+/**
+ * Para la tabla de dados de baja, las columnas de baja (reason/date) son VISIBLES
+ * por defecto porque son el dato más relevante de estos registros.
+ * Las columnas financieras y operativas secundarias se ocultan.
+ */
 export const HIDDEN_COLUMNS_BY_DEFAULT = [
   'manufacturer_plate',
   'composition',
@@ -54,8 +59,7 @@ export const HIDDEN_COLUMNS_BY_DEFAULT = [
   'currency',
   'purchase_date',
   'cost_center',
-  'reason_for_termination',
-  'termination_date',
+  'cost_type',
   'created_at',
 ];
 
@@ -63,7 +67,7 @@ export const HIDDEN_COLUMNS_BY_DEFAULT = [
 // COLUMN DEFINITIONS
 // ============================================================================
 
-export const columns: ColumnDef<OtherEquipmentListItem>[] = [
+export const columns: ColumnDef<InactiveOtherEquipmentListItem>[] = [
   // ─── N° Serie ────────────────────────────────────────────────────────────
   {
     accessorKey: 'serial_number',
@@ -214,6 +218,36 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
   },
 
+  // ─── Motivo de baja (enum nullable) — VISIBLE POR DEFAULT en tabla de bajas
+  {
+    accessorKey: 'reason_for_termination',
+    meta: { title: 'Motivo de baja' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo de baja" />,
+    cell: ({ row }) => {
+      const r = row.original.reason_for_termination;
+      if (!r) return <span className="text-muted-foreground">-</span>;
+      return <Badge variant="secondary">{terminationReasonEquipmentLabels[r] ?? r}</Badge>;
+    },
+    filterFn: (row, id, value: string[]) => {
+      const val = row.getValue(id);
+      if (val == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(val as string);
+    },
+  },
+
+  // ─── Fecha de baja — VISIBLE POR DEFAULT en tabla de bajas ─────────────
+  {
+    accessorKey: 'termination_date',
+    meta: { title: 'Fecha de baja' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de baja" />,
+    cell: ({ row }) =>
+      row.original.termination_date ? (
+        <span>{moment(row.original.termination_date).format('DD/MM/YYYY')}</span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+
   // ─── Horómetro ────────────────────────────────────────────────────────────
   {
     accessorKey: 'horometer',
@@ -334,7 +368,7 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
   },
 
-  // ─── Tipo de costo (enum nullable) ───────────────────────────────────────
+  // ─── Tipo de costo (enum nullable) — OCULTA POR DEFAULT ──────────────────
   {
     accessorKey: 'cost_type',
     meta: { title: 'Tipo de costo' },
@@ -429,36 +463,6 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     cell: ({ row }) =>
       row.original.purchase_date ? (
         <span>{moment(row.original.purchase_date).format('DD/MM/YYYY')}</span>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
-  },
-
-  // ─── Motivo de baja (enum nullable) — OCULTA POR DEFAULT ─────────────────
-  {
-    accessorKey: 'reason_for_termination',
-    meta: { title: 'Motivo de baja' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo de baja" />,
-    cell: ({ row }) => {
-      const r = row.original.reason_for_termination;
-      if (!r) return <span className="text-muted-foreground">-</span>;
-      return <Badge variant="secondary">{terminationReasonEquipmentLabels[r] ?? r}</Badge>;
-    },
-    filterFn: (row, id, value: string[]) => {
-      const val = row.getValue(id);
-      if (val == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(val as string);
-    },
-  },
-
-  // ─── Fecha de baja — OCULTA POR DEFAULT ──────────────────────────────────
-  {
-    accessorKey: 'termination_date',
-    meta: { title: 'Fecha de baja' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de baja" />,
-    cell: ({ row }) =>
-      row.original.termination_date ? (
-        <span>{moment(row.original.termination_date).format('DD/MM/YYYY')}</span>
       ) : (
         <span className="text-muted-foreground">-</span>
       ),

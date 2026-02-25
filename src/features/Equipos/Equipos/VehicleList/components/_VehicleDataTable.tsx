@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import {
   condition_enum,
+  contract_type_vehicles_enum,
   cost_type_enum,
   currency_enum,
   status_type,
@@ -17,6 +18,7 @@ import {
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
   conditionLabels,
+  contractTypeVehiclesLabels,
   costTypeLabels,
   currencyLabels,
   otherEquipmentStatusLabels,
@@ -27,7 +29,7 @@ import { CircleOff, Plus } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { getAllOtherEquipmentForExport, getOtherEquipmentFacets, type OtherEquipmentListItem } from '../actions.server';
+import { getAllVehiclesForExport, getVehicleFacets, type VehicleListItem } from '../actions/actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from '../columns';
 
 // ============================================================================
@@ -35,7 +37,7 @@ import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from '../columns';
 // ============================================================================
 
 interface Props {
-  data: OtherEquipmentListItem[];
+  data: VehicleListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
   tableId: string;
@@ -48,7 +50,7 @@ interface Props {
 // CLIENT COMPONENT
 // ============================================================================
 
-export function _OtherEquipmentDataTable({
+export function _VehicleDataTable({
   data,
   totalRows,
   searchParams,
@@ -65,8 +67,8 @@ export function _OtherEquipmentDataTable({
 
   // Facets con cross-filtering: se recalculan cuando cambian los filtros
   const { data: facets } = useQuery({
-    queryKey: ['other-equipment-facets', facetParams],
-    queryFn: () => getOtherEquipmentFacets(facetParams),
+    queryKey: ['vehicles-facets', facetParams],
+    queryFn: () => getVehicleFacets(facetParams),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -76,7 +78,7 @@ export function _OtherEquipmentDataTable({
     return { ...defaults, ...initialColumnVisibility };
   }, [initialColumnVisibility]);
 
-  // Filtros visibles por defecto: solo los 3 mas comunes.
+  // Filtros visibles por defecto: solo los 3 más comunes.
   // El resto se crean pero ocultos — el usuario los activa con el toggle de filtros.
   const DEFAULT_VISIBLE_FILTERS = ['condition', 'status', 'type'];
   const mergedFilterVisibility = useMemo(() => {
@@ -92,21 +94,24 @@ export function _OtherEquipmentDataTable({
       'sub_type',
       'brand',
       'model',
-      'sector',
       'owner',
+      'sector',
       'cost_center',
-      'linked_vehicle',
-      'contractor_other_equipment',
+      'contractor_equipment',
+      'type_of_contract',
       'cost_type',
       'currency',
       'reason_for_termination',
-      'serial_number',
+      'domain',
+      'chassis',
+      'engine',
+      'serie',
       'intern_number',
-      'manufacturer_plate',
-      'invoice_number',
-      'purchase_date',
-      'created_at',
+      'contract_number',
+      'contract_expiration_date',
+      'contract_start_date',
       'termination_date',
+      'created_at',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -147,7 +152,7 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.status,
       },
 
-      // type (FK UUID — nullable, incluye "Sin asignar")
+      // type (FK UUID — con "Sin asignar")
       {
         columnId: 'type',
         title: 'Tipo',
@@ -160,7 +165,7 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.type,
       },
 
-      // sub_type (FK UUID — nullable, incluye "Sin asignar")
+      // sub_type (FK UUID nullable — con "Sin asignar")
       {
         columnId: 'sub_type',
         title: 'Subtipo',
@@ -173,7 +178,7 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.sub_type,
       },
 
-      // brand (FK BigInt — nullable, incluye "Sin asignar")
+      // brand (FK BigInt nullable — con "Sin asignar")
       {
         columnId: 'brand',
         title: 'Marca',
@@ -186,7 +191,7 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.brand,
       },
 
-      // model (FK BigInt — nullable, incluye "Sin asignar")
+      // model (FK BigInt nullable — con "Sin asignar")
       {
         columnId: 'model',
         title: 'Modelo',
@@ -199,20 +204,7 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.model,
       },
 
-      // sector (FK UUID → hierarchy — nullable, incluye "Sin asignar")
-      {
-        columnId: 'sector',
-        title: 'Sector',
-        options: [
-          ...(facets?.sectorOptions?.map((s) => ({ value: s.id, label: s.name ?? '' })) ?? []),
-          ...(facets?.sector?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.sector,
-      },
-
-      // owner (FK UUID → equipment_owners — nullable, incluye "Sin asignar")
+      // owner (FK UUID nullable — con "Sin asignar")
       {
         columnId: 'owner',
         title: 'Propietario',
@@ -225,7 +217,20 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.owner,
       },
 
-      // cost_center (FK UUID — nullable, incluye "Sin asignar")
+      // sector (FK UUID nullable → hierarchy — con "Sin asignar")
+      {
+        columnId: 'sector',
+        title: 'Sector',
+        options: [
+          ...(facets?.sectorOptions?.map((s) => ({ value: s.id, label: s.name ?? '' })) ?? []),
+          ...(facets?.sector?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.sector,
+      },
+
+      // cost_center (FK UUID nullable — con "Sin asignar")
       {
         columnId: 'cost_center',
         title: 'Centro de costo',
@@ -238,33 +243,33 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.cost_center,
       },
 
-      // linked_vehicle (FK UUID → vehicles — nullable, incluye "Sin asignar")
+      // contractor_equipment (M:M → customers — incluye "Sin afectar")
       {
-        columnId: 'linked_vehicle',
-        title: 'Vinculado a',
-        options: [
-          ...(facets?.linkedVehicleOptions?.map((v) => ({
-            value: v.id,
-            label: v.domain ?? v.id,
-          })) ?? []),
-          ...(facets?.linked_vehicle?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.linked_vehicle,
-      },
-
-      // contractor_other_equipment (M:M → customers — incluye "Sin afectar")
-      {
-        columnId: 'contractor_other_equipment',
+        columnId: 'contractor_equipment',
         title: 'Afectaciones',
         options: [
           ...(facets?.contractorOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.contractor_other_equipment?.has(NULL_FILTER_VALUE)
+          ...(facets?.contractor_equipment?.has(NULL_FILTER_VALUE)
             ? [{ value: NULL_FILTER_VALUE, label: 'Sin afectar', icon: CircleOff }]
             : []),
         ],
-        externalCounts: facets?.contractor_other_equipment,
+        externalCounts: facets?.contractor_equipment,
+      },
+
+      // type_of_contract (enum nullable — con "Sin asignar")
+      {
+        columnId: 'type_of_contract',
+        title: 'Tipo de contrato',
+        options: [
+          ...Object.values(contract_type_vehicles_enum).map((value) => ({
+            value,
+            label: contractTypeVehiclesLabels[value] ?? value,
+          })),
+          ...(facets?.type_of_contract?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.type_of_contract,
       },
 
       // cost_type (enum nullable)
@@ -283,7 +288,7 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.cost_type,
       },
 
-      // currency (enum nullable) — solo aparece si el usuario activa la columna
+      // currency (enum nullable)
       {
         columnId: 'currency',
         title: 'Moneda',
@@ -317,10 +322,28 @@ export function _OtherEquipmentDataTable({
 
       // Filtros de texto libre por columna
       {
-        columnId: 'serial_number',
-        title: 'N° Serie',
+        columnId: 'domain',
+        title: 'Dominio',
         type: 'text' as const,
-        placeholder: 'Buscar por N° Serie...',
+        placeholder: 'Buscar por dominio...',
+      },
+      {
+        columnId: 'chassis',
+        title: 'Chassis',
+        type: 'text' as const,
+        placeholder: 'Buscar por chassis...',
+      },
+      {
+        columnId: 'engine',
+        title: 'Motor',
+        type: 'text' as const,
+        placeholder: 'Buscar por motor...',
+      },
+      {
+        columnId: 'serie',
+        title: 'Serie',
+        type: 'text' as const,
+        placeholder: 'Buscar por serie...',
       },
       {
         columnId: 'intern_number',
@@ -329,27 +352,21 @@ export function _OtherEquipmentDataTable({
         placeholder: 'Buscar por N° Interno...',
       },
       {
-        columnId: 'manufacturer_plate',
-        title: 'Placa fabricante',
+        columnId: 'contract_number',
+        title: 'N° Contrato',
         type: 'text' as const,
-        placeholder: 'Buscar por placa...',
-      },
-      {
-        columnId: 'invoice_number',
-        title: 'N° Factura',
-        type: 'text' as const,
-        placeholder: 'Buscar por N° de factura...',
+        placeholder: 'Buscar por N° de contrato...',
       },
 
       // Filtros de rango de fechas
       {
-        columnId: 'purchase_date',
-        title: 'Fecha de compra',
+        columnId: 'contract_expiration_date',
+        title: 'Vencimiento contrato',
         type: 'dateRange' as const,
       },
       {
-        columnId: 'created_at',
-        title: 'Creado',
+        columnId: 'contract_start_date',
+        title: 'Inicio contrato',
         type: 'dateRange' as const,
       },
       {
@@ -357,17 +374,22 @@ export function _OtherEquipmentDataTable({
         title: 'Fecha de baja',
         type: 'dateRange' as const,
       },
+      {
+        columnId: 'created_at',
+        title: 'Creado',
+        type: 'dateRange' as const,
+      },
     ],
     [facets]
   );
 
-  // ─── Botón "Nuevo equipo" protegido por permisos ──────────────────────────
+  // ─── Botón "Nuevo vehículo" protegido por permisos ────────────────────────
   const toolbarActions = (
-    <PermissionGuard module="equipos" tab="others" action="create">
+    <PermissionGuard module="equipos" tab="vehicles" action="create">
       <Button asChild variant="gh_orange" size="sm">
-        <Link href="/dashboard/equipment/action?action=new&type=other">
+        <Link href="/dashboard/equipment/action?action=new">
           <Plus className="mr-2 size-4" />
-          Nuevo equipo
+          Agregar vehículo
         </Link>
       </Button>
     </PermissionGuard>
@@ -380,33 +402,34 @@ export function _OtherEquipmentDataTable({
       data={data}
       totalRows={totalRows}
       searchParams={searchParams}
-      searchPlaceholder="Buscar por N° Serie, N° Interno, placa..."
+      searchPlaceholder="Buscar por dominio, chassis, N° Interno..."
       facetedFilters={facetedFilters}
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       tableId={tableId}
       showFilterToggle={true}
       toolbarActions={toolbarActions}
-      emptyMessage="No hay equipos registrados"
-      data-testid="other-equipment-table"
+      emptyMessage="No hay vehículos registrados"
+      data-testid="vehicles-table"
       exportConfig={{
-        fetchAllData: () => getAllOtherEquipmentForExport(searchParams),
+        fetchAllData: () => getAllVehiclesForExport(searchParams),
         options: {
-          filename: 'otros-equipos',
-          title: 'Listado de Otros Equipos',
-          sheetName: 'Otros Equipos',
+          filename: 'vehiculos',
+          title: 'Listado de Vehículos',
+          sheetName: 'Vehículos',
         },
         formatters: {
           condition: (val) => conditionLabels[val as string] ?? String(val ?? ''),
           status: (val) => otherEquipmentStatusLabels[val as string] ?? String(val ?? ''),
+          type_of_contract: (val) => contractTypeVehiclesLabels[val as string] ?? String(val ?? ''),
           cost_type: (val) => costTypeLabels[val as string] ?? String(val ?? ''),
           currency: (val) => currencyLabels[val as string] ?? String(val ?? ''),
           reason_for_termination: (val) => terminationReasonEquipmentLabels[val as string] ?? String(val ?? ''),
-          purchase_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
+          contract_expiration_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
+          contract_start_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           termination_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
-          initial_value: (val) => (val != null ? String(val) : ''),
-          horometer: (val) => (val != null ? `${String(val)} h` : ''),
+          price: (val) => (val != null ? String(val) : ''),
         },
       }}
     />

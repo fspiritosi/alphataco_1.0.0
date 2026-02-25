@@ -115,6 +115,17 @@ export const terminationReasonEquipmentLabels: Record<string, string> = {
   otro: 'Otro',
 };
 
+/**
+ * Labels para contract_type_vehicles_enum
+ * (Leasing, Alquiler, Propio, Prendado)
+ */
+export const contractTypeVehiclesLabels: Record<string, string> = {
+  Leasing: 'Leasing',
+  Alquiler: 'Alquiler',
+  Propio: 'Propio',
+  Prendado: 'Prendado',
+};
+
 // ============================================================================
 // BADGE CONFIGS
 // ============================================================================

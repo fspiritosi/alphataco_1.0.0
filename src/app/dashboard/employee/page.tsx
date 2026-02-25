@@ -1,6 +1,5 @@
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
-import { buttonVariants } from '@/components/ui/button';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
@@ -11,7 +10,6 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Calendar, FileArchive, FileCheck, FileText, FileType, GitBranch, UserCheck, Users, UserX } from 'lucide-react';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 import { Suspense } from 'react';
 import CovenantTreeFileWrapper from '../company/actualCompany/covenant/CovenantTreeFileWrapper';
 
@@ -67,16 +65,6 @@ export default async function EmployeePage({
               searchParams={resolvedSearchParams}
               defaultTab="empleados-activos"
               permissions={permissions}
-              actions={
-                <PermissionGuardServer module="empleados" tab="employees" action="create">
-                  <Link
-                    className={buttonVariants({ variant: 'gh_orange', size: 'sm' })}
-                    href="/dashboard/employee/action?action=new"
-                  >
-                    Agregar empleado
-                  </Link>
-                </PermissionGuardServer>
-              }
               tabs={[
                 {
                   value: 'empleados-activos',

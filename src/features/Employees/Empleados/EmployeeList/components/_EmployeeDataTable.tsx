@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import type {
@@ -21,7 +23,9 @@ import {
 } from '@/shared/utils/mappers';
 import { useQuery } from '@tanstack/react-query';
 import type { LucideIcon } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import moment from 'moment';
+import Link from 'next/link';
 import { useMemo } from 'react';
 import {
   getAllEmployeesForExport,
@@ -256,6 +260,18 @@ export default function _EmployeeDataTable({
     return filters;
   }, [facets, isActive]);
 
+  // Botón de creación en la toolbar de la tabla
+  const toolbarActions = (
+    <PermissionGuard module="empleados" tab="employees" action="create">
+      <Button asChild variant="gh_orange" size="sm">
+        <Link href="/dashboard/employee/action?action=new">
+          <Plus className="mr-2 size-4" />
+          Agregar empleado
+        </Link>
+      </Button>
+    </PermissionGuard>
+  );
+
   // Export configuration
   const exportConfig = useMemo(
     (): DataTableExportConfig<EmployeeListItem> => ({
@@ -313,6 +329,7 @@ export default function _EmployeeDataTable({
         exportConfig={exportConfig}
         initialColumnVisibility={mergedColumnVisibility}
         initialFilterVisibility={initialFilterVisibility}
+        toolbarActions={toolbarActions}
         showFilterToggle
         showSearch
         searchPlaceholder="Buscar por nombre, CUIL o legajo..."

@@ -14,7 +14,7 @@ import {
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
 
-const logger = new Logger('OtherEquipment/list/actions.server');
+const logger = new Logger('Equipos/DadosDeBaja/OtrosEquipos/actions.server');
 
 // ============================================================================
 // CONSTANTS
@@ -66,7 +66,7 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
 };
 
 /** Params de URL de navegación que NO son filtros de la tabla */
-const IGNORED_PARAMS = new Set(['tab', 'subtab']);
+const IGNORED_PARAMS = new Set(['tab', 'subtab', 'inactive_subtab']);
 
 /** Columnas con filtro de texto libre (contains insensitive) */
 const TEXT_FILTER_COLUMNS = ['serial_number', 'intern_number', 'manufacturer_plate', 'invoice_number', 'composition'];
@@ -90,7 +90,7 @@ const COLUMN_MAP: Record<string, string> = {
 };
 
 /** Select común con todas las relaciones resueltas */
-const OTHER_EQUIPMENT_SELECT = {
+const INACTIVE_OTHER_EQUIPMENT_SELECT = {
   id: true,
   serial_number: true,
   intern_number: true,
@@ -196,7 +196,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 
   return {
     company_id: companyId,
-    is_active: true,
+    is_active: false, // Solo equipos inactivos (dados de baja)
     ...searchWhere,
     ...filtersWhere,
     ...textFiltersWhere,
@@ -211,7 +211,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getOtherEquipmentPaginated(searchParams: DataTableSearchParams) {
+export async function getInactiveOtherEquipmentPaginated(searchParams: DataTableSearchParams) {
   const companyId = await getServerCompanyId();
 
   try {
@@ -224,8 +224,7 @@ export async function getOtherEquipmentPaginated(searchParams: DataTableSearchPa
 
     const where = buildWhereClause(companyId, state);
 
-    // Safe orderBy: multi-sort, solo campos válidos, inactivos siempre al final
-    // FK columns usan FK_SORT_MAP, columnas directas usan { field: dir }
+    // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
     for (const s of state.sorting) {
       if (VALID_SORT_FIELDS.has(s.id)) {
@@ -243,25 +242,27 @@ export async function getOtherEquipmentPaginated(searchParams: DataTableSearchPa
         take,
         orderBy: safeOrderBy,
         where,
-        select: OTHER_EQUIPMENT_SELECT,
+        select: INACTIVE_OTHER_EQUIPMENT_SELECT,
       }),
       prisma.other_equipment.count({ where }),
     ]);
 
     return { data, total };
   } catch (error) {
-    logger.error('Error al obtener equipos paginados', { data: { error } });
-    throw new Error('Error al obtener los equipos');
+    logger.error('Error al obtener equipos dados de baja paginados', { data: { error } });
+    throw new Error('Error al obtener los equipos dados de baja');
   }
 }
 
-export type OtherEquipmentListItem = Awaited<ReturnType<typeof getOtherEquipmentPaginated>>['data'][number];
+export type InactiveOtherEquipmentListItem = Awaited<
+  ReturnType<typeof getInactiveOtherEquipmentPaginated>
+>['data'][number];
 
 // ============================================================================
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllOtherEquipmentForExport(searchParams: DataTableSearchParams) {
+export async function getAllInactiveOtherEquipmentForExport(searchParams: DataTableSearchParams) {
   const companyId = await getServerCompanyId();
 
   try {
@@ -275,13 +276,13 @@ export async function getAllOtherEquipmentForExport(searchParams: DataTableSearc
     const data = await prisma.other_equipment.findMany({
       orderBy: [{ created_at: 'desc' }],
       where,
-      select: OTHER_EQUIPMENT_SELECT,
+      select: INACTIVE_OTHER_EQUIPMENT_SELECT,
     });
 
     return data;
   } catch (error) {
-    logger.error('Error al exportar equipos', { data: { error } });
-    throw new Error('Error al exportar los equipos');
+    logger.error('Error al exportar equipos dados de baja', { data: { error } });
+    throw new Error('Error al exportar los equipos dados de baja');
   }
 }
 
@@ -292,10 +293,11 @@ export async function getAllOtherEquipmentForExport(searchParams: DataTableSearc
 /**
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro,
  * mostrando cuántos registros tendría cada opción si se cambiara solo ese filtro.
+ * Solo incluye registros inactivos (is_active = false).
  */
-export async function getOtherEquipmentFacets(searchParams?: DataTableSearchParams) {
+export async function getInactiveOtherEquipmentFacets(searchParams?: DataTableSearchParams) {
   const companyId = await getServerCompanyId();
-  const baseWhere = { company_id: companyId };
+  const baseWhere = { company_id: companyId, is_active: false };
 
   // Parsear filtros activos (si los hay)
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
@@ -479,9 +481,9 @@ export async function getOtherEquipmentFacets(searchParams?: DataTableSearchPara
       contractorOptions: contractors,
     };
   } catch (error) {
-    logger.error('Error al obtener facets de equipos', { data: { error } });
+    logger.error('Error al obtener facets de equipos dados de baja', { data: { error } });
     return null;
   }
 }
 
-export type OtherEquipmentFacets = Awaited<ReturnType<typeof getOtherEquipmentFacets>>;
+export type InactiveOtherEquipmentFacets = Awaited<ReturnType<typeof getInactiveOtherEquipmentFacets>>;

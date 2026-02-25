@@ -1,9 +1,8 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import {
   condition_enum,
+  contract_type_vehicles_enum,
   cost_type_enum,
   currency_enum,
   status_type,
@@ -23,19 +22,33 @@ import {
   terminationReasonEquipmentLabels,
 } from '@/shared/utils/mappers';
 import { useQuery } from '@tanstack/react-query';
-import { CircleOff, Plus } from 'lucide-react';
+import { CircleOff } from 'lucide-react';
 import moment from 'moment';
-import Link from 'next/link';
 import { useMemo } from 'react';
-import { getAllOtherEquipmentForExport, getOtherEquipmentFacets, type OtherEquipmentListItem } from '../actions.server';
-import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from '../columns';
+import {
+  getAllInactiveVehiclesForExport,
+  getInactiveVehicleFacets,
+  type InactiveVehicleListItem,
+} from '../actions/actions.server';
+import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from './columns';
+
+// ============================================================================
+// LABELS locales para enums del modelo vehicles
+// ============================================================================
+
+const contractTypeLabels: Record<string, string> = {
+  Leasing: 'Leasing',
+  Alquiler: 'Alquiler',
+  Propio: 'Propio',
+  Prendado: 'Prendado',
+};
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 interface Props {
-  data: OtherEquipmentListItem[];
+  data: InactiveVehicleListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
   tableId: string;
@@ -48,12 +61,11 @@ interface Props {
 // CLIENT COMPONENT
 // ============================================================================
 
-export function _OtherEquipmentDataTable({
+export function _InactiveVehicleDataTable({
   data,
   totalRows,
   searchParams,
   tableId,
-  permissionsMap,
   initialColumnVisibility,
   initialFilterVisibility,
 }: Props) {
@@ -65,8 +77,8 @@ export function _OtherEquipmentDataTable({
 
   // Facets con cross-filtering: se recalculan cuando cambian los filtros
   const { data: facets } = useQuery({
-    queryKey: ['other-equipment-facets', facetParams],
-    queryFn: () => getOtherEquipmentFacets(facetParams),
+    queryKey: ['inactive-vehicles-facets', facetParams],
+    queryFn: () => getInactiveVehicleFacets(facetParams),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -76,9 +88,9 @@ export function _OtherEquipmentDataTable({
     return { ...defaults, ...initialColumnVisibility };
   }, [initialColumnVisibility]);
 
-  // Filtros visibles por defecto: solo los 3 mas comunes.
+  // Filtros visibles por defecto: solo los 3 más comunes.
   // El resto se crean pero ocultos — el usuario los activa con el toggle de filtros.
-  const DEFAULT_VISIBLE_FILTERS = ['condition', 'status', 'type'];
+  const DEFAULT_VISIBLE_FILTERS = ['condition', 'reason_for_termination', 'type'];
   const mergedFilterVisibility = useMemo(() => {
     // Si el usuario ya tiene preferencias guardadas, usarlas
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
@@ -92,21 +104,23 @@ export function _OtherEquipmentDataTable({
       'sub_type',
       'brand',
       'model',
+      'cost_type',
+      'currency',
+      'type_of_contract',
+      'reason_for_termination',
       'sector',
       'owner',
       'cost_center',
-      'linked_vehicle',
-      'contractor_other_equipment',
-      'cost_type',
-      'currency',
-      'reason_for_termination',
-      'serial_number',
+      'contractor_equipment',
+      'domain',
       'intern_number',
-      'manufacturer_plate',
-      'invoice_number',
-      'purchase_date',
-      'created_at',
+      'chassis',
+      'engine',
+      'serie',
       'termination_date',
+      'contract_start_date',
+      'contract_expiration_date',
+      'created_at',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
@@ -199,6 +213,70 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.model,
       },
 
+      // cost_type (enum nullable)
+      {
+        columnId: 'cost_type',
+        title: 'Tipo de costo',
+        options: [
+          ...Object.values(cost_type_enum).map((value) => ({
+            value,
+            label: costTypeLabels[value] ?? value,
+          })),
+          ...(facets?.cost_type?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.cost_type,
+      },
+
+      // currency (enum nullable)
+      {
+        columnId: 'currency',
+        title: 'Moneda',
+        options: [
+          ...Object.values(currency_enum).map((value) => ({
+            value,
+            label: currencyLabels[value] ?? value,
+          })),
+          ...(facets?.currency?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.currency,
+      },
+
+      // type_of_contract (enum nullable)
+      {
+        columnId: 'type_of_contract',
+        title: 'Tipo de contrato',
+        options: [
+          ...Object.values(contract_type_vehicles_enum).map((value) => ({
+            value,
+            label: contractTypeLabels[value] ?? value,
+          })),
+          ...(facets?.type_of_contract?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.type_of_contract,
+      },
+
+      // reason_for_termination (enum nullable)
+      {
+        columnId: 'reason_for_termination',
+        title: 'Motivo de baja',
+        options: [
+          ...Object.values(termination_reason_enum).map((value) => ({
+            value,
+            label: terminationReasonEquipmentLabels[value] ?? value,
+          })),
+          ...(facets?.reason_for_termination?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.reason_for_termination,
+      },
+
       // sector (FK UUID → hierarchy — nullable, incluye "Sin asignar")
       {
         columnId: 'sector',
@@ -238,89 +316,25 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.cost_center,
       },
 
-      // linked_vehicle (FK UUID → vehicles — nullable, incluye "Sin asignar")
+      // contractor_equipment (M:M → customers — incluye "Sin afectar")
       {
-        columnId: 'linked_vehicle',
-        title: 'Vinculado a',
-        options: [
-          ...(facets?.linkedVehicleOptions?.map((v) => ({
-            value: v.id,
-            label: v.domain ?? v.id,
-          })) ?? []),
-          ...(facets?.linked_vehicle?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.linked_vehicle,
-      },
-
-      // contractor_other_equipment (M:M → customers — incluye "Sin afectar")
-      {
-        columnId: 'contractor_other_equipment',
+        columnId: 'contractor_equipment',
         title: 'Afectaciones',
         options: [
           ...(facets?.contractorOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.contractor_other_equipment?.has(NULL_FILTER_VALUE)
+          ...(facets?.contractor_equipment?.has(NULL_FILTER_VALUE)
             ? [{ value: NULL_FILTER_VALUE, label: 'Sin afectar', icon: CircleOff }]
             : []),
         ],
-        externalCounts: facets?.contractor_other_equipment,
-      },
-
-      // cost_type (enum nullable)
-      {
-        columnId: 'cost_type',
-        title: 'Tipo de costo',
-        options: [
-          ...Object.values(cost_type_enum).map((value) => ({
-            value,
-            label: costTypeLabels[value] ?? value,
-          })),
-          ...(facets?.cost_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.cost_type,
-      },
-
-      // currency (enum nullable) — solo aparece si el usuario activa la columna
-      {
-        columnId: 'currency',
-        title: 'Moneda',
-        options: [
-          ...Object.values(currency_enum).map((value) => ({
-            value,
-            label: currencyLabels[value] ?? value,
-          })),
-          ...(facets?.currency?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.currency,
-      },
-
-      // reason_for_termination (enum nullable)
-      {
-        columnId: 'reason_for_termination',
-        title: 'Motivo de baja',
-        options: [
-          ...Object.values(termination_reason_enum).map((value) => ({
-            value,
-            label: terminationReasonEquipmentLabels[value] ?? value,
-          })),
-          ...(facets?.reason_for_termination?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.reason_for_termination,
+        externalCounts: facets?.contractor_equipment,
       },
 
       // Filtros de texto libre por columna
       {
-        columnId: 'serial_number',
-        title: 'N° Serie',
+        columnId: 'domain',
+        title: 'Dominio',
         type: 'text' as const,
-        placeholder: 'Buscar por N° Serie...',
+        placeholder: 'Buscar por dominio...',
       },
       {
         columnId: 'intern_number',
@@ -329,22 +343,38 @@ export function _OtherEquipmentDataTable({
         placeholder: 'Buscar por N° Interno...',
       },
       {
-        columnId: 'manufacturer_plate',
-        title: 'Placa fabricante',
+        columnId: 'chassis',
+        title: 'Chassis',
         type: 'text' as const,
-        placeholder: 'Buscar por placa...',
+        placeholder: 'Buscar por chassis...',
       },
       {
-        columnId: 'invoice_number',
-        title: 'N° Factura',
+        columnId: 'engine',
+        title: 'Motor',
         type: 'text' as const,
-        placeholder: 'Buscar por N° de factura...',
+        placeholder: 'Buscar por motor...',
+      },
+      {
+        columnId: 'serie',
+        title: 'Serie',
+        type: 'text' as const,
+        placeholder: 'Buscar por serie...',
       },
 
       // Filtros de rango de fechas
       {
-        columnId: 'purchase_date',
-        title: 'Fecha de compra',
+        columnId: 'termination_date',
+        title: 'Fecha de baja',
+        type: 'dateRange' as const,
+      },
+      {
+        columnId: 'contract_start_date',
+        title: 'Inicio de contrato',
+        type: 'dateRange' as const,
+      },
+      {
+        columnId: 'contract_expiration_date',
+        title: 'Vencimiento de contrato',
         type: 'dateRange' as const,
       },
       {
@@ -352,25 +382,8 @@ export function _OtherEquipmentDataTable({
         title: 'Creado',
         type: 'dateRange' as const,
       },
-      {
-        columnId: 'termination_date',
-        title: 'Fecha de baja',
-        type: 'dateRange' as const,
-      },
     ],
     [facets]
-  );
-
-  // ─── Botón "Nuevo equipo" protegido por permisos ──────────────────────────
-  const toolbarActions = (
-    <PermissionGuard module="equipos" tab="others" action="create">
-      <Button asChild variant="gh_orange" size="sm">
-        <Link href="/dashboard/equipment/action?action=new&type=other">
-          <Plus className="mr-2 size-4" />
-          Nuevo equipo
-        </Link>
-      </Button>
-    </PermissionGuard>
   );
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -380,33 +393,33 @@ export function _OtherEquipmentDataTable({
       data={data}
       totalRows={totalRows}
       searchParams={searchParams}
-      searchPlaceholder="Buscar por N° Serie, N° Interno, placa..."
+      searchPlaceholder="Buscar por dominio, N° interno, chassis..."
       facetedFilters={facetedFilters}
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       tableId={tableId}
       showFilterToggle={true}
-      toolbarActions={toolbarActions}
-      emptyMessage="No hay equipos registrados"
-      data-testid="other-equipment-table"
+      emptyMessage="No hay vehículos dados de baja"
+      data-testid="inactive-vehicles-table"
       exportConfig={{
-        fetchAllData: () => getAllOtherEquipmentForExport(searchParams),
+        fetchAllData: () => getAllInactiveVehiclesForExport(searchParams),
         options: {
-          filename: 'otros-equipos',
-          title: 'Listado de Otros Equipos',
-          sheetName: 'Otros Equipos',
+          filename: 'vehiculos-dados-de-baja',
+          title: 'Vehículos Dados de Baja',
+          sheetName: 'Vehículos Dados de Baja',
         },
         formatters: {
           condition: (val) => conditionLabels[val as string] ?? String(val ?? ''),
           status: (val) => otherEquipmentStatusLabels[val as string] ?? String(val ?? ''),
           cost_type: (val) => costTypeLabels[val as string] ?? String(val ?? ''),
           currency: (val) => currencyLabels[val as string] ?? String(val ?? ''),
+          type_of_contract: (val) => contractTypeLabels[val as string] ?? String(val ?? ''),
           reason_for_termination: (val) => terminationReasonEquipmentLabels[val as string] ?? String(val ?? ''),
-          purchase_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           termination_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
+          contract_start_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
+          contract_expiration_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
-          initial_value: (val) => (val != null ? String(val) : ''),
-          horometer: (val) => (val != null ? `${String(val)} h` : ''),
+          price: (val) => (val != null ? String(val) : ''),
         },
       }}
     />

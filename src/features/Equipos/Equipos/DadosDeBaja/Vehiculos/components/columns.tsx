@@ -16,10 +16,10 @@ import { AlertTriangle, CheckCircle2, Clock, Wrench, XCircle } from 'lucide-reac
 import moment from 'moment';
 import Link from 'next/link';
 import React from 'react';
-import type { OtherEquipmentListItem } from './actions.server';
+import type { InactiveVehicleListItem } from '../actions/actions.server';
 
 // ============================================================================
-// CONDITION CONFIG
+// CONDITION CONFIG — debe coincidir con los iconos de los filtros
 // ============================================================================
 
 type ConditionIconMap = Record<string, React.ComponentType<{ className?: string }>>;
@@ -42,20 +42,32 @@ const conditionVariants: Record<string, BadgeVariant> = {
   en_preparacion: 'secondary',
 };
 
+const contractTypeLabels: Record<string, string> = {
+  Leasing: 'Leasing',
+  Alquiler: 'Alquiler',
+  Propio: 'Propio',
+  Prendado: 'Prendado',
+};
+
 // ============================================================================
 // HIDDEN COLUMNS BY DEFAULT
 // ============================================================================
 
 export const HIDDEN_COLUMNS_BY_DEFAULT = [
-  'manufacturer_plate',
-  'composition',
-  'invoice_number',
-  'initial_value',
+  'chassis',
+  'engine',
+  'serie',
+  'sub_type',
+  'cost_type',
   'currency',
-  'purchase_date',
+  'price',
+  'type_of_contract',
+  'contract_number',
+  'contract_start_date',
+  'contract_expiration_date',
   'cost_center',
-  'reason_for_termination',
-  'termination_date',
+  'owner',
+  'sector',
   'created_at',
 ];
 
@@ -63,18 +75,18 @@ export const HIDDEN_COLUMNS_BY_DEFAULT = [
 // COLUMN DEFINITIONS
 // ============================================================================
 
-export const columns: ColumnDef<OtherEquipmentListItem>[] = [
-  // ─── N° Serie ────────────────────────────────────────────────────────────
+export const columns: ColumnDef<InactiveVehicleListItem>[] = [
+  // ─── Dominio ──────────────────────────────────────────────────────────────
   {
-    accessorKey: 'serial_number',
-    meta: { title: 'N° Serie' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="N° Serie" />,
+    accessorKey: 'domain',
+    meta: { title: 'Dominio' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Dominio" />,
     cell: ({ row }) => (
       <Link
-        href={`/dashboard/equipment/action?action=view&id=${row.original.id}&type=other`}
+        href={`/dashboard/equipment/action?action=view&id=${row.original.id}`}
         className="font-medium hover:underline"
       >
-        {row.original.serial_number ?? '-'}
+        {row.original.domain ?? '-'}
       </Link>
     ),
   },
@@ -85,10 +97,7 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     meta: { title: 'N° Interno' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="N° Interno" />,
     cell: ({ row }) => (
-      <Link
-        href={`/dashboard/equipment/action?action=view&id=${row.original.id}&type=other`}
-        className="hover:underline"
-      >
+      <Link href={`/dashboard/equipment/action?action=view&id=${row.original.id}`} className="hover:underline">
         {row.original.intern_number ?? '-'}
       </Link>
     ),
@@ -97,17 +106,17 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
   // ─── Tipo (FK UUID) ───────────────────────────────────────────────────────
   {
     id: 'type',
-    accessorFn: (row) => row.type?.name ?? '',
+    accessorFn: (row) => row.type_vehicles_typeTotype?.name ?? '',
     meta: { title: 'Tipo' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
     cell: ({ row }) =>
-      row.original.type?.name ? (
-        <Badge>{row.original.type.name}</Badge>
+      row.original.type_vehicles_typeTotype?.name ? (
+        <Badge>{row.original.type_vehicles_typeTotype.name}</Badge>
       ) : (
         <span className="text-muted-foreground">-</span>
       ),
     filterFn: (row, _id, value: string[]) => {
-      const id = row.original.type?.id;
+      const id = row.original.type_vehicles_typeTotype?.id;
       if (id == null) return value.includes(NULL_FILTER_VALUE);
       return value.includes(id);
     },
@@ -197,7 +206,7 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
   },
 
-  // ─── Estado documental (enum nullable) ─────────────────────────────────────
+  // ─── Estado documental (enum nullable) ──────────────────────────────────
   {
     accessorKey: 'status',
     meta: { title: 'Estado' },
@@ -214,47 +223,74 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
   },
 
-  // ─── Horómetro ────────────────────────────────────────────────────────────
+  // ─── Kilometros ───────────────────────────────────────────────────────────
   {
-    accessorKey: 'horometer',
-    meta: { title: 'Horómetro' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Horómetro" />,
+    accessorKey: 'kilometer',
+    meta: { title: 'Kilómetros' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Kilómetros" />,
     cell: ({ row }) =>
-      row.original.horometer != null ? (
-        <Badge variant="outline">{String(row.original.horometer)} h</Badge>
+      row.original.kilometer != null ? (
+        <Badge variant="outline">{row.original.kilometer} km</Badge>
       ) : (
         <span className="text-muted-foreground">-</span>
       ),
   },
 
-  // ─── Vinculado a (FK UUID) ────────────────────────────────────────────────
+  // ─── Horómetro ────────────────────────────────────────────────────────────
   {
-    id: 'linked_vehicle',
-    accessorFn: (row) => row.vehicles?.domain ?? '',
-    meta: { title: 'Vinculado a' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Vinculado a" />,
-    cell: ({ row }) => <span>{row.original.vehicles?.domain ?? <span className="text-muted-foreground">-</span>}</span>,
-    filterFn: (row, _id, value: string[]) => {
-      const id = row.original.vehicles?.id;
-      if (id == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(id);
+    accessorKey: 'engine_hours',
+    meta: { title: 'Horómetro' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Horómetro" />,
+    cell: ({ row }) =>
+      row.original.engine_hours != null ? (
+        <Badge variant="outline">{row.original.engine_hours} hs</Badge>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+
+  // ─── Motivo de baja (enum nullable) ─────────────────────────────────────
+  {
+    accessorKey: 'reason_for_termination',
+    meta: { title: 'Motivo de baja' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo de baja" />,
+    cell: ({ row }) => {
+      const r = row.original.reason_for_termination;
+      if (!r) return <span className="text-muted-foreground">-</span>;
+      return <Badge variant="secondary">{terminationReasonEquipmentLabels[r] ?? r}</Badge>;
+    },
+    filterFn: (row, id, value: string[]) => {
+      const val = row.getValue(id);
+      if (val == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(val as string);
     },
   },
 
-  // ─── Afectaciones (M:M) ───────────────────────────────────────────────────
+  // ─── Fecha de baja ────────────────────────────────────────────────────────
   {
-    id: 'contractor_other_equipment',
+    accessorKey: 'termination_date',
+    meta: { title: 'Fecha de baja' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de baja" />,
+    cell: ({ row }) =>
+      row.original.termination_date ? (
+        <span>{moment(row.original.termination_date).format('DD/MM/YYYY')}</span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+
+  // ─── Afectaciones (M:M → customers) ──────────────────────────────────────
+  {
+    id: 'contractor_equipment',
     accessorFn: (row) =>
-      (row.contractor_other_equipment ?? [])
+      (row.contractor_equipment ?? [])
         .map((c) => c.customers?.name ?? '')
         .filter(Boolean)
         .join(', '),
     meta: { title: 'Afectaciones' },
     header: ({ column }) => <DataTableColumnHeader column={column} title="Afectaciones" />,
     cell: ({ row }) => {
-      const contractors = (row.original.contractor_other_equipment ?? [])
-        .map((c) => c.customers?.name ?? '')
-        .filter(Boolean);
+      const contractors = (row.original.contractor_equipment ?? []).map((c) => c.customers?.name ?? '').filter(Boolean);
 
       if (contractors.length === 0) return <span className="text-muted-foreground">-</span>;
 
@@ -287,7 +323,7 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
     filterFn: (row, _id, filterValue) => {
       if (!filterValue || !Array.isArray(filterValue) || filterValue.length === 0) return true;
-      const contractors = row.original.contractor_other_equipment ?? [];
+      const contractors = row.original.contractor_equipment ?? [];
       if (contractors.length === 0) {
         return (filterValue as string[]).includes(NULL_FILTER_VALUE);
       }
@@ -299,42 +335,31 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     enableSorting: false,
   },
 
-  // ─── Propietario (FK UUID) ────────────────────────────────────────────────
+  // ─── Chassis — OCULTA POR DEFAULT ────────────────────────────────────────
   {
-    id: 'owner',
-    accessorFn: (row) => row.equipment_owners?.name ?? '',
-    meta: { title: 'Propietario' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
-    cell: ({ row }) => (
-      <span>{row.original.equipment_owners?.name ?? <span className="text-muted-foreground">-</span>}</span>
-    ),
-    filterFn: (row, _id, value: string[]) => {
-      const id = row.original.equipment_owners?.id;
-      if (id == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(id);
-    },
+    accessorKey: 'chassis',
+    meta: { title: 'Chassis' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Chassis" />,
+    cell: ({ row }) => <span>{row.original.chassis ?? '-'}</span>,
   },
 
-  // ─── Sector (FK UUID → hierarchy) ────────────────────────────────────────
+  // ─── Motor — OCULTA POR DEFAULT ──────────────────────────────────────────
   {
-    id: 'sector',
-    accessorFn: (row) => row.hierarchy?.name ?? '',
-    meta: { title: 'Sector' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
-    cell: ({ row }) =>
-      row.original.hierarchy?.name ? (
-        <Badge variant="secondary">{row.original.hierarchy.name}</Badge>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
-    filterFn: (row, _id, value: string[]) => {
-      const id = row.original.hierarchy?.id;
-      if (id == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(id);
-    },
+    accessorKey: 'engine',
+    meta: { title: 'Motor' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Motor" />,
+    cell: ({ row }) => <span>{row.original.engine ?? '-'}</span>,
   },
 
-  // ─── Tipo de costo (enum nullable) ───────────────────────────────────────
+  // ─── Serie — OCULTA POR DEFAULT ──────────────────────────────────────────
+  {
+    accessorKey: 'serie',
+    meta: { title: 'Serie' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Serie" />,
+    cell: ({ row }) => <span>{row.original.serie ?? '-'}</span>,
+  },
+
+  // ─── Tipo de costo (enum nullable) — OCULTA POR DEFAULT ─────────────────
   {
     accessorKey: 'cost_type',
     meta: { title: 'Tipo de costo' },
@@ -349,6 +374,87 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
       if (val == null) return value.includes(NULL_FILTER_VALUE);
       return value.includes(val as string);
     },
+  },
+
+  // ─── Moneda (enum nullable) — OCULTA POR DEFAULT ─────────────────────────
+  {
+    accessorKey: 'currency',
+    meta: { title: 'Moneda' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Moneda" />,
+    cell: ({ row }) => {
+      const c = row.original.currency;
+      if (!c) return <span className="text-muted-foreground">-</span>;
+      return <Badge variant="outline">{currencyLabels[c] ?? c}</Badge>;
+    },
+    filterFn: (row, id, value: string[]) => {
+      const val = row.getValue(id);
+      if (val == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(val as string);
+    },
+  },
+
+  // ─── Precio — OCULTA POR DEFAULT ─────────────────────────────────────────
+  {
+    accessorKey: 'price',
+    meta: { title: 'Precio' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Precio" />,
+    cell: ({ row }) =>
+      row.original.price != null ? (
+        <span>{String(row.original.price)}</span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+
+  // ─── Tipo de contrato (enum nullable) — OCULTA POR DEFAULT ───────────────
+  {
+    accessorKey: 'type_of_contract',
+    meta: { title: 'Tipo de contrato' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de contrato" />,
+    cell: ({ row }) => {
+      const c = row.original.type_of_contract;
+      if (!c) return <span className="text-muted-foreground">-</span>;
+      return <Badge variant="outline">{contractTypeLabels[c] ?? c}</Badge>;
+    },
+    filterFn: (row, id, value: string[]) => {
+      const val = row.getValue(id);
+      if (val == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(val as string);
+    },
+  },
+
+  // ─── N° Contrato — OCULTA POR DEFAULT ────────────────────────────────────
+  {
+    accessorKey: 'contract_number',
+    meta: { title: 'N° Contrato' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="N° Contrato" />,
+    cell: ({ row }) => <span>{row.original.contract_number ?? '-'}</span>,
+  },
+
+  // ─── Inicio de contrato — OCULTA POR DEFAULT ─────────────────────────────
+  {
+    accessorKey: 'contract_start_date',
+    meta: { title: 'Inicio de contrato' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Inicio de contrato" />,
+    cell: ({ row }) =>
+      row.original.contract_start_date ? (
+        <span>{moment(row.original.contract_start_date).format('DD/MM/YYYY')}</span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
+  },
+
+  // ─── Vencimiento de contrato — OCULTA POR DEFAULT ────────────────────────
+  {
+    accessorKey: 'contract_expiration_date',
+    meta: { title: 'Vencimiento de contrato' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Vencimiento de contrato" />,
+    cell: ({ row }) =>
+      row.original.contract_expiration_date ? (
+        <span>{moment(row.original.contract_expiration_date).format('DD/MM/YYYY')}</span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
   },
 
   // ─── Centro de costo (FK UUID) — OCULTA POR DEFAULT ──────────────────────
@@ -367,101 +473,39 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     },
   },
 
-  // ─── Placa fabricante — OCULTA POR DEFAULT ────────────────────────────────
+  // ─── Propietario (FK UUID) — OCULTA POR DEFAULT ──────────────────────────
   {
-    accessorKey: 'manufacturer_plate',
-    meta: { title: 'Placa fabricante' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Placa fabricante" />,
-    cell: ({ row }) => <span>{row.original.manufacturer_plate ?? '-'}</span>,
+    id: 'owner',
+    accessorFn: (row) => row.equipment_owners?.name ?? '',
+    meta: { title: 'Propietario' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Propietario" />,
+    cell: ({ row }) => (
+      <span>{row.original.equipment_owners?.name ?? <span className="text-muted-foreground">-</span>}</span>
+    ),
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.equipment_owners?.id;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(id);
+    },
   },
 
-  // ─── Composición — OCULTA POR DEFAULT ────────────────────────────────────
+  // ─── Sector (FK UUID → hierarchy) — OCULTA POR DEFAULT ──────────────────
   {
-    accessorKey: 'composition',
-    meta: { title: 'Composición' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Composición" />,
-    cell: ({ row }) => <span>{row.original.composition ?? '-'}</span>,
-  },
-
-  // ─── N° Factura — OCULTA POR DEFAULT ─────────────────────────────────────
-  {
-    accessorKey: 'invoice_number',
-    meta: { title: 'N° Factura' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="N° Factura" />,
-    cell: ({ row }) => <span>{row.original.invoice_number ?? '-'}</span>,
-  },
-
-  // ─── Valor inicial — OCULTA POR DEFAULT ──────────────────────────────────
-  {
-    accessorKey: 'initial_value',
-    meta: { title: 'Valor inicial' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Valor inicial" />,
+    id: 'sector',
+    accessorFn: (row) => row.hierarchy?.name ?? '',
+    meta: { title: 'Sector' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sector" />,
     cell: ({ row }) =>
-      row.original.initial_value != null ? (
-        <span>{String(row.original.initial_value)}</span>
+      row.original.hierarchy?.name ? (
+        <Badge variant="secondary">{row.original.hierarchy.name}</Badge>
       ) : (
         <span className="text-muted-foreground">-</span>
       ),
-  },
-
-  // ─── Moneda (enum nullable) — OCULTA POR DEFAULT ────────────────────────
-  {
-    accessorKey: 'currency',
-    meta: { title: 'Moneda' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Moneda" />,
-    cell: ({ row }) => {
-      const c = row.original.currency;
-      if (!c) return <span className="text-muted-foreground">-</span>;
-      return <Badge variant="outline">{currencyLabels[c] ?? c}</Badge>;
+    filterFn: (row, _id, value: string[]) => {
+      const id = row.original.hierarchy?.id;
+      if (id == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(id);
     },
-    filterFn: (row, id, value: string[]) => {
-      const val = row.getValue(id);
-      if (val == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(val as string);
-    },
-  },
-
-  // ─── Fecha de compra — OCULTA POR DEFAULT ────────────────────────────────
-  {
-    accessorKey: 'purchase_date',
-    meta: { title: 'Fecha de compra' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de compra" />,
-    cell: ({ row }) =>
-      row.original.purchase_date ? (
-        <span>{moment(row.original.purchase_date).format('DD/MM/YYYY')}</span>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
-  },
-
-  // ─── Motivo de baja (enum nullable) — OCULTA POR DEFAULT ─────────────────
-  {
-    accessorKey: 'reason_for_termination',
-    meta: { title: 'Motivo de baja' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo de baja" />,
-    cell: ({ row }) => {
-      const r = row.original.reason_for_termination;
-      if (!r) return <span className="text-muted-foreground">-</span>;
-      return <Badge variant="secondary">{terminationReasonEquipmentLabels[r] ?? r}</Badge>;
-    },
-    filterFn: (row, id, value: string[]) => {
-      const val = row.getValue(id);
-      if (val == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(val as string);
-    },
-  },
-
-  // ─── Fecha de baja — OCULTA POR DEFAULT ──────────────────────────────────
-  {
-    accessorKey: 'termination_date',
-    meta: { title: 'Fecha de baja' },
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de baja" />,
-    cell: ({ row }) =>
-      row.original.termination_date ? (
-        <span>{moment(row.original.termination_date).format('DD/MM/YYYY')}</span>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
   },
 
   // ─── Creado — OCULTA POR DEFAULT ─────────────────────────────────────────
@@ -483,7 +527,7 @@ export const columns: ColumnDef<OtherEquipmentListItem>[] = [
     meta: { excludeFromExport: true },
     cell: ({ row }) => (
       <Link
-        href={`/dashboard/equipment/action?action=view&id=${row.original.id}&type=other`}
+        href={`/dashboard/equipment/action?action=view&id=${row.original.id}`}
         className="text-sm text-muted-foreground hover:text-foreground underline"
       >
         Ver

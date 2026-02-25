@@ -306,19 +306,39 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
 
         entry.message = `${userName} ${action} el empleado: ${employeeName}`;
       } else if (relationType === 'dailyreportequipmentrelations') {
-        const vehicleName = relationData?.vehiculo_dominio || 'Vehículo desconocido';
+        const isOtherEquipment = relationData?.tipo_equipo === 'other_equipment';
 
-        entry.changes.push({
-          type: 'vehicle_relation',
-          action: record.action_type === 'LINK' ? 'added' : 'removed',
-          vehicle: {
-            id: relationData?.vehiculo_id,
-            domain: relationData?.vehiculo_dominio,
-            internNumber: relationData?.vehiculo_numero_interno,
-          },
-        });
+        if (isOtherEquipment) {
+          const equipmentName =
+            relationData?.otro_equipo_numero_interno || relationData?.otro_equipo_tipo || 'Otro equipo desconocido';
 
-        entry.message = `${userName} ${action} el vehículo: ${vehicleName}`;
+          entry.changes.push({
+            type: 'other_equipment_relation',
+            action: record.action_type === 'LINK' ? 'added' : 'removed',
+            otherEquipment: {
+              id: relationData?.otro_equipo_id,
+              internNumber: relationData?.otro_equipo_numero_interno,
+              serialNumber: relationData?.otro_equipo_numero_serie,
+              typeName: relationData?.otro_equipo_tipo,
+            },
+          });
+
+          entry.message = `${userName} ${action} el otro equipo: ${equipmentName}`;
+        } else {
+          const vehicleName = relationData?.vehiculo_dominio || 'Vehículo desconocido';
+
+          entry.changes.push({
+            type: 'vehicle_relation',
+            action: record.action_type === 'LINK' ? 'added' : 'removed',
+            vehicle: {
+              id: relationData?.vehiculo_id,
+              domain: relationData?.vehiculo_dominio,
+              internNumber: relationData?.vehiculo_numero_interno,
+            },
+          });
+
+          entry.message = `${userName} ${action} el vehículo: ${vehicleName}`;
+        }
       }
     } else if (record.action_type === 'CREATE') {
       // Traducir los nombres de los campos para los registros CREATE
@@ -1185,9 +1205,14 @@ export async function updateDailyReportRow(
     .update({
       ...data,
       status:
-        data.status === 'cancelado' || data.status === 'reprogramado' || data.status === 'ejecutado' || hasResources
+        data.status === 'cancelado' ||
+        data.status === 'reprogramado' ||
+        data.status === 'ejecutado' ||
+        data.status === 'en_certificacion'
           ? data.status
-          : 'sin_recursos_asignados',
+          : hasResources
+            ? 'pendiente'
+            : 'sin_recursos_asignados',
     })
     .eq('id', id)
     .select()

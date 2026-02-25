@@ -1,7 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import {
   condition_enum,
   cost_type_enum,
@@ -23,23 +21,25 @@ import {
   terminationReasonEquipmentLabels,
 } from '@/shared/utils/mappers';
 import { useQuery } from '@tanstack/react-query';
-import { CircleOff, Plus } from 'lucide-react';
+import { CircleOff } from 'lucide-react';
 import moment from 'moment';
-import Link from 'next/link';
 import { useMemo } from 'react';
-import { getAllOtherEquipmentForExport, getOtherEquipmentFacets, type OtherEquipmentListItem } from '../actions.server';
-import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from '../columns';
+import {
+  getAllInactiveOtherEquipmentForExport,
+  getInactiveOtherEquipmentFacets,
+  type InactiveOtherEquipmentListItem,
+} from '../actions/actions.server';
+import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from './columns';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 interface Props {
-  data: OtherEquipmentListItem[];
+  data: InactiveOtherEquipmentListItem[];
   totalRows: number;
   searchParams: DataTableSearchParams;
   tableId: string;
-  permissionsMap: Record<string, boolean>;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
 }
@@ -48,12 +48,11 @@ interface Props {
 // CLIENT COMPONENT
 // ============================================================================
 
-export function _OtherEquipmentDataTable({
+export function _InactiveOtherEquipmentDataTable({
   data,
   totalRows,
   searchParams,
   tableId,
-  permissionsMap,
   initialColumnVisibility,
   initialFilterVisibility,
 }: Props) {
@@ -65,8 +64,8 @@ export function _OtherEquipmentDataTable({
 
   // Facets con cross-filtering: se recalculan cuando cambian los filtros
   const { data: facets } = useQuery({
-    queryKey: ['other-equipment-facets', facetParams],
-    queryFn: () => getOtherEquipmentFacets(facetParams),
+    queryKey: ['inactive-other-equipment-facets', facetParams],
+    queryFn: () => getInactiveOtherEquipmentFacets(facetParams),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -76,9 +75,9 @@ export function _OtherEquipmentDataTable({
     return { ...defaults, ...initialColumnVisibility };
   }, [initialColumnVisibility]);
 
-  // Filtros visibles por defecto: solo los 3 mas comunes.
+  // Filtros visibles por defecto: solo los 3 más comunes para equipos dados de baja.
   // El resto se crean pero ocultos — el usuario los activa con el toggle de filtros.
-  const DEFAULT_VISIBLE_FILTERS = ['condition', 'status', 'type'];
+  const DEFAULT_VISIBLE_FILTERS = ['reason_for_termination', 'condition', 'type'];
   const mergedFilterVisibility = useMemo(() => {
     // Si el usuario ya tiene preferencias guardadas, usarlas
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
@@ -114,6 +113,22 @@ export function _OtherEquipmentDataTable({
   // ─── Filtros facetados ────────────────────────────────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
+      // reason_for_termination (enum nullable) — clave para tabla de bajas
+      {
+        columnId: 'reason_for_termination',
+        title: 'Motivo de baja',
+        options: [
+          ...Object.values(termination_reason_enum).map((value) => ({
+            value,
+            label: terminationReasonEquipmentLabels[value] ?? value,
+          })),
+          ...(facets?.reason_for_termination?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.reason_for_termination,
+      },
+
       // condition (enum nullable) — con iconos que coinciden con las celdas
       {
         columnId: 'condition',
@@ -299,22 +314,6 @@ export function _OtherEquipmentDataTable({
         externalCounts: facets?.currency,
       },
 
-      // reason_for_termination (enum nullable)
-      {
-        columnId: 'reason_for_termination',
-        title: 'Motivo de baja',
-        options: [
-          ...Object.values(termination_reason_enum).map((value) => ({
-            value,
-            label: terminationReasonEquipmentLabels[value] ?? value,
-          })),
-          ...(facets?.reason_for_termination?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.reason_for_termination,
-      },
-
       // Filtros de texto libre por columna
       {
         columnId: 'serial_number',
@@ -361,18 +360,6 @@ export function _OtherEquipmentDataTable({
     [facets]
   );
 
-  // ─── Botón "Nuevo equipo" protegido por permisos ──────────────────────────
-  const toolbarActions = (
-    <PermissionGuard module="equipos" tab="others" action="create">
-      <Button asChild variant="gh_orange" size="sm">
-        <Link href="/dashboard/equipment/action?action=new&type=other">
-          <Plus className="mr-2 size-4" />
-          Nuevo equipo
-        </Link>
-      </Button>
-    </PermissionGuard>
-  );
-
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <DataTable
@@ -386,15 +373,14 @@ export function _OtherEquipmentDataTable({
       initialFilterVisibility={mergedFilterVisibility}
       tableId={tableId}
       showFilterToggle={true}
-      toolbarActions={toolbarActions}
-      emptyMessage="No hay equipos registrados"
-      data-testid="other-equipment-table"
+      emptyMessage="No hay equipos dados de baja"
+      data-testid="inactive-other-equipment-table"
       exportConfig={{
-        fetchAllData: () => getAllOtherEquipmentForExport(searchParams),
+        fetchAllData: () => getAllInactiveOtherEquipmentForExport(searchParams),
         options: {
-          filename: 'otros-equipos',
-          title: 'Listado de Otros Equipos',
-          sheetName: 'Otros Equipos',
+          filename: 'otros-equipos-dados-de-baja',
+          title: 'Listado de Otros Equipos Dados de Baja',
+          sheetName: 'Dados de Baja',
         },
         formatters: {
           condition: (val) => conditionLabels[val as string] ?? String(val ?? ''),
