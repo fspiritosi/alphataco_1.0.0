@@ -74,27 +74,29 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
         id: rel.employees?.id,
         role: rel.role,
       })),
-      equipment_references: row.dailyreportequipmentrelations.map((rel) => {
-        const vehicle = rel.vehicles;
-        const otherEquip = rel.other_equipment;
-        if (vehicle) {
-          return {
-            ...vehicle,
-            _source: 'vehicle' as const,
-            name: vehicle.domain || vehicle.intern_number,
-            id: vehicle.id,
-          };
-        }
-        if (otherEquip) {
-          return {
-            ...otherEquip,
-            _source: 'other_equipment' as const,
-            name: otherEquip.intern_number || otherEquip.serial_number,
-            id: otherEquip.id,
-          };
-        }
-        return null;
-      }).filter((item): item is NonNullable<typeof item> => item != null),
+      equipment_references: row.dailyreportequipmentrelations
+        .map((rel) => {
+          const vehicle = rel.vehicles;
+          const otherEquip = rel.other_equipment;
+          if (vehicle) {
+            return {
+              ...vehicle,
+              _source: 'vehicle' as const,
+              name: vehicle.domain || vehicle.intern_number,
+              id: vehicle.id,
+            };
+          }
+          if (otherEquip) {
+            return {
+              ...otherEquip,
+              _source: 'other_equipment' as const,
+              name: otherEquip.intern_number || otherEquip.serial_number,
+              id: otherEquip.id,
+            };
+          }
+          return null;
+        })
+        .filter((item): item is NonNullable<typeof item> => item != null),
       data_to_clone: {
         customer_id: row.customers?.id,
         service_id: row.customer_services?.id,

@@ -15,12 +15,8 @@ import {
   getChecklistAnswersFacets,
   type ChecklistAnswerListItem,
 } from '../actions.server';
+import { HIDDEN_COLUMNS_BY_DEFAULT, checklistResultLabels, getColumns } from '../columns';
 import { normalizeResult } from '../utils';
-import {
-  checklistResultLabels,
-  getColumns,
-  HIDDEN_COLUMNS_BY_DEFAULT,
-} from '../columns';
 
 // ============================================================================
 // PROPS
@@ -74,18 +70,8 @@ export function _ChecklistAnswersDataTable({
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    const allFilterIds = [
-      'created_at',
-      'result',
-      'equipment_id',
-      'user_id',
-      'chofer',
-      'customer_id',
-      'observations',
-    ];
-    return Object.fromEntries(
-      allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)])
-    );
+    const allFilterIds = ['created_at', 'result', 'equipment_id', 'user_id', 'chofer', 'customer_id', 'observations'];
+    return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
 
   // ─── Opciones de equipos desde facets ──────────────────────────────────────

@@ -453,28 +453,28 @@ export default async function Page({ searchParams }: Props) {
 
 ## Props del DataTable
 
-| Prop                      | Tipo                             | Default                           | Descripción                                          |
-| ------------------------- | -------------------------------- | --------------------------------- | ---------------------------------------------------- |
-| `columns`                 | `ColumnDef<TData>[]`             | **required**                      | Definiciones de columnas de TanStack Table           |
-| `data`                    | `TData[]`                        | **required**                      | Datos de la página actual                            |
-| `totalRows`               | `number`                         | **required**                      | Total de filas en el servidor                        |
-| `searchParams`            | `DataTableSearchParams`          | `{}`                              | Search params actuales de la URL                     |
-| `facetedFilters`          | `DataTableFacetedFilterConfig[]` | `[]`                              | Configuración de filtros                             |
-| `searchPlaceholder`       | `string`                         | `'Buscar...'`                     | Placeholder del input de búsqueda global             |
-| `showColumnToggle`        | `boolean`                        | `true`                            | Mostrar selector de columnas                         |
-| `showRowSelection`        | `boolean`                        | `false`                           | Mostrar contador de selección                        |
-| `enableRowSelection`      | `boolean`                        | `false`                           | Habilitar checkboxes de selección                    |
-| `onRowSelectionChange`    | `(rows: TData[]) => void`        | `undefined`                       | Callback de selección                                |
-| `emptyMessage`            | `string`                         | `'No se encontraron resultados.'` | Mensaje cuando no hay datos                          |
-| `pageSizeOptions`         | `number[]`                       | `[10, 20, 30, 50, 100]`           | Opciones de filas por página                         |
-| `toolbarActions`          | `ReactNode`                      | `undefined`                       | Acciones adicionales en el toolbar                   |
-| `exportConfig`            | `DataTableExportConfig<TData>`   | `undefined`                       | Configuración de exportación Excel                   |
-| `initialColumnVisibility` | `Record<string, boolean>`        | `{}`                              | Columnas ocultas por defecto                         |
-| `tableId`                 | `string`                         | `undefined`                       | ID para persistir preferencias de columnas y filtros |
-| `showFilterToggle`        | `boolean`                        | `false`                           | Mostrar botón para ocultar/mostrar filtros           |
-| `initialFilterVisibility` | `Record<string, boolean>`        | `{}`                              | Visibilidad inicial de filtros (desde BD)            |
+| Prop                      | Tipo                             | Default                           | Descripción                                                             |
+| ------------------------- | -------------------------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| `columns`                 | `ColumnDef<TData>[]`             | **required**                      | Definiciones de columnas de TanStack Table                              |
+| `data`                    | `TData[]`                        | **required**                      | Datos de la página actual                                               |
+| `totalRows`               | `number`                         | **required**                      | Total de filas en el servidor                                           |
+| `searchParams`            | `DataTableSearchParams`          | `{}`                              | Search params actuales de la URL                                        |
+| `facetedFilters`          | `DataTableFacetedFilterConfig[]` | `[]`                              | Configuración de filtros                                                |
+| `searchPlaceholder`       | `string`                         | `'Buscar...'`                     | Placeholder del input de búsqueda global                                |
+| `showColumnToggle`        | `boolean`                        | `true`                            | Mostrar selector de columnas                                            |
+| `showRowSelection`        | `boolean`                        | `false`                           | Mostrar contador de selección                                           |
+| `enableRowSelection`      | `boolean`                        | `false`                           | Habilitar checkboxes de selección                                       |
+| `onRowSelectionChange`    | `(rows: TData[]) => void`        | `undefined`                       | Callback de selección                                                   |
+| `emptyMessage`            | `string`                         | `'No se encontraron resultados.'` | Mensaje cuando no hay datos                                             |
+| `pageSizeOptions`         | `number[]`                       | `[10, 20, 30, 50, 100]`           | Opciones de filas por página                                            |
+| `toolbarActions`          | `ReactNode`                      | `undefined`                       | Acciones adicionales en el toolbar                                      |
+| `exportConfig`            | `DataTableExportConfig<TData>`   | `undefined`                       | Configuración de exportación Excel                                      |
+| `initialColumnVisibility` | `Record<string, boolean>`        | `{}`                              | Columnas ocultas por defecto                                            |
+| `tableId`                 | `string`                         | `undefined`                       | ID para persistir preferencias de columnas y filtros                    |
+| `showFilterToggle`        | `boolean`                        | `false`                           | Mostrar botón para ocultar/mostrar filtros                              |
+| `initialFilterVisibility` | `Record<string, boolean>`        | `{}`                              | Visibilidad inicial de filtros (desde BD)                               |
 | `paramNamespace`          | `string`                         | `undefined`                       | Namespace para aislar params de URL entre DataTables en la misma página |
-| `data-testid`             | `string`                         | `'data-table'`                    | ID para testing con Cypress                          |
+| `data-testid`             | `string`                         | `'data-table'`                    | ID para testing con Cypress                                             |
 
 ---
 
@@ -964,14 +964,15 @@ const [{ data, total }, preferences] = await Promise.all([
 #### 3. DataTable internals
 
 El hook `useDataTable` automáticamente:
+
 - **Lee** solo params con el prefijo `{tableId}__`
 - **Escribe** params con el prefijo, preservando los de otras tablas
 - **Limpia** solo sus propios params al resetear filtros
 
 ### Cuándo usar
 
-| Situación | paramNamespace |
-|-----------|---------------|
+| Situación           | paramNamespace                                                     |
+| ------------------- | ------------------------------------------------------------------ |
 | Cualquier DataTable | **SIEMPRE OBLIGATORIO** — previene bugs futuros si la página crece |
 
 ---
@@ -1021,7 +1022,7 @@ export async function getEntityFacets(searchParams?: DataTableSearchParams) {
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(companyId, modified);  // ← reutiliza helper DRY
+    return buildWhereClause(companyId, modified); // ← reutiliza helper DRY
   }
 
   const [statusCounts, typeCounts] = await Promise.all([
@@ -1041,7 +1042,7 @@ export async function getEntityFacets(searchParams?: DataTableSearchParams) {
   return {
     status: toFacetMap(statusCounts.map((r) => ({ key: r.status, count: r._count }))),
     type: toFacetMap(typeCounts.map((r) => ({ key: r.type, count: r._count }))),
-    typeOptions: types,  // resueltos en Round 2
+    typeOptions: types, // resueltos en Round 2
   };
 }
 ```
@@ -1078,7 +1079,11 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 
   const MANUALLY_HANDLED = ['brand', 'model', 'contractor_equipment'];
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
-    exclude: [...TEXT_FILTER_COLUMNS, ...MANUALLY_HANDLED, ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`])],
+    exclude: [
+      ...TEXT_FILTER_COLUMNS,
+      ...MANUALLY_HANDLED,
+      ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
+    ],
   });
 
   const textFiltersWhere = buildTextFiltersWhere(state.filters, TEXT_FILTER_COLUMNS);
@@ -1089,8 +1094,12 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
   return {
     company_id: companyId,
     is_active: true,
-    ...searchWhere, ...filtersWhere, ...textFiltersWhere, ...dateFiltersWhere,
-    ...bigintFilters, ...m2mFilters,
+    ...searchWhere,
+    ...filtersWhere,
+    ...textFiltersWhere,
+    ...dateFiltersWhere,
+    ...bigintFilters,
+    ...m2mFilters,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
   };
 }
@@ -1102,6 +1111,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 ```
 
 Beneficios:
+
 - **DRY**: Un solo lugar para la lógica de filtros
 - **Consistencia**: Export y facets siempre aplican los mismos filtros que la query paginada
 - **Cross-filter**: `crossWhere()` puede reutilizar `buildWhereClause()` con filtros modificados
@@ -1207,15 +1217,15 @@ Verificar que el columnId de la FK está en `VALID_SORT_FIELDS` Y tiene una entr
 
 ## Helpers disponibles
 
-| Helper                       | Descripción                                                 |
-| ---------------------------- | ----------------------------------------------------------- |
-| `parseSearchParams`          | URL params → `DataTableState`                               |
-| `stateToPrismaParams`        | `DataTableState` → `{ skip, take, orderBy }`                |
-| `buildSearchWhere`           | Búsqueda global en múltiples campos (OR + contains)         |
-| `buildFiltersWhere`          | Filtros de valores discretos (enum, FK) → match exacto o IN |
-| `buildTextFiltersWhere`      | Filtros de texto libre → contains insensitive               |
-| `buildDateRangeFiltersWhere` | Filtros de fecha → gte / lte                                |
-| `stateToSearchParams`        | `DataTableState` → `URLSearchParams`                        |
+| Helper                        | Descripción                                                          |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `parseSearchParams`           | URL params → `DataTableState`                                        |
+| `stateToPrismaParams`         | `DataTableState` → `{ skip, take, orderBy }`                         |
+| `buildSearchWhere`            | Búsqueda global en múltiples campos (OR + contains)                  |
+| `buildFiltersWhere`           | Filtros de valores discretos (enum, FK) → match exacto o IN          |
+| `buildTextFiltersWhere`       | Filtros de texto libre → contains insensitive                        |
+| `buildDateRangeFiltersWhere`  | Filtros de fecha → gte / lte                                         |
+| `stateToSearchParams`         | `DataTableState` → `URLSearchParams`                                 |
 | `stripPrefixFromSearchParams` | Extrae params de una tabla específica (quita el prefijo `tableId__`) |
 | `PARAM_SEPARATOR`             | Constante `'__'` usada como separador de namespace en URL params     |
 
@@ -1227,16 +1237,16 @@ Verificar que el columnId de la FK está en `VALID_SORT_FIELDS` Y tiene una entr
 
 ### Checklist de filtros (el punto más frecuentemente incompleto)
 
-| Tipo de columna | Filtro requerido | Notas |
-|---|---|---|
-| FK UUID/Int nullable | `faceted` + `NULL_FILTER_VALUE` + `filterFn` + `CircleOff` icon | `crossWhere` en facets |
-| FK UUID/Int NOT NULL | `faceted` + `filterFn` | `crossWhere` en facets |
-| Enum nullable | `faceted` + `NULL_FILTER_VALUE` + `filterFn` | `crossWhere` en facets |
-| Enum NOT NULL | `faceted` + `filterFn` | `crossWhere` en facets |
-| Texto | `text` | `buildTextFiltersWhere` en action |
-| Fecha | `dateRange` | `buildDateRangeFiltersWhere` en action |
-| JSONB / virtual / calculada | SIN filtro | No filtrable server-side |
-| Acciones / select | SIN filtro | — |
+| Tipo de columna             | Filtro requerido                                                | Notas                                  |
+| --------------------------- | --------------------------------------------------------------- | -------------------------------------- |
+| FK UUID/Int nullable        | `faceted` + `NULL_FILTER_VALUE` + `filterFn` + `CircleOff` icon | `crossWhere` en facets                 |
+| FK UUID/Int NOT NULL        | `faceted` + `filterFn`                                          | `crossWhere` en facets                 |
+| Enum nullable               | `faceted` + `NULL_FILTER_VALUE` + `filterFn`                    | `crossWhere` en facets                 |
+| Enum NOT NULL               | `faceted` + `filterFn`                                          | `crossWhere` en facets                 |
+| Texto                       | `text`                                                          | `buildTextFiltersWhere` en action      |
+| Fecha                       | `dateRange`                                                     | `buildDateRangeFiltersWhere` en action |
+| JSONB / virtual / calculada | SIN filtro                                                      | No filtrable server-side               |
+| Acciones / select           | SIN filtro                                                      | —                                      |
 
 ### Reglas de íconos en filtros facetados
 

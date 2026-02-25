@@ -5,13 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { formSourceLabels } from '@/shared/utils/mappers';
 import { type ColumnDef } from '@tanstack/react-table';
-import {
-  CheckCircle2,
-  ClipboardCheck,
-  ClipboardList,
-  FileText,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, ClipboardList, FileText, XCircle } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import type { FormsListItem } from './actions.server';
@@ -90,7 +84,9 @@ export function getColumns(permissions: Permissions): ColumnDef<FormsListItem>[]
       meta: { title: 'Descripción' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Descripción" />,
       cell: ({ row }) => (
-        <span className={`text-sm text-muted-foreground truncate max-w-[300px] block ${!row.original.is_active ? 'opacity-50' : ''}`}>
+        <span
+          className={`text-sm text-muted-foreground truncate max-w-[300px] block ${!row.original.is_active ? 'opacity-50' : ''}`}
+        >
           {row.original.description || '—'}
         </span>
       ),
@@ -139,15 +135,8 @@ export function getColumns(permissions: Permissions): ColumnDef<FormsListItem>[]
       cell: ({ row }) => {
         const isActive = row.original.is_active;
         return (
-          <Badge
-            variant={isActive ? 'success' : 'secondary'}
-            className="whitespace-nowrap flex items-center gap-1"
-          >
-            {isActive ? (
-              <CheckCircle2 className="h-3 w-3" />
-            ) : (
-              <XCircle className="h-3 w-3" />
-            )}
+          <Badge variant={isActive ? 'success' : 'secondary'} className="whitespace-nowrap flex items-center gap-1">
+            {isActive ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
             {isActive ? 'Activo' : 'Inactivo'}
           </Badge>
         );

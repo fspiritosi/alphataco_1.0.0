@@ -53,7 +53,6 @@ export default async function OperacionesComponent({
               <Suspense fallback={<DailyReportTableSkeleton />}>
                 <PartesDiariosTabContent searchParams={searchParams} />
               </Suspense>
-              
             ),
           },
         ]}

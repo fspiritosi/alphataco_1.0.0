@@ -1,7 +1,5 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,13 +11,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { dailyReportStatusBadges, dailyReportStatusLabels } from '@/shared/utils/mappers';
+import { useQueryClient } from '@tanstack/react-query';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Eye, Trash2 } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { deleteDailyReport } from '../actions/actions';
 import { DAILY_REPORTS_QUERY_KEY } from '../hooks/useDailyReports';
@@ -94,9 +94,7 @@ export function getColumns(permissions: Permissions): ColumnDef<DailyReportListI
       meta: { title: 'Fecha' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
       cell: ({ row }) => (
-        <span className="font-medium whitespace-nowrap">
-          {moment(row.original.date).format('DD/MM/YYYY')}
-        </span>
+        <span className="font-medium whitespace-nowrap">{moment(row.original.date).format('DD/MM/YYYY')}</span>
       ),
     },
 
@@ -124,9 +122,7 @@ export function getColumns(permissions: Permissions): ColumnDef<DailyReportListI
       meta: { title: 'Fecha de creación' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de creación" />,
       cell: ({ row }) => (
-        <span>
-          {row.original.creation_date ? moment(row.original.creation_date).format('DD/MM/YYYY') : '—'}
-        </span>
+        <span>{row.original.creation_date ? moment(row.original.creation_date).format('DD/MM/YYYY') : '—'}</span>
       ),
     },
 
@@ -135,13 +131,10 @@ export function getColumns(permissions: Permissions): ColumnDef<DailyReportListI
       id: 'sin_recursos',
       meta: { title: 'Sin Recursos', excludeFromExport: true },
       enableSorting: false,
-      accessorFn: (row) =>
-        row.dailyreportrows.filter((r) => r.status === 'sin_recursos_asignados').length,
+      accessorFn: (row) => row.dailyreportrows.filter((r) => r.status === 'sin_recursos_asignados').length,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Sin Recursos" />,
       cell: ({ row }) => {
-        const count = row.original.dailyreportrows.filter(
-          (r) => r.status === 'sin_recursos_asignados'
-        ).length;
+        const count = row.original.dailyreportrows.filter((r) => r.status === 'sin_recursos_asignados').length;
         return (
           <Badge variant={count > 0 ? 'warning' : 'secondary'} className="min-w-[28px] justify-center">
             {count}

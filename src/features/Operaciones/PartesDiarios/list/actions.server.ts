@@ -51,10 +51,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
   const MANUALLY_HANDLED = ['is_active'];
 
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
-    exclude: [
-      ...MANUALLY_HANDLED,
-      ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
-    ],
+    exclude: [...MANUALLY_HANDLED, ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`])],
   });
 
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);

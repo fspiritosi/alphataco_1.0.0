@@ -9,6 +9,58 @@ Aplica cuando:
 - Estes **auditando** una tabla para verificar completitud
 - Encuentres una tabla que usa el **sistema viejo** (debe migrarse)
 
+## CHECKLIST OBLIGATORIO — TODA TABLA NUEVA O MODIFICADA
+
+**VERIFICAR CADA ÍTEM. Ninguno es opcional salvo que tenga justificación explícita.**
+
+### SERVER COMPONENT ({Entity}List.tsx)
+- [ ] `TABLE_ID` constante definida como string (ej: `const tableId = 'vehicles'`)
+- [ ] **`stripPrefixFromSearchParams(searchParams, tableId)` — SIEMPRE OBLIGATORIO**, aplicado antes del `Promise.all`. Sin esto, si se agrega otra tabla a la página los URL params se mezclarán
+- [ ] `getTablePreferences(tableId)` llamado en el `Promise.all`
+- [ ] Permisos cargados en servidor (`getUserPermissionsMapServer()` o `getModulePermissions()`) y pasados como prop al Client Component (solo si la tabla tiene columna `actions` con botones protegidos)
+- [ ] `<PermissionGuard module="x" action="view" redirect>` envuelve la página completa (si aplica a la tabla)
+- [ ] `getXxxFacets(tableSearchParams)` recibe los params filtrados (cross-filter support)
+- [ ] Card wrapper: `<Card><CardContent className="pt-6">` envuelve el Client Component **salvo que el componente padre ya provea un `<Card>`** — en ese caso omitir o reemplazar por `<div>` para evitar Card anidada. Verificar el árbol de componentes antes de decidir.
+
+### CLIENT COMPONENT (_{Entity}DataTable.tsx)
+- [ ] **`paramNamespace={tableId}` en `<DataTable>` — CRÍTICO SIN EXCEPCIÓN**. Sin esto, los filtros/ordenamiento se mezclan entre tablas si hay más de una en la página. El costo de incluirlo es cero; el costo de omitirlo puede ser bugs difíciles de detectar
+- [ ] `tableId={tableId}` en `<DataTable>` para persistencia de preferencias
+- [ ] `searchPlaceholder` prop presente y descriptivo
+- [ ] `showFilterToggle={true}` prop presente
+- [ ] `emptyMessage` prop presente (en español)
+- [ ] `facetedFilters` configurado con `externalCounts` (Maps del servidor) en todos los filtros facetados
+- [ ] `exportConfig` configurado con formatters para TODOS los campos exportables (enums→labels, fechas→DD/MM/YYYY, booleanos→Sí/No)
+- [ ] Permisos recibidos como prop del Server Component — NUNCA re-fetched en el cliente (solo si la tabla tiene columna `actions`)
+- [ ] Acciones individuales (editar/eliminar) condicionadas a permisos dentro de la columna `actions` — nunca ocultar la columna completa
+- [ ] Solo 3 filtros visibles por defecto (`DEFAULT_VISIBLE_FILTERS`)
+
+### COLUMNS (columns.tsx)
+- [ ] `meta: { title: 'X' }` en TODA columna de datos — sin excepción (para toggle de columnas y cabecera de Excel)
+- [ ] `meta: { excludeFromExport: true }` en columnas `select` y `actions`
+- [ ] FK: `accessorFn` con `id` explícito — NUNCA `accessorKey` con dot-notation como `'relation.name'`
+- [ ] `filterFn` en TODA columna con filtro `faceted`
+- [ ] Fechas: `moment(val).format('DD/MM/YYYY')` — NUNCA date-fns
+- [ ] Enums: labels de `@/shared/utils/mappers.ts`
+- [ ] `NULL_FILTER_VALUE` en `filterFn` de TODA columna FK nullable (verificar null antes de comparar)
+- [ ] TODAS las columnas ordenables excepto `select`, `actions` y M:M
+
+### SERVER ACTION (actions.server.ts)
+- [ ] Fetching con Prisma — NUNCA Supabase directo
+- [ ] `buildWhereClause()` helper interno compartido entre paginated, export y facets (NO duplicar lógica)
+- [ ] `VALID_SORT_FIELDS` whitelist + `FK_SORT_MAP` para columnas FK
+- [ ] Multi-sort: iterar `state.sorting` (array) — NO usar `state.sortBy` (patrón viejo)
+- [ ] `buildSearchWhere`, `buildFiltersWhere`, `buildTextFiltersWhere`, `buildDateRangeFiltersWhere`
+- [ ] **`getXxxFacets(searchParams?)` implementa `crossWhere(excludeColumn)` — OBLIGATORIO**. Cada `groupBy` excluye su propia columna de los filtros activos. Sin esto, los counts se vuelven incorrectos cuando hay filtros activos
+- [ ] `getXxxForExport()` sin `skip`/`take`, usa `buildWhereClause` (misma lógica de filtros)
+- [ ] Tipo inferido: `Awaited<ReturnType<typeof getXxx>>['data'][number]` — NUNCA tipar manualmente
+- [ ] Logger (`new Logger(...)`) + try-catch en todas las funciones
+
+### FALLBACK
+- [ ] Componente Skeleton dedicado en `fallback/` folder
+- [ ] Usado en `<Suspense fallback={<XxxSkeleton />}>` en el TabContent padre — NUNCA `<div>Cargando...</div>`
+
+---
+
 ## Componente y Arquitectura Obligatorios
 
 **SIEMPRE** usar el `DataTable` de `@/shared/components/common/DataTable/` con Prisma.
@@ -101,13 +153,112 @@ Elegir los 3 filtros mas logicos/comunes para la entidad (ej: estado, tipo, cond
 7. **Sorting**: TODAS las columnas son ordenables excepto `select`, `actions` y M:M. NO poner `enableSorting: false` en columnas FK — usar `FK_SORT_MAP` en el server action para resolver el orderBy con la relacion.
 8. **NULL handling**: Columnas FK nullable DEBEN incluir `NULL_FILTER_VALUE` en el `filterFn` y opcion "Sin asignar" en el filtro facetado.
 
-## Permisos y Acciones (Proteccion Obligatoria)
+## Permisos y Acciones
 
-Los permisos se cargan **en el servidor** con `getModulePermissions()` y se pasan al Client Component como prop. Nunca se re-fetchean en el cliente.
+> **Nota**: Este patron SOLO aplica si la tabla tiene una columna `actions` con botones de editar/eliminar. Si la tabla solo tiene un link "Ver detalle", no necesita pasar permisos al componente de tabla.
 
-- **Boton "Nuevo"**: Envuelto en `<PermissionGuard module="x" tab="y" action="create">` en el Server Component o Client Component.
-- **Columna actions**: Se genera condicionalmente con `getColumns(permissions)`. Si el usuario no tiene ningun permiso de accion, la columna NO aparece.
-- **Pagina completa**: Envuelta en `<PermissionGuard module="x" action="view" redirect>` en el Server Component.
+Los permisos se cargan **en el servidor** y se pasan como prop al Client Component. Nunca se re-fetchean en el cliente (no `useQuery`, no hooks de permisos en el Client).
+
+### Patron con `getUserPermissionsMapServer()` (granular por tab)
+
+Usar cuando se necesita verificar permisos de acciones específicas dentro de la columna actions (ej: "Ver" siempre visible, solo "Eliminar" requiere permiso):
+
+```typescript
+// TabContent.tsx (Server Component padre) — carga permisos UNA VEZ
+import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
+
+export default async function {Entity}TabContent({ searchParams }: Props) {
+  const [canCreate, permissionsMap] = await Promise.all([
+    checkPermissionServer('{module}', '{tab_slug}', 'create'),
+    getUserPermissionsMapServer(),
+  ]);
+
+  return (
+    <>
+      {canCreate && <CreateForm />}
+      <Suspense fallback={<{Entity}TableSkeleton />}>
+        <{Entity}List searchParams={searchParams} permissionsMap={permissionsMap} />
+      </Suspense>
+    </>
+  );
+}
+
+// {Entity}List.tsx (Server Component) — recibe y reenvía el map
+interface Props {
+  searchParams: DataTableSearchParams;
+  permissionsMap: Record<string, boolean>;
+}
+
+export async function {Entity}List({ searchParams, permissionsMap }: Props) {
+  const tableParams = stripPrefixFromSearchParams(searchParams, TABLE_ID);
+  const [{ data, total }, preferences] = await Promise.all([
+    get{Entity}sPaginated(tableParams),
+    getTablePreferences(TABLE_ID),
+  ]);
+  return (
+    <_{Entity}DataTable
+      data={data}
+      totalRows={total}
+      searchParams={tableParams}
+      tableId={TABLE_ID}
+      permissionsMap={permissionsMap}           // ← map serializable del servidor
+      initialColumnVisibility={preferences.columnVisibility ?? {}}
+      initialFilterVisibility={preferences.filterVisibility ?? {}}
+    />
+  );
+}
+
+// _{Entity}DataTable.tsx (Client Component) — construye helper desde el map
+interface Props {
+  // ...
+  permissionsMap: Record<string, boolean>;  // ← "module:tab:action" → boolean
+}
+
+export function _{Entity}DataTable({ permissionsMap, ... }: Props) {
+  // Construir helper de permisos — NO re-fetchear, NO useQuery, NO hooks de permisos
+  const permissions = useMemo(
+    () => ({
+      hasPermission: (module: string, tab: string, action: string) =>
+        permissionsMap[`${module}:${tab}:${action}`] === true,
+    }),
+    [permissionsMap]
+  );
+
+  const columns = useMemo(() => getColumns(permissions), [permissions]);
+  // ...
+}
+
+// columns.tsx — recibe permissions y verifica acciones específicas
+type Permissions = {
+  hasPermission: (module: string, tab: string, action: string) => boolean;
+};
+
+export function getColumns(permissions: Permissions): ColumnDef<{Entity}ListItem>[] {
+  const canDelete = permissions.hasPermission('{module}', '{tab_slug}', 'delete');
+
+  return [
+    // ... columnas de datos ...
+    {
+      id: 'actions',
+      meta: { excludeFromExport: true, title: '' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          {/* Link "Ver" siempre visible — no requiere permiso */}
+          <Link href={`/dashboard/{module}/${row.original.id}`}>
+            <Eye className="h-3.5 w-3.5" /> Ver
+          </Link>
+          {/* Eliminar SOLO si tiene permiso */}
+          {canDelete && <Delete{Entity}Cell row={row} />}
+        </div>
+      ),
+    },
+  ];
+}
+```
+
+**Regla clave**: Nunca ocultar la columna `actions` completa basándose en permisos — ocultar la **acción específica** dentro de la columna. Un link de navegación (Ver detalle) no requiere verificación de permisos.
 
 ## Sorting de Columnas FK (Relaciones)
 

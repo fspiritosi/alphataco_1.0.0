@@ -96,9 +96,7 @@ export function getColumns(templateId: string): ColumnDef<ChecklistAnswerListIte
       meta: { title: 'Equipo' },
       enableSorting: false,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
-      cell: ({ row }) => (
-        <span className="whitespace-nowrap">{getEquipmentLabel(row.original)}</span>
-      ),
+      cell: ({ row }) => <span className="whitespace-nowrap">{getEquipmentLabel(row.original)}</span>,
       filterFn: (row, _id, value: string[]) => {
         const id = row.original.equipment_id;
         if (id == null) return value.includes(NULL_FILTER_VALUE);

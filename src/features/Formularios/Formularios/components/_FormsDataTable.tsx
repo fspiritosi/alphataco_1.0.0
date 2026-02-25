@@ -8,20 +8,10 @@ import {
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { formSourceLabels } from '@/shared/utils/mappers';
 import { useQuery } from '@tanstack/react-query';
-import {
-  CheckCircle2,
-  CircleOff,
-  ClipboardCheck,
-  FileText,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle2, CircleOff, ClipboardCheck, FileText, XCircle } from 'lucide-react';
 import moment from 'moment';
 import { useMemo } from 'react';
-import {
-  getAllFormsForExport,
-  getFormsFacets,
-  type FormsListItem,
-} from '../actions.server';
+import { getAllFormsForExport, getFormsFacets, type FormsListItem } from '../actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, getColumns } from '../columns';
 
 // ============================================================================
@@ -86,9 +76,7 @@ export function _FormsDataTable({
       return initialFilterVisibility;
     }
     const allFilterIds = ['is_active', 'source', 'name', 'description', 'code', 'created_at'];
-    return Object.fromEntries(
-      allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)])
-    );
+    return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
 
   // ─── Filtros facetados ──────────────────────────────────────────────────────

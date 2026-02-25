@@ -1,8 +1,8 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { FileText } from 'lucide-react';
 import { Suspense } from 'react';
-import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import FormulariosTabContent from './Formularios/FormulariosTabContent';
 import { FormsTableSkeleton } from './Formularios/fallback/FormsTableSkeleton';
 

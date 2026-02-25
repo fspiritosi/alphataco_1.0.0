@@ -1,7 +1,7 @@
+import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
 import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { Card, CardContent } from '@/components/ui/card';
 import { getFormsPaginated } from './actions.server';
 import { _FormsDataTable } from './components/_FormsDataTable';
 

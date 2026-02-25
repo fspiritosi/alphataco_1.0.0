@@ -13,7 +13,6 @@ import { prisma } from '@/shared/lib/prisma';
 
 const logger = new Logger('Formularios/list/actions.server');
 
-
 // ============================================================================
 // CONSTANTES
 // ============================================================================
@@ -162,9 +161,7 @@ export async function getFormsPaginated(searchParams: DataTableSearchParams) {
     const isActiveValues = state.filters['is_active'];
     const hasIsActiveFilter = isActiveValues?.length > 0;
     const includeCustomFormByActive =
-      !hasIsActiveFilter ||
-      isActiveValues.includes('true') ||
-      isActiveValues.includes(NULL_FILTER_VALUE);
+      !hasIsActiveFilter || isActiveValues.includes('true') || isActiveValues.includes(NULL_FILTER_VALUE);
 
     // Fetch en paralelo
     const [checklists, customForms] = await Promise.all([
@@ -201,7 +198,15 @@ export async function getFormsPaginated(searchParams: DataTableSearchParams) {
     const customFormMapped = customForms.map(mapCustomForm);
 
     // Campos válidos para sort dinámico (whitelist explícita)
-    const VALID_SORT_FIELDS = new Set(['name', 'created_at', 'is_active', 'total_responses', 'source', 'code', 'description']);
+    const VALID_SORT_FIELDS = new Set([
+      'name',
+      'created_at',
+      'is_active',
+      'total_responses',
+      'source',
+      'code',
+      'description',
+    ]);
 
     const allForms: FormListItem[] = [...checklistMapped, ...customFormMapped].sort((a, b) => {
       // Activos primero como criterio estable base
@@ -275,9 +280,7 @@ export async function getAllFormsForExport(searchParams: DataTableSearchParams) 
     const isActiveValues = state.filters['is_active'];
     const hasIsActiveFilter = isActiveValues?.length > 0;
     const includeCustomFormByActive =
-      !hasIsActiveFilter ||
-      isActiveValues.includes('true') ||
-      isActiveValues.includes(NULL_FILTER_VALUE);
+      !hasIsActiveFilter || isActiveValues.includes('true') || isActiveValues.includes(NULL_FILTER_VALUE);
 
     const [checklists, customForms] = await Promise.all([
       includeChecklist
@@ -308,13 +311,12 @@ export async function getAllFormsForExport(searchParams: DataTableSearchParams) 
         : Promise.resolve([]),
     ]);
 
-    const allForms: FormListItem[] = [
-      ...checklists.map(mapChecklistTemplate),
-      ...customForms.map(mapCustomForm),
-    ].sort((a, b) => {
-      if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
-      return b.created_at.getTime() - a.created_at.getTime();
-    });
+    const allForms: FormListItem[] = [...checklists.map(mapChecklistTemplate), ...customForms.map(mapCustomForm)].sort(
+      (a, b) => {
+        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+        return b.created_at.getTime() - a.created_at.getTime();
+      }
+    );
 
     return allForms;
   } catch (error) {
@@ -331,10 +333,7 @@ export async function getAllFormsForExport(searchParams: DataTableSearchParams) 
  * Construye WHERE para facets, excluyendo el filtro de una columna específica
  * (patrón crossWhere idéntico al de Vehicles/OtherEquipment/Employees).
  */
-function crossChecklistWhere(
-  state: ReturnType<typeof parseSearchParams>,
-  excludeColumn: string
-) {
+function crossChecklistWhere(state: ReturnType<typeof parseSearchParams>, excludeColumn: string) {
   const modified = { ...state, filters: { ...state.filters } };
   delete modified.filters[excludeColumn];
   delete modified.filters[`${excludeColumn}_from`];
@@ -342,10 +341,7 @@ function crossChecklistWhere(
   return buildChecklistWhere(modified);
 }
 
-function crossCustomFormWhere(
-  state: ReturnType<typeof parseSearchParams>,
-  excludeColumn: string
-) {
+function crossCustomFormWhere(state: ReturnType<typeof parseSearchParams>, excludeColumn: string) {
   const modified = { ...state, filters: { ...state.filters } };
   delete modified.filters[excludeColumn];
   delete modified.filters[`${excludeColumn}_from`];
@@ -364,8 +360,7 @@ export async function getFormsFacets(searchParams?: DataTableSearchParams) {
       }
     }
 
-    const hasActiveFilters =
-      parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
+    const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
     // ── Facet is_active: WHERE con todos los filtros EXCEPTO is_active ──
     // Para checklist_templates: cross-filter excluyendo is_active
@@ -378,43 +373,34 @@ export async function getFormsFacets(searchParams?: DataTableSearchParams) {
     // Además, para custom_form en el facet is_active: si hay filtro source activo
     // que excluye custom_form, el count de custom_form debe ser 0
     const sourceFilter = parsedState?.filters['source'] ?? [];
-    const includeCustomFormInIsActive =
-      !sourceFilter.length || sourceFilter.includes('custom_form');
-    const includeChecklistInIsActive =
-      !sourceFilter.length || sourceFilter.includes('checklist_template');
+    const includeCustomFormInIsActive = !sourceFilter.length || sourceFilter.includes('custom_form');
+    const includeChecklistInIsActive = !sourceFilter.length || sourceFilter.includes('checklist_template');
 
     // ── Facet source: WHERE con todos los filtros EXCEPTO source ──
-    const checklistWhereForSource =
-      parsedState && hasActiveFilters ? crossChecklistWhere(parsedState, 'source') : {};
-    const customFormWhereForSource =
-      parsedState && hasActiveFilters ? crossCustomFormWhere(parsedState, 'source') : {};
+    const checklistWhereForSource = parsedState && hasActiveFilters ? crossChecklistWhere(parsedState, 'source') : {};
+    const customFormWhereForSource = parsedState && hasActiveFilters ? crossCustomFormWhere(parsedState, 'source') : {};
 
     // Para el facet source, si hay filtro is_active que excluye activos,
     // custom_form (siempre activo) debe quedar en 0
     const isActiveFilter = parsedState?.filters['is_active'] ?? [];
     const includeCustomFormInSource =
-      !isActiveFilter.length ||
-      isActiveFilter.includes('true') ||
-      isActiveFilter.includes(NULL_FILTER_VALUE);
+      !isActiveFilter.length || isActiveFilter.includes('true') || isActiveFilter.includes(NULL_FILTER_VALUE);
 
     // Queries en paralelo
-    const [checklistIsActiveCounts, checklistCountForSource, customFormCountForSource] =
-      await Promise.all([
-        // Facet is_active: groupBy sobre checklist_templates
-        includeChecklistInIsActive
-          ? prisma.checklist_templates.groupBy({
-              by: ['is_active'],
-              where: checklistWhereForIsActive,
-              _count: true,
-            })
-          : Promise.resolve([]),
-        // Facet source: count checklist_templates
-        prisma.checklist_templates.count({ where: checklistWhereForSource }),
-        // Facet source: count custom_form
-        includeCustomFormInSource
-          ? prisma.custom_form.count({ where: customFormWhereForSource })
-          : Promise.resolve(0),
-      ]);
+    const [checklistIsActiveCounts, checklistCountForSource, customFormCountForSource] = await Promise.all([
+      // Facet is_active: groupBy sobre checklist_templates
+      includeChecklistInIsActive
+        ? prisma.checklist_templates.groupBy({
+            by: ['is_active'],
+            where: checklistWhereForIsActive,
+            _count: true,
+          })
+        : Promise.resolve([]),
+      // Facet source: count checklist_templates
+      prisma.checklist_templates.count({ where: checklistWhereForSource }),
+      // Facet source: count custom_form
+      includeCustomFormInSource ? prisma.custom_form.count({ where: customFormWhereForSource }) : Promise.resolve(0),
+    ]);
 
     // Count de custom_form para el facet is_active (custom_form siempre = activo)
     const customFormCountForIsActive = includeCustomFormInIsActive
