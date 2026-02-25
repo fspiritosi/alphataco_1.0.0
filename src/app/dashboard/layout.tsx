@@ -31,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   await getUserPermissionsMapServer();
 
   return (
-    <div className={`grid grid-rows-[auto_1fr] grid-cols-[auto_1fr] h-screen`} suppressHydrationWarning>
+    <div className={`grid grid-rows-[auto_1fr] grid-cols-[auto_1fr]`} suppressHydrationWarning>
       <FilterCleanupInitializer />
       <div className="row-span-2 ">
         <SidebarFeat />
@@ -44,7 +44,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <TanstackQueryInicializador>
           <PasswordChangeAlertWrapper />
           <PermissionsProvider>
-            <div className="px-6">{children}</div>
+            <div className="px-6 pb-4">{children}</div>
           </PermissionsProvider>
         </TanstackQueryInicializador>
       </div>

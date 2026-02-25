@@ -17,15 +17,21 @@ interface DataTableTextFilterProps {
   columnId: string;
   title: string;
   placeholder?: string;
+  /** Namespace para prefijar los params de URL cuando hay múltiples DataTables en la misma página */
+  paramNamespace?: string;
 }
 
-export function DataTableTextFilter({ columnId, title, placeholder }: DataTableTextFilterProps) {
+export function DataTableTextFilter({ columnId, title, placeholder, paramNamespace }: DataTableTextFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { startTransition } = useDataTablePending();
 
-  const currentValue = searchParams.get(columnId) ?? '';
+  // Clave con prefijo de namespace si corresponde
+  const paramKey = paramNamespace ? `${paramNamespace}__${columnId}` : columnId;
+  const pageKey = paramNamespace ? `${paramNamespace}__page` : 'page';
+
+  const currentValue = searchParams.get(paramKey) ?? '';
   const [inputValue, setInputValue] = React.useState(currentValue);
   const hasValue = !!currentValue;
 
@@ -37,11 +43,11 @@ export function DataTableTextFilter({ columnId, title, placeholder }: DataTableT
   const applyFilter = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value.trim()) {
-      params.set(columnId, value.trim());
+      params.set(paramKey, value.trim());
     } else {
-      params.delete(columnId);
+      params.delete(paramKey);
     }
-    params.set('page', '1');
+    params.set(pageKey, '1');
     startTransition(() => {
       router.replace(`${pathname}?${params.toString()}`);
     });

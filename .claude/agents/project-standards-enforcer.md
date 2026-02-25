@@ -154,7 +154,25 @@ useEffect(() => {
 - Crear componentes Skeleton dedicados en `fallback/` - NUNCA usar `<div>Cargando...</div>`
 - Fetching de datos SIEMPRE en el servidor cuando no depende de interacción del usuario
 
-### 12. Evitar useEffect Innecesarios
+### 12. Numero de Legajo en Listas de Empleados
+
+**SIEMPRE** incluir el numero de legajo (`file_number`) en TODA lista, tabla, selector, filtro o referencia visual de empleados. Los usuarios identifican a los empleados por su legajo.
+
+- **DataTables**: columna de legajo visible + filtro de texto
+- **Selectores/Combos**: mostrar `[legajo] Apellido Nombre`
+- **Modales de detalle**: incluir legajo en la info del empleado
+- **Filtros facetados**: incluir legajo en labels cuando se listen empleados
+- **Exportacion Excel**: incluir columna de legajo
+- **Partes diarios, asignaciones, etc.**: todo lugar donde se referencie un empleado
+
+```typescript
+// ✅ CORRECTO - Legajo visible
+<SelectItem value={employee.id}>
+  [{employee.file_number}] {employee.lastname} {employee.firstname}
+</SelectItem>
+```
+
+### 13. Evitar useEffect Innecesarios
 
 - **NUNCA** usar `useEffect` para reaccionar a cambios de estado propios
 - Si se ejecuta al hacer click → mover al `onClick`
@@ -194,6 +212,7 @@ useEffect(() => {
 - [ ] Sin archivos `.md` creados innecesariamente
 - [ ] Sin `useEffect` innecesarios
 - [ ] Fallbacks skeleton dedicados para Suspense
+- [ ] Legajo (`file_number`) visible en listas/selectores/filtros de empleados
 
 ---
 

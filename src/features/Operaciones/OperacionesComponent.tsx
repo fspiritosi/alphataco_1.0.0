@@ -3,6 +3,7 @@ import { TabsManagerServer } from '@/features/TabsManager';
 import { ClipboardList, Package } from 'lucide-react';
 import { Suspense } from 'react';
 import PartesDiariosTabContent from './PartesDiarios/PartesDiariosTabContent';
+import { DailyReportTableSkeleton } from './PartesDiarios/list/fallback/DailyReportTableSkeleton';
 import PreparteTabContent from './Preparte/PreparteTabContent';
 import { PreparteSkeleton } from './Preparte/fallback/PreparteSkeleton';
 
@@ -49,9 +50,10 @@ export default async function OperacionesComponent({
             moduleSlug: 'operaciones',
             tabSlug: 'dailyreportstable',
             content: (
-              <Suspense fallback={<div>Cargando partes diarios...</div>}>
-                <PartesDiariosTabContent />
+              <Suspense fallback={<DailyReportTableSkeleton />}>
+                <PartesDiariosTabContent searchParams={searchParams} />
               </Suspense>
+              
             ),
           },
         ]}

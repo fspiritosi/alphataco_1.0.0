@@ -79,9 +79,7 @@ export function OtherEquipmentAssignmentForm({
           name="cost_type"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>
-                Tipo de Costo <span className="text-red-500">*</span>
-              </FormLabel>
+              <FormLabel>Tipo de Costo</FormLabel>
               <Select disabled={readOnly} value={field.value ?? undefined} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>
@@ -105,9 +103,7 @@ export function OtherEquipmentAssignmentForm({
           name="sector"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>
-                Sector <span className="text-red-500">*</span>
-              </FormLabel>
+              <FormLabel>Sector</FormLabel>
               <Select disabled={readOnly} value={field.value ?? undefined} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>

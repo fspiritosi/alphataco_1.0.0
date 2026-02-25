@@ -66,7 +66,7 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
 };
 
 /** Params de URL de navegación que NO son filtros de la tabla */
-const IGNORED_PARAMS = new Set(['tab', 'subtab']);
+const IGNORED_PARAMS = new Set(['tab', 'subtab', 'inactive_subtab']);
 
 /** Columnas con filtro de texto libre (contains insensitive) */
 const TEXT_FILTER_COLUMNS = ['serial_number', 'intern_number', 'manufacturer_plate', 'invoice_number', 'composition'];
@@ -295,7 +295,7 @@ export async function getAllOtherEquipmentForExport(searchParams: DataTableSearc
  */
 export async function getOtherEquipmentFacets(searchParams?: DataTableSearchParams) {
   const companyId = await getServerCompanyId();
-  const baseWhere = { company_id: companyId };
+  const baseWhere = { company_id: companyId, is_active: true };
 
   // Parsear filtros activos (si los hay)
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;

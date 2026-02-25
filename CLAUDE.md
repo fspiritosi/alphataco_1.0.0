@@ -102,6 +102,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | DataTable con Prisma (+ migracion)          | @.claude/rules/datatable.md         | Tablas con paginacion (detecta sistema viejo)     |
 | Filtros de DataTable (1 por columna)        | @.claude/rules/datatable-filters.md | Al crear/modificar filtros de tablas              |
 | Estructura de Features                      | @.claude/rules/feature-structure.md | Al crear/modificar features                       |
+| Legajo en listas de empleados               | Integrado en CLAUDE.md + agent      | Toda lista/filtro/selector de empleados           |
 | Evitar useEffect innecesarios               | @.claude/rules/no-useeffect.md      | Siempre al escribir logica reactiva               |
 | Revision Diferencial pre-commit             | Integrado en `branch-reviewer`      | Al commitear, pushear o crear PR                  |
 
@@ -202,7 +203,32 @@ const { data } = await supabase.from('preparte').select('*, service_items(id, it
 // En la tabla: row.service_items?.item_name (ya viene resuelto)
 ```
 
-### 5. Evitar useEffect Innecesarios
+### 5. Numero de Legajo en Listas de Empleados
+
+**SIEMPRE** incluir el numero de legajo (`file_number`) en TODA lista, tabla, selector, filtro o referencia visual de empleados. Los usuarios identifican a los empleados por su legajo, no por su nombre.
+
+- **DataTables de empleados**: columna de legajo visible + filtro de texto
+- **Selectores/Combos de empleados**: mostrar legajo junto al nombre (ej: `[1234] Juan Perez`)
+- **Modales de detalle**: incluir legajo en la informacion del empleado
+- **Filtros facetados**: cuando se liste empleados como opcion de filtro, incluir legajo en el label
+- **Exportacion Excel**: incluir columna de legajo
+
+```typescript
+// ✅ CORRECTO - Legajo visible en selector
+<SelectItem value={employee.id}>
+  [{employee.file_number}] {employee.lastname} {employee.firstname}
+</SelectItem>
+
+// ✅ CORRECTO - Legajo en tabla
+{ accessorKey: 'file_number', header: 'Legajo', meta: { title: 'Legajo' } }
+
+// ❌ INCORRECTO - Lista de empleados sin legajo
+<SelectItem value={employee.id}>
+  {employee.lastname} {employee.firstname}
+</SelectItem>
+```
+
+### 6. Evitar useEffect Innecesarios
 
 **NUNCA** usar `useEffect` para reaccionar a cambios de estado que nosotros mismos provocamos. Mover la logica al punto de origen.
 

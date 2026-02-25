@@ -347,9 +347,17 @@ function EquipmentTypesForm({
                   <RadioGroup
                     onValueChange={(value) => {
                       field.onChange(value);
-                      // Al cambiar a vehículo, resetear is_operative ya que no aplica
                       if (value === 'vehicle') {
+                        // Al cambiar a vehículo, resetear is_operative ya que no aplica
                         form.setValue('is_operative', false);
+                        form.setValue('checklist_ids', []);
+                      }
+                      if (value === 'other_equipment') {
+                        // Al cambiar a otros equipos, resetear campos de vehículo
+                        form.setValue('is_tractor_unit', false);
+                        form.setValue('has_hitch', false);
+                        form.setValue('hitch_type_ids', []);
+                        form.setValue('checklist_ids', []);
                       }
                     }}
                     value={field.value}
@@ -388,7 +396,15 @@ function EquipmentTypesForm({
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (!checked) {
+                          form.setValue('checklist_ids', []);
+                        }
+                      }}
+                    />
                   </FormControl>
                 </FormItem>
               )}
@@ -426,21 +442,22 @@ function EquipmentTypesForm({
             )}
           />
 
-          {/* Checkbox Unidad Tractora */}
-          <FormField
-            control={form.control}
-            name="is_tractor_unit"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>Unidad Tractora</FormLabel>
-                </div>
-              </FormItem>
-            )}
-          />
+          {form.watch('applies_to') === 'vehicle' && (
+            <FormField
+              control={form.control}
+              name="is_tractor_unit"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Unidad Tractora</FormLabel>
+                  </div>
+                </FormItem>
+              )}
+            />
+          )}
 
           {/* Checkbox Lleva Enganche - solo visible si es unidad tractora */}
           {isTractorUnit && (
@@ -486,38 +503,40 @@ function EquipmentTypesForm({
             />
           )}
 
-          {/* Multi-select de checklists */}
-          <FormField
-            control={form.control}
-            name="checklist_ids"
-            render={({ field }) => {
-              const checklistOptions = checklists.map((checklist) => ({
-                value: checklist.id,
-                label: checklist.name || checklist.code || 'Sin nombre',
-              }));
+          {/* Multi-select de checklists - oculto si es otros equipos no operativo */}
+          {(form.watch('applies_to') === 'vehicle' || form.watch('is_operative')) && (
+            <FormField
+              control={form.control}
+              name="checklist_ids"
+              render={({ field }) => {
+                const checklistOptions = checklists.map((checklist) => ({
+                  value: checklist.id,
+                  label: checklist.name || checklist.code || 'Sin nombre',
+                }));
 
-              return (
-                <FormItem>
-                  <FormLabel>Checklists aplicables</FormLabel>
-                  <FormControl>
-                    <MultiSelectCombobox
-                      options={checklistOptions}
-                      selectedValues={field.value}
-                      onChange={field.onChange}
-                      placeholder={
-                        isLoadingChecklists
-                          ? 'Cargando checklists...'
-                          : 'Seleccione los checklists que aplican a este tipo'
-                      }
-                      emptyMessage="No hay checklists disponibles"
-                      disabled={isLoadingChecklists}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
-          />
+                return (
+                  <FormItem>
+                    <FormLabel>Checklists aplicables</FormLabel>
+                    <FormControl>
+                      <MultiSelectCombobox
+                        options={checklistOptions}
+                        selectedValues={field.value}
+                        onChange={field.onChange}
+                        placeholder={
+                          isLoadingChecklists
+                            ? 'Cargando checklists...'
+                            : 'Seleccione los checklists que aplican a este tipo'
+                        }
+                        emptyMessage="No hay checklists disponibles"
+                        disabled={isLoadingChecklists}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+          )}
 
           <div className="flex gap-2">
             <Button type="submit" disabled={isSubmitting} className="min-w-[100px]">

@@ -4,19 +4,21 @@ import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstac
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useTransition } from 'react';
 
-import { DEFAULT_PAGE_SIZE, parseSearchParams, stateToSearchParams } from './helpers';
+import { DEFAULT_PAGE_SIZE, PARAM_SEPARATOR, parseSearchParams, stateToSearchParams } from './helpers';
 import type { DataTableSearchParams, DataTableState } from './types';
 
 // Re-export helpers para conveniencia (pero los server actions deben importar de ./helpers directamente)
 export {
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
+  PARAM_SEPARATOR,
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
   buildSearchWhere,
   parseSearchParams,
   stateToPrismaParams,
   stateToSearchParams,
+  stripPrefixFromSearchParams,
 } from './helpers';
 
 // ============================================================================
@@ -28,6 +30,8 @@ interface UseDataTableOptions {
   defaultPageSize?: number;
   /** Columnas que se pueden filtrar via URL */
   filterableColumns?: string[];
+  /** ID de la tabla para namespacing de URL params (aísla filtros entre tablas) */
+  tableId?: string;
 }
 
 interface UseDataTableReturn {
@@ -86,26 +90,36 @@ interface UseDataTableReturn {
  * ```
  */
 export function useDataTable(options: UseDataTableOptions = {}): UseDataTableReturn {
-  const { defaultPageSize = DEFAULT_PAGE_SIZE, filterableColumns = [] } = options;
+  const { defaultPageSize = DEFAULT_PAGE_SIZE, filterableColumns = [], tableId } = options;
 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  // Parsear estado actual de la URL
+  // Prefijo para namespacing de params en la URL (vacío = sin namespace)
+  const prefix = tableId ? `${tableId}${PARAM_SEPARATOR}` : '';
+
+  // Parsear estado actual de la URL (solo params con nuestro prefijo)
   const state = useMemo(() => {
     const params: DataTableSearchParams = {};
     searchParams.forEach((value, key) => {
-      params[key] = value;
+      if (prefix) {
+        // Solo leer params con nuestro prefijo, quitándolo
+        if (key.startsWith(prefix)) {
+          params[key.slice(prefix.length)] = value;
+        }
+      } else {
+        params[key] = value;
+      }
     });
     const parsed = parseSearchParams(params);
     // Aplicar defaultPageSize si no hay pageSize en URL
-    if (!searchParams.has('pageSize')) {
+    if (!searchParams.has(`${prefix}pageSize`)) {
       parsed.pageSize = defaultPageSize;
     }
     return parsed;
-  }, [searchParams, defaultPageSize]);
+  }, [searchParams, defaultPageSize, prefix]);
 
   // Convertir a formatos de TanStack Table
   const pagination: PaginationState = useMemo(
@@ -140,15 +154,37 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   const updateURL = useCallback(
     (newState: Partial<DataTableState>) => {
       const merged = { ...state, ...newState };
-      const params = stateToSearchParams(merged);
-      const queryString = params.toString();
+      const newParams = stateToSearchParams(merged);
+
+      // Construir URL final preservando params de otras tablas/navegación
+      const finalParams = new URLSearchParams();
+
+      if (prefix) {
+        // Mantener todos los params que NO pertenecen a esta tabla
+        searchParams.forEach((value, key) => {
+          if (!key.startsWith(prefix)) {
+            finalParams.set(key, value);
+          }
+        });
+        // Agregar los params de esta tabla con prefijo
+        newParams.forEach((value, key) => {
+          finalParams.set(`${prefix}${key}`, value);
+        });
+      } else {
+        // Sin prefijo: comportamiento original (reemplaza todo)
+        newParams.forEach((value, key) => {
+          finalParams.set(key, value);
+        });
+      }
+
+      const queryString = finalParams.toString();
       startTransition(() => {
         router.push(queryString ? `${pathname}?${queryString}` : pathname, {
           scroll: false,
         });
       });
     },
-    [state, pathname, router, startTransition]
+    [state, pathname, router, startTransition, searchParams, prefix]
   );
 
   // Handlers
@@ -211,10 +247,24 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   );
 
   const resetFilters = useCallback(() => {
-    startTransition(() => {
-      router.push(pathname, { scroll: false });
-    });
-  }, [pathname, router, startTransition]);
+    if (prefix) {
+      // Solo quitar params de esta tabla, mantener el resto
+      const finalParams = new URLSearchParams();
+      searchParams.forEach((value, key) => {
+        if (!key.startsWith(prefix)) {
+          finalParams.set(key, value);
+        }
+      });
+      const queryString = finalParams.toString();
+      startTransition(() => {
+        router.push(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
+      });
+    } else {
+      startTransition(() => {
+        router.push(pathname, { scroll: false });
+      });
+    }
+  }, [pathname, router, startTransition, searchParams, prefix]);
 
   return {
     state,

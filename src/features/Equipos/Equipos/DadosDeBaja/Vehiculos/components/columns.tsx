@@ -6,6 +6,7 @@ import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
   conditionLabels,
+  contractTypeVehiclesLabels,
   costTypeLabels,
   currencyLabels,
   otherEquipmentStatusLabels,
@@ -40,13 +41,6 @@ const conditionVariants: Record<string, BadgeVariant> = {
   en_reparacion: 'yellow',
   operativo_condicionado: 'info',
   en_preparacion: 'secondary',
-};
-
-const contractTypeLabels: Record<string, string> = {
-  Leasing: 'Leasing',
-  Alquiler: 'Alquiler',
-  Propio: 'Propio',
-  Prendado: 'Prendado',
 };
 
 // ============================================================================
@@ -414,7 +408,7 @@ export const columns: ColumnDef<InactiveVehicleListItem>[] = [
     cell: ({ row }) => {
       const c = row.original.type_of_contract;
       if (!c) return <span className="text-muted-foreground">-</span>;
-      return <Badge variant="outline">{contractTypeLabels[c] ?? c}</Badge>;
+      return <Badge variant="outline">{contractTypeVehiclesLabels[c] ?? c}</Badge>;
     },
     filterFn: (row, id, value: string[]) => {
       const val = row.getValue(id);

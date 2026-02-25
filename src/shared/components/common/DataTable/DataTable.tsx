@@ -85,6 +85,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   showSearch = false,
   initialColumnVisibility = {},
   tableId,
+  paramNamespace,
   showFilterToggle = false,
   initialFilterVisibility = {},
   'data-testid': dataTestId = 'data-table',
@@ -111,6 +112,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     startTransition,
   } = useDataTable({
     filterableColumns,
+    tableId: paramNamespace,
   });
 
   // Calcular pageCount basado en totalRows
@@ -186,6 +188,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           showFilterToggle={showFilterToggle}
           filterVisibility={filterVisibility}
           onFilterVisibilityChange={setFilterVisibility}
+          paramNamespace={paramNamespace}
           exportActions={
             exportConfig && showExportButton ? (
               <_DataTableExportButton columns={columns} exportConfig={exportConfig} />
@@ -196,13 +199,17 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
         />
 
         {/* Table */}
-        <div className="overflow-hidden rounded-md border">
-          <Table>
+        <div className="rounded-md border">
+          <Table containerClassName="max-h-[60vh] overflow-y-auto overflow-x-auto">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className="sticky top-0 z-10 bg-background"
+                    >
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   ))}

@@ -35,6 +35,7 @@ export function DataTableToolbar<TData>({
   showFilterToggle = false,
   filterVisibility = {},
   onFilterVisibilityChange,
+  paramNamespace,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const sortingState = table.getState().sorting;
@@ -148,7 +149,12 @@ export function DataTableToolbar<TData>({
             {secondaryFilters.map((filter) => {
               if (filter.type === 'dateRange') {
                 return (
-                  <DataTableDateRangeFilter key={filter.columnId} columnId={filter.columnId} title={filter.title} />
+                  <DataTableDateRangeFilter
+                    key={filter.columnId}
+                    columnId={filter.columnId}
+                    title={filter.title}
+                    paramNamespace={paramNamespace}
+                  />
                 );
               }
 
@@ -159,6 +165,7 @@ export function DataTableToolbar<TData>({
                     columnId={filter.columnId}
                     title={filter.title}
                     placeholder={filter.placeholder}
+                    paramNamespace={paramNamespace}
                   />
                 );
               }

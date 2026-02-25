@@ -141,6 +141,41 @@ export const employeeStatusBadges: Record<string, BadgeVariant> = {
 };
 
 // ============================================================================
+// DAILY REPORT ENUM LABELS
+// ============================================================================
+
+/**
+ * Labels para daily_report_header_status_new
+ * (abierto, cerrado, cerrado_completo, cerrado_incompleto)
+ */
+export const dailyReportStatusLabels: Record<string, string> = {
+  abierto: 'Abierto',
+  cerrado: 'Cerrado',
+  cerrado_completo: 'Cerrado completo',
+  cerrado_incompleto: 'Cerrado incompleto',
+};
+
+export const dailyReportStatusBadges: Record<string, BadgeVariant> = {
+  abierto: 'default',
+  cerrado: 'destructive',
+  cerrado_completo: 'success',
+  cerrado_incompleto: 'destructive',
+};
+
+// ============================================================================
+// FORMULARIOS ENUM LABELS
+// ============================================================================
+
+/**
+ * Labels para el tipo de fuente de formularios
+ * (checklist_template, custom_form)
+ */
+export const formSourceLabels: Record<string, string> = {
+  checklist_template: 'Normalizado',
+  custom_form: 'Formulario personalizado',
+};
+
+// ============================================================================
 // GENERIC HELPER
 // ============================================================================
 

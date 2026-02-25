@@ -1,4 +1,6 @@
+import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
+import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { getEmployeesPaginated } from './actions.server';
 import _EmployeeDataTable from './components/_EmployeeDataTable';
@@ -20,21 +22,28 @@ interface EmployeeListProps {
 export default async function EmployeeList({ searchParams, isActive, permissions }: EmployeeListProps) {
   const tableId = isActive ? 'employees-active' : 'employees-inactive';
 
+  // Extraer solo los params de esta tabla (quitar prefijo del namespace)
+  const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
+
   const [{ data, total }, preferences] = await Promise.all([
-    getEmployeesPaginated(searchParams as DataTableSearchParams, isActive),
+    getEmployeesPaginated(tableParams, isActive),
     getTablePreferences(tableId),
   ]);
 
   return (
-    <_EmployeeDataTable
-      data={data}
-      totalRows={total}
-      searchParams={searchParams as DataTableSearchParams}
-      isActive={isActive}
-      tableId={tableId}
-      permissionsMap={permissions}
-      initialColumnVisibility={preferences.columnVisibility}
-      initialFilterVisibility={preferences.filterVisibility}
-    />
+    <Card>
+      <CardContent className="pt-6">
+        <_EmployeeDataTable
+          data={data}
+          totalRows={total}
+          searchParams={tableParams}
+          isActive={isActive}
+          tableId={tableId}
+          permissionsMap={permissions}
+          initialColumnVisibility={preferences.columnVisibility ?? {}}
+          initialFilterVisibility={preferences.filterVisibility ?? {}}
+        />
+      </CardContent>
+    </Card>
   );
 }

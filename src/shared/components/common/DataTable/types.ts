@@ -202,6 +202,10 @@ export interface DataTableProps<TData, TValue = unknown> {
   initialColumnVisibility?: Record<string, boolean>;
   /** ID único de la tabla para persistir preferencias por usuario */
   tableId?: string;
+  /** Namespace para aislar params de URL entre DataTables en la misma página.
+   * Cuando se pasa, todos los params (page, sort, filters) se prefijan con `${paramNamespace}__`
+   * para evitar colisiones entre tablas en diferentes tabs. */
+  paramNamespace?: string;
   /** Mostrar botón para toggle de visibilidad de filtros (default: false) */
   showFilterToggle?: boolean;
   /** Visibilidad inicial de filtros (cargada desde preferencias del servidor) */
@@ -228,6 +232,8 @@ export interface DataTableToolbarProps<TData> {
   showFilterToggle?: boolean;
   filterVisibility?: Record<string, boolean>;
   onFilterVisibilityChange?: (visibility: Record<string, boolean>) => void;
+  /** Namespace para prefijar los params de URL de filtros de texto y dateRange */
+  paramNamespace?: string;
 }
 
 /**

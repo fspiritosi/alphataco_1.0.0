@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
+import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { getInactiveOtherEquipmentPaginated } from './actions/actions.server';
 import { _InactiveOtherEquipmentDataTable } from './components/_InactiveOtherEquipmentDataTable';
@@ -19,8 +20,11 @@ interface InactiveOtherEquipmentListProps {
 export async function InactiveOtherEquipmentList({ searchParams }: InactiveOtherEquipmentListProps) {
   const tableId = 'inactive-other-equipment';
 
+  // Extraer solo los params de esta tabla (quitar prefijo)
+  const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
+
   const [{ data, total }, preferences] = await Promise.all([
-    getInactiveOtherEquipmentPaginated(searchParams as DataTableSearchParams),
+    getInactiveOtherEquipmentPaginated(tableParams),
     getTablePreferences(tableId),
   ]);
 
@@ -30,7 +34,7 @@ export async function InactiveOtherEquipmentList({ searchParams }: InactiveOther
         <_InactiveOtherEquipmentDataTable
           data={data}
           totalRows={total}
-          searchParams={searchParams as DataTableSearchParams}
+          searchParams={tableParams}
           tableId={tableId}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}

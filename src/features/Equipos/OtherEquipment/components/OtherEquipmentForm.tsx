@@ -48,7 +48,7 @@ const otherEquipmentSchema = z.object({
   composition: z.string().nullable().optional(),
   invoice_number: z.string().nullable().optional(),
   initial_value: z.coerce.number().nullable().optional(),
-  currency: z.enum(['USD', 'EUR', 'GBP', 'ARS']).nullable().optional(),
+  currency: z.enum(['USD', 'ARS']).nullable().optional(),
   purchase_date: z.date().nullable().optional(),
   owner_id: z.string().nullable().optional(),
   linked_vehicle_id: z.string().nullable().optional(),

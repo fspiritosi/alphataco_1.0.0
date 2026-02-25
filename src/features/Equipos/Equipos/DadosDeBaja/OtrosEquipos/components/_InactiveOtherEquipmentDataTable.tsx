@@ -372,6 +372,7 @@ export function _InactiveOtherEquipmentDataTable({
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       tableId={tableId}
+      paramNamespace={tableId}
       showFilterToggle={true}
       emptyMessage="No hay equipos dados de baja"
       data-testid="inactive-other-equipment-table"

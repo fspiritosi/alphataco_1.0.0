@@ -407,6 +407,7 @@ export function _VehicleDataTable({
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       tableId={tableId}
+      paramNamespace={tableId}
       showFilterToggle={true}
       toolbarActions={toolbarActions}
       emptyMessage="No hay vehículos registrados"

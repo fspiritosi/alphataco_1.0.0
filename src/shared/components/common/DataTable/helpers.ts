@@ -15,6 +15,9 @@ export const DEFAULT_PAGE = 0;
 /** Sentinel value used in faceted filters to represent "field is null / unassigned" */
 export const NULL_FILTER_VALUE = '__null__';
 
+/** Separator used to namespace URL params per table (e.g. "vehicles__condition") */
+export const PARAM_SEPARATOR = '__';
+
 // ============================================================================
 // PARSE HELPERS
 // ============================================================================
@@ -102,6 +105,34 @@ export function stateToSearchParams(state: Partial<DataTableState>): URLSearchPa
   }
 
   return params;
+}
+
+/**
+ * Strips a tableId prefix from search params, returning only the params
+ * belonging to that table (without the prefix).
+ *
+ * @example
+ * ```tsx
+ * // URL: ?vehicles__condition=GOOD&vehicles__page=2&tab=equipos&subtab=vehicles
+ * const raw = { 'vehicles__condition': 'GOOD', 'vehicles__page': '2', tab: 'equipos', subtab: 'vehicles' };
+ * const clean = stripPrefixFromSearchParams(raw, 'vehicles');
+ * // Result: { condition: 'GOOD', page: '2' }
+ * ```
+ */
+export function stripPrefixFromSearchParams(
+  searchParams: DataTableSearchParams,
+  prefix: string
+): DataTableSearchParams {
+  const fullPrefix = `${prefix}${PARAM_SEPARATOR}`;
+  const result: DataTableSearchParams = {};
+
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (key.startsWith(fullPrefix)) {
+      result[key.slice(fullPrefix.length)] = value;
+    }
+  });
+
+  return result;
 }
 
 // ============================================================================

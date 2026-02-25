@@ -4,6 +4,7 @@ import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/
 import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
 import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
+import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
 import { getUserPermissionsMapServer, PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
@@ -77,7 +78,7 @@ export default async function EmployeePage({
                   moduleSlug: 'empleados',
                   tabSlug: 'empleados-activos',
                   content: (
-                    <Suspense fallback={<DataTableSkeleton columns={7} />}>
+                    <Suspense fallback={<EmployeeTableSkeleton />}>
                       <EmployeeList searchParams={resolvedSearchParams} isActive={true} permissions={permissions} />
                     </Suspense>
                   ),
@@ -93,7 +94,7 @@ export default async function EmployeePage({
                   moduleSlug: 'empleados',
                   tabSlug: 'empleados-inactivos',
                   content: (
-                    <Suspense fallback={<DataTableSkeleton columns={7} />}>
+                    <Suspense fallback={<EmployeeTableSkeleton />}>
                       <EmployeeList searchParams={resolvedSearchParams} isActive={false} permissions={permissions} />
                     </Suspense>
                   ),

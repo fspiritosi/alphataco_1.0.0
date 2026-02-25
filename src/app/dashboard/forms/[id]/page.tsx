@@ -1,9 +1,4 @@
-import {
-  fetchChecklistAnswersByTemplateId,
-  fetchChecklistTemplateById,
-  fetchCustomFormById,
-  fetchFormsAnswersByFormId,
-} from '@/app/server/GET/actions';
+import { fetchChecklistTemplateById, fetchCustomFormById, fetchFormsAnswersByFormId } from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
 import { ChecklistPDFButton } from '@/components/ChecklistPDFButton';
 import { PDFPreviewDialog } from '@/components/pdf-preview-dialog';
@@ -12,9 +7,12 @@ import { TransporteSPANAYCHKHYS03 } from '@/components/pdf/generators/Transporte
 import { TransporteSPANAYCHKHYS04 } from '@/components/pdf/generators/TransporteSPANAYCHKHYS04';
 import { buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ChecklistAnswersList } from '@/features/Formularios/ChecklistAnswers/ChecklistAnswersList';
+import { ChecklistAnswersTableSkeleton } from '@/features/Formularios/ChecklistAnswers/fallback/ChecklistAnswersTableSkeleton';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import CheckListAnwersTable from '../components/CheckListAnwersTable';
-import { NormalizedChecklistAnswersTable } from '../components/NormalizedChecklistAnswersTable';
 
 const renderForm = (activeFormType: string) => {
   switch (activeFormType) {
@@ -29,23 +27,29 @@ const renderForm = (activeFormType: string) => {
   }
 };
 
-export default async function FormDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // En Next.js 15+, params es una Promise, necesitamos hacer await
-  const resolvedParams = await params;
+export default async function FormDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
 
   // Intentar obtener el checklist desde la nueva estructura normalizada
   const checklistTemplate = await fetchChecklistTemplateById(resolvedParams.id);
 
-  // Si es un checklist normalizado
+  // Si es un checklist normalizado → usar el nuevo DataTable
   if (checklistTemplate) {
     const formName = checklistTemplate.name;
     const formDescription = checklistTemplate.description || '';
-    const answers = await fetchChecklistAnswersByTemplateId(resolvedParams.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sections = (checklistTemplate.checklist_template_sections || []).map((section: any) => ({
       id: section.id,
       code: section.code,
       name: section.name,
       order_index: section.order_index,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       checklist_template_items: (section.checklist_template_items || []).map((item: any) => ({
         id: item.id,
         code: item.code,
@@ -72,7 +76,12 @@ export default async function FormDetailPage({ params }: { params: Promise<{ id:
           {formDescription && <p className="text-muted-foreground">{formDescription}</p>}
         </div>
 
-        <NormalizedChecklistAnswersTable answers={answers} templateId={resolvedParams.id} />
+        <Suspense fallback={<ChecklistAnswersTableSkeleton />}>
+          <ChecklistAnswersList
+            searchParams={resolvedSearchParams as DataTableSearchParams}
+            templateId={resolvedParams.id}
+          />
+        </Suspense>
       </Card>
     );
   }
@@ -95,7 +104,7 @@ export default async function FormDetailPage({ params }: { params: Promise<{ id:
 
   const answers = await fetchFormsAnswersByFormId(resolvedParams.id);
   const formName = formInfo[0].name;
-  const formDescription = (answers[0]?.form_id?.form as any)?.description ?? '';
+  const formDescription = (answers[0]?.form_id?.form as { description?: string } | undefined)?.description ?? '';
 
   return (
     <div className="px-6">

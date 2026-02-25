@@ -385,6 +385,7 @@ export function _OtherEquipmentDataTable({
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       tableId={tableId}
+      paramNamespace={tableId}
       showFilterToggle={true}
       toolbarActions={toolbarActions}
       emptyMessage="No hay equipos registrados"

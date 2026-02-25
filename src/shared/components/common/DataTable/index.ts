@@ -28,6 +28,7 @@ export { useDataTable } from './useDataTable';
 export {
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
+  PARAM_SEPARATOR,
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
   buildSearchWhere,
@@ -35,6 +36,7 @@ export {
   parseSearchParams,
   stateToPrismaParams,
   stateToSearchParams,
+  stripPrefixFromSearchParams,
 } from './helpers';
 
 // Types

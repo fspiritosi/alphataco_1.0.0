@@ -571,6 +571,18 @@ export async function getDailyReportById(id: string) {
             type(name),
             contractor_equipment(customers(name)),
             condition
+          ),
+          other_equipment(
+            id,
+            intern_number,
+            serial_number,
+            horometer,
+            type(id, name),
+            sub_type(id, name),
+            brand_vehicles(id, name),
+            model_vehicles(id, name),
+            contractor_other_equipment(customers(id, name)),
+            condition
           )
         )
       )

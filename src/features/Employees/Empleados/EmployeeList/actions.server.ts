@@ -1,5 +1,6 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
   buildDateRangeFiltersWhere,
@@ -12,6 +13,8 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+
+const logger = new Logger('Employees/list/actions.server');
 
 // ============================================================================
 // CONSTANTS
@@ -44,7 +47,39 @@ const VALID_SORT_FIELDS = new Set([
   'affiliate_status',
   'reason_for_termination',
   'is_active',
+  // FK columns (sorted via FK_SORT_MAP)
+  'hierarchy',
+  'company_positions',
+  'types_of_contract',
+  'work_diagram',
+  'workshop_sectors',
+  'category',
+  'covenant',
+  'guild',
+  'cost_center',
+  'countries',
+  'province',
+  'city',
 ]);
+
+/**
+ * Mapeo de columnId → orderBy de Prisma para columnas FK.
+ * Las columnas FK necesitan { relation: { campo: dir } }.
+ */
+const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
+  hierarchy: (dir) => ({ hierarchy: { name: dir } }),
+  company_positions: (dir) => ({ company_positions: { name: dir } }),
+  types_of_contract: (dir) => ({ types_of_contract: { name: dir } }),
+  work_diagram: (dir) => ({ work_diagram: { name: dir } }),
+  workshop_sectors: (dir) => ({ workshop_sectors: { name: dir } }),
+  category: (dir) => ({ category: { name: dir } }),
+  covenant: (dir) => ({ covenant: { name: dir } }),
+  guild: (dir) => ({ guild: { name: dir } }),
+  cost_center: (dir) => ({ cost_center: { name: dir } }),
+  countries: (dir) => ({ countries: { name: dir } }),
+  province: (dir) => ({ provinces: { name: dir } }),
+  city: (dir) => ({ cities: { name: dir } }),
+};
 
 /** Params de URL que NO son filtros de la tabla (tabs de navegacion, etc.) */
 const IGNORED_PARAMS = new Set(['tab', 'subtab']);
@@ -142,22 +177,14 @@ const EMPLOYEE_SELECT = {
 } as const;
 
 // ============================================================================
-// PAGINATED QUERY
+// HELPERS INTERNOS
 // ============================================================================
 
-export async function getEmployeesPaginated(searchParams: DataTableSearchParams, isActive: boolean) {
-  const companyId = await getServerCompanyId();
-  const state = parseSearchParams(searchParams);
-  // Remove navigation params that are not table filters
-  for (const key of IGNORED_PARAMS) {
-    delete state.filters[key];
-  }
-  const { skip, take } = stateToPrismaParams(state);
-
-  // Build where clauses
+/** Construye el WHERE clause compartido entre paginated, export y facets. */
+function buildWhereClause(companyId: string, isActive: boolean, state: ReturnType<typeof parseSearchParams>) {
   const searchWhere = buildSearchWhere(state.search, ['lastname', 'firstname', 'cuil', 'file']);
 
-  // Columns handled separately (BigInt FK, M:M) must be excluded from generic filter builder
+  // Columnas manejadas manualmente (BigInt FK, M:M)
   const MANUALLY_HANDLED = ['province', 'city', 'contractor_employee', 'empleado_aptitudes'];
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
@@ -171,7 +198,7 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
     fullName: 'full_name',
   });
 
-  // Handle fullName text filter separately (search on both lastname and firstname)
+  // fullName necesita búsqueda en múltiples campos
   const fullNameFilter = state.filters['fullName']?.[0];
   let fullNameWhere = {};
   if (fullNameFilter) {
@@ -182,13 +209,13 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
         { full_name: { contains: fullNameFilter, mode: 'insensitive' as const } },
       ],
     };
-    // Remove fullName from textFiltersWhere since we handle it custom
+    // Quitar full_name de textFiltersWhere (ya se maneja arriba)
     delete (textFiltersWhere as Record<string, unknown>)['full_name'];
   }
 
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
 
-  // Handle BigInt FK filters (province, city) with null support
+  // BigInt FK filters (province, city) con soporte para null
   const bigintFilters: Record<string, unknown> = {};
   const extraAndConditions: Record<string, unknown>[] = [];
 
@@ -209,10 +236,9 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
     }
   }
 
-  // Handle M:M filters with null support
+  // M:M filters con soporte para null
   const m2mFilters: Record<string, unknown> = {};
 
-  // contractor_employee
   const contractorValues = state.filters['contractor_employee'];
   if (contractorValues?.length) {
     const hasNull = contractorValues.includes(NULL_FILTER_VALUE);
@@ -232,7 +258,6 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
     }
   }
 
-  // empleado_aptitudes
   const aptitudValues = state.filters['empleado_aptitudes'];
   if (aptitudValues?.length) {
     const hasNull = aptitudValues.includes(NULL_FILTER_VALUE);
@@ -252,7 +277,7 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
     }
   }
 
-  const where = {
+  return {
     company_id: companyId,
     is_active: isActive,
     ...searchWhere,
@@ -264,28 +289,51 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
     ...m2mFilters,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
   };
+}
 
-  // Safe orderBy: multi-sort, solo campos válidos
-  const resolvedSorts: Record<string, unknown>[] = [];
-  for (const s of state.sorting) {
-    if (VALID_SORT_FIELDS.has(s.id)) {
-      resolvedSorts.push({ [s.id]: s.desc ? 'desc' : 'asc' });
+// ============================================================================
+// PAGINATED QUERY
+// ============================================================================
+
+export async function getEmployeesPaginated(searchParams: DataTableSearchParams, isActive: boolean) {
+  const companyId = await getServerCompanyId();
+
+  try {
+    const state = parseSearchParams(searchParams);
+    for (const key of IGNORED_PARAMS) {
+      delete state.filters[key];
     }
+
+    const { skip, take } = stateToPrismaParams(state);
+    const where = buildWhereClause(companyId, isActive, state);
+
+    // Safe orderBy: multi-sort, solo campos válidos, con FK_SORT_MAP
+    const resolvedSorts: Record<string, unknown>[] = [];
+    for (const s of state.sorting) {
+      if (VALID_SORT_FIELDS.has(s.id)) {
+        const dir: 'asc' | 'desc' = s.desc ? 'desc' : 'asc';
+        const fkMapper = FK_SORT_MAP[s.id];
+        resolvedSorts.push(fkMapper ? fkMapper(dir) : { [s.id]: dir });
+      }
+    }
+    const safeOrderBy = [...resolvedSorts, { lastname: 'asc' as const }];
+
+    const [data, total] = await Promise.all([
+      prisma.employees.findMany({
+        skip,
+        take,
+        orderBy: safeOrderBy,
+        where,
+        select: EMPLOYEE_SELECT,
+      }),
+      prisma.employees.count({ where }),
+    ]);
+
+    return { data, total };
+  } catch (error) {
+    logger.error('Error al obtener empleados paginados', { data: { error } });
+    throw new Error(`Error al obtener los empleados: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const safeOrderBy = [...resolvedSorts, { lastname: 'asc' as const }];
-
-  const [data, total] = await Promise.all([
-    prisma.employees.findMany({
-      skip,
-      take,
-      orderBy: safeOrderBy,
-      where,
-      select: EMPLOYEE_SELECT,
-    }),
-    prisma.employees.count({ where }),
-  ]);
-
-  return { data, total };
 }
 
 // ============================================================================
@@ -294,451 +342,342 @@ export async function getEmployeesPaginated(searchParams: DataTableSearchParams,
 
 export async function getAllEmployeesForExport(searchParams: DataTableSearchParams, isActive: boolean) {
   const companyId = await getServerCompanyId();
-  const state = parseSearchParams(searchParams);
-  // Remove navigation params that are not table filters
-  for (const key of IGNORED_PARAMS) {
-    delete state.filters[key];
-  }
 
-  // Same filter logic as getEmployeesPaginated
-  const searchWhere = buildSearchWhere(state.search, ['lastname', 'firstname', 'cuil', 'file']);
-
-  // Columns handled separately (BigInt FK, M:M) must be excluded from generic filter builder
-  const MANUALLY_HANDLED = ['province', 'city', 'contractor_employee', 'empleado_aptitudes'];
-  const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
-    exclude: [
-      ...TEXT_FILTER_COLUMNS,
-      ...MANUALLY_HANDLED,
-      ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
-    ],
-  });
-
-  const textFiltersWhere = buildTextFiltersWhere(state.filters, TEXT_FILTER_COLUMNS, {
-    fullName: 'full_name',
-  });
-
-  const fullNameFilter = state.filters['fullName']?.[0];
-  let fullNameWhere = {};
-  if (fullNameFilter) {
-    fullNameWhere = {
-      OR: [
-        { lastname: { contains: fullNameFilter, mode: 'insensitive' as const } },
-        { firstname: { contains: fullNameFilter, mode: 'insensitive' as const } },
-        { full_name: { contains: fullNameFilter, mode: 'insensitive' as const } },
-      ],
-    };
-    delete (textFiltersWhere as Record<string, unknown>)['full_name'];
-  }
-
-  const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
-
-  // Handle BigInt FK filters with null support
-  const bigintFilters: Record<string, unknown> = {};
-  const extraAndConditions: Record<string, unknown>[] = [];
-
-  for (const field of ['province', 'city'] as const) {
-    const values = state.filters[field];
-    if (!values?.length) continue;
-    const hasNull = values.includes(NULL_FILTER_VALUE);
-    const realValues = values.filter((v) => v !== NULL_FILTER_VALUE);
-
-    if (hasNull && realValues.length > 0) {
-      extraAndConditions.push({
-        OR: [{ [field]: { in: realValues.map((v) => BigInt(v)) } }, { [field]: null }],
-      });
-    } else if (hasNull) {
-      bigintFilters[field] = null;
-    } else {
-      bigintFilters[field] = { in: realValues.map((v) => BigInt(v)) };
+  try {
+    const state = parseSearchParams(searchParams);
+    for (const key of IGNORED_PARAMS) {
+      delete state.filters[key];
     }
+
+    const where = buildWhereClause(companyId, isActive, state);
+
+    const data = await prisma.employees.findMany({
+      orderBy: [{ lastname: 'asc' }],
+      where,
+      select: EMPLOYEE_SELECT,
+    });
+
+    return data;
+  } catch (error) {
+    logger.error('Error al exportar empleados', { data: { error } });
+    throw new Error('Error al exportar los empleados');
   }
-
-  // Handle M:M filters with null support
-  const m2mFilters: Record<string, unknown> = {};
-
-  const contractorValues = state.filters['contractor_employee'];
-  if (contractorValues?.length) {
-    const hasNull = contractorValues.includes(NULL_FILTER_VALUE);
-    const realValues = contractorValues.filter((v) => v !== NULL_FILTER_VALUE);
-
-    if (hasNull && realValues.length > 0) {
-      extraAndConditions.push({
-        OR: [
-          { contractor_employee: { some: { contractor_id: { in: realValues } } } },
-          { contractor_employee: { none: {} } },
-        ],
-      });
-    } else if (hasNull) {
-      m2mFilters.contractor_employee = { none: {} };
-    } else {
-      m2mFilters.contractor_employee = { some: { contractor_id: { in: realValues } } };
-    }
-  }
-
-  const aptitudValues = state.filters['empleado_aptitudes'];
-  if (aptitudValues?.length) {
-    const hasNull = aptitudValues.includes(NULL_FILTER_VALUE);
-    const realValues = aptitudValues.filter((v) => v !== NULL_FILTER_VALUE);
-
-    if (hasNull && realValues.length > 0) {
-      extraAndConditions.push({
-        OR: [
-          { empleado_aptitudes: { some: { aptitud_id: { in: realValues } } } },
-          { empleado_aptitudes: { none: {} } },
-        ],
-      });
-    } else if (hasNull) {
-      m2mFilters.empleado_aptitudes = { none: {} };
-    } else {
-      m2mFilters.empleado_aptitudes = { some: { aptitud_id: { in: realValues } } };
-    }
-  }
-
-  const cleanedFiltersWhere = { ...filtersWhere };
-  delete (cleanedFiltersWhere as Record<string, unknown>)['province'];
-  delete (cleanedFiltersWhere as Record<string, unknown>)['city'];
-  delete (cleanedFiltersWhere as Record<string, unknown>)['contractor_employee'];
-  delete (cleanedFiltersWhere as Record<string, unknown>)['empleado_aptitudes'];
-
-  const where = {
-    company_id: companyId,
-    is_active: isActive,
-    ...searchWhere,
-    ...cleanedFiltersWhere,
-    ...textFiltersWhere,
-    ...fullNameWhere,
-    ...dateFiltersWhere,
-    ...bigintFilters,
-    ...m2mFilters,
-    ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
-  };
-
-  const data = await prisma.employees.findMany({
-    orderBy: [{ lastname: 'asc' }],
-    where,
-    select: EMPLOYEE_SELECT,
-  });
-
-  return data;
 }
 
 // ============================================================================
-// FACETS
+// FACETS (con cross-filtering)
 // ============================================================================
 
-export async function getEmployeesFacets(isActive: boolean) {
+/**
+ * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro,
+ * mostrando cuántos registros tendría cada opción si se cambiara solo ese filtro.
+ */
+export async function getEmployeesFacets(isActive: boolean, searchParams?: DataTableSearchParams) {
   const companyId = await getServerCompanyId();
   const baseWhere = { company_id: companyId, is_active: isActive };
 
-  // Round 1: groupBy for enums + FK UUIDs + BigInt FKs
-  const [
-    statusCounts,
-    genderCounts,
-    nationalityCounts,
-    documentTypeCounts,
-    maritalStatusCounts,
-    levelOfEducationCounts,
-    costTypeCounts,
-    affiliateStatusCounts,
-    reasonForTerminationCounts,
-    hierarchyCounts,
-    companyPositionCounts,
-    typeOfContractCounts,
-    workDiagramCounts,
-    workshopSectorCounts,
-    categoryCounts,
-    covenantCounts,
-    guildCounts,
-    costCenterCounts,
-    countryCounts,
-    provinceCounts,
-    cityCounts,
-  ] = await Promise.all([
-    prisma.employees.groupBy({ by: ['status'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['gender'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['nationality'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['document_type'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['marital_status'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['level_of_education'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['cost_type'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['affiliate_status'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['reason_for_termination'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['hierarchical_position'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['company_position'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['type_of_contract'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['workflow_diagram'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['workshop_sector_id'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['category_id'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['covenants_id'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['guild_id'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['cost_center_id'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['birthplace'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['province'], where: baseWhere, _count: true }),
-    prisma.employees.groupBy({ by: ['city'], where: baseWhere, _count: true }),
-  ]);
+  // Parsear filtros activos si los hay
+  let parsedState: ReturnType<typeof parseSearchParams> | null = null;
+  if (searchParams && Object.keys(searchParams).length > 0) {
+    parsedState = parseSearchParams(searchParams);
+    for (const key of IGNORED_PARAMS) {
+      delete parsedState.filters[key];
+    }
+  }
 
-  // Round 2: resolve FK names (only for IDs with data)
-  const hierarchyIds = hierarchyCounts.map((r) => r.hierarchical_position).filter(Boolean) as string[];
-  const companyPositionIds = companyPositionCounts.map((r) => r.company_position).filter(Boolean) as string[];
-  const typeOfContractIds = typeOfContractCounts.map((r) => r.type_of_contract).filter(Boolean) as string[];
-  const workDiagramIds = workDiagramCounts.map((r) => r.workflow_diagram).filter(Boolean) as string[];
-  const workshopSectorIds = workshopSectorCounts.map((r) => r.workshop_sector_id).filter(Boolean) as string[];
-  const categoryIds = categoryCounts.map((r) => r.category_id).filter(Boolean) as string[];
-  const covenantIds = covenantCounts.map((r) => r.covenants_id).filter(Boolean) as string[];
-  const guildIds = guildCounts.map((r) => r.guild_id).filter(Boolean) as string[];
-  const costCenterIds = costCenterCounts.map((r) => r.cost_center_id).filter(Boolean) as string[];
-  const countryIds = countryCounts.map((r) => r.birthplace).filter(Boolean) as string[];
-  const provinceIds = provinceCounts.map((r) => r.province).filter(Boolean) as bigint[];
-  const cityIds = cityCounts.map((r) => r.city).filter(Boolean) as bigint[];
+  const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
 
-  const [
-    hierarchyOptions,
-    companyPositionOptions,
-    typeOfContractOptions,
-    workDiagramOptions,
-    workshopSectorOptions,
-    categoryOptions,
-    covenantOptions,
-    guildOptions,
-    costCenterOptions,
-    countryOptions,
-    provinceOptions,
-    cityOptions,
-    contractorOptions,
-    aptitudOptions,
-  ] = await Promise.all([
-    hierarchyIds.length > 0
-      ? prisma.hierarchy.findMany({ where: { id: { in: hierarchyIds } }, select: { id: true, name: true } })
-      : [],
-    companyPositionIds.length > 0
-      ? prisma.company_positions.findMany({
-          where: { id: { in: companyPositionIds } },
-          select: { id: true, name: true },
-        })
-      : [],
-    typeOfContractIds.length > 0
-      ? prisma.types_of_contract.findMany({
-          where: { id: { in: typeOfContractIds } },
-          select: { id: true, name: true },
-        })
-      : [],
-    workDiagramIds.length > 0
-      ? prisma.work_diagram.findMany({ where: { id: { in: workDiagramIds } }, select: { id: true, name: true } })
-      : [],
-    workshopSectorIds.length > 0
-      ? prisma.workshop_sectors.findMany({ where: { id: { in: workshopSectorIds } }, select: { id: true, name: true } })
-      : [],
-    categoryIds.length > 0
-      ? prisma.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
-      : [],
-    covenantIds.length > 0
-      ? prisma.covenant.findMany({ where: { id: { in: covenantIds } }, select: { id: true, name: true } })
-      : [],
-    guildIds.length > 0
-      ? prisma.guild.findMany({ where: { id: { in: guildIds } }, select: { id: true, name: true } })
-      : [],
-    costCenterIds.length > 0
-      ? prisma.cost_center.findMany({ where: { id: { in: costCenterIds } }, select: { id: true, name: true } })
-      : [],
-    countryIds.length > 0
-      ? prisma.countries.findMany({ where: { id: { in: countryIds } }, select: { id: true, name: true } })
-      : [],
-    provinceIds.length > 0
-      ? prisma.provinces.findMany({ where: { id: { in: provinceIds } }, select: { id: true, name: true } })
-      : [],
-    cityIds.length > 0
-      ? prisma.cities.findMany({ where: { id: { in: cityIds } }, select: { id: true, name: true } })
-      : [],
-    // M:M: contractors via contractor_employee
-    prisma.contractor_employee.findMany({
-      where: { employees: { company_id: companyId, is_active: isActive } },
+  // Helper: WHERE con todos los filtros EXCEPTO el de la columna indicada
+  function crossWhere(excludeColumn: string) {
+    if (!parsedState || !hasActiveFilters) return baseWhere;
+    const modified = { ...parsedState, filters: { ...parsedState.filters } };
+    delete modified.filters[excludeColumn];
+    delete modified.filters[`${excludeColumn}_from`];
+    delete modified.filters[`${excludeColumn}_to`];
+    return buildWhereClause(companyId, isActive, modified);
+  }
+
+  // Helper: construir Map<string, count> con soporte para null → NULL_FILTER_VALUE
+  function toFacetMap(rows: { key: string | bigint | null | undefined; count: number }[]): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const { key, count } of rows) {
+      if (key == null) {
+        map.set(NULL_FILTER_VALUE, (map.get(NULL_FILTER_VALUE) ?? 0) + count);
+      } else {
+        map.set(String(key), count);
+      }
+    }
+    return map;
+  }
+
+  try {
+    // Round 1: groupBy con cross-filter WHERE por columna
+    const [
+      statusCounts,
+      genderCounts,
+      nationalityCounts,
+      documentTypeCounts,
+      maritalStatusCounts,
+      levelOfEducationCounts,
+      costTypeCounts,
+      affiliateStatusCounts,
+      reasonForTerminationCounts,
+      isActiveCounts,
+      hierarchyCounts,
+      companyPositionCounts,
+      typeOfContractCounts,
+      workDiagramCounts,
+      workshopSectorCounts,
+      categoryCounts,
+      covenantCounts,
+      guildCounts,
+      costCenterCounts,
+      countryCounts,
+      provinceCounts,
+      cityCounts,
+    ] = await Promise.all([
+      prisma.employees.groupBy({ by: ['status'], where: crossWhere('status'), _count: true }),
+      prisma.employees.groupBy({ by: ['gender'], where: crossWhere('gender'), _count: true }),
+      prisma.employees.groupBy({ by: ['nationality'], where: crossWhere('nationality'), _count: true }),
+      prisma.employees.groupBy({ by: ['document_type'], where: crossWhere('document_type'), _count: true }),
+      prisma.employees.groupBy({ by: ['marital_status'], where: crossWhere('marital_status'), _count: true }),
+      prisma.employees.groupBy({
+        by: ['level_of_education'],
+        where: crossWhere('level_of_education'),
+        _count: true,
+      }),
+      prisma.employees.groupBy({ by: ['cost_type'], where: crossWhere('cost_type'), _count: true }),
+      prisma.employees.groupBy({ by: ['affiliate_status'], where: crossWhere('affiliate_status'), _count: true }),
+      prisma.employees.groupBy({
+        by: ['reason_for_termination'],
+        where: crossWhere('reason_for_termination'),
+        _count: true,
+      }),
+      prisma.employees.groupBy({ by: ['is_active'], where: crossWhere('is_active'), _count: true }),
+      prisma.employees.groupBy({
+        by: ['hierarchical_position'],
+        where: crossWhere('hierarchy'),
+        _count: true,
+      }),
+      prisma.employees.groupBy({
+        by: ['company_position'],
+        where: crossWhere('company_positions'),
+        _count: true,
+      }),
+      prisma.employees.groupBy({
+        by: ['type_of_contract'],
+        where: crossWhere('types_of_contract'),
+        _count: true,
+      }),
+      prisma.employees.groupBy({ by: ['workflow_diagram'], where: crossWhere('work_diagram'), _count: true }),
+      prisma.employees.groupBy({
+        by: ['workshop_sector_id'],
+        where: crossWhere('workshop_sectors'),
+        _count: true,
+      }),
+      prisma.employees.groupBy({ by: ['category_id'], where: crossWhere('category'), _count: true }),
+      prisma.employees.groupBy({ by: ['covenants_id'], where: crossWhere('covenant'), _count: true }),
+      prisma.employees.groupBy({ by: ['guild_id'], where: crossWhere('guild'), _count: true }),
+      prisma.employees.groupBy({ by: ['cost_center_id'], where: crossWhere('cost_center'), _count: true }),
+      prisma.employees.groupBy({ by: ['birthplace'], where: crossWhere('countries'), _count: true }),
+      prisma.employees.groupBy({ by: ['province'], where: crossWhere('province'), _count: true }),
+      prisma.employees.groupBy({ by: ['city'], where: crossWhere('city'), _count: true }),
+    ]);
+
+    // Round 2: resolver nombres de FK (solo IDs que aparecen en los counts)
+    const hierarchyIds = hierarchyCounts.map((r) => r.hierarchical_position).filter(Boolean) as string[];
+    const companyPositionIds = companyPositionCounts.map((r) => r.company_position).filter(Boolean) as string[];
+    const typeOfContractIds = typeOfContractCounts.map((r) => r.type_of_contract).filter(Boolean) as string[];
+    const workDiagramIds = workDiagramCounts.map((r) => r.workflow_diagram).filter(Boolean) as string[];
+    const workshopSectorIds = workshopSectorCounts.map((r) => r.workshop_sector_id).filter(Boolean) as string[];
+    const categoryIds = categoryCounts.map((r) => r.category_id).filter(Boolean) as string[];
+    const covenantIds = covenantCounts.map((r) => r.covenants_id).filter(Boolean) as string[];
+    const guildIds = guildCounts.map((r) => r.guild_id).filter(Boolean) as string[];
+    const costCenterIds = costCenterCounts.map((r) => r.cost_center_id).filter(Boolean) as string[];
+    const countryIds = countryCounts.map((r) => r.birthplace).filter(Boolean) as string[];
+    const provinceIds = provinceCounts.map((r) => r.province).filter(Boolean) as bigint[];
+    const cityIds = cityCounts.map((r) => r.city).filter(Boolean) as bigint[];
+
+    const [
+      hierarchyOptions,
+      companyPositionOptions,
+      typeOfContractOptions,
+      workDiagramOptions,
+      workshopSectorOptions,
+      categoryOptions,
+      covenantOptions,
+      guildOptions,
+      costCenterOptions,
+      countryOptions,
+      provinceOptions,
+      cityOptions,
+    ] = await Promise.all([
+      hierarchyIds.length > 0
+        ? prisma.hierarchy.findMany({ where: { id: { in: hierarchyIds } }, select: { id: true, name: true } })
+        : [],
+      companyPositionIds.length > 0
+        ? prisma.company_positions.findMany({
+            where: { id: { in: companyPositionIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      typeOfContractIds.length > 0
+        ? prisma.types_of_contract.findMany({
+            where: { id: { in: typeOfContractIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      workDiagramIds.length > 0
+        ? prisma.work_diagram.findMany({
+            where: { id: { in: workDiagramIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      workshopSectorIds.length > 0
+        ? prisma.workshop_sectors.findMany({
+            where: { id: { in: workshopSectorIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      categoryIds.length > 0
+        ? prisma.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
+        : [],
+      covenantIds.length > 0
+        ? prisma.covenant.findMany({ where: { id: { in: covenantIds } }, select: { id: true, name: true } })
+        : [],
+      guildIds.length > 0
+        ? prisma.guild.findMany({ where: { id: { in: guildIds } }, select: { id: true, name: true } })
+        : [],
+      costCenterIds.length > 0
+        ? prisma.cost_center.findMany({
+            where: { id: { in: costCenterIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      countryIds.length > 0
+        ? prisma.countries.findMany({ where: { id: { in: countryIds } }, select: { id: true, name: true } })
+        : [],
+      provinceIds.length > 0
+        ? prisma.provinces.findMany({ where: { id: { in: provinceIds } }, select: { id: true, name: true } })
+        : [],
+      cityIds.length > 0
+        ? prisma.cities.findMany({ where: { id: { in: cityIds } }, select: { id: true, name: true } })
+        : [],
+    ]);
+
+    // M:M facets: contractor_employee (con cross-filter)
+    const contractorCrossWhere = crossWhere('contractor_employee');
+    const contractorRelations = await prisma.contractor_employee.findMany({
+      where: { employees: contractorCrossWhere },
+      select: { contractor_id: true, customers: { select: { id: true, name: true } } },
       distinct: ['contractor_id'],
-      select: {
-        contractor_id: true,
-        customers: { select: { id: true, name: true } },
-      },
-    }),
-    // M:M: aptitudes via empleado_aptitudes
-    prisma.empleado_aptitudes.findMany({
-      where: { employees: { company_id: companyId, is_active: isActive } },
+    });
+    const contractorIds = contractorRelations.map((r) => r.contractor_id).filter(Boolean) as string[];
+
+    const contractorCountMap = new Map<string, number>();
+    const allContractorRels = await prisma.contractor_employee.findMany({
+      where: { employees: contractorCrossWhere },
+      select: { contractor_id: true },
+    });
+    for (const rel of allContractorRels) {
+      if (rel.contractor_id) {
+        contractorCountMap.set(rel.contractor_id, (contractorCountMap.get(rel.contractor_id) ?? 0) + 1);
+      }
+    }
+    // Contar empleados SIN ninguna afectación
+    const totalInContractorCross = await prisma.employees.count({ where: contractorCrossWhere });
+    const withContractor = await prisma.employees.count({
+      where: { ...contractorCrossWhere, contractor_employee: { some: {} } },
+    });
+    const unassignedContractorCount = totalInContractorCross - withContractor;
+    if (unassignedContractorCount > 0) {
+      contractorCountMap.set(NULL_FILTER_VALUE, unassignedContractorCount);
+    }
+
+    // M:M facets: empleado_aptitudes (con cross-filter)
+    const aptitudCrossWhere = crossWhere('empleado_aptitudes');
+    const aptitudRelations = await prisma.empleado_aptitudes.findMany({
+      where: { employees: aptitudCrossWhere },
+      select: { aptitud_id: true, aptitudes_tecnicas: { select: { id: true, nombre: true } } },
       distinct: ['aptitud_id'],
-      select: {
-        aptitud_id: true,
-        aptitudes_tecnicas: { select: { id: true, nombre: true } },
-      },
-    }),
-  ]);
+    });
 
-  // Build enum counts (value → count), including null bucket
-  // IMPORTANT: Returns Record (plain object) instead of Map to ensure proper
-  // serialization when returned from server actions via React Flight protocol.
-  const buildEnumCounts = <T extends Record<string, unknown>>(rows: T[], key: keyof T): Record<string, number> => {
-    const counts: Record<string, number> = {};
-    for (const row of rows) {
-      const val = row[key];
-      if (val == null) {
-        counts[NULL_FILTER_VALUE] =
-          (counts[NULL_FILTER_VALUE] ?? 0) + ((row as Record<string, unknown>)._count as number);
-      } else {
-        counts[String(val)] = (row as Record<string, unknown>)._count as number;
+    const aptitudCountMap = new Map<string, number>();
+    const allAptitudRels = await prisma.empleado_aptitudes.findMany({
+      where: { employees: aptitudCrossWhere },
+      select: { aptitud_id: true },
+    });
+    for (const rel of allAptitudRels) {
+      if (rel.aptitud_id) {
+        aptitudCountMap.set(rel.aptitud_id, (aptitudCountMap.get(rel.aptitud_id) ?? 0) + 1);
       }
     }
-    return counts;
-  };
-
-  // Build FK counts (fkId → count), including null bucket
-  const buildFkCounts = <T extends Record<string, unknown>>(rows: T[], key: keyof T): Record<string, number> => {
-    const counts: Record<string, number> = {};
-    for (const row of rows) {
-      const val = row[key];
-      if (val == null) {
-        counts[NULL_FILTER_VALUE] =
-          (counts[NULL_FILTER_VALUE] ?? 0) + ((row as Record<string, unknown>)._count as number);
-      } else {
-        counts[String(val)] = (row as Record<string, unknown>)._count as number;
-      }
+    // Contar empleados SIN ninguna aptitud
+    const totalInAptitudCross = await prisma.employees.count({ where: aptitudCrossWhere });
+    const withAptitud = await prisma.employees.count({
+      where: { ...aptitudCrossWhere, empleado_aptitudes: { some: {} } },
+    });
+    const unassignedAptitudCount = totalInAptitudCross - withAptitud;
+    if (unassignedAptitudCount > 0) {
+      aptitudCountMap.set(NULL_FILTER_VALUE, unassignedAptitudCount);
     }
-    return counts;
-  };
 
-  // Build FK options (id + name)
-  const buildFkOptions = (items: Array<{ id: string; name: string | null }>) =>
-    items.map((i) => ({ value: i.id, label: i.name ?? '-' }));
-
-  const buildBigIntFkOptions = (items: Array<{ id: bigint; name: string }>) =>
-    items.map((i) => ({ value: String(i.id), label: i.name }));
-
-  // Get contractor counts (need separate query since it's M:M)
-  const [contractorCountsRaw, noContractorCount] = await Promise.all([
-    prisma.contractor_employee.groupBy({
-      by: ['contractor_id'],
-      where: { employees: { company_id: companyId, is_active: isActive } },
-      _count: true,
-    }),
-    prisma.employees.count({
-      where: { ...baseWhere, contractor_employee: { none: {} } },
-    }),
-  ]);
-  const contractorCounts: Record<string, number> = {};
-  for (const r of contractorCountsRaw) {
-    if (r.contractor_id) contractorCounts[r.contractor_id] = r._count;
+    return {
+      // Enum facets (Map<string, number>)
+      status: toFacetMap(statusCounts.map((r) => ({ key: r.status, count: r._count }))),
+      gender: toFacetMap(genderCounts.map((r) => ({ key: r.gender, count: r._count }))),
+      nationality: toFacetMap(nationalityCounts.map((r) => ({ key: r.nationality, count: r._count }))),
+      document_type: toFacetMap(documentTypeCounts.map((r) => ({ key: r.document_type, count: r._count }))),
+      marital_status: toFacetMap(maritalStatusCounts.map((r) => ({ key: r.marital_status, count: r._count }))),
+      level_of_education: toFacetMap(
+        levelOfEducationCounts.map((r) => ({ key: r.level_of_education, count: r._count }))
+      ),
+      cost_type: toFacetMap(costTypeCounts.map((r) => ({ key: r.cost_type, count: r._count }))),
+      affiliate_status: toFacetMap(affiliateStatusCounts.map((r) => ({ key: r.affiliate_status, count: r._count }))),
+      reason_for_termination: toFacetMap(
+        reasonForTerminationCounts.map((r) => ({ key: r.reason_for_termination, count: r._count }))
+      ),
+      is_active: toFacetMap(isActiveCounts.map((r) => ({ key: String(r.is_active), count: r._count }))),
+      // FK facets (UUID)
+      hierarchy: toFacetMap(hierarchyCounts.map((r) => ({ key: r.hierarchical_position, count: r._count }))),
+      hierarchyOptions,
+      company_positions: toFacetMap(companyPositionCounts.map((r) => ({ key: r.company_position, count: r._count }))),
+      companyPositionOptions,
+      types_of_contract: toFacetMap(typeOfContractCounts.map((r) => ({ key: r.type_of_contract, count: r._count }))),
+      typeOfContractOptions,
+      work_diagram: toFacetMap(workDiagramCounts.map((r) => ({ key: r.workflow_diagram, count: r._count }))),
+      workDiagramOptions,
+      workshop_sectors: toFacetMap(workshopSectorCounts.map((r) => ({ key: r.workshop_sector_id, count: r._count }))),
+      workshopSectorOptions,
+      category: toFacetMap(categoryCounts.map((r) => ({ key: r.category_id, count: r._count }))),
+      categoryOptions,
+      covenant: toFacetMap(covenantCounts.map((r) => ({ key: r.covenants_id, count: r._count }))),
+      covenantOptions,
+      guild: toFacetMap(guildCounts.map((r) => ({ key: r.guild_id, count: r._count }))),
+      guildOptions,
+      cost_center: toFacetMap(costCenterCounts.map((r) => ({ key: r.cost_center_id, count: r._count }))),
+      costCenterOptions,
+      countries: toFacetMap(countryCounts.map((r) => ({ key: r.birthplace, count: r._count }))),
+      countryOptions,
+      // FK facets (BigInt)
+      province: toFacetMap(provinceCounts.map((r) => ({ key: r.province, count: r._count }))),
+      provinceOptions,
+      city: toFacetMap(cityCounts.map((r) => ({ key: r.city, count: r._count }))),
+      cityOptions,
+      // M:M facets
+      contractor_employee: contractorCountMap,
+      contractorOptions: contractorRelations
+        .filter((r) => r.contractor_id && contractorIds.includes(r.contractor_id) && r.customers)
+        .map((r) => ({ id: r.customers!.id, name: r.customers!.name })),
+      empleado_aptitudes: aptitudCountMap,
+      aptitudOptions: aptitudRelations
+        .filter((r) => r.aptitud_id && r.aptitudes_tecnicas)
+        .map((r) => ({ id: r.aptitudes_tecnicas!.id, name: r.aptitudes_tecnicas!.nombre })),
+    };
+  } catch (error) {
+    logger.error('Error al obtener facets de empleados', { data: { error } });
+    return null;
   }
-  if (noContractorCount > 0) {
-    contractorCounts[NULL_FILTER_VALUE] = noContractorCount;
-  }
-
-  // Get aptitud counts
-  const [aptitudCountsRaw, noAptitudCount] = await Promise.all([
-    prisma.empleado_aptitudes.groupBy({
-      by: ['aptitud_id'],
-      where: { employees: { company_id: companyId, is_active: isActive } },
-      _count: true,
-    }),
-    prisma.employees.count({
-      where: { ...baseWhere, empleado_aptitudes: { none: {} } },
-    }),
-  ]);
-  const aptitudCounts: Record<string, number> = {};
-  for (const r of aptitudCountsRaw) {
-    if (r.aptitud_id) aptitudCounts[r.aptitud_id] = r._count;
-  }
-  if (noAptitudCount > 0) {
-    aptitudCounts[NULL_FILTER_VALUE] = noAptitudCount;
-  }
-
-  return {
-    // Enum facets
-    status: {
-      counts: buildEnumCounts(statusCounts, 'status'),
-    },
-    gender: {
-      counts: buildEnumCounts(genderCounts, 'gender'),
-    },
-    nationality: {
-      counts: buildEnumCounts(nationalityCounts, 'nationality'),
-    },
-    document_type: {
-      counts: buildEnumCounts(documentTypeCounts, 'document_type'),
-    },
-    marital_status: {
-      counts: buildEnumCounts(maritalStatusCounts, 'marital_status'),
-    },
-    level_of_education: {
-      counts: buildEnumCounts(levelOfEducationCounts, 'level_of_education'),
-    },
-    cost_type: {
-      counts: buildEnumCounts(costTypeCounts, 'cost_type'),
-    },
-    affiliate_status: {
-      counts: buildEnumCounts(affiliateStatusCounts, 'affiliate_status'),
-    },
-    reason_for_termination: {
-      counts: buildEnumCounts(reasonForTerminationCounts, 'reason_for_termination'),
-    },
-    // FK facets (UUID)
-    hierarchy: {
-      counts: buildFkCounts(hierarchyCounts, 'hierarchical_position'),
-      options: buildFkOptions(hierarchyOptions),
-    },
-    company_positions: {
-      counts: buildFkCounts(companyPositionCounts, 'company_position'),
-      options: buildFkOptions(companyPositionOptions),
-    },
-    types_of_contract: {
-      counts: buildFkCounts(typeOfContractCounts, 'type_of_contract'),
-      options: buildFkOptions(typeOfContractOptions),
-    },
-    work_diagram: {
-      counts: buildFkCounts(workDiagramCounts, 'workflow_diagram'),
-      options: buildFkOptions(workDiagramOptions),
-    },
-    workshop_sectors: {
-      counts: buildFkCounts(workshopSectorCounts, 'workshop_sector_id'),
-      options: buildFkOptions(workshopSectorOptions),
-    },
-    category: {
-      counts: buildFkCounts(categoryCounts, 'category_id'),
-      options: buildFkOptions(categoryOptions),
-    },
-    covenant: {
-      counts: buildFkCounts(covenantCounts, 'covenants_id'),
-      options: buildFkOptions(covenantOptions),
-    },
-    guild: {
-      counts: buildFkCounts(guildCounts, 'guild_id'),
-      options: buildFkOptions(guildOptions),
-    },
-    cost_center: {
-      counts: buildFkCounts(costCenterCounts, 'cost_center_id'),
-      options: buildFkOptions(costCenterOptions),
-    },
-    countries: {
-      counts: buildFkCounts(countryCounts, 'birthplace'),
-      options: buildFkOptions(countryOptions),
-    },
-    // FK facets (BigInt)
-    province: {
-      counts: buildFkCounts(provinceCounts, 'province'),
-      options: buildBigIntFkOptions(provinceOptions),
-    },
-    city: {
-      counts: buildFkCounts(cityCounts, 'city'),
-      options: buildBigIntFkOptions(cityOptions),
-    },
-    // M:M facets
-    contractor_employee: {
-      counts: contractorCounts,
-      options: contractorOptions
-        .filter((c) => c.customers)
-        .map((c) => ({ value: c.customers!.id, label: c.customers!.name })),
-    },
-    empleado_aptitudes: {
-      counts: aptitudCounts,
-      options: aptitudOptions
-        .filter((a) => a.aptitudes_tecnicas)
-        .map((a) => ({ value: a.aptitudes_tecnicas!.id, label: a.aptitudes_tecnicas!.nombre })),
-    },
-  };
 }
 
 // ============================================================================

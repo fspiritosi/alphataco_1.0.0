@@ -45,13 +45,6 @@ const CONDITION_OPTIONS = [
   { value: 'en preparacion', label: 'En Preparación' },
 ] as const;
 
-const CURRENCY_OPTIONS = [
-  { value: 'ARS', label: 'ARS - Peso Argentino' },
-  { value: 'USD', label: 'USD - Dólar Estadounidense' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - Libra Esterlina' },
-] as const;
-
 export function OtherEquipmentBasicDataForm({
   form,
   readOnly = false,

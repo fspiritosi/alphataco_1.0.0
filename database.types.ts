@@ -353,11 +353,15 @@ export type Database = {
       checklist_answers: {
         Row: {
           answer_data: Json;
+          chofer_employee_id: string | null;
           created_at: string | null;
           critical_items_failed: string[] | null;
+          customer_id: string | null;
           employee_id: string | null;
           equipment_id: string;
+          horometro: number | null;
           id: string;
+          kilometraje: number | null;
           observations: string | null;
           result: string | null;
           template_id: string;
@@ -367,11 +371,15 @@ export type Database = {
         };
         Insert: {
           answer_data: Json;
+          chofer_employee_id?: string | null;
           created_at?: string | null;
           critical_items_failed?: string[] | null;
+          customer_id?: string | null;
           employee_id?: string | null;
           equipment_id: string;
+          horometro?: number | null;
           id?: string;
+          kilometraje?: number | null;
           observations?: string | null;
           result?: string | null;
           template_id: string;
@@ -381,11 +389,15 @@ export type Database = {
         };
         Update: {
           answer_data?: Json;
+          chofer_employee_id?: string | null;
           created_at?: string | null;
           critical_items_failed?: string[] | null;
+          customer_id?: string | null;
           employee_id?: string | null;
           equipment_id?: string;
+          horometro?: number | null;
           id?: string;
+          kilometraje?: number | null;
           observations?: string | null;
           result?: string | null;
           template_id?: string;
@@ -394,6 +406,13 @@ export type Database = {
           ut_checklist_answer_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'checklist_answers_chofer_employee_id_fkey';
+            columns: ['chofer_employee_id'];
+            isOneToOne: false;
+            referencedRelation: 'employees';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'checklist_answers_employee_id_fkey';
             columns: ['employee_id'];

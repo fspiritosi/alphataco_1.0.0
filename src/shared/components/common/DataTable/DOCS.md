@@ -16,6 +16,10 @@ Componente de tabla de datos server-side con soporte para paginación, sorting, 
 - [Persistencia de preferencias](#persistencia-de-preferencias)
 - [Selección de Filas](#selección-de-filas)
 - [Estado en URL](#estado-en-url)
+- [URL Param Isolation (paramNamespace)](#url-param-isolation-paramnamespace)
+- [Cross-Filter Facets](#cross-filter-facets)
+- [buildWhereClause — Helper DRY](#buildwhereclause--helper-dry)
+- [Multi-Sort con resolución FK](#multi-sort-con-resolución-fk)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -34,6 +38,10 @@ Componente de tabla de datos server-side con soporte para paginación, sorting, 
 - ✅ **Exportación a Excel** - Exporta datos filtrados con un click
 - ✅ **Selección de Filas** - Con checkbox y callback de selección
 - ✅ **Tipado Completo** - TypeScript con inferencia de tipos
+- ✅ **Cross-Filter Facets** - Facet counts excluden su propio filtro para cross-filtering preciso
+- ✅ **URL Param Isolation** - Múltiples tablas en la misma página con params de URL independientes via `paramNamespace`
+- ✅ **Multi-Sort** - Sort por múltiples columnas con Shift+Click, incluyendo columnas FK via `FK_SORT_MAP`
+- ✅ **Sticky Header** - El encabezado de columnas permanece visible al hacer scroll vertical interno (max-h 60vh)
 
 ---
 
@@ -465,6 +473,7 @@ export default async function Page({ searchParams }: Props) {
 | `tableId`                 | `string`                         | `undefined`                       | ID para persistir preferencias de columnas y filtros |
 | `showFilterToggle`        | `boolean`                        | `false`                           | Mostrar botón para ocultar/mostrar filtros           |
 | `initialFilterVisibility` | `Record<string, boolean>`        | `{}`                              | Visibilidad inicial de filtros (desde BD)            |
+| `paramNamespace`          | `string`                         | `undefined`                       | Namespace para aislar params de URL entre DataTables en la misma página |
 | `data-testid`             | `string`                         | `'data-table'`                    | ID para testing con Cypress                          |
 
 ---
@@ -895,6 +904,238 @@ Ejemplo de URL compleja:
 
 ---
 
+## URL Param Isolation (paramNamespace)
+
+Cuando múltiples DataTables comparten la misma página (tabs, subtabs), sus filtros se escriben en la misma URL. Sin aislamiento, los filtros de una tabla afectan a las demás.
+
+### Problema
+
+```
+Tab: Vehículos → filtrar por type=uuid-123
+URL: /dashboard/equipment?type=uuid-123
+
+Cambiar a Tab: Otros Equipos
+URL: /dashboard/equipment?type=uuid-123&subtab=others
+→ La tabla de "Otros Equipos" intenta filtrar por type=uuid-123 → 0 resultados
+```
+
+### Solución: `paramNamespace`
+
+Cada tabla prefija sus params con `{tableId}__`:
+
+```
+Tab: Vehículos → filtrar por type
+URL: /dashboard/equipment?vehicles__type=uuid-123
+
+Cambiar a Tab: Otros Equipos → filtrar por status
+URL: /dashboard/equipment?vehicles__type=uuid-123&others__status=ACTIVE&subtab=others
+→ Cada tabla solo lee SUS params
+```
+
+### Implementación (3 pasos)
+
+#### 1. Server Component: Strip prefix
+
+```typescript
+import { stripPrefixFromSearchParams, type DataTableSearchParams } from '@/shared/components/common/DataTable';
+
+const tableId = 'vehicles';
+const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
+
+const [{ data, total }, preferences] = await Promise.all([
+  getVehiclesPaginated(tableParams),   // ← params limpios
+  getTablePreferences(tableId),
+]);
+
+<_VehicleDataTable searchParams={tableParams} tableId={tableId} ... />
+```
+
+#### 2. Client Component: Pass paramNamespace
+
+```typescript
+<DataTable
+  paramNamespace={tableId}  // ← aísla params en URL
+  tableId={tableId}          // ← persistencia de preferencias
+  searchParams={searchParams}
+  ...
+/>
+```
+
+#### 3. DataTable internals
+
+El hook `useDataTable` automáticamente:
+- **Lee** solo params con el prefijo `{tableId}__`
+- **Escribe** params con el prefijo, preservando los de otras tablas
+- **Limpia** solo sus propios params al resetear filtros
+
+### Cuándo usar
+
+| Situación | paramNamespace |
+|-----------|---------------|
+| Cualquier DataTable | **SIEMPRE OBLIGATORIO** — previene bugs futuros si la página crece |
+
+---
+
+## Cross-Filter Facets
+
+Las facetas con cross-filtering muestran counts que reflejan los filtros activos de OTRAS columnas, pero excluyen el filtro de la PROPIA columna. Esto permite ver cuántos resultados tendría cada opción si se cambiara solo ese filtro.
+
+### Sin cross-filter (incorrecto)
+
+```
+Filtro activo: brand=Toyota
+→ Faceta de brand muestra: Toyota (5) — solo Toyota, porque el filtro ya restringe
+→ El usuario no sabe cuántos registros tienen otras marcas
+```
+
+### Con cross-filter (correcto)
+
+```
+Filtro activo: brand=Toyota
+→ Faceta de brand muestra: Toyota (5), Ford (3), Chevrolet (2)
+→ Los counts son correctos considerando OTROS filtros activos, pero no el de brand
+```
+
+### Implementación
+
+#### Server Action: `getEntityFacets(searchParams)`
+
+```typescript
+export async function getEntityFacets(searchParams?: DataTableSearchParams) {
+  const companyId = await getServerCompanyId();
+  const baseWhere = { company_id: companyId, is_active: true };
+
+  // Parse active filters
+  let parsedState: ReturnType<typeof parseSearchParams> | null = null;
+  if (searchParams && Object.keys(searchParams).length > 0) {
+    parsedState = parseSearchParams(searchParams);
+    for (const key of IGNORED_PARAMS) delete parsedState.filters[key];
+  }
+
+  const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
+
+  // WHERE con todos los filtros EXCEPTO el de la columna indicada
+  function crossWhere(excludeColumn: string) {
+    if (!parsedState || !hasActiveFilters) return baseWhere;
+    const modified = { ...parsedState, filters: { ...parsedState.filters } };
+    delete modified.filters[excludeColumn];
+    delete modified.filters[`${excludeColumn}_from`];
+    delete modified.filters[`${excludeColumn}_to`];
+    return buildWhereClause(companyId, modified);  // ← reutiliza helper DRY
+  }
+
+  const [statusCounts, typeCounts] = await Promise.all([
+    prisma.entity.groupBy({ by: ['status'], where: crossWhere('status'), _count: true }),
+    prisma.entity.groupBy({ by: ['type'], where: crossWhere('type'), _count: true }),
+  ]);
+
+  // toFacetMap: convierte groupBy results a Map<string, number> con null support
+  function toFacetMap(rows: { key: string | bigint | null | undefined; count: number }[]): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const { key, count } of rows) {
+      map.set(key == null ? NULL_FILTER_VALUE : String(key), count);
+    }
+    return map;
+  }
+
+  return {
+    status: toFacetMap(statusCounts.map((r) => ({ key: r.status, count: r._count }))),
+    type: toFacetMap(typeCounts.map((r) => ({ key: r.type, count: r._count }))),
+    typeOptions: types,  // resueltos en Round 2
+  };
+}
+```
+
+#### Client Component: Pass filter params to facets
+
+```typescript
+// Extraer solo params de filtros (sin page/sort)
+const facetParams = useMemo(() => {
+  const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
+  return rest;
+}, [searchParams]);
+
+// Facets se recalculan cuando cambian los filtros
+const { data: facets } = useQuery({
+  queryKey: ['entity-facets', facetParams],
+  queryFn: () => getEntityFacets(facetParams),
+  staleTime: 5 * 60 * 1000,
+});
+```
+
+> **IMPORTANTE**: `toFacetMap()` retorna `Map<string, number>` que es el tipo esperado por `externalCounts`. NO usar `Record<string, number>` — requeriría conversión innecesaria en el cliente.
+
+---
+
+## buildWhereClause — Helper DRY
+
+La lógica de WHERE debe extraerse en una función interna, compartida entre las 3 funciones del server action:
+
+```typescript
+// actions.server.ts — helper interno (NO exportado)
+function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
+  const searchWhere = buildSearchWhere(state.search, ['domain', 'chassis', 'intern_number']);
+
+  const MANUALLY_HANDLED = ['brand', 'model', 'contractor_equipment'];
+  const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
+    exclude: [...TEXT_FILTER_COLUMNS, ...MANUALLY_HANDLED, ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`])],
+  });
+
+  const textFiltersWhere = buildTextFiltersWhere(state.filters, TEXT_FILTER_COLUMNS);
+  const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
+
+  // BigInt FK, M:M handling...
+
+  return {
+    company_id: companyId,
+    is_active: true,
+    ...searchWhere, ...filtersWhere, ...textFiltersWhere, ...dateFiltersWhere,
+    ...bigintFilters, ...m2mFilters,
+    ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
+  };
+}
+
+// Uso en las 3 funciones:
+// getEntityPaginated → const where = buildWhereClause(companyId, state);
+// getAllEntityForExport → const where = buildWhereClause(companyId, state);
+// getEntityFacets → crossWhere uses buildWhereClause internally
+```
+
+Beneficios:
+- **DRY**: Un solo lugar para la lógica de filtros
+- **Consistencia**: Export y facets siempre aplican los mismos filtros que la query paginada
+- **Cross-filter**: `crossWhere()` puede reutilizar `buildWhereClause()` con filtros modificados
+
+---
+
+## Multi-Sort con resolución FK
+
+El DataTable soporta multi-sort (Shift+Click en headers). El servidor debe manejar múltiples columnas de ordenamiento, incluyendo columnas FK que necesitan `{ relation: { field: dir } }`:
+
+```typescript
+// actions.server.ts
+const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
+  type: (dir) => ({ type_relation: { name: dir } }),
+  brand: (dir) => ({ brand_relation: { name: dir } }),
+  owner: (dir) => ({ owner_relation: { name: dir } }),
+};
+
+// En la query paginada — iterar state.sorting (array)
+const resolvedSorts: Record<string, unknown>[] = [];
+for (const s of state.sorting) {
+  if (VALID_SORT_FIELDS.has(s.id)) {
+    const dir: 'asc' | 'desc' = s.desc ? 'desc' : 'asc';
+    const fkMapper = FK_SORT_MAP[s.id];
+    resolvedSorts.push(fkMapper ? fkMapper(dir) : { [s.id]: dir });
+  }
+}
+const safeOrderBy = [...resolvedSorts, { name: 'asc' as const }]; // fallback sort
+```
+
+> **REGLA**: `VALID_SORT_FIELDS` debe incluir tanto campos directos como IDs de columnas FK. Cada FK en `VALID_SORT_FIELDS` debe tener su entrada en `FK_SORT_MAP`.
+
+---
+
 ## Troubleshooting
 
 ### El filtro facetado no filtra en servidor
@@ -930,6 +1171,18 @@ Las columnas con `accessorFn` necesitan `id` explícito:
 { id: 'fullName', accessorFn: (row) => `${row.lastName}, ${row.firstName}`, meta: { title: 'Nombre' }, ... }
 ```
 
+### Los filtros de una tabla afectan a otra en la misma página
+
+Configurar `paramNamespace={tableId}` en el DataTable y usar `stripPrefixFromSearchParams(searchParams, tableId)` en el Server Component.
+
+### Los counts de facetas no cambian al aplicar filtros
+
+La función de facetas debe recibir `searchParams` y usar `crossWhere(excludeColumn)` en cada `groupBy`. Si usa un `baseWhere` fijo, los counts serán siempre los mismos.
+
+### El sort no funciona en columnas FK
+
+Verificar que el columnId de la FK está en `VALID_SORT_FIELDS` Y tiene una entrada en `FK_SORT_MAP` que mapea a `{ relation: { field: dir } }`.
+
 ### Performance lenta en filtros
 
 - Agregar índices en Prisma para campos de búsqueda/filtro frecuentes
@@ -963,3 +1216,35 @@ Las columnas con `accessorFn` necesitan `id` explícito:
 | `buildTextFiltersWhere`      | Filtros de texto libre → contains insensitive               |
 | `buildDateRangeFiltersWhere` | Filtros de fecha → gte / lte                                |
 | `stateToSearchParams`        | `DataTableState` → `URLSearchParams`                        |
+| `stripPrefixFromSearchParams` | Extrae params de una tabla específica (quita el prefijo `tableId__`) |
+| `PARAM_SEPARATOR`             | Constante `'__'` usada como separador de namespace en URL params     |
+
+---
+
+## Auto-auditoría Post-Implementación
+
+**Todo agente que cree o modifique una tabla DEBE ejecutar una auto-auditoría completa al terminar**, verificando el checklist obligatorio de `.claude/rules/datatable.md` antes de reportar el trabajo como completo.
+
+### Checklist de filtros (el punto más frecuentemente incompleto)
+
+| Tipo de columna | Filtro requerido | Notas |
+|---|---|---|
+| FK UUID/Int nullable | `faceted` + `NULL_FILTER_VALUE` + `filterFn` + `CircleOff` icon | `crossWhere` en facets |
+| FK UUID/Int NOT NULL | `faceted` + `filterFn` | `crossWhere` en facets |
+| Enum nullable | `faceted` + `NULL_FILTER_VALUE` + `filterFn` | `crossWhere` en facets |
+| Enum NOT NULL | `faceted` + `filterFn` | `crossWhere` en facets |
+| Texto | `text` | `buildTextFiltersWhere` en action |
+| Fecha | `dateRange` | `buildDateRangeFiltersWhere` en action |
+| JSONB / virtual / calculada | SIN filtro | No filtrable server-side |
+| Acciones / select | SIN filtro | — |
+
+### Reglas de íconos en filtros facetados
+
+- Si el filtro tiene categorías semánticamente claras (estados, tipos): TODAS las opciones deben tener ícono.
+- Opciones con `NULL_FILTER_VALUE` ("Sin asignar", "Sin equipo", etc.): siempre `icon: CircleOff`.
+- Los íconos del filtro DEBEN coincidir con los íconos del badge en la celda de la columna.
+
+### `enableSorting` en columnas FK
+
+- Columnas FK con `accessorFn` que NO tienen entrada en `FK_SORT_MAP` en el server action → agregar `enableSorting: false`.
+- Sin esto, el DataTable muestra la opción de ordenar pero la ignorará silenciosamente.

@@ -16,6 +16,7 @@ import {
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
   conditionLabels,
+  contractTypeVehiclesLabels,
   costTypeLabels,
   currencyLabels,
   otherEquipmentStatusLabels,
@@ -33,17 +34,6 @@ import {
 import { HIDDEN_COLUMNS_BY_DEFAULT, columns, conditionIcons } from './columns';
 
 // ============================================================================
-// LABELS locales para enums del modelo vehicles
-// ============================================================================
-
-const contractTypeLabels: Record<string, string> = {
-  Leasing: 'Leasing',
-  Alquiler: 'Alquiler',
-  Propio: 'Propio',
-  Prendado: 'Prendado',
-};
-
-// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -52,7 +42,6 @@ interface Props {
   totalRows: number;
   searchParams: DataTableSearchParams;
   tableId: string;
-  permissionsMap: Record<string, boolean>;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
 }
@@ -252,7 +241,7 @@ export function _InactiveVehicleDataTable({
         options: [
           ...Object.values(contract_type_vehicles_enum).map((value) => ({
             value,
-            label: contractTypeLabels[value] ?? value,
+            label: contractTypeVehiclesLabels[value] ?? value,
           })),
           ...(facets?.type_of_contract?.has(NULL_FILTER_VALUE)
             ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
@@ -398,6 +387,7 @@ export function _InactiveVehicleDataTable({
       initialColumnVisibility={mergedColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
       tableId={tableId}
+      paramNamespace={tableId}
       showFilterToggle={true}
       emptyMessage="No hay vehículos dados de baja"
       data-testid="inactive-vehicles-table"
@@ -413,7 +403,7 @@ export function _InactiveVehicleDataTable({
           status: (val) => otherEquipmentStatusLabels[val as string] ?? String(val ?? ''),
           cost_type: (val) => costTypeLabels[val as string] ?? String(val ?? ''),
           currency: (val) => currencyLabels[val as string] ?? String(val ?? ''),
-          type_of_contract: (val) => contractTypeLabels[val as string] ?? String(val ?? ''),
+          type_of_contract: (val) => contractTypeVehiclesLabels[val as string] ?? String(val ?? ''),
           reason_for_termination: (val) => terminationReasonEquipmentLabels[val as string] ?? String(val ?? ''),
           termination_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           contract_start_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),

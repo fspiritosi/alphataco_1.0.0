@@ -20,6 +20,8 @@ type ChecklistAnswerInput = {
   equipment_id: string;
   customer_id?: string | null;
   employee_id?: string | null;
+  // ID del empleado seleccionado como chofer — columna FK directa en checklist_answers
+  chofer_employee_id?: string | null;
   chofer?: string;
   fecha?: string;
   hora?: string;
@@ -92,10 +94,14 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
     employee_id: finalEmployeeId,
     user_id: user?.id || null,
     ut_checklist_answer_id: answerData.ut_checklist_answer_id || null, // ID del checklist UT si este es de enganche
+    // Columna FK directa — guarda el ID del empleado chofer para filtrado y trazabilidad
+    chofer_employee_id: answerData.chofer_employee_id || null,
     answer_data: {
       // Respuestas estructuradas por sección
       answers: sanitizedAnswers,
-      // Metadata adicional
+      // ⚠️ CRÍTICO: Las keys del JSONB 'customer_id', 'kilometraje', 'horometro' son
+      // capturadas por columnas GENERATED en la tabla checklist_answers.
+      // Si se renombran estas keys, actualizar también la migración de BD.
       customer_id: answerData.customer_id || null,
       chofer: answerData.chofer,
       fecha: answerData.fecha,
@@ -274,7 +280,7 @@ export async function fetchActiveEmployeesForChecklist() {
 
   const { data, error } = await supabase
     .from('employees')
-    .select('id, firstname, lastname, cuil')
+    .select('id, firstname, lastname, cuil, file')
     .eq('company_id', company_id)
     .eq('is_active', true)
     .order('lastname', { ascending: true });
@@ -284,11 +290,12 @@ export async function fetchActiveEmployeesForChecklist() {
     return [];
   }
 
-  // Formatear el nombre completo
+  // Formatear el nombre completo — legajo (field: file) obligatorio según estándar del proyecto
   return (data || []).map((emp) => ({
     id: emp.id,
     fullName: `${emp.lastname || ''} ${emp.firstname || ''}`.trim(),
     document: emp.cuil || null,
+    file_number: emp.file || null,
   }));
 }
 

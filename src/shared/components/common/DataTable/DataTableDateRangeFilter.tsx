@@ -16,16 +16,21 @@ import { useDataTablePending } from './DataTablePendingContext';
 interface DataTableDateRangeFilterProps {
   columnId: string;
   title: string;
+  /** Namespace para prefijar los params de URL cuando hay múltiples DataTables en la misma página */
+  paramNamespace?: string;
 }
 
-export function DataTableDateRangeFilter({ columnId, title }: DataTableDateRangeFilterProps) {
+export function DataTableDateRangeFilter({ columnId, title, paramNamespace }: DataTableDateRangeFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { startTransition } = useDataTablePending();
 
-  const fromKey = `${columnId}_from`;
-  const toKey = `${columnId}_to`;
+  // Prefijo de namespace para aislar parámetros entre DataTables en la misma página
+  const prefix = paramNamespace ? `${paramNamespace}__` : '';
+  const fromKey = `${prefix}${columnId}_from`;
+  const toKey = `${prefix}${columnId}_to`;
+  const pageKey = paramNamespace ? `${paramNamespace}__page` : 'page';
 
   const fromValue = searchParams.get(fromKey);
   const toValue = searchParams.get(toKey);
@@ -42,7 +47,7 @@ export function DataTableDateRangeFilter({ columnId, title }: DataTableDateRange
     } else {
       params.delete(key);
     }
-    params.set('page', '1');
+    params.set(pageKey, '1');
     startTransition(() => {
       router.replace(`${pathname}?${params.toString()}`);
     });
@@ -52,7 +57,7 @@ export function DataTableDateRangeFilter({ columnId, title }: DataTableDateRange
     const params = new URLSearchParams(searchParams.toString());
     params.delete(fromKey);
     params.delete(toKey);
-    params.set('page', '1');
+    params.set(pageKey, '1');
     startTransition(() => {
       router.replace(`${pathname}?${params.toString()}`);
     });

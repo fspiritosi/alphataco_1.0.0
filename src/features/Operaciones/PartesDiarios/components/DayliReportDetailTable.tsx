@@ -37,7 +37,13 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
         (rel) => rel.employees?.lastname + ' ' + rel.employees?.firstname
       ),
       equipment:
-        row.dailyreportequipmentrelations.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
+        row.dailyreportequipmentrelations.map(
+          (rel) =>
+            rel.vehicles?.domain ||
+            rel.vehicles?.intern_number ||
+            rel.other_equipment?.intern_number ||
+            rel.other_equipment?.serial_number
+        ) || [],
       customer_equipment:
         row.dailyreport_customer_equipment_relations.map((rel) => {
           return {
@@ -68,12 +74,27 @@ export const transformDailyReports = (reports: Awaited<ReturnType<typeof getDail
         id: rel.employees?.id,
         role: rel.role,
       })),
-      equipment_references: row.dailyreportequipmentrelations.map((rel) => ({
-        ...rel.vehicles,
-        name: rel.vehicles?.domain || rel.vehicles?.intern_number,
-        id: rel.vehicles?.id,
-        brand_vehicles: rel.vehicles?.brand_vehicles?.name,
-      })),
+      equipment_references: row.dailyreportequipmentrelations.map((rel) => {
+        const vehicle = rel.vehicles;
+        const otherEquip = rel.other_equipment;
+        if (vehicle) {
+          return {
+            ...vehicle,
+            _source: 'vehicle' as const,
+            name: vehicle.domain || vehicle.intern_number,
+            id: vehicle.id,
+          };
+        }
+        if (otherEquip) {
+          return {
+            ...otherEquip,
+            _source: 'other_equipment' as const,
+            name: otherEquip.intern_number || otherEquip.serial_number,
+            id: otherEquip.id,
+          };
+        }
+        return null;
+      }).filter((item): item is NonNullable<typeof item> => item != null),
       data_to_clone: {
         customer_id: row.customers?.id,
         service_id: row.customer_services?.id,
