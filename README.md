@@ -138,3 +138,42 @@ export interface VehiclesWithBrand extends Omit<Vehicles, 'brand'> {
   brand: Brand; // Relación con la tabla de marcas
 }
 ```
+
+## 📋 Licencia
+
+**Software Propietario - Todos los derechos reservados**
+
+- **Propietario:** Grupo Horizonte SRL
+- **Desarrollador:** Codecontrol SAS
+- **Uso:** Exclusivo interno de Grupo Horizonte SRL
+
+Este software y su código fuente son propiedad exclusiva de Grupo Horizonte SRL. 
+
+### ⚠️ Restricciones
+
+Este repositorio contiene código propietario. Queda **estrictamente prohibido**:
+
+- ❌ Copiar, modificar o distribuir el código
+- ❌ Usar el software fuera de Grupo Horizonte SRL
+- ❌ Realizar ingeniería inversa
+- ❌ Crear obras derivadas
+- ❌ Compartir o divulgar el código fuente
+
+### 📜 Marco Legal
+
+Protegido por las leyes argentinas:
+- Ley 11.723 de Propiedad Intelectual
+- Ley 25.036 de Software
+- Código Civil y Comercial de la Nación
+
+### 📞 Contacto
+
+**Grupo Horizonte SRL**  
+[Información de contacto]
+
+**Soporte Técnico - Codecontrol SAS**  
+ventas@codecontrol.com.ar
+
+---
+
+Copyright © 2025 Grupo Horizonte SRL. Todos los derechos reservados.
