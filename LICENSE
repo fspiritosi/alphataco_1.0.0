@@ -1,38 +1,45 @@
-# License
+LICENCIA DE SOFTWARE PROPIETARIO
+=================================
 
-## Copyright Notice
+Copyright © [AÑO] Grupo Horizonte SRL
+Desarrollado por: Codecontrol SAS
+Todos los derechos reservados.
 
-**Copyright (c) 2024 Codecontrol SAS**
+TITULARIDAD
+-----------
+Este software es propiedad exclusiva de Grupo Horizonte SRL (CUIT: [COMPLETAR]).
+El desarrollo fue realizado por Codecontrol SAS (CUIT: [COMPLETAR]).
 
-## Permissions
+USO RESTRINGIDO
+---------------
+Este software es de uso interno exclusivo de Grupo Horizonte SRL.
 
-1. **Non-Commercial Use**:
-   - This code is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License. You may not use the material for commercial purposes.
+Queda PROHIBIDO:
+- Copiar, modificar o distribuir este software
+- Realizar ingeniería inversa o descompilar
+- Usar el software fuera de Grupo Horizonte SRL
+- Divulgar el código fuente a terceros no autorizados
 
-2. **Sharing**:
-   - You may share, copy, and redistribute the material in any medium or format. Attribution is required.
+PROTECCIÓN LEGAL
+----------------
+Este software está protegido por:
+- Ley 11.723 de Propiedad Intelectual (Argentina)
+- Ley 25.036 de Software (Argentina)
+- Código Civil y Comercial de la Nación Argentina
 
-3. **No Derivatives**:
-   - If you remix, transform, or build upon the material, you may not distribute the modified material.
+GARANTÍA
+--------
+Este software se proporciona "TAL CUAL" sin garantías de ningún tipo.
 
-## Conditions
+JURISDICCIÓN
+------------
+Tribunales Ordinarios de Neuquén, Argentina.
 
-1. **Attribution**:
-   - You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+CONTACTO
+--------
+Grupo Horizonte SRL
+[Domicilio, Email, Teléfono]
 
-2. **Non-Commercial**:
-   - You may not use the material for commercial purposes.
-
-3. **No Derivatives**:
-   - If you remix, transform, or build upon the material, you may not distribute the modified material.
-
-## Disclaimer
-
-THIS CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
-
-For more details, see [Creative Commons License](https://creativecommons.org/licenses/by-nc-nd/4.0/).
-
-## Contact
-
-For inquiries regarding permissions for use, distribution, or modification of this code, please contact fspiritosi at fspiritosi@codecontrol.com.ar.
-
+Para soporte técnico:
+Codecontrol SAS
+[Domicilio, Email, Teléfono]
