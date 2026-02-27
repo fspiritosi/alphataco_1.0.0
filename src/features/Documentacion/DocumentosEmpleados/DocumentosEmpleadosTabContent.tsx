@@ -1,10 +1,12 @@
 import DocumentNav from '@/components/DocumentNav';
-import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
-import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
+import { MonthlyEmployeeDocumentsList } from './Mensuales/MonthlyEmployeeDocumentsList';
+import { MonthlyEmployeeDocumentsSkeleton } from './Mensuales/fallback/MonthlyEmployeeDocumentsSkeleton';
+import { EmployeePermanentDocumentsList } from './Permanentes/EmployeePermanentDocumentsList';
+import { EmployeePermanentDocumentsSkeleton } from './Permanentes/fallback/EmployeePermanentDocumentsSkeleton';
 
 export default async function DocumentosEmpleadosTabContent({
   searchParams,
@@ -38,8 +40,8 @@ export default async function DocumentosEmpleadosTabContent({
             moduleSlug: 'documentacion',
             tabSlug: 'docs-empleados-permanentes',
             content: (
-              <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
-                <PermanentDocuments />
+              <Suspense fallback={<EmployeePermanentDocumentsSkeleton />}>
+                <EmployeePermanentDocumentsList searchParams={searchParams} />
               </Suspense>
             ),
           },
@@ -54,8 +56,8 @@ export default async function DocumentosEmpleadosTabContent({
             moduleSlug: 'documentacion',
             tabSlug: 'docs-empleados-mensuales',
             content: (
-              <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
-                <MonthlyDocuments />
+              <Suspense fallback={<MonthlyEmployeeDocumentsSkeleton />}>
+                <MonthlyEmployeeDocumentsList searchParams={searchParams} />
               </Suspense>
             ),
           },

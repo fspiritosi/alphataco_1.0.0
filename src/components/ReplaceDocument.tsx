@@ -8,18 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { handleSupabaseError } from '@/lib/errorHandler';
+import { Logger } from '@/lib/logger';
 import { supabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { CalendarIcon, InfoCircledIcon } from '@radix-ui/react-icons';
-import { addMonths, format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import moment from 'moment';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Calendar } from './ui/calendar';
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+const logger = new Logger('ReplaceDocument');
 
 export default function ReplaceDocument({
   documentName,
@@ -56,15 +58,12 @@ export default function ReplaceDocument({
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const today = new Date();
-  const nextMonth = addMonths(new Date(), 1);
-  const [month, setMonth] = useState<Date>(nextMonth);
+  const nextMonth = moment().add(1, 'month').toDate();
+  const [calendarMonth, setCalendarMonth] = useState<Date>(nextMonth);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [dateInputValue, setDateInputValue] = useState('');
+  const [dateInputError, setDateInputError] = useState('');
   const supabase = supabaseBrowser();
-
-  const yearsAhead = Array.from({ length: 20 }, (_, index) => {
-    const year = today.getFullYear() + index + 1;
-    return year;
-  });
-  const [years, setYear] = useState(today.getFullYear().toString());
 
   async function onSubmit(filename: z.infer<typeof FormSchema>) {
     if (!file) {
@@ -91,7 +90,9 @@ export default function ReplaceDocument({
         const dateRegex = /\((\d{2}-\d{2}-\d{4})\)\./;
 
         if (dateRegex.test(documentName)) {
-          const newDate = format(filename.validity as Date, 'dd/MM/yyyy').replaceAll('/', '-');
+          const newDate = moment(filename.validity as Date)
+            .format('DD/MM/YYYY')
+            .replaceAll('/', '-');
           newDocumentName = newDocumentName.replace(dateRegex, `(${newDate})`) + `.${newExtension}`;
         } else {
           newDocumentName = newDocumentName + `.${newExtension}`;
@@ -106,7 +107,7 @@ export default function ReplaceDocument({
           });
 
         if (error) {
-          console.error(error);
+          logger.error('Error al eliminar documento anterior', { data: { error } });
           throw new Error(handleSupabaseError(error.message));
         }
 
@@ -127,12 +128,12 @@ export default function ReplaceDocument({
           .eq('id', appliesId || '');
 
         if (updateError) {
-          console.error(updateError);
+          logger.error('Error al actualizar registro del documento', { data: { updateError } });
           throw new Error(handleSupabaseError(updateError?.message));
         }
 
         if (finalerror) {
-          console.error(finalerror);
+          logger.error('Error al subir el nuevo documento', { data: { finalerror } });
           throw new Error(handleSupabaseError(finalerror?.message));
         }
 
@@ -197,69 +198,70 @@ export default function ReplaceDocument({
                     render={({ field }) => (
                       <FormItem className="flex flex-col mt-4">
                         <FormLabel>Fecha de vencimiento</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={'outline'}
-                                className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                              >
-                                {typeof field.value === 'string' && field.value !== '' ? (
-                                  field.value
-                                ) : typeof field.value === 'object' ? (
-                                  format(field.value, 'dd/MM/yyyy')
-                                ) : (
-                                  <span>Seleccionar fecha de vencimiento</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-2" align="center">
-                            <Select
-                              onValueChange={(e) => {
-                                setMonth(new Date(e));
-                                setYear(e);
-                                const newYear = parseInt(e, 10);
-                                const dateWithNewYear = new Date(field.value || '');
-                                dateWithNewYear.setFullYear(newYear);
-                                field.onChange(dateWithNewYear);
-                                setMonth(dateWithNewYear);
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input
+                              placeholder="DD/MM/YYYY"
+                              value={dateInputValue}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                setDateInputValue(raw);
+
+                                if (raw === '') {
+                                  setDateInputError('');
+                                  field.onChange(undefined);
+                                  return;
+                                }
+
+                                const parsed = moment(raw, 'DD/MM/YYYY', true);
+                                if (parsed.isValid() && parsed.isSameOrAfter(moment(), 'day')) {
+                                  setDateInputError('');
+                                  field.onChange(parsed.toDate());
+                                  setCalendarMonth(parsed.toDate());
+                                } else if (parsed.isValid() && parsed.isBefore(moment(), 'day')) {
+                                  setDateInputError('La fecha debe ser igual o posterior a hoy');
+                                  field.onChange(undefined);
+                                } else {
+                                  setDateInputError('Formato inválido. Use DD/MM/YYYY');
+                                  field.onChange(undefined);
+                                }
                               }}
-                              value={years || today.getFullYear().toString()}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Elegir año" />
-                              </SelectTrigger>
-                              <SelectContent position="popper">
-                                <SelectItem
-                                  value={today.getFullYear().toString()}
-                                  disabled={years === today.getFullYear().toString()}
-                                >
-                                  {today.getFullYear().toString()}
-                                </SelectItem>
-                                {yearsAhead?.map((year) => (
-                                  <SelectItem key={year} value={`${year}`}>
-                                    {year}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Calendar
-                              month={month}
-                              onMonthChange={setMonth}
-                              fromDate={today}
-                              locale={es}
-                              mode="single"
-                              selected={new Date(field.value || '')}
-                              onSelect={(e) => {
-                                if (!e) return;
-                                form.setValue('validity', e.toISOString());
-                                field.onChange(e);
-                              }}
+                              className={cn(dateInputError ? 'border-destructive' : '')}
                             />
-                          </PopoverContent>
-                        </Popover>
+                          </FormControl>
+                          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="shrink-0"
+                                aria-label="Abrir calendario"
+                              >
+                                <CalendarIcon className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-2" align="end">
+                              <Calendar
+                                month={calendarMonth}
+                                onMonthChange={setCalendarMonth}
+                                fromDate={today}
+                                locale={es}
+                                mode="single"
+                                selected={field.value instanceof Date ? field.value : undefined}
+                                onSelect={(selected) => {
+                                  if (!selected) return;
+                                  const formatted = moment(selected).format('DD/MM/YYYY');
+                                  setDateInputValue(formatted);
+                                  setDateInputError('');
+                                  field.onChange(selected);
+                                  setCalendarOpen(false);
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {dateInputError && <p className="text-sm font-medium text-destructive">{dateInputError}</p>}
                         <FormDescription>La fecha de vencimiento del documento</FormDescription>
                         <FormMessage />
                       </FormItem>
