@@ -1,10 +1,12 @@
 import DocumentNav from '@/components/DocumentNav';
-import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
-import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
+import { MonthlyEquipmentDocumentsList } from './Mensuales/MonthlyEquipmentDocumentsList';
+import { MonthlyEquipmentDocumentsSkeleton } from './Mensuales/fallback/MonthlyEquipmentDocumentsSkeleton';
+import { EquipmentPermanentDocumentsList } from './Permanentes/EquipmentPermanentDocumentsList';
+import { EquipmentPermanentDocumentsSkeleton } from './Permanentes/fallback/EquipmentPermanentDocumentsSkeleton';
 
 export default async function DocumentosEquiposTabContent({
   searchParams,
@@ -38,8 +40,8 @@ export default async function DocumentosEquiposTabContent({
             moduleSlug: 'documentacion',
             tabSlug: 'docs-equipos-permanentes',
             content: (
-              <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
-                <PermanentEquipmentDocumentsWrapper />
+              <Suspense fallback={<EquipmentPermanentDocumentsSkeleton />}>
+                <EquipmentPermanentDocumentsList searchParams={searchParams} />
               </Suspense>
             ),
           },
@@ -54,8 +56,8 @@ export default async function DocumentosEquiposTabContent({
             moduleSlug: 'documentacion',
             tabSlug: 'docs-equipos-mensuales',
             content: (
-              <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
-                <MonthlyEquipmentDocumentsWrapper />
+              <Suspense fallback={<MonthlyEquipmentDocumentsSkeleton />}>
+                <MonthlyEquipmentDocumentsList searchParams={searchParams} />
               </Suspense>
             ),
           },
