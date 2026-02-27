@@ -578,8 +578,8 @@ export default function _EmployeeDataTable({
       toolbarActions={toolbarActions}
       showFilterToggle
       isFetchingFacets={isFetchingFacets}
-      showSearch
-      searchPlaceholder="Buscar por nombre, CUIL o legajo..."
+      // showSearch
+      // searchPlaceholder="Buscar por nombre, CUIL o legajo..."
       enableRowSelection
       showRowSelection
       emptyMessage="No se encontraron empleados"
