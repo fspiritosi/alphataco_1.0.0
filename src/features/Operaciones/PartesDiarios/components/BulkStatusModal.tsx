@@ -10,6 +10,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import moment from 'moment';
 import { useEffect, useState } from 'react';
 import { getDailyReportsForCurrentMonth, updateMultipleDailyReportStatus } from '../actions/actions';
 
@@ -104,7 +105,7 @@ export function BulkStatusModal({ isOpen, onClose, selectedRows, onSuccess }: Bu
               <ul className="text-sm space-y-1">
                 {selectedRows.map((row) => (
                   <li key={row.id} className="p-2 bg-slate-50 dark:bg-slate-800 rounded-md flex justify-between">
-                    <span>{new Date(row.date).toLocaleDateString('es-ES')}</span>
+                    <span>{moment.utc(row.date).format('DD/MM/YYYY')}</span>
                     <span className="text-muted-foreground capitalize">
                       Estado actual: {row.status.replaceAll('_', ' ')}
                     </span>
