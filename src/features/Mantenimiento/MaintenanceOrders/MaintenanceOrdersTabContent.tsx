@@ -27,7 +27,7 @@ export async function MaintenanceOrdersTabContent() {
   return (
     <Card>
       <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
-        <CardTitle>Ordenes de Mantenimiento</CardTitle>
+        <CardTitle>Gestión del Taller</CardTitle>
         <CardDescription>Seguimiento de ordenes con progreso por sectores y secuencia de ejecucion</CardDescription>
       </CardHeader>
       <CardContent className="pt-6">

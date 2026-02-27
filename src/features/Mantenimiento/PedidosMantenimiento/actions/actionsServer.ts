@@ -34,7 +34,7 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
             driver_comment,
             checklist_answers(
               id,
-              employee:employees(id, firstname, lastname),
+              employee:employees!checklist_answers_employee_id_fkey(id, firstname, lastname),
               user:profile!checklist_answers_user_id_fkey(id, fullname, email)
             )
           )
@@ -113,7 +113,7 @@ export async function getMaintenanceOrdersPending() {
             driver_comment,
             checklist_answers(
               id,
-              employee:employees(id, firstname, lastname),
+              employee:employees!checklist_answers_employee_id_fkey(id, firstname, lastname),
               user:profile!checklist_answers_user_id_fkey(id, fullname, email)
             )
           )
@@ -183,7 +183,7 @@ export async function getMaintenanceOrdersConfirmed() {
             checklist_answers(
               id,
               answer_data,
-              employee:employees(id, firstname, lastname),
+              employee:employees!checklist_answers_employee_id_fkey(id, firstname, lastname),
               user:profile!checklist_answers_user_id_fkey(id, fullname, email)
             )
           )
@@ -241,7 +241,7 @@ export async function getMaintenanceOrderById(orderId: string) {
             driver_comment,
             checklist_answers(
               id,
-              employee:employees(id, firstname, lastname),
+              employee:employees!checklist_answers_employee_id_fkey(id, firstname, lastname),
               user:profile!checklist_answers_user_id_fkey(id, fullname, email)
             )
           )

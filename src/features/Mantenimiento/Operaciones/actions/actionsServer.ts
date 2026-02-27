@@ -106,7 +106,7 @@ export async function getOrdersForWorkshop() {
             driver_comment,
             checklist_answers(
               id,
-              employee:employees(id, firstname, lastname),
+              employee:employees!checklist_answers_chofer_employee_id_fkey(id, firstname, lastname),
               user:profile!checklist_answers_user_id_fkey(id, fullname, email)
             )
           )
