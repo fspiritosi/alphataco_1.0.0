@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabaseBrowser } from '@/lib/supabase/browser';
-import cookies from 'js-cookie';
 import {
   AlertCircle,
   CheckCircle,
@@ -55,8 +54,6 @@ export default function EquipmentDashboardClient({
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    cookies.remove('empleado_id');
-    cookies.remove('empleado_name');
     router.push('/maintenance/thanks');
   };
 

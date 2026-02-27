@@ -1,5 +1,4 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import RequestsListClient from './requests-list-client';
 
@@ -12,17 +11,14 @@ export default async function RequestsListPage({
 }) {
   const resolvedParams = await params;
   const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const employeeFromCookie = cookiesStore.get('empleado_id')?.value;
-  const employeeFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
-  const employee = employeeFromCookie ?? employeeFromMetadata;
+  const employee =
+    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
 
   if (!employee && !user?.id) {
     redirect('/maintenance');

@@ -766,7 +766,6 @@ export async function createRepairRequestsFromDeviations(
   }
 
   const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
 
   // Obtener usuario actual
   const {
@@ -774,11 +773,10 @@ export async function createRepairRequestsFromDeviations(
   } = await supabase.auth.getUser();
 
   // Obtener employee_id
-  const employeeId = cookiesStore.get('empleado_id')?.value;
   const employeeIdFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
-  const finalEmployeeId = employeeId || employeeIdFromMetadata || null;
+    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
+  const finalEmployeeId = employeeIdFromMetadata ?? null;
 
   // Obtener kilometraje del equipo si no se proporciona
   let equipmentKilometer: string | undefined;

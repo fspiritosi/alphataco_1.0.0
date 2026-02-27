@@ -1,21 +1,17 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 import TanstackQueryInicializador from '../dashboard/TanstackQueryInicializador';
 import { MaintenanceLayoutProvider } from './maintenance-layout-provider';
 
 export default async function MaintenanceLayout({ children }: { children: React.ReactNode }) {
   const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const employeeFromCookie = cookiesStore.get('empleado_id')?.value;
-  const employeeFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
-  const employeeId = employeeFromCookie ?? employeeFromMetadata;
+  const employeeId =
+    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
 
   // Obtener datos del empleado si existe
   let employeeData: { firstname: string; lastname: string; cuil: string } | null = null;

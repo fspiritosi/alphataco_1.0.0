@@ -130,17 +130,19 @@ function GHLoginContent() {
   });
 
   useEffect(() => {
-    supabase.auth.signOut();
-    cookies.remove('empleado_id');
-    cookies.remove('empleado_name');
+    const clearDashboardSession = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && !user.is_anonymous) {
+        await supabase.auth.signOut();
+      }
+    };
+    clearDashboardSession();
   }, []);
 
   async function onEquipmentSubmit({ equipment_id: selectedId }: z.infer<typeof equipmentFormSchema>) {
     setSelectedEquipmentId(selectedId);
-    // Actualizar URL con query param para mantener estado
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('equipment', selectedId);
-    router.push(newUrl.toString());
     setStep('selection');
   }
 
