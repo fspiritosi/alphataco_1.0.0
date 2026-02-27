@@ -140,32 +140,27 @@ export default function ServiceItemsForm({
     setIsEditing(false);
   };
   return (
-    <div
-      className={
-        open
-          ? 'grid grid-cols-1 gap-4 min-w-[500px] px-6 pt-8 pb-4'
-          : 'grid grid-cols-2 gap-4 min-w-[500px] overflow-hidden px-6 pt-8 pb-4'
-      }
-    >
+    <div className="px-6 pt-6 pb-4">
+      <p className="text-base font-semibold mb-4">{isEditing ? 'Editar Item' : 'Nuevo Item'}</p>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="overflow-hidden">
-            {/* Campo Nombre */}
-            <FormField
-              control={form.control}
-              name="item_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre del Item*</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ingrese el nombre del item" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* Campo Nombre */}
+          <FormField
+            control={form.control}
+            name="item_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nombre del Item*</FormLabel>
+                <FormControl>
+                  <Input placeholder="Ej: Porta Simple" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            {/* Campo Código */}
+          {/* Código y Número en fila */}
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="code_item"
@@ -173,14 +168,13 @@ export default function ServiceItemsForm({
                 <FormItem>
                   <FormLabel>Código</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ingrese el código del item" {...field} value={field.value || ''} />
+                    <Input placeholder="Ej: COD-001" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Campo Número */}
             <FormField
               control={form.control}
               name="item_number"
@@ -189,7 +183,7 @@ export default function ServiceItemsForm({
                   <FormLabel>Número</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Ingrese el número del item"
+                      placeholder="Ej: 001"
                       value={value ?? ''}
                       onChange={onChange}
                       onBlur={onBlur}
@@ -201,8 +195,10 @@ export default function ServiceItemsForm({
                 </FormItem>
               )}
             />
+          </div>
 
-            {/* Campo Precio */}
+          {/* Precio y Unidad de Medida en fila */}
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="item_price"
@@ -210,14 +206,13 @@ export default function ServiceItemsForm({
                 <FormItem>
                   <FormLabel>Precio*</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="Ingrese el precio del item" {...field} />
+                    <Input type="number" placeholder="0.00" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Campo Unidad de Medida */}
             <FormField
               control={form.control}
               name="item_measure_units"
@@ -226,7 +221,7 @@ export default function ServiceItemsForm({
                   <FormLabel>Unidad de Medida*</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Seleccione unidad" />
                       </SelectTrigger>
                     </FormControl>
@@ -242,59 +237,63 @@ export default function ServiceItemsForm({
                 </FormItem>
               )}
             />
+          </div>
 
-            {/* Campo Descripción */}
-            <FormField
-              control={form.control}
-              name="item_description"
-              render={({ field }) => (
-                <FormItem className="col-span-2">
-                  <FormLabel>Descripción</FormLabel>
+          {/* Campo Descripción */}
+          <FormField
+            control={form.control}
+            name="item_description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Descripción</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="Ingrese la descripción del item" {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Estado */}
+          <FormField
+            control={form.control}
+            name="is_active"
+            render={({ field }) => {
+              const radioValue = field.value ? 'true' : 'false';
+              return (
+                <FormItem className="space-y-2">
+                  <FormLabel>Estado</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Ingrese la descripción del item" {...field} value={field.value || ''} />
+                    <RadioGroup
+                      onValueChange={(value) => field.onChange(value === 'true')}
+                      value={radioValue}
+                      className="flex gap-6"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="true" />
+                        <span className="text-sm">Activo</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="false" />
+                        <span className="text-sm">Inactivo</span>
+                      </div>
+                    </RadioGroup>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
+              );
+            }}
+          />
 
-            <FormField
-              control={form.control}
-              name="is_active"
-              render={({ field }) => {
-                const radioValue = field.value ? 'true' : 'false';
-                return (
-                  <FormItem className="col-span-2 space-y-3">
-                    <FormLabel>Estado</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={(value) => field.onChange(value === 'true')}
-                        value={radioValue}
-                        className="flex space-x-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="true" />
-                          <span>Activo</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="false" />
-                          <span>Inactivo</span>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
-            />
-
-            {/* Campos de requerimientos de recursos */}
-            <div className="flex flex-row gap-6 pt-2">
+          {/* Requerimientos de recursos */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium leading-none">Requerimientos</p>
+            <div className="flex gap-6 pt-1">
               <FormField
                 control={form.control}
                 name="needs_personnel"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                  <FormItem className="flex items-center gap-2 space-y-0">
                     <FormControl>
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
@@ -307,7 +306,7 @@ export default function ServiceItemsForm({
                 control={form.control}
                 name="needs_equipment"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                  <FormItem className="flex items-center gap-2 space-y-0">
                     <FormControl>
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
@@ -319,10 +318,10 @@ export default function ServiceItemsForm({
           </div>
 
           {/* Botones de acción */}
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-2 pt-2">
             <PermissionGuard module="comercial" tab="items-contrato" action={isEditing ? 'update' : 'create'}>
               <Button type="submit" variant="gh_orange">
-                {isEditing ? 'Editar' : 'Crear'}
+                {isEditing ? 'Guardar cambios' : 'Crear'}
               </Button>
             </PermissionGuard>
 
