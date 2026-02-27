@@ -47,6 +47,9 @@ const IGNORED_PARAMS = new Set(['tab', 'subtab', 'operations_subtab', 'taller_su
 /** Columnas con filtro de texto libre en campos DIRECTOS de repair_solicitudes */
 const TEXT_FILTER_COLUMNS = ['user_description'];
 
+/** Título del log de cierre */
+const CLOSING_LOG_TITLE = 'Finalizado';
+
 /** Columnas con filtro de texto libre en campos de la relación vehicles (manejadas manualmente) */
 const VEHICLE_TEXT_FILTER_COLUMNS = ['domain', 'serie', 'intern_number'];
 
@@ -136,6 +139,43 @@ const REPAIR_SOLICITUDES_SELECT = {
 // ============================================================================
 
 /**
+ * Resuelve los IDs de solicitudes cerradas ("Finalizado") por uno de los usuarios dados.
+ * Necesario porque Prisma no soporta subqueries de window function para "log de cierre por usuario".
+ * Solo considera logs con title === 'Finalizado'. Toma el más reciente de cada solicitud.
+ */
+async function resolveClosedByIds(companyId: string, userIds: string[]): Promise<string[]> {
+  // Obtener todos los logs de cierre de solicitudes de la compañía
+  const closingLogs = await prisma.repairlogs.findMany({
+    where: {
+      title: CLOSING_LOG_TITLE,
+      repair_solicitudes: {
+        vehicles: { company_id: companyId },
+      },
+    },
+    select: { repair_id: true, modified_by_user: true, created_at: true },
+    orderBy: { created_at: 'desc' },
+  });
+
+  // Para cada repair_id, tomar solo el primer log de cierre (el más reciente)
+  const latestClosingUserByRepair = new Map<string, string | null>();
+  for (const log of closingLogs) {
+    if (log.repair_id && !latestClosingUserByRepair.has(log.repair_id)) {
+      latestClosingUserByRepair.set(log.repair_id, log.modified_by_user ?? null);
+    }
+  }
+
+  // Filtrar los repair_ids cuyo log de cierre fue de uno de los userIds
+  const matchingIds: string[] = [];
+  for (const [repairId, userId] of latestClosingUserByRepair.entries()) {
+    if (userId && userIds.includes(userId)) {
+      matchingIds.push(repairId);
+    }
+  }
+
+  return matchingIds;
+}
+
+/**
  * Resuelve los IDs de solicitudes cuyo ÚLTIMO repairlog fue de uno de los usuarios dados.
  * Necesario porque Prisma no soporta "WHERE último log.modified_by_user IN (...)" nativamente.
  * Retorna undefined si no hay filtro activo.
@@ -180,7 +220,8 @@ async function resolveLastModifiedByIds(companyId: string, userIds: string[]): P
 function buildWhereClause(
   companyId: string,
   state: ReturnType<typeof parseSearchParams>,
-  resolvedSolicitudIds?: string[]
+  resolvedSolicitudIds?: string[],
+  resolvedClosedByIds?: string[]
 ) {
   const searchWhere = buildSearchWhere(state.search, ['user_description']);
 
@@ -188,7 +229,8 @@ function buildWhereClause(
   const MANUALLY_HANDLED = [
     'vehicle', // FK → equipment_id, manejado con vehicleFilter
     'criticity', // campo en types_of_repairs (relación), no en repair_solicitudes
-    'last_modified_by', // filtro sobre repairlogs
+    'last_modified_by', // filtro sobre repairlogs (último log)
+    'closed_by', // filtro sobre repairlogs con title === 'Finalizado'
     ...VEHICLE_TEXT_FILTER_COLUMNS, // domain, serie, intern_number en relación vehicles
   ];
 
@@ -274,6 +316,31 @@ function buildWhereClause(
     }
   }
 
+  // ─── Filtro closed_by (log con title 'Finalizado' de profile UUID) ────────
+  // IMPORTANTE: la columna "Cerrada por" muestra el log más reciente con title === 'Finalizado'.
+  // El filtro busca solicitudes cuyo log de cierre pertenece al usuario seleccionado.
+  // Para solicitudes sin log de cierre (aún abiertas) → NULL_FILTER_VALUE.
+  const closedByFilter: Record<string, unknown> = {};
+  const closedByValues = state.filters['closed_by'];
+  if (closedByValues?.length) {
+    const hasNull = closedByValues.includes(NULL_FILTER_VALUE);
+    const realValues = closedByValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      // caso mixto se maneja en extraAndConditions
+    } else if (hasNull) {
+      // Solicitudes sin ningún log de cierre (aún abiertas)
+      closedByFilter.repairlogs = { none: { title: CLOSING_LOG_TITLE } };
+    } else if (resolvedClosedByIds !== undefined) {
+      // IDs pre-resueltos: solicitudes cuyo log de cierre fue del usuario seleccionado
+      closedByFilter.id = { in: resolvedClosedByIds };
+    } else {
+      // Fallback: búsqueda amplia por cualquier log de cierre del usuario
+      closedByFilter.repairlogs = {
+        some: { title: CLOSING_LOG_TITLE, modified_by_user: { in: realValues } },
+      };
+    }
+  }
+
   // ─── Condiciones AND para casos mixtos (null + reales) ────────────────────
   const extraAndConditions: Record<string, unknown>[] = [...vehicleTextConditions];
 
@@ -318,6 +385,28 @@ function buildWhereClause(
     }
   }
 
+  // Caso mixto para closed_by (null + usuarios reales)
+  if (closedByValues?.length) {
+    const hasNull = closedByValues.includes(NULL_FILTER_VALUE);
+    const realValues = closedByValues.filter((v) => v !== NULL_FILTER_VALUE);
+    if (hasNull && realValues.length > 0) {
+      if (resolvedClosedByIds !== undefined) {
+        // IDs pre-resueltos + solicitudes sin log de cierre
+        extraAndConditions.push({
+          OR: [{ id: { in: resolvedClosedByIds } }, { repairlogs: { none: { title: CLOSING_LOG_TITLE } } }],
+        });
+      } else {
+        // Fallback
+        extraAndConditions.push({
+          OR: [
+            { repairlogs: { some: { title: CLOSING_LOG_TITLE, modified_by_user: { in: realValues } } } },
+            { repairlogs: { none: { title: CLOSING_LOG_TITLE } } },
+          ],
+        });
+      }
+    }
+  }
+
   return {
     vehicles: {
       company_id: companyId,
@@ -329,6 +418,7 @@ function buildWhereClause(
     ...vehicleFilter,
     ...criticityFilter,
     ...lastModifiedByFilter,
+    ...closedByFilter,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
   };
 }
@@ -358,7 +448,17 @@ export async function getRepairSolicitudesPaginated(searchParams: DataTableSearc
       }
     }
 
-    const where = buildWhereClause(companyId, state, resolvedLastModifiedByIds);
+    // Pre-resolver IDs para filtro closed_by (log de cierre 'Finalizado' de cada solicitud)
+    let resolvedClosedByIds: string[] | undefined;
+    const closedByValues = state.filters['closed_by'];
+    if (closedByValues?.length) {
+      const realValues = closedByValues.filter((v) => v !== NULL_FILTER_VALUE);
+      if (realValues.length > 0) {
+        resolvedClosedByIds = await resolveClosedByIds(companyId, realValues);
+      }
+    }
+
+    const where = buildWhereClause(companyId, state, resolvedLastModifiedByIds, resolvedClosedByIds);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -415,7 +515,17 @@ export async function getAllRepairSolicitudesForExport(searchParams: DataTableSe
       }
     }
 
-    const where = buildWhereClause(companyId, state, resolvedLastModifiedByIds);
+    // Pre-resolver IDs para filtro closed_by (log de cierre 'Finalizado' de cada solicitud)
+    let resolvedClosedByIds: string[] | undefined;
+    const closedByValues = state.filters['closed_by'];
+    if (closedByValues?.length) {
+      const realValues = closedByValues.filter((v) => v !== NULL_FILTER_VALUE);
+      if (realValues.length > 0) {
+        resolvedClosedByIds = await resolveClosedByIds(companyId, realValues);
+      }
+    }
+
+    const where = buildWhereClause(companyId, state, resolvedLastModifiedByIds, resolvedClosedByIds);
 
     const data = await prisma.repair_solicitudes.findMany({
       orderBy: [{ created_at: 'desc' }],
@@ -458,23 +568,36 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
 
-    // Para columnas distintas a last_modified_by, no necesitamos resolver IDs
-    if (excludeColumn === 'last_modified_by') {
-      // Excluimos last_modified_by → no necesitamos pasar resolvedSolicitudIds
-      return buildWhereClause(companyId, modified);
-    }
+    // Para columnas especiales (last_modified_by, closed_by) que requieren pre-resolución de IDs,
+    // cuando se excluye la propia columna, simplemente construimos sin ese parámetro.
+    const isExcludingLmb = excludeColumn === 'last_modified_by';
+    const isExcludingClosedBy = excludeColumn === 'closed_by';
 
-    // Si hay filtro last_modified_by activo (y no es la columna excluida), resolver IDs
-    const lmbValues = modified.filters['last_modified_by'];
-    if (lmbValues?.length) {
-      const realValues = lmbValues.filter((v: string) => v !== NULL_FILTER_VALUE);
-      if (realValues.length > 0) {
-        const resolvedIds = await resolveLastModifiedByIds(companyId, realValues);
-        return buildWhereClause(companyId, modified, resolvedIds);
+    // Resolver IDs para last_modified_by si está activo (y no es la columna excluida)
+    let resolvedLmbIds: string[] | undefined;
+    if (!isExcludingLmb) {
+      const lmbValues = modified.filters['last_modified_by'];
+      if (lmbValues?.length) {
+        const realValues = lmbValues.filter((v: string) => v !== NULL_FILTER_VALUE);
+        if (realValues.length > 0) {
+          resolvedLmbIds = await resolveLastModifiedByIds(companyId, realValues);
+        }
       }
     }
 
-    return buildWhereClause(companyId, modified);
+    // Resolver IDs para closed_by si está activo (y no es la columna excluida)
+    let resolvedCbIds: string[] | undefined;
+    if (!isExcludingClosedBy) {
+      const cbValues = modified.filters['closed_by'];
+      if (cbValues?.length) {
+        const realValues = cbValues.filter((v: string) => v !== NULL_FILTER_VALUE);
+        if (realValues.length > 0) {
+          resolvedCbIds = await resolveClosedByIds(companyId, realValues);
+        }
+      }
+    }
+
+    return buildWhereClause(companyId, modified, resolvedLmbIds, resolvedCbIds);
   }
 
   // Helper: construir Map<string, count> con soporte para null → NULL_FILTER_VALUE
@@ -491,15 +614,22 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
   }
 
   try {
-    // Resolver crossWhere para cada columna (async porque last_modified_by puede necesitar IDs)
-    const [crossWhereState, crossWhereVehicle, crossWhereReparationType, crossWhereCriticity, crossWhereLmb] =
-      await Promise.all([
-        crossWhere('state'),
-        crossWhere('vehicle'),
-        crossWhere('reparation_type'),
-        crossWhere('criticity'),
-        crossWhere('last_modified_by'),
-      ]);
+    // Resolver crossWhere para cada columna (async porque last_modified_by/closed_by pueden necesitar IDs)
+    const [
+      crossWhereState,
+      crossWhereVehicle,
+      crossWhereReparationType,
+      crossWhereCriticity,
+      crossWhereLmb,
+      crossWhereClosedBy,
+    ] = await Promise.all([
+      crossWhere('state'),
+      crossWhere('vehicle'),
+      crossWhere('reparation_type'),
+      crossWhere('criticity'),
+      crossWhere('last_modified_by'),
+      crossWhere('closed_by'),
+    ]);
 
     const [stateCounts, vehicleCounts, repairTypeCounts, criticityCounts] = await Promise.all([
       prisma.repair_solicitudes.groupBy({
@@ -606,6 +736,59 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
           })
         : [];
 
+    // ─── Facets closed_by ─────────────────────────────────────────────────────
+    // Contamos solicitudes cuyo log de cierre más reciente (title === 'Finalizado')
+    // pertenece a cada usuario. Las solicitudes sin log de cierre → NULL_FILTER_VALUE.
+    //
+    // Estrategia: traer todos los logs con title === 'Finalizado' que cumplan crossWhereClosedBy,
+    // ordenados desc, y para cada repair_id tomar solo el primero (el más reciente log de cierre).
+    // Luego agrupar por modified_by_user y contar.
+
+    const allClosingLogs = await prisma.repairlogs.findMany({
+      where: {
+        title: CLOSING_LOG_TITLE,
+        repair_solicitudes: crossWhereClosedBy,
+      },
+      select: { repair_id: true, modified_by_user: true, created_at: true },
+      orderBy: { created_at: 'desc' },
+    });
+
+    // Para cada repair_id, tomar el primer log de cierre (más reciente)
+    const latestClosingUserByRepair = new Map<string, string | null>();
+    for (const log of allClosingLogs) {
+      if (log.repair_id && !latestClosingUserByRepair.has(log.repair_id)) {
+        latestClosingUserByRepair.set(log.repair_id, log.modified_by_user ?? null);
+      }
+    }
+
+    // Contar solicitudes por usuario (log de cierre)
+    const closedByCountMap = new Map<string, number>();
+    for (const userId of latestClosingUserByRepair.values()) {
+      if (userId) {
+        closedByCountMap.set(userId, (closedByCountMap.get(userId) ?? 0) + 1);
+      }
+    }
+
+    // Contar solicitudes sin ningún log de cierre (aún abiertas) → NULL_FILTER_VALUE
+    const totalInClosedByCross = await prisma.repair_solicitudes.count({ where: crossWhereClosedBy });
+    const withClosingLog = await prisma.repair_solicitudes.count({
+      where: { ...crossWhereClosedBy, repairlogs: { some: { title: CLOSING_LOG_TITLE } } },
+    });
+    const unassignedClosedBy = totalInClosedByCross - withClosingLog;
+    if (unassignedClosedBy > 0) {
+      closedByCountMap.set(NULL_FILTER_VALUE, unassignedClosedBy);
+    }
+
+    // Resolver perfiles de los usuarios que cerraron solicitudes
+    const closedByUserIds = [...closedByCountMap.keys()].filter((k) => k !== NULL_FILTER_VALUE);
+    const closedByProfiles =
+      closedByUserIds.length > 0
+        ? await prisma.profile.findMany({
+            where: { id: { in: closedByUserIds } },
+            select: { id: true, fullname: true },
+          })
+        : [];
+
     return {
       state: toFacetMap(stateCounts.map((r) => ({ key: r.state as string, count: r._count }))),
       vehicle: toFacetMap(vehicleCounts.map((r) => ({ key: r.equipment_id, count: r._count }))),
@@ -615,6 +798,8 @@ export async function getRepairSolicitudesFacets(searchParams?: DataTableSearchP
       criticity: toFacetMap(criticityCounts),
       last_modified_by: lastModifiedByCountMap,
       lastModifiedByOptions: lastModifiedByProfiles,
+      closed_by: closedByCountMap,
+      closedByOptions: closedByProfiles,
     };
   } catch (error) {
     logger.error('Error al obtener facets de solicitudes de reparación', { data: { error } });

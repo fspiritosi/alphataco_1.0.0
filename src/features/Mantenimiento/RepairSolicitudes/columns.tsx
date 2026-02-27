@@ -24,6 +24,8 @@ export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = [
   'updated_at',
   'last_modified_by',
   'kilometer',
+  'closed_by',
+  'closed_at',
 ];
 
 // ============================================================================
@@ -237,6 +239,13 @@ export const columns: ColumnDef<RepairSolicitudListItem>[] = [
     cell: ({ row }) => {
       const name = getClosingPersonName(row.original);
       return <div className="text-sm text-muted-foreground">{name}</div>;
+    },
+    filterFn: (row, _id, value: string[]) => {
+      // El log de cierre es el más reciente con title === 'Finalizado'
+      const closingLog = getClosingLog(row.original);
+      const userId = closingLog?.modified_by_user;
+      if (userId == null) return value.includes(NULL_FILTER_VALUE);
+      return value.includes(userId);
     },
     enableSorting: false,
   },
