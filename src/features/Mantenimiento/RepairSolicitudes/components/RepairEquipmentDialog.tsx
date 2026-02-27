@@ -71,6 +71,22 @@ async function fetchRepairsByEquipment(equipmentId: string) {
   return data ?? [];
 }
 
+/** Carga user_images y mechanic_images via Supabase (tolerante con nulls en arrays) */
+async function fetchSolicitudImages(solicitudId: string) {
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase
+    .from('repair_solicitudes')
+    .select('user_images, mechanic_images')
+    .eq('id', solicitudId)
+    .single();
+
+  if (error || !data) return { user_images: [] as string[], mechanic_images: [] as string[] };
+  return {
+    user_images: ((data.user_images as (string | null)[] | null) ?? []).filter((s): s is string => !!s),
+    mechanic_images: ((data.mechanic_images as (string | null)[] | null) ?? []).filter((s): s is string => !!s),
+  };
+}
+
 type RepairByEquipmentItem = Awaited<ReturnType<typeof fetchRepairsByEquipment>>[number];
 
 /**
@@ -149,31 +165,34 @@ export function RepairEquipmentDialog({ row }: RepairEquipmentDialogProps) {
     fetchRepairsByEquipment(original.vehicles?.id || '').then(setRepairSolicitudes);
   }, [original.repairlogs]);
 
-  // Cargar imágenes
-  useEffect(() => {
-    const fetchImageUrls = () => {
-      const modifiedStrings =
-        original.user_images
-          ?.map((str) => {
-            const { data } = supabase.storage.from('repair-images').getPublicUrl(str.slice(1));
-            return data.publicUrl;
-          })
-          .filter(Boolean) ?? [];
+  // Estado para imágenes raw de la BD (cargadas lazily via Supabase)
+  const [rawUserImages, setRawUserImages] = useState<string[]>([]);
+  const [rawMechanicImages, setRawMechanicImages] = useState<string[]>([]);
 
-      const modifiedStringsMechanic =
-        original.mechanic_images
-          ?.filter((e) => e)
-          .map((str) => {
-            const { data } = supabase.storage.from('repair-images').getPublicUrl(str?.slice(1));
-            return data.publicUrl;
-          }) ?? [];
+  // Cargar imágenes lazily via Supabase (no Prisma, porque Prisma falla con nulls en String[])
+  useEffect(() => {
+    fetchSolicitudImages(original.id).then(({ user_images, mechanic_images }) => {
+      setRawUserImages(user_images);
+      setRawMechanicImages(mechanic_images);
+
+      const modifiedStrings = user_images
+        .map((str) => {
+          const { data } = supabase.storage.from('repair-images').getPublicUrl(str.slice(1));
+          return data.publicUrl;
+        })
+        .filter(Boolean);
+
+      const modifiedStringsMechanic = mechanic_images
+        .map((str) => {
+          const { data } = supabase.storage.from('repair-images').getPublicUrl(str.slice(1));
+          return data.publicUrl;
+        })
+        .filter(Boolean);
 
       setImagesMechanic(modifiedStringsMechanic);
       setImageUrl(modifiedStrings);
-    };
-
-    fetchImageUrls();
-  }, [original.user_images]);
+    });
+  }, [original.id]);
 
   const [formattedToday] = useState(formatDocumentTypeName(new Date().toISOString()));
 
@@ -202,8 +221,7 @@ export function RepairEquipmentDialog({ row }: RepairEquipmentDialogProps) {
   const formatImages = (image: File | undefined, domain: string, index: number) => {
     if (!image) return;
     const maintenanceName = formatDocumentTypeName(original.types_of_repairs?.name || '');
-    const user_pictures = original.user_images?.filter((e) => e) || [];
-    const str = user_pictures[index];
+    const str = rawUserImages[index];
     const regex = /\(([^)]+)\)/;
     const user_pictures_date = str?.match(regex);
 

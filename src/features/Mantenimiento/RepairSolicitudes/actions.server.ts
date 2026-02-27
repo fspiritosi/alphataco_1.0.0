@@ -71,8 +71,8 @@ const REPAIR_SOLICITUDES_SELECT = {
   user_description: true,
   mechanic_description: true,
   kilometer: true,
-  user_images: true,
-  mechanic_images: true,
+  // user_images y mechanic_images se cargan lazily en el dialog (via supabaseBrowser)
+  // porque Prisma 7 falla con null dentro de String[] arrays en la BD
   scheduled: true,
   equipment_id: true,
   // FK relations
