@@ -198,17 +198,18 @@ function buildWhereClause(companyId: string, isActive: boolean, state: ReturnTyp
     fullName: 'full_name',
   });
 
-  // fullName necesita búsqueda en múltiples campos
+  // fullName necesita búsqueda en múltiples campos.
+  // Se agrega como condición AND para no sobrescribir el OR de searchWhere.
   const fullNameFilter = state.filters['fullName']?.[0];
-  let fullNameWhere = {};
+  const fullNameAndCondition: Record<string, unknown>[] = [];
   if (fullNameFilter) {
-    fullNameWhere = {
+    fullNameAndCondition.push({
       OR: [
         { lastname: { contains: fullNameFilter, mode: 'insensitive' as const } },
         { firstname: { contains: fullNameFilter, mode: 'insensitive' as const } },
         { full_name: { contains: fullNameFilter, mode: 'insensitive' as const } },
       ],
-    };
+    });
     // Quitar full_name de textFiltersWhere (ya se maneja arriba)
     delete (textFiltersWhere as Record<string, unknown>)['full_name'];
   }
@@ -277,17 +278,26 @@ function buildWhereClause(companyId: string, isActive: boolean, state: ReturnTyp
     }
   }
 
+  // Consolidar TODAS las condiciones AND para evitar que los spreads se sobrescriban entre sí.
+  // buildFiltersWhere puede generar AND (para mixed null+real values),
+  // fullNameAndCondition puede generar AND (para filtro de nombre),
+  // extraAndConditions puede generar AND (para BigInt/M:M con mixed null+real values).
+  const filtersWhereAndConditions = (filtersWhere.AND as Record<string, unknown>[] | undefined) ?? [];
+  const allAndConditions = [...filtersWhereAndConditions, ...fullNameAndCondition, ...extraAndConditions];
+  const { AND: _discarded, ...filtersWhereWithoutAnd } = filtersWhere as Record<string, unknown> & {
+    AND?: unknown;
+  };
+
   return {
     company_id: companyId,
     is_active: isActive,
     ...searchWhere,
-    ...filtersWhere,
+    ...filtersWhereWithoutAnd,
     ...textFiltersWhere,
-    ...fullNameWhere,
     ...dateFiltersWhere,
     ...bigintFilters,
     ...m2mFilters,
-    ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
+    ...(allAndConditions.length > 0 ? { AND: allAndConditions } : {}),
   };
 }
 

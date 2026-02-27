@@ -37,17 +37,27 @@ export function DataTableToolbar<TData>({
   onFilterVisibilityChange,
   paramNamespace,
   isFetchingFacets,
+  onSearchChange,
+  searchValue: externalSearchValue,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const sortingState = table.getState().sorting;
   const isSorted = sortingState.length > 0;
 
-  const searchValue = searchColumn
-    ? (table.getColumn(searchColumn)?.getFilterValue() as string) ?? ''
-    : (table.getState().globalFilter as string) ?? '';
+  // Si se provee onSearchChange (búsqueda sincronizada con URL/servidor),
+  // usar el valor externo (searchValue prop). De lo contrario, usar estado local de TanStack.
+  const searchValue =
+    externalSearchValue !== undefined
+      ? externalSearchValue
+      : searchColumn
+        ? (table.getColumn(searchColumn)?.getFilterValue() as string) ?? ''
+        : (table.getState().globalFilter as string) ?? '';
 
   const handleSearchChange = (value: string) => {
-    if (searchColumn) {
+    if (onSearchChange) {
+      // Ruta preferida: sincronizar búsqueda con URL para re-fetch server-side
+      onSearchChange(value);
+    } else if (searchColumn) {
       table.getColumn(searchColumn)?.setFilterValue(value);
     } else {
       table.setGlobalFilter(value);

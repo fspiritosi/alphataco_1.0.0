@@ -136,9 +136,7 @@ export const reasonForTerminationIcons: Record<string, LucideIcon> = {
 export const HIDDEN_COLUMNS_BY_DEFAULT = [
   'nationality',
   'born_date',
-  'cuil',
   'document_type',
-  'document_number',
   'gender',
   'marital_status',
   'level_of_education',
@@ -203,6 +201,7 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
       id: 'fullName',
       accessorFn: (row) => `${row.lastname ?? ''} ${row.firstname ?? ''}`.trim(),
       header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre completo" />,
+      enableSorting: false,
       cell: ({ row }) => {
         const pic = row.original.picture;
         const fallback = (
@@ -374,6 +373,7 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
         const matchesReal = contractors.some((c) => c.customers && value.includes(c.customers.id));
         return matchesReal;
       },
+      enableSorting: false,
       meta: { title: 'Afectaciones' },
     },
 
@@ -740,6 +740,7 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
         if (aptitudes.length === 0) return value.includes(NULL_FILTER_VALUE);
         return aptitudes.some((a) => a.aptitudes_tecnicas && value.includes(a.aptitudes_tecnicas.id));
       },
+      enableSorting: false,
       meta: { title: 'Aptitudes tecnicas' },
     },
 
@@ -912,7 +913,7 @@ export function getColumns(permissions: Permissions, isActive: boolean): ColumnD
       ),
       enableSorting: false,
       enableHiding: false,
-      meta: { excludeFromExport: true },
+      meta: { title: '', excludeFromExport: true },
     },
   ];
 }

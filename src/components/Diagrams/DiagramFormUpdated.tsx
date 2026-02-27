@@ -4,13 +4,12 @@ import { CreateDiagrams, UpdateDiagramsById } from '@/app/server/UPDATE/actions'
 import { FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
-  EmployeeDiagram,
   getEmployeeDiagramByIdandDate,
   getEmployeesName,
 } from '@/features/Employees/Empleados/lib/actions/employeesActions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import moment from 'moment';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -20,6 +19,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card
 import { Form } from '../ui/form';
 import { MultiSelectCombobox } from '../ui/multi-select-combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+
 interface ErrorToCreate {
   employee_name: string;
   day: number;
@@ -40,33 +40,29 @@ interface DiagramaToCreate {
   employee_name?: string;
 }
 
-interface EmployeeDiagramWithDiagramTypeWithPrevDiagramType extends EmployeeDiagramWithDiagramType {
+type DiagramQueryResult = Awaited<ReturnType<typeof getEmployeeDiagramByIdandDate>>[number];
+type ExistingDiagramEntry = DiagramQueryResult & {
   prev_diagram_type: string | null;
-}
-
-interface ExistingDiagram extends EmployeeDiagram {
-  prev_diagram_type: string | null;
-}
+};
 
 function DiagramFormUpdated({
   employees,
-  //diagrams,
   diagrams_types,
   defaultId,
 }: {
   employees: Awaited<ReturnType<typeof getEmployeesName>>;
-  //diagrams: EmployeeDiagramWithDiagramType[];
   diagrams_types: DiagramType[];
   defaultId?: string;
 }) {
-  const [existingDiagrams, setExistingDiagrams] = useState<EmployeeDiagramWithDiagramType[]>([]);
-  const [newDiagrams, setNewDiagrams] = useState<DiagramaToCreate[]>([]);
   const [errorsDiagrams, setErrorsDiagrams] = useState<ErrorToCreate[]>([]);
   const [succesDiagrams, setSuccesDiagrams] = useState<DiagramaToCreate[]>([]);
+
+  // Incluir legajo en el label para que sea visible y buscable por legajo o nombre
   const employeesOptions = employees.map((employee) => ({
     value: employee.id,
-    label: `${employee.lastname.charAt(0).toUpperCase()}${employee.lastname.slice(1)} ${employee.firstname.charAt(0).toUpperCase()}${employee.firstname.slice(1)}`,
+    label: `${employee.file ? `[${employee.file}] ` : ''}${employee.lastname.charAt(0).toUpperCase()}${employee.lastname.slice(1)} ${employee.firstname.charAt(0).toUpperCase()}${employee.firstname.slice(1)}`,
   }));
+
   const diagramsTypeOptions = diagrams_types.map((type) => ({
     value: type.id,
     label: type.name || '',
@@ -101,13 +97,10 @@ function DiagramFormUpdated({
   const logicaDeDiagramas = async (data: z.infer<typeof FormSchema>) => {
     const { employee_id, dateRange, diagram_type } = data;
 
-    // Filtrar diagramas del empleado seleccionado
-    //const employeeDiagrams1 = diagrams.filter((diagram) => employee_id.includes(diagram.employee_id?.id));
-
     // Generar todas las fechas entre dateRange.from y dateRange.to
     const startDate = moment(dateRange.from);
     const endDate = moment(dateRange.to);
-    const dates = [];
+    const dates: { day: number; month: number; year: number }[] = [];
 
     const initialDate = {
       day: startDate.date(),
@@ -131,10 +124,9 @@ function DiagramFormUpdated({
     }
 
     // Consultar diagramas existentes y agruparlos
-
     const employeeDiagrams = await getEmployeeDiagramByIdandDate(employee_id[0], initialDate, finalDate);
 
-    const existing: any = [];
+    const existing: ExistingDiagramEntry[] = [];
     const newDates: { day: number; month: number; year: number; diagram_type: string; employee_id: string }[] = [];
 
     dates.forEach((date) => {
@@ -154,26 +146,22 @@ function DiagramFormUpdated({
       }
     });
 
-    setExistingDiagrams(existing);
-    setNewDiagrams(newDates);
     // Mapear los diagramas existentes y nuevos a los estados correspondientes
-    const errors = existing
-      // .filter((diagram) => diagram.diagram_type?.id !== form.getValues('diagram_type'))
-      ?.map((diagram: any) => ({
-        employee_name: diagram.employees?.lastname + ' ' + diagram.employees?.firstname,
-        day: diagram.day,
-        month: diagram.month,
-        year: diagram.year,
-        event_diagram_name: diagrams_types.find((type) => type?.id === form.getValues('diagram_type')[0])?.name || '',
-        prev_event: diagram.diagram_type?.name || '',
-        prev_diagram_entry_id: diagram?.id,
-      }));
+    const errors: ErrorToCreate[] = existing.map((diagram) => ({
+      employee_name: (diagram.employees?.lastname ?? '') + ' ' + (diagram.employees?.firstname ?? ''),
+      day: diagram.day,
+      month: diagram.month,
+      year: diagram.year,
+      event_diagram_name: diagrams_types.find((type) => type?.id === form.getValues('diagram_type')[0])?.name || '',
+      prev_event: diagram.diagram_type?.name || '',
+      prev_diagram_entry_id: diagram?.id,
+    }));
 
-    const successes = newDates?.map((date) => ({
+    const successes: DiagramaToCreate[] = newDates.map((date) => ({
       employee_name:
-        employees.find((e) => e?.id === employee_id[0])?.lastname +
+        (employees.find((e) => e?.id === employee_id[0])?.lastname ?? '') +
         ' ' +
-        employees.find((e) => e?.id === employee_id[0])?.firstname,
+        (employees.find((e) => e?.id === employee_id[0])?.firstname ?? ''),
       day: date.day,
       month: date.month,
       year: date.year,
@@ -220,9 +208,7 @@ function DiagramFormUpdated({
         error: 'Error al actualizar los diagramas',
       }
     );
-    //Eliminar todos los diagramas de la lista de errores
     setErrorsDiagrams([]);
-    // router.refresh();
   };
 
   const createDiagram = (diagramToCreate: DiagramaToCreate) => {
@@ -250,9 +236,6 @@ function DiagramFormUpdated({
         (d) => !(d.day === diagramToCreate.day && d.month === diagramToCreate.month && d.year === diagramToCreate.year)
       )
     );
-    // if (defaultId) {
-    // router.refresh();
-    // }
   };
 
   const createAll = (diagramsToCreate: DiagramaToCreate[]) => {
@@ -274,10 +257,9 @@ function DiagramFormUpdated({
       }
     );
     setSuccesDiagrams([]);
-    // router.refresh();
   };
 
-  const descartarOne = (diagram: any, index: number, type: 'e' | 's') => {
+  const descartarOne = (index: number, type: 'e' | 's') => {
     if (type === 'e') {
       setErrorsDiagrams((prev) => prev.filter((_, i) => i !== index));
     } else {
@@ -292,17 +274,6 @@ function DiagramFormUpdated({
       setSuccesDiagrams([]);
     }
   };
-  // Dentro del componente DiagramFormUpdated
-  useEffect(() => {
-    if (
-      form.getValues('diagram_type') &&
-      form.getValues('employee_id') &&
-      form.getValues('dateRange.from') &&
-      form.getValues('dateRange.to')
-    ) {
-      logicaDeDiagramas(form.getValues());
-    }
-  }, [form.watch('diagram_type'), form.watch('employee_id'), form.watch('dateRange.from'), form.watch('dateRange.to')]);
 
   return (
     <ResizablePanelGroup direction="horizontal">
@@ -321,7 +292,7 @@ function DiagramFormUpdated({
                       options={employeesOptions}
                       placeholder="Selecciona un empleado"
                       emptyMessage="No hay empleados"
-                      selectedValues={field.value as any}
+                      selectedValues={field.value as string[]}
                       onChange={field.onChange}
                       disabled={defaultId ? true : false}
                       maxSelections={1}
@@ -340,7 +311,7 @@ function DiagramFormUpdated({
                       options={diagramsTypeOptions}
                       placeholder="Selecciona un tipo de novedad"
                       emptyMessage="No hay tipos de novedades"
-                      selectedValues={field.value as any}
+                      selectedValues={field.value as string[]}
                       onChange={field.onChange}
                       maxSelections={1}
                     />
@@ -380,7 +351,7 @@ function DiagramFormUpdated({
                   <TableHead></TableHead>
                 </TableHeader>
                 {errorsDiagrams?.map((d, index: number) => (
-                  <TableBody key={crypto.randomUUID()}>
+                  <TableBody key={`error-${d.prev_diagram_entry_id}`}>
                     <TableRow>
                       <TableCell>{d.employee_name}</TableCell>
                       <TableCell>
@@ -395,7 +366,7 @@ function DiagramFormUpdated({
                         <Button
                           variant={'link'}
                           className="font-bold text-red-600"
-                          onClick={() => descartarOne(d, index, 'e')}
+                          onClick={() => descartarOne(index, 'e')}
                         >
                           Descartar
                         </Button>
@@ -431,7 +402,7 @@ function DiagramFormUpdated({
                   <TableHead></TableHead>
                 </TableHeader>
                 {succesDiagrams?.map((d, index: number) => (
-                  <TableBody key={crypto.randomUUID()}>
+                  <TableBody key={`success-${d.day}-${d.month}-${d.year}-${index}`}>
                     <TableRow>
                       <TableCell>{d.employee_name || ''}</TableCell>
                       <TableCell>
@@ -447,7 +418,7 @@ function DiagramFormUpdated({
                         <Button
                           variant={'link'}
                           className="font-bold text-red-600"
-                          onClick={() => descartarOne(d, index, 's')}
+                          onClick={() => descartarOne(index, 's')}
                         >
                           Descartar
                         </Button>

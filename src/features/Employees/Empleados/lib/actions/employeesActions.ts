@@ -1,7 +1,10 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Employees/employeesActions');
 
 export async function getEmployeesName() {
   const cookiesStore = await cookies();
@@ -16,14 +19,15 @@ export async function getEmployeesName() {
       `
             id,
             firstname,
-            lastname
+            lastname,
+            file
         `
     )
     .eq('is_active', true)
     .order('lastname', { ascending: true });
 
   if (error) {
-    console.error('Error fetching employees:', error);
+    logger.error('Error fetching employees', { data: { error } });
     return [];
   }
 
@@ -58,7 +62,7 @@ export async function getEmployeeDiagramByIdandDate(
       `and(year.eq.${fromDate.year},month.eq.${fromDate.month},day.gte.${fromDate.day}),and(year.eq.${toDate.year},month.eq.${toDate.month},day.lte.${toDate.day})`
     );
   if (error) {
-    console.error('Error fetching employees:', error);
+    logger.error('Error fetching employee diagrams by date', { data: { error } });
     return [];
   }
 
