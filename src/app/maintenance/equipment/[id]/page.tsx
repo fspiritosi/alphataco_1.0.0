@@ -1,5 +1,4 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import EquipmentDashboardClient from './equipment-dashboard-client';
 
@@ -11,7 +10,6 @@ export default async function EquipmentDashboardPage({
   }>;
 }) {
   const resolvedParams = await params;
-  const cookiesStore = await cookies();
   const supabase = await supabaseServer();
   const URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -19,11 +17,9 @@ export default async function EquipmentDashboardPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const employeeFromCookie = cookiesStore.get('empleado_id')?.value;
-  const employeeFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
-  const employee = employeeFromCookie ?? employeeFromMetadata;
+  const employee =
+    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
 
   if (!employee && !user?.id) {
     redirect('/maintenance');
@@ -56,11 +52,9 @@ export default async function EquipmentDashboardPage({
   const isGuest = role === 'Invitado';
 
   // Obtener nombre del empleado/usuario
-  const empleadoNameFromCookie = cookiesStore.get('empleado_name')?.value;
-  const empleadoNameFromMetadata =
-    ((user?.user_metadata as any)?.fullname as string | undefined) ??
-    ((user?.user_metadata as any)?.employeeName as string | undefined);
-  const empleado_name = empleadoNameFromCookie ?? empleadoNameFromMetadata;
+  const empleado_name =
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.fullname as string | undefined) ??
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.employeeName as string | undefined);
 
   return (
     <EquipmentDashboardClient

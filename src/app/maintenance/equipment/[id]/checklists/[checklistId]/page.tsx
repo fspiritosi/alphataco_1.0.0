@@ -3,7 +3,6 @@ import { NormalizedChecklistForm } from '@/components/CheckList/NormalizedCheckl
 import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
 import { fetchActiveCustomersForChecklist } from '@/features/Checklist';
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 export default async function ChecklistFormPage({
@@ -16,17 +15,14 @@ export default async function ChecklistFormPage({
 }) {
   const resolvedParams = await params;
   const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const employeeFromCookie = cookiesStore.get('empleado_id')?.value;
-  const employeeFromMetadata =
+  const employee =
     ((user?.app_metadata as Record<string, unknown>)?.employee_id as string | undefined) ??
     ((user?.user_metadata as Record<string, unknown>)?.employee_id as string | undefined);
-  const employee = employeeFromCookie ?? employeeFromMetadata;
 
   if (!employee && !user?.id) {
     redirect('/maintenance');

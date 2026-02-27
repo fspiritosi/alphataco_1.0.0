@@ -1,7 +1,6 @@
 import { fetchMaintenanceChecklists } from '@/app/maintenance/actions';
 import { fetchAllEquipment } from '@/app/server/GET/actions';
 import { supabaseServer } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import ChecklistsListClient from './checklists-list-client';
 
@@ -14,17 +13,14 @@ export default async function ChecklistsListPage({
 }) {
   const resolvedParams = await params;
   const supabase = await supabaseServer();
-  const cookiesStore = await cookies();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const employeeFromCookie = cookiesStore.get('empleado_id')?.value;
-  const employeeFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
-  const employee = employeeFromCookie ?? employeeFromMetadata;
+  const employee =
+    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
 
   if (!employee && !user?.id) {
     redirect('/maintenance');
@@ -55,17 +51,17 @@ export default async function ChecklistsListPage({
 
   // Obtener employee_id y CUIL del empleado desde la sesión
   const employeeIdFromMetadata =
-    ((user?.app_metadata as any)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as any)?.employee_id as string | undefined);
+    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
 
   const cuilFromMetadata =
-    ((user?.user_metadata as any)?.cuil as string | undefined) ??
-    ((user?.app_metadata as any)?.cuil as string | undefined);
+    ((user?.user_metadata as unknown as Record<string, unknown>)?.cuil as string | undefined) ??
+    ((user?.app_metadata as unknown as Record<string, unknown>)?.cuil as string | undefined);
 
   // Obtener checklists usando función específica para mantenimiento (usa company_id del empleado)
   // Pasar tipo y subtipo del equipo para filtrar
-  const equipmentTypeId = (equipmentData?.type as any)?.id;
-  const equipmentSubTypeId = (equipmentData?.subType as any)?.id;
+  const equipmentTypeId = (equipmentData?.type as { id?: string } | null)?.id;
+  const equipmentSubTypeId = (equipmentData?.subType as { id?: string } | null)?.id;
 
   const checklistsRaw =
     employeeIdFromMetadata || cuilFromMetadata
