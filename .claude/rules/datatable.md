@@ -28,6 +28,7 @@ Aplica cuando:
 - [ ] `searchPlaceholder` prop presente y descriptivo
 - [ ] `showFilterToggle={true}` prop presente
 - [ ] `emptyMessage` prop presente (en español)
+- [ ] **`isFetchingFacets={isFetchingFacets}` en `<DataTable>` — OBLIGATORIO**. Extraer `isFetching` del `useQuery` de facets y pasarlo. Sin esto, al cambiar filtros las opciones del popover desaparecen momentáneamente y puede aparecer "Sin resultados" falso
 - [ ] `facetedFilters` configurado con `externalCounts` (Maps del servidor) en todos los filtros facetados
 - [ ] `exportConfig` configurado con formatters para TODOS los campos exportables (enums→labels, fechas→DD/MM/YYYY, booleanos→Sí/No)
 - [ ] Permisos recibidos como prop del Server Component — NUNCA re-fetched en el cliente (solo si la tabla tiene columna `actions`)
@@ -108,12 +109,20 @@ export type EntityListItem = Awaited<ReturnType<typeof getEntitysPaginated>>['da
 ## Props Clave del Nuevo DataTable
 
 ```typescript
+// useQuery de facets — SIEMPRE extraer isFetching
+const { data: facets, isFetching: isFetchingFacets } = useQuery({
+  queryKey: ['entity-facets', facetParams],
+  queryFn: () => getEntityFacets(facetParams),
+  staleTime: 5 * 60 * 1000,
+});
+
 <DataTable
   columns={columns}
   data={data}
   totalRows={total}
   searchParams={searchParams}
   facetedFilters={facetedFilters}     // Filtros con externalCounts
+  isFetchingFacets={isFetchingFacets} // Loading state para filtros (evita flash vacío)
   exportConfig={exportConfig}         // Excel con formatters
   tableId="entities"                  // Persistencia de preferencias en BD
   searchPlaceholder="Buscar..."

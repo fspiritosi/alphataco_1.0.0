@@ -75,7 +75,7 @@ export default async function page({
   // Si no tiene permiso de view, mostrar placeholder de sin acceso
   if (!canView) {
     return (
-      <section className="md:mx-7">
+      <section className="md:mx-2">
         <Card className="p-4">
           <div className="flex items-center justify-center p-8 text-center">
             <div className="space-y-2">
@@ -552,8 +552,8 @@ export default async function page({
   }
 
   return (
-    <section className="md:mx-7">
-      <Card className="p-4">
+    <section className="md:mx-2">
+      <Card className="p-4 px-2">
         <div className="grid lg:grid-cols-3 grid-cols-1 gap-col-3 ">
           <div className="lg:max-w-[30vw] col-span-1">
             <div className="flex  flex-col ">

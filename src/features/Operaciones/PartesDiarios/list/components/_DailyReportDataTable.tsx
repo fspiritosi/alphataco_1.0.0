@@ -166,8 +166,8 @@ export function _DailyReportDataTable({
           sheetName: 'Partes Diarios',
         },
         formatters: {
-          date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
-          creation_date: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
+          date: (val) => (val ? moment.utc(val as string).format('DD/MM/YYYY') : ''),
+          creation_date: (val) => (val ? moment.utc(val as string).format('DD/MM/YYYY') : ''),
           status: (val) => dailyReportStatusLabels[val as string] ?? String(val ?? ''),
           is_active: (val) => (val ? 'Activo' : 'Inactivo'),
         },

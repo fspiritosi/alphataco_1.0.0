@@ -94,7 +94,7 @@ export function getColumns(permissions: Permissions): ColumnDef<DailyReportListI
       meta: { title: 'Fecha' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
       cell: ({ row }) => (
-        <span className="font-medium whitespace-nowrap">{moment(row.original.date).format('DD/MM/YYYY')}</span>
+        <span className="font-medium whitespace-nowrap">{moment.utc(row.original.date).format('DD/MM/YYYY')}</span>
       ),
     },
 
@@ -122,7 +122,7 @@ export function getColumns(permissions: Permissions): ColumnDef<DailyReportListI
       meta: { title: 'Fecha de creación' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de creación" />,
       cell: ({ row }) => (
-        <span>{row.original.creation_date ? moment(row.original.creation_date).format('DD/MM/YYYY') : '—'}</span>
+        <span>{row.original.creation_date ? moment.utc(row.original.creation_date).format('DD/MM/YYYY') : '—'}</span>
       ),
     },
 

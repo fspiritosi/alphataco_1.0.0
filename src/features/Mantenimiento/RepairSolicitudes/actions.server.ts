@@ -69,7 +69,12 @@ const REPAIR_SOLICITUDES_SELECT = {
   updated_at: true,
   state: true,
   user_description: true,
+  mechanic_description: true,
   kilometer: true,
+  // user_images y mechanic_images se cargan lazily en el dialog (via supabaseBrowser)
+  // porque Prisma 7 falla con null dentro de String[] arrays en la BD
+  scheduled: true,
+  equipment_id: true,
   // FK relations
   vehicles: {
     select: {
@@ -77,6 +82,24 @@ const REPAIR_SOLICITUDES_SELECT = {
       domain: true,
       serie: true,
       intern_number: true,
+      year: true,
+      engine: true,
+      chassis: true,
+      status: true,
+      condition: true,
+      picture: true,
+      type_vehicles_typeTotype: {
+        select: { id: true, name: true },
+      },
+      brand_vehicles: {
+        select: { id: true, name: true },
+      },
+      model_vehicles: {
+        select: { id: true, name: true },
+      },
+      sub_type: {
+        select: { id: true, name: true },
+      },
     },
   },
   types_of_repairs: {
@@ -84,16 +107,18 @@ const REPAIR_SOLICITUDES_SELECT = {
       id: true,
       name: true,
       criticity: true,
+      type_of_maintenance: true,
     },
   },
-  // Último log de modificación (para "Últ. modificación por")
+  // Logs de la solicitud (todos, para timeline completa)
   repairlogs: {
     orderBy: { created_at: 'desc' as const },
-    take: 5, // tomamos 5 para poder filtrar el log de cierre también
     select: {
       id: true,
       created_at: true,
       title: true,
+      description: true,
+      kilometer: true,
       modified_by_user: true,
       modified_by_employee: true,
       profile: {

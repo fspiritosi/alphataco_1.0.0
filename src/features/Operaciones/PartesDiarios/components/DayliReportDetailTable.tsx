@@ -717,11 +717,16 @@ export function getDailyReportColumns(
       header: ({ column, table }) => <DataTableColumnHeader column={column} table={table} title="Acciones" />,
       cell: ({ row }) => {
         // Comprobamos si la fecha es hoy
-        const isToday = moment(row.original.date).isSame(moment(), 'day');
+        const isToday = moment.utc(row.original.date).isSame(moment(), 'day');
 
         // Para otros estados, mostrar botones de editar/eliminar
         return (
-          <div className={cn('flex gap-1', moment(row.original.date).isBefore(moment()) ? 'gap-0 justify-center' : '')}>
+          <div
+            className={cn(
+              'flex gap-1',
+              moment.utc(row.original.date).isBefore(moment(), 'day') ? 'gap-0 justify-center' : ''
+            )}
+          >
             {(row.original.status !== 'ejecutado' || (isToday && row.original.status === 'ejecutado')) && (
               <TooltipProvider>
                 <Tooltip>

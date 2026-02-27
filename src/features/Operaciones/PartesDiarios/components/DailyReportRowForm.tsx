@@ -1521,7 +1521,7 @@ export function DailyReportForm({
                                   disabled={
                                     field.value === 'sin_recursos_asignados' ||
                                     //Si la fecha del aprte es para mañana, no se puede pasar a ejecutado
-                                    moment(dailyReport[0].date).isSameOrAfter(moment().add(1, 'day'))
+                                    moment.utc(dailyReport[0].date).isSameOrAfter(moment().add(1, 'day'), 'day')
                                   }
                                 >
                                   Ejecutado

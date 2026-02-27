@@ -205,8 +205,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
         />
 
         {/* Table */}
-        <div className="rounded-md border">
-          <Table containerClassName="max-h-[60vh] overflow-y-auto overflow-x-auto">
+        <div className="rounded-md border overflow-auto max-h-[60vh]">
+          <Table containerClassName="overflow-x-visible overflow-y-visible min-w-fit">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
