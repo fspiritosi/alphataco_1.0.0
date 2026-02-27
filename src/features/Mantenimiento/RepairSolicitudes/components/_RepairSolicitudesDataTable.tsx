@@ -80,6 +80,7 @@ export function _RepairSolicitudesDataTable({
       'reparation_type',
       'criticity',
       'last_modified_by',
+      'closed_by',
       'user_description',
       'domain',
       'serie',
@@ -179,6 +180,22 @@ export function _RepairSolicitudesDataTable({
             : []),
         ],
         externalCounts: facets?.last_modified_by,
+      },
+
+      // Cerrada por (profile UUID del log con title 'Finalizado')
+      {
+        columnId: 'closed_by',
+        title: 'Cerrada por',
+        options: [
+          ...(facets?.closedByOptions?.map((p) => ({
+            value: p.id,
+            label: p.fullname ?? p.id,
+          })) ?? []),
+          ...(facets?.closed_by?.has(NULL_FILTER_VALUE)
+            ? [{ value: NULL_FILTER_VALUE, label: 'Abierta / sin cerrar', icon: CircleOff }]
+            : []),
+        ],
+        externalCounts: facets?.closed_by,
       },
 
       // Descripción (texto libre)
