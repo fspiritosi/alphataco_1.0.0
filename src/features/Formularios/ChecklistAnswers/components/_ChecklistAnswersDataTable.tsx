@@ -52,7 +52,7 @@ export function _ChecklistAnswersDataTable({
   }, [searchParams]);
 
   // Facets con cross-filtering
-  const { data: facets } = useQuery({
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['checklist-answers-facets', templateId, facetParams],
     queryFn: () => getChecklistAnswersFacets(facetParams, templateId),
     staleTime: 5 * 60 * 1000,
@@ -237,6 +237,7 @@ export function _ChecklistAnswersDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
+      isFetchingFacets={isFetchingFacets}
       emptyMessage="No hay respuestas registradas para este checklist"
       data-testid="checklist-answers-table"
       exportConfig={{

@@ -63,7 +63,7 @@ export function _InactiveOtherEquipmentDataTable({
   }, [searchParams]);
 
   // Facets con cross-filtering: se recalculan cuando cambian los filtros
-  const { data: facets } = useQuery({
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['inactive-other-equipment-facets', facetParams],
     queryFn: () => getInactiveOtherEquipmentFacets(facetParams),
     staleTime: 5 * 60 * 1000,
@@ -374,6 +374,7 @@ export function _InactiveOtherEquipmentDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
+      isFetchingFacets={isFetchingFacets}
       emptyMessage="No hay equipos dados de baja"
       data-testid="inactive-other-equipment-table"
       exportConfig={{

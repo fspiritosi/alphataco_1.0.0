@@ -214,6 +214,8 @@ export interface DataTableProps<TData, TValue = unknown> {
   showSearch?: boolean;
   /** ID del test para cypress */
   'data-testid'?: string;
+  /** Indica que los facets se están re-fetcheando (muestra skeletons en los filtros activos) */
+  isFetchingFacets?: boolean;
 }
 
 /**
@@ -234,6 +236,8 @@ export interface DataTableToolbarProps<TData> {
   onFilterVisibilityChange?: (visibility: Record<string, boolean>) => void;
   /** Namespace para prefijar los params de URL de filtros de texto y dateRange */
   paramNamespace?: string;
+  /** Indica que los facets se están re-fetcheando (se propaga a cada FacetedFilter) */
+  isFetchingFacets?: boolean;
 }
 
 /**
@@ -265,6 +269,8 @@ export interface DataTableFacetedFilterProps<TData, TValue> {
   externalCounts?: Map<string, number>;
   /** Deshabilitar el filtro (ej. mientras se cargan las opciones) */
   disabled?: boolean;
+  /** Indica que los facets se están re-fetcheando (muestra skeletons en el popover) */
+  isFetching?: boolean;
 }
 
 /**

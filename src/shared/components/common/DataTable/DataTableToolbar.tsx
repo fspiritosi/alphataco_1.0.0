@@ -36,6 +36,7 @@ export function DataTableToolbar<TData>({
   filterVisibility = {},
   onFilterVisibilityChange,
   paramNamespace,
+  isFetchingFacets,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
   const sortingState = table.getState().sorting;
@@ -91,6 +92,7 @@ export function DataTableToolbar<TData>({
                 options={filter.options ?? []}
                 externalCounts={filter.externalCounts}
                 disabled={filter.disabled}
+                isFetching={isFetchingFacets}
               />
             );
           })}

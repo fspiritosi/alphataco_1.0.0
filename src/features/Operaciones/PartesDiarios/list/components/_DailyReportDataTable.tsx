@@ -68,7 +68,7 @@ export function _DailyReportDataTable({
   }, [searchParams]);
 
   // Facets con cross-filtering
-  const { data: facets } = useQuery({
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['daily-reports-list-facets', facetParams],
     queryFn: () => getDailyReportFacets(facetParams),
     staleTime: 5 * 60 * 1000,
@@ -155,6 +155,7 @@ export function _DailyReportDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
+      isFetchingFacets={isFetchingFacets}
       emptyMessage="No hay partes diarios registrados"
       data-testid="daily-reports-table"
       exportConfig={{

@@ -64,7 +64,7 @@ export function _OtherEquipmentDataTable({
   }, [searchParams]);
 
   // Facets con cross-filtering: se recalculan cuando cambian los filtros
-  const { data: facets } = useQuery({
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['other-equipment-facets', facetParams],
     queryFn: () => getOtherEquipmentFacets(facetParams),
     staleTime: 5 * 60 * 1000,
@@ -387,6 +387,7 @@ export function _OtherEquipmentDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
+      isFetchingFacets={isFetchingFacets}
       toolbarActions={toolbarActions}
       emptyMessage="No hay equipos registrados"
       data-testid="other-equipment-table"

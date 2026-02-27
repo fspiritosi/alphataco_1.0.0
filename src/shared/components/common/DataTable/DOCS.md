@@ -350,8 +350,9 @@ interface Props {
 }
 
 export function _EmployeesDataTable({ data, totalRows, searchParams }: Props) {
-  // Facets se cargan en el cliente con useQuery — no bloquean el render inicial
-  const { data: facets } = useQuery({
+  // Facets se cargan en el cliente con useQuery — no bloquean el render inicial.
+  // SIEMPRE extraer isFetching para pasarlo al DataTable (evita flash vacío en filtros).
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['employees-facets'],
     queryFn: () => getEmployeesFacets(),
     staleTime: 5 * 60 * 1000,
@@ -414,6 +415,7 @@ export function _EmployeesDataTable({ data, totalRows, searchParams }: Props) {
       searchParams={searchParams}
       searchPlaceholder="Buscar por nombre, legajo, documento..."
       facetedFilters={facetedFilters}
+      isFetchingFacets={isFetchingFacets}
       initialColumnVisibility={initialColumnVisibility}
       tableId="employees"
       showFilterToggle={true}
@@ -1056,8 +1058,9 @@ const facetParams = useMemo(() => {
   return rest;
 }, [searchParams]);
 
-// Facets se recalculan cuando cambian los filtros
-const { data: facets } = useQuery({
+// Facets se recalculan cuando cambian los filtros.
+// SIEMPRE extraer isFetching para pasarlo al DataTable (evita flash vacío en filtros).
+const { data: facets, isFetching: isFetchingFacets } = useQuery({
   queryKey: ['entity-facets', facetParams],
   queryFn: () => getEntityFacets(facetParams),
   staleTime: 5 * 60 * 1000,

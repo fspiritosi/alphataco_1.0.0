@@ -57,7 +57,7 @@ export function _FormsDataTable({
   }, [searchParams]);
 
   // Facets
-  const { data: facets } = useQuery({
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['forms-list-facets', facetParams],
     queryFn: () => getFormsFacets(facetParams),
     staleTime: 5 * 60 * 1000,
@@ -158,6 +158,7 @@ export function _FormsDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
+      isFetchingFacets={isFetchingFacets}
       emptyMessage="No hay formularios registrados"
       data-testid="forms-table"
       exportConfig={{

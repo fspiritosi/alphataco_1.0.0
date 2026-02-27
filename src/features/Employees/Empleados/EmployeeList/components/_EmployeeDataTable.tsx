@@ -97,7 +97,7 @@ export default function _EmployeeDataTable({
   }, [searchParams]);
 
   // Facets con cross-filtering: se recalculan cuando cambian los filtros
-  const { data: facets } = useQuery({
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['employees-facets', isActive, facetParams],
     queryFn: () => getEmployeesFacets(isActive, facetParams),
     staleTime: 5 * 60 * 1000,
@@ -577,6 +577,7 @@ export default function _EmployeeDataTable({
       initialFilterVisibility={mergedFilterVisibility}
       toolbarActions={toolbarActions}
       showFilterToggle
+      isFetchingFacets={isFetchingFacets}
       showSearch
       searchPlaceholder="Buscar por nombre, CUIL o legajo..."
       enableRowSelection

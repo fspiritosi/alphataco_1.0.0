@@ -89,6 +89,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   showFilterToggle = false,
   initialFilterVisibility = {},
   'data-testid': dataTestId = 'data-table',
+  isFetchingFacets,
 }: DataTableProps<TData, TValue>) {
   // Estado de selección de filas (local)
   const [rowSelection, setRowSelection] = React.useState({});
@@ -189,6 +190,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           filterVisibility={filterVisibility}
           onFilterVisibilityChange={setFilterVisibility}
           paramNamespace={paramNamespace}
+          isFetchingFacets={isFetchingFacets}
           exportActions={
             exportConfig && showExportButton ? (
               <_DataTableExportButton columns={columns} exportConfig={exportConfig} />

@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, PlusCircle } from 'lucide-react';
+import { useRef } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,9 +42,38 @@ export function DataTableFacetedFilter<TData, TValue>({
   options,
   externalCounts,
   disabled,
+  isFetching,
 }: DataTableFacetedFilterProps<TData, TValue>) {
   const facets = externalCounts ?? column?.getFacetedUniqueValues();
   const selectedValues = new Set(column?.getFilterValue() as string[]);
+
+  // Guardar la última versión válida de opciones filtradas para evitar saltos
+  // durante el re-fetch (cuando externalCounts se vacía momentáneamente).
+  const prevVisibleOptionsRef = useRef(options);
+
+  // Opciones visibles en el popover: si hay externalCounts, filtrar por count > 0.
+  // Cuando isFetching es true, conservar las opciones previas para evitar flash vacío.
+  let visibleOptions: typeof options;
+  if (externalCounts && !isFetching) {
+    // Estado normal: filtrar opciones por count > 0
+    visibleOptions = options.filter((opt) => (externalCounts.get(opt.value) ?? 0) > 0);
+  } else if (isFetching) {
+    // Re-fetching: usar las opciones actuales si existen, sino las previas
+    visibleOptions = options.length > 0 ? options : prevVisibleOptionsRef.current;
+  } else {
+    // Sin externalCounts: mostrar todas
+    visibleOptions = options;
+  }
+
+  // Actualizar ref solo cuando tenemos opciones reales (no vacías)
+  if (visibleOptions.length > 0) {
+    prevVisibleOptionsRef.current = visibleOptions;
+  }
+
+  // El trigger muestra skeleton cuando hay valores seleccionados pero las opciones aún
+  // no están disponibles para resolver los labels (recarga de página).
+  const selectedLabels = options.filter((opt) => selectedValues.has(opt.value));
+  const triggerShowsSkeleton = selectedValues.size > 0 && options.length === 0;
 
   return (
     <Popover>
@@ -60,11 +90,14 @@ export function DataTableFacetedFilter<TData, TValue>({
           {selectedValues?.size > 0 && (
             <>
               <Separator orientation="vertical" className="mx-2 h-4" />
+              {/* Contador compacto (mobile) */}
               <Badge variant="secondary" className="rounded-sm px-1 font-normal lg:hidden">
                 {selectedValues.size}
               </Badge>
+              {/* Badges con labels (desktop) */}
               <div className="hidden space-x-1 lg:flex">
-                {disabled && options.length === 0 ? (
+                {triggerShowsSkeleton ? (
+                  // Skeleton mientras las opciones no están disponibles para resolver labels
                   Array.from({ length: Math.min(selectedValues.size, 2) }, (_, i) => (
                     <Skeleton key={i} className="h-5 w-16 rounded-sm" />
                   ))
@@ -73,13 +106,11 @@ export function DataTableFacetedFilter<TData, TValue>({
                     {selectedValues.size} seleccionados
                   </Badge>
                 ) : (
-                  options
-                    .filter((option) => selectedValues.has(option.value))
-                    .map((option) => (
-                      <Badge variant="secondary" key={option.value} className="rounded-sm px-1 font-normal">
-                        {option.label}
-                      </Badge>
-                    ))
+                  selectedLabels.map((option) => (
+                    <Badge variant="secondary" key={option.value} className="rounded-sm px-1 font-normal">
+                      {option.label}
+                    </Badge>
+                  ))
                 )}
               </div>
             </>
@@ -90,45 +121,59 @@ export function DataTableFacetedFilter<TData, TValue>({
         <Command>
           <CommandInput placeholder={`Buscar ${title.toLowerCase()}...`} />
           <CommandList>
-            <CommandEmpty>Sin resultados.</CommandEmpty>
-            <CommandGroup>
-              {(externalCounts ? options.filter((opt) => (externalCounts.get(opt.value) ?? 0) > 0) : options).map(
-                (option) => {
-                  const isSelected = selectedValues.has(option.value);
-                  return (
-                    <CommandItem
-                      key={option.value}
-                      onSelect={() => {
-                        if (isSelected) {
-                          selectedValues.delete(option.value);
-                        } else {
-                          selectedValues.add(option.value);
-                        }
-                        const filterValues = Array.from(selectedValues);
-                        column?.setFilterValue(filterValues.length ? filterValues : undefined);
-                      }}
-                      data-testid={`filter-option-${option.value}`}
-                    >
-                      <div
-                        className={cn(
-                          'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
-                          isSelected ? 'bg-primary text-primary-foreground' : 'opacity-50 [&_svg]:invisible'
-                        )}
+            {/* Skeleton del popover: se muestra cuando está cargando Y no hay opciones */}
+            {isFetching && visibleOptions.length === 0 ? (
+              <CommandGroup>
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                    <Skeleton className="h-4 w-4 rounded-sm" />
+                    <Skeleton className="h-4 w-20 rounded-sm" />
+                    <Skeleton className="ml-auto h-4 w-6 rounded-sm" />
+                  </div>
+                ))}
+              </CommandGroup>
+            ) : (
+              <>
+                {/* Ocultar "Sin resultados" durante el fetching para evitar flash */}
+                {!isFetching && <CommandEmpty>Sin resultados.</CommandEmpty>}
+                <CommandGroup className={cn(isFetching && 'opacity-60 transition-opacity')}>
+                  {visibleOptions.map((option) => {
+                    const isSelected = selectedValues.has(option.value);
+                    return (
+                      <CommandItem
+                        key={option.value}
+                        onSelect={() => {
+                          if (isSelected) {
+                            selectedValues.delete(option.value);
+                          } else {
+                            selectedValues.add(option.value);
+                          }
+                          const filterValues = Array.from(selectedValues);
+                          column?.setFilterValue(filterValues.length ? filterValues : undefined);
+                        }}
+                        data-testid={`filter-option-${option.value}`}
                       >
-                        <Check className="h-4 w-4" />
-                      </div>
-                      {option.icon && <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
-                      <span>{option.label}</span>
-                      {facets?.get(option.value) && (
-                        <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
-                          {facets.get(option.value)}
-                        </span>
-                      )}
-                    </CommandItem>
-                  );
-                }
-              )}
-            </CommandGroup>
+                        <div
+                          className={cn(
+                            'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
+                            isSelected ? 'bg-primary text-primary-foreground' : 'opacity-50 [&_svg]:invisible'
+                          )}
+                        >
+                          <Check className="h-4 w-4" />
+                        </div>
+                        {option.icon && <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
+                        <span>{option.label}</span>
+                        {facets?.get(option.value) && (
+                          <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
+                            {facets.get(option.value)}
+                          </span>
+                        )}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </>
+            )}
             {selectedValues.size > 0 && (
               <>
                 <CommandSeparator />

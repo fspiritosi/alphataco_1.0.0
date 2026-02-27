@@ -176,6 +176,44 @@ export const formSourceLabels: Record<string, string> = {
 };
 
 // ============================================================================
+// MANTENIMIENTO / REPARACIONES ENUM LABELS
+// ============================================================================
+
+/**
+ * Labels para repair_state
+ * Los keys son los valores del enum Prisma generado (con underscore), los values son labels legibles.
+ * En la BD se almacenan los valores @map (con espacios/acentos), pero Prisma TypeScript usa los keys.
+ */
+export const repairStateLabels: Record<string, string> = {
+  Pendiente: 'Pendiente',
+  Esperando_repuestos: 'Esperando repuestos',
+  En_reparaci_n: 'En reparación',
+  Finalizado: 'Finalizado',
+  Rechazado: 'Rechazado',
+  Cancelado: 'Cancelado',
+  Programado: 'Programado',
+};
+
+export const repairStateBadges: Record<string, BadgeVariant> = {
+  Pendiente: 'default',
+  Esperando_repuestos: 'yellow',
+  En_reparaci_n: 'default',
+  Finalizado: 'success',
+  Rechazado: 'destructive',
+  Cancelado: 'destructive',
+  Programado: 'default',
+};
+
+/**
+ * Labels para criticidad de tipos de reparación (Baja, Media, Alta)
+ */
+export const repairCriticityLabels: Record<string, string> = {
+  Baja: 'Baja',
+  Media: 'Media',
+  Alta: 'Alta',
+};
+
+// ============================================================================
 // GENERIC HELPER
 // ============================================================================
 

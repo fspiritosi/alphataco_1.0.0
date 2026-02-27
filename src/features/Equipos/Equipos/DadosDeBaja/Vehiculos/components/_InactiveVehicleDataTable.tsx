@@ -65,7 +65,7 @@ export function _InactiveVehicleDataTable({
   }, [searchParams]);
 
   // Facets con cross-filtering: se recalculan cuando cambian los filtros
-  const { data: facets } = useQuery({
+  const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['inactive-vehicles-facets', facetParams],
     queryFn: () => getInactiveVehicleFacets(facetParams),
     staleTime: 5 * 60 * 1000,
@@ -389,6 +389,7 @@ export function _InactiveVehicleDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
+      isFetchingFacets={isFetchingFacets}
       emptyMessage="No hay vehículos dados de baja"
       data-testid="inactive-vehicles-table"
       exportConfig={{
