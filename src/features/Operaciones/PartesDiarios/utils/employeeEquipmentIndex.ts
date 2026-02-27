@@ -1,8 +1,13 @@
-import { getActiveEquipmentsForDailyReport, getAllActiveEmployeesForDailyReport } from '../actions/actions';
+import {
+  getActiveEquipmentsForDailyReport,
+  getActiveOperativeOtherEquipmentForDailyReport,
+  getAllActiveEmployeesForDailyReport,
+} from '../actions/actions';
 
 // Tipos
 type Employees = Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>;
 type Equipments = Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
+type OtherEquipments = Awaited<ReturnType<typeof getActiveOperativeOtherEquipmentForDailyReport>>;
 
 /**
  * Construye un índice Map de empleados por cliente para lookup O(1)
@@ -136,5 +141,65 @@ export function filterEquipmentsByCustomer(
     assignedEquipments: assigned,
     unassignedEquipments: unassigned,
     allEquipments: all,
+  };
+}
+
+/**
+ * Construye un índice Map de otros equipos por cliente para lookup O(1)
+ * @param otherEquipments - Lista completa de otros equipos operativos
+ * @returns Map con customerId como key y array de otros equipos como value
+ */
+export function buildOtherEquipmentIndex(otherEquipments: OtherEquipments | undefined) {
+  const index = new Map<string, NonNullable<OtherEquipments>>();
+
+  if (!otherEquipments) return index;
+
+  otherEquipments.forEach((equipment) => {
+    equipment.contractor_other_equipment?.forEach((ce) => {
+      const customerId = ce.customers?.id;
+      if (customerId) {
+        if (!index.has(customerId)) {
+          index.set(customerId, []);
+        }
+        const customerEquipments = index.get(customerId)!;
+        if (!customerEquipments.find((e) => e.id === equipment.id)) {
+          customerEquipments.push(equipment);
+        }
+      }
+    });
+  });
+
+  return index;
+}
+
+/**
+ * Filtra otros equipos por cliente desde el índice pre-construido
+ * @param customerId - ID del cliente
+ * @param otherEquipmentIndex - Índice pre-construido de otros equipos
+ * @param allOtherEquipments - Lista completa de otros equipos
+ * @returns Objeto con otros equipos asignados, no asignados y todos
+ */
+export function filterOtherEquipmentsByCustomer(
+  customerId: string | null,
+  otherEquipmentIndex: Map<string, NonNullable<OtherEquipments>>,
+  allOtherEquipments: OtherEquipments | undefined
+) {
+  if (!customerId) {
+    return {
+      assignedOtherEquipments: [],
+      unassignedOtherEquipments: [],
+      allOtherEquipments: [],
+    };
+  }
+
+  const assigned = otherEquipmentIndex.get(customerId) || [];
+  const assignedIds = new Set(assigned.map((e) => e.id));
+  const unassigned = allOtherEquipments?.filter((equipment) => !assignedIds.has(equipment.id)) || [];
+  const all = [...assigned, ...unassigned];
+
+  return {
+    assignedOtherEquipments: assigned,
+    unassignedOtherEquipments: unassigned,
+    allOtherEquipments: all,
   };
 }

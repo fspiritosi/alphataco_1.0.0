@@ -498,7 +498,7 @@ export const PERMISSIONS = {
             name: 'Otros',
             tabId: '30000000-0000-0000-0000-000000000012',
             parent: 'equipos',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'create'],
           },
           inactive: {
             slug: 'inactive',
@@ -601,6 +601,43 @@ export const PERMISSIONS = {
         tabId: '30000000-0000-0000-0000-000000000056',
         parent: 'detalle-equipo',
         allowedActions: ['view'],
+      },
+      'detalle-otro-equipo': {
+        slug: 'detalle-otro-equipo',
+        name: 'Detalle de Otro Equipo',
+        tabId: 'e8604848-24d4-4f23-a466-700b43b24202',
+        parent: null,
+        allowedActions: ['view', 'update'],
+        subtabs: {
+          'datos-basicos-otro': {
+            slug: 'datos-basicos-otro',
+            name: 'Datos Básicos',
+            tabId: 'e59f78dc-269c-4280-b5a6-d16076e304a9',
+            parent: 'detalle-otro-equipo',
+            allowedActions: ['view'],
+          },
+          'asignacion-otro': {
+            slug: 'asignacion-otro',
+            name: 'Asignación',
+            tabId: '5f038bbf-8547-4a4a-b1c7-0e3b1c08ff63',
+            parent: 'detalle-otro-equipo',
+            allowedActions: ['view'],
+          },
+          'certificaciones-otro': {
+            slug: 'certificaciones-otro',
+            name: 'Certificaciones',
+            tabId: 'b635efcb-e558-4709-8037-f5d3f3761c84',
+            parent: 'detalle-otro-equipo',
+            allowedActions: ['view'],
+          },
+          'qr-otro-equipo': {
+            slug: 'qr-otro-equipo',
+            name: 'QR',
+            tabId: 'aecb923c-460f-4009-83df-667da0518a82',
+            parent: 'detalle-otro-equipo',
+            allowedActions: ['view'],
+          },
+        },
       },
       'detalle-equipo': {
         slug: 'detalle-equipo',

@@ -1,0 +1,3357 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["auth", "public", "storage"]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_log_entries {
+  instance_id String?   @db.Uuid
+  id          String    @id @db.Uuid
+  payload     Json?     @db.Json
+  created_at  DateTime? @db.Timestamptz(6)
+  ip_address  String    @default("") @db.VarChar(64)
+
+  @@index([instance_id], map: "audit_logs_instance_id_idx")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model flow_state {
+  id                     String                 @id @db.Uuid
+  user_id                String?                @db.Uuid
+  auth_code              String?
+  code_challenge_method  code_challenge_method?
+  code_challenge         String?
+  provider_type          String
+  provider_access_token  String?
+  provider_refresh_token String?
+  created_at             DateTime?              @db.Timestamptz(6)
+  updated_at             DateTime?              @db.Timestamptz(6)
+  authentication_method  String
+  auth_code_issued_at    DateTime?              @db.Timestamptz(6)
+  invite_token           String?
+  referrer               String?
+  oauth_client_state_id  String?                @db.Uuid
+  linking_target_id      String?                @db.Uuid
+  email_optional         Boolean                @default(false)
+  saml_relay_states      saml_relay_states[]
+
+  @@index([created_at(sort: Desc)])
+  @@index([auth_code], map: "idx_auth_code")
+  @@index([user_id, authentication_method], map: "idx_user_id_auth_method")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model identities {
+  provider_id     String
+  user_id         String    @db.Uuid
+  identity_data   Json
+  provider        String
+  last_sign_in_at DateTime? @db.Timestamptz(6)
+  created_at      DateTime? @db.Timestamptz(6)
+  updated_at      DateTime? @db.Timestamptz(6)
+  email           String?   @default(dbgenerated("lower((identity_data ->> 'email'::text))"))
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider_id, provider], map: "identities_provider_id_provider_unique")
+  @@index([email])
+  @@index([user_id])
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model instances {
+  id              String    @id @db.Uuid
+  uuid            String?   @db.Uuid
+  raw_base_config String?
+  created_at      DateTime? @db.Timestamptz(6)
+  updated_at      DateTime? @db.Timestamptz(6)
+
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mfa_amr_claims {
+  session_id            String   @db.Uuid
+  created_at            DateTime @db.Timestamptz(6)
+  updated_at            DateTime @db.Timestamptz(6)
+  authentication_method String
+  id                    String   @id(map: "amr_id_pk") @db.Uuid
+  sessions              sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([session_id, authentication_method], map: "mfa_amr_claims_session_id_authentication_method_pkey")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mfa_challenges {
+  id                     String      @id @db.Uuid
+  factor_id              String      @db.Uuid
+  created_at             DateTime    @db.Timestamptz(6)
+  verified_at            DateTime?   @db.Timestamptz(6)
+  ip_address             String      @db.Inet
+  otp_code               String?
+  web_authn_session_data Json?
+  mfa_factors            mfa_factors @relation(fields: [factor_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "mfa_challenges_auth_factor_id_fkey")
+
+  @@index([created_at(sort: Desc)], map: "mfa_challenge_created_at_idx")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mfa_factors {
+  id                           String           @id @db.Uuid
+  user_id                      String           @db.Uuid
+  friendly_name                String?
+  factor_type                  factor_type
+  status                       factor_status
+  created_at                   DateTime         @db.Timestamptz(6)
+  updated_at                   DateTime         @db.Timestamptz(6)
+  secret                       String?
+  phone                        String?
+  last_challenged_at           DateTime?        @unique @db.Timestamptz(6)
+  web_authn_credential         Json?
+  web_authn_aaguid             String?          @db.Uuid
+  last_webauthn_challenge_data Json?
+  mfa_challenges               mfa_challenges[]
+  users                        users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([friendly_name, user_id], map: "mfa_factors_user_friendly_name_unique", where: raw("(TRIM(BOTH FROM friendly_name) <> ''::text)"))
+  @@unique([user_id, phone], map: "unique_phone_factor_per_user")
+  @@index([user_id, created_at], map: "factor_id_created_at_idx")
+  @@index([user_id])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model oauth_authorizations {
+  id                    String                     @id @db.Uuid
+  authorization_id      String                     @unique
+  client_id             String                     @db.Uuid
+  user_id               String?                    @db.Uuid
+  redirect_uri          String
+  scope                 String
+  state                 String?
+  resource              String?
+  code_challenge        String?
+  code_challenge_method code_challenge_method?
+  response_type         oauth_response_type        @default(code)
+  status                oauth_authorization_status @default(pending)
+  authorization_code    String?                    @unique
+  created_at            DateTime                   @default(now()) @db.Timestamptz(6)
+  expires_at            DateTime                   @default(dbgenerated("(now() + '00:03:00'::interval)")) @db.Timestamptz(6)
+  approved_at           DateTime?                  @db.Timestamptz(6)
+  nonce                 String?
+  oauth_clients         oauth_clients              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                 users?                     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "oauth_auth_pending_exp_idx", where: raw("(status = 'pending'::auth.oauth_authorization_status)"))
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model oauth_client_states {
+  id            String   @id @db.Uuid
+  provider_type String
+  code_verifier String?
+  created_at    DateTime @db.Timestamptz(6)
+
+  @@index([created_at], map: "idx_oauth_client_states_created_at")
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model oauth_clients {
+  id                         String                  @id @db.Uuid
+  client_secret_hash         String?
+  registration_type          oauth_registration_type
+  redirect_uris              String
+  grant_types                String
+  client_name                String?
+  client_uri                 String?
+  logo_uri                   String?
+  created_at                 DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at                 DateTime?               @db.Timestamptz(6)
+  client_type                oauth_client_type       @default(confidential)
+  token_endpoint_auth_method String
+  oauth_authorizations       oauth_authorizations[]
+  oauth_consents             oauth_consents[]
+  sessions                   sessions[]
+
+  @@index([deleted_at])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model oauth_consents {
+  id            String        @id @db.Uuid
+  user_id       String        @db.Uuid
+  client_id     String        @db.Uuid
+  scopes        String
+  granted_at    DateTime      @default(now()) @db.Timestamptz(6)
+  revoked_at    DateTime?     @db.Timestamptz(6)
+  oauth_clients oauth_clients @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, client_id], map: "oauth_consents_user_client_unique")
+  @@index([client_id], map: "oauth_consents_active_client_idx", where: raw("(revoked_at IS NULL)"))
+  @@index([user_id, client_id], map: "oauth_consents_active_user_client_idx", where: raw("(revoked_at IS NULL)"))
+  @@index([user_id, granted_at(sort: Desc)], map: "oauth_consents_user_order_idx")
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model one_time_tokens {
+  id         String              @id @db.Uuid
+  user_id    String              @db.Uuid
+  token_type one_time_token_type
+  token_hash String
+  relates_to String
+  created_at DateTime            @default(now()) @db.Timestamp(6)
+  updated_at DateTime            @default(now()) @db.Timestamp(6)
+  users      users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, token_type])
+  @@index([relates_to], map: "one_time_tokens_relates_to_hash_idx", type: Hash)
+  @@index([token_hash], map: "one_time_tokens_token_hash_hash_idx", type: Hash)
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model refresh_tokens {
+  instance_id String?   @db.Uuid
+  id          BigInt    @id @default(autoincrement())
+  token       String?   @unique(map: "refresh_tokens_token_unique") @db.VarChar(255)
+  user_id     String?   @db.VarChar(255)
+  revoked     Boolean?
+  created_at  DateTime? @db.Timestamptz(6)
+  updated_at  DateTime? @db.Timestamptz(6)
+  parent      String?   @db.VarChar(255)
+  session_id  String?   @db.Uuid
+  sessions    sessions? @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([instance_id])
+  @@index([instance_id, user_id])
+  @@index([parent])
+  @@index([session_id, revoked])
+  @@index([updated_at(sort: Desc)])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model saml_providers {
+  id                String        @id @db.Uuid
+  sso_provider_id   String        @db.Uuid
+  entity_id         String        @unique
+  metadata_xml      String
+  metadata_url      String?
+  attribute_mapping Json?
+  created_at        DateTime?     @db.Timestamptz(6)
+  updated_at        DateTime?     @db.Timestamptz(6)
+  name_id_format    String?
+  sso_providers     sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sso_provider_id])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model saml_relay_states {
+  id              String        @id @db.Uuid
+  sso_provider_id String        @db.Uuid
+  request_id      String
+  for_email       String?
+  redirect_to     String?
+  created_at      DateTime?     @db.Timestamptz(6)
+  updated_at      DateTime?     @db.Timestamptz(6)
+  flow_state_id   String?       @db.Uuid
+  flow_state      flow_state?   @relation(fields: [flow_state_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sso_providers   sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)])
+  @@index([for_email])
+  @@index([sso_provider_id])
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model schema_migrations {
+  version String @id @db.VarChar(255)
+
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sessions {
+  id                     String           @id @db.Uuid
+  user_id                String           @db.Uuid
+  created_at             DateTime?        @db.Timestamptz(6)
+  updated_at             DateTime?        @db.Timestamptz(6)
+  factor_id              String?          @db.Uuid
+  aal                    aal_level?
+  not_after              DateTime?        @db.Timestamptz(6)
+  refreshed_at           DateTime?        @db.Timestamp(6)
+  user_agent             String?
+  ip                     String?          @db.Inet
+  tag                    String?
+  oauth_client_id        String?          @db.Uuid
+  refresh_token_hmac_key String?
+  refresh_token_counter  BigInt?
+  scopes                 String?
+  mfa_amr_claims         mfa_amr_claims[]
+  refresh_tokens         refresh_tokens[]
+  oauth_clients          oauth_clients?   @relation(fields: [oauth_client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                  users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([not_after(sort: Desc)])
+  @@index([oauth_client_id])
+  @@index([user_id])
+  @@index([user_id, created_at], map: "user_id_created_at_idx")
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model sso_domains {
+  id              String        @id @db.Uuid
+  sso_provider_id String        @db.Uuid
+  domain          String
+  created_at      DateTime?     @db.Timestamptz(6)
+  updated_at      DateTime?     @db.Timestamptz(6)
+  sso_providers   sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sso_provider_id])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model sso_providers {
+  id                String              @id @db.Uuid
+  resource_id       String?
+  created_at        DateTime?           @db.Timestamptz(6)
+  updated_at        DateTime?           @db.Timestamptz(6)
+  disabled          Boolean?
+  saml_providers    saml_providers[]
+  saml_relay_states saml_relay_states[]
+  sso_domains       sso_domains[]
+
+  @@index([resource_id], map: "sso_providers_resource_id_pattern_idx")
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model users {
+  instance_id                                          String?                   @db.Uuid
+  id                                                   String                    @id @db.Uuid
+  aud                                                  String?                   @db.VarChar(255)
+  role                                                 String?                   @db.VarChar(255)
+  email                                                String?                   @unique(map: "users_email_partial_key", where: raw("(is_sso_user = false)")) @db.VarChar(255)
+  encrypted_password                                   String?                   @db.VarChar(255)
+  email_confirmed_at                                   DateTime?                 @db.Timestamptz(6)
+  invited_at                                           DateTime?                 @db.Timestamptz(6)
+  confirmation_token                                   String?                   @unique(map: "confirmation_token_idx", where: raw("((confirmation_token)::text !~ '^[0-9 ]*$'::text)")) @db.VarChar(255)
+  confirmation_sent_at                                 DateTime?                 @db.Timestamptz(6)
+  recovery_token                                       String?                   @unique(map: "recovery_token_idx", where: raw("((recovery_token)::text !~ '^[0-9 ]*$'::text)")) @db.VarChar(255)
+  recovery_sent_at                                     DateTime?                 @db.Timestamptz(6)
+  email_change_token_new                               String?                   @unique(map: "email_change_token_new_idx", where: raw("((email_change_token_new)::text !~ '^[0-9 ]*$'::text)")) @db.VarChar(255)
+  email_change                                         String?                   @db.VarChar(255)
+  email_change_sent_at                                 DateTime?                 @db.Timestamptz(6)
+  last_sign_in_at                                      DateTime?                 @db.Timestamptz(6)
+  raw_app_meta_data                                    Json?
+  raw_user_meta_data                                   Json?
+  is_super_admin                                       Boolean?
+  created_at                                           DateTime?                 @db.Timestamptz(6)
+  updated_at                                           DateTime?                 @db.Timestamptz(6)
+  phone                                                String?                   @unique
+  phone_confirmed_at                                   DateTime?                 @db.Timestamptz(6)
+  phone_change                                         String?                   @default("")
+  phone_change_token                                   String?                   @default("") @db.VarChar(255)
+  phone_change_sent_at                                 DateTime?                 @db.Timestamptz(6)
+  confirmed_at                                         DateTime?                 @default(dbgenerated("LEAST(email_confirmed_at, phone_confirmed_at)")) @db.Timestamptz(6)
+  email_change_token_current                           String?                   @unique(map: "email_change_token_current_idx", where: raw("((email_change_token_current)::text !~ '^[0-9 ]*$'::text)")) @default("") @db.VarChar(255)
+  email_change_confirm_status                          Int?                      @default(0) @db.SmallInt
+  banned_until                                         DateTime?                 @db.Timestamptz(6)
+  reauthentication_token                               String?                   @unique(map: "reauthentication_token_idx", where: raw("((reauthentication_token)::text !~ '^[0-9 ]*$'::text)")) @default("") @db.VarChar(255)
+  reauthentication_sent_at                             DateTime?                 @db.Timestamptz(6)
+  is_sso_user                                          Boolean                   @default(false)
+  deleted_at                                           DateTime?                 @db.Timestamptz(6)
+  is_anonymous                                         Boolean                   @default(false)
+  identities                                           identities[]
+  mfa_factors                                          mfa_factors[]
+  oauth_authorizations                                 oauth_authorizations[]
+  oauth_consents                                       oauth_consents[]
+  one_time_tokens                                      one_time_tokens[]
+  sessions                                             sessions[]
+  dailyreportrows_history                              dailyreportrows_history[]
+  kpi_revisions                                        kpi_revisions[]
+  maintenance_orders                                   maintenance_orders[]
+  profile_profile_credential_idTousers                 profile?                  @relation("profile_credential_idTousers")
+  profile_profile_idTousers                            profile?                  @relation("profile_idTousers")
+  user_permissions_user_permissions_assigned_byTousers user_permissions[]        @relation("user_permissions_assigned_byTousers")
+  user_permissions_user_permissions_user_idTousers     user_permissions[]        @relation("user_permissions_user_idTousers")
+  user_roles_user_roles_assigned_byTousers             user_roles[]              @relation("user_roles_assigned_byTousers")
+  user_roles_user_roles_user_idTousers                 user_roles[]              @relation("user_roles_user_idTousers")
+
+  @@index([instance_id])
+  @@index([is_anonymous])
+  @@schema("auth")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model actions {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String             @unique
+  name             String
+  description      String?
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  role_permissions role_permissions[]
+  user_permissions user_permissions[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model aptitudes_tecnicas {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre                     String
+  is_active                  Boolean?                     @default(true)
+  aptitudes_tecnicas_puestos aptitudes_tecnicas_puestos[]
+  empleado_aptitudes         empleado_aptitudes[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model aptitudes_tecnicas_puestos {
+  aptitud_id         String             @db.Uuid
+  puesto_id          String             @db.Uuid
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  aptitudes_tecnicas aptitudes_tecnicas @relation(fields: [aptitud_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company_positions  company_positions  @relation(fields: [puesto_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([aptitud_id, puesto_id])
+  @@index([puesto_id], map: "idx_aptitudes_tecnicas_puestos_puesto_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model area_province {
+  id            String        @id @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  area_id       String        @db.Uuid
+  province_id   BigInt
+  areas_cliente areas_cliente @relation(fields: [area_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  provinces     provinces     @relation(fields: [province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model areas_cliente {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre            String
+  descripcion_corta String?
+  customer_id       String          @db.Uuid
+  area_province     area_province[]
+  customers         customers       @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  service_areas     service_areas[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model assing_customer {
+  id           BigInt    @id @default(autoincrement())
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  customer_id  String    @db.Uuid
+  employee_id  String    @db.Uuid
+  equipment_id String    @db.Uuid
+  employees    employees @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_assing_customer_employee_id_fkey")
+  vehicles     vehicles  @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_assing_customer_equipment_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model brand_vehicles {
+  id              BigInt            @id @default(autoincrement())
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  name            String?           @unique
+  is_active       Boolean?          @default(true)
+  company_id      String?           @db.Uuid
+  company         company?          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  model_vehicles  model_vehicles[]
+  other_equipment other_equipment[]
+  vehicles        vehicles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model category {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  covenant_id       String?             @db.Uuid
+  name              String?
+  is_active         Boolean?            @default(true)
+  covenant          covenant?           @relation(fields: [covenant_id], references: [id], onDelete: Cascade)
+  category_employee category_employee[]
+  employees         employees[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model category_employee {
+  created_at  DateTime   @unique @default(now()) @db.Timestamptz(6)
+  category_id String?    @db.Uuid
+  emplyee_id  String?    @db.Uuid
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category    category?  @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_covenant_category_category_id_fkey")
+  employees   employees? @relation(fields: [emplyee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_covenant_employee_emplyee_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_answer_repairs {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checklist_answer_id String             @db.Uuid
+  repair_solicitud_id String             @db.Uuid
+  item_code           String
+  created_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  checklist_answers   checklist_answers  @relation(fields: [checklist_answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  repair_solicitudes  repair_solicitudes @relation(fields: [repair_solicitud_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([checklist_answer_id, repair_solicitud_id, item_code])
+  @@index([checklist_answer_id], map: "idx_checklist_answer_repairs_answer")
+  @@index([repair_solicitud_id], map: "idx_checklist_answer_repairs_repair")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_answers {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id              String                     @db.Uuid
+  equipment_id             String                     @db.Uuid
+  employee_id              String?                    @db.Uuid
+  user_id                  String?                    @db.Uuid
+  answer_data              Json
+  result                   String?
+  observations             String?
+  critical_items_failed    String[]
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  ut_checklist_answer_id   String?                    @db.Uuid
+  // Columna FK directa para el chofer (empleado seleccionado en el form)
+  chofer_employee_id       String?                    @db.Uuid
+  // Columnas GENERATED desde el JSONB answer_data — solo lectura en Postgres
+  customer_id              String?                    @db.Uuid
+  kilometraje              Decimal?
+  horometro                Decimal?
+  checklist_answer_repairs checklist_answer_repairs[]
+  employees                employees?                 @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles                 vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklist_templates      checklist_templates        @relation(fields: [template_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklist_answers        checklist_answers?         @relation("checklist_answersTochecklist_answers", fields: [ut_checklist_answer_id], references: [id], onUpdate: NoAction)
+  other_checklist_answers  checklist_answers[]        @relation("checklist_answersTochecklist_answers")
+  checklist_deviations     checklist_deviations[]
+  maintenance_requests     maintenance_requests[]
+
+  @@index([created_at(sort: Desc)], map: "idx_checklist_answers_created")
+  @@index([equipment_id], map: "idx_checklist_answers_equipment")
+  @@index([template_id], map: "idx_checklist_answers_template")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_deviations {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checklist_answer_id       String?                     @db.Uuid
+  equipment_id              String                      @db.Uuid
+  item_code                 String
+  item_label                String
+  section_code              String?
+  created_at                DateTime?                   @default(now()) @db.Timestamptz(6)
+  created_by_user_id        String?                     @db.Uuid
+  created_by_employee_id    String?                     @db.Uuid
+  driver_comment            String?
+  is_critical               Boolean?                    @default(false)
+  checklist_answers         checklist_answers?          @relation(fields: [checklist_answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employees                 employees?                  @relation(fields: [created_by_employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile                   profile?                    @relation(fields: [created_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles                  vehicles                    @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  maintenance_request_items maintenance_request_items[]
+
+  @@index([checklist_answer_id], map: "idx_checklist_deviations_checklist_answer_id")
+  @@index([equipment_id], map: "idx_checklist_deviations_equipment_id")
+  @@index([equipment_id], map: "idx_checklist_deviations_pending", where: raw("(equipment_id IS NOT NULL)"))
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_items {
+  id                          String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  section_id                  String                     @db.Uuid
+  code                        String
+  label                       String
+  description                 String?
+  input_type                  String
+  options                     Json?
+  is_critical                 Boolean?                   @default(false)
+  requires_certification      Boolean?                   @default(false)
+  certification_validity_days Int?
+  requires_side_validation    Boolean?                   @default(false)
+  default_value               String?
+  validation_rules            Json?
+  created_at                  DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                  @default(now()) @db.Timestamptz(6)
+  order_index                 Int?
+  checklist_sections          checklist_sections         @relation(fields: [section_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  checklist_template_items    checklist_template_items[]
+
+  @@unique([section_id, code])
+  @@index([code], map: "idx_checklist_items_code")
+  @@index([section_id], map: "idx_checklist_items_section")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_sections {
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                        String                        @unique
+  name                        String
+  description                 String?
+  is_reusable                 Boolean?                      @default(true)
+  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  checklist_items             checklist_items[]
+  checklist_template_sections checklist_template_sections[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_template_items {
+  id                          String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id                 String                      @db.Uuid
+  section_id                  String                      @db.Uuid
+  item_id                     String?                     @db.Uuid
+  code                        String
+  label                       String
+  description                 String?
+  input_type                  String
+  options                     Json?
+  is_critical                 Boolean?                    @default(false)
+  requires_certification      Boolean?                    @default(false)
+  certification_validity_days Int?
+  requires_side_validation    Boolean?                    @default(false)
+  order_index                 Int
+  validation_rules            Json?
+  created_at                  DateTime?                   @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                   @default(now()) @db.Timestamptz(6)
+  checklist_items             checklist_items?            @relation(fields: [item_id], references: [id], onUpdate: NoAction)
+  checklist_template_sections checklist_template_sections @relation(fields: [section_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  checklist_templates         checklist_templates         @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([template_id, section_id, code])
+  @@index([section_id], map: "idx_checklist_template_items_section")
+  @@index([template_id], map: "idx_checklist_template_items_template")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_template_sections {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id              String                     @db.Uuid
+  section_id               String?                    @db.Uuid
+  code                     String
+  name                     String
+  order_index              Int
+  is_required              Boolean?                   @default(true)
+  is_specific              Boolean?                   @default(false)
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  checklist_template_items checklist_template_items[]
+  checklist_sections       checklist_sections?        @relation(fields: [section_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  checklist_templates      checklist_templates        @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([template_id, code])
+  @@index([template_id], map: "idx_checklist_template_sections_template")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_template_sub_types {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id         String              @db.Uuid
+  sub_type_id         String?             @db.Uuid
+  created_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  sub_type            sub_type?           @relation(fields: [sub_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  checklist_templates checklist_templates @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([template_id, sub_type_id])
+  @@index([sub_type_id], map: "idx_checklist_template_sub_types_sub_type")
+  @@index([template_id], map: "idx_checklist_template_sub_types_template")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_template_types {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id         String              @db.Uuid
+  type_id             String?             @db.Uuid
+  created_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  checklist_templates checklist_templates @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  type                type?               @relation(fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([template_id, type_id])
+  @@index([template_id], map: "idx_checklist_template_types_template")
+  @@index([type_id], map: "idx_checklist_template_types_type")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model checklist_templates {
+  id                           String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id                   String                         @db.Uuid
+  name                         String
+  description                  String?
+  code                         String
+  is_active                    Boolean?                       @default(true)
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  checklist_answers            checklist_answers[]
+  checklist_template_items     checklist_template_items[]
+  checklist_template_sections  checklist_template_sections[]
+  checklist_template_sub_types checklist_template_sub_types[]
+  checklist_template_types     checklist_template_types[]
+  company                      company                        @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, code])
+  @@index([code], map: "idx_checklist_templates_code")
+  @@index([company_id], map: "idx_checklist_templates_company")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cities {
+  id          BigInt      @id(map: "citys_pkey") @default(autoincrement())
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  province_id BigInt
+  name        String
+  provinces   provinces   @relation(fields: [province_id], references: [id], onDelete: NoAction)
+  company     company[]
+  employees   employees[]
+  workshops   workshops[]
+
+  @@index([province_id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model companies_employees {
+  employee_id String    @db.Uuid
+  id          String    @id(map: "companies_employees_pkey1") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String?   @db.Uuid
+  company     company?  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  employees   employees @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([employee_id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model company {
+  id                  String                @id(map: "companies_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_name        String                @db.VarChar(255)
+  description         String
+  website             String?               @db.VarChar(255)
+  contact_email       String                @db.VarChar(255)
+  contact_phone       String                @db.VarChar(20)
+  address             String                @db.VarChar(255)
+  city                BigInt
+  country             String                @db.VarChar(100)
+  industry            String
+  company_logo        String?
+  is_active           Boolean               @default(true)
+  company_cuit        String                @unique(map: "company_compay_cuit_key")
+  province_id         BigInt?
+  owner_id            String?               @db.Uuid
+  by_defect           Boolean?              @default(false)
+  brand_vehicles      brand_vehicles[]
+  checklist_templates checklist_templates[]
+  companies_employees companies_employees[]
+  cities              cities                @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile             profile?              @relation(fields: [owner_id], references: [id], onDelete: Cascade)
+  provinces           provinces?            @relation(fields: [province_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contacts            contacts[]
+  covenant            covenant[]
+  custom_form         custom_form[]
+  customer_services   customer_services[]
+  customers           customers[]
+  daily_indicators    daily_indicators[]
+  dailyreport         dailyreport[]
+  diagram_type        diagram_type[]
+  document_types      document_types[]
+  documents_company   documents_company[]
+  employees           employees[]
+  equipment_owners    equipment_owners[]
+  guild               guild[]
+  hired_modules       hired_modules[]
+  kpis                kpis[]
+  notifications       notifications[]
+  other_equipment     other_equipment[]
+  preparte            preparte[]
+  service_items       service_items[]
+  share_company_users share_company_users[]
+  sub_type            sub_type[]
+  type                type[]
+  types_of_repairs    types_of_repairs[]
+  vehicles            vehicles[]
+  work_orders         work_orders[]
+  workshops           workshops[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model company_positions {
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  name                       String?
+  is_active                  Boolean?
+  hierarchical_position_id   String[]                     @db.Uuid
+  id                         String                       @id(map: "company_position_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aptitudes_tecnicas_puestos aptitudes_tecnicas_puestos[]
+  employees                  employees[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contacts {
+  id                     String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at             DateTime   @default(now()) @db.Timestamptz(6)
+  contact_name           String?
+  constact_email         String?
+  contact_phone          BigInt?
+  contact_charge         String?
+  company_id             String?    @db.Uuid
+  customer_id            String?    @db.Uuid
+  is_active              Boolean?   @default(true)
+  reason_for_termination String?
+  termination_date       DateTime?  @db.Date
+  customers              customers? @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company                company?   @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_contacts_company_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contractor_employee {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  employee_id   String?    @db.Uuid
+  contractor_id String?    @db.Uuid
+  customers     customers? @relation(fields: [contractor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees     employees? @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+
+  @@unique([employee_id, contractor_id], map: "unique_contractor_employee")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contractor_equipment {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  equipment_id  String?    @db.Uuid
+  contractor_id String?    @db.Uuid
+  customers     customers? @relation(fields: [contractor_id], references: [id], onDelete: Cascade)
+  vehicles      vehicles?  @relation(fields: [equipment_id], references: [id], onDelete: Cascade)
+
+  @@unique([equipment_id, contractor_id], map: "contractor_equipment_employee_id_contractor_id_key")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contractor_other_equipment {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipment_id    String          @db.Uuid
+  contractor_id   String          @db.Uuid
+  customers       customers       @relation(fields: [contractor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_equipment other_equipment @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([equipment_id, contractor_id])
+  @@index([contractor_id], map: "idx_contractor_other_equipment_contractor")
+  @@index([equipment_id], map: "idx_contractor_other_equipment_equipment")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contractors {
+  id         String   @id(map: "contractor-companies_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  name       String
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cost_center {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  name            String            @unique
+  is_active       Boolean?          @default(true)
+  employees       employees[]
+  other_equipment other_equipment[]
+  vehicles        vehicles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model countries {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  name       String
+  employees  employees[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model covenant {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  name       String?
+  company_id String      @db.Uuid
+  is_active  Boolean?    @default(true)
+  guild_id   String      @db.Uuid
+  category   category[]
+  company    company     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  guild      guild       @relation(fields: [guild_id], references: [id], onDelete: Cascade)
+  employees  employees[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model custom_form {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+  company_id   String         @db.Uuid
+  form         Json
+  name         String
+  company      company        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  form_answers form_answers[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model customer_services {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  customer_id      String?           @db.Uuid
+  service_name     String?
+  service_validity DateTime?         @db.Date
+  company_id       String?           @db.Uuid
+  is_active        Boolean?          @default(true)
+  service_start    DateTime?         @db.Date
+  contract_number  String?
+  customers        customers?        @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  company          company?          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_customer_services_company_id_fkey")
+  dailyreportrows  dailyreportrows[]
+  preparte         preparte[]
+  service_areas    service_areas[]
+  service_items    service_items[]
+  service_sectors  service_sectors[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model customers {
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  name                       String
+  cuit                       BigInt                       @unique
+  client_email               String?
+  client_phone               BigInt?
+  address                    String?
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  is_active                  Boolean?                     @default(true)
+  company_id                 String                       @db.Uuid
+  reason_for_termination     String?
+  termination_date           DateTime?                    @db.Date
+  areas_cliente              areas_cliente[]
+  contacts                   contacts[]
+  contractor_employee        contractor_employee[]
+  contractor_equipment       contractor_equipment[]
+  contractor_other_equipment contractor_other_equipment[]
+  customer_services          customer_services[]
+  company                    company                      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  dailyreportrows            dailyreportrows[]
+  equipos_clientes           equipos_clientes[]
+  preparte                   preparte[]
+  sector_customer            sector_customer[]
+  share_company_users        share_company_users[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model daily_indicators {
+  id            String             @id(map: "kpi_daily_indicators_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id    String             @db.Uuid
+  snapshot_date DateTime           @db.Date
+  metrics       Json               @default("{}")
+  source        indicator_function
+  created_at    DateTime           @default(now()) @db.Timestamptz(6)
+  company       company            @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kpi_daily_indicators_company_id_fkey")
+
+  @@unique([company_id, snapshot_date, source], map: "daily_indicators_company_id_snapshot_date_source_uidx")
+  @@index([company_id, snapshot_date], map: "idx_kpi_daily_indicators_company_date")
+  @@index([source], map: "idx_kpi_daily_indicators_source")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dailyreport {
+  id              String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  creation_date   DateTime?                      @default(dbgenerated("CURRENT_DATE")) @db.Date
+  date            DateTime                       @db.Date
+  created_at      DateTime?                      @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?                      @default(now()) @db.Timestamp(6)
+  company_id      String                         @db.Uuid
+  is_active       Boolean?                       @default(true)
+  status          daily_report_header_status_new @default(abierto)
+  company         company                        @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_dailyreport_company_id_fkey")
+  dailyreportrows dailyreportrows[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dailyreport_customer_equipment_relations {
+  daily_report_row_id   String           @db.Uuid
+  customer_equipment_id String           @db.Uuid
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipos_clientes      equipos_clientes @relation(fields: [customer_equipment_id], references: [id], onDelete: Cascade, map: "dailyreport_customer_equipment_relat_customer_equipment_id_fkey")
+  dailyreportrows       dailyreportrows  @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, map: "dailyreport_customer_equipment_relatio_daily_report_row_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dailyreportemployeerelations {
+  id                  String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  daily_report_row_id String?                     @db.Uuid
+  employee_id         String?                     @db.Uuid
+  created_at          DateTime?                   @default(now()) @db.Timestamp(6)
+  role                employee_daily_report_role?
+  dailyreportrows     dailyreportrows?            @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employees           employees?                  @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([daily_report_row_id], map: "idx_dailyreportemployeerelations_row_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dailyreportequipmentrelations {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  daily_report_row_id String?          @db.Uuid
+  equipment_id        String?          @db.Uuid
+  created_at          DateTime?        @default(now()) @db.Timestamp(6)
+  other_equipment_id  String?          @db.Uuid
+  dailyreportrows     dailyreportrows? @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicles            vehicles?        @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_equipment     other_equipment? @relation(fields: [other_equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([daily_report_row_id], map: "idx_dailyreportequipmentrelations_row_id")
+  @@index([other_equipment_id], map: "idx_daily_equip_rel_other_equipment", where: raw("(other_equipment_id IS NOT NULL)"))
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dailyreportrows {
+  id                                       String                                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  daily_report_id                          String?                                    @db.Uuid
+  customer_id                              String?                                    @db.Uuid
+  service_id                               String?                                    @db.Uuid
+  item_id                                  String?                                    @db.Uuid
+  start_time                               DateTime?                                  @db.Time(6)
+  end_time                                 DateTime?                                  @db.Time(6)
+  description                              String?
+  created_at                               DateTime?                                  @default(now()) @db.Timestamp(6)
+  updated_at                               DateTime?                                  @default(now()) @db.Timestamp(6)
+  status                                   daily_report_status                        @default(pendiente)
+  working_day                              String?
+  document_path                            String?
+  sector_service_id                        String?                                    @db.Uuid
+  areas_service_id                         String?                                    @db.Uuid
+  remit_number                             String?                                    @unique
+  cancel_reason                            String?
+  type_service                             daily_report_type_enum?
+  completed_day                            Boolean?
+  completed_night                          Boolean?
+  preparte_id                              String?                                    @unique @db.Uuid
+  last_comercial_edit_at                   DateTime?                                  @db.Timestamp(6)
+  dailyreport_customer_equipment_relations dailyreport_customer_equipment_relations[]
+  dailyreportemployeerelations             dailyreportemployeerelations[]
+  dailyreportequipmentrelations            dailyreportequipmentrelations[]
+  service_areas                            service_areas?                             @relation(fields: [areas_service_id], references: [id], onDelete: NoAction)
+  dailyreport                              dailyreport?                               @relation(fields: [daily_report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  preparte                                 preparte?                                  @relation(fields: [preparte_id], references: [id])
+  service_sectors                          service_sectors?                           @relation(fields: [sector_service_id], references: [id], onDelete: NoAction)
+  customer_services                        customer_services?                         @relation(fields: [service_id], references: [id], onDelete: NoAction)
+  customers                                customers?                                 @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_dailyreportrows_customer_id_fkey")
+  service_items                            service_items?                             @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_dailyreportrows_item_id_fkey")
+  dailyreportrows_history                  dailyreportrows_history[]
+  remitos                                  remitos[]
+
+  @@index([daily_report_id], map: "idx_dailyreportrows_daily_report_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dailyreportrows_history {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  daily_report_row_id String          @db.Uuid
+  related_table       String?
+  related_id          String?         @db.Uuid
+  action_type         String
+  changed_data        Json
+  changed_fields      Json?
+  changed_by          String?         @db.Uuid
+  created_at          DateTime        @default(now()) @db.Timestamptz(6)
+  metadata            Json?
+  reassignment_reason String?
+  users               users?          @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
+  dailyreportrows     dailyreportrows @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([related_table, related_id], map: "idx_dailyreportrows_history_related", where: raw("(related_table IS NOT NULL)"))
+  @@index([daily_report_row_id], map: "idx_dailyreportrows_history_row_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model diagram_type {
+  id                                                             String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                                     DateTime                        @default(now()) @db.Timestamptz(6)
+  name                                                           String?
+  company_id                                                     String                          @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  color                                                          String
+  short_description                                              String
+  work_active                                                    Boolean?                        @default(false)
+  is_active                                                      Boolean                         @default(true)
+  computes_absenteeism                                           Boolean                         @default(false)
+  company                                                        company                         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_diagram_type_company_id_fkey")
+  diagrams_logs                                                  diagrams_logs[]
+  employees_diagram_employees_diagram_diagram_typeTodiagram_type employees_diagram[]             @relation("employees_diagram_diagram_typeTodiagram_type")
+  work_diagram                                                   work_diagram[]
+  work_diagram_active_novelties                                  work_diagram_active_novelties[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model diagrams_logs {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at   DateTime     @default(now()) @db.Timestamptz(6)
+  prev_date    DateTime     @db.Timestamptz(6)
+  description  String
+  state        String
+  prev_state   String
+  modified_by  String?      @default(dbgenerated("auth.uid()")) @db.Uuid
+  employee_id  String       @db.Uuid
+  diagram_id   String       @db.Uuid
+  diagram_type diagram_type @relation(fields: [diagram_id], references: [id], onDelete: SetNull)
+  employees    employees    @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+  profile      profile?     @relation(fields: [modified_by], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model document_types {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  name                String
+  applies             document_applies
+  multiresource       Boolean
+  mandatory           Boolean
+  explired            Boolean
+  special             Boolean
+  is_active           Boolean               @default(true)
+  description         String?
+  company_id          String?               @db.Uuid
+  is_it_montlhy       Boolean?
+  private             Boolean?
+  down_document       Boolean?
+  conditions          Json[]
+  equipment_type      String?               @db.VarChar(20)
+  company             company?              @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  documents_company   documents_company[]
+  documents_employees documents_employees[]
+  documents_equipment documents_equipment[]
+
+  @@index([equipment_type], map: "idx_document_types_equipment_type")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model documents_company {
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  id_document_types String?         @db.Uuid
+  validity          String?
+  state             state           @default(pendiente)
+  is_active         Boolean?        @default(true)
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String?         @db.Uuid
+  applies           String          @db.Uuid
+  deny_reason       String?
+  document_path     String?         @unique
+  period            String?
+  company           company         @relation(fields: [applies], references: [id], onDelete: Cascade)
+  document_types    document_types? @relation(fields: [id_document_types], references: [id], onDelete: Cascade)
+  profile           profile?        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model documents_contracts {
+  id          String    @id(map: "documents_pkey1") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  type        String
+  date        DateTime? @default(now()) @db.Timestamptz(6)
+  size        String
+  path        String
+  contract_id String
+  description String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([contract_id], map: "idx_documents_contract_id")
+  @@index([name], map: "idx_documents_name")
+  @@index([type], map: "idx_documents_type")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model documents_employees {
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  id_document_types        String?                    @db.Uuid
+  validity                 DateTime?                  @db.Timestamptz(6)
+  state                    state                      @default(pendiente)
+  is_active                Boolean?                   @default(true)
+  id                       String                     @id(map: "documents_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                  String?                    @db.Uuid
+  applies                  String?                    @db.Uuid
+  deny_reason              String?
+  document_path            String?
+  period                   String?
+  employees                employees?                 @relation(fields: [applies], references: [id], onDelete: Cascade)
+  document_types           document_types?            @relation(fields: [id_document_types], references: [id], onDelete: Cascade)
+  profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  documents_employees_logs documents_employees_logs[]
+
+  @@schema("public")
+}
+
+model documents_employees_logs {
+  id                     Int                 @id @default(autoincrement())
+  documents_employees_id String              @db.Uuid
+  modified_by            String              @db.Uuid
+  updated_at             DateTime            @default(now()) @db.Timestamptz(6)
+  documents_employees    documents_employees @relation(fields: [documents_employees_id], references: [id], onDelete: Cascade, map: "public_documents_employees_logs_documents_employees_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model documents_equipment {
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  id_document_types        String?                    @db.Uuid
+  applies                  String?                    @db.Uuid
+  validity                 DateTime?                  @db.Timestamptz(6)
+  state                    state?                     @default(pendiente)
+  is_active                Boolean?                   @default(true)
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                  String?                    @db.Uuid
+  deny_reason              String?
+  document_path            String?
+  period                   String?
+  vehicles                 vehicles?                  @relation(fields: [applies], references: [id], onDelete: Cascade)
+  document_types           document_types?            @relation(fields: [id_document_types], references: [id], onDelete: Cascade)
+  profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  documents_equipment_logs documents_equipment_logs[]
+
+  @@schema("public")
+}
+
+model documents_equipment_logs {
+  id                     Int                 @id @default(autoincrement())
+  documents_equipment_id String              @db.Uuid
+  modified_by            String              @db.Uuid
+  updated_at             DateTime            @default(now()) @db.Timestamptz(6)
+  documents_equipment    documents_equipment @relation(fields: [documents_equipment_id], references: [id], onDelete: Cascade, map: "public_documents_equipment_logs_documents_equipment_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model empleado_aptitudes {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empleado_id        String             @db.Uuid
+  aptitud_id         String             @db.Uuid
+  tiene_aptitud      Boolean?           @default(false)
+  fecha_verificacion DateTime?          @db.Date
+  observaciones      String?
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  aptitudes_tecnicas aptitudes_tecnicas @relation(fields: [aptitud_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employees          employees          @relation(fields: [empleado_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([empleado_id, aptitud_id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model employees {
+  created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  picture                      String?
+  nationality                  nationality_enum?
+  lastname                     String
+  firstname                    String
+  cuil                         String                         @unique(map: "companies_employees_cuil_key")
+  document_type                document_type_enum?
+  document_number              String                         @unique(map: "companies_employees_document_number_key")
+  birthplace                   String                         @db.Uuid
+  gender                       gender_enum?
+  marital_status               marital_status_enum?
+  level_of_education           level_of_education_enum?
+  street                       String
+  street_number                String
+  province                     BigInt
+  postal_code                  String?
+  phone                        String
+  email                        String?
+  file                         String
+  normal_hours                 String?
+  date_of_admission            DateTime                       @db.Date
+  affiliate_status             affiliate_status_enum?
+  city                         BigInt?
+  hierarchical_position        String?                        @db.Uuid
+  workflow_diagram             String?                        @db.Uuid
+  id                           String                         @id(map: "companies_employees_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  allocated_to                 String[]                       @db.Uuid
+  company_id                   String?                        @db.Uuid
+  is_active                    Boolean?                       @default(true)
+  reason_for_termination       reason_for_termination_enum?
+  termination_date             DateTime?                      @db.Date
+  status                       status_type?                   @default(Incompleto)
+  category_id                  String?                        @db.Uuid
+  covenants_id                 String?                        @db.Uuid
+  guild_id                     String?                        @db.Uuid
+  cost_center_id               String?                        @db.Uuid
+  born_date                    String?
+  company_position             String?                        @db.Uuid
+  type_of_contract             String?                        @db.Uuid
+  cost_type                    cost_type_enum?
+  workshop_sector_id           String?                        @db.Uuid
+  full_name                    String?                        @default(dbgenerated("((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))"))
+  assing_customer              assing_customer[]
+  category_employee            category_employee[]
+  checklist_answers            checklist_answers[]
+  checklist_deviations         checklist_deviations[]
+  companies_employees          companies_employees[]
+  contractor_employee          contractor_employee[]
+  dailyreportemployeerelations dailyreportemployeerelations[]
+  diagrams_logs                diagrams_logs[]
+  documents_employees          documents_employees[]
+  empleado_aptitudes           empleado_aptitudes[]
+  countries                    countries                      @relation(fields: [birthplace], references: [id], onDelete: Cascade)
+  category                     category?                      @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cities                       cities?                        @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                      company?                       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  company_positions            company_positions?             @relation(fields: [company_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cost_center                  cost_center?                   @relation(fields: [cost_center_id], references: [id])
+  covenant                     covenant?                      @relation(fields: [covenants_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  guild                        guild?                         @relation(fields: [guild_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hierarchy                    hierarchy?                     @relation(fields: [hierarchical_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  provinces                    provinces                      @relation(fields: [province], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  types_of_contract            types_of_contract?             @relation(fields: [type_of_contract], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  work_diagram                 work_diagram?                  @relation(fields: [workflow_diagram], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshop_sectors             workshop_sectors?              @relation(fields: [workshop_sector_id], references: [id], onUpdate: NoAction)
+  employees_diagram            employees_diagram[]
+  maintenance_requests         maintenance_requests[]
+  profile                      profile[]
+  repair_solicitudes           repair_solicitudes[]
+  repairlogs                   repairlogs[]
+
+  @@index([type_of_contract], map: "idx_employees_type_of_contract")
+  @@index([workshop_sector_id], map: "idx_employees_workshop_sector_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model employees_diagram {
+  id                                                        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                                DateTime     @default(now()) @db.Timestamptz(6)
+  employee_id                                               String       @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  diagram_type                                              String       @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  day                                                       Decimal      @db.Decimal
+  month                                                     Decimal      @db.Decimal
+  year                                                      Decimal      @db.Decimal
+  is_active                                                 Boolean?
+  employees                                                 employees    @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  diagram_type_employees_diagram_diagram_typeTodiagram_type diagram_type @relation("employees_diagram_diagram_typeTodiagram_type", fields: [diagram_type], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_employees_diagram_diagram_type_fkey")
+
+  @@unique([employee_id, year, month, day], map: "unique_employee_year_month_day")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model equipment_owner_contract_types {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipment_owner_id String             @db.Uuid
+  contract_type      contract_type_enum
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  equipment_owners   equipment_owners   @relation(fields: [equipment_owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([equipment_owner_id, contract_type], map: "equipment_owner_contract_type_equipment_owner_id_contract_t_key")
+  @@index([equipment_owner_id], map: "idx_equipment_owner_contract_types_owner")
+  @@schema("public")
+}
+
+model equipment_owners {
+  id                             String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                           String
+  cuit                           String
+  contract_type                  contract_type_enum
+  created_at                     DateTime?                        @default(now()) @db.Timestamptz(6)
+  company_id                     String?                          @db.Uuid
+  is_active                      Boolean?                         @default(true)
+  equipment_owner_contract_types equipment_owner_contract_types[]
+  company                        company?                         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  other_equipment                other_equipment[]
+  vehicles                       vehicles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model equipos_clientes {
+  id                                       String                                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                               DateTime                                   @default(now()) @db.Timestamptz(6)
+  name                                     String
+  type                                     type_equipment
+  customer_id                              String                                     @db.Uuid
+  dailyreport_customer_equipment_relations dailyreport_customer_equipment_relations[]
+  customers                                customers                                  @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  preparte                                 preparte[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model form_answers {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  form_id     String      @db.Uuid
+  answer      Json        @db.Json
+  custom_form custom_form @relation(fields: [form_id], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model guild {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  name       String?
+  company_id String?     @db.Uuid
+  is_active  Boolean     @default(true)
+  covenant   covenant[]
+  employees  employees[]
+  company    company?    @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_guild_company_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model handle_errors {
+  id         BigInt   @id @default(autoincrement())
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  menssage   String
+  path       String
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model hierarchy {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  name            String
+  is_active       Boolean?          @default(true)
+  employees       employees[]
+  other_equipment other_equipment[]
+  vehicles        vehicles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model hired_modules {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  company_id String?   @db.Uuid
+  module_id  String?   @db.Uuid
+  due_to     DateTime? @default(dbgenerated("(CURRENT_DATE + '1 mon'::interval)")) @db.Date
+  company    company?  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  modules    modules?  @relation(fields: [module_id], references: [id], onDelete: Restrict)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model industry_type {
+  id         BigInt   @id @default(autoincrement())
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  name       String?  @unique(map: "industry_type_type_key")
+  is_active  Boolean? @default(true)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model kpi_revisions {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kpi_id                 String    @db.Uuid
+  previous_number        String?
+  new_number             String?
+  previous_validity_date DateTime? @db.Date
+  new_validity_date      DateTime? @db.Date
+  change_reason          String?
+  changed_by             String    @db.Uuid
+  is_active              Boolean?  @default(true)
+  created_at             DateTime? @default(now()) @db.Timestamptz(6)
+  users                  users     @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kpis                   kpis      @relation(fields: [kpi_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([changed_by], map: "idx_kpi_revisions_changed_by")
+  @@index([is_active], map: "idx_kpi_revisions_is_active")
+  @@index([kpi_id], map: "idx_kpi_revisions_kpi_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model kpis {
+  id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id                String          @db.Uuid
+  name                      String
+  code                      String
+  number                    String?
+  validity_date             DateTime        @db.Date
+  calculation_formula       String
+  improvement_opportunities String?
+  filters                   Json?
+  is_active                 Boolean?        @default(true)
+  created_at                DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime?       @default(now()) @db.Timestamptz(6)
+  technical_support         Boolean?        @default(true)
+  kpi_revisions             kpi_revisions[]
+  company                   company         @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([company_id, code])
+  @@index([company_id], map: "idx_kpis_company_id")
+  @@index([is_active], map: "idx_kpis_is_active")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model maintenance_activity_log {
+  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  maintenance_request_id String?               @db.Uuid
+  maintenance_order_id   String?               @db.Uuid
+  work_order_id          String?               @db.Uuid
+  action_type            String
+  performed_by           String?               @db.Uuid
+  performed_at           DateTime              @default(now()) @db.Timestamptz(6)
+  previous_status        String?
+  new_status             String?
+  notes                  String?
+  rejection_reason       String?
+  metadata               Json?                 @default("{}")
+  created_at             DateTime              @default(now()) @db.Timestamptz(6)
+  maintenance_orders     maintenance_orders?   @relation(fields: [maintenance_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  maintenance_requests   maintenance_requests? @relation(fields: [maintenance_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile                profile?              @relation(fields: [performed_by], references: [id], onUpdate: NoAction)
+  work_orders            work_orders?          @relation(fields: [work_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([maintenance_order_id], map: "idx_activity_log_order", where: raw("(maintenance_order_id IS NOT NULL)"))
+  @@index([performed_at(sort: Desc)], map: "idx_activity_log_performed_at")
+  @@index([maintenance_request_id], map: "idx_activity_log_request", where: raw("(maintenance_request_id IS NOT NULL)"))
+  @@index([work_order_id], map: "idx_activity_log_work_order", where: raw("(work_order_id IS NOT NULL)"))
+  @@schema("public")
+}
+
+model maintenance_group_type_of_repairs {
+  id                         String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type_id                    String                      @db.Uuid
+  created_at                 DateTime                    @default(now()) @db.Timestamptz(6)
+  group_id                   String?                     @db.Uuid
+  maintenance_request_groups maintenance_request_groups? @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  types_of_repairs           types_of_repairs            @relation(fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model maintenance_order_item_repair_types {
+  id                        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  maintenance_order_item_id String                  @db.Uuid
+  repair_type_id            String                  @db.Uuid
+  created_at                DateTime?               @default(now()) @db.Timestamptz(6)
+  maintenance_order_items   maintenance_order_items @relation(fields: [maintenance_order_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "maintenance_order_item_repair_ty_maintenance_order_item_id_fkey")
+  types_of_repairs          types_of_repairs        @relation(fields: [repair_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([maintenance_order_item_id, repair_type_id], map: "maintenance_order_item_repair_maintenance_order_item_id_rep_key")
+  @@index([maintenance_order_item_id], map: "idx_moi_repair_types_item")
+  @@index([repair_type_id], map: "idx_moi_repair_types_type")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model maintenance_order_items {
+  id                                                                 String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  maintenance_order_id                                               String                                @db.Uuid
+  maintenance_request_item_id                                        String?                               @db.Uuid
+  repair_type_id                                                     String?                               @db.Uuid
+  description                                                        String?
+  images                                                             String[]
+  created_at                                                         DateTime?                             @default(now()) @db.Timestamptz(6)
+  assigned_at                                                        DateTime?                             @db.Timestamptz(6)
+  assigned_by                                                        String?                               @db.Uuid
+  assigned_sector_id                                                 String?                               @db.Uuid
+  assigned_workshop_id                                               String?                               @db.Uuid
+  planned_end_date                                                   DateTime?                             @db.Date
+  planned_start_date                                                 DateTime?                             @db.Date
+  work_order_id                                                      String?                               @db.Uuid
+  is_critical                                                        Boolean?                              @default(false)
+  sector_sequence_order                                              Int?
+  is_diagnostico                                                     Boolean                               @default(false)
+  workshop_chief_comment                                             String?
+  is_rejected                                                        Boolean                               @default(false)
+  rejection_reason                                                   String?
+  rejected_by                                                        String?                               @db.Uuid
+  rejected_at                                                        DateTime?                             @db.Timestamptz(6)
+  workshop_chief_comment_by                                          String?                               @db.Uuid
+  maintenance_order_item_repair_types                                maintenance_order_item_repair_types[]
+  profile_maintenance_order_items_assigned_byToprofile               profile?                              @relation("maintenance_order_items_assigned_byToprofile", fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshop_sectors                                                   workshop_sectors?                     @relation(fields: [assigned_sector_id], references: [id], onUpdate: NoAction)
+  workshops                                                          workshops?                            @relation(fields: [assigned_workshop_id], references: [id], onUpdate: NoAction)
+  maintenance_orders                                                 maintenance_orders                    @relation(fields: [maintenance_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  maintenance_request_items                                          maintenance_request_items?            @relation(fields: [maintenance_request_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_order_items_rejected_byToprofile               profile?                              @relation("maintenance_order_items_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  types_of_repairs                                                   types_of_repairs?                     @relation(fields: [repair_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  work_orders                                                        work_orders?                          @relation(fields: [work_order_id], references: [id], onUpdate: NoAction)
+  profile_maintenance_order_items_workshop_chief_comment_byToprofile profile?                              @relation("maintenance_order_items_workshop_chief_comment_byToprofile", fields: [workshop_chief_comment_by], references: [id], onUpdate: NoAction)
+  work_order_items                                                   work_order_items[]
+
+  @@index([maintenance_order_id], map: "idx_maintenance_order_items_order")
+  @@index([maintenance_request_item_id], map: "idx_maintenance_order_items_request_item")
+  @@index([assigned_sector_id], map: "idx_moi_assigned_sector")
+  @@index([assigned_workshop_id], map: "idx_moi_assigned_workshop")
+  @@index([planned_start_date, planned_end_date], map: "idx_moi_planned_dates")
+  @@index([work_order_id], map: "idx_moi_work_order")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model maintenance_orders {
+  id                                                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  maintenance_request_id                                   String?                    @db.Uuid
+  equipment_id                                             String                     @db.Uuid
+  status                                                   String                     @default("pending_scheduling")
+  scheduled_date                                           DateTime?                  @db.Date
+  scheduled_by                                             String?                    @db.Uuid
+  scheduled_at                                             DateTime?                  @db.Timestamptz(6)
+  rejection_reason                                         String?
+  rejected_by                                              String?                    @db.Uuid
+  rejected_at                                              DateTime?                  @db.Timestamptz(6)
+  workshop_entry_date                                      DateTime?                  @db.Timestamptz(6)
+  workshop_approved_by                                     String?                    @db.Uuid
+  kilometer_at_entry                                       String?
+  created_at                                               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at                                               DateTime?                  @default(now()) @db.Timestamptz(6)
+  date_approved_at                                         DateTime?                  @db.Timestamptz(6)
+  date_approved_by                                         String?                    @db.Uuid
+  date_rejected_at                                         DateTime?                  @db.Timestamptz(6)
+  date_rejected_by                                         String?                    @db.Uuid
+  date_rejection_reason                                    String?
+  source                                                   String?                    @default("checklist")
+  order_number                                             String?
+  workshop_validated_at                                    DateTime?                  @db.Timestamptz(6)
+  workshop_validation_notes                                String?
+  operations_validated_by                                  String?                    @db.Uuid
+  operations_validated_at                                  DateTime?                  @db.Timestamptz(6)
+  operations_validation_notes                              String?
+  engine_hours_at_entry                                    String?
+  maintenance_activity_log                                 maintenance_activity_log[]
+  maintenance_order_items                                  maintenance_order_items[]
+  profile_maintenance_orders_date_approved_byToprofile     profile?                   @relation("maintenance_orders_date_approved_byToprofile", fields: [date_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_orders_date_rejected_byToprofile     profile?                   @relation("maintenance_orders_date_rejected_byToprofile", fields: [date_rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles                                                 vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  maintenance_requests                                     maintenance_requests?      @relation(fields: [maintenance_request_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                                    users?                     @relation(fields: [operations_validated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_orders_rejected_byToprofile          profile?                   @relation("maintenance_orders_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_orders_scheduled_byToprofile         profile?                   @relation("maintenance_orders_scheduled_byToprofile", fields: [scheduled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_orders_workshop_approved_byToprofile profile?                   @relation("maintenance_orders_workshop_approved_byToprofile", fields: [workshop_approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([equipment_id], map: "idx_maintenance_orders_equipment")
+  @@index([order_number], map: "idx_maintenance_orders_order_number")
+  @@index([maintenance_request_id], map: "idx_maintenance_orders_request")
+  @@index([scheduled_date], map: "idx_maintenance_orders_scheduled_date")
+  @@index([status], map: "idx_maintenance_orders_status")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model maintenance_request_groups {
+  id                                String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                              String                              @unique
+  description                       String?
+  is_active                         Boolean                             @default(true)
+  created_at                        DateTime                            @default(now()) @db.Timestamptz(6)
+  maintenance_group_type_of_repairs maintenance_group_type_of_repairs[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model maintenance_request_items {
+  id                                                               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  maintenance_request_id                                           String                    @db.Uuid
+  checklist_deviation_id                                           String                    @db.Uuid
+  repair_type_id                                                   String?                   @db.Uuid
+  status                                                           String                    @default("pending")
+  rejection_reason                                                 String?
+  created_at                                                       DateTime?                 @default(now()) @db.Timestamptz(6)
+  description                                                      String?
+  driver_comment                                                   String?
+  validator_comment                                                String?
+  driver_comment_by                                                String?                   @db.Uuid
+  validator_comment_by                                             String?                   @db.Uuid
+  supervisor_comment                                               String?
+  supervisor_comment_by                                            String?                   @db.Uuid
+  maintenance_order_items                                          maintenance_order_items[]
+  checklist_deviations                                             checklist_deviations      @relation(fields: [checklist_deviation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile_maintenance_request_items_driver_comment_byToprofile     profile?                  @relation("maintenance_request_items_driver_comment_byToprofile", fields: [driver_comment_by], references: [id], onUpdate: NoAction)
+  maintenance_requests                                             maintenance_requests      @relation(fields: [maintenance_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  types_of_repairs                                                 types_of_repairs?         @relation(fields: [repair_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_request_items_supervisor_comment_byToprofile profile?                  @relation("maintenance_request_items_supervisor_comment_byToprofile", fields: [supervisor_comment_by], references: [id], onUpdate: NoAction)
+  profile_maintenance_request_items_validator_comment_byToprofile  profile?                  @relation("maintenance_request_items_validator_comment_byToprofile", fields: [validator_comment_by], references: [id], onUpdate: NoAction)
+
+  @@unique([maintenance_request_id, checklist_deviation_id])
+  @@index([checklist_deviation_id], map: "idx_maintenance_request_items_deviation")
+  @@index([maintenance_request_id], map: "idx_maintenance_request_items_request")
+  @@index([status], map: "idx_maintenance_request_items_status")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model maintenance_requests {
+  id                                                  String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checklist_answer_id                                 String?                     @db.Uuid
+  equipment_id                                        String                      @db.Uuid
+  employee_id                                         String?                     @db.Uuid
+  user_id                                             String?                     @db.Uuid
+  status                                              String                      @default("pending_approval")
+  rejection_reason                                    String?
+  rejected_by                                         String?                     @db.Uuid
+  rejected_at                                         DateTime?                   @db.Timestamptz(6)
+  approved_by                                         String?                     @db.Uuid
+  approved_at                                         DateTime?                   @db.Timestamptz(6)
+  kilometer                                           String?
+  created_at                                          DateTime?                   @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime?                   @default(now()) @db.Timestamptz(6)
+  supervisor_id                                       String?                     @db.Uuid
+  source                                              String?                     @default("checklist")
+  engine_hours                                        String?
+  maintenance_activity_log                            maintenance_activity_log[]
+  maintenance_orders                                  maintenance_orders[]
+  maintenance_request_items                           maintenance_request_items[]
+  profile_maintenance_requests_approved_byToprofile   profile?                    @relation("maintenance_requests_approved_byToprofile", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklist_answers                                   checklist_answers?          @relation(fields: [checklist_answer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employees                                           employees?                  @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles                                            vehicles                    @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile_maintenance_requests_rejected_byToprofile   profile?                    @relation("maintenance_requests_rejected_byToprofile", fields: [rejected_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_requests_supervisor_idToprofile profile?                    @relation("maintenance_requests_supervisor_idToprofile", fields: [supervisor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_maintenance_requests_user_idToprofile       profile?                    @relation("maintenance_requests_user_idToprofile", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([checklist_answer_id], map: "idx_maintenance_requests_checklist")
+  @@index([equipment_id], map: "idx_maintenance_requests_equipment")
+  @@index([status], map: "idx_maintenance_requests_status")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model measure_units {
+  id            Int             @id @default(autoincrement())
+  unit          String          @db.VarChar(50)
+  simbol        String          @db.VarChar(10)
+  tipo          String          @db.VarChar(20)
+  service_items service_items[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model model_vehicles {
+  id              BigInt            @id @default(autoincrement())
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  name            String?
+  brand           BigInt?
+  is_active       Boolean?          @default(true)
+  brand_vehicles  brand_vehicles?   @relation(fields: [brand], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_model_vehicles_brand_fkey")
+  other_equipment other_equipment[]
+  vehicles        vehicles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model modules {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  name          String
+  price         Decimal         @db.Decimal
+  description   String
+  icon          String?
+  is_active     Boolean?        @default(true)
+  order_index   Int?            @default(0)
+  slug          String?         @unique
+  updated_at    DateTime?       @default(now()) @db.Timestamptz(6)
+  hired_modules hired_modules[]
+  tabs          tabs[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notifications {
+  id          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String?
+  description String?
+  category    notification_categories?
+  company_id  String?                  @db.Uuid
+  created_at  DateTime?                @default(now()) @db.Timestamptz(6)
+  document_id String?                  @db.Uuid
+  reference   String?
+  company     company?                 @relation(fields: [company_id], references: [id], onDelete: Cascade, map: "public_notifications_company_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model other_equipment {
+  id                             String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id                     String                           @db.Uuid
+  type_id                        String                           @db.Uuid
+  sub_type_id                    String?                          @db.Uuid
+  brand_id                       BigInt?
+  model_id                       BigInt?
+  serial_number                  String?
+  year                           String?
+  condition                      condition_enum?
+  status                         status_type?
+  is_active                      Boolean                          @default(true)
+  intern_number                  String?
+  pictures                       String[]                         @default([])
+  horometer                      Decimal?                         @db.Decimal
+  blueprints                     String[]                         @default([])
+  manufacturer_plate             String?
+  composition                    String?
+  invoice_number                 String?
+  initial_value                  Decimal?                         @db.Decimal
+  currency                       currency_enum?
+  purchase_date                  DateTime?                        @db.Date
+  cost_type                      cost_type_enum?
+  cost_center_id                 String?                          @db.Uuid
+  sector                         String?                          @db.Uuid
+  linked_vehicle_id              String?                          @db.Uuid
+  owner_id                       String?                          @db.Uuid
+  reason_for_termination         termination_reason_enum?
+  termination_date               DateTime?                        @db.Date
+  user_id                        String?                          @db.Uuid
+  created_at                     DateTime                         @default(now()) @db.Timestamptz(6)
+  contractor_other_equipment     contractor_other_equipment[]
+  dailyreportequipmentrelations  dailyreportequipmentrelations[]
+  brand_vehicles                 brand_vehicles?                  @relation(fields: [brand_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                        company                          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cost_center                    cost_center?                     @relation(fields: [cost_center_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles                       vehicles?                        @relation(fields: [linked_vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  model_vehicles                 model_vehicles?                  @relation(fields: [model_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipment_owners               equipment_owners?                @relation(fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hierarchy                      hierarchy?                       @relation(fields: [sector], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sub_type                       sub_type?                        @relation(fields: [sub_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type                           type                             @relation(fields: [type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile                        profile?                         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_equipment_certifications other_equipment_certifications[]
+
+  @@index([company_id], map: "idx_other_equipment_company_id")
+  @@index([is_active], map: "idx_other_equipment_is_active")
+  @@index([linked_vehicle_id], map: "idx_other_equipment_linked_vehicle")
+  @@index([type_id], map: "idx_other_equipment_type_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model other_equipment_certifications {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipment_id    String          @db.Uuid
+  name            String
+  file_url        String
+  expiration_date DateTime?       @db.Date
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  other_equipment other_equipment @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([equipment_id], map: "idx_other_equipment_certifications_equipment")
+  @@schema("public")
+}
+
+model password_reset_tokens {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id String?   @db.Uuid
+  token      String
+  expires    DateTime  @db.Timestamptz(6)
+  used       Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  profile    profile?  @relation(fields: [profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([profile_id, used], map: "idx_password_reset_tokens_active", where: raw("(NOT used)"))
+  @@index([expires], map: "idx_password_reset_tokens_expires")
+  @@index([token], map: "idx_password_reset_tokens_token")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model preparte {
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cliente_id              String                 @db.Uuid
+  contrato_id             String                 @db.Uuid
+  tipo                    String
+  jornada                 String
+  start_time              String?
+  end_time                String?
+  solicitante             String
+  item                    String?                @db.Uuid
+  observaciones           String?
+  executionDate           DateTime?              @db.Timestamptz(6)
+  created_at              DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?              @default(now()) @db.Timestamptz(6)
+  quantity                Decimal?               @db.Decimal
+  requestDate             DateTime?              @db.Timestamptz(6)
+  cancel_reason           String?
+  numero_pedido           String?
+  rejected_reason         String?
+  reprogram               String?                @db.Uuid
+  reprogram_reason        String?
+  company_id              String?                @db.Uuid
+  sector_service_id       String?                @db.Uuid
+  areas_service_id        String?                @db.Uuid
+  equipos_cliente         String?                @db.Uuid
+  status                  preparte_status?
+  preparteImage           String?
+  confirmed_by            String?
+  subject_to_availability Boolean?               @default(false)
+  dailyreportrows         dailyreportrows?
+  service_areas           service_areas?         @relation(fields: [areas_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customers               customers              @relation(fields: [cliente_id], references: [id], onDelete: SetDefault)
+  company                 company?               @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer_services       customer_services      @relation(fields: [contrato_id], references: [id], onDelete: NoAction)
+  equipos_clientes        equipos_clientes?      @relation(fields: [equipos_cliente], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  service_items           service_items?         @relation(fields: [item], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  preparte                preparte?              @relation("preparteTopreparte", fields: [reprogram], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_preparte          preparte[]             @relation("preparteTopreparte")
+  service_sectors         service_sectors?       @relation(fields: [sector_service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  preparte_change_logs    preparte_change_logs[]
+
+  @@index([cliente_id], map: "idx_preparte_cliente")
+  @@index([executionDate], map: "idx_preparte_fecha_ejecucion")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model preparte_change_logs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  preparte_id String   @db.Uuid
+  field_name  String
+  old_value   String?
+  new_value   String?
+  reason      String
+  changed_by  String?  @db.Uuid
+  changed_at  DateTime @default(now()) @db.Timestamptz(6)
+  metadata    Json?    @default("{}")
+  profile     profile? @relation(fields: [changed_by], references: [credential_id], onDelete: NoAction, onUpdate: NoAction)
+  preparte    preparte @relation(fields: [preparte_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([changed_at(sort: Desc)], map: "idx_preparte_change_logs_changed_at")
+  @@index([field_name], map: "idx_preparte_change_logs_field_name")
+  @@index([preparte_id], map: "idx_preparte_change_logs_preparte_id")
+  @@schema("public")
+}
+
+model profile {
+  id                                                                                 String                      @id @db.Uuid
+  created_at                                                                         DateTime?                   @default(now()) @db.Timestamptz(6)
+  credential_id                                                                      String?                     @unique(map: "profile_credentialId_key") @db.Uuid
+  email                                                                              String?                     @unique
+  avatar                                                                             String?
+  fullname                                                                           String?
+  role                                                                               String?                     @default("User")
+  modulos                                                                            modulos[]
+  employee_id                                                                        String?                     @db.Uuid
+  checklist_answers                                                                  checklist_answers[]
+  checklist_deviations                                                               checklist_deviations[]
+  company                                                                            company[]
+  diagrams_logs                                                                      diagrams_logs[]
+  documents_company                                                                  documents_company[]
+  documents_employees                                                                documents_employees[]
+  documents_equipment                                                                documents_equipment[]
+  maintenance_activity_log                                                           maintenance_activity_log[]
+  maintenance_order_items_maintenance_order_items_assigned_byToprofile               maintenance_order_items[]   @relation("maintenance_order_items_assigned_byToprofile")
+  maintenance_order_items_maintenance_order_items_rejected_byToprofile               maintenance_order_items[]   @relation("maintenance_order_items_rejected_byToprofile")
+  maintenance_order_items_maintenance_order_items_workshop_chief_comment_byToprofile maintenance_order_items[]   @relation("maintenance_order_items_workshop_chief_comment_byToprofile")
+  maintenance_orders_maintenance_orders_date_approved_byToprofile                    maintenance_orders[]        @relation("maintenance_orders_date_approved_byToprofile")
+  maintenance_orders_maintenance_orders_date_rejected_byToprofile                    maintenance_orders[]        @relation("maintenance_orders_date_rejected_byToprofile")
+  maintenance_orders_maintenance_orders_rejected_byToprofile                         maintenance_orders[]        @relation("maintenance_orders_rejected_byToprofile")
+  maintenance_orders_maintenance_orders_scheduled_byToprofile                        maintenance_orders[]        @relation("maintenance_orders_scheduled_byToprofile")
+  maintenance_orders_maintenance_orders_workshop_approved_byToprofile                maintenance_orders[]        @relation("maintenance_orders_workshop_approved_byToprofile")
+  maintenance_request_items_maintenance_request_items_driver_comment_byToprofile     maintenance_request_items[] @relation("maintenance_request_items_driver_comment_byToprofile")
+  maintenance_request_items_maintenance_request_items_supervisor_comment_byToprofile maintenance_request_items[] @relation("maintenance_request_items_supervisor_comment_byToprofile")
+  maintenance_request_items_maintenance_request_items_validator_comment_byToprofile  maintenance_request_items[] @relation("maintenance_request_items_validator_comment_byToprofile")
+  maintenance_requests_maintenance_requests_approved_byToprofile                     maintenance_requests[]      @relation("maintenance_requests_approved_byToprofile")
+  maintenance_requests_maintenance_requests_rejected_byToprofile                     maintenance_requests[]      @relation("maintenance_requests_rejected_byToprofile")
+  maintenance_requests_maintenance_requests_supervisor_idToprofile                   maintenance_requests[]      @relation("maintenance_requests_supervisor_idToprofile")
+  maintenance_requests_maintenance_requests_user_idToprofile                         maintenance_requests[]      @relation("maintenance_requests_user_idToprofile")
+  other_equipment                                                                    other_equipment[]
+  password_reset_tokens                                                              password_reset_tokens[]
+  preparte_change_logs                                                               preparte_change_logs[]
+  users_profile_credential_idTousers                                                 users?                      @relation("profile_credential_idTousers", fields: [credential_id], references: [id], onDelete: Cascade)
+  employees                                                                          employees?                  @relation(fields: [employee_id], references: [id], onUpdate: NoAction)
+  users_profile_idTousers                                                            users                       @relation("profile_idTousers", fields: [id], references: [id], onDelete: Cascade)
+  roles                                                                              roles?                      @relation(fields: [role], references: [name], onDelete: NoAction, onUpdate: NoAction)
+  repair_solicitudes_repair_solicitudes_mechanic_idToprofile                         repair_solicitudes[]        @relation("repair_solicitudes_mechanic_idToprofile")
+  repair_solicitudes_repair_solicitudes_user_idToprofile                             repair_solicitudes[]        @relation("repair_solicitudes_user_idToprofile")
+  repairlogs                                                                         repairlogs[]
+  share_company_users                                                                share_company_users[]
+  vehicles                                                                           vehicles[]
+  work_order_item_repairs_work_order_item_repairs_added_byToprofile                  work_order_item_repairs[]   @relation("work_order_item_repairs_added_byToprofile")
+  work_order_item_repairs_work_order_item_repairs_approved_byToprofile               work_order_item_repairs[]   @relation("work_order_item_repairs_approved_byToprofile")
+  work_order_item_repairs_work_order_item_repairs_completed_byToprofile              work_order_item_repairs[]   @relation("work_order_item_repairs_completed_byToprofile")
+  work_order_item_repairs_work_order_item_repairs_technician_notes_byToprofile       work_order_item_repairs[]   @relation("work_order_item_repairs_technician_notes_byToprofile")
+  work_order_items                                                                   work_order_items[]
+  work_orders_work_orders_cancelled_byToprofile                                      work_orders[]               @relation("work_orders_cancelled_byToprofile")
+  work_orders_work_orders_completed_byToprofile                                      work_orders[]               @relation("work_orders_completed_byToprofile")
+  work_orders_work_orders_created_byToprofile                                        work_orders[]               @relation("work_orders_created_byToprofile")
+  work_orders_work_orders_paused_byToprofile                                         work_orders[]               @relation("work_orders_paused_byToprofile")
+  work_orders_work_orders_started_byToprofile                                        work_orders[]               @relation("work_orders_started_byToprofile")
+
+  @@index([employee_id], map: "idx_profile_employee_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model provinces {
+  id            BigInt          @id @unique @default(autoincrement())
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  name          String
+  area_province area_province[]
+  cities        cities[]
+  company       company[]
+  employees     employees[]
+  workshops     workshops[]
+
+  @@schema("public")
+}
+
+model remito_documents {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  remit_id      String    @db.Uuid
+  document_path String
+  document_name String
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  remitos       remitos   @relation(fields: [remit_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([remit_id], map: "idx_remito_documents_remit_id")
+  @@schema("public")
+}
+
+model remitos {
+  id                  String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  daily_report_row_id String             @db.Uuid
+  remit_number        String
+  created_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  is_linked           Boolean            @default(false)
+  remito_documents    remito_documents[]
+  dailyreportrows     dailyreportrows    @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([daily_report_row_id], map: "idx_remitos_daily_report_row_id")
+  @@index([is_linked], map: "idx_remitos_is_linked")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model repair_solicitudes {
+  id                                              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                      DateTime                   @default(now()) @db.Timestamptz(6)
+  reparation_type                                 String                     @db.Uuid
+  equipment_id                                    String                     @db.Uuid
+  state                                           repair_state
+  user_description                                String?
+  mechanic_description                            String?
+  end_date                                        DateTime?                  @db.Date
+  user_id                                         String?                    @db.Uuid
+  mechanic_id                                     String?                    @db.Uuid
+  mechanic_images                                 String[]
+  user_images                                     String[]
+  employee_id                                     String?                    @db.Uuid
+  kilometer                                       String?
+  scheduled                                       DateTime?                  @db.Timestamptz(6)
+  updated_at                                      DateTime?                  @db.Timestamptz(6)
+  checklist_answer_repairs                        checklist_answer_repairs[]
+  employees                                       employees?                 @relation(fields: [employee_id], references: [id])
+  vehicles                                        vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: Cascade)
+  profile_repair_solicitudes_mechanic_idToprofile profile?                   @relation("repair_solicitudes_mechanic_idToprofile", fields: [mechanic_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  types_of_repairs                                types_of_repairs           @relation(fields: [reparation_type], references: [id], onDelete: Cascade)
+  profile_repair_solicitudes_user_idToprofile     profile?                   @relation("repair_solicitudes_user_idToprofile", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  repairlogs                                      repairlogs[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model repairlogs {
+  id                   String              @id(map: "reparirlogs_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  title                String?
+  description          String?
+  repair_id            String?             @db.Uuid
+  kilometer            String?
+  modified_by_employee String?             @db.Uuid
+  modified_by_user     String?             @db.Uuid
+  employees            employees?          @relation(fields: [modified_by_employee], references: [id])
+  profile              profile?            @relation(fields: [modified_by_user], references: [id])
+  repair_solicitudes   repair_solicitudes? @relation(fields: [repair_id], references: [id], onDelete: Cascade, map: "reparirlogs_repair_id_fkey")
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model role_permissions {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_id    BigInt
+  tab_id     String    @db.Uuid
+  action_id  String    @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  actions    actions   @relation(fields: [action_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles      roles     @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tabs       tabs      @relation(fields: [tab_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([role_id, tab_id, action_id])
+  @@index([role_id], map: "idx_role_permissions_role_id")
+  @@index([tab_id], map: "idx_role_permissions_tab_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model roles {
+  id               BigInt             @id @default(autoincrement())
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  name             String             @unique
+  is_active        Boolean?           @default(true)
+  intern           Boolean?           @default(false)
+  color            String?
+  description      String?
+  is_system        Boolean?           @default(false)
+  slug             String?            @unique
+  updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  profile          profile[]
+  role_permissions role_permissions[]
+  user_roles       user_roles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sector_customer {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sector_id   String    @db.Uuid
+  customer_id String    @db.Uuid
+  created_at  DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  customers   customers @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sectors     sectors   @relation(fields: [sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([sector_id, customer_id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sector_repair_types {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workshop_sector_id String           @db.Uuid
+  repair_type_id     String           @db.Uuid
+  created_at         DateTime?        @default(now()) @db.Timestamptz(6)
+  types_of_repairs   types_of_repairs @relation(fields: [repair_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workshop_sectors   workshop_sectors @relation(fields: [workshop_sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([workshop_sector_id, repair_type_id])
+  @@index([repair_type_id], map: "idx_sector_repair_types_repair")
+  @@index([workshop_sector_id], map: "idx_sector_repair_types_sector")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sectors {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  descripcion_corta String?
+  created_at        DateTime?         @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  sector_customer   sector_customer[]
+  service_sectors   service_sectors[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_areas {
+  service_id        String            @db.Uuid
+  area_id           String            @db.Uuid
+  id                String            @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dailyreportrows   dailyreportrows[]
+  preparte          preparte[]
+  areas_cliente     areas_cliente     @relation(fields: [area_id], references: [id], onDelete: Cascade)
+  customer_services customer_services @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@id([service_id, area_id, id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_items {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  customer_service_id String            @db.Uuid
+  company_id          String            @db.Uuid
+  item_name           String
+  item_description    String
+  item_price          Decimal           @db.Decimal
+  item_measure_units  Int
+  is_active           Boolean?          @default(true)
+  code_item           String?
+  item_number         String?
+  needs_personnel     Boolean           @default(true)
+  needs_equipment     Boolean           @default(true)
+  dailyreportrows     dailyreportrows[]
+  preparte            preparte[]
+  company             company           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_service_items_company_id_fkey")
+  measure_units       measure_units     @relation(fields: [item_measure_units], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_service_items_item_measure_units_fkey")
+  customer_services   customer_services @relation(fields: [customer_service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model service_sectors {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  service_id        String            @db.Uuid
+  sector_id         String            @db.Uuid
+  created_at        DateTime?         @default(now()) @db.Timestamptz(6)
+  dailyreportrows   dailyreportrows[]
+  preparte          preparte[]
+  sectors           sectors           @relation(fields: [sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  customer_services customer_services @relation(fields: [service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([service_id, sector_id], map: "service_sectors_unique")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model share_company_users {
+  created_at  DateTime   @default(now()) @db.Timestamptz(6)
+  profile_id  String?    @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String?    @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String     @id @unique(map: "share_company_users_id2_key") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id String?    @db.Uuid
+  modules     modulos[]
+  company     company?   @relation(fields: [company_id], references: [id], onDelete: Cascade, map: "public_share_company_users_company_id_fkey")
+  profile     profile?   @relation(fields: [profile_id], references: [id], onDelete: Cascade, map: "public_share_company_users_profile_id_fkey")
+  customers   customers? @relation(fields: [customer_id], references: [id])
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sub_type {
+  id                           String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  name                         String
+  is_active                    Boolean?                       @default(true)
+  company_id                   String?                        @db.Uuid
+  type                         String?                        @db.Uuid
+  checklist_template_sub_types checklist_template_sub_types[]
+  other_equipment              other_equipment[]
+  company                      company?                       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  type_sub_type_typeTotype     type?                          @relation("sub_type_typeTotype", fields: [type], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sub_type_compatible_items    sub_type_compatible_items[]
+  vehicles                     vehicles[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sub_type_compatible_items {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sub_type_id        String   @db.Uuid
+  compatible_item_id String   @db.Uuid
+  item_type          String
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  sub_type           sub_type @relation(fields: [sub_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([sub_type_id, compatible_item_id, item_type], map: "sub_type_compatible_items_unique")
+  @@index([compatible_item_id], map: "idx_sub_type_compatible_items_compatible_item_id")
+  @@index([sub_type_id], map: "idx_sub_type_compatible_items_sub_type_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tabs {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module_id        String             @db.Uuid
+  parent_tab_id    String?            @db.Uuid
+  slug             String
+  name             String
+  description      String?
+  order_index      Int?               @default(0)
+  is_active        Boolean?           @default(true)
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  role_permissions role_permissions[]
+  modules          modules            @relation(fields: [module_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tabs             tabs?              @relation("tabsTotabs", fields: [parent_tab_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_tabs       tabs[]             @relation("tabsTotabs")
+  user_permissions user_permissions[]
+
+  @@unique([module_id, slug])
+  @@index([module_id], map: "idx_tabs_module_id")
+  @@index([parent_tab_id], map: "idx_tabs_parent_tab_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model type {
+  id                                                         String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                                 DateTime                   @default(now()) @db.Timestamptz(6)
+  name                                                       String
+  is_active                                                  Boolean?                   @default(true)
+  company_id                                                 String?                    @db.Uuid
+  has_hitch                                                  Boolean?                   @default(false)
+  is_tractor_unit                                            Boolean?                   @default(false)
+  generates_qr                                               Boolean?                   @default(true)
+  applies_to                                                 String?                    @default("vehicle") @db.VarChar(20)
+  is_operative                                               Boolean?                   @default(false)
+  checklist_template_types                                   checklist_template_types[]
+  other_equipment                                            other_equipment[]
+  sub_type_sub_type_typeTotype                               sub_type[]                 @relation("sub_type_typeTotype")
+  company                                                    company?                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  type_hitch_types_type_hitch_types_compatible_type_idTotype type_hitch_types[]         @relation("type_hitch_types_compatible_type_idTotype")
+  type_hitch_types_type_hitch_types_type_idTotype            type_hitch_types[]         @relation("type_hitch_types_type_idTotype")
+  vehicles_vehicles_typeTotype                               vehicles[]                 @relation("vehicles_typeTotype")
+
+  @@index([applies_to], map: "idx_type_applies_to")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model type_hitch_types {
+  id                                             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type_id                                        String    @db.Uuid
+  compatible_type_id                             String    @db.Uuid
+  created_at                                     DateTime? @default(now()) @db.Timestamptz(6)
+  type_type_hitch_types_compatible_type_idTotype type      @relation("type_hitch_types_compatible_type_idTotype", fields: [compatible_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  type_type_hitch_types_type_idTotype            type      @relation("type_hitch_types_type_idTotype", fields: [type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([type_id, compatible_type_id])
+  @@index([compatible_type_id], map: "idx_type_hitch_types_compatible_type_id")
+  @@index([type_id], map: "idx_type_hitch_types_type_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model type_operative {
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  name       String     @unique
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vehicles   vehicles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model types_of_contract {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  name        String      @unique
+  description String?
+  is_active   Boolean?    @default(true)
+  employees   employees[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model types_of_repairs {
+  created_at                          DateTime                              @default(now()) @db.Timestamptz(6)
+  name                                String
+  description                         String
+  criticity                           String?
+  is_active                           Boolean                               @default(true)
+  company_id                          String?                               @db.Uuid
+  type_of_maintenance                 type_of_maintenance_ENUM?
+  id                                  String                                @id @unique(map: "types_of_repairs_id-2_key") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  multi_equipment                     Boolean                               @default(false)
+  qr_close                            Boolean                               @default(false)
+  autorizable                         Boolean                               @default(false)
+  maintenance_group_type_of_repairs   maintenance_group_type_of_repairs[]
+  maintenance_order_item_repair_types maintenance_order_item_repair_types[]
+  maintenance_order_items             maintenance_order_items[]
+  maintenance_request_items           maintenance_request_items[]
+  repair_solicitudes                  repair_solicitudes[]
+  sector_repair_types                 sector_repair_types[]
+  company                             company?                              @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  work_order_item_repairs             work_order_item_repairs[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model types_of_vehicles {
+  id         BigInt     @id @default(autoincrement())
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  name       String?
+  is_active  Boolean?   @default(true)
+  vehicles   vehicles[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_permissions {
+  id                                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                   String    @db.Uuid
+  tab_id                                    String    @db.Uuid
+  action_id                                 String    @db.Uuid
+  is_granted                                Boolean?  @default(true)
+  assigned_by                               String?   @db.Uuid
+  created_at                                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                                DateTime? @default(now()) @db.Timestamptz(6)
+  actions                                   actions   @relation(fields: [action_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_user_permissions_assigned_byTousers users?    @relation("user_permissions_assigned_byTousers", fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tabs                                      tabs      @relation(fields: [tab_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_user_permissions_user_idTousers     users     @relation("user_permissions_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, tab_id, action_id])
+  @@index([tab_id], map: "idx_user_permissions_tab_id")
+  @@index([user_id], map: "idx_user_permissions_user_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_roles {
+  id                                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                             String    @db.Uuid
+  role_id                             BigInt
+  assigned_by                         String?   @db.Uuid
+  assigned_at                         DateTime? @default(now()) @db.Timestamptz(6)
+  users_user_roles_assigned_byTousers users?    @relation("user_roles_assigned_byTousers", fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles                               roles     @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_user_roles_user_idTousers     users     @relation("user_roles_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, role_id])
+  @@index([role_id], map: "idx_user_roles_role_id")
+  @@index([user_id], map: "idx_user_roles_user_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model vehicles {
+  created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  picture                       String?
+  type_of_vehicle               BigInt
+  domain                        String?                         @unique
+  chassis                       String?
+  engine                        String
+  serie                         String?
+  intern_number                 String?
+  year                          String
+  brand                         BigInt?
+  model                         BigInt?
+  is_active                     Boolean?                        @default(true)
+  termination_date              DateTime?                       @db.Date
+  reason_for_termination        termination_reason_enum?
+  user_id                       String?                         @default(dbgenerated("auth.uid()")) @db.Uuid
+  company_id                    String?                         @db.Uuid
+  id                            String                          @id @unique(map: "vehicles_id2_key") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                          String                          @db.Uuid
+  status                        status_type?                    @default(Incompleto)
+  allocated_to                  String[]                        @db.Uuid
+  condition                     condition_enum?                 @default(operativo)
+  kilometer                     String?                         @default("0")
+  cost_center_id                String?                         @db.Uuid
+  type_operative_id             String?                         @db.Uuid
+  subType                       String?                         @db.Uuid
+  owner_id                      String?                         @db.Uuid
+  type_of_contract              contract_type_vehicles_enum?
+  contract_expiration_date      DateTime?                       @db.Date
+  contract_start_date           DateTime?                       @db.Date
+  contract_number               String?
+  currency                      currency_enum?
+  price                         Decimal?                        @db.Decimal(15, 2)
+  cost_type                     cost_type_enum?
+  sector                        String?                         @db.Uuid
+  engine_hours                  String?                         @default("0")
+  assing_customer               assing_customer[]
+  checklist_answers             checklist_answers[]
+  checklist_deviations          checklist_deviations[]
+  contractor_equipment          contractor_equipment[]
+  dailyreportequipmentrelations dailyreportequipmentrelations[]
+  documents_equipment           documents_equipment[]
+  maintenance_orders            maintenance_orders[]
+  maintenance_requests          maintenance_requests[]
+  other_equipment               other_equipment[]
+  repair_solicitudes            repair_solicitudes[]
+  model_vehicles                model_vehicles?                 @relation(fields: [model], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_vehicles_model_fkey")
+  type_vehicles_typeTotype      type                            @relation("vehicles_typeTotype", fields: [type], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_vehicles_type_fkey")
+  brand_vehicles                brand_vehicles?                 @relation(fields: [brand], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                       company?                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  cost_center                   cost_center?                    @relation(fields: [cost_center_id], references: [id])
+  equipment_owners              equipment_owners?               @relation(fields: [owner_id], references: [id], onDelete: SetDefault)
+  hierarchy                     hierarchy?                      @relation(fields: [sector], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sub_type                      sub_type?                       @relation(fields: [subType], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  types_of_vehicles             types_of_vehicles               @relation(fields: [type_of_vehicle], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type_operative                type_operative?                 @relation(fields: [type_operative_id], references: [id])
+  profile                       profile?                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  work_orders                   work_orders[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model work_diagram {
+  id                            String                          @id(map: "work-diagram_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  name                          String
+  is_active                     Boolean?                        @default(true)
+  active_working_days           Decimal?                        @db.Decimal
+  inactive_novelty              String?                         @db.Uuid
+  inactive_working_days         Decimal?                        @db.Decimal
+  employees                     employees[]
+  diagram_type                  diagram_type?                   @relation(fields: [inactive_novelty], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "work-diagram_inactive_novelty_fkey")
+  work_diagram_active_novelties work_diagram_active_novelties[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model work_diagram_active_novelties {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  work_diagram_id String       @db.Uuid
+  diagram_type_id String       @db.Uuid
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  diagram_type    diagram_type @relation(fields: [diagram_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  work_diagram    work_diagram @relation(fields: [work_diagram_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([work_diagram_id, diagram_type_id], map: "work_diagram_active_novelties_unique")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model work_order_item_repairs {
+  id                                                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  work_order_item_id                                           String                 @db.Uuid
+  repair_type_id                                               String                 @db.Uuid
+  status                                                       work_order_item_status @default(pending)
+  technician_notes                                             String?
+  completed_at                                                 DateTime?              @db.Timestamptz(6)
+  completed_by                                                 String?                @db.Uuid
+  created_at                                                   DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at                                                   DateTime?              @default(now()) @db.Timestamptz(6)
+  added_by                                                     String?                @db.Uuid
+  approved_by                                                  String?                @db.Uuid
+  approved_at                                                  DateTime?              @db.Timestamptz(6)
+  rejection_reason                                             String?
+  original_sector_id                                           String?                @db.Uuid
+  is_operator_added                                            Boolean?               @default(false)
+  return_reason                                                String?
+  is_diagnostico                                               Boolean                @default(false)
+  technician_notes_by                                          String?                @db.Uuid
+  profile_work_order_item_repairs_added_byToprofile            profile?               @relation("work_order_item_repairs_added_byToprofile", fields: [added_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_work_order_item_repairs_approved_byToprofile         profile?               @relation("work_order_item_repairs_approved_byToprofile", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_work_order_item_repairs_completed_byToprofile        profile?               @relation("work_order_item_repairs_completed_byToprofile", fields: [completed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshop_sectors                                             workshop_sectors?      @relation(fields: [original_sector_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  types_of_repairs                                             types_of_repairs       @relation(fields: [repair_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_work_order_item_repairs_technician_notes_byToprofile profile?               @relation("work_order_item_repairs_technician_notes_byToprofile", fields: [technician_notes_by], references: [id], onUpdate: NoAction)
+  work_order_items                                             work_order_items       @relation(fields: [work_order_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([work_order_item_id, repair_type_id], map: "unique_work_order_item_repair")
+  @@index([status], map: "idx_work_order_item_repairs_status")
+  @@index([work_order_item_id], map: "idx_work_order_item_repairs_work_order_item_id")
+  @@schema("public")
+}
+
+model work_order_items {
+  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  work_order_id             String                    @db.Uuid
+  maintenance_order_item_id String                    @db.Uuid
+  status                    work_order_item_status    @default(pending)
+  technician_notes          String?
+  completed_at              DateTime?                 @db.Timestamptz(6)
+  completed_by              String?                   @db.Uuid
+  created_at                DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime?                 @default(now()) @db.Timestamptz(6)
+  work_order_item_repairs   work_order_item_repairs[]
+  profile                   profile?                  @relation(fields: [completed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenance_order_items   maintenance_order_items   @relation(fields: [maintenance_order_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  work_orders               work_orders               @relation(fields: [work_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([maintenance_order_item_id, work_order_id], map: "unique_maintenance_item_per_active_work_order")
+  @@index([maintenance_order_item_id], map: "idx_work_order_items_maintenance_item")
+  @@index([status], map: "idx_work_order_items_status")
+  @@index([work_order_id], map: "idx_work_order_items_work_order")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model work_orders {
+  id                                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_number                              String                     @unique
+  sequence_number                           Int
+  company_id                                String                     @db.Uuid
+  equipment_id                              String                     @db.Uuid
+  workshop_id                               String                     @db.Uuid
+  sector_id                                 String?                    @db.Uuid
+  status                                    work_order_status          @default(pending)
+  planned_start_date                        DateTime                   @db.Date
+  planned_end_date                          DateTime                   @db.Date
+  actual_start_date                         DateTime?                  @db.Timestamptz(6)
+  actual_end_date                           DateTime?                  @db.Timestamptz(6)
+  notes                                     String?
+  created_by                                String?                    @db.Uuid
+  created_at                                DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at                                DateTime?                  @default(now()) @db.Timestamptz(6)
+  started_by                                String?                    @db.Uuid
+  started_at                                DateTime?                  @db.Timestamptz(6)
+  completed_by                              String?                    @db.Uuid
+  completed_at                              DateTime?                  @db.Timestamptz(6)
+  cancelled_by                              String?                    @db.Uuid
+  cancelled_at                              DateTime?                  @db.Timestamptz(6)
+  cancellation_reason                       String?
+  pause_reason                              String?
+  paused_at                                 DateTime?                  @db.Timestamptz(6)
+  paused_by                                 String?                    @db.Uuid
+  priority                                  work_order_priority        @default(medium)
+  total_paused_time                         Unsupported("interval")?   @default(dbgenerated("'00:00:00'::interval"))
+  maintenance_activity_log                  maintenance_activity_log[]
+  maintenance_order_items                   maintenance_order_items[]
+  work_order_items                          work_order_items[]
+  profile_work_orders_cancelled_byToprofile profile?                   @relation("work_orders_cancelled_byToprofile", fields: [cancelled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                                   company                    @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile_work_orders_completed_byToprofile profile?                   @relation("work_orders_completed_byToprofile", fields: [completed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile_work_orders_created_byToprofile   profile?                   @relation("work_orders_created_byToprofile", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles                                  vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profile_work_orders_paused_byToprofile    profile?                   @relation("work_orders_paused_byToprofile", fields: [paused_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshop_sectors                          workshop_sectors?          @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
+  profile_work_orders_started_byToprofile   profile?                   @relation("work_orders_started_byToprofile", fields: [started_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshops                                 workshops                  @relation(fields: [workshop_id], references: [id], onUpdate: NoAction)
+
+  @@index([company_id], map: "idx_work_orders_company")
+  @@index([planned_start_date, planned_end_date], map: "idx_work_orders_dates")
+  @@index([equipment_id], map: "idx_work_orders_equipment")
+  @@index([sector_id], map: "idx_work_orders_sector")
+  @@index([sequence_number(sort: Desc)], map: "idx_work_orders_sequence")
+  @@index([status], map: "idx_work_orders_status")
+  @@index([workshop_id], map: "idx_work_orders_workshop")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model workshop_sectors {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  name                    String
+  description             String?
+  is_active               Boolean                   @default(true)
+  workshop_id             String                    @db.Uuid
+  max_capacity            Int?
+  employees               employees[]
+  maintenance_order_items maintenance_order_items[]
+  sector_repair_types     sector_repair_types[]
+  work_order_item_repairs work_order_item_repairs[]
+  work_orders             work_orders[]
+  workshops               workshops                 @relation(fields: [workshop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([is_active], map: "idx_workshop_sectors_is_active")
+  @@index([workshop_id], map: "idx_workshop_sectors_workshop_id")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model workshops {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  name                    String
+  address                 String?
+  city                    BigInt?
+  province                BigInt?
+  latitude                Decimal?                  @db.Decimal(10, 8)
+  longitude               Decimal?                  @db.Decimal(11, 8)
+  type                    workshop_type             @default(interno)
+  provider_name           String?
+  provider_phone          String?
+  provider_email          String?
+  is_active               Boolean                   @default(true)
+  company_id              String                    @db.Uuid
+  maintenance_order_items maintenance_order_items[]
+  work_orders             work_orders[]
+  workshop_sectors        workshop_sectors[]
+  cities                  cities?                   @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                 company                   @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  provinces               provinces?                @relation(fields: [province], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([company_id], map: "idx_workshops_company_id")
+  @@index([is_active], map: "idx_workshops_is_active")
+  @@index([type], map: "idx_workshops_type")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model buckets {
+  id                         String                       @id
+  name                       String                       @unique(map: "bname")
+  owner                      String?                      @db.Uuid
+  created_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
+  public                     Boolean?                     @default(false)
+  avif_autodetection         Boolean?                     @default(false)
+  file_size_limit            BigInt?
+  allowed_mime_types         String[]
+  owner_id                   String?
+  type                       buckettype                   @default(STANDARD)
+  objects                    objects[]
+  s3_multipart_uploads       s3_multipart_uploads[]
+  s3_multipart_uploads_parts s3_multipart_uploads_parts[]
+
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model buckets_analytics {
+  name               String               @unique(map: "buckets_analytics_unique_name_idx", where: raw("(deleted_at IS NULL)"))
+  type               buckettype           @default(ANALYTICS)
+  format             String               @default("ICEBERG")
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deleted_at         DateTime?            @db.Timestamptz(6)
+  iceberg_namespaces iceberg_namespaces[]
+  iceberg_tables     iceberg_tables[]
+
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model buckets_vectors {
+  id             String           @id
+  type           buckettype       @default(VECTOR)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  vector_indexes vector_indexes[]
+
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model iceberg_namespaces {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bucket_name       String
+  name              String
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
+  metadata          Json              @default("{}")
+  catalog_id        String            @db.Uuid
+  buckets_analytics buckets_analytics @relation(fields: [catalog_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  iceberg_tables    iceberg_tables[]
+
+  @@unique([catalog_id, name], map: "idx_iceberg_namespaces_bucket_id")
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model iceberg_tables {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  namespace_id       String             @db.Uuid
+  bucket_name        String
+  name               String
+  location           String             @unique(map: "idx_iceberg_tables_location")
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime           @default(now()) @db.Timestamptz(6)
+  remote_table_id    String?
+  shard_key          String?
+  shard_id           String?
+  catalog_id         String             @db.Uuid
+  buckets_analytics  buckets_analytics  @relation(fields: [catalog_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  iceberg_namespaces iceberg_namespaces @relation(fields: [namespace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([catalog_id, namespace_id, name], map: "idx_iceberg_tables_namespace_id")
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model migrations {
+  id          Int       @id
+  name        String    @unique @db.VarChar(100)
+  hash        String    @db.VarChar(40)
+  executed_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@schema("storage")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model objects {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bucket_id        String?
+  name             String?
+  owner            String?   @db.Uuid
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+  last_accessed_at DateTime? @default(now()) @db.Timestamptz(6)
+  metadata         Json?
+  path_tokens      String[]  @default(dbgenerated("string_to_array(name, '/'::text)"))
+  version          String?
+  owner_id         String?
+  user_metadata    Json?
+  buckets          buckets?  @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "objects_bucketId_fkey")
+
+  @@unique([bucket_id, name], map: "bucketid_objname")
+  @@index([bucket_id, name], map: "idx_objects_bucket_id_name")
+  @@index([name], map: "name_prefix_search")
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model s3_multipart_uploads {
+  id                         String                       @id
+  in_progress_size           BigInt                       @default(0)
+  upload_signature           String
+  bucket_id                  String
+  key                        String
+  version                    String
+  owner_id                   String?
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  user_metadata              Json?
+  buckets                    buckets                      @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  s3_multipart_uploads_parts s3_multipart_uploads_parts[]
+
+  @@index([bucket_id, key, created_at], map: "idx_multipart_uploads_list")
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model s3_multipart_uploads_parts {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  upload_id            String
+  size                 BigInt               @default(0)
+  part_number          Int
+  bucket_id            String
+  key                  String
+  etag                 String
+  owner_id             String?
+  version              String
+  created_at           DateTime             @default(now()) @db.Timestamptz(6)
+  buckets              buckets              @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  s3_multipart_uploads s3_multipart_uploads @relation(fields: [upload_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("storage")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model vector_indexes {
+  id                     String          @id @default(dbgenerated("gen_random_uuid()"))
+  name                   String
+  bucket_id              String
+  data_type              String
+  dimension              Int
+  distance_metric        String
+  metadata_configuration Json?
+  created_at             DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime        @default(now()) @db.Timestamptz(6)
+  buckets_vectors        buckets_vectors @relation(fields: [bucket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([name, bucket_id], map: "vector_indexes_name_bucket_id_idx")
+  @@schema("storage")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_table_preferences {
+  user_id     String   @id
+  preferences Json     @default("{}")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+enum aal_level {
+  aal1
+  aal2
+  aal3
+
+  @@schema("auth")
+}
+
+enum code_challenge_method {
+  s256
+  plain
+
+  @@schema("auth")
+}
+
+enum factor_status {
+  unverified
+  verified
+
+  @@schema("auth")
+}
+
+enum factor_type {
+  totp
+  webauthn
+  phone
+
+  @@schema("auth")
+}
+
+enum oauth_authorization_status {
+  pending
+  approved
+  denied
+  expired
+
+  @@schema("auth")
+}
+
+enum oauth_client_type {
+  public
+  confidential
+
+  @@schema("auth")
+}
+
+enum oauth_registration_type {
+  dynamic
+  manual
+
+  @@schema("auth")
+}
+
+enum oauth_response_type {
+  code
+
+  @@schema("auth")
+}
+
+enum one_time_token_type {
+  confirmation_token
+  reauthentication_token
+  recovery_token
+  email_change_token_new
+  email_change_token_current
+  phone_change_token
+
+  @@schema("auth")
+}
+
+enum affiliate_status_enum {
+  Dentro_de_convenio @map("Dentro de convenio")
+  Fuera_de_convenio  @map("Fuera de convenio")
+
+  @@schema("public")
+}
+
+enum condition_enum {
+  operativo
+  no_operativo           @map("no operativo")
+  en_reparacion          @map("en reparacion")
+  operativo_condicionado @map("operativo condicionado")
+  en_preparacion         @map("en preparacion")
+
+  @@schema("public")
+}
+
+enum contract_type_enum {
+  Leasing
+  Alquiler
+  Prendado
+
+  @@schema("public")
+}
+
+enum contract_type_vehicles_enum {
+  Leasing
+  Alquiler
+  Propio
+  Prendado
+
+  @@schema("public")
+}
+
+enum cost_type_enum {
+  Directo
+  Indirecto
+
+  @@schema("public")
+}
+
+enum currency_enum {
+  USD
+  EUR
+  GBP
+  ARS
+
+  @@schema("public")
+}
+
+enum daily_report_header_status_new {
+  abierto
+  cerrado
+  cerrado_completo
+  cerrado_incompleto
+
+  @@schema("public")
+}
+
+enum daily_report_status {
+  pendiente
+  sin_recursos_asignados
+  ejecutado
+  reprogramado
+  cancelado
+  // . @map(".")
+  // .. @map("..")
+  en_certificacion
+
+  @@schema("public")
+}
+
+enum daily_report_type_enum {
+  mensual
+  adicional
+  adicional_permanente
+
+  @@schema("public")
+}
+
+enum document_applies {
+  Persona
+  Equipos
+  Empresa
+
+  @@schema("public")
+}
+
+enum document_type_enum {
+  DNI
+  LE
+  LC
+  PASAPORTE
+
+  @@schema("public")
+}
+
+enum employee_daily_report_role {
+  chofer_dia
+  chofer_noche
+  ayudante_dia
+  ayudante_noche
+
+  @@schema("public")
+}
+
+enum gender_enum {
+  Masculino
+  Femenino
+  No_Declarado @map("No Declarado")
+
+  @@schema("public")
+}
+
+enum indicator_function {
+  get_vehicle_usage_indicator
+  get_employee_usage_indicator
+  get_employee_diagram_count_by_day
+  get_company_counts_indicator
+  hr_get_absenteeism_summary
+  hr_get_absenteeism_trend
+  hr_get_current_absent_employees
+  hr_get_daily_absence_timeseries
+  hr_get_department_absence_reasons
+  hr_get_department_absence_summary
+
+  @@schema("public")
+}
+
+enum level_of_education_enum {
+  Primario
+  Secundario
+  Terciario
+  Universitario
+  PosGrado
+
+  @@schema("public")
+}
+
+enum marital_status_enum {
+  Casado
+  Soltero
+  Divorciado
+  Viudo
+  Separado
+  Union_de_hecho @map("Union de hecho")
+
+  @@schema("public")
+}
+
+enum modulos {
+  empresa
+  empleados
+  equipos
+  documentaci_n @map("documentación")
+  mantenimiento
+  dashboard
+  ayuda
+  operaciones
+  formularios
+
+  @@schema("public")
+}
+
+enum nationality_enum {
+  Argentina
+  Extranjero
+
+  @@schema("public")
+}
+
+enum notification_categories {
+  vencimiento
+  noticia
+  advertencia
+  aprobado
+  rechazado
+
+  @@schema("public")
+}
+
+enum preparte_status {
+  pendiente
+  cancelado
+  reprogramado
+  rechazado
+  vencido
+  confirmado
+
+  @@schema("public")
+}
+
+enum reason_for_termination_enum {
+  Despido_sin_causa @map("Despido sin causa")
+  Renuncia
+  Despido_con_causa @map("Despido con causa")
+  Acuerdo_de_partes @map("Acuerdo de partes")
+  Fin_de_contrato   @map("Fin de contrato")
+  Fallecimiento
+
+  @@schema("public")
+}
+
+enum repair_state {
+  Pendiente
+  Esperando_repuestos @map("Esperando repuestos")
+  En_reparaci_n       @map("En reparación")
+  Finalizado
+  Rechazado
+  Cancelado
+  Programado
+
+  @@schema("public")
+}
+
+enum roles_enum {
+  Externo
+  Auditor
+
+  @@schema("public")
+}
+
+enum state {
+  presentado
+  rechazado
+  aprobado
+  vencido
+  pendiente
+
+  @@schema("public")
+}
+
+enum status_type {
+  Avalado
+  No_avalado               @map("No avalado")
+  Incompleto
+  Completo
+  Completo_con_doc_vencida @map("Completo con doc vencida")
+
+  @@schema("public")
+}
+
+enum termination_reason_enum {
+  venta
+  destrucci_n_total @map("destrucción total")
+  devoluci_n        @map("devolución")
+  otro
+
+  @@schema("public")
+}
+
+enum type_equipment {
+  Perforador
+  Perforador_Spudder @map("Perforador Spudder")
+  Work_over          @map("Work over")
+  Fractura
+  Coiled_Tubing      @map("Coiled Tubing")
+
+  @@schema("public")
+}
+
+enum type_of_contract_enum {
+  Per_odo_de_prueba      @map("Período de prueba")
+  A_tiempo_indeterminado @map("A tiempo indeterminado")
+  Plazo_fijo             @map("Plazo fijo")
+
+  @@schema("public")
+}
+
+enum type_of_maintenance_ENUM {
+  Correctivo
+  Preventivo
+  Otro
+
+  @@schema("public")
+}
+
+enum work_order_item_status {
+  pending
+  in_progress
+  completed
+  cancelled
+  pending_approval
+  reassignment_requested
+  rejected
+
+  @@schema("public")
+}
+
+enum work_order_priority {
+  urgent
+  high
+  medium
+  low
+
+  @@schema("public")
+}
+
+enum work_order_status {
+  pending
+  in_progress
+  paused
+  completed
+  completed_partial
+  cancelled
+
+  @@schema("public")
+}
+
+enum workshop_type {
+  interno
+  externo
+
+  @@schema("public")
+}
+
+enum buckettype {
+  STANDARD
+  ANALYTICS
+  VECTOR
+
+  @@schema("storage")
+}

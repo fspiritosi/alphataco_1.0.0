@@ -1,7 +1,10 @@
 'use server';
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Empresa/Equipos/actions');
 
 export async function FetchTypeOfVehicles() {
   const supabase = await supabaseServer();
@@ -15,7 +18,7 @@ export async function FetchTypeOfVehicles() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching vehicle types:', error);
+      logger.error('Error fetching vehicle types', { data: { error } });
       return [];
     }
 
@@ -24,7 +27,7 @@ export async function FetchTypeOfVehicles() {
     }
     return [];
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in FetchTypeOfVehicles', { data: { error } });
     return [];
   }
 }
@@ -32,14 +35,18 @@ export type FetchTypeOfVehiclesType = Awaited<ReturnType<typeof FetchTypeOfVehic
 
 export async function createTypeOfVehicle({
   name,
+  applies_to = 'vehicle',
   is_active = false,
+  is_operative = false,
   is_tractor_unit = false,
   has_hitch = false,
   hitch_type_ids = [],
   checklist_ids = [],
 }: {
   name: string;
+  applies_to?: 'vehicle' | 'other_equipment';
   is_active?: boolean;
+  is_operative?: boolean;
   is_tractor_unit?: boolean;
   has_hitch?: boolean;
   hitch_type_ids?: string[];
@@ -54,7 +61,10 @@ export async function createTypeOfVehicle({
       .from('type')
       .insert({
         name,
+        applies_to,
         is_active,
+        // is_operative solo aplica a other_equipment
+        is_operative: applies_to === 'other_equipment' ? is_operative : false,
         company_id,
         is_tractor_unit,
         has_hitch: is_tractor_unit ? has_hitch : false, // Solo puede tener enganche si es unidad tractora
@@ -63,7 +73,7 @@ export async function createTypeOfVehicle({
       .single();
 
     if (error) {
-      console.error('Error creating vehicle type:', error);
+      logger.error('Error creating vehicle type', { data: { error } });
       throw error;
     }
 
@@ -77,7 +87,7 @@ export async function createTypeOfVehicle({
       const { error: hitchError } = await supabase.from('type_hitch_types').insert(hitchRelations);
 
       if (hitchError) {
-        console.error('Error creating hitch type relations:', hitchError);
+        logger.error('Error creating hitch type relations', { data: { hitchError } });
         // No lanzamos error para no afectar la creación del tipo
       }
     }
@@ -92,7 +102,7 @@ export async function createTypeOfVehicle({
       const { error: checklistError } = await supabase.from('checklist_template_types').insert(checklistRelations);
 
       if (checklistError) {
-        console.error('Error creating checklist relations:', checklistError);
+        logger.error('Error creating checklist relations', { data: { checklistError } });
         // No lanzamos error para no afectar la creación del tipo
       }
     }
@@ -100,7 +110,7 @@ export async function createTypeOfVehicle({
     revalidatePath('/dashboard/company/actualCompany');
     return vehicle_type;
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in createTypeOfVehicle', { data: { error } });
     return [];
   }
 }
@@ -159,7 +169,7 @@ export async function FetchTypeOfVehiclesPagination(options: {
     const { data, count, error } = await query;
 
     if (error) {
-      console.error('Error fetching vehicle types:', error);
+      logger.error('Error fetching vehicle types (pagination)', { data: { error } });
       throw error;
     }
 
@@ -171,7 +181,7 @@ export async function FetchTypeOfVehiclesPagination(options: {
       pageSize,
     };
   } catch (error) {
-    console.error('Unexpected error:', error);
+    logger.error('Unexpected error in FetchTypeOfVehiclesPagination', { data: { error } });
     return {
       rows: [],
       pageCount: 0,
@@ -184,7 +194,9 @@ export async function FetchTypeOfVehiclesPagination(options: {
 export async function updateTypeOfVehicle({
   id,
   name,
+  applies_to,
   is_active,
+  is_operative,
   is_tractor_unit,
   has_hitch,
   hitch_type_ids,
@@ -192,7 +204,9 @@ export async function updateTypeOfVehicle({
 }: {
   id: string;
   name: string;
+  applies_to?: 'vehicle' | 'other_equipment';
   is_active?: boolean;
+  is_operative?: boolean;
   is_tractor_unit?: boolean;
   has_hitch?: boolean;
   hitch_type_ids?: string[];
@@ -203,14 +217,23 @@ export async function updateTypeOfVehicle({
     // Preparamos los datos a actualizar
     const updateData: {
       name: string;
+      applies_to?: string;
       is_active?: boolean;
+      is_operative?: boolean;
       is_tractor_unit?: boolean;
       has_hitch?: boolean;
     } = { name };
 
     // Solo incluimos campos si se proporcionan explícitamente
+    if (applies_to !== undefined) {
+      updateData.applies_to = applies_to;
+    }
     if (is_active !== undefined) {
       updateData.is_active = is_active;
+    }
+    if (is_operative !== undefined) {
+      // is_operative solo aplica a other_equipment; si aplica a vehicle, forzar false
+      updateData.is_operative = applies_to === 'vehicle' ? false : is_operative;
     }
     if (is_tractor_unit !== undefined) {
       updateData.is_tractor_unit = is_tractor_unit;
@@ -224,7 +247,7 @@ export async function updateTypeOfVehicle({
     const { data: existing, error: findError } = await supabase.from('type').select('*').eq('id', id).single();
 
     if (findError || !existing) {
-      console.error('Error: El tipo de vehículo no existe', { id });
+      logger.error('Error: El tipo de vehículo no existe', { data: { id } });
       throw new Error('El tipo de vehículo no existe');
     }
 
@@ -232,7 +255,7 @@ export async function updateTypeOfVehicle({
     const { error: updateError } = await supabase.from('type').update(updateData).eq('id', id);
 
     if (updateError) {
-      console.error('Error en la actualización:', updateError);
+      logger.error('Error en la actualización de tipo de vehículo', { data: { updateError } });
       throw updateError;
     }
 
@@ -242,7 +265,7 @@ export async function updateTypeOfVehicle({
       const { error: deleteError } = await supabase.from('type_hitch_types').delete().eq('type_id', id);
 
       if (deleteError) {
-        console.error('Error eliminando relaciones de enganche:', deleteError);
+        logger.error('Error eliminando relaciones de enganche', { data: { deleteError } });
       }
 
       // Si tiene enganche y hay tipos compatibles, insertamos las nuevas relaciones
@@ -255,7 +278,7 @@ export async function updateTypeOfVehicle({
         const { error: insertError } = await supabase.from('type_hitch_types').insert(hitchRelations);
 
         if (insertError) {
-          console.error('Error insertando relaciones de enganche:', insertError);
+          logger.error('Error insertando relaciones de enganche', { data: { insertError } });
         }
       }
     }
@@ -269,7 +292,7 @@ export async function updateTypeOfVehicle({
         .eq('type_id', id);
 
       if (deleteChecklistError) {
-        console.error('Error eliminando relaciones de checklists:', deleteChecklistError);
+        logger.error('Error eliminando relaciones de checklists', { data: { deleteChecklistError } });
       }
 
       // Si hay checklists, insertamos las nuevas relaciones
@@ -284,7 +307,7 @@ export async function updateTypeOfVehicle({
           .insert(checklistRelations);
 
         if (insertChecklistError) {
-          console.error('Error insertando relaciones de checklists:', insertChecklistError);
+          logger.error('Error insertando relaciones de checklists', { data: { insertChecklistError } });
         }
       }
     }
@@ -293,13 +316,13 @@ export async function updateTypeOfVehicle({
     const { data: updated, error: fetchError } = await supabase.from('type').select('*').eq('id', id).single();
 
     if (fetchError || !updated) {
-      console.error('Error obteniendo el registro actualizado:', fetchError);
+      logger.error('Error obteniendo el registro actualizado', { data: { fetchError } });
       throw new Error('No se pudo verificar la actualización');
     }
     revalidatePath('/dashboard/company/actualCompany');
     return updated;
   } catch (error) {
-    console.error('Error en updateTypeOfVehicle:', error);
+    logger.error('Error en updateTypeOfVehicle', { data: { error } });
     throw error;
   }
 }
@@ -314,13 +337,13 @@ export async function FetchBrandOfVehicles() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching brand of vehicle:', error);
+      logger.error('Error fetching brand of vehicle', { data: { error } });
       return [];
     }
 
     return vehicle_type;
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in FetchBrandOfVehicles', { data: { error } });
     return [];
   }
 }
@@ -368,7 +391,7 @@ export async function FetchBrandOfVehiclesPagination({
     const { data, error, count } = await query;
 
     if (error) {
-      console.error('Error fetching brand of vehicles:', error);
+      logger.error('Error fetching brand of vehicles (pagination)', { data: { error } });
       return {
         rows: [],
         pageCount: 0,
@@ -382,7 +405,7 @@ export async function FetchBrandOfVehiclesPagination({
       rowCount: count || 0,
     };
   } catch (error) {
-    console.error('Error in FetchBrandOfVehiclesPagination:', error);
+    logger.error('Unexpected error in FetchBrandOfVehiclesPagination', { data: { error } });
     return {
       rows: [],
       pageCount: 0,
@@ -404,13 +427,13 @@ export async function createBrandOfVehicle({ name, is_active = false }: { name: 
       .single();
 
     if (error) {
-      console.error('Error creating brand of vehicle:', error);
+      logger.error('Error creating brand of vehicle', { data: { error } });
       throw error;
     }
 
     return brand_of_vehicle;
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in createBrandOfVehicle', { data: { error } });
     return [];
   }
 }
@@ -434,7 +457,7 @@ export async function updateBrandOfVehicle({ id, name, is_active }: { id: number
       .single();
 
     if (findError || !existing) {
-      console.error('Error: La marca de vehiculo no existe', { id });
+      logger.error('Error: La marca de vehiculo no existe', { data: { id } });
       throw new Error('La marca de vehiculo no existe');
     }
 
@@ -442,7 +465,7 @@ export async function updateBrandOfVehicle({ id, name, is_active }: { id: number
     const { error: updateError } = await supabase.from('brand_vehicles').update(updateData).eq('id', id);
 
     if (updateError) {
-      console.error('Error en la actualización:', updateError);
+      logger.error('Error en la actualización de marca de vehiculo', { data: { updateError } });
       throw updateError;
     }
 
@@ -454,13 +477,13 @@ export async function updateBrandOfVehicle({ id, name, is_active }: { id: number
       .single();
 
     if (fetchError || !updated) {
-      console.error('Error obteniendo el registro actualizado:', fetchError);
+      logger.error('Error obteniendo el registro actualizado de marca', { data: { fetchError } });
       throw new Error('No se pudo verificar la actualización');
     }
 
     return updated;
   } catch (error) {
-    console.error('Error en updateBrandOfVehicle:', error);
+    logger.error('Error en updateBrandOfVehicle', { data: { error } });
     throw error;
   }
 }
@@ -475,13 +498,13 @@ export async function FetchModelOfVehicles() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching model of vehicle:', error);
+      logger.error('Error fetching model of vehicle', { data: { error } });
       return [];
     }
 
     return model_of_vehicle;
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in FetchModelOfVehicles', { data: { error } });
     return [];
   }
 }
@@ -557,7 +580,7 @@ export async function FetchModelOfVehiclesPagination({
     let { data, error, count } = await query;
 
     if (error) {
-      console.error('Error fetching vehicle models:', error);
+      logger.error('Error fetching vehicle models (pagination)', { data: { error } });
       return {
         rows: [],
         pageCount: 0,
@@ -591,7 +614,7 @@ export async function FetchModelOfVehiclesPagination({
       rowCount: count || 0,
     };
   } catch (error) {
-    console.error('Error in FetchModelOfVehiclesPagination:', error);
+    logger.error('Unexpected error in FetchModelOfVehiclesPagination', { data: { error } });
     return {
       rows: [],
       pageCount: 0,
@@ -622,13 +645,13 @@ export async function createModelOfVehicle({
       .single();
 
     if (error) {
-      console.error('Error creating model of vehicle:', error);
+      logger.error('Error creating model of vehicle', { data: { error } });
       throw error;
     }
 
     return model_of_vehicle;
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in createModelOfVehicle', { data: { error } });
     return [];
   }
 }
@@ -662,7 +685,7 @@ export async function updateModelOfVehicle({
       .single();
 
     if (findError || !existing) {
-      console.error('Error: El modelo de vehiculo no existe', { id });
+      logger.error('Error: El modelo de vehiculo no existe', { data: { id } });
       throw new Error('El modelo de vehiculo no existe');
     }
 
@@ -670,7 +693,7 @@ export async function updateModelOfVehicle({
     const { error: updateError } = await supabase.from('model_vehicles').update(updateData).eq('id', id);
 
     if (updateError) {
-      console.error('Error en la actualización:', updateError);
+      logger.error('Error en la actualización de modelo de vehiculo', { data: { updateError } });
       throw updateError;
     }
 
@@ -682,13 +705,13 @@ export async function updateModelOfVehicle({
       .single();
 
     if (fetchError || !updated) {
-      console.error('Error obteniendo el registro actualizado:', fetchError);
+      logger.error('Error obteniendo el registro actualizado de modelo', { data: { fetchError } });
       throw new Error('No se pudo verificar la actualización');
     }
 
     return updated;
   } catch (error) {
-    console.error('Error en updateModelOfVehicle:', error);
+    logger.error('Error en updateModelOfVehicle', { data: { error } });
     throw error;
   }
 }
@@ -705,13 +728,13 @@ export async function FetchSubTypeOfVehicles() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching vehicle types:', error);
+      logger.error('Error fetching sub types of vehicles', { data: { error } });
       return [];
     }
 
     return vehicle_type;
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in FetchSubTypeOfVehicles', { data: { error } });
     return [];
   }
 }
@@ -745,7 +768,7 @@ export async function createSubTypeOfVehicle({
       .single();
 
     if (error) {
-      console.error('Error creating vehicle subtype:', error);
+      logger.error('Error creating vehicle subtype', { data: { error } });
       throw error;
     }
 
@@ -760,7 +783,7 @@ export async function createSubTypeOfVehicle({
       const { error: compatibleError } = await supabase.from('sub_type_compatible_items').insert(compatibleRelations);
 
       if (compatibleError) {
-        console.error('Error creating compatible item relations:', compatibleError);
+        logger.error('Error creating compatible item relations', { data: { compatibleError } });
         // No lanzamos error para no afectar la creación del subtipo
       }
     }
@@ -775,7 +798,7 @@ export async function createSubTypeOfVehicle({
       const { error: checklistError } = await supabase.from('checklist_template_sub_types').insert(checklistRelations);
 
       if (checklistError) {
-        console.error('Error creating checklist relations:', checklistError);
+        logger.error('Error creating checklist relations for subtype', { data: { checklistError } });
         // No lanzamos error para no afectar la creación del subtipo
       }
     }
@@ -783,7 +806,7 @@ export async function createSubTypeOfVehicle({
     revalidatePath('/dashboard/company/actualCompany');
     return vehicle_type;
   } catch (error) {
-    console.error(error);
+    logger.error('Unexpected error in createSubTypeOfVehicle', { data: { error } });
     return [];
   }
 }
@@ -813,7 +836,7 @@ export async function updateSubTypeOfVehicle({
     const { data: existing, error: findError } = await supabase.from('sub_type').select('*').eq('id', id).single();
 
     if (findError || !existing) {
-      console.error('Error: El subtipo de vehículo no existe', { id });
+      logger.error('Error: El subtipo de vehículo no existe', { data: { id } });
       throw new Error('El subtipo de vehículo no existe');
     }
 
@@ -821,7 +844,7 @@ export async function updateSubTypeOfVehicle({
     const { error: updateError } = await supabase.from('sub_type').update(updateData).eq('id', id);
 
     if (updateError) {
-      console.error('Error en la actualización:', updateError);
+      logger.error('Error en la actualización de subtipo de vehículo', { data: { updateError } });
       throw updateError;
     }
 
@@ -831,7 +854,7 @@ export async function updateSubTypeOfVehicle({
       const { error: deleteError } = await supabase.from('sub_type_compatible_items').delete().eq('sub_type_id', id);
 
       if (deleteError) {
-        console.error('Error eliminando relaciones de items compatibles:', deleteError);
+        logger.error('Error eliminando relaciones de items compatibles', { data: { deleteError } });
       }
 
       // Si hay items compatibles, insertamos las nuevas relaciones
@@ -845,7 +868,7 @@ export async function updateSubTypeOfVehicle({
         const { error: insertError } = await supabase.from('sub_type_compatible_items').insert(compatibleRelations);
 
         if (insertError) {
-          console.error('Error insertando relaciones de items compatibles:', insertError);
+          logger.error('Error insertando relaciones de items compatibles', { data: { insertError } });
         }
       }
     }
@@ -859,7 +882,7 @@ export async function updateSubTypeOfVehicle({
         .eq('sub_type_id', id);
 
       if (deleteChecklistError) {
-        console.error('Error eliminando relaciones de checklists:', deleteChecklistError);
+        logger.error('Error eliminando relaciones de checklists de subtipo', { data: { deleteChecklistError } });
       }
 
       // Si hay checklists, insertamos las nuevas relaciones
@@ -874,7 +897,7 @@ export async function updateSubTypeOfVehicle({
           .insert(checklistRelations);
 
         if (insertChecklistError) {
-          console.error('Error insertando relaciones de checklists:', insertChecklistError);
+          logger.error('Error insertando relaciones de checklists de subtipo', { data: { insertChecklistError } });
         }
       }
     }
@@ -883,14 +906,14 @@ export async function updateSubTypeOfVehicle({
     const { data: updated, error: fetchError } = await supabase.from('sub_type').select('*').eq('id', id).single();
 
     if (fetchError || !updated) {
-      console.error('Error obteniendo el registro actualizado:', fetchError);
+      logger.error('Error obteniendo el registro actualizado de subtipo', { data: { fetchError } });
       throw new Error('No se pudo verificar la actualización');
     }
 
     revalidatePath('/dashboard/company/actualCompany');
     return updated;
   } catch (error) {
-    console.error('Error en updateSubTypeOfVehicle:', error);
+    logger.error('Error en updateSubTypeOfVehicle', { data: { error } });
     throw error;
   }
 }
@@ -916,13 +939,13 @@ export async function getHitchTypesForType(typeId: string) {
       .eq('type_id', typeId);
 
     if (error) {
-      console.error('Error fetching hitch types:', error);
+      logger.error('Error fetching hitch types for type', { data: { error } });
       return [];
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getHitchTypesForType:', error);
+    logger.error('Unexpected error in getHitchTypesForType', { data: { error } });
     return [];
   }
 }
@@ -943,13 +966,13 @@ export async function getNonTractorTypes() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching non-tractor types:', error);
+      logger.error('Error fetching non-tractor types', { data: { error } });
       return [];
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getNonTractorTypes:', error);
+    logger.error('Unexpected error in getNonTractorTypes', { data: { error } });
     return [];
   }
 }
@@ -962,13 +985,13 @@ export async function getCompatibleItemsForSubType(subTypeId: string) {
     const { data, error } = await supabase.from('sub_type_compatible_items').select('*').eq('sub_type_id', subTypeId);
 
     if (error) {
-      console.error('Error fetching compatible items:', error);
+      logger.error('Error fetching compatible items for subtype', { data: { error } });
       return [];
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getCompatibleItemsForSubType:', error);
+    logger.error('Unexpected error in getCompatibleItemsForSubType', { data: { error } });
     return [];
   }
 }
@@ -990,7 +1013,7 @@ export async function getAvailableCompatibleItems(parentTypeId: string) {
       .single();
 
     if (parentError || !parentType) {
-      console.error('Error fetching parent type:', parentError);
+      logger.error('Error fetching parent type for compatible items', { data: { parentError } });
       return { subTypes: [], types: [] };
     }
 
@@ -1006,7 +1029,7 @@ export async function getAvailableCompatibleItems(parentTypeId: string) {
       .eq('type_id', parentTypeId);
 
     if (hitchError) {
-      console.error('Error fetching hitch types:', hitchError);
+      logger.error('Error fetching hitch types for compatible items', { data: { hitchError } });
       return { subTypes: [], types: [] };
     }
 
@@ -1026,14 +1049,15 @@ export async function getAvailableCompatibleItems(parentTypeId: string) {
       .order('name', { ascending: true });
 
     if (subTypesError) {
-      console.error('Error fetching sub types:', subTypesError);
+      logger.error('Error fetching sub types for compatible items', { data: { subTypesError } });
     }
 
     // Obtener los tipos que no tienen subtipos (para mostrarlos como opción)
     const typesWithSubTypes = [...new Set((subTypes || []).map((st) => st.type))];
     const typesWithoutSubTypes = compatibleTypeIds.filter((id: string) => !typesWithSubTypes.includes(id));
 
-    let types: any[] = [];
+    type TypeRow = Awaited<ReturnType<typeof FetchTypeOfVehicles>>[number];
+    let types: TypeRow[] = [];
     if (typesWithoutSubTypes.length > 0) {
       const { data: typesData, error: typesError } = await supabase
         .from('type')
@@ -1044,7 +1068,7 @@ export async function getAvailableCompatibleItems(parentTypeId: string) {
         .order('name', { ascending: true });
 
       if (typesError) {
-        console.error('Error fetching types without subtypes:', typesError);
+        logger.error('Error fetching types without subtypes', { data: { typesError } });
       } else {
         types = typesData || [];
       }
@@ -1052,10 +1076,10 @@ export async function getAvailableCompatibleItems(parentTypeId: string) {
 
     return {
       subTypes: subTypes || [],
-      types,
+      types: types || [],
     };
   } catch (error) {
-    console.error('Error in getAvailableCompatibleItems:', error);
+    logger.error('Unexpected error in getAvailableCompatibleItems', { data: { error } });
     return { subTypes: [], types: [] };
   }
 }
@@ -1075,13 +1099,13 @@ export async function getActiveChecklists() {
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching active checklists:', error);
+      logger.error('Error fetching active checklists', { data: { error } });
       return [];
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getActiveChecklists:', error);
+    logger.error('Unexpected error in getActiveChecklists', { data: { error } });
     return [];
   }
 }
@@ -1097,13 +1121,13 @@ export async function getChecklistsForSubType(subTypeId: string) {
       .eq('sub_type_id', subTypeId);
 
     if (error) {
-      console.error('Error fetching checklists for subtype:', error);
+      logger.error('Error fetching checklists for subtype', { data: { error } });
       return [];
     }
 
     return (data || []).map((item) => item.template_id);
   } catch (error) {
-    console.error('Error in getChecklistsForSubType:', error);
+    logger.error('Unexpected error in getChecklistsForSubType', { data: { error } });
     return [];
   }
 }

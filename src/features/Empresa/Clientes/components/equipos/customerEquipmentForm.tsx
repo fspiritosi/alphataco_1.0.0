@@ -23,8 +23,8 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const EquipmentCustomerSchema = z.object({
-  name: z.string().nonempty({ message: 'El nombre es requerido' }),
-  customer_id: z.string().nonempty({ message: 'El cliente es requerido' }),
+  name: z.string().min(1, { message: 'El nombre es requerido' }),
+  customer_id: z.string().min(1, { message: 'El cliente es requerido' }),
   type: z.enum(['Perforador', 'Perforador Spudder', 'Work over', 'Fractura', 'Coiled Tubing']),
 });
 

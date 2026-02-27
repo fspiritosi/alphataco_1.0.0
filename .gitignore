@@ -60,4 +60,7 @@ settings.local.json
 .cursor
 .zed
 .agents
+/local
+
+# Prisma generated
 src/generated/

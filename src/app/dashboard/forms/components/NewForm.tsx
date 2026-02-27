@@ -19,7 +19,7 @@ function NewForm() {
   return (
     <div className="min-h-[60vh]">
       <TooltipProvider delayDuration={0}>
-        <ResizablePanelGroup direction="horizontal" className=" items-stretch p-0 m-0">
+        <ResizablePanelGroup orientation="horizontal" className=" items-stretch p-0 m-0">
           <ResizablePanel minSize={30}>
             <FormCustom setCampos={setCampos} campos={campos} />
           </ResizablePanel>

@@ -144,7 +144,26 @@ export interface TabsManagerServerProps<M extends ModuleSlug = ModuleSlug> {
    * ```
    */
   permissions: Record<string, boolean>;
+  /**
+   * Variante visual de las tabs.
+   * - 'line': Underline, más prominente (para tabs principales de nivel 1)
+   * - 'default': Pill con fondo muted (para subtabs de nivel 2+)
+   * @default 'default'
+   */
+  variant?: TabsManagerVariant;
+  /**
+   * Acciones a renderizar a la derecha de la lista de tabs.
+   * Útil para botones de acción como "Agregar", "Exportar", etc.
+   */
+  actions?: React.ReactNode;
 }
+
+/**
+ * Variante visual del TabsManager.
+ * - 'default': Estilo pill con fondo muted (ideal para subtabs)
+ * - 'line': Estilo underline sin fondo (ideal para tabs principales)
+ */
+export type TabsManagerVariant = 'default' | 'line';
 
 /**
  * Props para el componente Cliente TabsManagerClient con tipado inferido.
@@ -167,4 +186,16 @@ export interface TabsManagerClientProps<M extends ModuleSlug = ModuleSlug> {
   triggerClassName?: string;
   /** Clases CSS para el contenido de tabs */
   contentClassName?: string;
+  /**
+   * Variante visual de las tabs.
+   * - 'line': Underline, más prominente (para tabs principales de nivel 1)
+   * - 'default': Pill con fondo muted (para subtabs de nivel 2+)
+   * @default 'default'
+   */
+  variant?: TabsManagerVariant;
+  /**
+   * Acciones a renderizar a la derecha de la lista de tabs.
+   * Útil para botones de acción como "Agregar", "Exportar", etc.
+   */
+  actions?: React.ReactNode;
 }

@@ -17,9 +17,9 @@ export type MeasureUnit = {
 
 // Schema para validación
 const measureUnitSchema = z.object({
-  simbol: z.string().nonempty({ message: 'El símbolo es requerido' }).max(5, 'Máximo 5 caracteres'),
-  tipo: z.string().nonempty({ message: 'El tipo es requerido' }),
-  unit: z.string().nonempty({ message: 'La unidad es requerida' }),
+  simbol: z.string().min(1, { message: 'El símbolo es requerido' }).max(5, 'Máximo 5 caracteres'),
+  tipo: z.string().min(1, { message: 'El tipo es requerido' }),
+  unit: z.string().min(1, { message: 'La unidad es requerida' }),
 });
 
 /**

@@ -103,7 +103,7 @@ export function DiagramDistributionChart() {
         metrics.forEach((metric) => {
           const id = metric.diagram_type_id || '';
           const name = metric.diagram_type_name || 'Sin nombre';
-          const color = metric.diagram_type_color || 'hsl(var(--chart-1))';
+          const color = metric.diagram_type_color || 'var(--chart-1)';
 
           if (id && !typesMap.has(id)) {
             typesMap.set(id, { name, color });

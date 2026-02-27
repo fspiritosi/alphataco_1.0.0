@@ -1,6 +1,5 @@
 import MaintenanceGroupsWrapper from '@/components/Tipos_de_reparaciones/MaintenanceGroupsWrapper';
 import RepairEntryWrapper from '@/components/Tipos_de_reparaciones/RepairEntryWrapper';
-import RepairSolicitudesWrapper from '@/components/Tipos_de_reparaciones/RepairSolicitudesWrapper';
 import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairTypeFormWrapper';
 import { ApprovalInboxSkeleton, ApprovalInboxTabContent } from '@/features/Mantenimiento/ApprovalInbox';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
@@ -12,6 +11,8 @@ import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/f
 import { OrderManagementSkeleton, OrderManagementTabContent } from '@/features/Mantenimiento/OrderManagement';
 import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
 import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
+import { RepairSolicitudesTabContent } from '@/features/Mantenimiento/RepairSolicitudes/RepairSolicitudesTabContent';
+import { RepairSolicitudesSkeleton } from '@/features/Mantenimiento/RepairSolicitudes/fallback/RepairSolicitudesSkeleton';
 import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
 import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
 import { WorkshopTrackingSkeleton, WorkshopTrackingTabContent } from '@/features/Mantenimiento/WorkshopTracking';
@@ -79,8 +80,8 @@ export default async function MantenimientoComponent({ searchParams, permissions
           moduleSlug: 'mantenimiento',
           tabSlug: 'created_solicitudes' as const,
           content: (
-            <Suspense fallback={<div>Cargando solicitudes...</div>}>
-              <RepairSolicitudesWrapper mechanic={true} />
+            <Suspense fallback={<RepairSolicitudesSkeleton />}>
+              <RepairSolicitudesTabContent searchParams={searchParams} />
             </Suspense>
           ),
         },

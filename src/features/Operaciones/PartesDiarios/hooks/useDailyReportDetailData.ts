@@ -31,7 +31,9 @@ export type DailyReportRowCombined = DailyReportRowBase & {
   dailyreportequipmentrelations: Array<{
     id: string;
     equipment_id: string | null;
+    other_equipment_id: string | null;
     vehicles: DailyReportEquipmentRelation['vehicles'] | null;
+    other_equipment: DailyReportEquipmentRelation['other_equipment'] | null;
   }> | null;
 };
 

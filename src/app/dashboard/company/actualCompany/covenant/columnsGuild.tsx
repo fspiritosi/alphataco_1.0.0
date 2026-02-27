@@ -52,7 +52,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const editGuildSchema = z.object({
-  guild: z.string().nonempty('El nombre del sindicato es requerido.'),
+  guild: z.string().min(1, 'El nombre del sindicato es requerido.'),
 });
 
 const terminationSchema = z.object({

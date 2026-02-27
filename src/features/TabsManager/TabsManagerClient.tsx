@@ -32,6 +32,8 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
   listClassName,
   triggerClassName,
   contentClassName,
+  variant = 'default',
+  actions,
 }: TabsManagerClientProps<M>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -84,28 +86,39 @@ export function TabsManagerClient<M extends ModuleSlug = ModuleSlug>({
     window.history.replaceState(null, '', newUrl);
   };
 
+  const isLine = variant === 'line';
+
+  const defaultListClass = isLine
+    ? 'flex gap-1 justify-start w-fit bg-transparent'
+    : 'flex gap-1 justify-start w-fit bg-muted/50 dark:bg-slate-900';
+
+  const defaultTriggerClass = isLine
+    ? 'font-semibold data-[state=active]:text-foreground text-foreground/60 hover:text-foreground/80 data-[state=active]:shadow-none transition-colors'
+    : 'text-gh_orange font-semibold';
+
   return (
-    <div className="flex flex-col gap-6 py-1 h-full">
+    <div className="flex flex-col gap-4 h-full">
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList
-          className={listClassName ? listClassName : 'flex gap-1 justify-start w-fit bg-muted/50 dark:bg-slate-900'}
-        >
-          {tabs.map((tab) => (
-            <TabsTrigger
-              key={tab.value}
-              value={tab.value}
-              disabled={tab.disabled}
-              className={triggerClassName ? triggerClassName : 'text-gh_orange font-semibold'}
-              data-testid={`tab-${tab.value.toLowerCase().replace(/\s+/g, '-')}`}
-            >
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className={actions ? 'flex items-center justify-between gap-4' : undefined}>
+          <TabsList variant={isLine ? 'line' : 'default'} className={listClassName ?? defaultListClass}>
+            {tabs.map((tab) => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                disabled={tab.disabled}
+                className={triggerClassName ?? defaultTriggerClass}
+                data-testid={`tab-${tab.value.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </div>
 
         {tabs.map((tab) => (
           <TabsContent key={tab.value} value={tab.value} className={contentClassName}>
-            <div className="">{tab.content}</div>
+            {tab.content}
           </TabsContent>
         ))}
       </Tabs>

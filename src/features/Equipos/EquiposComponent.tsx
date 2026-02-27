@@ -1,11 +1,8 @@
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
-import { buttonVariants } from '@/components/ui/button';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
-import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { FileText, FileType, Truck, Wrench } from 'lucide-react';
-import Link from 'next/link';
 import { Suspense } from 'react';
 import DocumentosEquiposTabContent from './DocumentosEquipos/DocumentosEquiposTabContent';
 import EquiposTabContent from './Equipos/EquiposTabContent';
@@ -23,7 +20,7 @@ export default async function EquiposComponent({
         paramName="tab"
         searchParams={searchParams}
         defaultTab="equipos"
-        dependentParams={['subtab']}
+        dependentParams={['subtab', 'inactive_subtab']}
         permissions={permissions}
         tabs={[
           {
@@ -36,21 +33,7 @@ export default async function EquiposComponent({
             ),
             moduleSlug: 'equipos',
             tabSlug: 'equipos',
-            content: (
-              <div>
-                <PermissionGuardServer module="equipos" tab="equipos" action="create">
-                  <div className="flex gap-4 flex-wrap mb-4">
-                    <Link
-                      className={buttonVariants({ variant: 'gh_orange' })}
-                      href={'/dashboard/equipment/action?action=new'}
-                    >
-                      Agregar equipo
-                    </Link>
-                  </div>
-                </PermissionGuardServer>
-                <EquiposTabContent searchParams={searchParams} permissions={permissions} />
-              </div>
-            ),
+            content: <EquiposTabContent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'documentos-de-equipos',

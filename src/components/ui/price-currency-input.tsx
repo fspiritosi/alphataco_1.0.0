@@ -1,19 +1,19 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
 import { ButtonGroup } from './button-group';
 
 const CURRENCIES = [
   {
     value: 'USD',
-    symbol: '$',
+    symbol: 'USD',
     label: 'Dólar Estadounidense',
   },
   {
     value: 'ARS',
-    symbol: '$',
+    symbol: 'ARS',
     label: 'Peso Argentino',
   },
 ];
@@ -75,14 +75,15 @@ export function PriceCurrencyInput({
 
   return (
     <ButtonGroup className="w-full">
-      <Select value={currency} onValueChange={onCurrencyChange} disabled={disabled}>
-        <SelectTrigger className="font-mono w-24">
-          {selectedCurrency.symbol} {selectedCurrency.value}
+      <Select value={currency ?? undefined} onValueChange={onCurrencyChange} disabled={disabled}>
+        <SelectTrigger className="font-mono w-20">
+          <SelectValue placeholder="ARS">{selectedCurrency?.symbol ?? currency}</SelectValue>
         </SelectTrigger>
-        <SelectContent className="min-w-32">
+        <SelectContent className="min-w-40">
           {CURRENCIES.map((curr) => (
             <SelectItem key={curr.value} value={curr.value}>
-              {curr.symbol} <span className="text-muted-foreground">{curr.label}</span>
+              <span className="font-mono">{curr.symbol}</span>{' '}
+              <span className="text-muted-foreground">{curr.label}</span>
             </SelectItem>
           ))}
         </SelectContent>

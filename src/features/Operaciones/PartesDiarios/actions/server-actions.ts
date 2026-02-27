@@ -166,6 +166,7 @@ export async function fetchDailyReportEquipmentRelations(dailyReportId: string) 
       id,
       daily_report_row_id,
       equipment_id,
+      other_equipment_id,
       vehicles(
         id,
         intern_number,
@@ -177,6 +178,18 @@ export async function fetchDailyReportEquipmentRelations(dailyReportId: string) 
         sub_type(name),
         type(name),
         contractor_equipment(customers(id, name)),
+        condition
+      ),
+      other_equipment(
+        id,
+        intern_number,
+        serial_number,
+        horometer,
+        type(id, name),
+        sub_type(id, name),
+        brand_vehicles(id, name),
+        model_vehicles(id, name),
+        contractor_other_equipment(customers(id, name)),
         condition
       )
     `
@@ -264,6 +277,7 @@ export async function fetchDailyReportData({
             dailyreportequipmentrelations(
                 id,
                 equipment_id,
+                other_equipment_id,
                 vehicles(
                     id,
                     intern_number,
@@ -275,6 +289,18 @@ export async function fetchDailyReportData({
                     sub_type(name),
                     type(name),
                     contractor_equipment(customers(id, name)),
+                    condition
+                ),
+                other_equipment(
+                    id,
+                    intern_number,
+                    serial_number,
+                    horometer,
+                    type(id, name),
+                    sub_type(id, name),
+                    brand_vehicles(id, name),
+                    model_vehicles(id, name),
+                    contractor_other_equipment(customers(id, name)),
                     condition
                 )
             ),

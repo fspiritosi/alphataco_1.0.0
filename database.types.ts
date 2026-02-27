@@ -353,11 +353,15 @@ export type Database = {
       checklist_answers: {
         Row: {
           answer_data: Json;
+          chofer_employee_id: string | null;
           created_at: string | null;
           critical_items_failed: string[] | null;
+          customer_id: string | null;
           employee_id: string | null;
           equipment_id: string;
+          horometro: number | null;
           id: string;
+          kilometraje: number | null;
           observations: string | null;
           result: string | null;
           template_id: string;
@@ -367,11 +371,15 @@ export type Database = {
         };
         Insert: {
           answer_data: Json;
+          chofer_employee_id?: string | null;
           created_at?: string | null;
           critical_items_failed?: string[] | null;
+          customer_id?: string | null;
           employee_id?: string | null;
           equipment_id: string;
+          horometro?: number | null;
           id?: string;
+          kilometraje?: number | null;
           observations?: string | null;
           result?: string | null;
           template_id: string;
@@ -381,11 +389,15 @@ export type Database = {
         };
         Update: {
           answer_data?: Json;
+          chofer_employee_id?: string | null;
           created_at?: string | null;
           critical_items_failed?: string[] | null;
+          customer_id?: string | null;
           employee_id?: string | null;
           equipment_id?: string;
+          horometro?: number | null;
           id?: string;
+          kilometraje?: number | null;
           observations?: string | null;
           result?: string | null;
           template_id?: string;
@@ -394,6 +406,13 @@ export type Database = {
           ut_checklist_answer_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'checklist_answers_chofer_employee_id_fkey';
+            columns: ['chofer_employee_id'];
+            isOneToOne: false;
+            referencedRelation: 'employees';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'checklist_answers_employee_id_fkey';
             columns: ['employee_id'];
@@ -1584,18 +1603,21 @@ export type Database = {
           daily_report_row_id: string | null;
           equipment_id: string | null;
           id: string;
+          other_equipment_id: string | null;
         };
         Insert: {
           created_at?: string | null;
           daily_report_row_id?: string | null;
           equipment_id?: string | null;
           id?: string;
+          other_equipment_id?: string | null;
         };
         Update: {
           created_at?: string | null;
           daily_report_row_id?: string | null;
           equipment_id?: string | null;
           id?: string;
+          other_equipment_id?: string | null;
         };
         Relationships: [
           {
@@ -1617,6 +1639,13 @@ export type Database = {
             columns: ['equipment_id'];
             isOneToOne: false;
             referencedRelation: 'vehicles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'dailyreportequipmentrelations_other_equipment_id_fkey';
+            columns: ['other_equipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'other_equipment';
             referencedColumns: ['id'];
           },
         ];
@@ -1906,6 +1935,7 @@ export type Database = {
           created_at: string;
           description: string | null;
           down_document: boolean | null;
+          equipment_type: string | null;
           explired: boolean;
           id: string;
           is_active: boolean;
@@ -1923,6 +1953,7 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           down_document?: boolean | null;
+          equipment_type?: string | null;
           explired: boolean;
           id?: string;
           is_active?: boolean;
@@ -1940,6 +1971,7 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           down_document?: boolean | null;
+          equipment_type?: string | null;
           explired?: boolean;
           id?: string;
           is_active?: boolean;
@@ -4988,32 +5020,38 @@ export type Database = {
       };
       type: {
         Row: {
+          applies_to: string | null;
           company_id: string | null;
           created_at: string;
           generates_qr: boolean | null;
           has_hitch: boolean | null;
           id: string;
           is_active: boolean | null;
+          is_operative: boolean | null;
           is_tractor_unit: boolean | null;
           name: string;
         };
         Insert: {
+          applies_to?: string | null;
           company_id?: string | null;
           created_at?: string;
           generates_qr?: boolean | null;
           has_hitch?: boolean | null;
           id?: string;
           is_active?: boolean | null;
+          is_operative?: boolean | null;
           is_tractor_unit?: boolean | null;
           name: string;
         };
         Update: {
+          applies_to?: string | null;
           company_id?: string | null;
           created_at?: string;
           generates_qr?: boolean | null;
           has_hitch?: boolean | null;
           id?: string;
           is_active?: boolean | null;
+          is_operative?: boolean | null;
           is_tractor_unit?: boolean | null;
           name?: string;
         };

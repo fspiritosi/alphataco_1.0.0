@@ -36,7 +36,7 @@ export async function DepartmentAbsenceCharts() {
     const key = sanitizeKey(name);
     (chartConfig as any)[key] = {
       label: name,
-      color: `hsl(var(--chart-${(idx % 5) + 1}))`,
+      color: `var(--chart-${(idx % 5) + 1})`,
     };
   });
 

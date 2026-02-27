@@ -53,7 +53,7 @@ import { z } from 'zod';
 // import { supabase } from '../../../../../../supabase/supabase';
 
 const editCovenantSchema = z.object({
-  covenant: z.string().nonempty('El nombre del convenio es requerido.'),
+  covenant: z.string().min(1, 'El nombre del convenio es requerido.'),
 });
 const formSchema = z.object({
   termination_date: z.date({

@@ -267,11 +267,19 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
             </h3>
             <div className="grid gap-4">
               {(
-                serviceData.dailyreportequipmentrelations?.map((relation) => relation.vehicles) ||
+                serviceData.dailyreportequipmentrelations?.map((relation) => {
+                  // Unificar vehículos y otros equipos en un solo objeto
+                  const vehicle = relation.vehicles;
+                  const otherEquip = relation.other_equipment;
+                  if (vehicle) return { ...vehicle, _source: 'vehicle' as const };
+                  if (otherEquip) return { ...otherEquip, _source: 'other_equipment' as const };
+                  return null;
+                }) ||
                 (serviceData as any).equipment_references ||
                 []
               ).map((equipment: any) => {
                 if (!equipment) return null;
+                const isOtherEquipment = equipment._source === 'other_equipment';
                 return (
                   <div
                     key={equipment.id}
@@ -280,7 +288,7 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                     <div>
                       <div className="font-semibold text-green-900 dark:text-green-100 text-lg mb-3 flex items-center">
                         <Link
-                          href={`/dashboard/equipment/action?action=view&id=${equipment.id}`}
+                          href={`/dashboard/equipment/action?action=view&id=${equipment.id}${isOtherEquipment ? '&type=other' : ''}`}
                           className="w-fit flex items-center"
                           target="_blank"
                         >
@@ -288,6 +296,11 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                           {equipment.domain || equipment.intern_number || `Equipo ${equipment?.id?.slice(-6)}`}
                           <ExternalLinkIcon className="h-4 w-4 ml-2 inline " />
                         </Link>
+                        {isOtherEquipment && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            Otro Equipo
+                          </Badge>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -297,6 +310,14 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                                 <span className="font-medium">Dominio:</span>
                                 <span className="font-mono bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded">
                                   {equipment.domain}
+                                </span>
+                              </div>
+                            )}
+                            {isOtherEquipment && equipment.serial_number && (
+                              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                                <span className="font-medium">N° Serie:</span>
+                                <span className="font-mono bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded">
+                                  {equipment.serial_number}
                                 </span>
                               </div>
                             )}
@@ -310,6 +331,12 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                               <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
                                 <span className="font-medium">Año:</span>
                                 <span>{equipment.year}</span>
+                              </div>
+                            )}
+                            {isOtherEquipment && equipment.horometer != null && (
+                              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                                <span className="font-medium">Horómetro:</span>
+                                <span>{equipment.horometer}</span>
                               </div>
                             )}
                           </div>
@@ -326,32 +353,18 @@ export function ServiceDetailModal({ serviceData, reportDate }: ServiceDetailMod
                               </Badge>
                             </div>
                           )}
-                          {/* {equipment.contractor_equipment && equipment.contractor_equipment.length > 0 && (
-                          <div className="space-y-1 space-x-1">
-                            <div className="text-xs text-green-600 font-medium">Clientes asignados:</div>
-                            {equipment.contractor_equipment.map((contract, index) => (
-                              <Badge key={index} variant="outline" className="text-xs bg-green-100 text-green-800">
-                                {contract.customers?.name || 'N/A'}
-                              </Badge>
-                            ))}
-                          </div>
-                        )} */}
-                          <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
-                            <span className="font-medium">Sub-tipo:</span>
-                            <span>{equipment?.sub_type?.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
-                            <span className="font-medium">Modelo:</span>
-                            <span>{equipment?.model_vehicles?.name}</span>
-                          </div>
-                          {/* {equipment?.sub_type?.name && (
-                          <div className="space-y-1 space-x-1">
-                            <span className="text-xs text-green-600 font-medium">Sub-Tipo:</span>
-                            <Badge variant={'outline'} className="text-xs bg-green-100 text-green-800">
-                              {equipment?.sub_type?.name}
-                            </Badge>
-                          </div>
-                        )} */}
+                          {equipment?.sub_type?.name && (
+                            <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                              <span className="font-medium">Sub-tipo:</span>
+                              <span>{equipment.sub_type.name}</span>
+                            </div>
+                          )}
+                          {equipment?.model_vehicles?.name && (
+                            <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                              <span className="font-medium">Modelo:</span>
+                              <span>{equipment.model_vehicles.name}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

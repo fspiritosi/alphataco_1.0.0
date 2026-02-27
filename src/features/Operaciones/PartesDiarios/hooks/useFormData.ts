@@ -3,13 +3,14 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   getActiveEquipmentsForDailyReport,
+  getActiveOperativeOtherEquipmentForDailyReport,
   getAllActiveEmployeesForDailyReport,
   getCustomers,
 } from '../actions/actions';
 
 /**
  * Hook para cargar los datos completos necesarios para el formulario DailyReportForm.
- * Carga todos los empleados, equipos y clientes con useQuery.
+ * Carga todos los empleados, equipos, otros equipos operativos y clientes con useQuery.
  * Estos datos son para los dropdowns de seleccion del formulario.
  */
 export function useFormData(reportDate: string) {
@@ -25,6 +26,12 @@ export function useFormData(reportDate: string) {
     staleTime: 5 * 60 * 1000,
   });
 
+  const otherEquipmentsQuery = useQuery({
+    queryKey: ['daily-report-form-other-equipments'],
+    queryFn: () => getActiveOperativeOtherEquipmentForDailyReport(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const customersQuery = useQuery({
     queryKey: ['daily-report-form-customers'],
     queryFn: () => getCustomers(),
@@ -34,7 +41,12 @@ export function useFormData(reportDate: string) {
   return {
     employees: employeesQuery.data,
     equipments: equipmentsQuery.data,
+    otherEquipments: otherEquipmentsQuery.data,
     customers: customersQuery.data,
-    isLoading: employeesQuery.isLoading || equipmentsQuery.isLoading || customersQuery.isLoading,
+    isLoading:
+      employeesQuery.isLoading ||
+      equipmentsQuery.isLoading ||
+      otherEquipmentsQuery.isLoading ||
+      customersQuery.isLoading,
   };
 }

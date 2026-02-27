@@ -30,15 +30,15 @@ import {
 const chartConfig = {
   activos: {
     label: 'Activos',
-    color: 'hsl(var(--chart-5))',
+    color: 'var(--chart-5)',
   },
   inactivos: {
     label: 'Fuera de Servicio',
-    color: 'hsl(var(--chart-1))',
+    color: 'var(--chart-1)',
   },
   usados: {
     label: 'Trabajando',
-    color: 'hsl(var(--chart-2))',
+    color: 'var(--chart-2)',
   },
 } satisfies ChartConfig;
 

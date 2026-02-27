@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "feature-planning": {
+      "source": "mhattingpete/claude-skills-marketplace",
+      "sourceType": "github",
+      "computedHash": "eb2c442c28382ff7d7707b46e0a08eddfa6dc82cca6fa96a895aec807c740e4d"
+    }
+  }
+}

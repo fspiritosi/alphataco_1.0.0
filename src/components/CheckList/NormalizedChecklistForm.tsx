@@ -25,7 +25,7 @@ import { AlertCircle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } fro
 import moment from 'moment';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { FieldValues, UseFormReturn, useForm } from 'react-hook-form';
+import { useForm, type Control, type FieldValues, type UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { DevAutoFillButton } from './DevAutoFillButton';
 // Tipos basados en la estructura de la base de datos
@@ -68,6 +68,7 @@ type Employee = {
   id: string;
   fullName: string;
   document?: string | null;
+  file_number?: string | null;
 };
 
 type NormalizedChecklistFormProps = {
@@ -95,6 +96,10 @@ const generateChecklistSchema = (template: NonNullable<ChecklistTemplate>) => {
   const schema: Record<string, z.ZodTypeAny> = {
     equipment_id: z.string().min(1, 'Debe seleccionar un equipo'),
     customer_id: z.string().optional(), // Cliente opcional
+    // ⚠️ CRÍTICO: 'chofer_employee_id' se guarda como columna FK directa en checklist_answers.
+    // Los nombres de los campos JSONB ('chofer', 'customer_id', 'kilometraje', 'horometro')
+    // son capturados por columnas GENERATED en la BD. No renombrar sin actualizar la migración.
+    chofer_employee_id: z.string().uuid().optional().nullable(),
     chofer: z.string().min(1, 'Debe ingresar el nombre del chofer'),
     fecha: z.string().min(1, 'Debe ingresar la fecha'),
     hora: z.string().min(1, 'Debe ingresar la hora'),
@@ -392,6 +397,7 @@ const ChecklistItemField = ({
   form: UseFormReturn<FieldValues>;
   readOnly?: boolean;
 }) => {
+  const typedControl = form.control as Control<FieldValues>;
   const itemCode = item.code || `item_${item.id}`;
   const fieldName = `${sectionCode}__${itemCode}`;
   const label = cleanLabel(item.label || 'Sin etiqueta');
@@ -413,7 +419,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
@@ -464,7 +470,7 @@ const ChecklistItemField = ({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            control={form.control}
+            control={typedControl}
             name={`${fieldName}_left`}
             render={({ field }) => {
               return (
@@ -478,7 +484,7 @@ const ChecklistItemField = ({
                       value={field.value}
                       disabled={readOnly}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent>
@@ -496,7 +502,7 @@ const ChecklistItemField = ({
             }}
           />
           <FormField
-            control={form.control}
+            control={typedControl}
             name={`${fieldName}_right`}
             render={({ field }) => {
               return (
@@ -510,7 +516,7 @@ const ChecklistItemField = ({
                       value={field.value}
                       disabled={readOnly}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent>
@@ -537,7 +543,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => {
             return (
@@ -560,7 +566,7 @@ const ChecklistItemField = ({
                     value={field.value}
                     disabled={readOnly}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
                     <SelectContent>
@@ -586,7 +592,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
@@ -616,7 +622,7 @@ const ChecklistItemField = ({
     return (
       <div className="border rounded-lg p-4 bg-muted/20">
         <FormField
-          control={form.control}
+          control={typedControl}
           name={fieldName}
           render={({ field }) => (
             <FormItem>
@@ -645,7 +651,7 @@ const ChecklistItemField = ({
   return (
     <div className="border rounded-lg p-4 bg-muted/20">
       <FormField
-        control={form.control}
+        control={typedControl}
         name={fieldName}
         render={({ field }) => (
           <FormItem>
@@ -763,6 +769,9 @@ export function NormalizedChecklistForm({
     mode: 'onSubmit', // Validar solo al hacer submit la primera vez
     reValidateMode: 'onBlur', // Re-validar solo el campo específico cuando el usuario sale de él
   });
+
+  // Typed control compatible con Controller/FormField (react-hook-form 7.71+ con schemas dinamicos)
+  const typedControl = form.control as Control<FieldValues>;
 
   // Ordenar secciones por order_index
   const sortedSections = [...(template.checklist_template_sections || [])].sort(
@@ -1030,6 +1039,8 @@ export function NormalizedChecklistForm({
         equipment_id: data.equipment_id,
         customer_id: data.customer_id || null,
         employee_id: defaultEmployeeId,
+        // ID del empleado chofer — se guarda como columna FK directa en checklist_answers
+        chofer_employee_id: (data as Record<string, unknown>).chofer_employee_id as string | null | undefined,
         chofer: data.chofer,
         fecha: data.fecha,
         hora: data.hora,
@@ -1052,6 +1063,8 @@ export function NormalizedChecklistForm({
             equipment_id: selectedHitchEquipment,
             customer_id: data.customer_id || null,
             employee_id: defaultEmployeeId,
+            // Mismo chofer que la UT
+            chofer_employee_id: (data as Record<string, unknown>).chofer_employee_id as string | null | undefined,
             chofer: data.chofer,
             fecha: data.fecha,
             hora: data.hora,
@@ -1190,23 +1203,22 @@ export function NormalizedChecklistForm({
           <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
             <AccordionItem className="pr-5" value="item-1">
               <AccordionTrigger className="text-start">
-                {' '}
-                <CardHeader>
+                <CardHeader className="flex-1 min-w-0">
                   <CardTitle>Información General</CardTitle>
                 </CardHeader>
               </AccordionTrigger>
-              <AccordionContent className="flex flex-col gap-4 text-balance">
+              <AccordionContent className="flex flex-col gap-4">
                 <CardContent className="space-y-4">
-                  <div className="space-y-4">
+                  <div className="space-y-4 w-full">
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="equipment_id"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Equipo</FormLabel>
                           <FormControl>
                             <Select onValueChange={field.onChange} value={field.value} disabled={shouldDisabledInputs}>
-                              <SelectTrigger>
+                              <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Seleccionar equipo" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1309,14 +1321,14 @@ export function NormalizedChecklistForm({
                     {/* Campo de cliente */}
                     {customers.length > 0 && (
                       <FormField
-                        control={form.control}
+                        control={typedControl}
                         name="customer_id"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Cliente</FormLabel>
                             <FormControl>
                               <Select onValueChange={field.onChange} value={field.value} disabled={readOnly}>
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Seleccionar cliente (opcional)" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1337,7 +1349,7 @@ export function NormalizedChecklistForm({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="chofer"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
@@ -1369,6 +1381,8 @@ export function NormalizedChecklistForm({
                                           value={`${employee.fullName} ${employee.document || ''}`}
                                           onSelect={() => {
                                             field.onChange(employee.fullName);
+                                            // Guardar el ID del empleado como columna FK directa
+                                            form.setValue('chofer_employee_id', employee.id);
                                           }}
                                         >
                                           <Check
@@ -1378,7 +1392,10 @@ export function NormalizedChecklistForm({
                                             )}
                                           />
                                           <div className="flex flex-col">
-                                            <span>{employee.fullName}</span>
+                                            <span>
+                                              {employee.file_number ? `[${employee.file_number}] ` : ''}
+                                              {employee.fullName}
+                                            </span>
                                             {employee.document && (
                                               <span className="text-xs text-muted-foreground">{employee.document}</span>
                                             )}
@@ -1403,7 +1420,7 @@ export function NormalizedChecklistForm({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="kilometraje"
                       render={({ field }) => (
                         <FormItem>
@@ -1499,7 +1516,7 @@ export function NormalizedChecklistForm({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="fecha"
                       render={({ field }) => (
                         <FormItem>
@@ -1513,7 +1530,7 @@ export function NormalizedChecklistForm({
                     />
 
                     <FormField
-                      control={form.control}
+                      control={typedControl}
                       name="hora"
                       render={({ field }) => (
                         <FormItem>
@@ -1528,7 +1545,7 @@ export function NormalizedChecklistForm({
                   </div>
 
                   <FormField
-                    control={form.control}
+                    control={typedControl}
                     name="observaciones"
                     render={({ field }) => (
                       <FormItem>
@@ -1569,7 +1586,7 @@ export function NormalizedChecklistForm({
               <Card key={section.id}>
                 <AccordionItem className="pr-5" value={section.id}>
                   <AccordionTrigger>
-                    <CardHeader className="text-start ">
+                    <CardHeader className="text-start flex-1 min-w-0">
                       <CardTitle>{sectionName}</CardTitle>
                       {sectionDescription && <CardDescription>{sectionDescription}</CardDescription>}
                     </CardHeader>

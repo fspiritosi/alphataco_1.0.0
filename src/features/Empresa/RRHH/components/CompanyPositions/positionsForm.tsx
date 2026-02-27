@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { createPosition, updatePosition } from '../../actions/actions';
 const PositionSchema = z.object({
-  name: z.string().nonempty({ message: 'El nombre es requerido' }),
+  name: z.string().min(1, { message: 'El nombre es requerido' }),
   is_active: z.boolean(),
   hierarchical_position_id: z.array(z.string()).optional(),
   aptitudes_tecnicas_id: z.array(z.string()).optional(),

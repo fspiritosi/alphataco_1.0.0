@@ -85,8 +85,8 @@ export default function DayliReportDetailTableServer({
     getEquipmentDeviation,
   } = useValidationData(dailyReportId, reportDate);
 
-  // Hook para datos del formulario (empleados completos, equipos, clientes)
-  const { employees, equipments, customers, isLoading: isLoadingFormData } = useFormData(reportDate);
+  // Hook para datos del formulario (empleados completos, equipos, otros equipos y clientes)
+  const { employees, equipments, otherEquipments, customers, isLoading: isLoadingFormData } = useFormData(reportDate);
 
   // Función para refrescar los datos usando el nuevo sistema de queries
   const refetchDailyReport = useCallback(async () => {
@@ -149,7 +149,10 @@ export default function DayliReportDetailTableServer({
           row.dailyreportemployeerelations?.map((rel) => `${rel.employees?.lastname} ${rel.employees?.firstname}`) ||
           [],
         equipment:
-          row.dailyreportequipmentrelations?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number) || [],
+          row.dailyreportequipmentrelations
+            ?.filter((rel) => rel.equipment_id !== null)
+            .map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number)
+            .filter(Boolean) || [],
         customer_equipment:
           row.dailyreport_customer_equipment_relations?.map((rel) => ({
             name: rel.equipos_clientes?.name,
@@ -180,12 +183,22 @@ export default function DayliReportDetailTableServer({
             role: rel.role, // Include role for 12/24 hour shifts
           })) || [],
         equipment_references:
-          row.dailyreportequipmentrelations?.map((rel) => ({
-            ...rel.vehicles,
-            name: rel.vehicles?.domain || rel.vehicles?.intern_number,
-            id: rel.vehicles?.id,
-            brand_vehicles: rel.vehicles?.brand_vehicles?.name,
-          })) || [],
+          row.dailyreportequipmentrelations
+            ?.filter((rel) => rel.equipment_id !== null)
+            .map((rel) => ({
+              ...rel.vehicles,
+              name: rel.vehicles?.domain || rel.vehicles?.intern_number,
+              id: rel.vehicles?.id,
+              brand_vehicles: rel.vehicles?.brand_vehicles?.name,
+            })) || [],
+        other_equipment_references:
+          row.dailyreportequipmentrelations
+            ?.filter((rel) => rel.other_equipment_id !== null)
+            .map((rel) => ({
+              ...rel.other_equipment,
+              name: rel.other_equipment?.intern_number || rel.other_equipment?.serial_number,
+              id: rel.other_equipment?.id,
+            })) || [],
         data_to_clone: {
           customer_id: row.customers?.id,
           service_id: row.customer_services?.id,
@@ -676,101 +689,126 @@ export default function DayliReportDetailTableServer({
         return (
           <div className="flex flex-wrap gap-1">
             {equipmentRelations.map((rel) => {
-              if (!rel.vehicles) return null;
-              const equipmentName = rel.vehicles.domain || rel.vehicles.intern_number || '';
-              if (!equipmentName.trim()) return null;
+              // Renderizar vehículo
+              if (rel.vehicles && rel.equipment_id) {
+                const equipmentName = rel.vehicles.domain || rel.vehicles.intern_number || '';
+                if (!equipmentName.trim()) return null;
 
-              // Obtener desvíos desde la RPC
-              const deviation = rel.vehicles.id ? getEquipmentDeviation(rel.vehicles.id, row.original.id) : null;
+                const deviation = rel.vehicles.id ? getEquipmentDeviation(rel.vehicles.id, row.original.id) : null;
+                const isDuplicated = deviation?.is_duplicated ?? false;
+                const isUnassigned = deviation?.is_unassigned_to_client ?? false;
+                const condition = deviation?.condition || rel.vehicles?.condition || 'operativo';
+                const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
+                const isNonStandardCondition = condition !== 'operativo';
 
-              const isDuplicated = deviation?.is_duplicated ?? false;
-              const isUnassigned = deviation?.is_unassigned_to_client ?? false;
-              const condition = deviation?.condition || rel.vehicles?.condition || 'operativo';
-              const hasConditionIssue = ['no operativo', 'en reparacion'].includes(condition);
-              const isNonStandardCondition = condition !== 'operativo';
+                const conditionLabels: Record<string, string> = {
+                  'no operativo': 'No operativo',
+                  'en reparacion': 'En reparación',
+                  'operativo condicionado': 'Condicionado',
+                  'en preparacion': 'En preparación',
+                };
 
-              const conditionLabels: Record<string, string> = {
-                'no operativo': 'No operativo',
-                'en reparacion': 'En reparación',
-                'operativo condicionado': 'Condicionado',
-                'en preparacion': 'En preparación',
-              };
+                let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
+                let badgeClassName = 'select-none text-nowrap';
 
-              // Color del badge - Prioridad: loading > duplicado > condición crítica > no asignado > condición info > normal
-              let badgeVariant: 'default' | 'outline' | 'secondary' = 'default';
-              let badgeClassName = 'select-none text-nowrap';
+                if (loadingValidations) {
+                  badgeVariant = 'secondary';
+                  badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
+                } else if (isDuplicated) {
+                  badgeVariant = 'outline';
+                  badgeClassName = cn(
+                    badgeClassName,
+                    'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+                  );
+                } else if (condition === 'no operativo') {
+                  badgeVariant = 'outline';
+                  badgeClassName = cn(
+                    badgeClassName,
+                    'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-400'
+                  );
+                } else if (condition === 'en reparacion') {
+                  badgeVariant = 'outline';
+                  badgeClassName = cn(
+                    badgeClassName,
+                    'border-yellow-500 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-400'
+                  );
+                } else if (isUnassigned) {
+                  badgeVariant = 'outline';
+                  badgeClassName = cn(
+                    badgeClassName,
+                    'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
+                  );
+                } else if (condition === 'operativo condicionado') {
+                  badgeVariant = 'outline';
+                  badgeClassName = cn(
+                    badgeClassName,
+                    'border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-400'
+                  );
+                } else if (condition === 'en preparacion') {
+                  badgeVariant = 'outline';
+                  badgeClassName = cn(
+                    badgeClassName,
+                    'border-gray-400 bg-gray-50 text-gray-600 dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-500'
+                  );
+                } else {
+                  badgeClassName = cn(badgeClassName, 'dark:text-black');
+                }
 
-              if (loadingValidations) {
-                badgeVariant = 'secondary';
-                badgeClassName = cn(badgeClassName, 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400');
-              } else if (isDuplicated) {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-400'
+                const tooltipMessages: string[] = [];
+                if (loadingValidations) {
+                  tooltipMessages.push('Validando asignaciones...');
+                } else {
+                  if (hasConditionIssue) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+                  else if (isNonStandardCondition) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
+                  if (isDuplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
+                  if (isUnassigned) tooltipMessages.push('No asignado al cliente de esta fila');
+                  if (tooltipMessages.length === 0) tooltipMessages.push('Equipo asignado correctamente');
+                }
+
+                return (
+                  <TooltipProvider key={rel.id} delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant={badgeVariant} className={badgeClassName}>
+                          {equipmentName}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {tooltipMessages.map((msg, i) => (
+                          <p key={i}>{msg}</p>
+                        ))}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 );
-              } else if (condition === 'no operativo') {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-400'
-                );
-              } else if (condition === 'en reparacion') {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-yellow-500 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-400'
-                );
-              } else if (isUnassigned) {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400'
-                );
-              } else if (condition === 'operativo condicionado') {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-400'
-                );
-              } else if (condition === 'en preparacion') {
-                badgeVariant = 'outline';
-                badgeClassName = cn(
-                  badgeClassName,
-                  'border-gray-400 bg-gray-50 text-gray-600 dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-500'
-                );
-              } else {
-                badgeClassName = cn(badgeClassName, 'dark:text-black');
               }
 
-              // Tooltip
-              const tooltipMessages: string[] = [];
-              if (loadingValidations) {
-                tooltipMessages.push('Validando asignaciones...');
-              } else {
-                if (hasConditionIssue) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
-                else if (isNonStandardCondition) tooltipMessages.push(`Condición: ${conditionLabels[condition]}`);
-                if (isDuplicated) tooltipMessages.push('Asignado en múltiples filas del parte diario');
-                if (isUnassigned) tooltipMessages.push('No asignado al cliente de esta fila');
-                if (tooltipMessages.length === 0) tooltipMessages.push('Equipo asignado correctamente');
+              // Renderizar otro equipo operativo
+              if (rel.other_equipment && rel.other_equipment_id) {
+                const otherEquipmentName = rel.other_equipment.intern_number || rel.other_equipment.serial_number || '';
+                if (!otherEquipmentName.trim()) return null;
+
+                return (
+                  <TooltipProvider key={rel.id} delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge
+                          variant="outline"
+                          className="select-none text-nowrap border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400"
+                        >
+                          {otherEquipmentName}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Otro Equipo Operativo</p>
+                        <p>{rel.other_equipment.type?.name || 'Sin tipo'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
               }
 
-              return (
-                <TooltipProvider key={rel.id} delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge variant={badgeVariant} className={badgeClassName}>
-                        {equipmentName}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {tooltipMessages.map((msg, i) => (
-                        <p key={i}>{msg}</p>
-                      ))}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
+              return null;
             })}
           </div>
         );
@@ -783,11 +821,17 @@ export default function DayliReportDetailTableServer({
         );
       },
       exportFormatter: (value, row) => {
-        return (
+        const vehicles =
           row.dailyreportequipmentrelations
-            ?.map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number || '')
-            .join(', ') || ''
-        );
+            ?.filter((rel) => rel.equipment_id !== null)
+            .map((rel) => rel.vehicles?.domain || rel.vehicles?.intern_number || '')
+            .filter(Boolean) || [];
+        const otherEquipment =
+          row.dailyreportequipmentrelations
+            ?.filter((rel) => rel.other_equipment_id !== null)
+            .map((rel) => rel.other_equipment?.intern_number || rel.other_equipment?.serial_number || '')
+            .filter(Boolean) || [];
+        return [...vehicles, ...otherEquipment].join(', ') || '';
       },
     },
     {
@@ -987,6 +1031,7 @@ export default function DayliReportDetailTableServer({
             customers={customers}
             employees={employees}
             equipments={equipments}
+            otherEquipments={otherEquipments}
             isLoadingFormData={isLoadingFormData}
             dailyReport={dailyReport}
             formattedData={formattedData}

@@ -56,12 +56,22 @@ export function formatDailyReportRow(
         role: (rel as { role?: string }).role || null,
       })) || [],
     equipment_references:
-      row.dailyreportequipmentrelations?.map((rel) => ({
-        ...rel.vehicles!,
-        name: rel.vehicles?.domain || rel.vehicles?.intern_number || '',
-        id: rel.vehicles?.id || '',
-        brand_vehicles: rel.vehicles?.brand_vehicles,
-      })) || [],
+      row.dailyreportequipmentrelations
+        ?.filter((rel) => rel.equipment_id !== null)
+        .map((rel) => ({
+          ...rel.vehicles!,
+          name: rel.vehicles?.domain || rel.vehicles?.intern_number || '',
+          id: rel.vehicles?.id || '',
+          brand_vehicles: rel.vehicles?.brand_vehicles,
+        })) || [],
+    other_equipment_references:
+      row.dailyreportequipmentrelations
+        ?.filter((rel) => rel.other_equipment_id !== null)
+        .map((rel) => ({
+          ...(rel.other_equipment ?? {}),
+          name: rel.other_equipment?.intern_number || rel.other_equipment?.serial_number || '',
+          id: rel.other_equipment?.id || '',
+        })) || [],
     data_to_clone: {
       customer_id: row.customers?.id,
       service_id: row.customer_services?.id,

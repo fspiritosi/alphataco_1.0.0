@@ -1,10 +1,11 @@
 import { TabsManagerServer } from '@/features/TabsManager';
-import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Car, Package, XCircle } from 'lucide-react';
 import { Suspense } from 'react';
-import EquipmentTableWrapperServer from './components/EquipmentTableWrapperServer';
-import EquipmentTableWrapperServerInactive from './components/EquipmentTableWrapperServerInactive';
-import OtrosEquipmentTableWrapperServer from './components/OnlyEquipmentTableWrapperServer';
+import { OtherEquipmentTabContent } from '../OtherEquipment/OtherEquipmentTabContent';
+import { OtherEquipmentTableSkeleton } from '../OtherEquipment/fallback/OtherEquipmentTableSkeleton';
+import DadosDeBajaTabContent from './DadosDeBaja/DadosDeBajaTabContent';
+import { VehicleTabContent } from './VehicleList/VehicleTabContent';
+import { VehicleTableSkeleton } from './VehicleList/fallback/VehicleTableSkeleton';
 
 export default function EquiposTabContent({
   searchParams,
@@ -19,6 +20,7 @@ export default function EquiposTabContent({
       searchParams={searchParams}
       defaultTab="vehicles"
       permissions={permissions}
+      dependentParams={['inactive_subtab']}
       tabs={[
         {
           value: 'vehicles',
@@ -31,8 +33,8 @@ export default function EquiposTabContent({
           moduleSlug: 'equipos',
           tabSlug: 'vehicles',
           content: (
-            <Suspense fallback={<DataTableSkeleton columns={7} />}>
-              <EquipmentTableWrapperServer types_of_vehicles="Vehículos" />
+            <Suspense fallback={<VehicleTableSkeleton />}>
+              <VehicleTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },
@@ -47,8 +49,8 @@ export default function EquiposTabContent({
           moduleSlug: 'equipos',
           tabSlug: 'others',
           content: (
-            <Suspense fallback={<DataTableSkeleton columns={7} />}>
-              <OtrosEquipmentTableWrapperServer types_of_vehicles="Otros" />
+            <Suspense fallback={<OtherEquipmentTableSkeleton />}>
+              <OtherEquipmentTabContent searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
         },
@@ -62,11 +64,7 @@ export default function EquiposTabContent({
           ),
           moduleSlug: 'equipos',
           tabSlug: 'inactive',
-          content: (
-            <Suspense fallback={<DataTableSkeleton columns={7} />}>
-              <EquipmentTableWrapperServerInactive types_of_vehicles="all" />
-            </Suspense>
-          ),
+          content: <DadosDeBajaTabContent searchParams={searchParams} permissions={permissions} />,
         },
       ]}
     />

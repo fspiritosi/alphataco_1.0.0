@@ -1,40 +1,53 @@
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { PermissionGuardServer, checkPermissionServer } from '@/features/Permissions';
-import { cookies } from 'next/headers';
-import DailyReportTable from './DailyReportTable';
-import { getDailyReportsForCurrentMonth } from './actions/actions';
+import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/Permissions';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import { Suspense } from 'react';
 import DayliReportForm from './components/DayliReportForm';
+import { DailyReportList } from './list/DailyReportList';
+import { DailyReportTableSkeleton } from './list/fallback/DailyReportTableSkeleton';
 
-export default async function PartesDiariosTabContent() {
-  // Fetching solo cuando este tab está activo
-  const cookiesStore = await cookies();
-  const dailyReportTableSavedColumns = cookiesStore.get('dailyReportTable')?.value;
-  const dailyReportTableSavedFilter = cookiesStore.get('dailyReportTable-filters')?.value;
-  const dailyReports = await getDailyReportsForCurrentMonth();
+// ============================================================================
+// PROPS
+// ============================================================================
 
-  // Verificar permisos
-  const canCreate = await checkPermissionServer('operaciones', 'dailyreportstable', 'create');
+interface Props {
+  searchParams?: DataTableSearchParams;
+}
+
+// ============================================================================
+// SERVER COMPONENT
+// ============================================================================
+
+export default async function PartesDiariosTabContent({ searchParams = {} }: Props) {
+  const [canCreate, permissionsMap] = await Promise.all([
+    checkPermissionServer('operaciones', 'dailyreportstable', 'create'),
+    getUserPermissionsMapServer(),
+  ]);
 
   return (
-    <Card className="flex flex-col gap-4 p-6">
-      <div className="flex gap-4">
-        <ResizablePanelGroup className="min-h-[400px]" direction="horizontal">
-          <PermissionGuardServer module="operaciones" tab="dailyreportstable" action="create">
-            <ResizablePanel defaultSize={40} className="p-4">
-              <DayliReportForm />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-          </PermissionGuardServer>
-          <ResizablePanel defaultSize={canCreate ? 60 : 100} className="p-4">
-            <DailyReportTable
-              savedVisibility={dailyReportTableSavedColumns ? JSON.parse(dailyReportTableSavedColumns) : {}}
-              savedFilter={dailyReportTableSavedFilter ? JSON.parse(dailyReportTableSavedFilter) : []}
-              initialData={dailyReports}
-            />
+    <Card>
+      <CardContent className="pt-6">
+        <ResizablePanelGroup direction="horizontal">
+          {canCreate && (
+            <>
+              <ResizablePanel id="daily-report-form" defaultSize="25%" minSize="15%" maxSize="40%">
+                <div className="p-4">
+                  <DayliReportForm />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
+          )}
+          <ResizablePanel id="daily-report-table" defaultSize="75%">
+            <div className="p-4">
+              <Suspense fallback={<DailyReportTableSkeleton />}>
+                <DailyReportList searchParams={searchParams} permissionsMap={permissionsMap} />
+              </Suspense>
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
-      </div>
+      </CardContent>
     </Card>
   );
 }

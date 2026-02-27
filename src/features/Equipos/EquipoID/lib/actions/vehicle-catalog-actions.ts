@@ -1,7 +1,10 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+
+const logger = new Logger('features/Equipos/vehicle-catalog-actions');
 
 export async function getVehicleBrands() {
   const supabase = await supabaseServer();
@@ -18,7 +21,7 @@ export async function getVehicleBrands() {
     .order('name');
 
   if (error) {
-    console.error('Error fetching vehicle brands:', error);
+    logger.error('Error fetching vehicle brands', { data: { error } });
     return [];
   }
 
@@ -40,7 +43,7 @@ export async function getVehicleModels() {
     .order('name');
 
   if (error) {
-    console.error('Error fetching vehicle models:', error);
+    logger.error('Error fetching vehicle models', { data: { error } });
     return [];
   }
 
@@ -61,29 +64,35 @@ export async function getVehicleOwners() {
     .order('name');
 
   if (error) {
-    console.error('Error fetching vehicle owners:', error);
+    logger.error('Error fetching vehicle owners', { data: { error } });
     return [];
   }
 
   return data || [];
 }
 export type getVehicleOwnersType = Awaited<ReturnType<typeof getVehicleOwners>>;
-export async function getVehicleTypes() {
+export async function getVehicleTypes(appliesTo?: 'vehicle' | 'other_equipment') {
   const supabase = await supabaseServer();
   const cookiesStore = await cookies();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('type')
     .select('*')
     .or(`company_id.eq.${company_id},company_id.is.null`)
-    .eq('is_active', true)
-    .order('name');
+    .eq('is_active', true);
+
+  // Filtrar por applies_to si se proporciona
+  if (appliesTo) {
+    query = query.eq('applies_to', appliesTo);
+  }
+
+  const { data, error } = await query.order('name');
 
   if (error) {
-    console.error('Error fetching vehicle types:', error);
+    logger.error('Error fetching vehicle types', { data: { error } });
     return [];
   }
 
@@ -96,7 +105,7 @@ export async function getTypesOfVehicles() {
   const { data, error } = await supabase.from('types_of_vehicles').select('*').order('name').eq('is_active', true);
 
   if (error) {
-    console.error('Error fetching types of vehicles:', error);
+    logger.error('Error fetching types of vehicles', { data: { error } });
     return [];
   }
 
@@ -118,7 +127,7 @@ export async function getVehicleSubTypes() {
     .eq('is_active', true);
 
   if (error) {
-    console.error('Error fetching vehicle sub types:', error);
+    logger.error('Error fetching vehicle sub types', { data: { error } });
     return [];
   }
 
@@ -137,7 +146,7 @@ export async function getModelsByBrand(brandId: number) {
     .eq('is_active', true);
 
   if (error) {
-    console.error('Error fetching models by brand:', error);
+    logger.error('Error fetching models by brand', { data: { error } });
     return [];
   }
 
@@ -156,7 +165,7 @@ export async function getSubTypesByType(typeId: string) {
     .eq('is_active', true);
 
   if (error) {
-    console.error('Error fetching sub types by type:', error);
+    logger.error('Error fetching sub types by type', { data: { error } });
     return [];
   }
 
@@ -169,7 +178,7 @@ export async function getHierarchicalPositions() {
   const { data, error } = await supabase.from('hierarchy').select('id, name').eq('is_active', true).order('name');
 
   if (error) {
-    console.error('Error fetching hierarchical positions:', error);
+    logger.error('Error fetching hierarchical positions', { data: { error } });
     return [];
   }
 

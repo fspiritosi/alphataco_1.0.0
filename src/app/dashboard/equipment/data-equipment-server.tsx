@@ -2,15 +2,17 @@
 
 import { querySelectDistinct } from '@/app/server/GET/probando';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatNumber } from '@/components/ui/price-currency-input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { fetchAllVehiclesData, fetchVehiclesData } from '@/features/Equipos/Equipos/lib/actions/fetch-equipment-action';
+import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table-server';
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table';
 import Cookies from 'js-cookie';
-import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Plus, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import React from 'react';
 import { RiToolsFill } from 'react-icons/ri';
@@ -396,383 +398,399 @@ export default function TablaEquipmentServer({
   ];
 
   return (
-    <BaseDataTable
-      columns={columns}
-      savedVisibility={savedVisibility}
-      initialData={initialData}
-      tableId={`equipmentServerTable-Vehículos`}
-      enableRowSelection={true}
-      serverSide={true}
-      fetchData={fetchVehiclesData}
-      fetchAllData={handleFetchAllData}
-      queryKey={`equipment-supabase-Vehículos`}
-      toolbarOptions={{
-        initialVisibleFilters: savedFilters,
-        filterableColumns: [
-          {
-            columnId: 'domain',
-            title: 'Dominio',
-            config: {
-              tableName: 'vehicles',
-              select: 'domain' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'domain'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <PermissionGuard module="equipos" tab="vehicles" action="create">
+          <Button asChild variant="gh_orange" size="sm">
+            <Link href="/dashboard/equipment/action?action=new">
+              <Plus className="mr-2 size-4" />
+              Agregar equipo
+            </Link>
+          </Button>
+        </PermissionGuard>
+      </div>
+      <BaseDataTable
+        columns={columns}
+        savedVisibility={savedVisibility}
+        initialData={initialData}
+        tableId={`equipmentServerTable-Vehículos`}
+        enableRowSelection={true}
+        serverSide={true}
+        fetchData={fetchVehiclesData}
+        fetchAllData={handleFetchAllData}
+        queryKey={`equipment-supabase-Vehículos`}
+        toolbarOptions={{
+          initialVisibleFilters: savedFilters,
+          filterableColumns: [
+            {
+              columnId: 'domain',
+              title: 'Dominio',
+              config: {
+                tableName: 'vehicles',
+                select: 'domain' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'domain'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'currency',
-            title: 'Moneda',
-            config: {
-              tableName: 'vehicles',
-              select: 'currency' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'currency'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'currency',
+              title: 'Moneda',
+              config: {
+                tableName: 'vehicles',
+                select: 'currency' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'currency'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'chassis',
-            title: 'Chassis',
-            config: {
-              tableName: 'vehicles',
-              select: 'chassis' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'chassis'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'chassis',
+              title: 'Chassis',
+              config: {
+                tableName: 'vehicles',
+                select: 'chassis' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'chassis'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'type_of_contract',
-            title: 'Tipo de contrato',
-            config: {
-              tableName: 'vehicles',
-              select: 'type_of_contract' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type_of_contract'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'type_of_contract',
+              title: 'Tipo de contrato',
+              config: {
+                tableName: 'vehicles',
+                select: 'type_of_contract' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type_of_contract'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'equipment_owners.name',
-            title: 'Propietario',
-            config: {
-              tableName: 'vehicles',
-              select: 'equipment_owners.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              relation: '{"equipment_owners": "owner_id"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'equipment_owners.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'equipment_owners.name',
+              title: 'Propietario',
+              config: {
+                tableName: 'vehicles',
+                select: 'equipment_owners.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                relation: '{"equipment_owners": "owner_id"}',
+                mapper: (
+                  data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'equipment_owners.name'>>>
+                ) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'status',
-            title: 'Estado',
-            config: {
-              tableName: 'vehicles',
-              select: 'status' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'status'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'status',
+              title: 'Estado',
+              config: {
+                tableName: 'vehicles',
+                select: 'status' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'status'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'type.name',
-            title: 'Tipo',
-            config: {
-              tableName: 'vehicles',
-              select: 'type.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              relation: '{"type": "type"}',
+            {
+              columnId: 'type.name',
+              title: 'Tipo',
+              config: {
+                tableName: 'vehicles',
+                select: 'type.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                relation: '{"type": "type"}',
 
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'type.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'sub_type.name',
-            title: 'Sub Tipo',
-            config: {
-              tableName: 'vehicles',
-              select: 'sub_type.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              relation: '{"sub_type": "subType"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'sub_type.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'sub_type.name',
+              title: 'Sub Tipo',
+              config: {
+                tableName: 'vehicles',
+                select: 'sub_type.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                relation: '{"sub_type": "subType"}',
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'sub_type.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'types_of_vehicles.name',
-            title: 'Tipos de vehículos',
-            config: {
-              tableName: 'vehicles',
-              select: 'types_of_vehicles.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              relation: '{"types_of_vehicles": "type_of_vehicle"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'types_of_vehicles.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'types_of_vehicles.name',
+              title: 'Tipos de vehículos',
+              config: {
+                tableName: 'vehicles',
+                select: 'types_of_vehicles.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                relation: '{"types_of_vehicles": "type_of_vehicle"}',
+                mapper: (
+                  data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'types_of_vehicles.name'>>>
+                ) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'engine',
-            title: 'Motor',
-            config: {
-              tableName: 'vehicles',
-              select: 'engine' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'engine'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'engine',
+              title: 'Motor',
+              config: {
+                tableName: 'vehicles',
+                select: 'engine' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'engine'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'serie',
-            title: 'Serie',
-            config: {
-              tableName: 'vehicles',
-              select: 'serie' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'serie'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'serie',
+              title: 'Serie',
+              config: {
+                tableName: 'vehicles',
+                select: 'serie' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'serie'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'contractor_equipment.customers.name',
-            title: 'Afectaciones',
-            config: {
-              tableName: 'vehicles' as const,
-              select: 'id' as '*',
-              multiJoinPaths: {
-                joins: [
-                  {
-                    from_table: 'vehicles',
-                    to_table: 'contractor_equipment',
-                    from_column: 'id',
-                    to_column: 'equipment_id',
-                  },
-                  {
-                    from_table: 'contractor_equipment',
-                    to_table: 'customers',
-                    from_column: 'contractor_id',
-                    to_column: 'id',
-                  },
-                ],
-                final_column: 'customers.name',
-              },
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'id'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
-              },
-            },
-          },
-          {
-            columnId: 'year',
-            title: 'Año',
-            config: {
-              tableName: 'vehicles',
-              select: 'year' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'year'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'contractor_equipment.customers.name',
+              title: 'Afectaciones',
+              config: {
+                tableName: 'vehicles' as const,
+                select: 'id' as '*',
+                multiJoinPaths: {
+                  joins: [
+                    {
+                      from_table: 'vehicles',
+                      to_table: 'contractor_equipment',
+                      from_column: 'id',
+                      to_column: 'equipment_id',
+                    },
+                    {
+                      from_table: 'contractor_equipment',
+                      to_table: 'customers',
+                      from_column: 'contractor_id',
+                      to_column: 'id',
+                    },
+                  ],
+                  final_column: 'customers.name',
+                },
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'id'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'condition',
-            title: 'Condicion',
-            config: {
-              tableName: 'vehicles',
-              select: 'condition' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'condition'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'year',
+              title: 'Año',
+              config: {
+                tableName: 'vehicles',
+                select: 'year' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'year'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'brand_vehicles.name',
-            title: 'Marca',
-            config: {
-              tableName: 'vehicles',
-              select: 'brand_vehicles.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              relation: '{"brand_vehicles": "brand"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'brand_vehicles.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'condition',
+              title: 'Condicion',
+              config: {
+                tableName: 'vehicles',
+                select: 'condition' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'condition'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'kilometer',
-            title: 'Kilometros',
-            config: {
-              tableName: 'vehicles',
-              select: 'kilometer' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'kilometer'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'brand_vehicles.name',
+              title: 'Marca',
+              config: {
+                tableName: 'vehicles',
+                select: 'brand_vehicles.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                relation: '{"brand_vehicles": "brand"}',
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'brand_vehicles.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'engine_hours',
-            title: 'Horómetro',
-            config: {
-              tableName: 'vehicles',
-              select: 'engine_hours' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'engine_hours'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'kilometer',
+              title: 'Kilometros',
+              config: {
+                tableName: 'vehicles',
+                select: 'kilometer' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'kilometer'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'model_vehicles.name',
-            title: 'Modelo',
-            config: {
-              tableName: 'vehicles',
-              select: 'model_vehicles.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              relation: '{"model_vehicles": "model"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'model_vehicles.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'engine_hours',
+              title: 'Horómetro',
+              config: {
+                tableName: 'vehicles',
+                select: 'engine_hours' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'engine_hours'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'intern_number',
-            title: 'Numero Interno',
-            config: {
-              tableName: 'vehicles',
-              select: 'intern_number' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'intern_number'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'model_vehicles.name',
+              title: 'Modelo',
+              config: {
+                tableName: 'vehicles',
+                select: 'model_vehicles.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                relation: '{"model_vehicles": "model"}',
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'model_vehicles.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'cost_type',
-            title: 'Tipo de costo',
-            config: {
-              tableName: 'vehicles',
-              select: 'cost_type' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'cost_type'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'intern_number',
+              title: 'Numero Interno',
+              config: {
+                tableName: 'vehicles',
+                select: 'intern_number' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'intern_number'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-          {
-            columnId: 'hierarchy.name',
-            title: 'Sector',
-            config: {
-              tableName: 'vehicles',
-              select: 'hierarchy.name' as '*',
-              p_filters: { is_active: 'true', company_id: company_id! },
-              relation: '{"hierarchy": "sector"}',
-              mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'hierarchy.name'>>>) => {
-                return data.map((value) => ({
-                  label: String(value.display_value),
-                  value: String(value.col_value),
-                  count: value.col_count,
-                }));
+            {
+              columnId: 'cost_type',
+              title: 'Tipo de costo',
+              config: {
+                tableName: 'vehicles',
+                select: 'cost_type' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'cost_type'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
               },
             },
-          },
-        ],
-        showFilterOptions: true,
-      }}
-    />
+            {
+              columnId: 'hierarchy.name',
+              title: 'Sector',
+              config: {
+                tableName: 'vehicles',
+                select: 'hierarchy.name' as '*',
+                p_filters: { is_active: 'true', company_id: company_id! },
+                relation: '{"hierarchy": "sector"}',
+                mapper: (data: Awaited<ReturnType<typeof querySelectDistinct<'vehicles', 'hierarchy.name'>>>) => {
+                  return data.map((value) => ({
+                    label: String(value.display_value),
+                    value: String(value.col_value),
+                    count: value.col_count,
+                  }));
+                },
+              },
+            },
+          ],
+          showFilterOptions: true,
+        }}
+      />
+    </div>
   );
 }

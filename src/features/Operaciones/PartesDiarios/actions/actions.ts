@@ -306,19 +306,39 @@ export async function getDailyReportRowHistory(dailyReportId: string) {
 
         entry.message = `${userName} ${action} el empleado: ${employeeName}`;
       } else if (relationType === 'dailyreportequipmentrelations') {
-        const vehicleName = relationData?.vehiculo_dominio || 'Vehículo desconocido';
+        const isOtherEquipment = relationData?.tipo_equipo === 'other_equipment';
 
-        entry.changes.push({
-          type: 'vehicle_relation',
-          action: record.action_type === 'LINK' ? 'added' : 'removed',
-          vehicle: {
-            id: relationData?.vehiculo_id,
-            domain: relationData?.vehiculo_dominio,
-            internNumber: relationData?.vehiculo_numero_interno,
-          },
-        });
+        if (isOtherEquipment) {
+          const equipmentName =
+            relationData?.otro_equipo_numero_interno || relationData?.otro_equipo_tipo || 'Otro equipo desconocido';
 
-        entry.message = `${userName} ${action} el vehículo: ${vehicleName}`;
+          entry.changes.push({
+            type: 'other_equipment_relation',
+            action: record.action_type === 'LINK' ? 'added' : 'removed',
+            otherEquipment: {
+              id: relationData?.otro_equipo_id,
+              internNumber: relationData?.otro_equipo_numero_interno,
+              serialNumber: relationData?.otro_equipo_numero_serie,
+              typeName: relationData?.otro_equipo_tipo,
+            },
+          });
+
+          entry.message = `${userName} ${action} el otro equipo: ${equipmentName}`;
+        } else {
+          const vehicleName = relationData?.vehiculo_dominio || 'Vehículo desconocido';
+
+          entry.changes.push({
+            type: 'vehicle_relation',
+            action: record.action_type === 'LINK' ? 'added' : 'removed',
+            vehicle: {
+              id: relationData?.vehiculo_id,
+              domain: relationData?.vehiculo_dominio,
+              internNumber: relationData?.vehiculo_numero_interno,
+            },
+          });
+
+          entry.message = `${userName} ${action} el vehículo: ${vehicleName}`;
+        }
       }
     } else if (record.action_type === 'CREATE') {
       // Traducir los nombres de los campos para los registros CREATE
@@ -550,6 +570,18 @@ export async function getDailyReportById(id: string) {
             sub_type(name),
             type(name),
             contractor_equipment(customers(name)),
+            condition
+          ),
+          other_equipment(
+            id,
+            intern_number,
+            serial_number,
+            horometer,
+            type(id, name),
+            sub_type(id, name),
+            brand_vehicles(id, name),
+            model_vehicles(id, name),
+            contractor_other_equipment(customers(id, name)),
             condition
           )
         )
@@ -843,6 +875,47 @@ export async function getActiveEquipmentsForDailyReport() {
 }
 
 /**
+ * Obtiene otros equipos operativos activos para el parte diario.
+ * Solo trae equipos cuyo tipo tenga is_operative = true y applies_to = 'other_equipment'.
+ */
+export async function getActiveOperativeOtherEquipmentForDailyReport() {
+  const supabase = await supabaseServer();
+  const cookiesStore = await cookies();
+  const company_id = cookiesStore.get('actualComp')?.value;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Obtener IDs de tipos operativos para other_equipment
+  const { data: operativeTypes } = await supabase
+    .from('type')
+    .select('id')
+    .eq('is_operative', true)
+    .eq('applies_to', 'other_equipment')
+    .eq('is_active', true);
+
+  if (!operativeTypes || operativeTypes.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('other_equipment')
+    .select(
+      '*,type(id,name),sub_type(id,name),brand_vehicles(id,name),model_vehicles(id,name),contractor_other_equipment(customers(id,name))'
+    )
+    .eq('is_active', true)
+    .eq('company_id', company_id || user?.app_metadata?.company || '')
+    .in(
+      'type_id',
+      operativeTypes.map((t) => t.id)
+    );
+
+  if (error) {
+    logger.error('Error al obtener otros equipos operativos', { data: { error } });
+    return [];
+  }
+  return data || [];
+}
+
+/**
  * Obtiene datos de validacion SOLO para los recursos asignados a un parte diario.
  * Query liviana: solo trae los campos necesarios para validar desvios.
  * - Empleados: contractor_employee (afectacion) + diagrama (dia laboral)
@@ -1039,7 +1112,8 @@ interface EmployeeRelation {
 
 interface EquipmentRelation {
   id: string;
-  equipment_id: string;
+  equipment_id: string | null;
+  other_equipment_id: string | null;
   daily_report_row_id: string;
   created_at?: string;
 }
@@ -1105,11 +1179,13 @@ export async function updateDailyReportRow(
     employeeHasChanged = false,
     reassignmentReason = '',
     skipEmployeeUpdate = false, // When true, skip employee relation updates (used for role-based employees)
+    otherEquipmentIds = [],
   }: {
     equipmentHasChanged: boolean;
     employeeHasChanged: boolean;
     reassignmentReason: string;
     skipEmployeeUpdate?: boolean;
+    otherEquipmentIds?: string[];
   }
 ) {
   const supabase = await supabaseServer();
@@ -1119,13 +1195,13 @@ export async function updateDailyReportRow(
     await updateEmployeeRelations(id, employeeIds);
   }
 
-  // Actualizar relaciones de equipos
-  await updateEquipmentRelations(id, equipmentIds);
+  // Actualizar relaciones de equipos (vehículos y otros equipos)
+  await updateEquipmentRelations(id, equipmentIds, otherEquipmentIds);
 
   await updateEquiposClienteRelations(id, equipos_clienteIds);
 
   // Determinar si hay recursos asignados
-  let hasResources = employeeIds.length > 0 || equipmentIds.length > 0;
+  let hasResources = employeeIds.length > 0 || equipmentIds.length > 0 || otherEquipmentIds.length > 0;
 
   // Si se saltó la actualización de empleados, verificar si hay empleados en la BD
   if (skipEmployeeUpdate) {
@@ -1133,7 +1209,7 @@ export async function updateDailyReportRow(
       .from('dailyreportemployeerelations')
       .select('*', { count: 'exact', head: true })
       .eq('daily_report_row_id', id);
-    hasResources = (count || 0) > 0 || equipmentIds.length > 0;
+    hasResources = (count || 0) > 0 || equipmentIds.length > 0 || otherEquipmentIds.length > 0;
   }
 
   const { data: updatedRow, error: updateError } = await supabase
@@ -1141,9 +1217,14 @@ export async function updateDailyReportRow(
     .update({
       ...data,
       status:
-        data.status === 'cancelado' || data.status === 'reprogramado' || data.status === 'ejecutado' || hasResources
+        data.status === 'cancelado' ||
+        data.status === 'reprogramado' ||
+        data.status === 'ejecutado' ||
+        data.status === 'en_certificacion'
           ? data.status
-          : 'sin_recursos_asignados',
+          : hasResources
+            ? 'pendiente'
+            : 'sin_recursos_asignados',
     })
     .eq('id', id)
     .select()
@@ -1293,11 +1374,11 @@ export async function updateEmployeeRelations(rowId: string, employeeIds: string
   }
 }
 
-export async function updateEquipmentRelations(rowId: string, equipmentIds: string[]) {
+export async function updateEquipmentRelations(rowId: string, equipmentIds: string[], otherEquipmentIds?: string[]) {
   const supabase = await supabaseServer();
 
   try {
-    // Obtener relaciones existentes
+    // Obtener relaciones existentes (tanto vehicles como other_equipment)
     const { data: existingRelations, error: fetchError } = await supabase
       .from('dailyreportequipmentrelations' as any)
       .select('*')
@@ -1307,29 +1388,52 @@ export async function updateEquipmentRelations(rowId: string, equipmentIds: stri
 
     const currentRelations = (existingRelations || []) as EquipmentRelation[];
 
-    // Encontrar relaciones a eliminar
-    const relationsToDelete = currentRelations.filter((rel) => !equipmentIds.includes(rel.equipment_id));
+    // Separar relaciones existentes por tipo
+    const currentVehicleRelations = currentRelations.filter((rel) => rel.equipment_id !== null);
+    const currentOtherRelations = currentRelations.filter((rel) => rel.other_equipment_id !== null);
 
-    // Encontrar equipos a agregar
-    const existingEquipmentIds = currentRelations.map((rel) => rel.equipment_id);
-    const equipmentIdsToAdd = equipmentIds.filter((id) => !existingEquipmentIds.includes(id));
+    // --- Gestión de vehículos ---
+    const vehicleRelationsToDelete = currentVehicleRelations.filter((rel) => !equipmentIds.includes(rel.equipment_id!));
+    const existingVehicleIds = currentVehicleRelations.map((rel) => rel.equipment_id!);
+    const vehicleIdsToAdd = equipmentIds.filter((id) => !existingVehicleIds.includes(id));
 
-    // Eliminar relaciones
-    if (relationsToDelete.length > 0) {
+    // --- Gestión de otros equipos ---
+    const normalizedOtherEquipmentIds = otherEquipmentIds || [];
+    const otherRelationsToDelete = currentOtherRelations.filter(
+      (rel) => !normalizedOtherEquipmentIds.includes(rel.other_equipment_id!)
+    );
+    const existingOtherIds = currentOtherRelations.map((rel) => rel.other_equipment_id!);
+    const otherEquipmentIdsToAdd = normalizedOtherEquipmentIds.filter((id) => !existingOtherIds.includes(id));
+
+    // Eliminar relaciones de vehículos que ya no aplican
+    if (vehicleRelationsToDelete.length > 0) {
       const { error: deleteError } = await supabase
-        .from('dailyreportequipmentrelations')
+        .from('dailyreportequipmentrelations' as any)
         .delete()
         .in(
           'id',
-          relationsToDelete.map((r) => r.id)
+          vehicleRelationsToDelete.map((r) => r.id)
+        );
+
+      if (deleteError) throw deleteError;
+    }
+
+    // Eliminar relaciones de otros equipos que ya no aplican
+    if (otherRelationsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('dailyreportequipmentrelations' as any)
+        .delete()
+        .in(
+          'id',
+          otherRelationsToDelete.map((r) => r.id)
         );
 
       if (deleteError) throw deleteError;
     }
 
     // Usar la función existente para crear nuevas relaciones
-    if (equipmentIdsToAdd.length > 0) {
-      await createDailyReportEquipmentRelations(rowId, equipmentIdsToAdd);
+    if (vehicleIdsToAdd.length > 0 || otherEquipmentIdsToAdd.length > 0) {
+      await createDailyReportEquipmentRelations(rowId, vehicleIdsToAdd, otherEquipmentIdsToAdd);
     }
   } catch (error) {
     logger.error('Error en updateEquipmentRelations', { data: { error } });
@@ -1601,15 +1705,31 @@ export async function deleteDailyReportRow(id: string) {
   }
 }
 
-export async function createDailyReportEquipmentRelations(dailyReportRowId: string, equipmentIds: string[]) {
-  if (!equipmentIds || equipmentIds.length === 0) return [];
+export async function createDailyReportEquipmentRelations(
+  dailyReportRowId: string,
+  equipmentIds: string[],
+  otherEquipmentIds?: string[]
+) {
+  const hasVehicles = equipmentIds && equipmentIds.length > 0;
+  const hasOtherEquipment = otherEquipmentIds && otherEquipmentIds.length > 0;
+
+  if (!hasVehicles && !hasOtherEquipment) return [];
 
   const supabase = await supabaseServer();
 
-  const relations = equipmentIds.map((equipmentId) => ({
-    daily_report_row_id: dailyReportRowId,
-    equipment_id: equipmentId,
-  }));
+  const relations: Array<{ daily_report_row_id: string; equipment_id?: string; other_equipment_id?: string }> = [];
+
+  // Relaciones de vehículos
+  for (const equipmentId of equipmentIds) {
+    relations.push({ daily_report_row_id: dailyReportRowId, equipment_id: equipmentId });
+  }
+
+  // Relaciones de otros equipos
+  if (otherEquipmentIds) {
+    for (const otherEquipmentId of otherEquipmentIds) {
+      relations.push({ daily_report_row_id: dailyReportRowId, other_equipment_id: otherEquipmentId });
+    }
+  }
 
   const { data, error } = await supabase
     .from('dailyreportequipmentrelations' as any)

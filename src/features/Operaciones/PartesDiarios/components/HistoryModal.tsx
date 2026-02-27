@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -21,6 +22,7 @@ import {
   PlusCircle,
   RotateCcw,
   UserCircle,
+  Wrench,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -49,7 +51,7 @@ export default function HistoryModal({
       const data = await getDailyReportRowHistory(dailyReportRowId);
       setHistoryData(data || []);
     } catch (error) {
-      console.error('Error fetching history:', error);
+      logger.error('Error fetching history', { data: { error } });
     } finally {
       setIsLoading(false);
     }
@@ -225,12 +227,15 @@ export default function HistoryModal({
                           <Badge variant="outline" className="font-normal">
                             {item.actionType === 'UPDATE' &&
                               `${item.changes.length} cambio${item.changes.length > 1 ? 's' : ''}`}
-                            {item.actionType === 'LINK' && item.changes[0]?.type === 'vehicle_relation' && 'Vehículo'}
-                            {item.actionType === 'LINK' && item.changes[0]?.type === 'employee_relation' && 'Empleado'}
-                            {item.actionType === 'UNLINK' && item.changes[0]?.type === 'vehicle_relation' && 'Vehículo'}
-                            {item.actionType === 'UNLINK' &&
+                            {(item.actionType === 'LINK' || item.actionType === 'UNLINK') &&
+                              item.changes[0]?.type === 'vehicle_relation' &&
+                              'Vehículo'}
+                            {(item.actionType === 'LINK' || item.actionType === 'UNLINK') &&
                               item.changes[0]?.type === 'employee_relation' &&
                               'Empleado'}
+                            {(item.actionType === 'LINK' || item.actionType === 'UNLINK') &&
+                              item.changes[0]?.type === 'other_equipment_relation' &&
+                              'Otro Equipo'}
                             {item.actionType === 'CREATE' && 'Nuevo registro'}
                           </Badge>
                         </div>
@@ -388,6 +393,56 @@ export default function HistoryModal({
                                       </span>
                                       <span className="font-medium">{item.changes[0].vehicle?.internNumber}</span>
                                     </div>
+                                  </div>
+                                </div>
+                              )}
+
+                            {(item.actionType === 'LINK' || item.actionType === 'UNLINK') &&
+                              item.changes[0]?.type === 'other_equipment_relation' && (
+                                <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                                  <h4 className="font-medium text-sm mb-3 text-slate-700 dark:text-slate-300">
+                                    {item.actionType === 'LINK'
+                                      ? 'Otro equipo vinculado:'
+                                      : 'Otro equipo desvinculado:'}
+                                  </h4>
+                                  {item.reassignment_reason && (
+                                    <div className="mb-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2 rounded-md">
+                                      <p className="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-1">
+                                        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <span>
+                                          <strong className="font-medium">Motivo:</strong> {item.reassignment_reason}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  )}
+                                  <div className="bg-white dark:bg-slate-900 p-3 rounded-md border border-slate-200 dark:border-slate-700 flex flex-col gap-2">
+                                    {item.changes[0].otherEquipment?.typeName && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">Tipo:</span>
+                                        <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-100 flex items-center gap-1">
+                                          <Wrench className="h-3 w-3" />
+                                          <span>{item.changes[0].otherEquipment.typeName}</span>
+                                        </Badge>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                                        Número interno:
+                                      </span>
+                                      <span className="font-medium">
+                                        {item.changes[0].otherEquipment?.internNumber || '-'}
+                                      </span>
+                                    </div>
+                                    {item.changes[0].otherEquipment?.serialNumber && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                          Número de serie:
+                                        </span>
+                                        <span className="font-medium">
+                                          {item.changes[0].otherEquipment.serialNumber}
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               )}

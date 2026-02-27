@@ -1,9 +1,6 @@
-import {
-  fetchTypeVehicles,
-  getVehiclesDisponibleFilterType,
-  getVehiclesNotInDailyReport,
-} from '@/app/server/GET/actions';
+import { getVehiclesDisponibleFilterType, getVehiclesNotInDailyReport } from '@/app/server/GET/actions';
 import { InteractiveChart } from '@/components/Graficos/InteractiveChart';
+import { getVehicleTypes } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 import IndicatorCardEquipment from './indicatorCard';
@@ -18,7 +15,7 @@ export default async function EquipmentChart() {
     cookiesStore.get('actualComp')?.value
   );
 
-  const tipo_vehiculos = await fetchTypeVehicles();
+  const tipo_vehiculos = await getVehicleTypes('vehicle');
   // Calcular el total de vehículos sumando todas las unidades
   // Calcular el total de vehículos (suma de todos los estados)
   const totalVehicles = active_vehicles?.reduce((sum: any, vehicle: any) => sum + vehicle.available_units || 0, 0) || 0;

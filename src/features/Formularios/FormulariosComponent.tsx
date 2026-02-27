@@ -1,8 +1,10 @@
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { FileText } from 'lucide-react';
 import { Suspense } from 'react';
 import FormulariosTabContent from './Formularios/FormulariosTabContent';
+import { FormsTableSkeleton } from './Formularios/fallback/FormsTableSkeleton';
 
 export default async function FormulariosComponent({
   searchParams,
@@ -31,8 +33,11 @@ export default async function FormulariosComponent({
             moduleSlug: 'formularios',
             tabSlug: 'formularios',
             content: (
-              <Suspense fallback={<div>Cargando formularios...</div>}>
-                <FormulariosTabContent />
+              <Suspense fallback={<FormsTableSkeleton />}>
+                <FormulariosTabContent
+                  searchParams={searchParams as DataTableSearchParams}
+                  permissionsMap={permissions}
+                />
               </Suspense>
             ),
           },

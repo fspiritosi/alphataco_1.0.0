@@ -25,6 +25,7 @@ import {
   createDailyReportEquipmentRelations,
   createDailyReportRow,
   getActiveEquipmentsForDailyReport,
+  getActiveOperativeOtherEquipmentForDailyReport,
   getAllActiveEmployeesForDailyReport,
   getCustomers,
   getDailyReportById,
@@ -53,8 +54,10 @@ import { toast } from 'sonner';
 import {
   buildEmployeeIndex,
   buildEquipmentIndex,
+  buildOtherEquipmentIndex,
   filterEmployeesByCustomer,
   filterEquipmentsByCustomer,
+  filterOtherEquipmentsByCustomer,
 } from '../utils/employeeEquipmentIndex';
 import { transformDailyReports } from './DayliReportDetailTable';
 import { EmployeeRoleSelect } from './EmployeeRoleSelect';
@@ -66,6 +69,7 @@ type DailyReportFormProps = {
   customers?: Awaited<ReturnType<typeof getCustomers>>;
   employees?: Awaited<ReturnType<typeof getAllActiveEmployeesForDailyReport>>;
   equipments?: Awaited<ReturnType<typeof getActiveEquipmentsForDailyReport>>;
+  otherEquipments?: Awaited<ReturnType<typeof getActiveOperativeOtherEquipmentForDailyReport>>;
   isLoadingFormData?: boolean;
   dailyReport: Awaited<ReturnType<typeof getDailyReportById>>;
   disabled?: boolean;
@@ -81,6 +85,7 @@ export const dailyReportSchema = z
     completed_night: z.boolean().nullable().optional(),
     employees: z.array(z.string()).default([]).optional(),
     equipment: z.array(z.string()).default([]).optional(),
+    other_equipment: z.array(z.string()).default([]).optional(),
     equipos_cliente: z.array(z.string()).max(2, 'Solo se pueden seleccionar 2 equipos cliente').default([]).optional(),
     // Campos para empleados con roles (jornadas 12/24 hrs)
     chofer_dia: z.string().optional(),
@@ -175,6 +180,7 @@ export function DailyReportForm({
   customers,
   employees,
   equipments,
+  otherEquipments,
   isLoadingFormData,
   disabled,
   formattedData,
@@ -203,9 +209,12 @@ export function DailyReportForm({
   const [isAreaDisabled, setIsAreaDisabled] = useState<boolean>(true);
   const [shiftSelection, setShiftSelection] = useState<'dia' | 'noche'>('dia');
 
-  // Estados para índices de empleados y equipos
+  // Estados para índices de empleados, equipos y otros equipos
   const [employeeIndex, setEmployeeIndex] = useState<Map<string, NonNullable<typeof employees>>>(new Map());
   const [equipmentIndex, setEquipmentIndex] = useState<Map<string, NonNullable<typeof equipments>>>(new Map());
+  const [otherEquipmentIndex, setOtherEquipmentIndex] = useState<Map<string, NonNullable<typeof otherEquipments>>>(
+    new Map()
+  );
   const router = useRouter();
   // Filtros de clientes
   const activeCustomers = customers?.filter((c) => c.is_active) || [];
@@ -218,6 +227,7 @@ export function DailyReportForm({
       item: '',
       employees: [],
       equipment: [],
+      other_equipment: [],
       working_day: '',
       start_time: '',
       end_time: '',
@@ -247,17 +257,19 @@ export function DailyReportForm({
     setIsLoadingEquipments(true);
 
     startTransition(() => {
-      // Construir índices de empleados y equipos
+      // Construir índices de empleados, equipos y otros equipos
       const empIndex = buildEmployeeIndex(employees);
       const eqIndex = buildEquipmentIndex(equipments);
+      const otherEqIndex = buildOtherEquipmentIndex(otherEquipments);
 
       setEmployeeIndex(empIndex);
       setEquipmentIndex(eqIndex);
+      setOtherEquipmentIndex(otherEqIndex);
 
       setIsLoadingEmployees(false);
       setIsLoadingEquipments(false);
     });
-  }, [employees, equipments]); // Solo cuando cambian los datos base
+  }, [employees, equipments, otherEquipments]); // Solo cuando cambian los datos base
 
   // 🔥 FILTRADO INSTANTÁNEO CON useMemo (desde índices pre-construidos)
   const { assignedEmployees, unassignedEmployees, allEmployees } = useMemo(
@@ -268,6 +280,11 @@ export function DailyReportForm({
   const { assignedEquipments, unassignedEquipments, allEquipments } = useMemo(
     () => filterEquipmentsByCustomer(selectedCustomerId, equipmentIndex, equipments),
     [selectedCustomerId, equipmentIndex, equipments]
+  );
+
+  const { allOtherEquipments } = useMemo(
+    () => filterOtherEquipmentsByCustomer(selectedCustomerId, otherEquipmentIndex, otherEquipments),
+    [selectedCustomerId, otherEquipmentIndex, otherEquipments]
   );
 
   // Funciones para detectar duplicados
@@ -438,6 +455,11 @@ export function DailyReportForm({
       ? data.equipment.filter((eq): eq is string => typeof eq === 'string')
       : [];
 
+    // Extraer IDs de otros equipos operativos
+    const otherEquipmentIds = Array.isArray(data.other_equipment)
+      ? data.other_equipment.filter((eq): eq is string => typeof eq === 'string')
+      : [];
+
     const equipos_clienteIds = Array.isArray(data.equipos_cliente)
       ? data.equipos_cliente.filter((eq): eq is string => typeof eq === 'string')
       : [];
@@ -470,6 +492,8 @@ export function DailyReportForm({
             employees?.filter((emp) => data?.employees?.includes(emp.id))?.map((emp) => emp.id) || [];
           const equipmentIdsUpdated =
             equipments?.filter((eq) => data?.equipment?.includes(eq.id))?.map((eq) => eq.id) || [];
+          const otherEquipmentIdsUpdated =
+            otherEquipments?.filter((eq) => data?.other_equipment?.includes(eq.id))?.map((eq) => eq.id) || [];
 
           // Modo edición
           if (hasRoleBasedEmployees) {
@@ -488,6 +512,7 @@ export function DailyReportForm({
                 employeeHasChanged,
                 reassignmentReason: data.reasigment_reason || '',
                 skipEmployeeUpdate: true, // Don't update employee relations again - we already did it with roles
+                otherEquipmentIds: otherEquipmentIdsUpdated,
               }
             );
           } else {
@@ -501,6 +526,7 @@ export function DailyReportForm({
                 equipmentHasChanged,
                 employeeHasChanged,
                 reassignmentReason: data.reasigment_reason || '',
+                otherEquipmentIds: otherEquipmentIdsUpdated,
               }
             );
           }
@@ -533,7 +559,10 @@ export function DailyReportForm({
           const createdRow = await createDailyReportRow([
             {
               ...rowData,
-              status: !hasEmployees && !equipmentIds.length ? 'sin_recursos_asignados' : 'pendiente',
+              status:
+                !hasEmployees && !equipmentIds.length && !otherEquipmentIds.length
+                  ? 'sin_recursos_asignados'
+                  : 'pendiente',
             },
           ]);
 
@@ -546,9 +575,9 @@ export function DailyReportForm({
             await createDailyReportEmployeeRelations(createdRow[0].id, employeeIds);
           }
 
-          // Crear relaciones con equipos si existen
-          if (equipmentIds.length > 0) {
-            await createDailyReportEquipmentRelations(createdRow[0].id, equipmentIds);
+          // Crear relaciones con equipos (vehículos y otros equipos operativos)
+          if (equipmentIds.length > 0 || otherEquipmentIds.length > 0) {
+            await createDailyReportEquipmentRelations(createdRow[0].id, equipmentIds, otherEquipmentIds);
           }
 
           if (equipos_clienteIds.length > 0) {
@@ -575,6 +604,7 @@ export function DailyReportForm({
           equipos_cliente: [],
           employees: [],
           equipment: [],
+          other_equipment: [],
           working_day: '',
           start_time: '',
           end_time: '',
@@ -722,6 +752,12 @@ export function DailyReportForm({
       const equipmentIds = selectedRow.equipment_references.map((eq) => eq.id || '');
       form.setValue('equipment', equipmentIds);
     }
+
+    // Setear otros equipos operativos
+    if (selectedRow.other_equipment_references?.length) {
+      const otherEquipmentIds = selectedRow.other_equipment_references.map((eq) => eq.id || '');
+      form.setValue('other_equipment', otherEquipmentIds);
+    }
   }, [selectedRow, selectedCustomer, selectedServiceId]); // Depende de todos los datos necesarios
 
   // Filtrar servicios activos del cliente seleccionado
@@ -806,6 +842,7 @@ export function DailyReportForm({
       item: '',
       employees: [],
       equipment: [],
+      other_equipment: [],
       working_day: '',
       start_time: '',
       end_time: '',
@@ -2557,6 +2594,186 @@ export function DailyReportForm({
                       </div>
                     </div>
                   )}
+
+                  {/* Otros Equipos Operativos */}
+                  <FormField
+                    control={form.control}
+                    name="other_equipment"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Otros Equipos Operativos</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                disabled={!selectedCustomerId}
+                                className={cn(
+                                  'w-full justify-between',
+                                  !field.value?.length && 'text-muted-foreground',
+                                  !selectedCustomerId && 'opacity-50 cursor-not-allowed'
+                                )}
+                              >
+                                {field.value?.length
+                                  ? `${field.value.length} otro${field.value.length > 1 ? 's' : ''} equipo${field.value.length > 1 ? 's' : ''} seleccionado${field.value.length > 1 ? 's' : ''}`
+                                  : selectedCustomerId
+                                    ? 'Seleccionar otros equipos'
+                                    : 'Seleccione un cliente primero'}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-full p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar otros equipos..." />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {!selectedCustomerId
+                                    ? 'Seleccione un cliente primero.'
+                                    : allOtherEquipments.length === 0
+                                      ? 'No hay otros equipos operativos disponibles.'
+                                      : 'No se encontraron otros equipos que coincidan.'}
+                                </CommandEmpty>
+                                {selectedCustomerId && (
+                                  <div className="px-3 py-1.5 text-xs text-muted-foreground">
+                                    <p>
+                                      Los equipos marcados en{' '}
+                                      <span className="text-orange-600 font-medium">naranja</span> no están asignados al
+                                      cliente.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {selectedCustomerId &&
+                                  allOtherEquipments.length > 0 &&
+                                  (() => {
+                                    const typesMap: Record<string, (typeof allOtherEquipments)[0][]> = {};
+
+                                    allOtherEquipments.forEach((equipment) => {
+                                      const type = equipment.type?.name || 'Sin tipo';
+                                      if (!typesMap[type]) {
+                                        typesMap[type] = [];
+                                      }
+                                      typesMap[type].push(equipment);
+                                    });
+
+                                    const typesArray = Object.keys(typesMap).sort();
+
+                                    return typesArray.map((type) => (
+                                      <CommandGroup key={type} heading={type.charAt(0).toUpperCase() + type.slice(1)}>
+                                        {typesMap[type].map((equipment) => {
+                                          const isAssigned = equipment.contractor_other_equipment?.some(
+                                            (ce) => ce.customers?.id === selectedCustomerId
+                                          );
+
+                                          return (
+                                            <CommandItem
+                                              value={equipment.intern_number || equipment.serial_number || equipment.id}
+                                              key={equipment.id}
+                                              onSelect={() => {
+                                                const currentValues = field.value || [];
+                                                const newValues = currentValues.includes(equipment.id)
+                                                  ? currentValues.filter((id) => id !== equipment.id)
+                                                  : [...currentValues, equipment.id];
+                                                field.onChange(newValues);
+                                              }}
+                                              className={cn(
+                                                !isAssigned && 'text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                              )}
+                                            >
+                                              <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center">
+                                                  <Check
+                                                    className={cn(
+                                                      'mr-2 h-4 w-4',
+                                                      !isAssigned && 'text-orange-600',
+                                                      field.value?.includes(equipment.id) ? 'opacity-100' : 'opacity-0'
+                                                    )}
+                                                  />
+                                                  {equipment.intern_number || equipment.serial_number || 'Sin número'}
+                                                </div>
+                                                <div className="flex gap-1">
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="ml-2 bg-blue-100 text-blue-800 border-blue-300 text-[10px]"
+                                                  >
+                                                    Otro Equipo
+                                                  </Badge>
+                                                  {!isAssigned && (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="ml-1 bg-orange-100 text-orange-800 border-orange-300"
+                                                    >
+                                                      No asignado
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </CommandItem>
+                                          );
+                                        })}
+                                      </CommandGroup>
+                                    ));
+                                  })()}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {field.value?.map((otherEquipmentId) => {
+                            const equipment = otherEquipments?.find((eq) => eq.id === otherEquipmentId);
+                            if (!equipment) return null;
+
+                            const displayName = equipment.intern_number || equipment.serial_number || 'Sin número';
+                            const isAssigned = equipment.contractor_other_equipment?.some(
+                              (ce) => ce.customers?.id === selectedCustomerId
+                            );
+
+                            return (
+                              <div
+                                key={otherEquipmentId}
+                                className={cn(
+                                  'text-xs px-2 py-1 rounded-md flex items-center gap-1',
+                                  isAssigned
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                    : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                )}
+                              >
+                                {displayName}
+                                <Badge
+                                  variant="outline"
+                                  className="ml-1 bg-blue-200 text-blue-900 border-blue-400 text-[10px] px-1 py-0"
+                                >
+                                  Otro Equipo
+                                </Badge>
+                                {!isAssigned && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-1 bg-orange-200 text-orange-900 border-orange-400 text-[10px] px-1 py-0"
+                                  >
+                                    No asignado
+                                  </Badge>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const currentValues = field.value || [];
+                                    const newValues = currentValues.filter((id) => id !== otherEquipmentId);
+                                    field.onChange(newValues);
+                                  }}
+                                  className="ml-1 hover:opacity-80"
+                                >
+                                  <X className="h-3 w-3 text-red-500" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   {/* reasigment_reason */}
 
