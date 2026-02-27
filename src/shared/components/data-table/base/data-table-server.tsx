@@ -374,8 +374,8 @@ export function BaseDataTable<
               {...toolbarProps}
             />
           )}
-          <div className="rounded-md border max-h-[60vh] relative overflow-x-auto overflow-y-auto">
-            <Table>
+          <div className="rounded-md border overflow-auto max-h-[60vh] relative">
+            <Table containerClassName="overflow-x-visible overflow-y-visible min-w-fit">
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>

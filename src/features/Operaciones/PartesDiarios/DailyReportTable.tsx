@@ -85,7 +85,7 @@ const reportColumnas: ColumnDef<DailyReportType>[] = [
     accessorKey: 'date',
     id: 'Fecha',
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha de parte diario" />,
-    cell: ({ row }) => <span className="font-medium">{moment(row.original.date).format('DD/MM/YYYY')}</span>,
+    cell: ({ row }) => <span className="font-medium">{moment.utc(row.original.date).format('DD/MM/YYYY')}</span>,
     filterFn: dateRangeFilter,
   },
   {

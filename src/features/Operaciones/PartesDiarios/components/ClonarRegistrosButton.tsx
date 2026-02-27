@@ -282,7 +282,7 @@ export function ClonarRegistrosButton({
         <DialogContent className="sm:max-w-[500px] bg-white text-black p-0 gap-0 overflow-auto max-h-[90vh]">
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-xl">
-              Clonar registros del {moment(formattedData?.[0]?.date).format('DD/MM/YYYY')}
+              Clonar registros del {moment.utc(formattedData?.[0]?.date).format('DD/MM/YYYY')}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
               Solo los registros mensuales se clonaran en la fecha seleccionada.
