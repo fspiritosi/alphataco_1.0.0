@@ -103,12 +103,14 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   // Hook para manejar estado sincronizado con URL
   const filterableColumns = facetedFilters.map((f) => f.columnId);
   const {
+    state,
     pagination,
     sorting,
     columnFilters,
     onPaginationChange,
     onSortingChange,
     onColumnFiltersChange,
+    onGlobalFilterChange,
     isPending,
     startTransition,
   } = useDataTable({
@@ -191,6 +193,8 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           onFilterVisibilityChange={setFilterVisibility}
           paramNamespace={paramNamespace}
           isFetchingFacets={isFetchingFacets}
+          onSearchChange={onGlobalFilterChange}
+          searchValue={state.search}
           exportActions={
             exportConfig && showExportButton ? (
               <_DataTableExportButton columns={columns} exportConfig={exportConfig} />

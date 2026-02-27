@@ -135,7 +135,7 @@ export function MultiSelectCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
-        <Command>
+        <Command filter={(itemValue, search) => (itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}>
           <CommandInput placeholder={`Buscar ${placeholder.toLowerCase()}...`} />
           <CommandEmpty>
             {isLoading ? (
@@ -167,6 +167,7 @@ export function MultiSelectCombobox({
               <CommandItem
                 disabled={selectedResourceDocuments?.some((document) => document.applies === option.value)}
                 key={option.value}
+                value={option.label}
                 onSelect={() => handleSelect(option.value)}
                 data-testid={dataTestId ? `${dataTestId}-option-${option.value}` : undefined}
               >

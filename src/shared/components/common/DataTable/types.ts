@@ -238,6 +238,16 @@ export interface DataTableToolbarProps<TData> {
   paramNamespace?: string;
   /** Indica que los facets se están re-fetcheando (se propaga a cada FacetedFilter) */
   isFetchingFacets?: boolean;
+  /**
+   * Handler externo para cambios de búsqueda global (sincroniza con URL via router).
+   * Cuando se provee, reemplaza el comportamiento local de TanStack Table (setGlobalFilter).
+   */
+  onSearchChange?: (value: string) => void;
+  /**
+   * Valor controlado de la búsqueda global (desde URL).
+   * Se usa junto con onSearchChange para mantener sincronía con el servidor.
+   */
+  searchValue?: string;
 }
 
 /**

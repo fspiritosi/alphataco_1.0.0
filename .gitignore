@@ -56,11 +56,12 @@ cypress.env.json
 .mcp.json
 settings.local.json
 .kiro
-.claude
 .cursor
 .zed
 .agents
 /local
+launch.json
+agent-memory
 
 # Prisma generated
 src/generated/
