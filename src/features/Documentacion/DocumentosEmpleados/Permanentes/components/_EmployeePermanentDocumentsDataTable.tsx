@@ -244,20 +244,12 @@ export function _EmployeePermanentDocumentsDataTable({
         externalCounts: facets?.state,
       },
 
-      // Empleado (FK UUID → employees)
+      // Empleado (texto libre — busca por nombre, apellido y legajo)
       {
         columnId: 'employee',
         title: 'Empleado',
-        options: [
-          ...(facets?.employeeOptions?.map((e) => ({
-            value: e.id,
-            label: `[${e.file}] ${e.lastname} ${e.firstname}`,
-          })) ?? []),
-          ...(facets?.employee?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin empleado', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.employee,
+        type: 'text' as const,
+        placeholder: 'Buscar por nombre o legajo...',
       },
 
       // Tipo de documento (FK UUID → document_types)

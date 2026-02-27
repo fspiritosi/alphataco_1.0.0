@@ -5,7 +5,6 @@ import { getServerCompanyId } from '@/shared/actions/company.actions';
 import {
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
-  buildTextFiltersWhere,
   NULL_FILTER_VALUE,
   parseSearchParams,
   stateToPrismaParams,
@@ -36,7 +35,7 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
 };
 
 /** Columnas con filtro de texto libre (campos directos o accesibles) */
-const TEXT_FILTER_COLUMNS: string[] = [];
+const TEXT_FILTER_COLUMNS: string[] = ['employee'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['created_at', 'validity'];
@@ -46,7 +45,6 @@ const DATE_RANGE_COLUMNS = ['created_at', 'validity'];
  */
 const COLUMN_MAP: Record<string, string> = {
   state: 'state',
-  employee: 'applies',
   document_type: 'id_document_types',
 };
 
@@ -96,8 +94,20 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     ],
   });
 
-  const textFiltersWhere = buildTextFiltersWhere(state.filters, TEXT_FILTER_COLUMNS);
   const dateFiltersWhere = buildDateRangeFiltersWhere(state.filters, DATE_RANGE_COLUMNS);
+
+  // ─── Filtro texto de empleado (busca por nombre, apellido y legajo) ─────
+  const employeeTextConditions: Record<string, unknown>[] = [];
+  const employeeTextVal = state.filters['employee']?.[0];
+  if (employeeTextVal) {
+    employeeTextConditions.push({
+      OR: [
+        { employees: { lastname: { contains: employeeTextVal, mode: 'insensitive' } } },
+        { employees: { firstname: { contains: employeeTextVal, mode: 'insensitive' } } },
+        { employees: { file: { contains: employeeTextVal, mode: 'insensitive' } } },
+      ],
+    });
+  }
 
   // ─── Filtros de document_types (mandatory y multiresource son campos de document_types) ─
   // Construir el objeto document_types combinando is_it_montlhy + filtros opcionales.
@@ -136,9 +146,10 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     },
     document_types: documentTypesConditions,
     ...filtersWhere,
-    ...textFiltersWhere,
     ...dateFiltersWhere,
-    ...(searchConditions.length > 0 ? { AND: searchConditions } : {}),
+    ...([...searchConditions, ...employeeTextConditions].length > 0
+      ? { AND: [...searchConditions, ...employeeTextConditions] }
+      : {}),
   };
 }
 
@@ -165,7 +176,7 @@ export async function getEmployeePermanentDocumentsPaginated(searchParams: DataT
       }
     }
 
-    const safeOrderBy = [...resolvedSorts, { created_at: 'desc' as const }];
+    const safeOrderBy = [...resolvedSorts, { employees: { lastname: 'asc' as const } }];
 
     const [data, total] = await Promise.all([
       prisma.documents_employees.findMany({
@@ -201,7 +212,7 @@ export async function getAllEmployeePermanentDocumentsForExport(searchParams: Da
     const where = buildWhereClause(companyId, state);
 
     const data = await prisma.documents_employees.findMany({
-      orderBy: [{ created_at: 'desc' }],
+      orderBy: [{ employees: { lastname: 'asc' } }],
       where,
       select: DOCS_EMPLOYEES_PERMANENTES_SELECT,
     });

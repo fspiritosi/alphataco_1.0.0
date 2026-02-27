@@ -34,8 +34,8 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
   documentType: (dir) => ({ document_types: { name: dir } }),
 };
 
-/** Columnas con filtro de texto libre en campos directos */
-const TEXT_FILTER_COLUMNS: string[] = [];
+/** Columnas con filtro de texto libre */
+const TEXT_FILTER_COLUMNS: string[] = ['employee'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['created_at', 'period'];
@@ -45,7 +45,6 @@ const DATE_RANGE_COLUMNS = ['created_at', 'period'];
  */
 const COLUMN_MAP: Record<string, string> = {
   state: 'state',
-  employee: 'applies',
   documentType: 'id_document_types',
 };
 
@@ -216,12 +215,24 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     { document_types: { is_it_montlhy: true, is_active: true } },
   ];
 
-  // Búsqueda por nombre de empleado (campos en relación)
+  // Búsqueda global por nombre de empleado
   if (state.search) {
     andConditions.push({
       OR: [
         { employees: { lastname: { contains: state.search, mode: 'insensitive' as const } } },
         { employees: { firstname: { contains: state.search, mode: 'insensitive' as const } } },
+      ],
+    });
+  }
+
+  // Filtro texto de empleado (busca por nombre, apellido y legajo)
+  const employeeTextVal = state.filters['employee']?.[0];
+  if (employeeTextVal) {
+    andConditions.push({
+      OR: [
+        { employees: { lastname: { contains: employeeTextVal, mode: 'insensitive' as const } } },
+        { employees: { firstname: { contains: employeeTextVal, mode: 'insensitive' as const } } },
+        { employees: { file: { contains: employeeTextVal, mode: 'insensitive' as const } } },
       ],
     });
   }
@@ -281,7 +292,7 @@ export async function getMonthlyEmployeeDocumentsPaginated(searchParams: DataTab
       }
     }
 
-    const safeOrderBy = [...resolvedSorts, { created_at: 'desc' as const }];
+    const safeOrderBy = [...resolvedSorts, { employees: { lastname: 'asc' as const } }];
 
     const [data, total] = await Promise.all([
       prisma.documents_employees.findMany({
@@ -317,7 +328,7 @@ export async function getAllMonthlyEmployeeDocumentsForExport(searchParams: Data
     const where = buildWhereClause(companyId, state);
 
     const data = await prisma.documents_employees.findMany({
-      orderBy: [{ created_at: 'desc' }],
+      orderBy: [{ employees: { lastname: 'asc' } }],
       where,
       select: MONTHLY_DOCS_SELECT,
     });

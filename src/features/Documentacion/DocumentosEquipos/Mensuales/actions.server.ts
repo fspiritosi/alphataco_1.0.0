@@ -34,8 +34,8 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
   documentType: (dir) => ({ document_types: { name: dir } }),
 };
 
-/** Columnas con filtro de texto libre en campos directos */
-const TEXT_FILTER_COLUMNS: string[] = [];
+/** Columnas con filtro de texto libre */
+const TEXT_FILTER_COLUMNS: string[] = ['vehicle'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['created_at'];
@@ -45,7 +45,6 @@ const DATE_RANGE_COLUMNS = ['created_at'];
  */
 const COLUMN_MAP: Record<string, string> = {
   state: 'state',
-  vehicle: 'applies',
   documentType: 'id_document_types',
 };
 
@@ -221,13 +220,25 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     { vehicles: { is_active: true } },
   ];
 
-  // Búsqueda por dominio / serie / número interno del equipo
+  // Búsqueda global por dominio / serie / número interno del equipo
   if (state.search) {
     andConditions.push({
       OR: [
         { vehicles: { domain: { contains: state.search, mode: 'insensitive' as const } } },
         { vehicles: { serie: { contains: state.search, mode: 'insensitive' as const } } },
         { vehicles: { intern_number: { contains: state.search, mode: 'insensitive' as const } } },
+      ],
+    });
+  }
+
+  // Filtro texto de equipo (busca por dominio, serie o N° interno)
+  const vehicleTextVal = state.filters['vehicle']?.[0];
+  if (vehicleTextVal) {
+    andConditions.push({
+      OR: [
+        { vehicles: { domain: { contains: vehicleTextVal, mode: 'insensitive' as const } } },
+        { vehicles: { serie: { contains: vehicleTextVal, mode: 'insensitive' as const } } },
+        { vehicles: { intern_number: { contains: vehicleTextVal, mode: 'insensitive' as const } } },
       ],
     });
   }
@@ -285,7 +296,7 @@ export async function getMonthlyEquipmentDocumentsPaginated(searchParams: DataTa
       }
     }
 
-    const safeOrderBy = [...resolvedSorts, { created_at: 'desc' as const }];
+    const safeOrderBy = [...resolvedSorts, { vehicles: { domain: 'asc' as const } }];
 
     const [data, total] = await Promise.all([
       prisma.documents_equipment.findMany({
@@ -321,7 +332,7 @@ export async function getAllMonthlyEquipmentDocumentsForExport(searchParams: Dat
     const where = buildWhereClause(companyId, state);
 
     const data = await prisma.documents_equipment.findMany({
-      orderBy: [{ created_at: 'desc' }],
+      orderBy: [{ vehicles: { domain: 'asc' } }],
       where,
       select: MONTHLY_EQUIPMENT_DOCS_SELECT,
     });

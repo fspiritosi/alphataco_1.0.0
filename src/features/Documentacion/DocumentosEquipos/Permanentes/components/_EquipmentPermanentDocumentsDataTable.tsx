@@ -250,20 +250,12 @@ export function _EquipmentPermanentDocumentsDataTable({
         externalCounts: facets?.state,
       },
 
-      // Equipo (FK UUID → vehicles)
+      // Equipo (texto libre — busca por dominio, serie o número interno)
       {
         columnId: 'vehicle',
         title: 'Equipo',
-        options: [
-          ...(facets?.vehicleOptions?.map((v) => ({
-            value: v.id,
-            label: v.domain ?? v.serie ?? v.intern_number ?? v.id,
-          })) ?? []),
-          ...(facets?.vehicle?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin equipo', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.vehicle,
+        type: 'text' as const,
+        placeholder: 'Buscar por dominio, serie o N° interno...',
       },
 
       // Tipo de documento (FK UUID → document_types)

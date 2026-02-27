@@ -34,8 +34,8 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
   document_type: (dir) => ({ document_types: { name: dir } }),
 };
 
-/** Columnas con filtro de texto libre (campos directos) */
-const TEXT_FILTER_COLUMNS: string[] = [];
+/** Columnas con filtro de texto libre */
+const TEXT_FILTER_COLUMNS: string[] = ['vehicle'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['created_at', 'validity'];
@@ -43,7 +43,6 @@ const DATE_RANGE_COLUMNS = ['created_at', 'validity'];
 /** Mapping de columnId (URL) → campo real en Prisma */
 const COLUMN_MAP: Record<string, string> = {
   state: 'state',
-  vehicle: 'applies',
   document_type: 'id_document_types',
 };
 
@@ -162,7 +161,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     }
   }
 
-  // Búsqueda global: busca en dominio y serie del vehículo
+  // Búsqueda global: busca en dominio, serie y N° interno del vehículo
   const searchConditions: Record<string, unknown>[] = [];
   if (state.search) {
     searchConditions.push({
@@ -170,6 +169,18 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
         { vehicles: { domain: { contains: state.search, mode: 'insensitive' } } },
         { vehicles: { serie: { contains: state.search, mode: 'insensitive' } } },
         { vehicles: { intern_number: { contains: state.search, mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  // Filtro texto de equipo (busca por dominio, serie o N° interno)
+  const vehicleTextVal = state.filters['vehicle']?.[0];
+  if (vehicleTextVal) {
+    searchConditions.push({
+      OR: [
+        { vehicles: { domain: { contains: vehicleTextVal, mode: 'insensitive' } } },
+        { vehicles: { serie: { contains: vehicleTextVal, mode: 'insensitive' } } },
+        { vehicles: { intern_number: { contains: vehicleTextVal, mode: 'insensitive' } } },
       ],
     });
   }
@@ -247,7 +258,7 @@ export async function getEquipmentPermanentDocumentsPaginated(searchParams: Data
       }
     }
 
-    const safeOrderBy = [...resolvedSorts, { created_at: 'desc' as const }];
+    const safeOrderBy = [...resolvedSorts, { vehicles: { domain: 'asc' as const } }];
 
     const [data, total] = await Promise.all([
       prisma.documents_equipment.findMany({
@@ -283,7 +294,7 @@ export async function getAllEquipmentPermanentDocumentsForExport(searchParams: D
     const where = buildWhereClause(companyId, state);
 
     const data = await prisma.documents_equipment.findMany({
-      orderBy: [{ created_at: 'desc' }],
+      orderBy: [{ vehicles: { domain: 'asc' } }],
       where,
       select: DOCS_EQUIPMENT_PERMANENTES_SELECT,
     });
