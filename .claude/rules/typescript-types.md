@@ -9,13 +9,10 @@ function handleData(data: any) { ... }
 
 // ✅ CORRECTO - Usar Awaited<ReturnType<typeof function>>
 export async function getRemitos(rowId: string) {
-  const { data, error } = await supabase
-    .from('remitos')
-    .select('*')
-    .eq('daily_report_row_id', rowId);
-
-  if (error) throw error;
-  return data || [];
+  const remitos = await prisma.remitos.findMany({
+    where: { daily_report_row_id: rowId },
+  });
+  return remitos;
 }
 
 // Exportar el tipo

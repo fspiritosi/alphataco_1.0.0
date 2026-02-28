@@ -42,6 +42,21 @@ createForm(); // Falta especificidad
 
 ## Formato de Server Action
 
+**Nuevo estándar — usar Prisma:**
+
+```typescript
+'use server';
+
+import { prisma } from '@/shared/lib/prisma';
+
+export async function getAllEmployees() {
+  const employees = await prisma.employees.findMany();
+  return employees;
+}
+```
+
+**Legacy — Supabase (solo en código existente no migrado aún):**
+
 ```typescript
 'use server';
 
@@ -49,13 +64,13 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 export async function getAllEmployees() {
   const supabase = await supabaseServer();
-
   const { data, error } = await supabase.from('employees').select('*');
-
   if (error) throw error;
   return data || [];
 }
 ```
+
+> Al encontrar una server action que use Supabase para fetching, **preguntar al usuario si desea migrarla a Prisma** antes de continuar con la tarea principal. El cambio es solo en el mecanismo de fetch, sin alterar la lógica ni los datos retornados.
 
 ## Reglas de Server Actions
 
@@ -70,7 +85,7 @@ export async function GET() { ... }
 
 // ❌ INCORRECTO - NO olvidar validar permisos
 export async function createEmployee(data) {
-  await supabase.from('employees').insert(data); // Falta validacion de permisos
+  await prisma.employees.create({ data }); // Falta validacion de permisos
 }
 
 // ❌ INCORRECTO - NO usar 'use server' en archivos de cliente
