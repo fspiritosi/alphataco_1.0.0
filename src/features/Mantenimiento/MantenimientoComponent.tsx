@@ -8,7 +8,6 @@ import { MaintenanceOrdersSkeleton, MaintenanceOrdersTabContent } from '@/featur
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
 import { ParaTallerTabContent } from '@/features/Mantenimiento/Operaciones/ParaTaller';
 import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/fallback';
-import { OrderManagementSkeleton, OrderManagementTabContent } from '@/features/Mantenimiento/OrderManagement';
 import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
 import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
 import { RepairSolicitudesTabContent } from '@/features/Mantenimiento/RepairSolicitudes/RepairSolicitudesTabContent';
@@ -29,7 +28,6 @@ import {
   Settings,
   Users,
   Warehouse,
-  Wrench,
 } from 'lucide-react';
 import { Suspense } from 'react';
 import { PendientesEjecutarTabContent } from './PendientesEjecutar';
@@ -53,9 +51,8 @@ interface MantenimientoComponentProps {
  *
  * - Taller (maint_taller)
  *   - Pedidos de Mantenimiento
- *   - Gestión de Órdenes
  *   - Bandeja de Aprobaciones
- *   - Órdenes de Mantenimiento
+ *   - Órdenes de Mantenimiento (incluye funcionalidad de gestión)
  *
  * - Configuración (maint_configuracion)
  *   - Tipos de Reparación
@@ -118,26 +115,10 @@ export default async function MantenimientoComponent({ searchParams, permissions
             <TabsManagerServer
               paramName="subtab"
               searchParams={searchParams}
-              defaultTab="equipments_with_deviations"
+              defaultTab="maintenance_requests"
               permissions={permissions}
               dependentParams={['operations_subtab']}
               tabs={[
-                {
-                  value: 'equipments_with_deviations',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      Equipos con Desvíos
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'equipments_with_deviations',
-                  content: (
-                    <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
-                      <EquiposConDesviosTabContent />
-                    </Suspense>
-                  ),
-                },
                 {
                   value: 'maintenance_requests',
                   label: (
@@ -154,6 +135,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
                     </Suspense>
                   ),
                 },
+
                 {
                   value: 'pendientes_ejecutar',
                   label: (
@@ -218,6 +200,22 @@ export default async function MantenimientoComponent({ searchParams, permissions
                     </Suspense>
                   ),
                 },
+                {
+                  value: 'equipments_with_deviations',
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Equipos con Desvíos
+                    </span>
+                  ),
+                  moduleSlug: 'mantenimiento',
+                  tabSlug: 'equipments_with_deviations',
+                  content: (
+                    <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
+                      <EquiposConDesviosTabContent />
+                    </Suspense>
+                  ),
+                },
               ]}
             />
           ),
@@ -256,22 +254,6 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   content: (
                     <Suspense fallback={<PedidosTableSkeleton />}>
                       <PedidosMantenimientoTabContent searchParams={searchParams} permissions={permissions} />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'gestion_ordenes',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4" />
-                      Gestión de Órdenes
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'gestion_ordenes',
-                  content: (
-                    <Suspense fallback={<OrderManagementSkeleton />}>
-                      <OrderManagementTabContent />
                     </Suspense>
                   ),
                 },

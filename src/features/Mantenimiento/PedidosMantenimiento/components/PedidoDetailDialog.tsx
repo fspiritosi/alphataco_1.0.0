@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
-import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 
 interface PedidoDetailDialogProps {
@@ -122,9 +122,6 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                         ? [item.types_of_repairs.name]
                         : [];
 
-                  // Obtener información del chofer
-                  const driverInfo = getDriverCommentInfo(item);
-
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between">
@@ -148,39 +145,7 @@ export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogP
                         )}
                       </div>
 
-                      {driverInfo && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">
-                            Comentario del chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
-                          </span>
-                          <span className="italic">{driverInfo.comment}</span>
-                        </div>
-                      )}
-
-                      {(item.maintenance_request_items as any)?.validator_comment && (
-                        <div className="text-sm p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                          <span className="text-blue-800 dark:text-blue-200 font-medium">
-                            Comentario del validador:{' '}
-                          </span>
-                          <span className="text-blue-700 dark:text-blue-300">
-                            {(item.maintenance_request_items as any).validator_comment}
-                          </span>
-                        </div>
-                      )}
-
-                      {item.maintenance_request_items?.description && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Descripción del desvío: </span>
-                          {item.maintenance_request_items.description}
-                        </div>
-                      )}
-
-                      {item.description && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Descripción adicional: </span>
-                          {item.description}
-                        </div>
-                      )}
+                      <ItemComments item={item} source={order.maintenance_requests?.source} />
                     </div>
                   );
                 })}

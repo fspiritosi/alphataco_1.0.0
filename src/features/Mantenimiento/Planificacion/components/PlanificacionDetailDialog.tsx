@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceOrderInWorkshopData } from '../../actions/actionsServer';
 
@@ -144,24 +145,7 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
                               ))}
                             </div>
                           )}
-                          {((item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment) && (
-                            <div className="text-sm mt-1">
-                              <span className="text-muted-foreground">Comentario del chofer: </span>
-                              <span className="italic">
-                                {(item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment}
-                              </span>
-                            </div>
-                          )}
-                          {(item.maintenance_request_items as any)?.validator_comment && (
-                            <div className="text-sm mt-1 p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                              <span className="text-blue-800 dark:text-blue-200 font-medium">
-                                Comentario del validador:{' '}
-                              </span>
-                              <span className="text-blue-700 dark:text-blue-300">
-                                {(item.maintenance_request_items as any).validator_comment}
-                              </span>
-                            </div>
-                          )}
+                          <ItemComments item={item} source={order.maintenance_requests?.source} />
                         </div>
                         <div className="text-right">
                           {/* TODO: Agregar workshop_id a maintenance_order_items */}

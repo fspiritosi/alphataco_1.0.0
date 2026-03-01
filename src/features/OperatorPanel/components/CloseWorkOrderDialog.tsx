@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
@@ -66,6 +67,7 @@ export function CloseWorkOrderDialog({ workOrderId, workOrderItems, open, onClos
       });
       toast.success('Orden de trabajo cerrada exitosamente');
       queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
+      invalidateAllMaintenanceQueries(queryClient);
       handleClose();
       router.push('/operator/dashboard');
     },

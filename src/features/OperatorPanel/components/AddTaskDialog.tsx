@@ -8,6 +8,7 @@ import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -65,6 +66,7 @@ export function AddTaskDialog({ workOrderId, maintenanceOrderId, open, onClose }
       toast.success(result.requiresApproval ? 'Solicitud enviada al jefe de taller' : 'Tarea agregada');
       queryClient.invalidateQueries({ queryKey: ['operator-work-order'] });
       queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
+      invalidateAllMaintenanceQueries(queryClient);
       resetForm();
       onClose();
     },
@@ -86,6 +88,7 @@ export function AddTaskDialog({ workOrderId, maintenanceOrderId, open, onClose }
       toast.success('Solicitud enviada al jefe de taller');
       queryClient.invalidateQueries({ queryKey: ['operator-work-order'] });
       queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
+      invalidateAllMaintenanceQueries(queryClient);
       resetForm();
       onClose();
     },

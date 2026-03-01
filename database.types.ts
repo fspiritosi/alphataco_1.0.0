@@ -1177,39 +1177,6 @@ export type Database = {
           },
         ];
       };
-      contractor_other_equipment: {
-        Row: {
-          contractor_id: string;
-          equipment_id: string;
-          id: string;
-        };
-        Insert: {
-          contractor_id: string;
-          equipment_id: string;
-          id?: string;
-        };
-        Update: {
-          contractor_id?: string;
-          equipment_id?: string;
-          id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'contractor_other_equipment_contractor_id_fkey';
-            columns: ['contractor_id'];
-            isOneToOne: false;
-            referencedRelation: 'customers';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'contractor_other_equipment_equipment_id_fkey';
-            columns: ['equipment_id'];
-            isOneToOne: false;
-            referencedRelation: 'other_equipment';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
       contractors: {
         Row: {
           created_at: string;
@@ -2354,7 +2321,6 @@ export type Database = {
           email: string | null;
           file: string;
           firstname: string;
-          full_name: string | null;
           gender: Database['public']['Enums']['gender_enum'] | null;
           guild_id: string | null;
           hierarchical_position: string | null;
@@ -2398,7 +2364,6 @@ export type Database = {
           email?: string | null;
           file: string;
           firstname: string;
-          full_name?: string | null;
           gender?: Database['public']['Enums']['gender_enum'] | null;
           guild_id?: string | null;
           hierarchical_position?: string | null;
@@ -2442,7 +2407,6 @@ export type Database = {
           email?: string | null;
           file?: string;
           firstname?: string;
-          full_name?: string | null;
           gender?: Database['public']['Enums']['gender_enum'] | null;
           guild_id?: string | null;
           hierarchical_position?: string | null;
@@ -3134,19 +3098,14 @@ export type Database = {
           images: string[] | null;
           is_critical: boolean | null;
           is_diagnostico: boolean;
-          is_rejected: boolean;
           maintenance_order_id: string;
           maintenance_request_item_id: string | null;
           planned_end_date: string | null;
           planned_start_date: string | null;
-          rejected_at: string | null;
-          rejected_by: string | null;
-          rejection_reason: string | null;
           repair_type_id: string | null;
           sector_sequence_order: number | null;
           work_order_id: string | null;
           workshop_chief_comment: string | null;
-          workshop_chief_comment_by: string | null;
         };
         Insert: {
           assigned_at?: string | null;
@@ -3159,19 +3118,14 @@ export type Database = {
           images?: string[] | null;
           is_critical?: boolean | null;
           is_diagnostico?: boolean;
-          is_rejected?: boolean;
           maintenance_order_id: string;
           maintenance_request_item_id?: string | null;
           planned_end_date?: string | null;
           planned_start_date?: string | null;
-          rejected_at?: string | null;
-          rejected_by?: string | null;
-          rejection_reason?: string | null;
           repair_type_id?: string | null;
           sector_sequence_order?: number | null;
           work_order_id?: string | null;
           workshop_chief_comment?: string | null;
-          workshop_chief_comment_by?: string | null;
         };
         Update: {
           assigned_at?: string | null;
@@ -3184,19 +3138,14 @@ export type Database = {
           images?: string[] | null;
           is_critical?: boolean | null;
           is_diagnostico?: boolean;
-          is_rejected?: boolean;
           maintenance_order_id?: string;
           maintenance_request_item_id?: string | null;
           planned_end_date?: string | null;
           planned_start_date?: string | null;
-          rejected_at?: string | null;
-          rejected_by?: string | null;
-          rejection_reason?: string | null;
           repair_type_id?: string | null;
           sector_sequence_order?: number | null;
           work_order_id?: string | null;
           workshop_chief_comment?: string | null;
-          workshop_chief_comment_by?: string | null;
         };
         Relationships: [
           {
@@ -3235,13 +3184,6 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'maintenance_order_items_rejected_by_fkey';
-            columns: ['rejected_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
-            referencedColumns: ['id'];
-          },
-          {
             foreignKeyName: 'maintenance_order_items_repair_type_id_fkey';
             columns: ['repair_type_id'];
             isOneToOne: false;
@@ -3255,13 +3197,6 @@ export type Database = {
             referencedRelation: 'work_orders';
             referencedColumns: ['id'];
           },
-          {
-            foreignKeyName: 'maintenance_order_items_workshop_chief_comment_by_fkey';
-            columns: ['workshop_chief_comment_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
-            referencedColumns: ['id'];
-          },
         ];
       };
       maintenance_orders: {
@@ -3272,7 +3207,6 @@ export type Database = {
           date_rejected_at: string | null;
           date_rejected_by: string | null;
           date_rejection_reason: string | null;
-          engine_hours_at_entry: string | null;
           equipment_id: string;
           id: string;
           kilometer_at_entry: string | null;
@@ -3302,7 +3236,6 @@ export type Database = {
           date_rejected_at?: string | null;
           date_rejected_by?: string | null;
           date_rejection_reason?: string | null;
-          engine_hours_at_entry?: string | null;
           equipment_id: string;
           id?: string;
           kilometer_at_entry?: string | null;
@@ -3332,7 +3265,6 @@ export type Database = {
           date_rejected_at?: string | null;
           date_rejected_by?: string | null;
           date_rejection_reason?: string | null;
-          engine_hours_at_entry?: string | null;
           equipment_id?: string;
           id?: string;
           kilometer_at_entry?: string | null;
@@ -3444,48 +3376,36 @@ export type Database = {
           created_at: string | null;
           description: string | null;
           driver_comment: string | null;
-          driver_comment_by: string | null;
           id: string;
           maintenance_request_id: string;
           rejection_reason: string | null;
           repair_type_id: string | null;
           status: string;
-          supervisor_comment: string | null;
-          supervisor_comment_by: string | null;
           validator_comment: string | null;
-          validator_comment_by: string | null;
         };
         Insert: {
           checklist_deviation_id: string;
           created_at?: string | null;
           description?: string | null;
           driver_comment?: string | null;
-          driver_comment_by?: string | null;
           id?: string;
           maintenance_request_id: string;
           rejection_reason?: string | null;
           repair_type_id?: string | null;
           status?: string;
-          supervisor_comment?: string | null;
-          supervisor_comment_by?: string | null;
           validator_comment?: string | null;
-          validator_comment_by?: string | null;
         };
         Update: {
           checklist_deviation_id?: string;
           created_at?: string | null;
           description?: string | null;
           driver_comment?: string | null;
-          driver_comment_by?: string | null;
           id?: string;
           maintenance_request_id?: string;
           rejection_reason?: string | null;
           repair_type_id?: string | null;
           status?: string;
-          supervisor_comment?: string | null;
-          supervisor_comment_by?: string | null;
           validator_comment?: string | null;
-          validator_comment_by?: string | null;
         };
         Relationships: [
           {
@@ -3493,13 +3413,6 @@ export type Database = {
             columns: ['checklist_deviation_id'];
             isOneToOne: false;
             referencedRelation: 'checklist_deviations';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'maintenance_request_items_driver_comment_by_fkey';
-            columns: ['driver_comment_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
             referencedColumns: ['id'];
           },
           {
@@ -3516,20 +3429,6 @@ export type Database = {
             referencedRelation: 'types_of_repairs';
             referencedColumns: ['id'];
           },
-          {
-            foreignKeyName: 'maintenance_request_items_supervisor_comment_by_fkey';
-            columns: ['supervisor_comment_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'maintenance_request_items_validator_comment_by_fkey';
-            columns: ['validator_comment_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
-            referencedColumns: ['id'];
-          },
         ];
       };
       maintenance_requests: {
@@ -3539,7 +3438,6 @@ export type Database = {
           checklist_answer_id: string | null;
           created_at: string | null;
           employee_id: string | null;
-          engine_hours: string | null;
           equipment_id: string;
           id: string;
           kilometer: string | null;
@@ -3558,7 +3456,6 @@ export type Database = {
           checklist_answer_id?: string | null;
           created_at?: string | null;
           employee_id?: string | null;
-          engine_hours?: string | null;
           equipment_id: string;
           id?: string;
           kilometer?: string | null;
@@ -3577,7 +3474,6 @@ export type Database = {
           checklist_answer_id?: string | null;
           created_at?: string | null;
           employee_id?: string | null;
-          engine_hours?: string | null;
           equipment_id?: string;
           id?: string;
           kilometer?: string | null;
@@ -3778,218 +3674,6 @@ export type Database = {
             columns: ['company_id'];
             isOneToOne: false;
             referencedRelation: 'company';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      other_equipment: {
-        Row: {
-          blueprints: string[];
-          brand_id: number | null;
-          company_id: string;
-          composition: string | null;
-          condition: Database['public']['Enums']['condition_enum'] | null;
-          cost_center_id: string | null;
-          cost_type: Database['public']['Enums']['cost_type_enum'] | null;
-          created_at: string;
-          currency: Database['public']['Enums']['currency_enum'] | null;
-          horometer: number | null;
-          id: string;
-          initial_value: number | null;
-          intern_number: string | null;
-          invoice_number: string | null;
-          is_active: boolean;
-          linked_vehicle_id: string | null;
-          manufacturer_plate: string | null;
-          model_id: number | null;
-          owner_id: string | null;
-          pictures: string[];
-          purchase_date: string | null;
-          reason_for_termination: Database['public']['Enums']['termination_reason_enum'] | null;
-          sector: string | null;
-          serial_number: string | null;
-          status: Database['public']['Enums']['status_type'] | null;
-          sub_type_id: string | null;
-          termination_date: string | null;
-          type_id: string;
-          user_id: string | null;
-          year: string | null;
-        };
-        Insert: {
-          blueprints?: string[];
-          brand_id?: number | null;
-          company_id: string;
-          composition?: string | null;
-          condition?: Database['public']['Enums']['condition_enum'] | null;
-          cost_center_id?: string | null;
-          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
-          created_at?: string;
-          currency?: Database['public']['Enums']['currency_enum'] | null;
-          horometer?: number | null;
-          id?: string;
-          initial_value?: number | null;
-          intern_number?: string | null;
-          invoice_number?: string | null;
-          is_active?: boolean;
-          linked_vehicle_id?: string | null;
-          manufacturer_plate?: string | null;
-          model_id?: number | null;
-          owner_id?: string | null;
-          pictures?: string[];
-          purchase_date?: string | null;
-          reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
-          sector?: string | null;
-          serial_number?: string | null;
-          status?: Database['public']['Enums']['status_type'] | null;
-          sub_type_id?: string | null;
-          termination_date?: string | null;
-          type_id: string;
-          user_id?: string | null;
-          year?: string | null;
-        };
-        Update: {
-          blueprints?: string[];
-          brand_id?: number | null;
-          company_id?: string;
-          composition?: string | null;
-          condition?: Database['public']['Enums']['condition_enum'] | null;
-          cost_center_id?: string | null;
-          cost_type?: Database['public']['Enums']['cost_type_enum'] | null;
-          created_at?: string;
-          currency?: Database['public']['Enums']['currency_enum'] | null;
-          horometer?: number | null;
-          id?: string;
-          initial_value?: number | null;
-          intern_number?: string | null;
-          invoice_number?: string | null;
-          is_active?: boolean;
-          linked_vehicle_id?: string | null;
-          manufacturer_plate?: string | null;
-          model_id?: number | null;
-          owner_id?: string | null;
-          pictures?: string[];
-          purchase_date?: string | null;
-          reason_for_termination?: Database['public']['Enums']['termination_reason_enum'] | null;
-          sector?: string | null;
-          serial_number?: string | null;
-          status?: Database['public']['Enums']['status_type'] | null;
-          sub_type_id?: string | null;
-          termination_date?: string | null;
-          type_id?: string;
-          user_id?: string | null;
-          year?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'other_equipment_brand_id_fkey';
-            columns: ['brand_id'];
-            isOneToOne: false;
-            referencedRelation: 'brand_vehicles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_company_id_fkey';
-            columns: ['company_id'];
-            isOneToOne: false;
-            referencedRelation: 'company';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_cost_center_id_fkey';
-            columns: ['cost_center_id'];
-            isOneToOne: false;
-            referencedRelation: 'cost_center';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_linked_vehicle_id_fkey';
-            columns: ['linked_vehicle_id'];
-            isOneToOne: false;
-            referencedRelation: 'equipments_with_pending_deviations';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_linked_vehicle_id_fkey';
-            columns: ['linked_vehicle_id'];
-            isOneToOne: false;
-            referencedRelation: 'vehicles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_model_id_fkey';
-            columns: ['model_id'];
-            isOneToOne: false;
-            referencedRelation: 'model_vehicles';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_owner_id_fkey';
-            columns: ['owner_id'];
-            isOneToOne: false;
-            referencedRelation: 'equipment_owners';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_sector_fkey';
-            columns: ['sector'];
-            isOneToOne: false;
-            referencedRelation: 'hierarchy';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_sub_type_id_fkey';
-            columns: ['sub_type_id'];
-            isOneToOne: false;
-            referencedRelation: 'sub_type';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_type_id_fkey';
-            columns: ['type_id'];
-            isOneToOne: false;
-            referencedRelation: 'type';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'other_equipment_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      other_equipment_certifications: {
-        Row: {
-          created_at: string;
-          equipment_id: string;
-          expiration_date: string | null;
-          file_url: string;
-          id: string;
-          name: string;
-        };
-        Insert: {
-          created_at?: string;
-          equipment_id: string;
-          expiration_date?: string | null;
-          file_url: string;
-          id?: string;
-          name: string;
-        };
-        Update: {
-          created_at?: string;
-          equipment_id?: string;
-          expiration_date?: string | null;
-          file_url?: string;
-          id?: string;
-          name?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'other_equipment_certifications_equipment_id_fkey';
-            columns: ['equipment_id'];
-            isOneToOne: false;
-            referencedRelation: 'other_equipment';
             referencedColumns: ['id'];
           },
         ];
@@ -4214,13 +3898,6 @@ export type Database = {
           reason?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: 'preparte_change_logs_changed_by_fkey';
-            columns: ['changed_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
-            referencedColumns: ['credential_id'];
-          },
           {
             foreignKeyName: 'preparte_change_logs_preparte_id_fkey';
             columns: ['preparte_id'];
@@ -4748,8 +4425,6 @@ export type Database = {
           item_name: string;
           item_number: string | null;
           item_price: number;
-          needs_equipment: boolean;
-          needs_personnel: boolean;
         };
         Insert: {
           code_item?: string | null;
@@ -4763,8 +4438,6 @@ export type Database = {
           item_name: string;
           item_number?: string | null;
           item_price: number;
-          needs_equipment?: boolean;
-          needs_personnel?: boolean;
         };
         Update: {
           code_item?: string | null;
@@ -4778,8 +4451,6 @@ export type Database = {
           item_name?: string;
           item_number?: string | null;
           item_price?: number;
-          needs_equipment?: boolean;
-          needs_personnel?: boolean;
         };
         Relationships: [
           {
@@ -5023,7 +4694,6 @@ export type Database = {
           applies_to: string | null;
           company_id: string | null;
           created_at: string;
-          generates_qr: boolean | null;
           has_hitch: boolean | null;
           id: string;
           is_active: boolean | null;
@@ -5035,7 +4705,6 @@ export type Database = {
           applies_to?: string | null;
           company_id?: string | null;
           created_at?: string;
-          generates_qr?: boolean | null;
           has_hitch?: boolean | null;
           id?: string;
           is_active?: boolean | null;
@@ -5047,7 +4716,6 @@ export type Database = {
           applies_to?: string | null;
           company_id?: string | null;
           created_at?: string;
-          generates_qr?: boolean | null;
           has_hitch?: boolean | null;
           id?: string;
           is_active?: boolean | null;
@@ -5294,27 +4962,6 @@ export type Database = {
           },
         ];
       };
-      user_table_preferences: {
-        Row: {
-          created_at: string;
-          preferences: Json;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          preferences?: Json;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          preferences?: Json;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
       vehicles: {
         Row: {
           allocated_to: string[] | null;
@@ -5331,7 +4978,6 @@ export type Database = {
           currency: Database['public']['Enums']['currency_enum'] | null;
           domain: string | null;
           engine: string;
-          engine_hours: string | null;
           id: string;
           intern_number: string | null;
           is_active: boolean | null;
@@ -5368,7 +5014,6 @@ export type Database = {
           currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
           engine: string;
-          engine_hours?: string | null;
           id?: string;
           intern_number?: string | null;
           is_active?: boolean | null;
@@ -5405,7 +5050,6 @@ export type Database = {
           currency?: Database['public']['Enums']['currency_enum'] | null;
           domain?: string | null;
           engine?: string;
-          engine_hours?: string | null;
           id?: string;
           intern_number?: string | null;
           is_active?: boolean | null;
@@ -5598,7 +5242,6 @@ export type Database = {
           return_reason: string | null;
           status: Database['public']['Enums']['work_order_item_status'];
           technician_notes: string | null;
-          technician_notes_by: string | null;
           updated_at: string | null;
           work_order_item_id: string;
         };
@@ -5618,7 +5261,6 @@ export type Database = {
           return_reason?: string | null;
           status?: Database['public']['Enums']['work_order_item_status'];
           technician_notes?: string | null;
-          technician_notes_by?: string | null;
           updated_at?: string | null;
           work_order_item_id: string;
         };
@@ -5638,7 +5280,6 @@ export type Database = {
           return_reason?: string | null;
           status?: Database['public']['Enums']['work_order_item_status'];
           technician_notes?: string | null;
-          technician_notes_by?: string | null;
           updated_at?: string | null;
           work_order_item_id?: string;
         };
@@ -5676,13 +5317,6 @@ export type Database = {
             columns: ['repair_type_id'];
             isOneToOne: false;
             referencedRelation: 'types_of_repairs';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'work_order_item_repairs_technician_notes_by_fkey';
-            columns: ['technician_notes_by'];
-            isOneToOne: false;
-            referencedRelation: 'profile';
             referencedColumns: ['id'];
           },
           {
@@ -6254,7 +5888,6 @@ export type Database = {
           email: string | null;
           file: string;
           firstname: string;
-          full_name: string | null;
           gender: Database['public']['Enums']['gender_enum'] | null;
           guild_id: string | null;
           hierarchical_position: string | null;

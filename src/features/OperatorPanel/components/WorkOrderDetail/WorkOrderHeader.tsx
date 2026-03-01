@@ -4,7 +4,7 @@ import type { BadgeProps } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Play } from 'lucide-react';
+import { ArrowLeft, Calendar, Pause, Play } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 
@@ -45,6 +45,7 @@ interface VehicleInfo {
   serie?: string | null;
   intern_number?: string | null;
   kilometer?: number | null;
+  sub_type?: { name: string | null } | null;
 }
 
 interface WorkOrderHeaderProps {
@@ -58,6 +59,10 @@ interface WorkOrderHeaderProps {
   totalCount: number;
   onStart: () => void;
   isStarting: boolean;
+  onPause?: () => void;
+  isPausing?: boolean;
+  onResume?: () => void;
+  isResuming?: boolean;
 }
 
 export function WorkOrderHeader({
@@ -71,80 +76,125 @@ export function WorkOrderHeader({
   totalCount,
   onStart,
   isStarting,
+  onPause,
+  isPausing,
+  onResume,
+  isResuming,
 }: WorkOrderHeaderProps) {
   const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
     <div className="flex-none border-b bg-card">
-      <div className="p-4 sm:p-5 space-y-4">
-        {/* Back button + title + start button */}
+      <div className="p-4 sm:p-5 space-y-3.5">
+        {/* Row 1: Back + Title + Start */}
         <div className="flex items-center gap-3">
           <Link href="/operator/dashboard">
-            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0 rounded-xl">
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold truncate sm:text-xl">OT {orderNumber}</h1>
-            <p className="text-sm text-muted-foreground">OM {maintenanceOrderNumber}</p>
+            <h1 className="text-lg font-bold truncate sm:text-xl tracking-tight">OT {orderNumber}</h1>
+            <p className="text-xs text-muted-foreground font-mono">OM {maintenanceOrderNumber}</p>
           </div>
           {status === 'pending' && (
-            <Button onClick={onStart} disabled={isStarting} size="default" className="gap-2 h-10 sm:h-11">
+            <Button onClick={onStart} disabled={isStarting} size="default" className="gap-2 h-10 sm:h-11 rounded-xl">
               <Play className="h-4 w-4" />
               <span className="hidden sm:inline">Iniciar OT</span>
               <span className="sm:hidden">Iniciar</span>
             </Button>
           )}
+          {status === 'in_progress' && onPause && (
+            <Button
+              onClick={onPause}
+              disabled={isPausing}
+              variant="outline"
+              size="default"
+              className="gap-2 h-10 sm:h-11 rounded-xl"
+            >
+              <Pause className="h-4 w-4" />
+              <span className="hidden sm:inline">Pausar OT</span>
+              <span className="sm:hidden">Pausar</span>
+            </Button>
+          )}
+          {status === 'paused' && onResume && (
+            <Button onClick={onResume} disabled={isResuming} size="default" className="gap-2 h-10 sm:h-11 rounded-xl">
+              <Play className="h-4 w-4" />
+              <span className="hidden sm:inline">Reanudar OT</span>
+              <span className="sm:hidden">Reanudar</span>
+            </Button>
+          )}
         </div>
 
-        {/* Vehicle info */}
+        {/* Row 2: Vehicle info bar */}
         {vehicle && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/50 rounded-lg p-3">
-            <div>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Dominio</span>
-              <p className="font-semibold">{vehicle.domain || '-'}</p>
+          <div className="flex items-center gap-3 text-sm bg-muted/50 rounded-lg px-3.5 py-2.5 overflow-x-auto">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-xs text-muted-foreground">Dominio</span>
+              <span className="font-bold">{vehicle.domain || '-'}</span>
             </div>
-            <div>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Serie</span>
-              <p className="font-semibold">{vehicle.serie || '-'}</p>
+            <span className="text-muted-foreground/40">|</span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-xs text-muted-foreground">Serie</span>
+              <span className="font-semibold">{vehicle.serie || '-'}</span>
             </div>
-            <div>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Interno</span>
-              <p className="font-semibold">{vehicle.intern_number || '-'}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Km</span>
-              <p className="font-semibold">{vehicle.kilometer ? vehicle.kilometer.toLocaleString() : '-'}</p>
-            </div>
+            {vehicle.sub_type?.name && (
+              <>
+                <span className="text-muted-foreground/40">|</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-xs text-muted-foreground">Tipo</span>
+                  <span className="font-semibold">{vehicle.sub_type.name}</span>
+                </div>
+              </>
+            )}
+            {vehicle.intern_number && (
+              <>
+                <span className="text-muted-foreground/40">|</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-xs text-muted-foreground">Int.</span>
+                  <span className="font-semibold">#{vehicle.intern_number}</span>
+                </div>
+              </>
+            )}
+            {vehicle.kilometer && (
+              <>
+                <span className="text-muted-foreground/40">|</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-xs text-muted-foreground">Km</span>
+                  <span className="font-semibold">{vehicle.kilometer.toLocaleString()}</span>
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {/* Status badges */}
-        <div className="flex flex-wrap gap-2">
-          <Badge variant={statusVariants[status] || 'default'} className="text-xs sm:text-sm">
+        {/* Row 3: Badges */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={statusVariants[status] || 'default'} className="text-[11px] px-2 py-0.5">
             {statusLabels[status] || status}
           </Badge>
           {priority && (
-            <Badge variant={priorityVariants[priority] || 'default'} className="text-xs sm:text-sm">
+            <Badge variant={priorityVariants[priority] || 'default'} className="text-[11px] px-2 py-0.5">
               {priorityLabels[priority] || priority}
             </Badge>
           )}
           {plannedStartDate && (
-            <Badge variant="outline" className="text-xs sm:text-sm">
-              Programada: {moment(plannedStartDate).format('DD/MM/YYYY')}
+            <Badge variant="outline" className="text-[11px] px-2 py-0.5 gap-1">
+              <Calendar className="h-3 w-3" />
+              {moment(plannedStartDate).format('DD/MM/YYYY')}
             </Badge>
           )}
         </div>
 
-        {/* Progress */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Progreso</span>
-            <span className="font-semibold">
-              {completedCount} de {totalCount} tareas
+        {/* Row 4: Progress */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground font-medium">Progreso</span>
+            <span className="font-bold tabular-nums">
+              {completedCount}/{totalCount} tareas
             </span>
           </div>
-          <Progress value={progressPercentage} className="h-2.5" />
+          <Progress value={progressPercentage} className="h-2" />
         </div>
       </div>
     </div>

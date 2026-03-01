@@ -4,6 +4,7 @@ import { VehicleById } from '@/app/dashboard/equipment/action/page';
 import { Badge } from '@/components/ui/badge';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
 import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
+import type { TabDefinition } from '@/features/TabsManager/types';
 import { useEffect, useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { VehicleAssignmentDataForm } from '../forms/vehicle-assignment-data-form';
@@ -61,6 +62,7 @@ interface VehicleTabsProps {
   repairsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;
   checklistsComponent?: React.ReactNode;
+  operationsComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: Promise<getVehicleOwnersType>;
@@ -81,6 +83,7 @@ export function VehicleTabs({
   qrComponent,
   repairsComponent,
   checklistsComponent,
+  operationsComponent,
   typesPromise,
   subTypesPromise,
   ownersPromise,
@@ -89,6 +92,7 @@ export function VehicleTabs({
   const showDocuments = vehicleId && mode !== 'new';
   const showRepairs = vehicleId && mode !== 'new';
   const showChecklists = vehicleId && mode !== 'new';
+  const showOperations = vehicleId && mode !== 'new';
 
   const [errors, setErrors] = useState<{
     basicData: boolean;
@@ -211,6 +215,14 @@ export function VehicleTabs({
       content: <div className="space-y-4">{qrComponent}</div>,
     },
     {
+      value: 'operations',
+      label: 'Operaciones',
+      moduleSlug: 'mantenimiento',
+      tabSlug: 'ordenes_mantenimiento',
+      disabled: !showOperations,
+      content: showOperations ? <div className="space-y-4">{operationsComponent}</div> : null,
+    },
+    {
       value: 'checklists',
       label: 'Checklist',
       moduleSlug: 'equipos',
@@ -218,7 +230,7 @@ export function VehicleTabs({
       disabled: !showChecklists,
       content: showChecklists ? <div className="space-y-4">{checklistsComponent}</div> : null,
     },
-  ] as const;
+  ] satisfies TabDefinition[];
 
   return (
     <div className="">
@@ -226,7 +238,7 @@ export function VehicleTabs({
         paramName="tab"
         defaultTab="basicData"
         tabs={tabs}
-        listClassName="grid w-full grid-cols-6"
+        listClassName="grid w-full grid-cols-7"
         triggerClassName="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
       />
     </div>

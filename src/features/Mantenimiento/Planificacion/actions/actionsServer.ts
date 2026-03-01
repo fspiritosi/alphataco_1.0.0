@@ -45,32 +45,18 @@ export interface CreateWorkOrderInput {
 
 /**
  * Formatea el número de orden de trabajo
- * Formato: OT-{PATENTE}-{SECTOR}-{NUMERO}
- * Fácil de cambiar si se necesita otro formato
+ * Formato: OT-{NUMERO} (e.g. OT-000001)
  *
  * NOTA: Función interna, no exportada porque 'use server' requiere async
  */
 function formatWorkOrderNumber(
-  domain: string | null,
-  serie: string | null,
-  sectorName: string | null,
+  _domain: string | null,
+  _serie: string | null,
+  _sectorName: string | null,
   sequenceNumber: number
 ): string {
-  // Identificador del equipo (patente o serie)
-  const identifier = domain || serie || 'EQUIPO';
-  const cleanIdentifier = identifier.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-
-  // Nombre del sector (o GENERAL si no hay)
-  const sector = sectorName || 'GENERAL';
-  const cleanSector = sector
-    .replace(/[^A-Z]/gi, '')
-    .toUpperCase()
-    .slice(0, 12);
-
-  // Número con padding de 6 dígitos
   const paddedNumber = String(sequenceNumber).padStart(6, '0');
-
-  return `OT-${cleanIdentifier}-${cleanSector}-${paddedNumber}`;
+  return `OT-${paddedNumber}`;
 }
 
 /**

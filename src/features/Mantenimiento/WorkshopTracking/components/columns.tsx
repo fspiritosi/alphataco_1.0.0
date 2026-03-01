@@ -3,9 +3,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye } from 'lucide-react';
+import { CheckCircle2, Circle, Eye, Play } from 'lucide-react';
 import moment from 'moment';
 import type { MaintenanceOrderData } from '../../MaintenanceOrders/actions/actionsServer';
 
@@ -66,30 +67,102 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
     },
     {
       id: 'SectorActual',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Sector Actual" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Recorrido Sectores" />,
       cell: ({ row }) => {
         const items = row.original.maintenance_order_items || [];
-        const sectors = new Set<string>();
+
+        // Group items by sector with sequence order
+        const sectorMap = new Map<string, { name: string; seq: number; items: typeof items }>();
         items.forEach((item) => {
-          if (
-            item.assigned_sector_id &&
-            item.workshop_sectors &&
-            typeof item.workshop_sectors === 'object' &&
-            'name' in item.workshop_sectors
-          ) {
-            sectors.add(item.workshop_sectors.name as string);
+          const sectorId = item.assigned_sector_id;
+          if (!sectorId) return;
+          const sectorName =
+            item.workshop_sectors && typeof item.workshop_sectors === 'object' && 'name' in item.workshop_sectors
+              ? (item.workshop_sectors.name as string)
+              : 'Sin sector';
+          if (!sectorMap.has(sectorId)) {
+            sectorMap.set(sectorId, { name: sectorName, seq: item.sector_sequence_order ?? 999, items: [] });
           }
+          sectorMap.get(sectorId)!.items.push(item);
         });
-        if (sectors.size === 0) return <Badge variant="outline">Sin asignar</Badge>;
+
+        const sectors = Array.from(sectorMap.values()).sort((a, b) => a.seq - b.seq);
+        if (sectors.length === 0) return <Badge variant="outline">Sin asignar</Badge>;
+
+        // Determine status per sector based on work_order_item_repairs
+        const getSectorStatus = (sectorItems: typeof items): 'completed' | 'in_progress' | 'pending' => {
+          const repairs = sectorItems.flatMap((item) => {
+            const wo = item.work_orders;
+            if (!wo || Array.isArray(wo)) return [];
+            return (wo.work_order_items || [])
+              .filter((woi: { maintenance_order_item_id?: string }) => woi.maintenance_order_item_id === item.id)
+              .flatMap(
+                (woi: { work_order_item_repairs?: unknown[] }) =>
+                  (woi.work_order_item_repairs || []) as Array<{ status: string }>
+              );
+          });
+          if (repairs.length === 0) return 'pending';
+          const completed = repairs.filter((r) => r.status === 'completed').length;
+          if (completed === repairs.length) return 'completed';
+          if (completed > 0 || repairs.some((r) => r.status === 'in_progress')) return 'in_progress';
+          return 'pending';
+        };
+
         return (
-          <div className="flex gap-1">
-            {Array.from(sectors).map((s) => (
-              <Badge key={s} variant="default">
-                {s}
-              </Badge>
-            ))}
-          </div>
+          <TooltipProvider delayDuration={100}>
+            <div className="flex items-center gap-1">
+              {sectors.map((sector, idx) => {
+                const status = getSectorStatus(sector.items);
+                const Icon = status === 'completed' ? CheckCircle2 : status === 'in_progress' ? Play : Circle;
+                return (
+                  <Tooltip key={sector.name}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        {idx > 0 && <span className="text-muted-foreground text-[10px]">&rarr;</span>}
+                        <Badge
+                          variant={status === 'completed' ? 'secondary' : status === 'in_progress' ? 'info' : 'outline'}
+                          className={`text-[10px] gap-1 ${status === 'completed' ? 'opacity-50 line-through' : ''}`}
+                        >
+                          <Icon className="h-2.5 w-2.5" />
+                          {sector.name}
+                        </Badge>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <span>
+                        {sector.name} —{' '}
+                        {status === 'completed' ? 'Completado' : status === 'in_progress' ? 'En progreso' : 'Pendiente'}
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </TooltipProvider>
         );
+      },
+    },
+    {
+      accessorKey: 'status',
+      id: 'Estado',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      cell: ({ row }) => {
+        const status = row.original.status;
+        const statusMap: Record<
+          string,
+          { label: string; variant: 'default' | 'info' | 'yellow' | 'success' | 'secondary' | 'destructive' }
+        > = {
+          in_workshop: { label: 'En Taller', variant: 'info' },
+          pending_workshop_validation: { label: 'Pend. Validación Taller', variant: 'yellow' },
+          pending_operations_validation: { label: 'Pend. Validación Operaciones', variant: 'yellow' },
+          operations_rejected: { label: 'Rechazada por Ops', variant: 'destructive' },
+          completed: { label: 'Completada', variant: 'success' },
+        };
+        const config = statusMap[status ?? ''] || { label: status || 'Sin estado', variant: 'secondary' as const };
+        return <Badge variant={config.variant}>{config.label}</Badge>;
+      },
+      filterFn: (row, _id, value) => {
+        return value.includes(row.original.status ?? '');
       },
     },
     {

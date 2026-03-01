@@ -15,11 +15,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { OrderManagementItem } from '../actions/actionsServer';
+import type { LocalItem } from './ManageOrderWizard';
 
 type OrderItem = OrderManagementItem['maintenance_order_items'][number];
 
 interface AssignRepairTypesDialogProps {
-  item: OrderItem;
+  item: LocalItem | OrderItem;
   repairTypes: Array<{ id: string; name: string }>;
   open: boolean;
   onClose: () => void;

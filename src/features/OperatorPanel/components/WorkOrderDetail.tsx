@@ -11,6 +11,8 @@ import type { OperatorWorkOrderDetail } from '../actions/actionsServer';
 import {
   completeRepair,
   getWorkOrderDetailForOperator,
+  pauseWorkOrder,
+  resumeWorkOrder,
   startWorkOrder,
   uncompleteRepair,
   updateTechnicianNotes,
@@ -66,10 +68,37 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
     },
   });
 
+  const pauseMutation = useMutation({
+    mutationFn: () => pauseWorkOrder(data.id),
+    onSuccess: () => {
+      toast.success('Orden de trabajo pausada');
+      queryClient.invalidateQueries({ queryKey: ['operator-work-order', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
+    },
+    onError: (error) => {
+      logger.error('Error pausing work order', { data: { error } });
+      toast.error(error instanceof Error ? error.message : 'Error al pausar la orden de trabajo');
+    },
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => resumeWorkOrder(data.id),
+    onSuccess: () => {
+      toast.success('Orden de trabajo reanudada');
+      queryClient.invalidateQueries({ queryKey: ['operator-work-order', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
+    },
+    onError: (error) => {
+      logger.error('Error resuming work order', { data: { error } });
+      toast.error(error instanceof Error ? error.message : 'Error al reanudar la orden de trabajo');
+    },
+  });
+
   const completeMutation = useMutation({
     mutationFn: (repairId: string) => completeRepair(repairId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['operator-work-order', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
     },
     onError: (error) => {
       logger.error('Error completing repair', { data: { error } });
@@ -81,6 +110,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
     mutationFn: (repairId: string) => uncompleteRepair(repairId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['operator-work-order', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
     },
     onError: (error) => {
       logger.error('Error uncompleting repair', { data: { error } });
@@ -116,7 +146,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
         serie?: string;
         intern_number?: string;
         kilometer?: number;
-        engine_hours?: string | null;
+        sub_type?: { name: string | null } | null;
       } | null;
     } | null;
     description?: string | null;
@@ -138,7 +168,17 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
 
   // --- Handlers ---
 
-  const handleToggleRepair = (repairId: string, isCompleted: boolean) => {
+  const handleToggleRepair = async (repairId: string, isCompleted: boolean) => {
+    // Al marcar como completado, guardar notas pendientes primero
+    if (!isCompleted && technicianNotes[repairId]) {
+      try {
+        await notesMutation.mutateAsync({ repairId, notes: technicianNotes[repairId] });
+      } catch {
+        // Si falla el guardado de notas, no bloquear el toggle
+        logger.warn('No se pudieron guardar las notas antes de completar');
+      }
+    }
+
     if (isCompleted) {
       uncompleteMutation.mutate(repairId);
     } else {
@@ -178,69 +218,18 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
         totalCount={allRepairs.length}
         onStart={() => startMutation.mutate()}
         isStarting={startMutation.isPending}
+        onPause={() => pauseMutation.mutate()}
+        isPausing={pauseMutation.isPending}
+        onResume={() => resumeMutation.mutate()}
+        isResuming={resumeMutation.isPending}
       />
 
-          {/* Vehicle info */}
-          {vehicle && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Dominio:</span>
-                <p className="font-medium">{vehicle.domain || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Serie:</span>
-                <p className="font-medium">{vehicle.serie || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Interno:</span>
-                <p className="font-medium">{vehicle.intern_number || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Km:</span>
-                <p className="font-medium">{vehicle.kilometer ? vehicle.kilometer.toLocaleString() : '-'}</p>
-              </div>
-              {vehicle.engine_hours && (
-                <div>
-                  <span className="text-muted-foreground">Hs:</span>
-                  <p className="font-medium">{vehicle.engine_hours} hs</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Status and priority badges */}
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={statusVariants[data.status] || 'default'}>{statusLabels[data.status] || data.status}</Badge>
-            {data.priority && (
-              <Badge variant={priorityVariants[data.priority] || 'default'}>
-                {priorityLabels[data.priority] || data.priority}
-              </Badge>
-            )}
-            {data.planned_start_date && (
-              <Badge variant="outline">
-                Programada: {moment(data.planned_start_date).locale('es').format('DD/MM/YYYY')}
-              </Badge>
-            )}
-          </div>
-
-          {/* Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progreso</span>
-              <span className="font-medium">
-                {completedRepairs.length} de {totalRepairs} tareas completadas
-              </span>
-            </div>
-            <Progress value={progressPercentage} className="h-2" />
-          </div>
-        </div>
-      </div>
-
-      {/* Scrollable content */}
+      {/* Scrollable task list */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 sm:p-5">
           <TaskList
             workOrderItems={normalizedItems}
+            workOrderStatus={data.status}
             technicianNotes={technicianNotes}
             isMutating={completeMutation.isPending || uncompleteMutation.isPending}
             onToggleRepair={handleToggleRepair}
@@ -262,7 +251,7 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
             onClick={() => setCloseWoOpen(true)}
             variant="default"
             className="flex-1 h-11 gap-2"
-            disabled={data.status === 'completed' || data.status === 'completed_partial'}
+            disabled={data.status !== 'in_progress'}
           >
             <CheckCircle2 className="h-4 w-4" />
             Cerrar OT

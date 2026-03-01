@@ -25,8 +25,8 @@ export async function getMaintenanceOperations() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, condition, kilometer, engine_hours),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id),
+      vehicles(id, domain, serie, intern_number, condition, kilometer),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -92,8 +92,8 @@ export async function getOrdersForWorkshop() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, condition, kilometer, engine_hours),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id),
+      vehicles(id, domain, serie, intern_number, condition, kilometer),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -119,7 +119,7 @@ export async function getOrdersForWorkshop() {
       )
     `
     )
-    .in('status', ['date_confirmed', 'in_workshop'])
+    .eq('status', 'date_confirmed')
     .order('scheduled_date', { ascending: true }); // Ordenar por fecha planificada
 
   // Aplicar filtro de supervisor si corresponde
@@ -184,9 +184,7 @@ export async function rejectMaintenanceOperation(input: RejectOperationInput) {
 export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
   const supabase = await supabaseServer();
 
-  serverLogger.info('Aprobando entrada a taller', {
-    data: { orderId: input.orderId, kilometer: input.kilometer, engine_hours: input.engine_hours },
-  });
+  serverLogger.info('Aprobando entrada a taller', { data: { orderId: input.orderId, kilometer: input.kilometer } });
 
   // Obtener el usuario actual
   const {
@@ -213,7 +211,6 @@ export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
       workshop_entry_date: new Date().toISOString(),
       workshop_approved_by: user?.id || null,
       kilometer_at_entry: input.kilometer,
-      engine_hours_at_entry: input.engine_hours || null,
     })
     .eq('id', input.orderId);
 
@@ -222,13 +219,12 @@ export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
     throw updateOrderError;
   }
 
-  // Actualizar el equipo: condición a 'no operativo', kilometraje y horómetro
+  // Actualizar el equipo: condición a 'no operativo' y kilometraje
   const { error: updateVehicleError } = await supabase
     .from('vehicles')
     .update({
       condition: 'no operativo',
       kilometer: input.kilometer,
-      ...(input.engine_hours !== undefined && { engine_hours: input.engine_hours }),
     })
     .eq('id', order.equipment_id);
 
@@ -242,7 +238,6 @@ export async function approveWorkshopEntry(input: ApproveWorkshopEntryInput) {
       orderId: input.orderId,
       equipmentId: order.equipment_id,
       kilometer: input.kilometer,
-      engine_hours: input.engine_hours,
     },
   });
 

@@ -1,5 +1,6 @@
 import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../utils/constants';
 import {
   getActiveExternalWorkshops,
   getActiveWorkshopSectors,
@@ -24,10 +25,12 @@ export async function OrderManagementTabContent() {
     getActiveExternalWorkshops(),
   ]);
 
-  const repairTypes = repairTypesData.map((r) => ({
-    id: r.id,
-    name: r.name,
-  }));
+  const repairTypes = repairTypesData
+    .filter((r) => r.id !== DIAGNOSTICO_REPAIR_TYPE_ID)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+    }));
 
   return (
     <Card>

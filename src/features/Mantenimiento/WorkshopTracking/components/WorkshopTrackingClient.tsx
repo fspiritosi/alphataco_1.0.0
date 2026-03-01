@@ -32,6 +32,21 @@ export function WorkshopTrackingClient({ initialData }: WorkshopTrackingClientPr
     return Array.from(map.values()).map((v) => ({ label: v, value: v }));
   }, [orders]);
 
+  const statusOptions = useMemo(() => {
+    const statusMap: Record<string, string> = {
+      in_workshop: 'En Taller',
+      pending_workshop_validation: 'Pend. Validación Taller',
+      pending_operations_validation: 'Pend. Validación Operaciones',
+      operations_rejected: 'Rechazada por Ops',
+      completed: 'Completada',
+    };
+    const found = new Set<string>();
+    (orders || []).forEach((order) => {
+      if (order.status) found.add(order.status);
+    });
+    return Array.from(found).map((s) => ({ label: statusMap[s] || s, value: s }));
+  }, [orders]);
+
   return (
     <>
       <BaseDataTable
@@ -40,12 +55,17 @@ export function WorkshopTrackingClient({ initialData }: WorkshopTrackingClientPr
         tableId="seguimiento-taller-table"
         savedVisibility={{}}
         toolbarOptions={{
-          initialVisibleFilters: ['Equipo'],
+          initialVisibleFilters: ['Equipo', 'Estado'],
           filterableColumns: [
             {
               columnId: 'Equipo',
               title: 'Equipo',
               options: equipmentOptions,
+            },
+            {
+              columnId: 'Estado',
+              title: 'Estado',
+              options: statusOptions,
             },
           ],
           showViewOptions: true,
@@ -59,7 +79,7 @@ export function WorkshopTrackingClient({ initialData }: WorkshopTrackingClientPr
           setDialogOpen(false);
           setSelectedOrder(null);
         }}
-        readOnly={true}
+        context="operations"
       />
     </>
   );

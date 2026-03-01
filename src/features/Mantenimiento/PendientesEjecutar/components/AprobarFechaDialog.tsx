@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
@@ -18,13 +19,8 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { PEDIDOS_CONFIRMADOS_QUERY_KEY } from '../../PedidosMantenimiento/Confirmados/components/ConfirmadosTableClient';
-import {
-  MAINTENANCE_ORDERS_QUERY_KEY,
-  PEDIDOS_PENDIENTES_QUERY_KEY,
-} from '../../PedidosMantenimiento/hooks/useMaintenanceOrders';
 import { approveMaintenanceOrderDate, type MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
-import { PENDIENTES_EJECUTAR_QUERY_KEY } from '../hooks/usePendientesEjecutar';
+import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 
 // Configurar moment en español
 moment.locale('es');
@@ -54,10 +50,7 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
         description: 'El equipo está listo para ingresar al taller en la fecha programada.',
       });
 
-      queryClient.invalidateQueries({ queryKey: PENDIENTES_EJECUTAR_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: PEDIDOS_CONFIRMADOS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: PEDIDOS_PENDIENTES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: MAINTENANCE_ORDERS_QUERY_KEY });
+      invalidateAllMaintenanceQueries(queryClient);
       onClose();
     } catch (error) {
       logger.error('Error al aprobar fecha', { data: { error, orderId: order.id } });
@@ -130,14 +123,9 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
                           </Badge>
                         ))}
                       </div>
-                      {((item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment) && (
-                        <p className="text-xs mt-1">
-                          <span className="text-muted-foreground">Chofer: </span>
-                          <span className="italic">
-                            {(item.maintenance_request_items as any)?.driver_comment || deviation?.driver_comment}
-                          </span>
-                        </p>
-                      )}
+                      <div className="mt-1">
+                        <ItemComments item={item} source={order.maintenance_requests?.source} />
+                      </div>
                     </div>
                   );
                 })}

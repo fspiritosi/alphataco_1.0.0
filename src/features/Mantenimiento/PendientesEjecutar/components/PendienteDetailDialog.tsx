@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
 
@@ -138,29 +139,7 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
                               ))}
                             </div>
                           )}
-                          {(item.maintenance_request_items?.driver_comment || deviation?.driver_comment) && (
-                            <div className="text-sm mt-1">
-                              <span className="text-muted-foreground">Comentario del chofer: </span>
-                              <span className="italic">
-                                {item.maintenance_request_items?.driver_comment || deviation?.driver_comment}
-                              </span>
-                            </div>
-                          )}
-                          {(item.maintenance_request_items as any)?.validator_comment && (
-                            <div className="text-sm mt-1 p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                              <span className="text-blue-800 dark:text-blue-200 font-medium">
-                                Comentario del validador:{' '}
-                              </span>
-                              <span className="text-blue-700 dark:text-blue-300">
-                                {(item.maintenance_request_items as any).validator_comment}
-                              </span>
-                            </div>
-                          )}
-                          {item.maintenance_request_items?.description && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {item.maintenance_request_items.description}
-                            </p>
-                          )}
+                          <ItemComments item={item} source={order.maintenance_requests?.source} />
                         </div>
                       </div>
                     </div>

@@ -21,7 +21,7 @@ import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { rejectMaintenanceOrderDate, type MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
-import { PENDIENTES_EJECUTAR_QUERY_KEY } from '../hooks/usePendientesEjecutar';
+import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 
 // Configurar moment en español
 moment.locale('es');
@@ -57,7 +57,7 @@ export function RechazarFechaDialog({ order, open, onClose }: RechazarFechaDialo
         description: 'El pedido volverá a estado de planificación para asignar nueva fecha.',
       });
 
-      queryClient.invalidateQueries({ queryKey: PENDIENTES_EJECUTAR_QUERY_KEY });
+      invalidateAllMaintenanceQueries(queryClient);
       onClose();
     } catch (error) {
       logger.error('Error al rechazar fecha', { data: { error, orderId: order.id } });

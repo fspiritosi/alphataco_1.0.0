@@ -315,6 +315,7 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
         maintenance_request_id: input.requestId,
         equipment_id: request.equipment_id,
         status: 'pending_scheduling',
+        kilometer_at_entry: request.kilometer || null,
       })
       .select()
       .single();
@@ -322,6 +323,20 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
     if (orderError) {
       serverLogger.error('Error al crear pedido de mantenimiento', { data: { error: orderError } });
       throw orderError;
+    }
+
+    // Actualizar el kilometraje del vehículo si la solicitud tiene km
+    if (request.kilometer) {
+      const { error: vehicleError } = await supabase
+        .from('vehicles')
+        .update({ kilometer: request.kilometer })
+        .eq('id', request.equipment_id);
+
+      if (vehicleError) {
+        serverLogger.warn('No se pudo actualizar kilometraje del vehículo al generar pedido', {
+          data: { error: vehicleError },
+        });
+      }
     }
 
     // Crear items del pedido SIN tipos de reparación
@@ -525,6 +540,15 @@ export async function createOrUpdateMaintenanceRequest(input: {
       input.checklistAnswerId = deviationData.checklist_answer_id;
     }
 
+    // Obtener user_id del auth si no se pasó desde el cliente
+    let userId = input.userId || null;
+    if (!userId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      userId = user?.id ?? null;
+    }
+
     // Crear la solicitud
     const { data: newRequest, error: createError } = await supabase
       .from('maintenance_requests')
@@ -532,7 +556,7 @@ export async function createOrUpdateMaintenanceRequest(input: {
         checklist_answer_id: input.checklistAnswerId,
         equipment_id: input.equipmentId,
         employee_id: input.employeeId || null,
-        user_id: input.userId || null,
+        user_id: userId,
         kilometer: input.kilometer || null,
         supervisor_id: input.supervisorId,
         status: 'pending_approval',

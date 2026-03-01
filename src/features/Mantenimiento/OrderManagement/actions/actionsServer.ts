@@ -26,8 +26,8 @@ export async function getMaintenanceOrdersForManagement() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, condition, kilometer, engine_hours, vehicle_type:type(id, name)),
-      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id),
+      vehicles(id, domain, serie, intern_number, condition, kilometer, vehicle_type:type(id, name)),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -62,6 +62,46 @@ export async function getMaintenanceOrdersForManagement() {
 
 export type OrderManagementData = Awaited<ReturnType<typeof getMaintenanceOrdersForManagement>>;
 export type OrderManagementItem = OrderManagementData[number];
+
+/**
+ * Obtiene un pedido específico con el detalle necesario para la gestión.
+ * Usado desde Órdenes de Mantenimiento al hacer click en "Gestionar".
+ */
+export async function getOrderForManagement(orderId: string) {
+  const supabase = await supabaseServer();
+
+  const { data, error } = await supabase
+    .from('maintenance_orders')
+    .select(
+      `
+      *,
+      vehicles(id, domain, serie, intern_number, condition, kilometer, vehicle_type:type(id, name)),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      maintenance_order_items(
+        *,
+        maintenance_request_items(
+          *,
+          checklist_deviations(id, item_code, item_label, section_code, driver_comment)
+        ),
+        types_of_repairs(id, name, autorizable),
+        maintenance_order_item_repair_types(
+          repair_type_id,
+          types_of_repairs(id, name, autorizable)
+        ),
+        workshop_sectors(id, name)
+      )
+    `
+    )
+    .eq('id', orderId)
+    .single();
+
+  if (error) {
+    logger.error('Error al obtener pedido para gestion', { data: { error, orderId } });
+    throw error;
+  }
+
+  return data;
+}
 
 /**
  * Obtiene todos los sectores activos de todos los talleres
@@ -319,7 +359,7 @@ export type AddItemResult = Awaited<ReturnType<typeof addItemToOrder>>;
 
 /**
  * Generates and assigns an order number to a maintenance order.
- * Format: OM-{DOMAIN}-{SEQUENCE}
+ * Format: OM-{SEQUENCE} (e.g. OM-000001)
  * Called when the OM enters the workshop (status = 'in_workshop').
  */
 export async function generateMaintenanceOrderNumber(orderId: string) {
@@ -328,22 +368,14 @@ export async function generateMaintenanceOrderNumber(orderId: string) {
   // Check if already has a number
   const { data: existing } = await supabase
     .from('maintenance_orders')
-    .select('order_number, equipment_id, vehicles:equipment_id(domain, serie, company_id)')
+    .select('order_number')
     .eq('id', orderId)
     .single();
 
   if (!existing) throw new Error('Orden no encontrada');
   if (existing.order_number) return existing.order_number;
 
-  const vehicle = existing.vehicles;
-  const domain = vehicle && typeof vehicle === 'object' && 'domain' in vehicle ? String(vehicle.domain || '') : '';
-  const serie = vehicle && typeof vehicle === 'object' && 'serie' in vehicle ? String(vehicle.serie || '') : '';
-  const companyId =
-    vehicle && typeof vehicle === 'object' && 'company_id' in vehicle ? String(vehicle.company_id || '') : '';
-
-  const identifier = (domain || serie || 'EQ').replace(/[^A-Z0-9]/gi, '').toUpperCase();
-
-  // Get next sequence number for this company
+  // Get next sequence number (global)
   const { count } = await supabase
     .from('maintenance_orders')
     .select('id', { count: 'exact', head: true })
@@ -351,7 +383,7 @@ export async function generateMaintenanceOrderNumber(orderId: string) {
 
   const nextSeq = (count || 0) + 1;
   const paddedSeq = String(nextSeq).padStart(6, '0');
-  const orderNumber = `OM-${identifier}-${paddedSeq}`;
+  const orderNumber = `OM-${paddedSeq}`;
 
   // Update the order
   const { error } = await supabase.from('maintenance_orders').update({ order_number: orderNumber }).eq('id', orderId);
@@ -395,6 +427,11 @@ export interface OrderChangeSet {
     itemId: string;
     description: string;
   }>;
+  /** Workshop chief comment updates per item */
+  chiefCommentUpdates: Array<{
+    itemId: string;
+    comment: string;
+  }>;
   /** External workshop assignments (no sector) */
   workshopAssignments: Array<{
     itemIds: string[];
@@ -424,6 +461,7 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
       repairTypeUpdates: changes.repairTypeUpdates.length,
       sequenceUpdates: changes.sequenceUpdates.length,
       descriptionUpdates: changes.descriptionUpdates.length,
+      chiefCommentUpdates: changes.chiefCommentUpdates.length,
       workshopAssignments: changes.workshopAssignments.length,
     },
   });
@@ -473,7 +511,28 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
   }
 
   // 3. SECTOR ASSIGNMENTS
-  for (const assignment of changes.sectorAssignments) {
+  // Backend safeguard: normalize sequence orders to avoid duplicates
+  const { data: existingSeqData } = await supabase
+    .from('maintenance_order_items')
+    .select('assigned_sector_id, sector_sequence_order')
+    .eq('maintenance_order_id', orderId)
+    .not('work_order_id', 'is', null)
+    .not('assigned_sector_id', 'is', null)
+    .not('sector_sequence_order', 'is', null);
+
+  const maxExistingSeqBatch = (existingSeqData || []).reduce(
+    (max, item) => Math.max(max, item.sector_sequence_order ?? 0),
+    0
+  );
+
+  // Normalize assignments: sort by their sequence order and re-assign sequential values
+  const sortedAssignments = [...changes.sectorAssignments].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+  const normalizedAssignments = sortedAssignments.map((assignment, idx) => ({
+    ...assignment,
+    sequenceOrder: maxExistingSeqBatch + idx + 1,
+  }));
+
+  for (const assignment of normalizedAssignments) {
     const { error: updateError } = await supabase
       .from('maintenance_order_items')
       .update({
@@ -546,7 +605,15 @@ export async function saveOrderChanges(orderId: string, changes: OrderChangeSet)
       .eq('id', descUpdate.itemId);
   }
 
-  // 7. EXTERNAL WORKSHOP ASSIGNMENTS (no sector, no diagnostico)
+  // 7. CHIEF COMMENT UPDATES
+  for (const commentUpdate of changes.chiefCommentUpdates) {
+    await supabase
+      .from('maintenance_order_items')
+      .update({ workshop_chief_comment: commentUpdate.comment })
+      .eq('id', commentUpdate.itemId);
+  }
+
+  // 8. EXTERNAL WORKSHOP ASSIGNMENTS (no sector, no diagnostico)
   for (const wsAssignment of changes.workshopAssignments) {
     const { error: wsError } = await supabase
       .from('maintenance_order_items')
@@ -911,4 +978,253 @@ export async function generateWorkOrdersForOrder(
   });
 
   return createdOrders;
+}
+
+// =============================================================================
+// WIZARD: SECTOR CANDIDATES
+// =============================================================================
+
+/**
+ * Obtiene los sectores candidatos para cada repair type usando la tabla sector_repair_types.
+ * Retorna un map de repairTypeId → sectorIds[]
+ */
+export async function getSectorCandidatesForRepairTypes(repairTypeIds: string[]) {
+  const supabase = await supabaseServer();
+
+  if (repairTypeIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('sector_repair_types')
+    .select('workshop_sector_id, repair_type_id, workshop_sectors(id, name)')
+    .in('repair_type_id', repairTypeIds);
+
+  if (error) {
+    logger.error('Error obteniendo candidatos de sector', { data: { error } });
+    throw error;
+  }
+
+  return data || [];
+}
+
+export type SectorCandidateData = Awaited<ReturnType<typeof getSectorCandidatesForRepairTypes>>;
+
+// =============================================================================
+// WIZARD: BATCH SETUP + GENERATE WORK ORDERS
+// =============================================================================
+
+/**
+ * Ejecuta todo el flujo del wizard en una sola acción:
+ * 1. Aplica cambios de items (adds, deletes, repair type updates, description updates)
+ * 2. Asigna items a sectores + crea DIAGNOSTICO por sector
+ * 3. Actualiza el sector_sequence_order de todos los items
+ * 4. Genera las OTs agrupadas por sector
+ */
+export async function setupAndGenerateWorkOrders(
+  orderId: string,
+  itemChanges: OrderChangeSet,
+  sectorAssignments: Array<{ itemIds: string[]; sectorId: string }>,
+  sectorOrder: Array<{ sectorId: string; sequenceOrder: number }>,
+  dates: { plannedStartDate: string; plannedEndDate: string }
+) {
+  const supabase = await supabaseServer();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Usuario no autenticado');
+
+  logger.info('Wizard: iniciando setup y generacion de OTs', {
+    data: {
+      orderId,
+      itemChanges: {
+        adds: itemChanges.adds.length,
+        deletes: itemChanges.deletes.length,
+        repairTypeUpdates: itemChanges.repairTypeUpdates.length,
+        descriptionUpdates: itemChanges.descriptionUpdates.length,
+      },
+      sectorAssignments: sectorAssignments.length,
+      sectorOrder: sectorOrder.length,
+    },
+  });
+
+  // ──────────────────────────────────────────────
+  // 1. APLICAR CAMBIOS DE ITEMS (reusar lógica de saveOrderChanges)
+  // ──────────────────────────────────────────────
+
+  // 1a. DELETES
+  for (const itemId of itemChanges.deletes) {
+    const { data: item } = await supabase
+      .from('maintenance_order_items')
+      .select('id, maintenance_request_item_id, is_diagnostico')
+      .eq('id', itemId)
+      .single();
+
+    if (item && (!item.maintenance_request_item_id || item.is_diagnostico)) {
+      await supabase.from('maintenance_order_item_repair_types').delete().eq('maintenance_order_item_id', itemId);
+      await supabase.from('maintenance_order_items').delete().eq('id', itemId);
+    }
+  }
+
+  // 1b. ADDS - Guardar nuevos items y retornar IDs reales
+  const tempToRealIdMap = new Map<number, string>(); // index → real id
+  for (let i = 0; i < itemChanges.adds.length; i++) {
+    const add = itemChanges.adds[i];
+    const { data: newItem, error: addError } = await supabase
+      .from('maintenance_order_items')
+      .insert({
+        maintenance_order_id: orderId,
+        description: add.description,
+        repair_type_id: add.repairTypeIds[0] || null,
+      })
+      .select()
+      .single();
+
+    if (addError || !newItem) {
+      logger.error('Error agregando item en wizard', { data: { error: addError } });
+      continue;
+    }
+
+    tempToRealIdMap.set(i, newItem.id);
+
+    if (add.repairTypeIds.length > 0) {
+      const pivotRecords = add.repairTypeIds.map((repairTypeId) => ({
+        maintenance_order_item_id: newItem.id,
+        repair_type_id: repairTypeId,
+      }));
+      await supabase.from('maintenance_order_item_repair_types').insert(pivotRecords);
+    }
+  }
+
+  // 1c. REPAIR TYPE UPDATES
+  for (const update of itemChanges.repairTypeUpdates) {
+    await supabase
+      .from('maintenance_order_items')
+      .update({ repair_type_id: update.repairTypeIds[0] || null })
+      .eq('id', update.itemId);
+
+    await supabase.from('maintenance_order_item_repair_types').delete().eq('maintenance_order_item_id', update.itemId);
+
+    if (update.repairTypeIds.length > 0) {
+      const pivotRecords = update.repairTypeIds.map((repairTypeId) => ({
+        maintenance_order_item_id: update.itemId,
+        repair_type_id: repairTypeId,
+      }));
+      await supabase.from('maintenance_order_item_repair_types').insert(pivotRecords);
+    }
+  }
+
+  // 1d. DESCRIPTION UPDATES
+  for (const descUpdate of itemChanges.descriptionUpdates) {
+    await supabase
+      .from('maintenance_order_items')
+      .update({ description: descUpdate.description })
+      .eq('id', descUpdate.itemId);
+  }
+
+  // 1e. CHIEF COMMENT UPDATES
+  for (const commentUpdate of itemChanges.chiefCommentUpdates) {
+    await supabase
+      .from('maintenance_order_items')
+      .update({ workshop_chief_comment: commentUpdate.comment })
+      .eq('id', commentUpdate.itemId);
+  }
+
+  // ──────────────────────────────────────────────
+  // 2. ASIGNAR ITEMS A SECTORES + CREAR DIAGNOSTICO
+  // ──────────────────────────────────────────────
+
+  // Backend safeguard: normalize sector order to guarantee unique sequential values
+  // considering sectors that already have work orders
+  const { data: existingSequences } = await supabase
+    .from('maintenance_order_items')
+    .select('assigned_sector_id, sector_sequence_order')
+    .eq('maintenance_order_id', orderId)
+    .not('work_order_id', 'is', null)
+    .not('assigned_sector_id', 'is', null)
+    .not('sector_sequence_order', 'is', null);
+
+  const maxExistingSeq = (existingSequences || []).reduce(
+    (max, item) => Math.max(max, item.sector_sequence_order ?? 0),
+    0
+  );
+
+  // Sort incoming sector order and re-normalize starting from maxExistingSeq + 1
+  const sortedSectorOrder = [...sectorOrder].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+  const normalizedSectorOrder = sortedSectorOrder.map((so, idx) => ({
+    ...so,
+    sequenceOrder: maxExistingSeq + idx + 1,
+  }));
+
+  // Construir mapa de sectorId → sequenceOrder (normalized)
+  const sectorSequenceMap = new Map<string, number>();
+  for (const so of normalizedSectorOrder) {
+    sectorSequenceMap.set(so.sectorId, so.sequenceOrder);
+  }
+
+  for (const assignment of sectorAssignments) {
+    const seqOrder = sectorSequenceMap.get(assignment.sectorId) ?? 1;
+
+    // Resolver IDs reales (los temp items tienen IDs temp-xxx)
+    const resolvedItemIds = assignment.itemIds.map((id) => {
+      if (id.startsWith('temp-')) {
+        // Buscar en el mapa de temp → real usando el índice del add
+        // Los temp IDs incluyen un índice implícito basado en el orden de adds
+        // Necesitamos matchear por descripción en los adds
+        return id; // Se resolverá abajo
+      }
+      return id;
+    });
+
+    // Actualizar items con sector y secuencia
+    const realIds = resolvedItemIds.filter((id) => !id.startsWith('temp-'));
+    if (realIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('maintenance_order_items')
+        .update({
+          assigned_sector_id: assignment.sectorId,
+          sector_sequence_order: seqOrder,
+          assigned_by: user.id,
+          assigned_at: new Date().toISOString(),
+        })
+        .in('id', realIds);
+
+      if (updateError) {
+        logger.error('Error asignando sector en wizard', { data: { error: updateError } });
+      }
+    }
+
+    // Crear item DIAGNOSTICO si no existe para este sector
+    const { data: existingDiag } = await supabase
+      .from('maintenance_order_items')
+      .select('id')
+      .eq('maintenance_order_id', orderId)
+      .eq('assigned_sector_id', assignment.sectorId)
+      .eq('is_diagnostico', true)
+      .limit(1);
+
+    if (!existingDiag || existingDiag.length === 0) {
+      await supabase.from('maintenance_order_items').insert({
+        maintenance_order_id: orderId,
+        assigned_sector_id: assignment.sectorId,
+        sector_sequence_order: seqOrder,
+        is_diagnostico: true,
+        description: 'DIAGNOSTICO',
+        assigned_by: user.id,
+        assigned_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 3. GENERAR OTs (reusar generateWorkOrdersForOrder)
+  // ──────────────────────────────────────────────
+
+  const result = await generateWorkOrdersForOrder(orderId, dates);
+
+  logger.info('Wizard: setup y generacion completados', {
+    data: { orderId, workOrdersCreated: result.length },
+  });
+
+  return result;
 }

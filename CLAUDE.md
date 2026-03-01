@@ -89,6 +89,16 @@ Hay 4 agentes personalizados disponibles. Usarlos segun el contexto:
 - **`project-standards-enforcer`**: Usar PROACTIVAMENTE para cualquier cambio de codigo (features, bugs, refactors, server actions). No esperar que el usuario lo pida.
 - **`ui-architect`**: Usar PROACTIVAMENTE cuando el usuario necesite una nueva pantalla, componente visual, formulario, modal o rediseño de UI.
 
+## Team Agents (Equipos de Agentes)
+
+Se puede crear un **equipo de agentes paralelos** para analizar o resolver problemas complejos de manera coordinada. Usar cuando el problema tenga multiples aspectos independientes que se beneficien de analisis simultaneo.
+
+**Cuando usarlo** (sin que el usuario lo pida explicitamente):
+
+- Investigar un bug complejo desde varios angulos a la vez (ej: codigo + DB + logs)
+- Analizar impacto de un cambio en multiples features/modulos
+- Tareas con partes claramente separables que no tienen dependencias entre si
+
 ---
 
 ## Reglas Criticas - Guias Detalladas
@@ -159,15 +169,38 @@ moment(date).format('DD/MM/YYYY');
 moment(date1).isBefore(date2);
 ```
 
-### 3. No Crear Archivos .md
+### 3. NO Usar Dialogs Nativos del Navegador
+
+**NUNCA** usar `window.confirm()`, `window.alert()` o `window.prompt()`. SIEMPRE usar componentes de UI de shadcn (`AlertDialog`, `Dialog`, `toast`) para confirmaciones y alertas.
+
+```typescript
+// ❌ INCORRECTO - NUNCA usar nativos
+const confirmed = window.confirm('¿Desea eliminar?');
+window.alert('Operacion exitosa');
+
+// ✅ CORRECTO - Usar AlertDialog de shadcn
+<AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>¿Desea eliminar?</AlertDialogTitle>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+      <AlertDialogAction onClick={handleConfirm}>Confirmar</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+### 4. No Crear Archivos .md
 
 **NO** crear archivos markdown (.md) a menos que se solicite explicitamente.
 
-### 4. NO Commit Automatico
+### 5. NO Commit Automatico
 
 **NUNCA** realizar commits automaticamente. Solo hacer commit cuando el usuario lo indique explicitamente (ej: "commitea", "hace commit", "push", etc.). No asumir que se debe commitear despues de completar una tarea.
 
-### 5. NUNCA Co-Authored-By en Commits
+### 6. NUNCA Co-Authored-By en Commits
 
 **ESTRICTAMENTE PROHIBIDO** agregar `Co-Authored-By` en los mensajes de commit. JAMAS incluir referencias a IA, Claude, o cualquier co-autor automatico en los commits.
 
@@ -181,11 +214,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 git commit -m "feat: something"
 ```
 
-### 4. shadcn/ui MCP
+### 7. shadcn/ui MCP
 
 **SIEMPRE** usar el MCP de shadcn para buscar componentes disponibles antes de implementar UI. Consultar ejemplos y documentacion de componentes con las herramientas del MCP antes de escribir codigo de UI.
 
-### 6. Queries Eficientes
+### 8. Queries Eficientes
 
 Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 

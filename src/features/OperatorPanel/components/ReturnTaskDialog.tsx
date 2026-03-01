@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ResponsiveDialog } from '@/components/ui/responsive-dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
@@ -37,6 +38,7 @@ export function ReturnTaskDialog({ repairId, open, onClose }: ReturnTaskDialogPr
       toast.success('Tarea devuelta. El jefe de taller la reasignara.');
       queryClient.invalidateQueries({ queryKey: ['operator-work-order'] });
       queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
+      invalidateAllMaintenanceQueries(queryClient);
       handleClose();
     },
     onError: (error) => {

@@ -401,7 +401,21 @@ export async function createMaintenanceOrderFromDeviations(input: {
     throw new Error('Error al crear los items del pedido');
   }
 
-  // 6. Registrar actividad en maintenance_activity_log
+  // 6. Actualizar el kilometraje del vehículo si se proporcionó
+  if (input.kilometer) {
+    const { error: vehicleError } = await supabase
+      .from('vehicles')
+      .update({ kilometer: input.kilometer })
+      .eq('id', input.equipmentId);
+
+    if (vehicleError) {
+      serverLogger.warn('No se pudo actualizar kilometraje del vehículo', {
+        data: { error: vehicleError },
+      });
+    }
+  }
+
+  // 7. Registrar actividad en maintenance_activity_log
   await supabase.from('maintenance_activity_log').insert({
     maintenance_request_id: request.id,
     maintenance_order_id: order.id,

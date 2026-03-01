@@ -42,6 +42,7 @@ interface VehicleFormProps {
   repairsComponent?: React.ReactNode;
   qrComponent?: React.ReactNode;
   checklistsComponent?: React.ReactNode;
+  operationsComponent?: React.ReactNode;
   typesPromise: ReturnType<typeof getVehicleTypes>;
   subTypesPromise: ReturnType<typeof getSubTypesByType>;
   ownersPromise: Promise<getVehicleOwnersType>;
@@ -284,21 +285,22 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
   };
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="w-full">
-        {/* Aquí irá VehicleTabs como children */}
+      <div className="w-full">
         <VehicleTabs vehicle={vehicle} mode={mode} vehicleId={vehicleId} form={form} {...otherProps} />
 
-        {/* Botón de envío visible en todas las tabs del formulario */}
-        {
+        {!readOnly && (
           <TooltipProvider delayDuration={100}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="w-fit">
-                  {!readOnly && (
-                    <Button type="submit" className="mt-5 ml-2" disabled={isSubmitting}>
-                      {isSubmitting ? 'Guardando...' : mode === 'new' ? 'Agregar equipo' : 'Guardar cambios'}
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    className="mt-5 ml-2"
+                    disabled={isSubmitting}
+                    onClick={() => form.handleSubmit(onSubmit)()}
+                  >
+                    {isSubmitting ? 'Guardando...' : mode === 'new' ? 'Agregar equipo' : 'Guardar cambios'}
+                  </Button>
                 </div>
               </TooltipTrigger>
               <TooltipContent className="max-w-[250px]">
@@ -306,8 +308,8 @@ export function VehicleForm({ vehicle, mode, vehicleId, ...otherProps }: Vehicle
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        }
-      </form>
+        )}
+      </div>
     </Form>
   );
 }

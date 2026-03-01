@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
-import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
 import { type OrderForWorkshopData } from '../../actions/actionsServer';
 
 interface ParaTallerDetailDialogProps {
@@ -96,13 +96,10 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                         ? [item.types_of_repairs.name]
                         : [];
 
-                  // Obtener información del chofer
-                  const driverInfo = getDriverCommentInfo(item);
-
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between">
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium">
                             {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
                           </p>
@@ -110,6 +107,7 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                             Sección:{' '}
                             {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
                           </p>
+                          <ItemComments item={item} source={order.maintenance_requests?.source} />
                         </div>
                         {repairTypeNames.length > 0 && (
                           <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
@@ -121,33 +119,6 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                           </div>
                         )}
                       </div>
-
-                      {driverInfo && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">
-                            Comentario del chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
-                          </span>
-                          <span className="italic">{driverInfo.comment}</span>
-                        </div>
-                      )}
-
-                      {(item.maintenance_request_items as any)?.validator_comment && (
-                        <div className="text-sm p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                          <span className="text-blue-800 dark:text-blue-200 font-medium">
-                            Comentario del validador:{' '}
-                          </span>
-                          <span className="text-blue-700 dark:text-blue-300">
-                            {(item.maintenance_request_items as any).validator_comment}
-                          </span>
-                        </div>
-                      )}
-
-                      {item.maintenance_request_items?.description && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Descripción del desvío: </span>
-                          {item.maintenance_request_items.description}
-                        </div>
-                      )}
                     </div>
                   );
                 })}

@@ -12,9 +12,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { createOrUpdateMaintenanceRequest } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, Loader2, MessageSquarePlus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -63,6 +64,8 @@ export function CriticalDeviationsRepairModal({
   userId,
   kilometer,
 }: CriticalDeviationsRepairModalProps) {
+  const queryClient = useQueryClient();
+
   // Fetch de supervisores internamente usando useQuery
   const {
     data: supervisors = [],
@@ -178,6 +181,9 @@ export function CriticalDeviationsRepairModal({
       toast.success(message, {
         description: `Se registraron ${deviations.length} desvío(s) para revisión del supervisor.`,
       });
+
+      // Invalidar todas las queries de mantenimiento para que las tabs se actualicen
+      invalidateAllMaintenanceQueries(queryClient);
 
       // Marcar que el submit fue exitoso para evitar que onOpenChange dispare onClose
       submitSuccessRef.current = true;

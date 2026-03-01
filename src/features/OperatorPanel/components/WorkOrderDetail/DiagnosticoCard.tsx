@@ -11,6 +11,7 @@ interface DiagnosticoCardProps {
   isCompleted: boolean;
   notes: string;
   isMutating: boolean;
+  isDisabled?: boolean;
   onToggle: (repairId: string, isCompleted: boolean) => void;
   onNotesChange: (repairId: string, notes: string) => void;
   onNotesSave: (repairId: string, notes: string) => void;
@@ -22,6 +23,7 @@ export function DiagnosticoCard({
   isCompleted,
   notes,
   isMutating,
+  isDisabled,
   onToggle,
   onNotesChange,
   onNotesSave,
@@ -41,7 +43,7 @@ export function DiagnosticoCard({
             id={`diag-${repairId}`}
             checked={isCompleted}
             onCheckedChange={() => onToggle(repairId, isCompleted)}
-            disabled={isMutating}
+            disabled={isMutating || isDisabled}
             className="mt-1 h-5 w-5 sm:h-6 sm:w-6"
           />
           <div className="flex-1 min-w-0 space-y-3">

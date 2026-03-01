@@ -20,8 +20,8 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests(id, kilometer, engine_hours, created_at),
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
+      maintenance_requests(id, kilometer, created_at, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -99,8 +99,8 @@ export async function getMaintenanceOrdersPending() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id),
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -168,8 +168,8 @@ export async function getMaintenanceOrdersConfirmed() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id),
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
+      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -227,8 +227,8 @@ export async function getMaintenanceOrderById(orderId: string) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests(id, kilometer, engine_hours, created_at),
+      vehicles(id, domain, serie, intern_number, kilometer, condition),
+      maintenance_requests(id, kilometer, created_at, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -311,7 +311,7 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
   const supabase = await supabaseServer();
 
   serverLogger.info('Aprobando entrada a taller', {
-    data: { orderId: input.orderId, kilometer: input.kilometer, engine_hours: input.engine_hours },
+    data: { orderId: input.orderId, kilometer: input.kilometer },
   });
 
   // Obtener el pedido para saber el equipment_id
@@ -338,8 +338,6 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
       status: 'in_workshop',
       workshop_entry_date: new Date().toISOString(),
       workshop_approved_by: user?.id || null,
-      kilometer_at_entry: input.kilometer,
-      engine_hours_at_entry: input.engine_hours || null,
     })
     .eq('id', input.orderId);
 
@@ -348,13 +346,12 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
     throw updateOrderError;
   }
 
-  // Actualizar el vehículo: kilometraje, horómetro y condición
+  // Actualizar el vehículo: kilometraje y condición
   const { error: updateVehicleError } = await supabase
     .from('vehicles')
     .update({
       kilometer: input.kilometer,
       condition: 'no operativo',
-      ...(input.engine_hours !== undefined && { engine_hours: input.engine_hours }),
     })
     .eq('id', order.equipment_id);
 
@@ -368,9 +365,7 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
   // Generar número de orden de mantenimiento (OM-DOMAIN-XXXXXX)
   await generateMaintenanceOrderNumber(input.orderId);
 
-  serverLogger.info('Entrada a taller aprobada exitosamente', {
-    data: { orderId: input.orderId, kilometer: input.kilometer, engine_hours: input.engine_hours },
-  });
+  serverLogger.info('Entrada a taller aprobada exitosamente', { data: { orderId: input.orderId } });
 
   return { success: true };
 }

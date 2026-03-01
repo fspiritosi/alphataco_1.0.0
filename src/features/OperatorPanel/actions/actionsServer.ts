@@ -190,6 +190,9 @@ async function getWorkOrderBlockingStatus(
   }
 
   // For each WO, check if any sector with lower sequence_order has incomplete WOs
+  // KEY: Only use the WO's MINIMUM sequence_order to check blocking.
+  // If a WO has items at seq=1 AND seq=3, it can start working on seq=1 items
+  // regardless of whether seq=3 items would be blocked.
   for (const [moId, myItems] of moGroups) {
     const allItems = allMoGroups.get(moId) || [];
 
@@ -202,39 +205,50 @@ async function getWorkOrderBlockingStatus(
       bySequence.set(item.sector_sequence_order, existing);
     }
 
+    // Find the minimum sequence_order per WO
+    const woMinSeq = new Map<string, { minSeq: number; sectorId: string | null }>();
     for (const myItem of myItems) {
       if (!myItem.work_order_id || myItem.sector_sequence_order === null) continue;
-      const mySeq = myItem.sector_sequence_order;
+      const current = woMinSeq.get(myItem.work_order_id);
+      if (!current || myItem.sector_sequence_order < current.minSeq) {
+        woMinSeq.set(myItem.work_order_id, {
+          minSeq: myItem.sector_sequence_order,
+          sectorId: myItem.assigned_sector_id,
+        });
+      }
+    }
 
-      // Check all sectors with lower sequence order
+    // Check blocking only at each WO's minimum sequence
+    for (const [woId, { minSeq, sectorId }] of woMinSeq) {
+      let blocked = false;
+      let blockingSectorName: string | null = null;
+
       for (const [seq, seqItems] of bySequence) {
-        if (seq >= mySeq) continue;
+        if (seq >= minSeq) continue;
 
-        // Check if any WO in this lower sector is NOT completed
-        // Skip items from the same sector - they shouldn't block each other
-        const hasIncomplete = seqItems.some((si) => {
-          if (si.assigned_sector_id === myItem.assigned_sector_id) return false;
+        // Find incomplete items from DIFFERENT sectors at this lower sequence
+        const blockingItem = seqItems.find((si) => {
+          if (si.assigned_sector_id === sectorId) return false;
 
           const wo = si.work_orders;
           if (!wo || typeof wo !== 'object') return true;
           const status = 'status' in wo ? wo.status : null;
-          return status !== 'completed' && status !== 'completed_partial';
+          // paused OTs don't block other sectors (enables "one at a time" workflow)
+          return status !== 'completed' && status !== 'completed_partial' && status !== 'paused';
         });
 
-        if (hasIncomplete) {
-          // Find the sector name from the first item in the blocking sector
-          const blockingSectorName = seqItems[0]?.workshop_sectors;
-          const sectorName =
-            blockingSectorName && typeof blockingSectorName === 'object' && 'name' in blockingSectorName
-              ? String(blockingSectorName.name)
-              : null;
-
-          result[myItem.work_order_id] = {
-            isBlocked: true,
-            blockedBySector: sectorName,
-          };
+        if (blockingItem) {
+          // Use the ACTUAL blocking item's sector name (not seqItems[0])
+          const sectorData = blockingItem.workshop_sectors;
+          blockingSectorName =
+            sectorData && typeof sectorData === 'object' && 'name' in sectorData ? String(sectorData.name) : null;
+          blocked = true;
           break;
         }
+      }
+
+      if (blocked) {
+        result[woId] = { isBlocked: true, blockedBySector: blockingSectorName };
       }
     }
   }
@@ -257,8 +271,8 @@ export async function getWorkOrdersForOperator(sectorId: string, includeComplete
     .from('work_orders')
     .select(
       `
-      id, order_number, status, priority, planned_start_date, started_at, completed_at,
-      vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number),
+      id, order_number, status, priority, planned_start_date, started_at, completed_at, created_at,
+      vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, sub_type(id, name)),
       work_order_items(
         id, status,
         work_order_item_repairs(id, status, is_diagnostico),
@@ -294,6 +308,57 @@ export async function getWorkOrdersForOperator(sectorId: string, includeComplete
 
 export type OperatorWorkOrder = Awaited<ReturnType<typeof getWorkOrdersForOperator>>[number];
 
+/**
+ * Obtiene OTs completadas del operador con paginación.
+ * Ordenadas por fecha de completado (más recientes primero).
+ */
+export async function getCompletedWorkOrdersForOperator(sectorId: string, page: number = 0, pageSize: number = 10) {
+  const supabase = await supabaseServer();
+
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabase
+    .from('work_orders')
+    .select(
+      `
+      id, order_number, status, priority, planned_start_date, started_at, completed_at, created_at,
+      vehicles!work_orders_equipment_id_fkey(id, domain, serie, intern_number, sub_type(id, name)),
+      work_order_items(
+        id, status,
+        work_order_item_repairs(id, status, is_diagnostico),
+        maintenance_order_items(
+          maintenance_orders(id, order_number)
+        )
+      )
+    `,
+      { count: 'exact' }
+    )
+    .eq('sector_id', sectorId)
+    .in('status', ['completed', 'completed_partial'])
+    .order('completed_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    logger.error('Error fetching completed work orders', { data: { error } });
+    throw error;
+  }
+
+  return {
+    data: (data || []).map((wo) => ({
+      ...wo,
+      is_blocked: false,
+      blocked_by_sector: null as string | null,
+    })),
+    totalCount: count || 0,
+    page,
+    pageSize,
+    totalPages: Math.ceil((count || 0) / pageSize),
+  };
+}
+
+export type CompletedWorkOrdersResult = Awaited<ReturnType<typeof getCompletedWorkOrdersForOperator>>;
+
 // =============================================================================
 // WORK ORDER DETAIL
 // =============================================================================
@@ -312,11 +377,11 @@ export async function getWorkOrderDetailForOperator(workOrderId: string, sectorI
         maintenance_order_items:maintenance_order_item_id(
           id, description, maintenance_order_id,
           maintenance_orders:maintenance_order_id(id, order_number, equipment_id,
-            vehicles:equipment_id(id, domain, serie, intern_number, kilometer, engine_hours)
+            vehicles:equipment_id(id, domain, serie, intern_number, kilometer, sub_type(id, name))
           )
         ),
         work_order_item_repairs(
-          id, status, technician_notes, return_reason, is_operator_added, is_diagnostico,
+          id, status, technician_notes, return_reason, rejection_reason, is_operator_added, is_diagnostico,
           repair_type_id,
           types_of_repairs(id, name, criticity, autorizable)
         )
@@ -351,6 +416,42 @@ export async function startWorkOrder(workOrderId: string) {
     throw new Error(`No se puede iniciar: el sector ${blockedBy || 'anterior'} no ha completado sus tareas`);
   }
 
+  // Validate "one at a time" rule: no other WO of the same OM can be in_progress
+  const { data: moItem } = await supabase
+    .from('maintenance_order_items')
+    .select('maintenance_order_id')
+    .eq('work_order_id', workOrderId)
+    .limit(1)
+    .single();
+
+  if (moItem?.maintenance_order_id) {
+    const { data: allMoItems } = await supabase
+      .from('maintenance_order_items')
+      .select('work_order_id')
+      .eq('maintenance_order_id', moItem.maintenance_order_id)
+      .not('work_order_id', 'is', null);
+
+    const otherWoIds = [...new Set((allMoItems || []).map((i) => i.work_order_id).filter(Boolean))].filter(
+      (id) => id !== workOrderId
+    );
+
+    if (otherWoIds.length > 0) {
+      const { data: activeWos } = await supabase
+        .from('work_orders')
+        .select('id, sector:workshop_sectors!work_orders_sector_id_fkey(name)')
+        .in('id', otherWoIds)
+        .eq('status', 'in_progress');
+
+      if (activeWos && activeWos.length > 0) {
+        const sectorName =
+          activeWos[0].sector && typeof activeWos[0].sector === 'object' && 'name' in activeWos[0].sector
+            ? String(activeWos[0].sector.name)
+            : 'otro sector';
+        throw new Error(`No se puede iniciar: ${sectorName} tiene una OT en progreso`);
+      }
+    }
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -372,8 +473,123 @@ export async function startWorkOrder(workOrderId: string) {
   revalidatePath('/operator');
 }
 
+/**
+ * Pausa una OT en progreso.
+ * Al pausar, las OTs de los siguientes sectores quedan desbloqueadas
+ * para que otro sector pueda trabajar (UNO A LA VEZ).
+ */
+export async function pauseWorkOrder(workOrderId: string) {
+  const supabase = await supabaseServer();
+
+  // Validate work order is in_progress
+  const { data: woData } = await supabase.from('work_orders').select('status').eq('id', workOrderId).single();
+
+  if (woData?.status !== 'in_progress') {
+    throw new Error('Solo se puede pausar una OT que esté en progreso');
+  }
+
+  const { error } = await supabase
+    .from('work_orders')
+    .update({
+      status: 'paused',
+    })
+    .eq('id', workOrderId);
+
+  if (error) {
+    logger.error('Error pausing work order', { data: { error } });
+    throw error;
+  }
+
+  revalidatePath('/operator');
+}
+
+/**
+ * Reanuda una OT pausada.
+ * Valida que no haya otra OT de la misma OM en progreso (UNO A LA VEZ).
+ */
+export async function resumeWorkOrder(workOrderId: string) {
+  const supabase = await supabaseServer();
+
+  // Validate work order is paused
+  const { data: woData } = await supabase
+    .from('work_orders')
+    .select('status, sector_id')
+    .eq('id', workOrderId)
+    .single();
+
+  if (woData?.status !== 'paused') {
+    throw new Error('Solo se puede reanudar una OT que esté pausada');
+  }
+
+  // Check that no other WO of the same maintenance_order is in_progress
+  // Get the maintenance_order_id through maintenance_order_items
+  const { data: moItem } = await supabase
+    .from('maintenance_order_items')
+    .select('maintenance_order_id')
+    .eq('work_order_id', workOrderId)
+    .limit(1)
+    .single();
+
+  if (moItem?.maintenance_order_id) {
+    // Find all work_order_ids for this maintenance_order
+    const { data: allMoItems } = await supabase
+      .from('maintenance_order_items')
+      .select('work_order_id')
+      .eq('maintenance_order_id', moItem.maintenance_order_id)
+      .not('work_order_id', 'is', null);
+
+    const otherWoIds = [...new Set((allMoItems || []).map((i) => i.work_order_id).filter(Boolean))].filter(
+      (id) => id !== workOrderId
+    );
+
+    if (otherWoIds.length > 0) {
+      const { data: activeWos } = await supabase
+        .from('work_orders')
+        .select('id, sector:workshop_sectors!work_orders_sector_id_fkey(name)')
+        .in('id', otherWoIds)
+        .eq('status', 'in_progress');
+
+      if (activeWos && activeWos.length > 0) {
+        const sectorName =
+          activeWos[0].sector && typeof activeWos[0].sector === 'object' && 'name' in activeWos[0].sector
+            ? String(activeWos[0].sector.name)
+            : 'otro sector';
+        throw new Error(`No se puede reanudar: ${sectorName} tiene una OT en progreso`);
+      }
+    }
+  }
+
+  const { error } = await supabase
+    .from('work_orders')
+    .update({
+      status: 'in_progress',
+    })
+    .eq('id', workOrderId);
+
+  if (error) {
+    logger.error('Error resuming work order', { data: { error } });
+    throw error;
+  }
+
+  revalidatePath('/operator');
+}
+
 export async function completeRepair(repairId: string) {
   const supabase = await supabaseServer();
+
+  // Verify work order is not in pending status
+  const { data: repairData } = await supabase
+    .from('work_order_item_repairs')
+    .select('work_order_item_id, work_order_items!inner(work_order_id, work_orders!inner(status))')
+    .eq('id', repairId)
+    .single();
+
+  const woStatus = (repairData?.work_order_items as { work_orders: { status: string } } | undefined)?.work_orders
+    ?.status;
+
+  if (woStatus === 'pending') {
+    throw new Error('No se puede completar la tarea: primero debe iniciar la Orden de Trabajo');
+  }
 
   const {
     data: { user },
@@ -446,6 +662,13 @@ export async function returnTask(repairId: string, returnReason: string) {
 export async function closeWorkOrder(workOrderId: string, notes?: string) {
   const supabase = await supabaseServer();
 
+  // Validate work order is started (in_progress or paused) before allowing close
+  const { data: woData } = await supabase.from('work_orders').select('status').eq('id', workOrderId).single();
+
+  if (woData?.status === 'pending') {
+    throw new Error('No se puede cerrar la OT: primero debe iniciarla');
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -476,40 +699,73 @@ export async function closeWorkOrder(workOrderId: string, notes?: string) {
   }
 
   // Check if all work orders for the maintenance order are closed
-  // Get maintenance_order_id through work_order_items relationship
-  const { data: woItem } = await supabase
+  // Get maintenance_order_id through work_order_items → maintenance_order_items relationship
+  const { data: woItems, error: woItemError } = await supabase
     .from('work_order_items')
-    .select('maintenance_order_items(maintenance_order_id)')
+    .select('maintenance_order_item_id, maintenance_order_items(maintenance_order_id)')
     .eq('work_order_id', workOrderId)
-    .limit(1)
-    .single();
+    .limit(1);
 
-  const maintenanceOrderId = woItem?.maintenance_order_items?.maintenance_order_id;
+  if (woItemError) {
+    logger.error('Error getting maintenance_order_id from work_order_items', { data: { error: woItemError } });
+  }
+
+  const firstWoItem = woItems?.[0];
+  const moItemData = firstWoItem?.maintenance_order_items;
+  const maintenanceOrderId = Array.isArray(moItemData)
+    ? moItemData[0]?.maintenance_order_id
+    : moItemData?.maintenance_order_id;
 
   if (maintenanceOrderId) {
-    // Get all work_order_items for this maintenance order
-    const { data: allItems } = await supabase
+    // Use maintenance_order_items.work_order_id (direct FK) to get all work_orders
+    const { data: moItems, error: moItemsError } = await supabase
       .from('maintenance_order_items')
-      .select('work_order_items(work_order_id, work_orders(id, status))')
-      .eq('maintenance_order_id', maintenanceOrderId);
+      .select('work_order_id')
+      .eq('maintenance_order_id', maintenanceOrderId)
+      .not('work_order_id', 'is', null);
 
-    const allWOs = (allItems || [])
-      .flatMap((item) => item.work_order_items || [])
-      .map((woItem) => woItem.work_orders)
-      .filter((wo): wo is NonNullable<typeof wo> => wo !== null);
-
-    const allClosed = allWOs.every((wo) => wo.status === 'completed' || wo.status === 'completed_partial');
-
-    if (allClosed) {
-      await supabase
-        .from('maintenance_orders')
-        .update({ status: 'pending_workshop_validation' })
-        .eq('id', maintenanceOrderId);
-
-      logger.info('Maintenance order ready for workshop validation', {
-        data: { maintenanceOrderId },
-      });
+    if (moItemsError) {
+      logger.error('Error getting work_orders for maintenance order', { data: { error: moItemsError } });
     }
+
+    // Get unique work_order_ids
+    const workOrderIds = [...new Set((moItems || []).map((item) => item.work_order_id).filter(Boolean))];
+
+    if (workOrderIds.length > 0) {
+      const { data: allWOs, error: allWOsError } = await supabase
+        .from('work_orders')
+        .select('id, status')
+        .in('id', workOrderIds as string[]);
+
+      if (allWOsError) {
+        logger.error('Error getting work_order statuses', { data: { error: allWOsError } });
+      }
+
+      const allClosed = (allWOs || []).every((wo) => wo.status === 'completed' || wo.status === 'completed_partial');
+
+      logger.info('Checking if all work orders are closed', {
+        data: { maintenanceOrderId, totalWOs: allWOs?.length, allClosed, statuses: allWOs?.map((wo) => wo.status) },
+      });
+
+      if (allClosed && (allWOs || []).length > 0) {
+        const { error: updateMoError } = await supabase
+          .from('maintenance_orders')
+          .update({ status: 'pending_workshop_validation' })
+          .eq('id', maintenanceOrderId);
+
+        if (updateMoError) {
+          logger.error('Error updating maintenance order to pending_workshop_validation', {
+            data: { error: updateMoError },
+          });
+        } else {
+          logger.info('Maintenance order ready for workshop validation', {
+            data: { maintenanceOrderId },
+          });
+        }
+      }
+    }
+  } else {
+    logger.warn('No maintenance_order_id found for work_order', { data: { workOrderId } });
   }
 
   revalidatePath('/operator');
