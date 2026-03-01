@@ -104,6 +104,7 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | Estructura de Features                      | @.claude/rules/feature-structure.md | Al crear/modificar features                       |
 | Legajo en listas de empleados               | Integrado en CLAUDE.md + agent      | Toda lista/filtro/selector de empleados           |
 | Date pickers con escritura directa          | Integrado en CLAUDE.md              | Todo date picker individual (no date range)       |
+| Forms con shadcn + zod (OBLIGATORIO)        | @.claude/rules/forms.md             | Todo formulario que recolecte datos del usuario   |
 | Evitar useEffect innecesarios               | @.claude/rules/no-useeffect.md      | Siempre al escribir logica reactiva               |
 | Revision Diferencial pre-commit             | Integrado en `branch-reviewer`      | Al commitear, pushear o crear PR                  |
 

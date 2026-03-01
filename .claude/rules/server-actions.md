@@ -42,17 +42,38 @@ createForm(); // Falta especificidad
 
 ## Formato de Server Action
 
-**Nuevo estándar — usar Prisma:**
+**Nuevo estándar — Prisma + Logger + Tipos exportados:**
 
 ```typescript
 'use server';
 
 import { prisma } from '@/shared/lib/prisma';
+import { Logger } from '@/lib/logger';
 
+const logger = new Logger('features/Employees');
+
+/**
+ * Descripcion de lo que hace la funcion
+ */
 export async function getAllEmployees() {
-  const employees = await prisma.employees.findMany();
-  return employees;
+  logger.debug('Obteniendo empleados');
+
+  try {
+    const data = await prisma.employees.findMany({
+      select: { id: true, firstname: true, lastname: true, file_number: true },
+      orderBy: { lastname: 'asc' },
+    });
+
+    return data;
+  } catch (error) {
+    logger.error('Error al obtener empleados', { data: { error } });
+    throw error;
+  }
 }
+
+// Tipos inferidos del retorno — NUNCA definir manualmente
+export type EmployeesData = Awaited<ReturnType<typeof getAllEmployees>>;
+export type EmployeeItem = EmployeesData[number];
 ```
 
 **Legacy — Supabase (solo en código existente no migrado aún):**

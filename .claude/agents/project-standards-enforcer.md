@@ -186,7 +186,50 @@ useEffect(() => {
 </SelectItem>
 ```
 
-### 13. Evitar useEffect Innecesarios
+### 13. Forms con shadcn/ui + React Hook Form + Zod (OBLIGATORIO)
+
+**TODO formulario que recolecte datos del usuario** DEBE usar el componente `Form` de shadcn + `zodResolver` + `z.infer<typeof schema>` para tipado. Consultar el MCP de shadcn ANTES de implementar cualquier form.
+
+```typescript
+'use client';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+
+const formSchema = z.object({
+  name: z.string().min(1, 'Requerido'),
+});
+type FormValues = z.infer<typeof formSchema>; // ✅ Tipo inferido del schema
+
+export function MyForm() {
+  const form = useForm<FormValues>({ resolver: zodResolver(formSchema), defaultValues: { name: '' } });
+
+  async function onSubmit(values: FormValues) { /* values ya tipado y validado */ }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField control={form.control} name="name" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Nombre</FormLabel>
+            <FormControl><Input {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <Button type="submit" disabled={form.formState.isSubmitting}>Guardar</Button>
+      </form>
+    </Form>
+  );
+}
+```
+
+- **NUNCA** usar `useState` para valores de formulario
+- **NUNCA** validar con `if/else` manual — usar el schema Zod
+- **SIEMPRE** `<FormMessage />` en cada campo
+- **SIEMPRE** deshabilitar submit con `form.formState.isSubmitting`
+
+### 14. Evitar useEffect Innecesarios
 
 - **NUNCA** usar `useEffect` para reaccionar a cambios de estado propios
 - Si se ejecuta al hacer click → mover al `onClick`
@@ -223,6 +266,8 @@ useEffect(() => {
 - [ ] `moment.js` para fechas
 - [ ] Queries eficientes (sin N+1, usando Prisma para nuevo código)
 - [ ] Si se detectó fetching con Supabase → preguntado al usuario si migrar a Prisma
+- [ ] Tipos de server actions exportados con `Awaited<ReturnType<...>>`
+- [ ] Formularios usan `Form` de shadcn + `zodResolver` + `z.infer<typeof schema>`
 - [ ] Sin `window.confirm/alert/prompt`
 - [ ] Sin archivos `.md` creados innecesariamente
 - [ ] Sin `useEffect` innecesarios
