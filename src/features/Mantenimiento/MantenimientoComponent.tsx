@@ -1,37 +1,18 @@
 import MaintenanceGroupsWrapper from '@/components/Tipos_de_reparaciones/MaintenanceGroupsWrapper';
 import RepairEntryWrapper from '@/components/Tipos_de_reparaciones/RepairEntryWrapper';
 import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairTypeFormWrapper';
-import { ApprovalInboxSkeleton, ApprovalInboxTabContent } from '@/features/Mantenimiento/ApprovalInbox';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
-import { MaintenanceOrdersSkeleton, MaintenanceOrdersTabContent } from '@/features/Mantenimiento/MaintenanceOrders';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
-import { ParaTallerTabContent } from '@/features/Mantenimiento/Operaciones/ParaTaller';
-import { OperacionesTableSkeleton } from '@/features/Mantenimiento/Operaciones/fallback';
-import { PedidosMantenimientoTabContent } from '@/features/Mantenimiento/PedidosMantenimiento';
-import { PedidosTableSkeleton } from '@/features/Mantenimiento/PedidosMantenimiento/fallback';
 import { RepairSolicitudesTabContent } from '@/features/Mantenimiento/RepairSolicitudes/RepairSolicitudesTabContent';
 import { RepairSolicitudesSkeleton } from '@/features/Mantenimiento/RepairSolicitudes/fallback/RepairSolicitudesSkeleton';
-import { SolicitudesMantenimientoTabContent } from '@/features/Mantenimiento/SolicitudesMantenimiento';
-import { SolicitudesTableSkeleton } from '@/features/Mantenimiento/SolicitudesMantenimiento/fallback';
-import { WorkshopTrackingSkeleton, WorkshopTrackingTabContent } from '@/features/Mantenimiento/WorkshopTracking';
 import { TabsManagerServer } from '@/features/TabsManager';
-import {
-  AlertTriangle,
-  Calendar,
-  ClipboardCheck,
-  ClipboardList,
-  Eye,
-  FileText,
-  Inbox,
-  Plus,
-  Settings,
-  Users,
-  Warehouse,
-} from 'lucide-react';
+import { AlertTriangle, ClipboardList, Plus, Settings, Users, Warehouse } from 'lucide-react';
 import { Suspense } from 'react';
-import { PendientesEjecutarTabContent } from './PendientesEjecutar';
-import { PendientesEjecutarSkeleton } from './PendientesEjecutar/fallback';
+import { OperacionesPipelineContent } from './Pipeline/OperacionesPipeline/OperacionesPipelineContent';
+import { OperacionesPipelineSkeleton } from './Pipeline/OperacionesPipeline/fallback/OperacionesPipelineSkeleton';
+import { TallerPipelineContent } from './Pipeline/TallerPipeline/TallerPipelineContent';
+import { TallerPipelineSkeleton } from './Pipeline/TallerPipeline/fallback/TallerPipelineSkeleton';
 
 interface MantenimientoComponentProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -39,24 +20,16 @@ interface MantenimientoComponentProps {
 }
 
 /**
- * Componente principal del módulo Mantenimiento con la nueva estructura de tabs:
+ * Componente principal del módulo Mantenimiento.
  *
- * - Operaciones (maint_operaciones)
- *   - Equipos con Desvíos
- *   - Solicitudes de Mantenimiento
- *   - Pendientes de Ejecutar
- *   - Nuevo Pedido
- *   - Para Taller
- *   - Seguimiento en Taller
- *
- * - Taller (maint_taller)
- *   - Pedidos de Mantenimiento
- *   - Bandeja de Aprobaciones
- *   - Órdenes de Mantenimiento (incluye funcionalidad de gestión)
- *
- * - Configuración (maint_configuracion)
- *   - Tipos de Reparación
- *   - Grupos
+ * Estructura de tabs raíz:
+ * - Solicitudes Activas: tabla general de solicitudes creadas
+ * - Nueva Solicitud: formulario para crear solicitud
+ * - Operaciones: pipeline visual con 4 pasos (Validar → Aprobar Fecha → Para Taller → Seguimiento)
+ * - Taller: pipeline visual con 4 pasos (Por Programar → Confirmados → En Taller → Aprobaciones)
+ * - Nuevo Pedido: formulario de nuevo pedido de mantenimiento
+ * - Equipos con Desvíos: tabla de equipos con desvíos pendientes
+ * - Configuración: tipos de reparación y grupos
  */
 export default async function MantenimientoComponent({ searchParams, permissions }: MantenimientoComponentProps) {
   return (
@@ -71,7 +44,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
           label: (
             <span className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
-              {true ? 'Solicitudes Activas' : 'Solicitudes'}
+              Solicitudes Activas
             </span>
           ),
           moduleSlug: 'mantenimiento',
@@ -99,7 +72,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
           ),
         },
         // ============================================
-        // TAB 1: OPERACIONES
+        // TAB: OPERACIONES (Pipeline visual)
         // ============================================
         {
           value: 'maint_operaciones',
@@ -112,116 +85,13 @@ export default async function MantenimientoComponent({ searchParams, permissions
           moduleSlug: 'mantenimiento',
           tabSlug: 'maint_operaciones',
           content: (
-            <TabsManagerServer
-              paramName="subtab"
-              searchParams={searchParams}
-              defaultTab="maintenance_requests"
-              permissions={permissions}
-              dependentParams={['operations_subtab']}
-              tabs={[
-                {
-                  value: 'maintenance_requests',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <ClipboardCheck className="h-4 w-4" />
-                      Pendientes de Validar
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'maintenance_requests',
-                  content: (
-                    <Suspense fallback={<SolicitudesTableSkeleton />}>
-                      <SolicitudesMantenimientoTabContent />
-                    </Suspense>
-                  ),
-                },
-
-                {
-                  value: 'pendientes_ejecutar',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Aprobación de Fecha
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'pendientes_ejecutar',
-                  content: (
-                    <Suspense fallback={<PendientesEjecutarSkeleton />}>
-                      <PendientesEjecutarTabContent />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'nuevo_pedido',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      Nuevo Pedido
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'nuevo_pedido',
-                  content: (
-                    <Suspense fallback={<NuevoPedidoSkeleton />}>
-                      <NuevoPedidoTabContent />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'para_taller',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Warehouse className="h-4 w-4" />
-                      Para Taller
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'para_taller',
-                  content: (
-                    <Suspense fallback={<OperacionesTableSkeleton />}>
-                      <ParaTallerTabContent />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'seguimiento_taller',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Eye className="h-4 w-4" />
-                      Seguimiento en Taller
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'seguimiento_taller',
-                  content: (
-                    <Suspense fallback={<WorkshopTrackingSkeleton />}>
-                      <WorkshopTrackingTabContent />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'equipments_with_deviations',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
-                      Equipos con Desvíos
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'equipments_with_deviations',
-                  content: (
-                    <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
-                      <EquiposConDesviosTabContent />
-                    </Suspense>
-                  ),
-                },
-              ]}
-            />
+            <Suspense fallback={<OperacionesPipelineSkeleton />}>
+              <OperacionesPipelineContent searchParams={searchParams} />
+            </Suspense>
           ),
         },
         // ============================================
-        // TAB 2: TALLER
+        // TAB: TALLER (Pipeline visual)
         // ============================================
         {
           value: 'maint_taller',
@@ -234,67 +104,51 @@ export default async function MantenimientoComponent({ searchParams, permissions
           moduleSlug: 'mantenimiento',
           tabSlug: 'maint_taller',
           content: (
-            <TabsManagerServer
-              paramName="subtab"
-              searchParams={searchParams}
-              defaultTab="maintenance_orders"
-              permissions={permissions}
-              dependentParams={['taller_subtab']}
-              tabs={[
-                {
-                  value: 'maintenance_orders',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <ClipboardCheck className="h-4 w-4" />
-                      Pedidos de Mantenimiento
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'maintenance_orders',
-                  content: (
-                    <Suspense fallback={<PedidosTableSkeleton />}>
-                      <PedidosMantenimientoTabContent searchParams={searchParams} permissions={permissions} />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'bandeja_aprobaciones',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Inbox className="h-4 w-4" />
-                      Bandeja de Aprobaciones
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'bandeja_aprobaciones',
-                  content: (
-                    <Suspense fallback={<ApprovalInboxSkeleton />}>
-                      <ApprovalInboxTabContent />
-                    </Suspense>
-                  ),
-                },
-                {
-                  value: 'ordenes_mantenimiento',
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Órdenes de Mantenimiento
-                    </span>
-                  ),
-                  moduleSlug: 'mantenimiento',
-                  tabSlug: 'ordenes_mantenimiento',
-                  content: (
-                    <Suspense fallback={<MaintenanceOrdersSkeleton />}>
-                      <MaintenanceOrdersTabContent />
-                    </Suspense>
-                  ),
-                },
-              ]}
-            />
+            <Suspense fallback={<TallerPipelineSkeleton />}>
+              <TallerPipelineContent searchParams={searchParams} />
+            </Suspense>
           ),
         },
         // ============================================
-        // TAB 3: CONFIGURACIÓN
+        // TAB: NUEVO PEDIDO (movido desde subtab de Operaciones)
+        // ============================================
+        {
+          value: 'nuevo_pedido',
+          label: (
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nuevo Pedido
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'nuevo_pedido',
+          content: (
+            <Suspense fallback={<NuevoPedidoSkeleton />}>
+              <NuevoPedidoTabContent />
+            </Suspense>
+          ),
+        },
+        // ============================================
+        // TAB: EQUIPOS CON DESVÍOS (movido desde subtab de Operaciones)
+        // ============================================
+        {
+          value: 'equipments_with_deviations',
+          label: (
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Equipos con Desvíos
+            </span>
+          ),
+          moduleSlug: 'mantenimiento',
+          tabSlug: 'equipments_with_deviations',
+          content: (
+            <Suspense fallback={<EquipmentsWithDeviationsSkeleton />}>
+              <EquiposConDesviosTabContent />
+            </Suspense>
+          ),
+        },
+        // ============================================
+        // TAB: CONFIGURACIÓN
         // ============================================
         {
           value: 'maint_configuracion',
