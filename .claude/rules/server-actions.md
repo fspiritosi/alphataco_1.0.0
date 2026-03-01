@@ -42,6 +42,42 @@ createForm(); // Falta especificidad
 
 ## Formato de Server Action
 
+**Nuevo estándar — Prisma + Logger + Tipos exportados:**
+
+```typescript
+'use server';
+
+import { prisma } from '@/shared/lib/prisma';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('features/Employees');
+
+/**
+ * Descripcion de lo que hace la funcion
+ */
+export async function getAllEmployees() {
+  logger.debug('Obteniendo empleados');
+
+  try {
+    const data = await prisma.employees.findMany({
+      select: { id: true, firstname: true, lastname: true, file_number: true },
+      orderBy: { lastname: 'asc' },
+    });
+
+    return data;
+  } catch (error) {
+    logger.error('Error al obtener empleados', { data: { error } });
+    throw error;
+  }
+}
+
+// Tipos inferidos del retorno — NUNCA definir manualmente
+export type EmployeesData = Awaited<ReturnType<typeof getAllEmployees>>;
+export type EmployeeItem = EmployeesData[number];
+```
+
+**Legacy — Supabase (solo en código existente no migrado aún):**
+
 ```typescript
 'use server';
 
@@ -49,13 +85,13 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 export async function getAllEmployees() {
   const supabase = await supabaseServer();
-
   const { data, error } = await supabase.from('employees').select('*');
-
   if (error) throw error;
   return data || [];
 }
 ```
+
+> Al encontrar una server action que use Supabase para fetching, **preguntar al usuario si desea migrarla a Prisma** antes de continuar con la tarea principal. El cambio es solo en el mecanismo de fetch, sin alterar la lógica ni los datos retornados.
 
 ## Reglas de Server Actions
 
@@ -70,7 +106,7 @@ export async function GET() { ... }
 
 // ❌ INCORRECTO - NO olvidar validar permisos
 export async function createEmployee(data) {
-  await supabase.from('employees').insert(data); // Falta validacion de permisos
+  await prisma.employees.create({ data }); // Falta validacion de permisos
 }
 
 // ❌ INCORRECTO - NO usar 'use server' en archivos de cliente

@@ -103,6 +103,8 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | Filtros de DataTable (1 por columna)        | @.claude/rules/datatable-filters.md | Al crear/modificar filtros de tablas              |
 | Estructura de Features                      | @.claude/rules/feature-structure.md | Al crear/modificar features                       |
 | Legajo en listas de empleados               | Integrado en CLAUDE.md + agent      | Toda lista/filtro/selector de empleados           |
+| Date pickers con escritura directa          | Integrado en CLAUDE.md              | Todo date picker individual (no date range)       |
+| Forms con shadcn + zod (OBLIGATORIO)        | @.claude/rules/forms.md             | Todo formulario que recolecte datos del usuario   |
 | Evitar useEffect innecesarios               | @.claude/rules/no-useeffect.md      | Siempre al escribir logica reactiva               |
 | Revision Diferencial pre-commit             | Integrado en `branch-reviewer`      | Al commitear, pushear o crear PR                  |
 
@@ -182,8 +184,12 @@ Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 - **NO** traer todos los datos y filtrar en el frontend
 - **NO** traer catalogos completos para hacer lookups en el frontend
 - **SIEMPRE** filtrar en la query (hook useQuery o server action)
-- **SIEMPRE** resolver nombres/relaciones con JOINs en la query, NO con lookups client-side
+- **SIEMPRE** resolver nombres/relaciones con Prisma `include`/`select` (nuevo estándar) o JOINs de Supabase (legacy), NO con lookups client-side
 - **SIEMPRE** optimizar las peticiones
+
+#### Migracion incremental Supabase → Prisma
+
+Al encontrar código que usa `supabaseServer()`, `supabaseBrowser()` o `.from().select()` para fetching de datos: **preguntar al usuario si desea migrar esa implementación puntual a Prisma**. El cambio reemplaza solo el mecanismo de fetch sin alterar la lógica ni el funcionamiento.
 
 ```typescript
 // ❌ INCORRECTO - Traer todo y filtrar en frontend
@@ -198,20 +204,51 @@ const allItems = await getAllItems();
 // En la tabla: items.find(i => i.id === row.item)?.name
 const itemName = allItems.find((i) => i.id === row.item)?.item_name;
 
-// ✅ CORRECTO - Resolver con JOIN en la query de Supabase
-const { data } = await supabase.from('preparte').select('*, service_items(id, item_name)');
+// ✅ CORRECTO - Resolver con include/select en Prisma (nuevo estándar)
+const data = await prisma.preparte.findMany({
+  include: { service_items: { select: { id: true, item_name: true } } },
+});
 // En la tabla: row.service_items?.item_name (ya viene resuelto)
+
+// ⚠️ LEGACY - Forma con Supabase (solo en código no migrado aún)
+// const { data } = await supabase.from('preparte').select('*, service_items(id, item_name)');
 ```
 
 ### 5. Numero de Legajo en Listas de Empleados
 
-**SIEMPRE** incluir el numero de legajo (`file_number`) en TODA lista, tabla, selector, filtro o referencia visual de empleados. Los usuarios identifican a los empleados por su legajo, no por su nombre.
+**SIEMPRE** incluir el numero de legajo (`file_number`) en TODA superficie donde se muestre informacion de un empleado. Los usuarios identifican a los empleados por su legajo, NO por su nombre. El nombre puede repetirse entre personas; el legajo es unico.
 
-- **DataTables de empleados**: columna de legajo visible + filtro de texto
-- **Selectores/Combos de empleados**: mostrar legajo junto al nombre (ej: `[1234] Juan Perez`)
-- **Modales de detalle**: incluir legajo en la informacion del empleado
-- **Filtros facetados**: cuando se liste empleados como opcion de filtro, incluir legajo en el label
-- **Exportacion Excel**: incluir columna de legajo
+#### Superficies obligatorias
+
+| Superficie                                     | Regla                                                           |
+| ---------------------------------------------- | --------------------------------------------------------------- |
+| DataTable de empleados                         | Columna `file_number` visible + filtro de texto por legajo      |
+| DataTable de otras entidades con FK a empleado | Mostrar legajo junto al nombre en la celda (ej: `[1234] Perez`) |
+| Selector / Combobox de empleado                | Label con formato `[legajo] Apellido Nombre`                    |
+| Filtro facetado con empleados como opciones    | Label con formato `[legajo] Apellido Nombre`                    |
+| Modal / Drawer de detalle                      | Legajo visible en el header o datos principales                 |
+| Badges / chips que referencian un empleado     | Incluir legajo o tooltip con legajo                             |
+| Breadcrumb / titulo de pagina de detalle       | Incluir legajo en la identificacion del empleado                |
+| Exportacion Excel                              | Columna de legajo incluida                                      |
+| Buscadores de empleado (SearchInput)           | Placeholder debe decir "Buscar por legajo o nombre"             |
+
+#### Regla de Query — `file_number` DEBE viajar en los datos
+
+Cuando una query trae empleados (directa o via JOIN), SIEMPRE incluir `file_number` en el `select`. Si el dato no llega al componente, no se puede mostrar.
+
+```typescript
+// ✅ CORRECTO — select incluye file_number
+const employees = await prisma.employees.findMany({
+  select: { id: true, firstname: true, lastname: true, file_number: true },
+});
+
+// ❌ INCORRECTO — file_number ausente
+const employees = await prisma.employees.findMany({
+  select: { id: true, firstname: true, lastname: true },
+});
+```
+
+#### Ejemplos de presentacion
 
 ```typescript
 // ✅ CORRECTO - Legajo visible en selector
@@ -219,8 +256,16 @@ const { data } = await supabase.from('preparte').select('*, service_items(id, it
   [{employee.file_number}] {employee.lastname} {employee.firstname}
 </SelectItem>
 
-// ✅ CORRECTO - Legajo en tabla
+// ✅ CORRECTO - Legajo en tabla propia de empleados
 { accessorKey: 'file_number', header: 'Legajo', meta: { title: 'Legajo' } }
+
+// ✅ CORRECTO - Legajo en celda de tabla de otra entidad (ej: solicitudes)
+cell: ({ row }) => (
+  <span>[{row.original.employee?.file_number}] {row.original.employee?.lastname}</span>
+)
+
+// ✅ CORRECTO - Label de filtro facetado con empleados
+label: `[${emp.file_number}] ${emp.lastname} ${emp.firstname}`
 
 // ❌ INCORRECTO - Lista de empleados sin legajo
 <SelectItem value={employee.id}>
@@ -228,7 +273,62 @@ const { data } = await supabase.from('preparte').select('*, service_items(id, it
 </SelectItem>
 ```
 
-### 6. Evitar useEffect Innecesarios
+#### Deteccion automatica y correccion incremental
+
+Al leer cualquier archivo que muestre o filtre empleados, verificar si `file_number` esta presente en los datos y visible en la UI.
+
+**Si se detecta una implementacion incorrecta** (empleados sin legajo en cualquier superficie): **PREGUNTAR al usuario si desea corregirlo antes de continuar** con la tarea principal. Esto permite ir saneando el sistema de forma incremental sin bloquear el trabajo actual.
+
+Formato de pregunta sugerido:
+
+> "Encontre que [componente/tabla/selector] muestra empleados sin el numero de legajo. ¿Queres que lo corrija ahora?"
+
+Si el usuario dice que si → corregirlo primero, luego continuar con la tarea original.
+Si el usuario dice que no → continuar con la tarea original sin tocar ese componente.
+
+### 6. Date Pickers con Escritura Directa
+
+**Todo campo de fecha individual (date picker, date input) DEBE permitir que el usuario escriba la fecha directamente**, ademas de usar el calendario. El comportamiento debe ser equivalente al input nativo `<input type="date">` de HTML, pero implementado con componentes de shadcn/ui.
+
+#### Alcance
+
+| Componente                          | Aplica esta regla                       |
+| ----------------------------------- | --------------------------------------- |
+| Date picker de fecha individual     | ✅ SI — debe permitir escritura directa |
+| Date range picker (rango de fechas) | ❌ NO — queda como esta, no se modifica |
+
+#### Implementacion correcta
+
+Usar un `<Input type="text">` o `<Input type="date">` de shadcn combinado con el `Calendar` y `Popover`, de forma que el campo de texto sea editable. El usuario debe poder:
+
+1. Escribir la fecha manualmente en el input
+2. O abrirlo con el icono de calendario para seleccionar visualmente
+
+```typescript
+// ✅ CORRECTO - Input editable + popover con calendario
+// El input permite escritura directa Y seleccion por calendario
+
+// ❌ INCORRECTO - Solo boton que abre el calendario, sin campo de texto editable
+<Button variant="outline">
+  <CalendarIcon />
+  {date ? format(date, 'PPP') : 'Seleccionar fecha'}
+</Button>
+```
+
+#### Deteccion automatica y correccion incremental
+
+Al leer cualquier archivo que contenga un date picker de fecha individual: verificar si el usuario puede escribir la fecha directamente o solo puede seleccionarla por calendario.
+
+**Si se detecta un date picker que NO permite escritura directa** (y NO es un date range): **PREGUNTAR al usuario si desea corregirlo antes de continuar** con la tarea principal.
+
+Formato de pregunta sugerido:
+
+> "Encontre que [componente/formulario] tiene un date picker que no permite escribir la fecha directamente. ¿Queres que lo corrija ahora?"
+
+Si el usuario dice que si → corregirlo primero, luego continuar con la tarea original.
+Si el usuario dice que no → continuar con la tarea original sin tocar ese componente.
+
+### 7. Evitar useEffect Innecesarios
 
 **NUNCA** usar `useEffect` para reaccionar a cambios de estado que nosotros mismos provocamos. Mover la logica al punto de origen.
 
