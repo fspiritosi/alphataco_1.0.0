@@ -12,4 +12,5 @@ export interface SidebarProps {
    */
   initialPathname: string;
   accessibleModules: AccessibleModule[];
+  isActive: string | undefined;
 }

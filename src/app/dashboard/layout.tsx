@@ -1,41 +1,53 @@
+// import { AlertComponent } from '@/components/AlertComponent'
+// import SideBarContainer from '@/components/SideBarContainer';
 import { FilterCleanupInitializer } from '@/components/FilterCleanupInitializer';
 import { PasswordChangeAlertWrapper } from '@/components/PasswordChangeAlertWrapper';
 import { PermissionsProvider } from '@/components/PermissionsProvider';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
 import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
-import { cookies } from 'next/headers';
+import { Inter } from 'next/font/google';
 import '../globals.css';
 import TanstackQueryInicializador from './TanstackQueryInicializador';
+const font = Inter({ subsets: ['latin'] });
 
 /**
  * DashboardLayout - Layout principal del dashboard
  *
- * Usa shadcn SidebarProvider + SidebarInset para el layout.
- * Lee la cookie `sidebar:state` server-side para persistir el estado colapsado.
+ * OPTIMIZACIÓN: Obtiene permisos UNA VEZ aquí y los pre-carga en cache.
+ *
+ * IMPORTANTE: Los permisos se obtienen UNA VEZ en el layout y se pre-cargan en el cache de React.
+ * Todos los componentes hijos que usen getUserPermissionsMapServer() compartirán el mismo cache,
+ * evitando múltiples queries.
+ *
+ * Para pasar permisos explícitamente como prop, los componentes deben obtenerlos y pasarlos
+ * a TabsManagerServer. El cache asegura que solo se haga UNA query incluso si múltiples
+ * componentes obtienen permisos.
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Obtener permisos UNA VEZ en el layout para pre-cargar el cache
+  // Esto asegura que si múltiples componentes llaman a getUserPermissionsMapServer(),
+  // solo se hará UNA query a la base de datos
   await getUserPermissionsMapServer();
 
-  const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false';
-
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <SidebarFeat />
-      <SidebarInset className="bg-sidebar-accent">
-        <FilterCleanupInitializer />
-        <header className="bg-sidebar">
-          <NavbarFeat />
-        </header>
-        <div className="flex flex-1 flex-col p-6">
-          <TanstackQueryInicializador>
-            <PasswordChangeAlertWrapper />
-            <PermissionsProvider>{children}</PermissionsProvider>
-          </TanstackQueryInicializador>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className={`grid grid-rows-[auto_1fr] grid-cols-[auto_1fr]`} suppressHydrationWarning>
+      <FilterCleanupInitializer />
+      <div className="row-span-2 ">
+        <SidebarFeat />
+      </div>
+      <div className="border-r border-b border-muted/50 dark:bg-slate-950 mb-2">
+        {/* <NavBar /> */}
+        <NavbarFeat />
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        <TanstackQueryInicializador>
+          <PasswordChangeAlertWrapper />
+          <PermissionsProvider>
+            <div className="px-6 pb-4">{children}</div>
+          </PermissionsProvider>
+        </TanstackQueryInicializador>
+      </div>
+    </div>
   );
 }
