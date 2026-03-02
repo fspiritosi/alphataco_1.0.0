@@ -25,8 +25,8 @@ export async function getMaintenanceOperations() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, condition, kilometer),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      vehicles(id, domain, serie, intern_number, condition, kilometer, engine_hours),
+      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -92,8 +92,8 @@ export async function getOrdersForWorkshop() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, condition, kilometer),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      vehicles(id, domain, serie, intern_number, condition, kilometer, engine_hours),
+      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(

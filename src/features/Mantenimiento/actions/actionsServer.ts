@@ -27,7 +27,7 @@ export async function getMaintenanceOrdersInWorkshop() {
       `
       *,
       vehicles(id, domain, serie, intern_number, condition, vehicle_type:type(id, name)),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -90,7 +90,7 @@ export async function getMaintenanceOrdersPendingApproval() {
       `
       *,
       vehicles(id, domain, serie, intern_number, condition, vehicle_type:type(id, name)),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -217,7 +217,7 @@ export async function getMaintenanceOrdersDateConfirmed() {
       `
       *,
       vehicles(id, domain, serie, intern_number, type, condition, kilometer),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(

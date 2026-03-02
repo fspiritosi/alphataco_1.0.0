@@ -20,8 +20,8 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, condition),
-      maintenance_requests(id, kilometer, created_at, source),
+      vehicles(id, domain, serie, intern_number, kilometer, condition, engine_hours),
+      maintenance_requests(id, kilometer, engine_hours, created_at, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -99,8 +99,8 @@ export async function getMaintenanceOrdersPending() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, condition),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      vehicles(id, domain, serie, intern_number, kilometer, condition, engine_hours),
+      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -168,8 +168,8 @@ export async function getMaintenanceOrdersConfirmed() {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, condition),
-      maintenance_requests!inner(id, kilometer, created_at, supervisor_id, source),
+      vehicles(id, domain, serie, intern_number, kilometer, condition, engine_hours),
+      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id, source),
       maintenance_order_items(
         *,
         maintenance_request_items(
@@ -227,8 +227,8 @@ export async function getMaintenanceOrderById(orderId: string) {
     .select(
       `
       *,
-      vehicles(id, domain, serie, intern_number, kilometer, condition),
-      maintenance_requests(id, kilometer, created_at, source),
+      vehicles(id, domain, serie, intern_number, kilometer, condition, engine_hours),
+      maintenance_requests(id, kilometer, engine_hours, created_at, source),
       maintenance_order_items(
         *,
         maintenance_request_items(

@@ -111,7 +111,7 @@ export const CreateChecklistAnswer = async (templateId: string, answerData: Chec
     observations: answerData.observaciones || null,
     result: computedResult,
     // Guardar los items fallidos (nuevo formato incluye is_critical)
-    critical_items_failed: failedItems.length > 0 ? failedItems : null,
+    critical_items_failed: (failedItems.length > 0 ? failedItems : null) as string[] | null,
   };
 
   const { data, error } = await supabase.from('checklist_answers').insert(answerPayload).select().single();

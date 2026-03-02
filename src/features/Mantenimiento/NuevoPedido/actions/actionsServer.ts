@@ -20,6 +20,7 @@ export type CreateMaintenanceOrderItemInput = {
 export type CreateMaintenanceOrderDirectInput = {
   equipment_id: string;
   kilometer?: string;
+  engine_hours?: string;
   items: CreateMaintenanceOrderItemInput[];
 };
 
@@ -257,6 +258,7 @@ export async function createMaintenanceOrderFromDeviations(input: {
   equipmentId: string;
   supervisorId: string;
   kilometer?: string;
+  engine_hours?: string;
   deviations: CreateDeviationFromNuevoPedido[];
 }) {
   const supabase = await supabaseServer();
@@ -484,6 +486,7 @@ export async function createMaintenanceRequestPendingApproval(input: {
   equipmentId: string;
   supervisorId: string;
   kilometer?: string;
+  engine_hours?: string;
   deviations: CreateDeviationFromNuevoPedido[];
 }) {
   const supabase = await supabaseServer();

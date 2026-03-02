@@ -225,7 +225,7 @@ export function NuevoPedidoChecklistForm({
     }
 
     // Validar que el kilometraje no sea menor al actual
-    if (isVehicle && kilometer) {
+    if (kilometer) {
       const currentKm = Number(selectedEquipment?.kilometer) || 0;
       if (Number(kilometer) < currentKm) {
         toast.error(`El kilometraje no puede ser menor al actual (${currentKm} km)`);
