@@ -1,6 +1,5 @@
 'use client';
 
-import type { Database } from '@/../database.types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,12 +14,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
-import type { MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
-
-type MaintenanceRequestRow = Database['public']['Tables']['maintenance_requests']['Row'];
+import type { PendingExecutionListItem } from '../actions.server';
 
 interface PendienteDetailDialogProps {
-  order: MaintenanceOrderPendingApprovalData;
+  order: PendingExecutionListItem;
   open: boolean;
   onClose: () => void;
 }
@@ -74,15 +71,15 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
                 <span className="text-sm text-muted-foreground">Km al Solicitar</span>
                 <p className="font-medium">
                   {order.maintenance_requests?.kilometer
-                    ? `${order.maintenance_requests.kilometer.toLocaleString()} km`
+                    ? `${Number(order.maintenance_requests.kilometer).toLocaleString()} km`
                     : '-'}
                 </p>
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Hs al Solicitar</span>
                 <p className="font-medium">
-                  {(order.maintenance_requests as MaintenanceRequestRow | null)?.engine_hours
-                    ? `${Number((order.maintenance_requests as MaintenanceRequestRow).engine_hours).toLocaleString()} hs`
+                  {order.maintenance_requests?.engine_hours
+                    ? `${Number(order.maintenance_requests.engine_hours).toLocaleString()} hs`
                     : '-'}
                 </p>
               </div>

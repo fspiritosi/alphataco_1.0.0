@@ -1,0 +1,225 @@
+'use client';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
+import { type ColumnDef } from '@tanstack/react-table';
+import moment from 'moment';
+import { Calendar, Clock, Eye, History, HourglassIcon, Wrench, ClipboardList } from 'lucide-react';
+import { type PendingOrderListItem } from './actions.server';
+
+// ── Labels y badges de estado ─────────────────────────────────────────────────
+
+export const PENDING_STATUS_LABELS: Record<string, string> = {
+  pending_scheduling: 'Pendiente Planificar',
+  scheduled: 'Pendiente Aprobación',
+};
+
+// ── Labels de origen ──────────────────────────────────────────────────────────
+
+export const SOURCE_LABELS: Record<string, string> = {
+  checklist: 'Checklist',
+  manual: 'Manual',
+};
+
+export const SOURCE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  checklist: ClipboardList,
+  manual: Wrench,
+};
+
+type StatusVariant = 'warning' | 'secondary';
+
+const STATUS_BADGE_CONFIG: Record<string, { label: string; variant: StatusVariant }> = {
+  pending_scheduling: { label: 'Pendiente Planificar', variant: 'warning' },
+  scheduled: { label: 'Pendiente Aprobación', variant: 'secondary' },
+};
+
+export const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  pending_scheduling: HourglassIcon,
+  scheduled: Clock,
+};
+
+// ── Columnas ocultas por defecto ──────────────────────────────────────────────
+export const HIDDEN_COLUMNS_BY_DEFAULT: string[] = ['created_at', 'source'];
+
+// ── Interfaz de callbacks para acciones ──────────────────────────────────────
+
+export interface PendingOrdersColumnCallbacks {
+  onView: (order: PendingOrderListItem) => void;
+  onSchedule: (order: PendingOrderListItem) => void;
+  onViewHistory: (order: PendingOrderListItem) => void;
+}
+
+// ── Definición de columnas ────────────────────────────────────────────────────
+
+export function getPendingOrderColumns(
+  callbacks: PendingOrdersColumnCallbacks
+): ColumnDef<PendingOrderListItem>[] {
+  return [
+    // ── Estado ──────────────────────────────────────────────────────────────
+    {
+      accessorKey: 'status',
+      id: 'status',
+      meta: { title: 'Estado' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      cell: ({ row }) => {
+        const status = row.original.status;
+        const config = STATUS_BADGE_CONFIG[status] ?? { label: status, variant: 'secondary' as const };
+        const Icon = STATUS_ICONS[status];
+        return (
+          <Badge variant={config.variant} className="gap-1 whitespace-nowrap">
+            {Icon && <Icon className="h-3 w-3" />}
+            {config.label}
+          </Badge>
+        );
+      },
+      filterFn: (row, id, value: string[]) => value.includes(row.getValue(id) as string),
+    },
+
+    // ── Equipo / Vehículo ────────────────────────────────────────────────────
+    {
+      id: 'vehicle',
+      accessorFn: (row) => row.vehicles?.domain || row.vehicles?.serie || 'Sin identificar',
+      meta: { title: 'Equipo' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Equipo" />,
+      cell: ({ row }) => {
+        const vehicle = row.original.vehicles;
+        const label = vehicle?.domain || vehicle?.serie || 'Sin identificar';
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">{label}</span>
+            {vehicle?.intern_number && (
+              <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>
+            )}
+          </div>
+        );
+      },
+      filterFn: (row, _id, value: string[]) => {
+        const vehicleId = row.original.vehicles?.id;
+        if (!vehicleId) return false;
+        return value.includes(vehicleId);
+      },
+      enableSorting: false,
+    },
+
+    // ── Número de Pedido ──────────────────────────────────────────────────────
+    {
+      accessorKey: 'order_number',
+      id: 'order_number',
+      meta: { title: 'Nro. Pedido' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Nro. Pedido" />,
+      cell: ({ row }) => {
+        const num = row.original.order_number;
+        return <span className="font-mono text-sm">{num ?? '—'}</span>;
+      },
+    },
+
+    // ── Origen del pedido ─────────────────────────────────────────────────────
+    {
+      accessorKey: 'source',
+      id: 'source',
+      meta: { title: 'Origen' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Origen" />,
+      cell: ({ row }) => {
+        const src = row.original.source;
+        if (!src) return <span className="text-muted-foreground">—</span>;
+        const label = SOURCE_LABELS[src] ?? src;
+        const Icon = SOURCE_ICONS[src];
+        return (
+          <Badge variant="outline" className="gap-1 whitespace-nowrap">
+            {Icon && <Icon className="h-3 w-3" />}
+            {label}
+          </Badge>
+        );
+      },
+      filterFn: (row, id, value: string[]) => value.includes(row.getValue(id) as string),
+    },
+
+    // ── Fecha de Aprobación (created_at) ─────────────────────────────────────
+    {
+      accessorKey: 'created_at',
+      id: 'created_at',
+      meta: { title: 'Fecha Aprobación' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Aprobación" />,
+      cell: ({ row }) => {
+        const date = row.original.created_at;
+        return <span>{date ? moment(date).format('DD/MM/YYYY HH:mm') : '—'}</span>;
+      },
+    },
+
+    // ── Fecha Planificada ─────────────────────────────────────────────────────
+    {
+      accessorKey: 'scheduled_date',
+      id: 'scheduled_date',
+      meta: { title: 'Fecha Planificada' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Planificada" />,
+      cell: ({ row }) => {
+        const date = row.original.scheduled_date;
+        if (!date) return <span className="text-muted-foreground">Sin planificar</span>;
+        return <span>{moment(date).format('DD/MM/YYYY')}</span>;
+      },
+    },
+
+    // ── Items ─────────────────────────────────────────────────────────────────
+    {
+      id: 'items',
+      accessorFn: (row) => row._count.maintenance_order_items,
+      meta: { title: 'Items' },
+      header: 'Items',
+      cell: ({ row }) => {
+        const count = row.original._count.maintenance_order_items;
+        return (
+          <Badge variant="secondary">
+            {count} {count === 1 ? 'item' : 'items'}
+          </Badge>
+        );
+      },
+      enableSorting: false,
+    },
+
+    // ── Acciones ──────────────────────────────────────────────────────────────
+    {
+      id: 'actions',
+      meta: { excludeFromExport: true, title: '' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => {
+        const order = row.original;
+        const isPendingScheduling = order.status === 'pending_scheduling';
+
+        return (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => callbacks.onView(order)}
+              title="Ver detalle"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => callbacks.onViewHistory(order)}
+              title="Ver historial"
+              className="text-purple-600 hover:text-purple-700"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+            {isPendingScheduling && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => callbacks.onSchedule(order)}
+                title="Planificar fecha"
+                className="text-blue-600 hover:text-blue-700"
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+}

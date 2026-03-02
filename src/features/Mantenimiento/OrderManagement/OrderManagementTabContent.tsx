@@ -1,12 +1,12 @@
-import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../utils/constants';
-import {
-  getActiveExternalWorkshops,
-  getActiveWorkshopSectors,
-  getMaintenanceOrdersForManagement,
-} from './actions/actionsServer';
-import { OrderManagementClient } from './components/OrderManagementClient';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import { Suspense } from 'react';
+import { OrderManagementSkeleton } from './fallback';
+import { OrderManagementList } from './OrderManagementList';
+
+interface Props {
+  searchParams: DataTableSearchParams;
+}
 
 /**
  * Tab de Gestion de Ordenes - Jefe de Taller
@@ -17,21 +17,7 @@ import { OrderManagementClient } from './components/OrderManagementClient';
  * - Asignar items a sectores con orden de secuencia
  * - Se crea automaticamente un DIAGNOSTICO por sector
  */
-export async function OrderManagementTabContent() {
-  const [initialData, sectorsData, repairTypesData, externalWorkshopsData] = await Promise.all([
-    getMaintenanceOrdersForManagement(),
-    getActiveWorkshopSectors(),
-    fetchAllTypesOfRepairs(),
-    getActiveExternalWorkshops(),
-  ]);
-
-  const repairTypes = repairTypesData
-    .filter((r) => r.id !== DIAGNOSTICO_REPAIR_TYPE_ID)
-    .map((r) => ({
-      id: r.id,
-      name: r.name,
-    }));
-
+export async function OrderManagementTabContent({ searchParams }: Props) {
   return (
     <Card>
       <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
@@ -39,12 +25,9 @@ export async function OrderManagementTabContent() {
         <CardDescription>Asignar items de reparacion a sectores del taller con orden de secuencia</CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
-        <OrderManagementClient
-          initialData={initialData}
-          sectors={sectorsData}
-          repairTypes={repairTypes}
-          externalWorkshops={externalWorkshopsData}
-        />
+        <Suspense fallback={<OrderManagementSkeleton />}>
+          <OrderManagementList searchParams={searchParams} />
+        </Suspense>
       </CardContent>
     </Card>
   );

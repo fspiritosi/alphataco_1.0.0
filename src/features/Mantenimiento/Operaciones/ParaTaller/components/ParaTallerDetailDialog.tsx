@@ -6,10 +6,41 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
-import { type OrderForWorkshopData } from '../../actions/actionsServer';
+
+/** Tipo mínimo que el dialog necesita — compatible con ambos sistemas (Prisma y Supabase legacy) */
+interface OrderForDialog {
+  vehicles?: {
+    domain?: string | null;
+    serie?: string | null;
+    intern_number?: string | null;
+    condition?: string | null;
+    kilometer?: string | null;
+    engine_hours?: string | null;
+  } | null;
+  scheduled_date?: string | Date | null;
+  maintenance_requests?: { source?: string | null } | null;
+  maintenance_order_items?: Array<{
+    id: string;
+    maintenance_request_items?: {
+      checklist_deviations?: {
+        item_label?: string | null;
+        section_code?: string | null;
+      } | null;
+      description?: string | null;
+      driver_comment?: string | null;
+      supervisor_comment?: string | null;
+      validator_comment?: string | null;
+    } | null;
+    types_of_repairs?: { id: string; name: string } | null;
+    maintenance_order_item_repair_types?: Array<{
+      repair_type_id: string;
+      types_of_repairs?: { id: string; name: string } | null;
+    }>;
+  }>;
+}
 
 interface ParaTallerDetailDialogProps {
-  order: OrderForWorkshopData;
+  order: OrderForDialog;
   open: boolean;
   onClose: () => void;
 }
@@ -88,10 +119,10 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
               <div className="space-y-3">
                 {order.maintenance_order_items?.map((item) => {
                   // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const pivotRepairTypes = item.maintenance_order_item_repair_types || [];
                   const repairTypeNames: string[] =
                     pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => !!n)
                       : item.types_of_repairs?.name
                         ? [item.types_of_repairs.name]
                         : [];

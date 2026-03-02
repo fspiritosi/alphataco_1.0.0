@@ -47,6 +47,7 @@ interface Props {
   tableId: string;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
+  equipmentId?: string;
 }
 
 // ============================================================================
@@ -200,6 +201,7 @@ export function _MonthlyEquipmentDocumentsDataTable({
   tableId,
   initialColumnVisibility,
   initialFilterVisibility,
+  equipmentId,
 }: Props) {
   // Extraer solo los params relevantes para facets (sin page/sort)
   const facetParams = useMemo(() => {
@@ -210,8 +212,8 @@ export function _MonthlyEquipmentDocumentsDataTable({
 
   // Facets con cross-filtering
   const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['monthly-equipment-documents-facets', facetParams],
-    queryFn: () => getMonthlyEquipmentDocumentsFacets(facetParams),
+    queryKey: ['monthly-equipment-documents-facets', facetParams, equipmentId],
+    queryFn: () => getMonthlyEquipmentDocumentsFacets(facetParams, equipmentId),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -346,7 +348,7 @@ export function _MonthlyEquipmentDocumentsDataTable({
       data-testid="monthly-equipment-documents-table"
       toolbarActions={<MonthlyEquipmentDocumentsDownloadButton tableRows={data} />}
       exportConfig={{
-        fetchAllData: () => getAllMonthlyEquipmentDocumentsForExport(searchParams),
+        fetchAllData: () => getAllMonthlyEquipmentDocumentsForExport(searchParams, equipmentId),
         options: {
           filename: 'documentos-mensuales-equipos',
           title: 'Listado de Documentos Mensuales de Equipos',

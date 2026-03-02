@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { WorkflowPipeline } from '../components/WorkflowPipeline';
+import { PipelineLayout, type PipelineStepEntry } from '../components/PipelineLayout';
 import type { PipelineStep } from '../types';
 import { getOperacionesPipelineCounts } from './actions/pipeline-counts.server';
 
@@ -52,47 +52,56 @@ interface OperacionesPipelineContentProps {
 export async function OperacionesPipelineContent({ searchParams }: OperacionesPipelineContentProps) {
   const counts = await getOperacionesPipelineCounts();
 
-  // Determinar paso activo desde la URL o usar el default
+  // Determinar paso inicial desde la URL o usar el default
   const rawStep = searchParams[PARAM_NAME];
-  const activeStep =
+  const initialStep =
     typeof rawStep === 'string' && OPERACIONES_STEPS.some((s) => s.id === rawStep)
       ? rawStep
       : DEFAULT_STEP;
 
-  return (
-    <div className="space-y-6">
-      {/* Chevrons del pipeline */}
-      <WorkflowPipeline
-        steps={OPERACIONES_STEPS}
-        counts={counts}
-        activeStep={activeStep}
-        paramName={PARAM_NAME}
-        searchParams={searchParams}
-      />
+  // Todos los pasos se renderizan simultáneamente (show/hide con CSS)
+  const stepContents: PipelineStepEntry[] = [
+    {
+      id: 'validate',
+      content: (
+        <Suspense fallback={<SolicitudesTableSkeleton />}>
+          <SolicitudesMantenimientoTabContent searchParams={searchParams} />
+        </Suspense>
+      ),
+    },
+    {
+      id: 'approve_date',
+      content: (
+        <Suspense fallback={<PendientesEjecutarSkeleton />}>
+          <PendientesEjecutarTabContent />
+        </Suspense>
+      ),
+    },
+    {
+      id: 'for_workshop',
+      content: (
+        <Suspense fallback={<OperacionesTableSkeleton />}>
+          <ParaTallerTabContent searchParams={searchParams} />
+        </Suspense>
+      ),
+    },
+    {
+      id: 'in_workshop',
+      content: (
+        <Suspense fallback={<WorkshopTrackingSkeleton />}>
+          <WorkshopTrackingTabContent searchParams={searchParams} />
+        </Suspense>
+      ),
+    },
+  ];
 
-      {/* Contenido del paso activo */}
-      <div>
-        {activeStep === 'validate' && (
-          <Suspense fallback={<SolicitudesTableSkeleton />}>
-            <SolicitudesMantenimientoTabContent />
-          </Suspense>
-        )}
-        {activeStep === 'approve_date' && (
-          <Suspense fallback={<PendientesEjecutarSkeleton />}>
-            <PendientesEjecutarTabContent />
-          </Suspense>
-        )}
-        {activeStep === 'for_workshop' && (
-          <Suspense fallback={<OperacionesTableSkeleton />}>
-            <ParaTallerTabContent />
-          </Suspense>
-        )}
-        {activeStep === 'in_workshop' && (
-          <Suspense fallback={<WorkshopTrackingSkeleton />}>
-            <WorkshopTrackingTabContent />
-          </Suspense>
-        )}
-      </div>
-    </div>
+  return (
+    <PipelineLayout
+      steps={OPERACIONES_STEPS}
+      counts={counts}
+      initialStep={initialStep}
+      paramName={PARAM_NAME}
+      stepContents={stepContents}
+    />
   );
 }

@@ -47,6 +47,7 @@ interface Props {
   tableId: string;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
+  employeeId?: string;
 }
 
 // ============================================================================
@@ -196,6 +197,7 @@ export function _MonthlyEmployeeDocumentsDataTable({
   tableId,
   initialColumnVisibility,
   initialFilterVisibility,
+  employeeId,
 }: Props) {
   // Extraer solo los params relevantes para facets (sin page/sort)
   const facetParams = useMemo(() => {
@@ -206,8 +208,8 @@ export function _MonthlyEmployeeDocumentsDataTable({
 
   // Facets con cross-filtering
   const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['monthly-employee-documents-facets', facetParams],
-    queryFn: () => getMonthlyEmployeeDocumentsFacets(facetParams),
+    queryKey: ['monthly-employee-documents-facets', facetParams, employeeId],
+    queryFn: () => getMonthlyEmployeeDocumentsFacets(facetParams, employeeId),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -350,7 +352,7 @@ export function _MonthlyEmployeeDocumentsDataTable({
       data-testid="monthly-employee-documents-table"
       toolbarActions={<MonthlyDocumentsDownloadButton tableRows={data} />}
       exportConfig={{
-        fetchAllData: () => getAllMonthlyEmployeeDocumentsForExport(searchParams),
+        fetchAllData: () => getAllMonthlyEmployeeDocumentsForExport(searchParams, employeeId),
         options: {
           filename: 'documentos-mensuales-empleados',
           title: 'Listado de Documentos Mensuales de Empleados',

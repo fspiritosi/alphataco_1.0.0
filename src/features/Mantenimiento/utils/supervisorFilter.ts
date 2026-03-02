@@ -65,14 +65,6 @@ export async function getSupervisorFilterInfo(): Promise<SupervisorFilterInfo | 
         p.action_slug === 'view_all_requests' && operationsTabs.includes(p.tab_slug)
     ) ?? false;
 
-  logger.debug('Información de filtro de supervisor', {
-    data: {
-      userId: user.id,
-      hasViewAllPermission,
-      permissionsCount: permissions?.length || 0,
-    },
-  });
-
   return {
     userId: user.id,
     hasViewAllPermission,

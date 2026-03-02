@@ -211,7 +211,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} colSpan={header.colSpan} className="sticky top-0 z-10 bg-background">
+                    <TableHead key={header.id} colSpan={header.colSpan} className="sticky top-0 z-10">
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   ))}

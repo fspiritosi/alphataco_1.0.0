@@ -84,7 +84,7 @@ const DOCS_EMPLOYEES_PERMANENTES_SELECT = {
 // WHERE CLAUSE BUILDER
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
+function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -140,6 +140,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 
   return {
     // Solo documentos permanentes (no mensuales) con empleados activos de la compañía
+    ...(employeeId ? { applies: employeeId } : {}),
     employees: {
       company_id: companyId,
       is_active: true,
@@ -157,14 +158,14 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getEmployeePermanentDocumentsPaginated(searchParams: DataTableSearchParams) {
+export async function getEmployeePermanentDocumentsPaginated(searchParams: DataTableSearchParams, employeeId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, employeeId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -204,12 +205,12 @@ export type EmployeePermanentDocumentListItem = Awaited<
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllEmployeePermanentDocumentsForExport(searchParams: DataTableSearchParams) {
+export async function getAllEmployeePermanentDocumentsForExport(searchParams: DataTableSearchParams, employeeId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, employeeId);
 
     const data = await prisma.documents_employees.findMany({
       orderBy: [{ employees: { lastname: 'asc' } }],
@@ -231,7 +232,7 @@ export async function getAllEmployeePermanentDocumentsForExport(searchParams: Da
 /**
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
-export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTableSearchParams) {
+export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTableSearchParams, employeeId?: string) {
   const companyId = await getServerCompanyId();
 
   const baseDocTypesWhere = { is_it_montlhy: false };
@@ -247,6 +248,7 @@ export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTab
   function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
       return {
+        ...(employeeId ? { applies: employeeId } : {}),
         employees: baseEmployeesWhere,
         document_types: baseDocTypesWhere,
       };
@@ -255,7 +257,7 @@ export async function getEmployeePermanentDocumentsFacets(searchParams?: DataTab
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(companyId, modified);
+    return buildWhereClause(companyId, modified, employeeId);
   }
 
   // Helper: construir Map<string, count> con soporte para null → NULL_FILTER_VALUE

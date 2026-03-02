@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import BackButton from '@/components/BackButton';
-import DocumentEquipmentComponent from '@/components/DocumentEquipmentComponent';
+import { EquipmentDocumentDetail } from '@/features/Equipos/EquipoID/components/equipment-document-detail';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
@@ -178,7 +178,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
           hierarchicalPositionsPromise={getHierarchicalPositions()}
-          documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} searchParams={resolvedSearchParams} />}
+          documentsComponent={<EquipmentDocumentDetail equipmentId={vehicle?.id || ''} searchParams={resolvedSearchParams} />}
           repairsComponent={
             <RepairTypes
               searchParams={resolvedSearchParams}

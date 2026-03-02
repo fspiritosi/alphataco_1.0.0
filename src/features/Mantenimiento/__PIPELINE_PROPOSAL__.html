@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Módulo de Mantenimiento — Propuesta UI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─────────────────────────────────────────────
+       CSS VARIABLES
+    ───────────────────────────────────────────── */
+    :root {
+      --gh-amber:       #C4882D;
+      --gh-brown:       #8B5209;
+      --gh-gold:        #D4920A;
+      --gh-dark-brown:  #6B4510;
+      --gh-orange:      #E8950F;
+      --gh-light-amber: #F0A832;
+      --gh-pale:        #F5DFA8;
+
+      --bg-page:        #F7F5F0;
+      --bg-card:        #FFFFFF;
+      --bg-header:      #FFFFFF;
+
+      --text-primary:   #1C1612;
+      --text-secondary: #6B5B47;
+      --text-muted:     #9E8A74;
+      --text-white:     #FFFFFF;
+
+      --border-light:   #E8E0D4;
+      --border-medium:  #D4C9B8;
+
+      --shadow-sm:      0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md:      0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+      --shadow-lg:      0 10px 30px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+      --shadow-active:  0 8px 24px rgba(196,136,45,0.35), 0 3px 8px rgba(196,136,45,0.2);
+
+      --radius-sm:  6px;
+      --radius-md:  10px;
+      --radius-lg:  16px;
+      --radius-xl:  20px;
+
+      --chevron-h:  52px;
+      --chevron-gap: -2px;
+      --chevron-tip: 24px;
+    }
+
+    /* ─────────────────────────────────────────────
+       RESET & BASE
+    ───────────────────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─────────────────────────────────────────────
+       HEADER
+    ───────────────────────────────────────────── */
+    .header {
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border-light);
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 32px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--gh-amber), var(--gh-dark-brown));
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(196,136,45,0.3);
+    }
+
+    .header-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    /* View Toggle */
+    .view-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toggle-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .toggle-group {
+      display: flex;
+      background: var(--bg-page);
+      border: 1px solid var(--border-medium);
+      border-radius: 999px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .toggle-btn {
+      padding: 6px 18px;
+      border-radius: 999px;
+      border: none;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: var(--text-secondary);
+      background: transparent;
+    }
+
+    .toggle-btn.active {
+      background: linear-gradient(135deg, var(--gh-amber), var(--gh-dark-brown));
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(196,136,45,0.3);
+    }
+
+    .toggle-btn:not(.active):hover {
+      background: var(--border-light);
+      color: var(--text-primary);
+    }
+
+    /* ─────────────────────────────────────────────
+       PIPELINE SECTION
+    ───────────────────────────────────────────── */
+    .pipeline-section {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-light);
+      box-shadow: var(--shadow-sm);
+      padding: 24px 0 0;
+    }
+
+    .pipeline-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    .pipeline-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .pipeline-view-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pipeline-view-label::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gh-amber);
+    }
+
+    .pipeline-total {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .pipeline-total strong {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    /* ─── CHEVRONS ─── */
+    .chevrons-wrapper {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      padding-bottom: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .chevrons-wrapper::-webkit-scrollbar {
+      display: none;
+    }
+
+    .chevron-item {
+      position: relative;
+      flex: 1;
+      min-width: 130px;
+      cursor: pointer;
+      user-select: none;
+      margin-right: var(--chevron-gap);
+    }
+
+    .chevron-item:last-child {
+      margin-right: 0;
+    }
+
+    .chevron-body {
+      height: var(--chevron-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 28px 0 16px;
+      position: relative;
+      transition: filter 0.2s ease, transform 0.18s ease;
+      /* clip-path se asigna por JS / clase */
+    }
+
+    /* First chevron: flat left, arrow right */
+    .chevron-item:first-child .chevron-body {
+      clip-path: polygon(
+        0% 0%,
+        calc(100% - var(--chevron-tip)) 0%,
+        100% 50%,
+        calc(100% - var(--chevron-tip)) 100%,
+        0% 100%
+      );
+      padding-left: 20px;
+    }
+
+    /* Middle chevrons: notch left, arrow right */
+    .chevron-item:not(:first-child):not(:last-child) .chevron-body {
+      clip-path: polygon(
+        0% 0%,
+        calc(100% - var(--chevron-tip)) 0%,
+        100% 50%,
+        calc(100% - var(--chevron-tip)) 100%,
+        0% 100%,
+        var(--chevron-tip) 50%
+      );
+      padding-left: 32px;
+    }
+
+    /* Last chevron: notch left, flat right */
+    .chevron-item:last-child .chevron-body {
+      clip-path: polygon(
+        0% 0%,
+        100% 0%,
+        100% 100%,
+        0% 100%,
+        var(--chevron-tip) 50%
+      );
+      padding-left: 36px;
+      padding-right: 20px;
+    }
+
+    /* Inactive */
+    .chevron-item:not(.active) .chevron-body {
+      opacity: 0.72;
+    }
+
+    .chevron-item:not(.active):hover .chevron-body {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    /* Active */
+    .chevron-item.active .chevron-body {
+      opacity: 1;
+      transform: translateY(-2px) scaleY(1.04);
+      filter: drop-shadow(0 6px 16px rgba(196,136,45,0.45));
+    }
+
+    /* Underline indicator */
+    .chevron-item.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      background: var(--gh-amber);
+      animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn {
+      from { width: 0; opacity: 0; }
+      to   { width: 40px; opacity: 1; }
+    }
+
+    /* Colores de cada chevron (5 steps max) */
+    .chevron-item:nth-child(1) .chevron-body { background: #C4882D; }
+    .chevron-item:nth-child(2) .chevron-body { background: #A96E1C; }
+    .chevron-item:nth-child(3) .chevron-body { background: #8B5209; }
+    .chevron-item:nth-child(4) .chevron-body { background: #7A4508; }
+    .chevron-item:nth-child(5) .chevron-body { background: #6B4510; }
+
+    .chevron-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .chevron-step {
+      font-size: 9px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.65);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+
+    .chevron-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      letter-spacing: -0.2px;
+    }
+
+    /* Badge */
+    .chevron-badge {
+      position: absolute;
+      top: -8px;
+      right: 12px;
+      background: #fff;
+      color: var(--gh-dark-brown);
+      font-size: 11px;
+      font-weight: 800;
+      font-family: 'Outfit', monospace;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      border: 2px solid rgba(255,255,255,0.5);
+      z-index: 10;
+      transition: transform 0.15s ease;
+    }
+
+    .chevron-item.active .chevron-badge {
+      background: #fff;
+      color: var(--gh-dark-brown);
+      transform: scale(1.1);
+    }
+
+    /* ─────────────────────────────────────────────
+       CONTENT AREA
+    ───────────────────────────────────────────── */
+    .content-section {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 32px 48px;
+    }
+
+    /* Step Info Bar */
+    .step-info-bar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 16px;
+    }
+
+    .step-info-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .step-info-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.4px;
+    }
+
+    .step-info-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 520px;
+      line-height: 1.5;
+    }
+
+    .step-info-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gh-amber), var(--gh-dark-brown));
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(196,136,45,0.25);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 4px 14px rgba(196,136,45,0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-medium);
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg-page);
+      border-color: var(--gh-amber);
+      color: var(--gh-dark-brown);
+    }
+
+    /* ─── CARD ─── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      animation: fadeSlideIn 0.25s ease;
+    }
+
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: linear-gradient(to right, rgba(244,240,232,0.6), transparent);
+    }
+
+    .card-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-count-badge {
+      background: var(--bg-page);
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .search-input {
+      padding: 7px 12px 7px 34px;
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-sm);
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      background: var(--bg-page) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239E8A74' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 10px center;
+      width: 220px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--gh-amber);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* ─── TABLE ─── */
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      padding: 11px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(247,245,240,0.5);
+      white-space: nowrap;
+    }
+
+    thead th:first-child { padding-left: 24px; }
+    thead th:last-child  { padding-right: 24px; text-align: right; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border-light);
+      transition: background 0.12s ease;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(244,240,232,0.5);
+    }
+
+    tbody td {
+      padding: 14px 16px;
+      font-size: 13.5px;
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+
+    tbody td:first-child { padding-left: 24px; }
+    tbody td:last-child  { padding-right: 24px; text-align: right; }
+
+    /* Vehicle cell */
+    .vehicle-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .vehicle-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
+    .vehicle-plate {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-family: 'Outfit', monospace;
+      letter-spacing: 0.5px;
+    }
+
+    /* Requester cell */
+    .requester-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .requester-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* Priority badge */
+    .priority-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .priority-badge::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .priority-alta {
+      background: #FEE2E2;
+      color: #B91C1C;
+    }
+    .priority-alta::before { background: #EF4444; }
+
+    .priority-media {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+    .priority-media::before { background: #F59E0B; }
+
+    .priority-baja {
+      background: #D1FAE5;
+      color: #065F46;
+    }
+    .priority-baja::before { background: #10B981; }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .status-pending    { background: #FEF9EC; color: #92400E; border: 1px solid #FDE68A; }
+    .status-scheduled  { background: #EEF2FF; color: #3730A3; border: 1px solid #C7D2FE; }
+    .status-confirmed  { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+    .status-workshop   { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; }
+    .status-approval   { background: #F5F3FF; color: #6D28D9; border: 1px solid #DDD6FE; }
+
+    /* Date cell */
+    .date-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .date-main {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .date-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Action buttons */
+    .action-group {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: none;
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .action-btn-view {
+      background: var(--bg-page);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-medium);
+    }
+    .action-btn-view:hover {
+      background: var(--border-light);
+      color: var(--text-primary);
+    }
+
+    .action-btn-approve {
+      background: linear-gradient(135deg, var(--gh-amber), var(--gh-dark-brown));
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(196,136,45,0.2);
+    }
+    .action-btn-approve:hover {
+      box-shadow: 0 3px 10px rgba(196,136,45,0.35);
+      transform: translateY(-1px);
+    }
+
+    .action-btn-schedule {
+      background: #EEF2FF;
+      color: #3730A3;
+      border: 1px solid #C7D2FE;
+    }
+    .action-btn-schedule:hover {
+      background: #E0E7FF;
+    }
+
+    .action-btn-danger {
+      background: #FEE2E2;
+      color: #B91C1C;
+      border: 1px solid #FECACA;
+    }
+    .action-btn-danger:hover {
+      background: #FECACA;
+    }
+
+    /* ─── EMPTY STATE ─── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 56px 24px;
+      gap: 12px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      opacity: 0.35;
+    }
+
+    .empty-text {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* ─── CARD FOOTER ─── */
+    .card-footer {
+      padding: 12px 24px;
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(247,245,240,0.4);
+    }
+
+    .footer-info {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .page-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border-medium);
+      background: var(--bg-card);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-family: 'Outfit', sans-serif;
+      transition: all 0.12s ease;
+    }
+
+    .page-btn:hover {
+      border-color: var(--gh-amber);
+      color: var(--gh-dark-brown);
+    }
+
+    .page-btn.active {
+      background: linear-gradient(135deg, var(--gh-amber), var(--gh-dark-brown));
+      border-color: transparent;
+      color: #fff;
+    }
+
+    /* ─── PROGRESS BAR (taller view) ─── */
+    .progress-mini {
+      width: 64px;
+      height: 5px;
+      background: var(--border-light);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-mini-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(to right, var(--gh-amber), var(--gh-dark-brown));
+    }
+
+    /* ─── NOTICE BANNER ─── */
+    .notice-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(to right, #FFFBEB, #FEF3C7);
+      border: 1px solid #FDE68A;
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #92400E;
+    }
+
+    .notice-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .notice-text strong {
+      font-weight: 700;
+    }
+
+    /* ─── SPECIAL BADGE (OT) ─── */
+    .ot-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-page);
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Outfit', monospace;
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      .header-inner { padding: 0 16px; }
+      .pipeline-inner { padding: 0 16px; }
+      .content-section { padding: 20px 16px 40px; }
+      .chevron-label { font-size: 11px; }
+      :root { --chevron-h: 44px; --chevron-tip: 18px; }
+      .step-info-bar { flex-direction: column; }
+      .step-info-actions { align-self: flex-start; }
+    }
+
+    /* ─── TOOLTIP HINT ─── */
+    .proto-hint {
+      text-align: center;
+      padding: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="header-title">Módulo de Mantenimiento</div>
+          <div class="header-subtitle">Gestión de solicitudes y órdenes de trabajo</div>
+        </div>
+      </div>
+
+      <div class="view-toggle">
+        <span class="toggle-label">Vista</span>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="btn-operaciones" onclick="switchView('operaciones')">
+            Operaciones
+          </button>
+          <button class="toggle-btn" id="btn-taller" onclick="switchView('taller')">
+            Taller
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════
+       PIPELINE SECTION
+  ══════════════════════════════════════════ -->
+  <section class="pipeline-section">
+    <div class="pipeline-inner">
+      <div class="pipeline-meta">
+        <div class="pipeline-view-label" id="pipeline-view-label">Vista: Operaciones</div>
+        <div class="pipeline-total" id="pipeline-total">
+          Total: <strong>23 ítems</strong> en seguimiento
+        </div>
+      </div>
+      <div class="chevrons-wrapper" id="chevrons-wrapper">
+        <!-- JS renders chevrons here -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       CONTENT SECTION
+  ══════════════════════════════════════════ -->
+  <main class="content-section">
+    <div class="step-info-bar">
+      <div class="step-info-left">
+        <div class="step-info-title" id="step-title">Validar Solicitud</div>
+        <div class="step-info-desc" id="step-desc">
+          Solicitudes pendientes de aprobación inicial. Revisar la descripción del problema y decidir si procede como orden de mantenimiento.
+        </div>
+      </div>
+      <div class="step-info-actions" id="step-actions">
+        <!-- JS renders actions here -->
+      </div>
+    </div>
+
+    <div id="notice-area"></div>
+
+    <div class="card" id="main-card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <span class="card-title" id="card-title">Solicitudes pendientes de validación</span>
+          <span class="card-count-badge" id="card-count">5 registros</span>
+        </div>
+        <input type="text" class="search-input" placeholder="Buscar por equipo o código..." />
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead id="table-head">
+            <!-- JS renders thead -->
+          </thead>
+          <tbody id="table-body">
+            <!-- JS renders rows -->
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer">
+        <span class="footer-info" id="footer-info">Mostrando 1–5 de 5 resultados</span>
+        <div class="pagination">
+          <button class="page-btn">‹</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">›</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="proto-hint">
+      Prototipo interactivo — Haz clic en las flechas del pipeline para navegar entre etapas
+    </div>
+  </main>
+
+  <!-- ══════════════════════════════════════════
+       JAVASCRIPT
+  ══════════════════════════════════════════ -->
+  <script>
+    /* ─────────────────────────────────────────
+       STATE
+    ───────────────────────────────────────── */
+    let currentView  = 'operaciones';
+    let currentStep  = 0;
+
+    /* ─────────────────────────────────────────
+       CONFIG — VIEWS
+    ───────────────────────────────────────── */
+    const VIEWS = {
+      operaciones: {
+        label: 'Vista: Operaciones',
+        steps: [
+          {
+            id: 'pending_approval',
+            label: 'Validar Solicitud',
+            stepLabel: 'Paso 1',
+            count: 5,
+            title: 'Validar Solicitud',
+            desc: 'Solicitudes pendientes de aprobación inicial. Revisar la descripción del problema y decidir si procede como orden de mantenimiento.',
+            cardTitle: 'Solicitudes pendientes de validación',
+            notice: null,
+            actions: [
+              { label: 'Ver todas', cls: 'btn-ghost' },
+            ],
+            columns: ['Equipo / Vehículo', 'Solicitante', 'Prioridad', 'Fecha solicitud', 'Descripción', 'Acciones'],
+            rows: [
+              { vehicle: 'Toyota Hilux 4x4', plate: 'ABC 123', requester: 'Carlos Méndez', avatar: 'CM', avatarBg: '#C4882D', priority: 'Alta', date: '28 Feb 2026', dateSub: 'hace 1 día', desc: 'Falla en sistema de frenos traseros', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'Camión Ford F-350', plate: 'XYZ 789', requester: 'Laura Pérez', avatar: 'LP', avatarBg: '#8B5209', priority: 'Alta', date: '27 Feb 2026', dateSub: 'hace 2 días', desc: 'Motor no arranca en frío', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'Retroexcavadora CAT 420', plate: 'EQ-004', requester: 'Javier Ruiz', avatar: 'JR', avatarBg: '#6B4510', priority: 'Media', date: '26 Feb 2026', dateSub: 'hace 3 días', desc: 'Pérdida de aceite hidráulico', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'Volkswagen Amarok', plate: 'DEF 456', requester: 'Sofía Torres', avatar: 'ST', avatarBg: '#A96E1C', priority: 'Baja', date: '25 Feb 2026', dateSub: 'hace 4 días', desc: 'Mantenimiento preventivo 10.000 km', actions: ['view', 'approve'] },
+              { vehicle: 'Grúa Liebherr LTM', plate: 'EQ-011', requester: 'Carlos Méndez', avatar: 'CM', avatarBg: '#C4882D', priority: 'Media', date: '24 Feb 2026', dateSub: 'hace 5 días', desc: 'Revisión de cables de izaje', actions: ['view', 'approve', 'reject'] },
+            ]
+          },
+          {
+            id: 'scheduled',
+            label: 'Aprobar Fecha',
+            stepLabel: 'Paso 2',
+            count: 7,
+            title: 'Aprobar Fecha Propuesta',
+            desc: 'El taller propuso una fecha de ingreso. Confirmar o rechazar la programación para informar al solicitante.',
+            cardTitle: 'Órdenes con fecha propuesta por taller',
+            notice: { type: 'info', text: '<strong>Acción requerida:</strong> El taller ya propuso una fecha. Confirmar o rechazar para desbloquear el flujo.' },
+            actions: [
+              { label: 'Aprobar todas', cls: 'btn-primary' },
+              { label: 'Filtrar', cls: 'btn-ghost' },
+            ],
+            columns: ['Equipo / Vehículo', 'OT', 'Solicitante', 'Prioridad', 'Fecha propuesta', 'Estado', 'Acciones'],
+            rows: [
+              { vehicle: 'Toyota Hilux 4x4', plate: 'ABC 123', ot: 'OT-2026-041', requester: 'Carlos Méndez', avatar: 'CM', avatarBg: '#C4882D', priority: 'Alta', date: '05 Mar 2026', dateSub: 'Propuesta taller', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'Camión Ford F-350', plate: 'XYZ 789', ot: 'OT-2026-040', requester: 'Laura Pérez', avatar: 'LP', avatarBg: '#8B5209', priority: 'Alta', date: '04 Mar 2026', dateSub: 'Propuesta taller', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'VW Amarok 2023', plate: 'DEF 456', ot: 'OT-2026-039', requester: 'Sofía Torres', avatar: 'ST', avatarBg: '#A96E1C', priority: 'Baja', date: '10 Mar 2026', dateSub: 'Propuesta taller', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view', 'approve'] },
+              { vehicle: 'Nissan Frontier', plate: 'GHI 321', ot: 'OT-2026-038', requester: 'Javier Ruiz', avatar: 'JR', avatarBg: '#6B4510', priority: 'Media', date: '07 Mar 2026', dateSub: 'Propuesta taller', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'Grúa Liebherr LTM', plate: 'EQ-011', ot: 'OT-2026-037', requester: 'Carlos Méndez', avatar: 'CM', avatarBg: '#C4882D', priority: 'Media', date: '06 Mar 2026', dateSub: 'Propuesta taller', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view', 'approve', 'reject'] },
+            ]
+          },
+          {
+            id: 'date_confirmed',
+            label: 'Para Taller',
+            stepLabel: 'Paso 3',
+            count: 4,
+            title: 'Para Taller',
+            desc: 'Fechas confirmadas. Estos equipos están listos para ingresar al taller según lo pactado. Coordinar entrega con el operador.',
+            cardTitle: 'Órdenes listas para ingreso al taller',
+            notice: null,
+            actions: [
+              { label: 'Exportar lista', cls: 'btn-ghost' },
+            ],
+            columns: ['Equipo / Vehículo', 'OT', 'Solicitante', 'Prioridad', 'Fecha confirmada', 'Estado', 'Acciones'],
+            rows: [
+              { vehicle: 'Retroexcavadora CAT', plate: 'EQ-004', ot: 'OT-2026-035', requester: 'Javier Ruiz', avatar: 'JR', avatarBg: '#6B4510', priority: 'Alta', date: '01 Mar 2026', dateSub: 'Mañana', statusCls: 'status-confirmed', statusText: 'Confirmado', actions: ['view'] },
+              { vehicle: 'Toyota Hilux 2022', plate: 'MNO 654', ot: 'OT-2026-034', requester: 'Ana García', avatar: 'AG', avatarBg: '#8B5209', priority: 'Media', date: '02 Mar 2026', dateSub: 'En 2 días', statusCls: 'status-confirmed', statusText: 'Confirmado', actions: ['view'] },
+              { vehicle: 'Cisterna Scania', plate: 'PQR 987', ot: 'OT-2026-033', requester: 'Laura Pérez', avatar: 'LP', avatarBg: '#A96E1C', priority: 'Baja', date: '04 Mar 2026', dateSub: 'En 4 días', statusCls: 'status-confirmed', statusText: 'Confirmado', actions: ['view'] },
+              { vehicle: 'Ford Ranger XLT', plate: 'STU 741', ot: 'OT-2026-032', requester: 'Carlos Méndez', avatar: 'CM', avatarBg: '#C4882D', priority: 'Media', date: '06 Mar 2026', dateSub: 'En 6 días', statusCls: 'status-confirmed', statusText: 'Confirmado', actions: ['view'] },
+            ]
+          },
+          {
+            id: 'in_workshop',
+            label: 'Seguimiento',
+            stepLabel: 'Paso 4',
+            count: 7,
+            title: 'Seguimiento en Taller',
+            desc: 'Órdenes actualmente en el taller. Monitoreo de avance, solo lectura. El taller reporta actualizaciones desde su panel.',
+            cardTitle: 'Equipos actualmente en taller',
+            notice: { type: 'info', text: '<strong>Solo lectura:</strong> El taller gestiona estas órdenes. Puedes ver el progreso y agregar observaciones.' },
+            actions: [
+              { label: 'Ver resumen', cls: 'btn-ghost' },
+            ],
+            columns: ['Equipo / Vehículo', 'OT', 'Mecánico', 'Prioridad', 'Ingreso', 'Progreso', 'Acciones'],
+            rows: [
+              { vehicle: 'Camión Volvo FH', plate: 'VWX 852', ot: 'OT-2026-030', mechanic: 'Roberto Silva', avatar: 'RS', avatarBg: '#C4882D', priority: 'Alta', date: '20 Feb 2026', dateSub: '9 días en taller', progress: 85, actions: ['view'] },
+              { vehicle: 'Toyota Hilux 2021', plate: 'YZA 963', ot: 'OT-2026-028', mechanic: 'Diego Castro', avatar: 'DC', avatarBg: '#8B5209', priority: 'Media', date: '22 Feb 2026', dateSub: '7 días en taller', progress: 60, actions: ['view'] },
+              { vehicle: 'Excavadora Komatsu', plate: 'EQ-007', ot: 'OT-2026-025', mechanic: 'Pedro Vega', avatar: 'PV', avatarBg: '#6B4510', priority: 'Alta', date: '18 Feb 2026', dateSub: '11 días en taller', progress: 95, actions: ['view'] },
+              { vehicle: 'Grúa Manitowoc', plate: 'EQ-015', ot: 'OT-2026-022', mechanic: 'Roberto Silva', avatar: 'RS', avatarBg: '#C4882D', priority: 'Media', date: '15 Feb 2026', dateSub: '14 días en taller', progress: 40, actions: ['view'] },
+              { vehicle: 'Dodge Ram 1500', plate: 'BCD 147', ot: 'OT-2026-020', mechanic: 'Diego Castro', avatar: 'DC', avatarBg: '#8B5209', priority: 'Baja', date: '25 Feb 2026', dateSub: '4 días en taller', progress: 25, actions: ['view'] },
+            ]
+          }
+        ]
+      },
+      taller: {
+        label: 'Vista: Jefe de Taller',
+        steps: [
+          {
+            id: 'pending_scheduling',
+            label: 'Por Programar',
+            stepLabel: 'Paso 1',
+            count: 6,
+            title: 'Por Programar',
+            desc: 'Solicitudes aprobadas por Operaciones que aún no tienen fecha asignada. Proponer fecha de ingreso y sector de trabajo.',
+            cardTitle: 'Órdenes sin fecha asignada',
+            notice: null,
+            actions: [
+              { label: 'Asignar fecha', cls: 'btn-primary' },
+            ],
+            columns: ['Equipo / Vehículo', 'OT', 'Solicitante', 'Prioridad', 'Aprobado', 'Descripción', 'Acciones'],
+            rows: [
+              { vehicle: 'Toyota Hilux 4x4', plate: 'ABC 123', ot: 'OT-2026-041', requester: 'Carlos Méndez', avatar: 'CM', avatarBg: '#C4882D', priority: 'Alta', date: '28 Feb 2026', dateSub: 'Aprobado ayer', desc: 'Falla en sistema de frenos traseros', actions: ['view', 'schedule'] },
+              { vehicle: 'Camión Ford F-350', plate: 'XYZ 789', ot: 'OT-2026-040', requester: 'Laura Pérez', avatar: 'LP', avatarBg: '#8B5209', priority: 'Alta', date: '27 Feb 2026', dateSub: 'Aprobado hace 2d', desc: 'Motor no arranca en frío', actions: ['view', 'schedule'] },
+              { vehicle: 'Retroexcavadora CAT 420', plate: 'EQ-004', ot: 'OT-2026-039', requester: 'Javier Ruiz', avatar: 'JR', avatarBg: '#6B4510', priority: 'Media', date: '26 Feb 2026', dateSub: 'Aprobado hace 3d', desc: 'Pérdida de aceite hidráulico', actions: ['view', 'schedule'] },
+              { vehicle: 'VW Amarok 2023', plate: 'DEF 456', ot: 'OT-2026-038', requester: 'Sofía Torres', avatar: 'ST', avatarBg: '#A96E1C', priority: 'Baja', date: '25 Feb 2026', dateSub: 'Aprobado hace 4d', desc: 'Mantenimiento preventivo', actions: ['view', 'schedule'] },
+              { vehicle: 'Nissan Frontier', plate: 'GHI 321', ot: 'OT-2026-037', requester: 'Javier Ruiz', avatar: 'JR', avatarBg: '#6B4510', priority: 'Media', date: '24 Feb 2026', dateSub: 'Aprobado hace 5d', desc: 'Revisión de suspensión delantera', actions: ['view', 'schedule'] },
+              { vehicle: 'Grúa Liebherr LTM', plate: 'EQ-011', ot: 'OT-2026-036', requester: 'Carlos Méndez', avatar: 'CM', avatarBg: '#C4882D', priority: 'Media', date: '23 Feb 2026', dateSub: 'Aprobado hace 6d', desc: 'Revisión cables de izaje', actions: ['view', 'schedule'] },
+            ]
+          },
+          {
+            id: 'scheduled',
+            label: 'Programados',
+            stepLabel: 'Paso 2',
+            count: 7,
+            title: 'Programados — Esperando Confirmación',
+            desc: 'Fechas propuestas al taller, esperando confirmación de Operaciones. Sin acción requerida de tu parte.',
+            cardTitle: 'Órdenes con fecha propuesta',
+            notice: { type: 'info', text: '<strong>En espera:</strong> Operaciones debe confirmar las fechas propuestas para que estos equipos avancen a Confirmados.' },
+            actions: [
+              { label: 'Ver propuestas', cls: 'btn-ghost' },
+            ],
+            columns: ['Equipo / Vehículo', 'OT', 'Prioridad', 'Fecha propuesta', 'Sector', 'Estado', 'Acciones'],
+            rows: [
+              { vehicle: 'Toyota Hilux 4x4', plate: 'ABC 123', ot: 'OT-2026-035', priority: 'Alta', date: '05 Mar 2026', dateSub: 'Propuesto', sector: 'Sector A — Mecánica', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view'] },
+              { vehicle: 'Camión Ford F-350', plate: 'XYZ 789', ot: 'OT-2026-034', priority: 'Alta', date: '04 Mar 2026', dateSub: 'Propuesto', sector: 'Sector B — Motor', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view'] },
+              { vehicle: 'VW Amarok 2023', plate: 'DEF 456', ot: 'OT-2026-033', priority: 'Baja', date: '10 Mar 2026', dateSub: 'Propuesto', sector: 'Sector A — Mecánica', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view'] },
+              { vehicle: 'Nissan Frontier', plate: 'GHI 321', ot: 'OT-2026-032', priority: 'Media', date: '07 Mar 2026', dateSub: 'Propuesto', sector: 'Sector C — Hidráulica', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view'] },
+              { vehicle: 'Grúa Liebherr', plate: 'EQ-011', ot: 'OT-2026-031', priority: 'Media', date: '06 Mar 2026', dateSub: 'Propuesto', sector: 'Sector D — Izaje', statusCls: 'status-scheduled', statusText: 'Esperando OK', actions: ['view'] },
+            ]
+          },
+          {
+            id: 'date_confirmed',
+            label: 'Confirmados',
+            stepLabel: 'Paso 3',
+            count: 4,
+            title: 'Confirmados — Listos para Recibir',
+            desc: 'Operaciones confirmó las fechas. Estos equipos llegarán según lo acordado. Preparar sector y recursos.',
+            cardTitle: 'Equipos confirmados para ingreso',
+            notice: null,
+            actions: [
+              { label: 'Preparar sectores', cls: 'btn-primary' },
+            ],
+            columns: ['Equipo / Vehículo', 'OT', 'Prioridad', 'Fecha confirmada', 'Sector asignado', 'Mecánico', 'Acciones'],
+            rows: [
+              { vehicle: 'Retroexcavadora CAT', plate: 'EQ-004', ot: 'OT-2026-029', priority: 'Alta', date: '01 Mar 2026', dateSub: 'Mañana', sector: 'Sector C — Hidráulica', mechanic: 'Pedro Vega', actions: ['view'] },
+              { vehicle: 'Toyota Hilux 2022', plate: 'MNO 654', ot: 'OT-2026-027', priority: 'Media', date: '02 Mar 2026', dateSub: 'En 2 días', sector: 'Sector A — Mecánica', mechanic: 'Roberto Silva', actions: ['view'] },
+              { vehicle: 'Cisterna Scania', plate: 'PQR 987', ot: 'OT-2026-026', priority: 'Baja', date: '04 Mar 2026', dateSub: 'En 4 días', sector: 'Sector B — Motor', mechanic: 'Diego Castro', actions: ['view'] },
+              { vehicle: 'Ford Ranger XLT', plate: 'STU 741', ot: 'OT-2026-024', priority: 'Media', date: '06 Mar 2026', dateSub: 'En 6 días', sector: 'Sector A — Mecánica', mechanic: 'Roberto Silva', actions: ['view'] },
+            ]
+          },
+          {
+            id: 'in_workshop',
+            label: 'En Taller',
+            stepLabel: 'Paso 4',
+            count: 7,
+            title: 'En Taller — Trabajos Activos',
+            desc: 'Equipos actualmente en proceso de reparación/mantenimiento. Gestionar avance, registrar tareas y actualizar estados de OT.',
+            cardTitle: 'Trabajos activos en taller',
+            notice: null,
+            actions: [
+              { label: 'Nueva OT', cls: 'btn-primary' },
+              { label: 'Ver tablero', cls: 'btn-ghost' },
+            ],
+            columns: ['Equipo / Vehículo', 'OT', 'Mecánico', 'Prioridad', 'Días en taller', 'Progreso', 'Acciones'],
+            rows: [
+              { vehicle: 'Camión Volvo FH', plate: 'VWX 852', ot: 'OT-2026-030', mechanic: 'Roberto Silva', avatar: 'RS', avatarBg: '#C4882D', priority: 'Alta', date: '9 días', dateSub: '', progress: 85, actions: ['view', 'manage'] },
+              { vehicle: 'Toyota Hilux 2021', plate: 'YZA 963', ot: 'OT-2026-028', mechanic: 'Diego Castro', avatar: 'DC', avatarBg: '#8B5209', priority: 'Media', date: '7 días', dateSub: '', progress: 60, actions: ['view', 'manage'] },
+              { vehicle: 'Excavadora Komatsu', plate: 'EQ-007', ot: 'OT-2026-025', mechanic: 'Pedro Vega', avatar: 'PV', avatarBg: '#6B4510', priority: 'Alta', date: '11 días', dateSub: '', progress: 95, actions: ['view', 'manage'] },
+              { vehicle: 'Grúa Manitowoc', plate: 'EQ-015', ot: 'OT-2026-022', mechanic: 'Roberto Silva', avatar: 'RS', avatarBg: '#C4882D', priority: 'Media', date: '14 días', dateSub: '', progress: 40, actions: ['view', 'manage'] },
+              { vehicle: 'Dodge Ram 1500', plate: 'BCD 147', ot: 'OT-2026-020', mechanic: 'Diego Castro', avatar: 'DC', avatarBg: '#8B5209', priority: 'Baja', date: '4 días', dateSub: '', progress: 25, actions: ['view', 'manage'] },
+            ]
+          },
+          {
+            id: 'ot_approval',
+            label: 'Aprobaciones',
+            stepLabel: 'Paso 5',
+            count: 3,
+            title: 'Bandeja de Aprobaciones de OT',
+            desc: 'Ítems de órdenes de trabajo que requieren aprobación antes de proceder. Puede incluir repuestos extra, trabajos adicionales o cambios de alcance.',
+            cardTitle: 'Ítems pendientes de aprobación',
+            notice: { type: 'warning', text: '<strong>Acción urgente:</strong> Los operarios están bloqueados esperando tu aprobación en estos ítems de OT.' },
+            actions: [
+              { label: 'Aprobar seleccionados', cls: 'btn-primary' },
+            ],
+            columns: ['OT / Equipo', 'Ítem solicitado', 'Solicitante', 'Tipo', 'Monto estimado', 'Estado', 'Acciones'],
+            rows: [
+              { vehicle: 'Camión Volvo FH — VWX 852', plate: 'OT-2026-030', item: 'Kit de juntas motor Volvo D13', requester: 'Roberto Silva', avatar: 'RS', avatarBg: '#C4882D', type: 'Repuesto', date: '$45.200', dateSub: '', statusCls: 'status-approval', statusText: 'Pendiente', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'Grúa Manitowoc — EQ-015', plate: 'OT-2026-022', item: 'Cambio de cable de izaje principal', requester: 'Roberto Silva', avatar: 'RS', avatarBg: '#C4882D', type: 'Trabajo extra', date: '$128.000', dateSub: '', statusCls: 'status-approval', statusText: 'Pendiente', actions: ['view', 'approve', 'reject'] },
+              { vehicle: 'Toyota Hilux — YZA 963', plate: 'OT-2026-028', item: 'Rectificación de cigüeñal', requester: 'Diego Castro', avatar: 'DC', avatarBg: '#8B5209', type: 'Subcontrato', date: '$67.500', dateSub: '', statusCls: 'status-approval', statusText: 'Pendiente', actions: ['view', 'approve', 'reject'] },
+            ]
+          }
+        ]
+      }
+    };
+
+    /* ─────────────────────────────────────────
+       RENDER FUNCTIONS
+    ───────────────────────────────────────── */
+
+    function getTotalCount(view) {
+      return VIEWS[view].steps.reduce((acc, s) => acc + s.count, 0);
+    }
+
+    function renderChevrons() {
+      const wrapper = document.getElementById('chevrons-wrapper');
+      const steps   = VIEWS[currentView].steps;
+      wrapper.innerHTML = '';
+
+      steps.forEach((step, idx) => {
+        const item = document.createElement('div');
+        item.className = 'chevron-item' + (idx === currentStep ? ' active' : '');
+        item.onclick = () => goToStep(idx);
+        item.title   = step.title;
+
+        item.innerHTML = `
+          <div class="chevron-body">
+            <div class="chevron-content">
+              <span class="chevron-step">${step.stepLabel}</span>
+              <span class="chevron-label">${step.label}</span>
+            </div>
+          </div>
+          <div class="chevron-badge">${step.count}</div>
+        `;
+        wrapper.appendChild(item);
+      });
+    }
+
+    function renderContent() {
+      const step = VIEWS[currentView].steps[currentStep];
+
+      // Metadata
+      document.getElementById('pipeline-view-label').textContent = VIEWS[currentView].label;
+      document.getElementById('pipeline-total').innerHTML =
+        `Total: <strong>${getTotalCount(currentView)} ítems</strong> en seguimiento`;
+
+      // Step info
+      document.getElementById('step-title').textContent = step.title;
+      document.getElementById('step-desc').textContent  = step.desc;
+
+      // Actions
+      const actEl = document.getElementById('step-actions');
+      actEl.innerHTML = step.actions.map(a =>
+        `<button class="btn ${a.cls}" onclick="alert('Acción: ${a.label}')">${a.label}</button>`
+      ).join('');
+
+      // Notice
+      const noticeEl = document.getElementById('notice-area');
+      if (step.notice) {
+        noticeEl.innerHTML = `
+          <div class="notice-banner">
+            <span class="notice-icon">${step.notice.type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+            <span class="notice-text">${step.notice.text}</span>
+          </div>`;
+      } else {
+        noticeEl.innerHTML = '';
+      }
+
+      // Card title + count
+      document.getElementById('card-title').textContent = step.cardTitle;
+      document.getElementById('card-count').textContent = step.rows.length + ' registros';
+      document.getElementById('footer-info').textContent =
+        `Mostrando 1–${step.rows.length} de ${step.count} resultados`;
+
+      // Table
+      renderTable(step);
+
+      // Animate card
+      const card = document.getElementById('main-card');
+      card.style.animation = 'none';
+      void card.offsetWidth;
+      card.style.animation = '';
+    }
+
+    function renderTable(step) {
+      // HEAD
+      const thead = document.getElementById('table-head');
+      thead.innerHTML = '<tr>' + step.columns.map(c => `<th>${c}</th>`).join('') + '</tr>';
+
+      // BODY
+      const tbody = document.getElementById('table-body');
+      if (!step.rows || step.rows.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="${step.columns.length}">
+            <div class="empty-state">
+              <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <div class="empty-text">No hay registros en esta etapa</div>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = step.rows.map(row => renderRow(row, step)).join('');
+    }
+
+    function priorityBadge(p) {
+      const map = { Alta: 'priority-alta', Media: 'priority-media', Baja: 'priority-baja' };
+      return `<span class="priority-badge ${map[p] || 'priority-baja'}">${p}</span>`;
+    }
+
+    function actionBtns(actions) {
+      const btns = {
+        view:     `<button class="action-btn action-btn-view" onclick="alert('Ver detalle')">
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                     Ver
+                   </button>`,
+        approve:  `<button class="action-btn action-btn-approve" onclick="alert('Aprobado')">
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                     Aprobar
+                   </button>`,
+        reject:   `<button class="action-btn action-btn-danger" onclick="alert('Rechazado')">
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                     Rechazar
+                   </button>`,
+        schedule: `<button class="action-btn action-btn-schedule" onclick="alert('Programar')">
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                     Programar
+                   </button>`,
+        manage:   `<button class="action-btn action-btn-schedule" onclick="alert('Gestionar OT')">
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                     Gestionar
+                   </button>`,
+      };
+      return `<div class="action-group">${(actions || []).map(a => btns[a] || '').join('')}</div>`;
+    }
+
+    function progressBar(pct) {
+      const color = pct >= 80 ? '#10B981' : pct >= 50 ? '#F59E0B' : '#EF4444';
+      return `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-mini">
+            <div class="progress-mini-fill" style="width:${pct}%;background:${color};"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:var(--text-secondary);min-width:30px;">${pct}%</span>
+        </div>`;
+    }
+
+    function avatarEl(initials, bg) {
+      return `<div class="avatar" style="background:${bg || '#8B5209'};">${initials || '?'}</div>`;
+    }
+
+    function renderRow(row, step) {
+      const id   = step.id;
+      const cols = step.columns;
+
+      // Build cells based on step id
+      let cells = [];
+
+      // Column: vehicle
+      cells.push(`<td>
+        <div class="vehicle-cell">
+          <span class="vehicle-name">${row.vehicle || '—'}</span>
+          <span class="vehicle-plate">${row.plate || ''}</span>
+        </div>
+      </td>`);
+
+      // Remaining columns depend on step
+      if (id === 'pending_approval' && cols.includes('Solicitante')) {
+        cells.push(`<td>
+          <div class="requester-cell">
+            ${avatarEl(row.avatar, row.avatarBg)}
+            <span class="requester-name">${row.requester || '—'}</span>
+          </div>
+        </td>`);
+        cells.push(`<td>${priorityBadge(row.priority)}</td>`);
+        cells.push(`<td>
+          <div class="date-cell">
+            <span class="date-main">${row.date}</span>
+            <span class="date-sub">${row.dateSub || ''}</span>
+          </div>
+        </td>`);
+        cells.push(`<td style="max-width:200px;color:var(--text-secondary);font-size:13px;">${row.desc || '—'}</td>`);
+      }
+
+      else if ((id === 'scheduled' || id === 'date_confirmed') && cols.includes('OT')) {
+        cells.push(`<td><span class="ot-badge">${row.ot || '—'}</span></td>`);
+
+        if (cols.includes('Solicitante')) {
+          cells.push(`<td>
+            <div class="requester-cell">
+              ${avatarEl(row.avatar, row.avatarBg)}
+              <span class="requester-name">${row.requester || row.mechanic || '—'}</span>
+            </div>
+          </td>`);
+        }
+
+        cells.push(`<td>${priorityBadge(row.priority)}</td>`);
+
+        cells.push(`<td>
+          <div class="date-cell">
+            <span class="date-main">${row.date}</span>
+            <span class="date-sub">${row.dateSub || ''}</span>
+          </div>
+        </td>`);
+
+        if (row.sector !== undefined) {
+          cells.push(`<td style="font-size:13px;color:var(--text-secondary);">${row.sector}</td>`);
+        }
+        if (row.mechanic !== undefined && !cols.includes('Solicitante')) {
+          cells.push(`<td>
+            <div class="requester-cell">
+              <span class="requester-name">${row.mechanic}</span>
+            </div>
+          </td>`);
+        }
+        if (row.statusCls) {
+          cells.push(`<td><span class="status-badge ${row.statusCls}">${row.statusText}</span></td>`);
+        }
+      }
+
+      else if (id === 'in_workshop' || (cols.includes('Mecánico') && !cols.includes('Solicitante'))) {
+        if (cols.includes('OT') || row.ot) {
+          cells.push(`<td><span class="ot-badge">${row.ot || '—'}</span></td>`);
+        }
+        cells.push(`<td>
+          <div class="requester-cell">
+            ${avatarEl(row.avatar, row.avatarBg)}
+            <span class="requester-name">${row.mechanic || row.requester || '—'}</span>
+          </div>
+        </td>`);
+        cells.push(`<td>${priorityBadge(row.priority)}</td>`);
+        cells.push(`<td>
+          <div class="date-cell">
+            <span class="date-main">${row.date}</span>
+            <span class="date-sub">${row.dateSub || ''}</span>
+          </div>
+        </td>`);
+        if (row.progress !== undefined) {
+          cells.push(`<td>${progressBar(row.progress)}</td>`);
+        }
+      }
+
+      else if (id === 'ot_approval') {
+        // Already has vehicle as first cell
+        // item solicitado
+        cells.push(`<td style="font-weight:600;font-size:13px;">${row.item || '—'}</td>`);
+        cells.push(`<td>
+          <div class="requester-cell">
+            ${avatarEl(row.avatar, row.avatarBg)}
+            <span class="requester-name">${row.requester || '—'}</span>
+          </div>
+        </td>`);
+        cells.push(`<td style="font-size:12px;background:var(--bg-page);border-radius:4px;padding:4px 8px;color:var(--text-secondary);font-weight:600;">${row.type || '—'}</td>`);
+        cells.push(`<td style="font-weight:700;color:var(--gh-dark-brown);">${row.date || '—'}</td>`);
+        cells.push(`<td><span class="status-badge ${row.statusCls}">${row.statusText}</span></td>`);
+      }
+
+      else if (id === 'pending_scheduling') {
+        cells.push(`<td><span class="ot-badge">${row.ot || '—'}</span></td>`);
+        cells.push(`<td>
+          <div class="requester-cell">
+            ${avatarEl(row.avatar, row.avatarBg)}
+            <span class="requester-name">${row.requester || '—'}</span>
+          </div>
+        </td>`);
+        cells.push(`<td>${priorityBadge(row.priority)}</td>`);
+        cells.push(`<td>
+          <div class="date-cell">
+            <span class="date-main">${row.date}</span>
+            <span class="date-sub">${row.dateSub || ''}</span>
+          </div>
+        </td>`);
+        cells.push(`<td style="max-width:180px;color:var(--text-secondary);font-size:13px;">${row.desc || '—'}</td>`);
+      }
+
+      // Actions (always last)
+      cells.push(`<td>${actionBtns(row.actions)}</td>`);
+
+      return `<tr>${cells.join('')}</tr>`;
+    }
+
+    /* ─────────────────────────────────────────
+       NAVIGATION
+    ───────────────────────────────────────── */
+    function goToStep(idx) {
+      if (idx === currentStep) return;
+      currentStep = idx;
+      renderChevrons();
+      renderContent();
+    }
+
+    function switchView(view) {
+      if (view === currentView) return;
+      currentView = view;
+      currentStep = 0;
+
+      document.getElementById('btn-operaciones').classList.toggle('active', view === 'operaciones');
+      document.getElementById('btn-taller').classList.toggle('active', view === 'taller');
+
+      renderChevrons();
+      renderContent();
+    }
+
+    /* ─────────────────────────────────────────
+       INIT
+    ───────────────────────────────────────── */
+    renderChevrons();
+    renderContent();
+  </script>
+
+</body>
+</html>

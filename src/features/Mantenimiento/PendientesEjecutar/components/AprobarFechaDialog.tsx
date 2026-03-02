@@ -19,7 +19,8 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { approveMaintenanceOrderDate, type MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
+import { approveMaintenanceOrderDate } from '../../actions/actionsServer';
+import type { PendingExecutionListItem } from '../actions.server';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 
 // Configurar moment en español
@@ -28,7 +29,7 @@ moment.locale('es');
 const logger = new Logger('AprobarFechaDialog');
 
 interface AprobarFechaDialogProps {
-  order: MaintenanceOrderPendingApprovalData;
+  order: PendingExecutionListItem;
   open: boolean;
   onClose: () => void;
 }

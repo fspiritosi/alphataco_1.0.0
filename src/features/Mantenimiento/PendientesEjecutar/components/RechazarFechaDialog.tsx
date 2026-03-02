@@ -20,7 +20,8 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { rejectMaintenanceOrderDate, type MaintenanceOrderPendingApprovalData } from '../../actions/actionsServer';
+import { rejectMaintenanceOrderDate } from '../../actions/actionsServer';
+import type { PendingExecutionListItem } from '../actions.server';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 
 // Configurar moment en español
@@ -29,7 +30,7 @@ moment.locale('es');
 const logger = new Logger('RechazarFechaDialog');
 
 interface RechazarFechaDialogProps {
-  order: MaintenanceOrderPendingApprovalData;
+  order: PendingExecutionListItem;
   open: boolean;
   onClose: () => void;
 }

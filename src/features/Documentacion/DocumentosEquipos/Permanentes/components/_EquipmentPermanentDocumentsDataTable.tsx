@@ -47,6 +47,7 @@ interface Props {
   tableId: string;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
+  equipmentId?: string;
 }
 
 // ============================================================================
@@ -192,6 +193,7 @@ export function _EquipmentPermanentDocumentsDataTable({
   tableId,
   initialColumnVisibility,
   initialFilterVisibility,
+  equipmentId,
 }: Props) {
   // Params para facets (sin page/sort)
   const facetParams = useMemo(() => {
@@ -202,8 +204,8 @@ export function _EquipmentPermanentDocumentsDataTable({
 
   // Facets con cross-filtering
   const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['equipment-permanent-documents-facets', facetParams],
-    queryFn: () => getEquipmentPermanentDocumentsFacets(facetParams),
+    queryKey: ['equipment-permanent-documents-facets', facetParams, equipmentId],
+    queryFn: () => getEquipmentPermanentDocumentsFacets(facetParams, equipmentId),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -338,7 +340,7 @@ export function _EquipmentPermanentDocumentsDataTable({
       data-testid="equipment-permanent-documents-table"
       toolbarActions={<EquipmentDocumentsDownloadButton tableRows={data} />}
       exportConfig={{
-        fetchAllData: () => getAllEquipmentPermanentDocumentsForExport(searchParams),
+        fetchAllData: () => getAllEquipmentPermanentDocumentsForExport(searchParams, equipmentId),
         options: {
           filename: 'documentos-permanentes-equipos',
           title: 'Documentos Permanentes de Equipos',

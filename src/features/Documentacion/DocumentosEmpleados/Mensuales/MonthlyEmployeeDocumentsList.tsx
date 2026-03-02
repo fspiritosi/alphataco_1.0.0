@@ -17,18 +17,19 @@ export const TABLE_ID = 'monthly-employee-documents';
 
 interface MonthlyEmployeeDocumentsListProps {
   searchParams: Record<string, string | string[] | undefined>;
+  employeeId?: string;
 }
 
 // ============================================================================
 // SERVER COMPONENT
 // ============================================================================
 
-export async function MonthlyEmployeeDocumentsList({ searchParams }: MonthlyEmployeeDocumentsListProps) {
+export async function MonthlyEmployeeDocumentsList({ searchParams, employeeId }: MonthlyEmployeeDocumentsListProps) {
   // Extraer solo los params de esta tabla (quitar prefijo)
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, TABLE_ID);
 
   const [{ data, total }, preferences] = await Promise.all([
-    getMonthlyEmployeeDocumentsPaginated(tableParams),
+    getMonthlyEmployeeDocumentsPaginated(tableParams, employeeId),
     getTablePreferences(TABLE_ID),
   ]);
 
@@ -42,6 +43,7 @@ export async function MonthlyEmployeeDocumentsList({ searchParams }: MonthlyEmpl
           tableId={TABLE_ID}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}
+          employeeId={employeeId}
         />
       </CardContent>
     </Card>

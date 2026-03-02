@@ -93,3 +93,81 @@ Usa el sistema LEGACY basado en `BaseDataTable` de `src/shared/components/data-t
 - province (BigInt) → provinces (id: BigInt)
 - city (BigInt nullable) → cities (id: BigInt)
 - En Prisma groupBy y filter: usar String(id) y map(Number)
+
+### Mantenimiento — Tablas migradas al nuevo sistema:
+
+- **MaintenanceOrders**: `src/features/Mantenimiento/MaintenanceOrders/table/`
+  - Status relevantes: `in_workshop`, `pending_workshop_validation`, `pending_operations_validation`, `operations_rejected`, `workshop_rejected`, `completed`
+  - Progreso calculado desde `work_order_item_repairs` (nested: items → work_orders → work_order_items → repairs)
+  - Sector actual calculado desde `maintenance_order_items` con `sector_sequence_order`
+  - Patron especial: `MaintenanceOrdersTableContent` (Client wrapper) maneja el `ManageOrderWizard`
+  - `TallerPipelineContent` ahora pasa `searchParams` al `MaintenanceOrdersTabContent`
+  - Filtros de texto en vehicles (domain, serie, intern_number) se manejan como condiciones vehicles.{field}
+  - `companyId` de `getServerCompanyId()` — NO se usa en WHERE de maintenance_orders (no tiene campo company)
+
+- **OrderManagement**: `src/features/Mantenimiento/OrderManagement/`
+  - Status filter: `status = 'in_workshop'`
+  - Second-level FK: `vehicles.types_of_vehicles` (BigInt FK anidado) → `type_of_vehicle` en vehicles
+  - `vehicleType` filter usa `map(Number)` para convertir BigInt IDs
+  - Mantiene `getActiveWorkshopSectors`/`getActiveExternalWorkshops` del actionsServer viejo (son catálogos compartidos)
+  - `ManageOrderWizard` se usa con cast `as never` porque usa tipos del actionsServer viejo
+  - Archivos nuevos: `actions.server.ts`, `columns.tsx`, `OrderManagementList.tsx`, `_OrderManagementDataTable.tsx`
+  - `OrderManagementTabContent` actualizado para recibir `searchParams` y delegar a `OrderManagementList`
+
+- **SolicitudesMantenimiento**: `src/features/Mantenimiento/SolicitudesMantenimiento/`
+  - Filtros implementados: status (faceted), vehicle (faceted), source (faceted), supervisor (faceted + cross-filter), created_at (dateRange)
+  - COLUMN_MAP: `supervisor: 'supervisor_id'` — así buildFiltersWhere resuelve el campo correcto en Prisma
+  - filterFn del supervisor usa `row.original.supervisor_id` (campo raw en el tipo, incluido en select Prisma)
+  - Si `shouldFilterBySupervisor` es true, el filtro de supervisor del usuario es irrelevante (la restricción se sobreescribe al final con el userId del usuario logueado)
+  - supervisor facet: `prisma.profile.findMany` con `fullname` (nullable — usar `?? supervisorId` como fallback)
+  - `status: { in: ['pending_approval', 'rejected'] }` es una restricción fija de negocio; si el usuario filtra por status, filtersWhere la sobreescribe (spread order). Este es comportamiento aceptado.
+
+- **ParaTaller (ForWorkshop)**: `src/features/Mantenimiento/Operaciones/ParaTaller/`
+  - Status fijo: `status = 'date_confirmed'` (pedidos con fecha de entrada confirmada)
+  - `companyId` via `vehicles.company_id` (no en maintenance_orders directamente)
+  - Filtros de texto en vehicles (domain, serie, intern_number) se manejan manualmente en AND conditions (no via buildTextFiltersWhere porque son campos anidados en vehicles)
+  - Filtro `condition` es campo del vehículo (vehicles.condition), requiere findMany + conteo manual (no groupBy directo)
+  - Auditoría 2026-03: correcciones aplicadas — `created_at` faltaba en DATE_RANGE_COLUMNS + facetedFilters; `order_number` faltaba en TEXT_COLUMNS + facetedFilters; null key en vehicleCounts Map (NULL_FILTER_VALUE fix); `order_number` agregado a VALID_SORT_FIELDS y a búsqueda global
+
+- **PedidosPendientes**: `src/features/Mantenimiento/PedidosMantenimiento/Pendientes/`
+  - Status fijos: `pending_scheduling`, `scheduled` (bussiness constraint en buildWhereClause)
+  - `companyId` via `vehicles.company_id`
+  - Filtros de texto en vehicles (domain, serie, intern_number) y order_number se manejan con OR de nivel raíz (`searchCondition`) para que Prisma pueda combinar campos de relación con campos directos
+  - Patrón de búsqueda global multi-tabla: `OR: [{ vehicles: { OR: [...] } }, { order_number: {...} }]`
+  - `source` (checklist/manual) — campo directo en maintenance_orders; tiene filtro facetado + groupBy con crossWhere
+  - SOURCE_LABELS/SOURCE_ICONS exportados desde columns.tsx con valores 'checklist' → 'Checklist', 'manual' → 'Manual'
+  - Auditoría 2026-03: `order_number` y `source` no tenían columna ni filtro (MISSING HIGH); agregados columnas, filtros text/faceted, formatters de export, groupBy en facets, VALID_SORT_FIELDS actualizados
+
+- **WorkshopTracking (Seguimiento en Taller)**: `src/features/Mantenimiento/WorkshopTracking/`
+  - Status relevantes: in_workshop, pending_workshop_validation, pending_operations_validation, operations_rejected, workshop_rejected, completed
+  - Columnas virtuales (sin filtro): `days_in_workshop`, `sector_journey` (recorrido sectores), `progress` (% asignación)
+  - Filtros de texto en vehicles (domain, serie, intern_number) se manejan manualmente en AND conditions
+  - `order_number` usa TEXT_COLUMNS + buildTextFiltersWhere (campo directo en maintenance_orders)
+  - Auditoría 2026-03: `order_number` faltaba en TEXT_COLUMNS + facetedFilters (filtro text); `CircleOff` icon faltaba en opción "Sin asignar" de vehicle; `DataTableFilterOption[]` type explícito en vehicleOptions para permitir push con icon
+  - companyId via `vehicles.company_id` (no campo directo en maintenance_orders)
+
+### PATRÓN CRÍTICO — Filtros omitidos sistemáticamente
+
+**El error más frecuente al crear tablas**: las columnas FK (supervisor, employee, etc.) y de fecha (created_at) se agregan como columnas pero NO se agrega el filtro correspondiente.
+
+**Checklist obligatorio al crear o auditar filtros:**
+
+Para CADA columna en `columns.tsx`, preguntar:
+1. ¿Es FK UUID? → Agregar en COLUMN_MAP, facet groupBy en getXxxFacets, supervisorOptions useMemo, entrada en facetedFilters con externalCounts, filterFn con NULL_FILTER_VALUE
+2. ¿Es enum? → Agregar en COLUMN_MAP, facet groupBy, statusOptions useMemo, entrada en facetedFilters con externalCounts, filterFn con null check
+3. ¿Es fecha? → Agregar en DATE_COLUMNS, en buildDateRangeFiltersWhere, entrada `{ columnId, title, type: 'dateRange' }` en facetedFilters
+4. ¿Es texto? → Agregar en TEXT_COLUMNS, en buildTextFiltersWhere, entrada `{ columnId, title, type: 'text' }` en facetedFilters
+
+**Lo que más se olvida por columna:**
+- FK: la entrada en COLUMN_MAP (sin esto buildFiltersWhere no la procesa server-side)
+- FK: el `filterFn` en columns.tsx usando `row.original.rawId` (no el campo accesado por accessorFn)
+- Fecha: la entrada en `facetedFilters` con `type: 'dateRange'` (la columna tiene dateRange en la acción pero no aparece el filtro en la UI)
+- Todas: olvidar `externalCounts: facets?.campo` → los counts son incorrectos con paginación
+- Campos de tablas relacionadas (ej: `source` de `maintenance_requests`): el campo se incluye en el `select` Prisma pero se omite la columna y el filtro en la tabla. Verificar SIEMPRE que todos los campos del `select` tengan columna visible.
+
+- **PedidosConfirmados**: `src/features/Mantenimiento/PedidosMantenimiento/Confirmados/`
+  - Auditoría 2026-03: `order_number` y `source` (de maintenance_requests) faltaban como columnas y filtros
+  - `order_number`: agregado columna + filtro text + VALID_SORT_FIELDS + TEXT_COLUMNS + buildTextFiltersWhere + export formatter
+  - `source`: agregado columna (oculta por defecto) + filtro facetado + SOURCE_LABELS/SOURCE_ICONS + groupBy en facets vía maintenance_requests + source en exclude de buildFiltersWhere + filtro manual sourceFilter + export formatter
+  - `condition`: agregado íconos semánticos (CheckCircle2, XCircle, Wrench, AlertCircle, Settings2) en opciones del filtro facetado
+  - `SOURCE_ICONS` en columns.tsx tipado como `Record<string, LucideIcon>` para compatibilidad con `DataTableFilterOption.icon`
