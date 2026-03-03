@@ -66,3 +66,6 @@ agent-memory
 
 # Prisma generated
 src/generated/
+
+# Plans / notes (local only)
+docs/plans/

@@ -75,12 +75,15 @@ Los siguientes MCPs estan a tu disposicion:
 
 **REGLA CRITICA**: Antes de ejecutar cualquier tarea, verificar si hay un agente o skill que la cubra. Si existe, DEBE usarse — no actuar directamente sin invocar el recurso apropiado.
 
-### Agentes Personalizados (2)
+### Agentes Personalizados (3)
 
 | Agente         | Cuando usarlo                                                                  |
 | -------------- | ------------------------------------------------------------------------------ |
+| `git-guardian` | **TODA operacion git**: commit, push, PR, merge, crear ramas, subir cambios    |
 | `table-expert` | Crear, auditar o modificar DataTables (columnas, filtros, export, facets)      |
 | `linear-sync`  | Interactuar con Linear: crear/editar issues, sincronizar notas, auditar estado |
+
+**REGLA GIT — OBLIGATORIA SIN EXCEPCIONES**: TODA operacion git (commit, push, crear PR, merge, subir cambios) DEBE delegarse al agente `git-guardian`. **NUNCA ejecutar `git commit`, `git push`, `gh pr create` o similares directamente.** El agente analiza el diff, verifica calidad del codigo (types, patrones del proyecto, seguridad), y solo entonces ejecuta la operacion. Si encuentra problemas criticos, NO commitea y devuelve un informe con los problemas y sus soluciones propuestas. Operaciones simples (crear rama, checkout, pull, stash) tambien van por el agente pero sin analisis de diff.
 
 **REGLA DataTables**: TODA tarea que involucre DataTables (crear tabla, agregar columna, agregar filtro, auditar tabla, modificar export, corregir filtros, etc.) DEBE delegarse al agente `table-expert`. Si la peticion del usuario incluye trabajo de tabla Y otro trabajo, separar la parte de tabla y delegarla al agente, ejecutando el resto normalmente.
 
@@ -88,16 +91,16 @@ Los siguientes MCPs estan a tu disposicion:
 
 El plugin superpowers se invoca automaticamente segun el contexto. Mapeo de peticiones comunes:
 
-| Peticion del usuario                         | Skill que se invoca automaticamente                                                                                             |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| "Hazme una planificacion / planifica esto"   | `superpowers:brainstorming` → `superpowers:writing-plans`                                                                       |
-| "Implementa este plan / ejecuta el plan"     | `superpowers:executing-plans`                                                                                                   |
-| "Debuguea esto / investiga este bug"         | `superpowers:systematic-debugging`                                                                                              |
-| "Commitea / push / crea PR / revisa cambios" | `superpowers:differential-review` + `superpowers:verification-before-completion` + `superpowers:finishing-a-development-branch` |
-| "Revisa el codigo / code review"             | `superpowers:requesting-code-review`                                                                                            |
-| "Crea un componente / formulario / modal"    | `superpowers:brainstorming` (diseño) + MCP shadcn (implementacion)                                                              |
-| "Agrega funcionalidad / nueva feature"       | `superpowers:brainstorming` (primero) → implementacion                                                                          |
-| "Verifica que funcione / esta listo?"        | `superpowers:verification-before-completion`                                                                                    |
+| Peticion del usuario                         | Skill que se invoca automaticamente                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| "Hazme una planificacion / planifica esto"   | `superpowers:brainstorming` → `superpowers:writing-plans`                                        |
+| "Implementa este plan / ejecuta el plan"     | `superpowers:executing-plans`                                                                    |
+| "Debuguea esto / investiga este bug"         | `superpowers:systematic-debugging`                                                               |
+| "Commitea / push / crea PR / revisa cambios" | **DELEGAR al agente `git-guardian`** (el agente usa internamente verification-before-completion) |
+| "Revisa el codigo / code review"             | `superpowers:requesting-code-review`                                                             |
+| "Crea un componente / formulario / modal"    | `superpowers:brainstorming` (diseño) + MCP shadcn (implementacion)                               |
+| "Agrega funcionalidad / nueva feature"       | `superpowers:brainstorming` (primero) → implementacion                                           |
+| "Verifica que funcione / esta listo?"        | `superpowers:verification-before-completion`                                                     |
 
 **No es necesario nombrar las skills explicitamente.** Pedir las cosas de manera natural y el sistema las invoca automaticamente.
 
@@ -109,10 +112,11 @@ Errores tipicos que NO deben repetirse:
 
 - Debuggear errores de build sin invocar `superpowers:systematic-debugging`
 - Crear/diseñar componentes UI sin invocar `superpowers:brainstorming`
-- Commitear sin invocar `superpowers:verification-before-completion`
+- **Commitear/pushear/crear PR sin delegar al agente `git-guardian`** (NUNCA ejecutar git commit/push directamente)
 - Terminar trabajo sin invocar `superpowers:requesting-code-review`
 
-**El flujo correcto es: skill PRIMERO → accion DESPUES. Nunca al reves.**
+**El flujo correcto es: skill/agente PRIMERO → accion DESPUES. Nunca al reves.**
+**Para git: SIEMPRE `git-guardian`. Sin excepciones. Sin atajos.**
 
 ## Team Agents (Equipos de Agentes)
 
@@ -220,9 +224,16 @@ window.alert('Operacion exitosa');
 
 **NO** crear archivos markdown (.md) a menos que se solicite explicitamente.
 
-### 5. NO Commit Automatico
+### 5. NO Commit Automatico — SIEMPRE via git-guardian
 
 **NUNCA** realizar commits automaticamente. Solo hacer commit cuando el usuario lo indique explicitamente (ej: "commitea", "hace commit", "push", etc.). No asumir que se debe commitear despues de completar una tarea.
+
+**CRITICO**: Cuando el usuario pida commitear, pushear, crear PR o cualquier operacion git con cambios, **SIEMPRE delegar al agente `git-guardian`**. NUNCA ejecutar `git commit`, `git push` o `gh pr create` directamente. El agente se encarga de:
+
+1. Analizar el diff buscando problemas (seguridad, tipos, patrones del proyecto)
+2. Ejecutar `npm run check-types` para verificar que compile
+3. Bloquear el commit si hay problemas criticos (con informe + solucion propuesta)
+4. Ejecutar el commit/push/PR solo si todo esta limpio
 
 ### 6. NUNCA Co-Authored-By en Commits
 
