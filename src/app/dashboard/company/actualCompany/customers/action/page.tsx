@@ -4,6 +4,7 @@ import {
   fetchAllEquipment,
   fetchServiceItems,
 } from '@/app/server/GET/actions';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
@@ -39,7 +40,7 @@ export default async function CustomerFormAction({ searchParams, params }: { sea
           searchParams.action === 'new' && 'col-span-8'
         )}
       >
-        <Suspense fallback={<div>Cargando...</div>}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <CustomerComponent
             equipment={equipment}
             id={searchParams.id}

@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import { CompanyDocumentsType } from '@/store/loggedUser';
@@ -47,7 +48,7 @@ export default async function DocumentosEmpresaTabContent({
           moduleSlug: 'empresa',
           tabSlug: 'documentacion',
           content: (
-            <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <EmpresaPermanentesWrapper companyData={companyData || []} />
             </Suspense>
           ),
@@ -63,7 +64,7 @@ export default async function DocumentosEmpresaTabContent({
           moduleSlug: 'empresa',
           tabSlug: 'documentacion',
           content: (
-            <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <EmpresaMensualesWrapper companyData={companyData || []} />
             </Suspense>
           ),

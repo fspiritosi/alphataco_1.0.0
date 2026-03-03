@@ -9,6 +9,7 @@
  * TODO: Eliminar este archivo cuando se complete la migración de todos los lugares que lo usan.
  */
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import { TypeOfRepair } from '@/types/types';
@@ -68,7 +69,7 @@ async function RepairEntryWrapper({
           moduleSlug: 'equipos',
           tabSlug: 'carga-individual',
           content: (
-            <Suspense fallback={<div>Cargando formulario...</div>}>
+            <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
               <RepairNewEntry
                 user_id={user?.id}
                 equipment={vehiclesFormatted}
@@ -93,7 +94,7 @@ async function RepairEntryWrapper({
           tabSlug: 'carga-multiple',
           disabled: true, // Deshabilitado temporalmente
           content: (
-            <Suspense fallback={<div>Cargando formulario...</div>}>
+            <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
               <Card className="p-6">
                 <InfoComponent size="lg" message={message} />
                 <RepairNewEntryMultiple

@@ -1,6 +1,7 @@
 import MaintenanceGroupsWrapper from '@/components/Tipos_de_reparaciones/MaintenanceGroupsWrapper';
 import RepairEntryWrapper from '@/components/Tipos_de_reparaciones/RepairEntryWrapper';
 import RepairTypeFormWrapper from '@/components/Tipos_de_reparaciones/RepairTypeFormWrapper';
+import { Skeleton } from '@/components/ui/skeleton';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
 import { NuevoPedidoSkeleton, NuevoPedidoTabContent } from '@/features/Mantenimiento/NuevoPedido';
@@ -66,7 +67,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
           moduleSlug: 'mantenimiento',
           tabSlug: 'type_of_repair_new_entry' as const,
           content: (
-            <Suspense fallback={<div>Cargando formulario...</div>}>
+            <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
               <RepairEntryWrapper searchParams={searchParams} permissions={permissions} />
             </Suspense>
           ),
@@ -179,7 +180,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   moduleSlug: 'mantenimiento',
                   tabSlug: 'type_of_repair',
                   content: (
-                    <Suspense fallback={<div>Cargando tipos de reparación...</div>}>
+                    <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                       <RepairTypeFormWrapper />
                     </Suspense>
                   ),
@@ -195,7 +196,7 @@ export default async function MantenimientoComponent({ searchParams, permissions
                   moduleSlug: 'mantenimiento',
                   tabSlug: 'maintenance_groups',
                   content: (
-                    <Suspense fallback={<div>Cargando grupos...</div>}>
+                    <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                       <MaintenanceGroupsWrapper />
                     </Suspense>
                   ),

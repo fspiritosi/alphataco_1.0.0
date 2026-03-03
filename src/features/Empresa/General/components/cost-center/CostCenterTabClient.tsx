@@ -1,6 +1,7 @@
 'use client';
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { Suspense } from 'react';
 import CostCenterForm from './CostCenterForm';
@@ -32,7 +33,7 @@ export function CostCenterTabClient({ costCenters, savedVisibility, savedFilter 
         )}
 
         <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
-          <Suspense fallback={<p>Loading...</p>}>
+          <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
             <CostCenterTable savedVisibility={savedVisibility} costCenters={costCenters} savedFilter={savedFilter} />
           </Suspense>
         </ResizablePanel>

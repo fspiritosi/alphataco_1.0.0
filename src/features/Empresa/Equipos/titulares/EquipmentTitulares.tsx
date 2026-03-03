@@ -2,8 +2,8 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissions } from '@/features/Permissions';
-import { Loader2 } from 'lucide-react';
 import { Suspense, useState } from 'react';
 import EquipmentByOwnerTableWrapper from './EquipmentByOwnerTableWrapper';
 import EquipmentOwnerForm from './EquipmentOwnerForm';
@@ -56,14 +56,7 @@ function EquipmentTitulares({ equipmentOwners }: TitularesProps) {
               </CardHeader>
               <CardContent>
                 {selectedOwner ? (
-                  <Suspense
-                    fallback={
-                      <div className="flex items-center justify-center p-8">
-                        <Loader2 className="h-8 w-8 animate-spin" />
-                        <span className="ml-2">Cargando equipos...</span>
-                      </div>
-                    }
-                  >
+                  <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                     <EquipmentByOwnerTableWrapper selectedOwner={selectedOwner} />
                   </Suspense>
                 ) : (

@@ -1,6 +1,7 @@
 'use client';
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { Suspense } from 'react';
 import type { WorkshopSector } from '../../../actions/workshops.actions';
@@ -39,7 +40,7 @@ export function SectoresTabClient({
         )}
 
         <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
-          <Suspense fallback={<p>Cargando...</p>}>
+          <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
             <SectoresTable
               savedVisibility={savedVisibility}
               workshopSectors={workshopSectors}

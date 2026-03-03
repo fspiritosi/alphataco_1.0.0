@@ -1,6 +1,7 @@
 'use client';
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { Suspense } from 'react';
 import type { Workshop } from '../../../actions/workshops.actions';
@@ -33,7 +34,7 @@ export function TalleresTabClient({ workshops, savedVisibility, savedFilter }: T
         )}
 
         <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
-          <Suspense fallback={<p>Cargando...</p>}>
+          <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
             <TalleresTable savedVisibility={savedVisibility} workshops={workshops} savedFilter={savedFilter} />
           </Suspense>
         </ResizablePanel>

@@ -1,5 +1,6 @@
 import BackButton from '@/components/BackButton';
 import ConvenantComponent from '@/components/CovenantComponent';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Suspense } from 'react';
 
@@ -16,7 +17,7 @@ export default async function CovenantFormAction({ searchParams, params }: { sea
           searchParams.action === 'new' && 'col-span-8'
         )}
       >
-        <Suspense fallback={<div>Cargando...</div>}>
+        <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
           <ConvenantComponent id={searchParams.id} />
         </Suspense>
       </div>
