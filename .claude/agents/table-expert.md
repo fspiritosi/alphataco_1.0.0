@@ -507,11 +507,30 @@ To create a new table from scratch:
 
 ---
 
-## Auto-Auditoría Post-Implementación
+## Auto-Auditoría Post-Implementación — BLOQUEANTE
 
-**TODO agente que cree o modifique una tabla DEBE ejecutar una auto-auditoría completa al terminar**, verificando el checklist obligatorio de `.claude/rules/datatable.md` antes de reportar el trabajo como completo.
+**NUNCA reportes una tabla como terminada sin completar esta auto-auditoría.** Esta seccion es BLOQUEANTE: si algun paso falla, NO puedes marcar el trabajo como completo.
 
-### Checklist rápido de filtros (el punto más frecuentemente incompleto)
+### Paso 1: Matriz Columna→Filtro (OBLIGATORIO — NO SALTEAR)
+
+**Este es el paso que MAS frecuentemente se olvida. DEBES ejecutarlo SIEMPRE.**
+
+Despues de crear o modificar una tabla, construir esta matriz COMPLETA y verificar cada fila:
+
+```
+| # | Columna (id en columns.tsx) | Tipo dato  | Filtro esperado | Filtro existe en _DataTable? | filterFn en columns? | Server-side? | Estado |
+|---|----------------------------|------------|-----------------|------------------------------|---------------------|--------------|--------|
+| 1 | select                     | UI         | NINGUNO         | —                            | —                   | —            | OK     |
+| 2 | name                       | texto      | text            | SI/NO                        | —                   | SI/NO        | ??     |
+| 3 | status                     | enum       | faceted         | SI/NO                        | SI/NO               | SI/NO        | ??     |
+| 4 | employee                   | FK UUID    | faceted         | SI/NO                        | SI/NO               | SI/NO        | ??     |
+| 5 | createdAt                  | fecha      | dateRange       | SI/NO                        | —                   | SI/NO        | ??     |
+| 6 | actions                    | UI         | NINGUNO         | —                            | —                   | —            | OK     |
+```
+
+**Si hay UN SOLO "NO" donde deberia haber un "SI", debes corregirlo ANTES de reportar.**
+
+Referencia rapida:
 
 | Tipo de columna             | Filtro requerido                                                | Notas                                  |
 | --------------------------- | --------------------------------------------------------------- | -------------------------------------- |
@@ -524,16 +543,56 @@ To create a new table from scratch:
 | JSONB / virtual / calculada | SIN filtro                                                      | No filtrable server-side               |
 | Acciones / select           | SIN filtro                                                      | —                                      |
 
-### Reglas de íconos en filtros facetados
+### Paso 2: Iconos en Filtros y Columnas (OBLIGATORIO — NO SALTEAR)
 
-- Si el filtro tiene categorías semánticamente claras (estados, tipos, booleanos): TODAS las opciones deben tener ícono.
-- Opciones con `NULL_FILTER_VALUE` ("Sin asignar", etc.): siempre `icon: CircleOff`.
-- Los íconos del filtro DEBEN coincidir con los íconos del badge en la celda de la columna.
+**Este es el SEGUNDO paso mas frecuentemente olvidado. DEBES verificar iconos SIEMPRE.**
 
-### `enableSorting` en columnas FK
+Para CADA filtro facetado, responder estas preguntas:
 
-- Columnas FK con `accessorFn` que NO tienen entrada en `FK_SORT_MAP` en el server action → agregar `enableSorting: false`.
-- Sin esto, el DataTable muestra la opción de ordenar pero la ignorará silenciosamente.
+1. **¿La columna es icon-appropriate?** (estados, tipos de recurso, booleanos, prioridades, appliesTo)
+
+   - SI → **DEBE tener `icon` en CADA opcion del filtro**. Si falta → BUG, corregir antes de reportar.
+   - NO (FK genericas como nombres de departamentos, categorias) → No necesita iconos.
+
+2. **Si el filtro tiene iconos, ¿coinciden con los de la celda?**
+
+   - Si la columna usa Badge con icono → el filtro DEBE usar el MISMO icono para cada valor.
+   - Si la columna muestra nombre/link (no Badge) → icono solo en filtro es aceptable.
+
+3. **Opciones `NULL_FILTER_VALUE` ("Sin asignar")** → SIEMPRE `icon: CircleOff`.
+
+**Iconos comunes por categoria:**
+
+- Estados: `Clock` (pendiente), `CheckCircle2` (aprobado/completado), `XCircle` (rechazado), `AlertCircle` (vencido/expirado), `Pause` (pausado)
+- Tipos de recurso: `User` (empleado), `Truck` (vehiculo/equipo), `Building2` (empresa)
+- Booleanos: `Check` (si/activo), `X` (no/inactivo)
+- Prioridades: `ArrowUp` (alta), `ArrowRight` (media), `ArrowDown` (baja)
+
+### Paso 3: Export Excel (OBLIGATORIO)
+
+Para CADA columna exportable verificar:
+
+- Enums → tiene `formatter` con labels del mapper
+- Fechas → tiene `formatter` con `moment().format('DD/MM/YYYY')`
+- Booleanos → tiene `formatter` con `val ? 'Si' : 'No'`
+- FK con `accessorFn` → NO necesita formatter (ya retorna `.name`)
+
+### Paso 4: Verificacion de Sorting
+
+- TODA columna debe ser sorteable EXCEPTO `select`, `actions` y M:M
+- Columnas FK con `accessorFn` que NO tienen entrada en `FK_SORT_MAP` → agregar `enableSorting: false`
+- Verificar que `VALID_SORT_FIELDS` incluya todos los campos directos sorteables
+
+### Paso 5: Reporte Final
+
+Antes de reportar como terminado, incluir en tu respuesta:
+
+1. La Matriz Columna→Filtro completa (Paso 1)
+2. Verificacion de iconos por filtro facetado (Paso 2)
+3. Lista de formatters de export verificados (Paso 3)
+4. Confirmacion de sorting (Paso 4)
+
+**Si omites alguno de estos pasos, tu trabajo esta INCOMPLETO.**
 
 ---
 
