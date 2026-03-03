@@ -106,8 +106,8 @@ export function ExternalWorkshopCard({
                   <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-sm font-medium">{wo.orderNumber || 'Sin N°'}</span>
                   <span className="text-sm flex-1 text-muted-foreground">{wo.repairName}</span>
-                  <Badge variant={woStatusBadge[wo.status] || 'outline'}>
-                    {woStatusLabels[wo.status] || wo.status}
+                  <Badge variant={wo.status ? woStatusBadge[wo.status] || 'outline' : 'outline'}>
+                    {wo.status ? woStatusLabels[wo.status] || wo.status : 'Desconocido'}
                   </Badge>
                   {canComplete && (
                     <PermissionGuard module="mantenimiento" tab="ordenes_mantenimiento" action="update">
@@ -117,7 +117,7 @@ export function ExternalWorkshopCard({
                         className="text-xs h-7"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onCompleteWorkOrder(wo.id);
+                          if (wo.id) onCompleteWorkOrder(wo.id);
                         }}
                         disabled={isCompleting}
                       >

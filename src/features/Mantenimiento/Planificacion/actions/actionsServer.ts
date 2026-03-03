@@ -2,7 +2,12 @@
 
 import type { WorkOrderPriority } from '@/features/Mantenimiento/OrdenesTrabajo/types';
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
+import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
+import { CACHE_TAGS } from '@/shared/constants/cache';
+import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
+import { prisma } from '@/shared/lib/prisma';
+import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
+import { cacheLife, cacheTag } from 'next/cache';
 
 const logger = new Logger('Planificacion/actions');
 
@@ -61,24 +66,15 @@ function formatWorkOrderNumber(
 
 /**
  * Obtiene el siguiente número de secuencia global para OT
+ * NO tiene cache — se llama antes de la transacción para evitar deadlocks
  */
 async function getNextSequenceNumber(): Promise<number> {
-  const supabase = await supabaseServer();
+  const last = await prisma.work_orders.findFirst({
+    orderBy: { sequence_number: 'desc' },
+    select: { sequence_number: true },
+  });
 
-  const { data, error } = await supabase
-    .from('work_orders')
-    .select('sequence_number')
-    .order('sequence_number', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error && error.code !== 'PGRST116') {
-    // PGRST116 = no rows returned
-    logger.error('Error obteniendo secuencia', { data: { error } });
-    throw new Error('Error al obtener número de secuencia');
-  }
-
-  return (data?.sequence_number || 0) + 1;
+  return (last?.sequence_number ?? 0) + 1;
 }
 
 // =============================================================================
@@ -90,73 +86,57 @@ async function getNextSequenceNumber(): Promise<number> {
  * NO crea la orden de trabajo, solo guarda la asignación
  */
 export async function assignWorkshopToItem(input: AssignWorkshopInput) {
-  const supabase = await supabaseServer();
-
   logger.info('Asignando taller a item', { data: { ...input } });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await requireServerAuthProfile();
 
-  if (!user) {
-    throw new Error('Usuario no autenticado');
-  }
+  const updatedItem = await prisma.$transaction(async (tx) => {
+    // 1. Actualizar el item con el taller, sector y primer tipo de reparación (legacy)
+    const item = await tx.maintenance_order_items.update({
+      where: { id: input.maintenanceOrderItemId },
+      data: {
+        assigned_workshop_id: input.workshopId,
+        assigned_sector_id: input.sectorId ?? null,
+        planned_start_date: new Date(input.plannedStartDate),
+        planned_end_date: new Date(input.plannedEndDate),
+        assigned_by: profile.id,
+        assigned_at: new Date(),
+        repair_type_id: input.repairTypeIds[0] ?? null, // Campo legacy: primer tipo
+      },
+    });
 
-  // Actualizar el item con el taller, sector y primer tipo de reparación (legacy)
-  const { data, error } = await supabase
-    .from('maintenance_order_items')
-    .update({
-      assigned_workshop_id: input.workshopId,
-      assigned_sector_id: input.sectorId || null,
-      planned_start_date: input.plannedStartDate,
-      planned_end_date: input.plannedEndDate,
-      assigned_by: user.id,
-      assigned_at: new Date().toISOString(),
-      repair_type_id: input.repairTypeIds[0] || null, // Campo legacy: primer tipo
-    })
-    .eq('id', input.maintenanceOrderItemId)
-    .select()
-    .single();
+    // 2. Guardar tipos de reparación en tabla pivot
+    if (input.repairTypeIds.length > 0) {
+      // Eliminar registros anteriores
+      await tx.maintenance_order_item_repair_types.deleteMany({
+        where: { maintenance_order_item_id: input.maintenanceOrderItemId },
+      });
 
-  if (error) {
-    logger.error('Error asignando taller', { data: { error } });
-    throw new Error(`Error al asignar taller: ${error.message}`);
-  }
-
-  // Guardar tipos de reparación en tabla pivot
-  if (input.repairTypeIds.length > 0) {
-    // Eliminar registros anteriores
-    await supabase
-      .from('maintenance_order_item_repair_types')
-      .delete()
-      .eq('maintenance_order_item_id', input.maintenanceOrderItemId);
-
-    // Insertar nuevos registros
-    const pivotRecords = input.repairTypeIds.map((repairTypeId) => ({
-      maintenance_order_item_id: input.maintenanceOrderItemId,
-      repair_type_id: repairTypeId,
-    }));
-
-    const { error: pivotError } = await supabase.from('maintenance_order_item_repair_types').insert(pivotRecords);
-
-    if (pivotError) {
-      logger.warn('Error guardando tipos de reparación en pivot', { data: { error: pivotError } });
+      // Insertar nuevos registros
+      await tx.maintenance_order_item_repair_types.createMany({
+        data: input.repairTypeIds.map((repairTypeId) => ({
+          maintenance_order_item_id: input.maintenanceOrderItemId,
+          repair_type_id: repairTypeId,
+        })),
+      });
     }
-  }
+
+    return item;
+  });
 
   logger.info('Taller y tipos de reparación asignados exitosamente', {
     data: { itemId: input.maintenanceOrderItemId, repairTypeCount: input.repairTypeIds.length },
   });
 
-  return data;
+  await invalidateCacheTags(INVALIDATION_MAP.assignWorkshopToItems);
+
+  return updatedItem;
 }
 
 /**
  * Asigna taller, sector, período y tipos de reparación a múltiples items
  */
 export async function assignWorkshopToItemsBulk(input: AssignWorkshopBulkInput) {
-  const supabase = await supabaseServer();
-
   logger.info('Asignando taller a múltiples items', {
     data: {
       itemCount: input.itemIds.length,
@@ -165,61 +145,54 @@ export async function assignWorkshopToItemsBulk(input: AssignWorkshopBulkInput) 
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await requireServerAuthProfile();
 
-  if (!user) {
-    throw new Error('Usuario no autenticado');
-  }
+  const updatedItems = await prisma.$transaction(async (tx) => {
+    // 1. Actualizar múltiples items con updateMany
+    await tx.maintenance_order_items.updateMany({
+      where: { id: { in: input.itemIds } },
+      data: {
+        assigned_workshop_id: input.workshopId,
+        assigned_sector_id: input.sectorId ?? null,
+        planned_start_date: new Date(input.plannedStartDate),
+        planned_end_date: new Date(input.plannedEndDate),
+        assigned_by: profile.id,
+        assigned_at: new Date(),
+        repair_type_id: input.repairTypeIds[0] ?? null, // Campo legacy: primer tipo
+      },
+    });
 
-  const { data, error } = await supabase
-    .from('maintenance_order_items')
-    .update({
-      assigned_workshop_id: input.workshopId,
-      assigned_sector_id: input.sectorId || null,
-      planned_start_date: input.plannedStartDate,
-      planned_end_date: input.plannedEndDate,
-      assigned_by: user.id,
-      assigned_at: new Date().toISOString(),
-      repair_type_id: input.repairTypeIds[0] || null, // Campo legacy: primer tipo
-    })
-    .in('id', input.itemIds)
-    .select();
+    // 2. Guardar tipos de reparación en tabla pivot para cada item
+    if (input.repairTypeIds.length > 0) {
+      // Eliminar registros anteriores de todos los items
+      await tx.maintenance_order_item_repair_types.deleteMany({
+        where: { maintenance_order_item_id: { in: input.itemIds } },
+      });
 
-  if (error) {
-    logger.error('Error asignando taller en bulk', { data: { error } });
-    throw new Error(`Error al asignar taller: ${error.message}`);
-  }
-
-  // Guardar tipos de reparación en tabla pivot para cada item
-  if (input.repairTypeIds.length > 0) {
-    // Eliminar registros anteriores de todos los items
-    await supabase.from('maintenance_order_item_repair_types').delete().in('maintenance_order_item_id', input.itemIds);
-
-    // Insertar nuevos registros para todos los items
-    const pivotRecords: { maintenance_order_item_id: string; repair_type_id: string }[] = [];
-    for (const itemId of input.itemIds) {
-      for (const repairTypeId of input.repairTypeIds) {
-        pivotRecords.push({
-          maintenance_order_item_id: itemId,
-          repair_type_id: repairTypeId,
-        });
+      // Construir registros pivot para todos los items × todos los tipos
+      const pivotRecords: { maintenance_order_item_id: string; repair_type_id: string }[] = [];
+      for (const itemId of input.itemIds) {
+        for (const repairTypeId of input.repairTypeIds) {
+          pivotRecords.push({ maintenance_order_item_id: itemId, repair_type_id: repairTypeId });
+        }
       }
+
+      await tx.maintenance_order_item_repair_types.createMany({ data: pivotRecords });
     }
 
-    const { error: pivotError } = await supabase.from('maintenance_order_item_repair_types').insert(pivotRecords);
-
-    if (pivotError) {
-      logger.warn('Error guardando tipos de reparación en pivot (bulk)', { data: { error: pivotError } });
-    }
-  }
-
-  logger.info('Taller y tipos de reparación asignados a múltiples items', {
-    data: { count: data?.length, repairTypeCount: input.repairTypeIds.length },
+    // Retornar los items actualizados para consistencia con el retorno original
+    return tx.maintenance_order_items.findMany({
+      where: { id: { in: input.itemIds } },
+    });
   });
 
-  return data;
+  logger.info('Taller y tipos de reparación asignados a múltiples items', {
+    data: { count: updatedItems.length, repairTypeCount: input.repairTypeIds.length },
+  });
+
+  await invalidateCacheTags(INVALIDATION_MAP.assignWorkshopToItems);
+
+  return updatedItems;
 }
 
 /**
@@ -227,197 +200,178 @@ export async function assignWorkshopToItemsBulk(input: AssignWorkshopBulkInput) 
  * Los items deben pertenecer al mismo equipo
  */
 export async function createWorkOrder(input: CreateWorkOrderInput) {
-  const supabase = await supabaseServer();
-
   logger.info('Creando orden de trabajo', {
     data: { itemCount: input.itemIds.length, workshopId: input.workshopId },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await requireServerAuthProfile();
 
-  if (!user) {
-    throw new Error('Usuario no autenticado');
-  }
-
-  // 1. Obtener los items y verificar que son del mismo equipo
-  const { data: items, error: itemsError } = await supabase
-    .from('maintenance_order_items')
-    .select(
-      `
-      id,
-      maintenance_order_id,
-      maintenance_orders!inner (
-        id,
-        equipment_id,
-        vehicles!inner (
-          id,
-          domain,
-          serie,
-          company_id
-        )
-      )
-    `
-    )
-    .in('id', input.itemIds);
-
-  if (itemsError || !items || items.length === 0) {
-    logger.error('Error obteniendo items', { data: { error: itemsError } });
-    throw new Error('No se encontraron los items seleccionados');
-  }
-
-  // Verificar que todos los items son del mismo equipo
-  const equipmentIds = [...new Set(items.map((item) => (item.maintenance_orders as any).equipment_id))];
-  if (equipmentIds.length > 1) {
-    throw new Error('Todos los items deben ser del mismo equipo para crear una orden de trabajo');
-  }
-
-  const equipmentId = equipmentIds[0];
-  const vehicle = (items[0].maintenance_orders as any).vehicles;
-  const companyId = vehicle.company_id;
-
-  // 2. Obtener el nombre del sector (si existe)
-  let sectorName: string | null = null;
-  if (input.sectorId) {
-    const { data: sector } = await supabase.from('workshop_sectors').select('name').eq('id', input.sectorId).single();
-    sectorName = sector?.name || null;
-  }
-
-  // 3. Obtener siguiente número de secuencia
+  // Obtener siguiente número de secuencia ANTES de la transacción para evitar deadlocks
   const sequenceNumber = await getNextSequenceNumber();
 
-  // 4. Generar número de orden
-  const orderNumber = formatWorkOrderNumber(vehicle.domain, vehicle.serie, sectorName, sequenceNumber);
-
-  // 5. Crear la orden de trabajo
-  const { data: workOrder, error: workOrderError } = await supabase
-    .from('work_orders')
-    .insert({
-      order_number: orderNumber,
-      sequence_number: sequenceNumber,
-      company_id: companyId,
-      equipment_id: equipmentId,
-      workshop_id: input.workshopId,
-      sector_id: input.sectorId || null,
-      status: 'pending',
-      priority: input.priority || 'medium',
-      planned_start_date: input.plannedStartDate,
-      planned_end_date: input.plannedEndDate,
-      notes: input.notes || null,
-      created_by: user.id,
-    })
-    .select()
-    .single();
-
-  if (workOrderError) {
-    logger.error('Error creando orden de trabajo', { data: { error: workOrderError } });
-    throw new Error(`Error al crear orden de trabajo: ${workOrderError.message}`);
-  }
-
-  // 6. Crear los work_order_items
-  const workOrderItems = input.itemIds.map((itemId) => ({
-    work_order_id: workOrder.id,
-    maintenance_order_item_id: itemId,
-    status: 'pending' as const,
-  }));
-
-  const { data: createdWoItems, error: woItemsError } = await supabase
-    .from('work_order_items')
-    .insert(workOrderItems)
-    .select('id, maintenance_order_item_id');
-
-  if (woItemsError || !createdWoItems) {
-    logger.error('Error creando items de orden de trabajo', { data: { error: woItemsError } });
-    // Rollback: eliminar la orden de trabajo creada
-    await supabase.from('work_orders').delete().eq('id', workOrder.id);
-    throw new Error(`Error al crear items de orden: ${woItemsError?.message}`);
-  }
-
-  // 6.1 Crear los work_order_item_repairs (cada tipo de reparación es un trabajo individual)
-  if (input.repairTypeIds && input.repairTypeIds.length > 0) {
-    const repairRecords: { work_order_item_id: string; repair_type_id: string; status: 'pending' }[] = [];
-
-    for (const woItem of createdWoItems) {
-      for (const repairTypeId of input.repairTypeIds) {
-        repairRecords.push({
-          work_order_item_id: woItem.id,
-          repair_type_id: repairTypeId,
-          status: 'pending',
-        });
-      }
-    }
-
-    const { error: repairsError } = await supabase.from('work_order_item_repairs').insert(repairRecords);
-
-    if (repairsError) {
-      logger.error('Error creando trabajos de reparación', { data: { error: repairsError } });
-      // Rollback
-      await supabase.from('work_order_items').delete().eq('work_order_id', workOrder.id);
-      await supabase.from('work_orders').delete().eq('id', workOrder.id);
-      throw new Error(`Error al crear trabajos de reparación: ${repairsError.message}`);
-    }
-
-    logger.info('Trabajos de reparación creados', {
-      data: { count: repairRecords.length, workOrderId: workOrder.id },
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Obtener los items y verificar que son del mismo equipo
+    const items = await tx.maintenance_order_items.findMany({
+      where: { id: { in: input.itemIds } },
+      select: {
+        id: true,
+        maintenance_order_id: true,
+        maintenance_orders: {
+          select: {
+            id: true,
+            equipment_id: true,
+            vehicles: {
+              select: {
+                id: true,
+                domain: true,
+                serie: true,
+                company_id: true,
+              },
+            },
+          },
+        },
+      },
     });
-  }
 
-  // 7. Actualizar los maintenance_order_items con la referencia a la OT
-  const { error: updateError } = await supabase
-    .from('maintenance_order_items')
-    .update({
-      work_order_id: workOrder.id,
-      assigned_workshop_id: input.workshopId,
-      assigned_sector_id: input.sectorId || null,
-      planned_start_date: input.plannedStartDate,
-      planned_end_date: input.plannedEndDate,
-      assigned_by: user.id,
-      assigned_at: new Date().toISOString(),
-      repair_type_id: input.repairTypeIds?.[0] || null, // Campo legacy: primer tipo
-    })
-    .in('id', input.itemIds);
+    if (!items || items.length === 0) {
+      throw new Error('No se encontraron los items seleccionados');
+    }
 
-  if (updateError) {
-    logger.warn('Error actualizando referencia de OT en items', { data: { error: updateError } });
-  }
+    // Verificar que todos los items son del mismo equipo
+    const equipmentIds = [...new Set(items.map((item) => item.maintenance_orders.equipment_id))];
+    if (equipmentIds.length > 1) {
+      throw new Error('Todos los items deben ser del mismo equipo para crear una orden de trabajo');
+    }
 
-  // 8. Guardar tipos de reparación en tabla pivot (si se proporcionaron)
-  if (input.repairTypeIds && input.repairTypeIds.length > 0) {
-    // Eliminar registros anteriores de todos los items
-    await supabase.from('maintenance_order_item_repair_types').delete().in('maintenance_order_item_id', input.itemIds);
+    const equipmentId = equipmentIds[0];
+    const vehicle = items[0].maintenance_orders.vehicles;
 
-    // Insertar nuevos registros para todos los items
-    const pivotRecords: { maintenance_order_item_id: string; repair_type_id: string }[] = [];
-    for (const itemId of input.itemIds) {
-      for (const repairTypeId of input.repairTypeIds) {
-        pivotRecords.push({
-          maintenance_order_item_id: itemId,
-          repair_type_id: repairTypeId,
-        });
+    if (!vehicle) {
+      throw new Error('No se encontró el vehículo asociado a los items');
+    }
+
+    if (!vehicle.company_id) {
+      throw new Error('El vehículo no tiene empresa asignada');
+    }
+
+    const companyId = vehicle.company_id;
+
+    // 2. Obtener el nombre del sector (si existe)
+    let sectorName: string | null = null;
+    if (input.sectorId) {
+      const sector = await tx.workshop_sectors.findUnique({
+        where: { id: input.sectorId },
+        select: { name: true },
+      });
+      sectorName = sector?.name ?? null;
+    }
+
+    // 3. Generar número de orden
+    const orderNumber = formatWorkOrderNumber(vehicle.domain, vehicle.serie, sectorName, sequenceNumber);
+
+    // 4. Crear la orden de trabajo
+    const workOrder = await tx.work_orders.create({
+      data: {
+        order_number: orderNumber,
+        sequence_number: sequenceNumber,
+        company_id: companyId,
+        equipment_id: equipmentId,
+        workshop_id: input.workshopId,
+        sector_id: input.sectorId ?? null,
+        status: 'pending',
+        priority: input.priority ?? 'medium',
+        planned_start_date: new Date(input.plannedStartDate),
+        planned_end_date: new Date(input.plannedEndDate),
+        notes: input.notes ?? null,
+        created_by: profile.id,
+      },
+    });
+
+    // 5. Crear los work_order_items (con create individual para obtener IDs)
+    const createdWoItems = await Promise.all(
+      input.itemIds.map((itemId) =>
+        tx.work_order_items.create({
+          data: {
+            work_order_id: workOrder.id,
+            maintenance_order_item_id: itemId,
+            status: 'pending',
+          },
+          select: { id: true, maintenance_order_item_id: true },
+        })
+      )
+    );
+
+    // 6. Crear los work_order_item_repairs (cada tipo de reparación es un trabajo individual)
+    if (input.repairTypeIds && input.repairTypeIds.length > 0) {
+      const repairRecords: { work_order_item_id: string; repair_type_id: string; status: 'pending' }[] = [];
+
+      for (const woItem of createdWoItems) {
+        for (const repairTypeId of input.repairTypeIds) {
+          repairRecords.push({
+            work_order_item_id: woItem.id,
+            repair_type_id: repairTypeId,
+            status: 'pending',
+          });
+        }
       }
+
+      await tx.work_order_item_repairs.createMany({ data: repairRecords });
+
+      logger.info('Trabajos de reparación creados', {
+        data: { count: repairRecords.length, workOrderId: workOrder.id },
+      });
     }
 
-    const { error: pivotError } = await supabase.from('maintenance_order_item_repair_types').insert(pivotRecords);
+    // 7. Actualizar los maintenance_order_items con la referencia a la OT
+    await tx.maintenance_order_items.updateMany({
+      where: { id: { in: input.itemIds } },
+      data: {
+        work_order_id: workOrder.id,
+        assigned_workshop_id: input.workshopId,
+        assigned_sector_id: input.sectorId ?? null,
+        planned_start_date: new Date(input.plannedStartDate),
+        planned_end_date: new Date(input.plannedEndDate),
+        assigned_by: profile.id,
+        assigned_at: new Date(),
+        repair_type_id: input.repairTypeIds?.[0] ?? null, // Campo legacy: primer tipo
+      },
+    });
 
-    if (pivotError) {
-      logger.warn('Error guardando tipos de reparación en pivot (createWorkOrder)', { data: { error: pivotError } });
+    // 8. Guardar tipos de reparación en tabla pivot (si se proporcionaron)
+    if (input.repairTypeIds && input.repairTypeIds.length > 0) {
+      // Eliminar registros anteriores de todos los items
+      await tx.maintenance_order_item_repair_types.deleteMany({
+        where: { maintenance_order_item_id: { in: input.itemIds } },
+      });
+
+      const pivotRecords: { maintenance_order_item_id: string; repair_type_id: string }[] = [];
+      for (const itemId of input.itemIds) {
+        for (const repairTypeId of input.repairTypeIds) {
+          pivotRecords.push({ maintenance_order_item_id: itemId, repair_type_id: repairTypeId });
+        }
+      }
+
+      await tx.maintenance_order_item_repair_types.createMany({ data: pivotRecords });
     }
-  }
+
+    return { workOrder, orderNumber };
+  });
 
   logger.info('Orden de trabajo creada exitosamente', {
     data: {
-      workOrderId: workOrder.id,
-      orderNumber,
+      workOrderId: result.workOrder.id,
+      orderNumber: result.orderNumber,
       itemCount: input.itemIds.length,
-      repairTypeCount: input.repairTypeIds?.length || 0,
-      priority: input.priority || 'medium',
+      repairTypeCount: input.repairTypeIds?.length ?? 0,
+      priority: input.priority ?? 'medium',
     },
   });
 
+  await invalidateCacheTags(INVALIDATION_MAP.createWorkOrder);
+
   return {
-    workOrder,
-    orderNumber,
+    workOrder: result.workOrder,
+    orderNumber: result.orderNumber,
     itemCount: input.itemIds.length,
   };
 }
@@ -434,11 +388,15 @@ export async function assignAndCreateWorkOrder(input: CreateWorkOrderInput) {
     sectorId: input.sectorId,
     plannedStartDate: input.plannedStartDate,
     plannedEndDate: input.plannedEndDate,
-    repairTypeIds: input.repairTypeIds || [],
+    repairTypeIds: input.repairTypeIds ?? [],
   });
 
   // Luego crear la orden de trabajo
-  return createWorkOrder(input);
+  const result = await createWorkOrder(input);
+
+  await invalidateCacheTags(INVALIDATION_MAP.createWorkOrder);
+
+  return result;
 }
 
 // =============================================================================
@@ -450,55 +408,47 @@ export async function assignAndCreateWorkOrder(input: CreateWorkOrderInput) {
  * Retorna cuántas OT activas hay por sector vs el cupo máximo
  */
 export async function getSectorOccupancy(workshopId: string) {
-  const supabase = await supabaseServer();
+  'use cache';
+  cacheTag(CACHE_TAGS.TAB_IN_WORKSHOP);
+  cacheLife({ expire: 30, revalidate: 30, stale: 10 });
 
   // Obtener todos los sectores del taller con su cupo
-  const { data: sectors, error: sectorsError } = await supabase
-    .from('workshop_sectors')
-    .select('id, name, max_capacity')
-    .eq('workshop_id', workshopId)
-    .eq('is_active', true);
+  const sectors = await prisma.workshop_sectors.findMany({
+    where: { workshop_id: workshopId, is_active: true },
+    select: { id: true, name: true, max_capacity: true },
+  });
 
-  if (sectorsError) {
-    logger.error('Error obteniendo sectores', { data: { error: sectorsError } });
+  if (sectors.length === 0) {
     return [];
   }
 
-  if (!sectors || sectors.length === 0) {
-    return [];
-  }
+  // Obtener IDs de sectores para filtrar las OTs
+  const sectorIds = sectors.map((s) => s.id);
 
   // Contar OTs activas por sector (pending, in_progress, paused)
-  const { data: occupancyData, error: occupancyError } = await supabase
-    .from('work_orders')
-    .select('sector_id')
-    .eq('workshop_id', workshopId)
-    .in('status', ['pending', 'in_progress', 'paused'])
-    .not('sector_id', 'is', null);
-
-  if (occupancyError) {
-    logger.error('Error obteniendo ocupación', { data: { error: occupancyError } });
-    return sectors.map((s) => ({
-      id: s.id,
-      name: s.name,
-      maxCapacity: s.max_capacity,
-      currentOccupancy: 0,
-    }));
-  }
-
-  // Contar OTs por sector
-  const occupancyCount: Record<string, number> = {};
-  occupancyData?.forEach((ot) => {
-    if (ot.sector_id) {
-      occupancyCount[ot.sector_id] = (occupancyCount[ot.sector_id] || 0) + 1;
-    }
+  const occupancyRaw = await prisma.work_orders.groupBy({
+    by: ['sector_id'],
+    where: {
+      workshop_id: workshopId,
+      status: { in: ['pending', 'in_progress', 'paused'] },
+      sector_id: { in: sectorIds, not: null },
+    },
+    _count: { id: true },
   });
+
+  // Construir mapa de ocupación por sector
+  const occupancyCount: Record<string, number> = {};
+  for (const row of occupancyRaw) {
+    if (row.sector_id) {
+      occupancyCount[row.sector_id] = row._count.id;
+    }
+  }
 
   return sectors.map((s) => ({
     id: s.id,
     name: s.name,
     maxCapacity: s.max_capacity,
-    currentOccupancy: occupancyCount[s.id] || 0,
+    currentOccupancy: occupancyCount[s.id] ?? 0,
   }));
 }
 

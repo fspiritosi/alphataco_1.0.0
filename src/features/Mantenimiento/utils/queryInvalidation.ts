@@ -20,3 +20,10 @@ export function invalidateAllMaintenanceQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['operator-work-order'] });
   queryClient.invalidateQueries({ queryKey: ['operator-work-orders-completed'] });
 }
+
+/**
+ * Re-exporta la funcion de invalidacion de cache server-side (emergencia).
+ * Invalida TODO el cache de mantenimiento en el servidor.
+ * Usar solo como ultimo recurso — prefiere INVALIDATION_MAP para granularidad.
+ */
+export { invalidateAllMaintenanceCacheTags } from '@/shared/utils/cache-invalidation';

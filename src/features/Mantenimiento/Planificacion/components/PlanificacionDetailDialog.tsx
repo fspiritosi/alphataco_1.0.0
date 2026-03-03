@@ -64,7 +64,7 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Tipo</span>
-                <p className="font-medium">{vehicle?.vehicle_type?.name || '-'}</p>
+                <p className="font-medium">{vehicle?.type_vehicles_typeTotype?.name || '-'}</p>
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Condición</span>

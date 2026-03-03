@@ -2,16 +2,18 @@
 
 import { Logger } from '@/lib/logger';
 import {
+  NULL_FILTER_VALUE,
   buildDateRangeFiltersWhere,
   buildFiltersWhere,
   buildSearchWhere,
   buildTextFiltersWhere,
-  NULL_FILTER_VALUE,
   parseSearchParams,
   stateToPrismaParams,
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import { CACHE_TAGS, CACHE_TTL } from '@/shared/constants/cache';
 import { prisma } from '@/shared/lib/prisma';
+import { cacheLife, cacheTag } from 'next/cache';
 
 const logger = new Logger('MaintenanceOrders/table/actions.server');
 
@@ -115,22 +117,15 @@ const MAINTENANCE_ORDERS_SELECT = {
  * Solo muestra órdenes con status relevante para el taller.
  * Nota: maintenance_orders no tiene company_id — no se filtra por empresa.
  */
-function buildWhereClause(
-  state: ReturnType<typeof parseSearchParams>,
-  options?: { excludeColumn?: string }
-) {
+function buildWhereClause(state: ReturnType<typeof parseSearchParams>, options?: { excludeColumn?: string }) {
   const excludeColumn = options?.excludeColumn;
 
-  const cleanFilters = Object.fromEntries(
-    Object.entries(state.filters).filter(([key]) => !IGNORED_PARAMS.has(key))
-  );
+  const cleanFilters = Object.fromEntries(Object.entries(state.filters).filter(([key]) => !IGNORED_PARAMS.has(key)));
   const cleanState = { ...state, filters: cleanFilters };
 
   const searchWhere = buildSearchWhere(cleanState.search, ['order_number']);
 
-  const filtersState = excludeColumn === 'status'
-    ? { ...cleanState.filters, status: [] }
-    : cleanState.filters;
+  const filtersState = excludeColumn === 'status' ? { ...cleanState.filters, status: [] } : cleanState.filters;
 
   const filtersWhere = buildFiltersWhere(
     filtersState,
@@ -260,6 +255,10 @@ function buildWhereClause(
 // ============================================================================
 
 export async function getMaintenanceOrdersPaginated(searchParams: DataTableSearchParams) {
+  'use cache';
+  cacheTag(CACHE_TAGS.TAB_IN_WORKSHOP, CACHE_TAGS.MAINTENANCE_ORDERS);
+  cacheLife({ expire: CACHE_TTL.PAGINATED_LIST, revalidate: CACHE_TTL.PAGINATED_LIST, stale: 30 });
+
   logger.debug('Obteniendo órdenes de mantenimiento paginadas', { data: { searchParams } });
 
   try {
@@ -304,6 +303,10 @@ export type MaintenanceOrderListItem = Awaited<ReturnType<typeof getMaintenanceO
 // ============================================================================
 
 export async function getAllMaintenanceOrdersForExport(searchParams: DataTableSearchParams) {
+  'use cache';
+  cacheTag(CACHE_TAGS.TAB_IN_WORKSHOP, CACHE_TAGS.MAINTENANCE_ORDERS);
+  cacheLife({ expire: CACHE_TTL.EXPORT, revalidate: CACHE_TTL.EXPORT, stale: 30 });
+
   logger.debug('Exportando órdenes de mantenimiento', { data: { searchParams } });
 
   try {
@@ -328,6 +331,10 @@ export async function getAllMaintenanceOrdersForExport(searchParams: DataTableSe
 // ============================================================================
 
 export async function getMaintenanceOrdersFacets(searchParams?: DataTableSearchParams) {
+  'use cache';
+  cacheTag(CACHE_TAGS.TAB_IN_WORKSHOP, CACHE_TAGS.MAINTENANCE_ORDERS);
+  cacheLife({ expire: CACHE_TTL.FACETS, revalidate: CACHE_TTL.FACETS, stale: 30 });
+
   logger.debug('Obteniendo facets de órdenes de mantenimiento', { data: { searchParams } });
 
   try {

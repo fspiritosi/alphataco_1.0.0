@@ -341,7 +341,13 @@ export function ManageOrderWizard({
           .map((rtId) => {
             const rt = repairTypes.find((r) => r.id === rtId);
             return rt
-              ? { repair_type_id: rtId, types_of_repairs: { id: rt.id, name: rt.name, autorizable: false } }
+              ? {
+                  id: '',
+                  maintenance_order_item_id: itemId,
+                  created_at: null,
+                  repair_type_id: rtId,
+                  types_of_repairs: { id: rt.id, name: rt.name, autorizable: false },
+                }
               : null;
           })
           .filter((r): r is NonNullable<typeof r> => r !== null);

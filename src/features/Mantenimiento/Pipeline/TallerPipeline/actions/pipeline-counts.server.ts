@@ -1,8 +1,8 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
-import { Logger } from '@/lib/logger';
 import type { PipelineCounts } from '../../types';
 
 const logger = new Logger('Pipeline/Taller/counts');

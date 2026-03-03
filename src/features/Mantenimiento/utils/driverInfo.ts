@@ -29,8 +29,8 @@ export function getDriverName(item: unknown): string | null {
     if (name) return name;
   }
 
-  // Prioridad 2: User fullname
-  const user = answers.user as { fullname?: string; email?: string } | undefined;
+  // Prioridad 2: User fullname (Prisma retorna 'profile', Supabase retornaba 'user' — soportar ambos)
+  const user = (answers.profile ?? answers.user) as { fullname?: string; email?: string } | undefined;
   if (user?.fullname) {
     return user.fullname;
   }

@@ -1,8 +1,8 @@
 'use server';
 
+import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
-import { Logger } from '@/lib/logger';
 import { getSupervisorFilterInfo } from '../../../utils/supervisorFilter';
 import type { PipelineCounts } from '../../types';
 
@@ -20,10 +20,7 @@ const logger = new Logger('Pipeline/Operaciones/counts');
  */
 export async function getOperacionesPipelineCounts(): Promise<PipelineCounts> {
   try {
-    const [companyId, filterInfo] = await Promise.all([
-      getServerCompanyId(),
-      getSupervisorFilterInfo(),
-    ]);
+    const [companyId, filterInfo] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
 
     // Filtro base para maintenance_requests: por company (via vehicles) y supervisor si aplica
     const requestsWhere = {
@@ -34,9 +31,7 @@ export async function getOperacionesPipelineCounts(): Promise<PipelineCounts> {
     // Filtro base para maintenance_orders: por company (via vehicles) y supervisor via request si aplica
     const ordersWhere = {
       vehicles: { company_id: companyId },
-      ...(filterInfo?.shouldFilterBySupervisor
-        ? { maintenance_requests: { supervisor_id: filterInfo.userId } }
-        : {}),
+      ...(filterInfo?.shouldFilterBySupervisor ? { maintenance_requests: { supervisor_id: filterInfo.userId } } : {}),
     };
 
     const [validate, approveDate, forWorkshop, inWorkshop] = await Promise.all([
