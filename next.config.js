@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   cacheComponents: true,
+  experimental: {
+    staleTimes: {
+      dynamic: 30
+    }
+  },
   logging: {
     fetches: {
       fullUrl: true

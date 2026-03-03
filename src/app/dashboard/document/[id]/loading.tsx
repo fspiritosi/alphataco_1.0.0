@@ -14,7 +14,7 @@ export default function Loading() {
         </div>
         {/* Tabs */}
         <div className="flex gap-1 border-b">
-          <Skeleton className="h-9 w-24 rounded-none border-b-2 border-primary" />
+          <Skeleton className="h-9 w-24 rounded-none" />
           <Skeleton className="h-9 w-28 rounded-none" />
           <Skeleton className="h-9 w-28 rounded-none" />
           <Skeleton className="h-9 w-28 rounded-none" />

@@ -6,7 +6,7 @@ export default function Loading() {
     <div className="space-y-6">
       {/* 2 tabs */}
       <div className="flex gap-1 border-b">
-        <Skeleton className="h-10 w-36 rounded-none border-b-2 border-primary" />
+        <Skeleton className="h-10 w-36 rounded-none" />
         <Skeleton className="h-10 w-32 rounded-none" />
       </div>
 

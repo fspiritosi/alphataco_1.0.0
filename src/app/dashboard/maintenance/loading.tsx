@@ -7,7 +7,7 @@ export default function Loading() {
       <div className="flex gap-1 border-b overflow-x-auto">
         <Skeleton className="h-10 w-36 rounded-none" />
         <Skeleton className="h-10 w-36 rounded-none" />
-        <Skeleton className="h-10 w-32 rounded-none border-b-2 border-primary" />
+        <Skeleton className="h-10 w-32 rounded-none" />
         <Skeleton className="h-10 w-24 rounded-none" />
         <Skeleton className="h-10 w-32 rounded-none" />
         <Skeleton className="h-10 w-40 rounded-none" />

@@ -6,7 +6,7 @@ export default function Loading() {
     <div className="space-y-6">
       {/* 4 tabs */}
       <div className="flex gap-1 border-b">
-        <Skeleton className="h-10 w-24 rounded-none border-b-2 border-primary" />
+        <Skeleton className="h-10 w-24 rounded-none" />
         <Skeleton className="h-10 w-44 rounded-none" />
         <Skeleton className="h-10 w-40 rounded-none" />
         <Skeleton className="h-10 w-36 rounded-none" />
@@ -14,7 +14,7 @@ export default function Loading() {
 
       {/* 3 subtabs */}
       <div className="flex gap-1 border-b">
-        <Skeleton className="h-9 w-28 rounded-none border-b-2 border-primary" />
+        <Skeleton className="h-9 w-28 rounded-none" />
         <Skeleton className="h-9 w-20 rounded-none" />
         <Skeleton className="h-9 w-32 rounded-none" />
       </div>
