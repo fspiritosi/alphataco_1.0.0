@@ -101,6 +101,19 @@ El plugin superpowers se invoca automaticamente segun el contexto. Mapeo de peti
 
 **No es necesario nombrar las skills explicitamente.** Pedir las cosas de manera natural y el sistema las invoca automaticamente.
 
+### REGLA SUPREMA de Superpowers — SIEMPRE ESTAR ATENTO
+
+**ANTES de ejecutar cualquier accion (escribir codigo, debuggear, commitear, diseñar UI, planificar), DETENERSE y evaluar si alguna skill de superpowers aplica.** No lanzarse directo al codigo. Si hay aunque sea 1% de probabilidad de que una skill aplique, invocarla PRIMERO.
+
+Errores tipicos que NO deben repetirse:
+
+- Debuggear errores de build sin invocar `superpowers:systematic-debugging`
+- Crear/diseñar componentes UI sin invocar `superpowers:brainstorming`
+- Commitear sin invocar `superpowers:verification-before-completion`
+- Terminar trabajo sin invocar `superpowers:requesting-code-review`
+
+**El flujo correcto es: skill PRIMERO → accion DESPUES. Nunca al reves.**
+
 ## Team Agents (Equipos de Agentes)
 
 Se puede crear un **equipo de agentes paralelos** para analizar o resolver problemas complejos de manera coordinada. Usar cuando el problema tenga multiples aspectos independientes que se beneficien de analisis simultaneo.
