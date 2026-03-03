@@ -43,9 +43,9 @@ export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
           status: { in: ['workshop_pending', 'date_confirmed'] },
         },
       }),
-      // Paso 3: En Taller — ordenes actualmente en proceso
+      // Paso 3: En Taller — ordenes actualmente en taller
       prisma.maintenance_orders.count({
-        where: { ...ordersWhere, status: 'in_progress' },
+        where: { ...ordersWhere, status: 'in_workshop' },
       }),
       // Paso 4: Aprobaciones — reparaciones de items pendientes de aprobacion o reasignacion
       // Cadena: work_order_item_repairs → work_order_items → maintenance_order_items → maintenance_orders → vehicles

@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly, formatDateShort, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
@@ -130,6 +131,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ORDENES_TRABAJO_QUERY_KEY });
+    invalidateAllMaintenanceQueries(queryClient);
   };
 
   const handleStartWork = async () => {

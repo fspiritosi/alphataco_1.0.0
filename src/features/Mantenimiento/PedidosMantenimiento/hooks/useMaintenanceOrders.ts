@@ -3,7 +3,7 @@ import type { MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 import { getMaintenanceOrders, scheduleMaintenanceOrder } from '../actions/actionsServer';
 
-export const MAINTENANCE_ORDERS_QUERY_KEY = ['maintenance-orders'];
+export const PEDIDOS_MANTENIMIENTO_QUERY_KEY = ['maintenance-orders'];
 export const PEDIDOS_PENDIENTES_QUERY_KEY = ['maintenance', 'pedidos', 'pendientes'];
 
 /**
@@ -11,7 +11,7 @@ export const PEDIDOS_PENDIENTES_QUERY_KEY = ['maintenance', 'pedidos', 'pendient
  */
 export function useMaintenanceOrders(filters?: MaintenanceOrderFilters) {
   return useQuery({
-    queryKey: [...MAINTENANCE_ORDERS_QUERY_KEY, filters],
+    queryKey: [...PEDIDOS_MANTENIMIENTO_QUERY_KEY, filters],
     queryFn: () => getMaintenanceOrders(filters),
   });
 }
