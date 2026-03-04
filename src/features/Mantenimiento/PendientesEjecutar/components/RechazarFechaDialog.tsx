@@ -21,8 +21,8 @@ import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { rejectMaintenanceOrderDate } from '../../actions/actionsServer';
-import type { PendingExecutionListItem } from '../actions.server';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
+import type { PendingExecutionListItem } from '../actions.server';
 
 // Configurar moment en español
 moment.locale('es');
@@ -41,7 +41,7 @@ export function RechazarFechaDialog({ order, open, onClose }: RechazarFechaDialo
   const [reason, setReason] = useState('');
 
   const vehicle = order.vehicles;
-  const scheduledDate = order.scheduled_date ? moment(order.scheduled_date) : null;
+  const scheduledDate = order.scheduled_date ? moment.utc(order.scheduled_date) : null;
   const items = order.maintenance_order_items || [];
 
   const handleReject = async () => {

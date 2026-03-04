@@ -462,7 +462,7 @@ export function ManageOrderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogContent className="max-w-5xl max-h-[90vh]">
           <DialogHeader className="space-y-3">
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -503,7 +503,7 @@ export function ManageOrderDialog({
               <TabsTrigger value="asignar">Asignacion a Sectores</TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[50vh] mt-4">
+            <ScrollArea className="h-[60vh] mt-4">
               <TabsContent value="items" className="mt-0">
                 <div className="space-y-3">
                   {/* Header con botones */}
@@ -643,7 +643,11 @@ export function ManageOrderDialog({
                                 </p>
                               )}
                               {/* Comments with attribution */}
-                              <ItemComments item={item} source={order.maintenance_requests?.source} />
+                              <ItemComments
+                                item={item}
+                                source={order.maintenance_requests?.source}
+                                fallbackAuthorName={order.maintenance_requests?.supervisor_name}
+                              />
                             </div>
                             {/* Right side: sector + actions */}
                             <div className="flex items-center gap-1.5 ml-3 shrink-0">

@@ -15,6 +15,8 @@ export function invalidateAllMaintenanceQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['ordenes-trabajo'] });
   queryClient.invalidateQueries({ queryKey: ['vehicles'] });
   queryClient.invalidateQueries({ queryKey: ['equipment'] });
+  // Facetas de tablas (PendientesEjecutar, etc.)
+  queryClient.invalidateQueries({ queryKey: ['pending-execution-facets'] });
   // Panel del operario
   queryClient.invalidateQueries({ queryKey: ['operator-work-orders'] });
   queryClient.invalidateQueries({ queryKey: ['operator-work-order'] });

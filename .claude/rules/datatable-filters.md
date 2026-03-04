@@ -6,18 +6,18 @@
 
 ## Matriz Columna → Filtro
 
-| Tipo de Columna | Tipo de Filtro | filterFn necesario | Helper server |
-|---|---|---|---|
-| Enum nullable (status, condition) | `faceted` | `if (val == null) return value.includes(NULL_FILTER_VALUE); return value.includes(val)` | `buildFiltersWhere` |
-| Enum NOT NULL (gender) | `faceted` | `value.includes(row.getValue(id))` | `buildFiltersWhere` |
-| FK UUID (categoryId) | `faceted` | `value.includes(row.original.xxx?.id)` | `buildFiltersWhere` con mapping |
-| FK Int (nationalityId) | `faceted` | `value.includes(String(row.original.xxx?.id))` | Manual `map(Number).filter(!isNaN)` |
-| ID externo enriquecido (Clerk userId) | `faceted` | `value.includes(row.original.rawField)` | `buildFiltersWhere` (campo real en BD) |
-| Booleano (isActive) | `faceted` | `value.includes(String(row.getValue(id)))` | Manual `=== 'true'` conversion |
-| Fecha (createdAt, hireDate) | `dateRange` | NO necesario | `buildDateRangeFiltersWhere` |
-| Texto (name, phone, email, address) | `text` | NO necesario | `buildTextFiltersWhere` + `exclude` en buildFiltersWhere |
-| Virtual/computada (_count, avatar) | SIN filtro | — | — |
-| select / actions | SIN filtro | — | — |
+| Tipo de Columna                         | Tipo de Filtro | filterFn necesario                                                                      | Helper server                                            |
+| --------------------------------------- | -------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Enum nullable (status, condition)       | `faceted`      | `if (val == null) return value.includes(NULL_FILTER_VALUE); return value.includes(val)` | `buildFiltersWhere`                                      |
+| Enum NOT NULL (gender)                  | `faceted`      | `value.includes(row.getValue(id))`                                                      | `buildFiltersWhere`                                      |
+| FK UUID (categoryId)                    | `faceted`      | `value.includes(row.original.xxx?.id)`                                                  | `buildFiltersWhere` con mapping                          |
+| FK Int (nationalityId)                  | `faceted`      | `value.includes(String(row.original.xxx?.id))`                                          | Manual `map(Number).filter(!isNaN)`                      |
+| ID externo enriquecido (userId de auth) | `faceted`      | `value.includes(row.original.rawField)`                                                 | `buildFiltersWhere` (campo real en BD)                   |
+| Booleano (isActive)                     | `faceted`      | `value.includes(String(row.getValue(id)))`                                              | Manual `=== 'true'` conversion                           |
+| Fecha (createdAt, hireDate)             | `dateRange`    | NO necesario                                                                            | `buildDateRangeFiltersWhere`                             |
+| Texto (name, phone, email, address)     | `text`         | NO necesario                                                                            | `buildTextFiltersWhere` + `exclude` en buildFiltersWhere |
+| Virtual/computada (\_count, avatar)     | SIN filtro     | —                                                                                       | —                                                        |
+| select / actions                        | SIN filtro     | —                                                                                       | —                                                        |
 
 ## Reglas Criticas
 
@@ -31,7 +31,7 @@
 
 5. **TODO booleano** DEBE tener filtro `faceted` con opciones `"Activo"/"Inactivo"` o `"Si"/"No"`.
 
-6. **IDs externos enriquecidos** (ej: Clerk userId que se muestra como nombre) DEBEN tener filtro `faceted`. El campo raw ES una columna real de BD, filtrable server-side. Las facetas enriquecen los IDs para labels legibles.
+6. **IDs externos enriquecidos** (ej: userId de auth que se muestra como nombre) DEBEN tener filtro `faceted`. El campo raw ES una columna real de BD, filtrable server-side. Las facetas enriquecen los IDs para labels legibles.
 
 ## externalCounts Obligatorio
 

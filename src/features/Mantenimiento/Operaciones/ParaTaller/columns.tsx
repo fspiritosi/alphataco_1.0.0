@@ -4,23 +4,23 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import { conditionLabels } from '@/shared/utils/mappers';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, History } from 'lucide-react';
 import moment from 'moment';
 import type { ForWorkshopOrderListItem } from './actions.server';
+export { conditionLabels };
 
 // ============================================================================
 // LABELS Y CONFIGS
 // ============================================================================
 
-export const conditionLabels: Record<string, string> = {
-  operativo: 'Operativo',
-  'no operativo': 'No Operativo',
-};
-
-export const conditionVariants: Record<string, 'success' | 'destructive' | 'secondary'> = {
+export const conditionVariants: Record<string, 'success' | 'destructive' | 'warning' | 'secondary'> = {
   operativo: 'success',
-  'no operativo': 'destructive',
+  no_operativo: 'destructive',
+  en_reparacion: 'destructive',
+  operativo_condicionado: 'warning',
+  en_preparacion: 'secondary',
 };
 
 // ============================================================================
@@ -38,7 +38,10 @@ interface ColumnsProps {
   onViewHistory: (order: ForWorkshopOrderListItem) => void;
 }
 
-export function getForWorkshopColumns({ onViewDetail, onViewHistory }: ColumnsProps): ColumnDef<ForWorkshopOrderListItem>[] {
+export function getForWorkshopColumns({
+  onViewDetail,
+  onViewHistory,
+}: ColumnsProps): ColumnDef<ForWorkshopOrderListItem>[] {
   return [
     // ── Equipo ────────────────────────────────────────────────────────────
     {
@@ -54,9 +57,7 @@ export function getForWorkshopColumns({ onViewDetail, onViewHistory }: ColumnsPr
         return (
           <div className="flex flex-col">
             <span className="font-medium">{vehicle?.domain || vehicle?.serie || 'Sin identificar'}</span>
-            {vehicle?.intern_number && (
-              <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>
-            )}
+            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
           </div>
         );
       },
@@ -104,13 +105,7 @@ export function getForWorkshopColumns({ onViewDetail, onViewHistory }: ColumnsPr
           <div className="flex flex-col">
             <span
               className={
-                isToday
-                  ? 'font-bold text-green-600'
-                  : isPast
-                    ? 'text-red-600'
-                    : isTomorrow
-                      ? 'text-orange-600'
-                      : ''
+                isToday ? 'font-bold text-green-600' : isPast ? 'text-red-600' : isTomorrow ? 'text-orange-600' : ''
               }
             >
               {scheduledDate.format('DD/MM/YYYY')}
@@ -131,8 +126,8 @@ export function getForWorkshopColumns({ onViewDetail, onViewHistory }: ColumnsPr
       header: ({ column }) => <DataTableColumnHeader column={column} title="Condición Actual" />,
       cell: ({ row }) => {
         const condition = row.original.vehicles?.condition;
-        const label = condition ? (conditionLabels[condition] ?? condition) : 'Sin datos';
-        const variant = condition ? (conditionVariants[condition] ?? 'secondary') : 'secondary';
+        const label = condition ? conditionLabels[condition] ?? condition : 'Sin datos';
+        const variant = condition ? conditionVariants[condition] ?? 'secondary' : 'secondary';
         return <Badge variant={variant}>{label}</Badge>;
       },
       enableSorting: false,
@@ -189,12 +184,7 @@ export function getForWorkshopColumns({ onViewDetail, onViewHistory }: ColumnsPr
         const order = row.original;
         return (
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onViewDetail(order)}
-              title="Ver detalle"
-            >
+            <Button variant="ghost" size="icon" onClick={() => onViewDetail(order)} title="Ver detalle">
               <Eye className="h-4 w-4" />
             </Button>
             <Button

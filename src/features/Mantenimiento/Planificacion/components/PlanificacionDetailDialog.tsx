@@ -145,7 +145,13 @@ export function PlanificacionDetailDialog({ order, open, onClose }: Planificacio
                               ))}
                             </div>
                           )}
-                          <ItemComments item={item} source={order.maintenance_requests?.source} />
+                          <ItemComments
+                            item={item}
+                            source={order.maintenance_requests?.source}
+                            fallbackAuthorName={
+                              order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                            }
+                          />
                         </div>
                         <div className="text-right">
                           {/* TODO: Agregar workshop_id a maintenance_order_items */}

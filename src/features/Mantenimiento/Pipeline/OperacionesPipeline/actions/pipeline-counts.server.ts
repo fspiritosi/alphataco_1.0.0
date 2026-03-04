@@ -14,7 +14,7 @@ const logger = new Logger('Pipeline/Operaciones/counts');
  *
  * Pasos:
  * - validate:      Solicitudes en estado pending_approval (validar solicitud)
- * - approve_date:  Ordenes en estado scheduled (aprobacion de fecha por Operaciones)
+ * - approve_date:  Ordenes en estado pending_scheduling o scheduled (aprobacion de fecha por Operaciones)
  * - for_workshop:  Ordenes en estado workshop_pending o date_confirmed (listas para taller)
  * - in_workshop:   Ordenes en estado in_workshop (actualmente en taller)
  */
@@ -39,16 +39,16 @@ export async function getOperacionesPipelineCounts(): Promise<PipelineCounts> {
       prisma.maintenance_requests.count({
         where: { ...requestsWhere, status: 'pending_approval' },
       }),
-      // Paso 2: Aprobar Fecha — ordenes con fecha propuesta esperando aprobacion de Operaciones
-      prisma.maintenance_orders.count({
-        where: { ...ordersWhere, status: 'scheduled' },
-      }),
-      // Paso 3: Para Taller — ordenes con fecha aprobada, listas para entrada al taller
+      // Paso 2: Aprobar Fecha — ordenes pendientes de programacion o con fecha propuesta
       prisma.maintenance_orders.count({
         where: {
           ...ordersWhere,
-          status: { in: ['workshop_pending', 'date_confirmed'] },
+          status: { in: ['pending_scheduling', 'scheduled'] },
         },
+      }),
+      // Paso 3: Para Taller — ordenes con fecha confirmada, listas para entrada al taller
+      prisma.maintenance_orders.count({
+        where: { ...ordersWhere, status: 'date_confirmed' },
       }),
       // Paso 4: Seguimiento — ordenes actualmente en taller (cualquier sub-estado de taller)
       prisma.maintenance_orders.count({

@@ -54,6 +54,9 @@ export async function getMaintenanceOrdersForManagement() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -105,6 +108,13 @@ export async function getMaintenanceOrdersForManagement() {
         ? {
             ...order.vehicles,
             vehicle_type: order.vehicles.type_vehicles_typeTotype,
+          }
+        : null,
+      maintenance_requests: order.maintenance_requests
+        ? {
+            ...order.maintenance_requests,
+            supervisor_name:
+              order.maintenance_requests.profile_maintenance_requests_supervisor_idToprofile?.fullname || null,
           }
         : null,
       maintenance_order_items: order.maintenance_order_items.map((item) => ({
@@ -174,6 +184,9 @@ export async function getOrderForManagement(orderId: string) {
             created_at: true,
             supervisor_id: true,
             source: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -229,6 +242,13 @@ export async function getOrderForManagement(orderId: string) {
         ? {
             ...order.vehicles,
             vehicle_type: order.vehicles.type_vehicles_typeTotype,
+          }
+        : null,
+      maintenance_requests: order.maintenance_requests
+        ? {
+            ...order.maintenance_requests,
+            supervisor_name:
+              order.maintenance_requests.profile_maintenance_requests_supervisor_idToprofile?.fullname || null,
           }
         : null,
       maintenance_order_items: order.maintenance_order_items.map((item) => ({

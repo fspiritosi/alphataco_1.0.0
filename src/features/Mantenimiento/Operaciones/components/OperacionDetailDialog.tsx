@@ -95,7 +95,14 @@ export function OperacionDetailDialog({ operation, open, onClose }: OperacionDet
                           <p className="text-sm text-muted-foreground">
                             Sección: {item.maintenance_request_items?.checklist_deviations?.section_code || '-'}
                           </p>
-                          <ItemComments item={item} source={operation.maintenance_requests?.source} />
+                          <ItemComments
+                            item={item}
+                            source={operation.maintenance_requests?.source}
+                            fallbackAuthorName={
+                              operation.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile
+                                ?.fullname
+                            }
+                          />
                         </div>
                         {repairTypeNames.length > 0 && (
                           <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">

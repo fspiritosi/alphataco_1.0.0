@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -262,10 +263,8 @@ export function NuevoPedidoChecklistForm({
 
         toast.success('Pedido de mantenimiento creado exitosamente');
 
-        // Invalidar queries de pedidos
-        queryClient.invalidateQueries({ queryKey: ['maintenance'] });
-        queryClient.invalidateQueries({ queryKey: ['maintenance-orders'] });
-        queryClient.invalidateQueries({ queryKey: ['pedidos-pendientes'] });
+        // Invalidar todas las queries de mantenimiento
+        invalidateAllMaintenanceQueries(queryClient);
       } else {
         // FLUJO 2: Usuario NO es supervisor → crear solicitud pendiente de aprobación
         await createMaintenanceRequestPendingApproval({
@@ -278,10 +277,8 @@ export function NuevoPedidoChecklistForm({
 
         toast.success('Solicitud enviada. El supervisor debe aprobarla antes de que pase a Pedidos.');
 
-        // Invalidar queries de solicitudes pendientes
-        queryClient.invalidateQueries({ queryKey: ['maintenance'] });
-        queryClient.invalidateQueries({ queryKey: ['maintenance-requests'] });
-        queryClient.invalidateQueries({ queryKey: ['solicitudes-pendientes'] });
+        // Invalidar todas las queries de mantenimiento
+        invalidateAllMaintenanceQueries(queryClient);
       }
 
       // Reset form

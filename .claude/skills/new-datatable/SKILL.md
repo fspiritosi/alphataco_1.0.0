@@ -1005,16 +1005,16 @@ buildFiltersWhere(state.filters, { status: 'status' })
 buildFiltersWhere(state.filters, { category: 'categoryId' })
 ```
 
-### Columna con ID externo enriquecido (Clerk userId, etc.) → `faceted`
+### Columna con ID externo enriquecido (userId de auth, etc.) → `faceted`
 
-Columnas que almacenan un ID de un sistema externo (ej: Clerk userId) y se enriquecen post-query con datos legibles (nombre, avatar). El ID raw ES un campo real de BD, así que el filtro funciona server-side.
+Columnas que almacenan un ID de un sistema externo (ej: userId de auth) y se enriquecen post-query con datos legibles (nombre, avatar). El ID raw ES un campo real de BD, así que el filtro funciona server-side.
 
 ```typescript
 // columns.tsx — column muestra dato enriquecido, filterFn compara por ID raw
 { id: 'performedBy',
   accessorFn: (row) => `${row.performedByUser.firstName} ${row.performedByUser.lastName}`,
   meta: { title: 'Usuario' },
-  filterFn: (row, _id, value) => value.includes(row.original.performedBy), // raw Clerk ID
+  filterFn: (row, _id, value) => value.includes(row.original.performedBy), // raw auth user ID
   enableSorting: false,
 }
 
@@ -1023,7 +1023,7 @@ buildFiltersWhere(state.filters, { performedBy: 'performedBy' })
 
 // facets — groupBy en campo raw + enriquecer IDs únicos con servicio externo
 const performedByCounts = await prisma.entity.groupBy({ by: ['performedBy'], where, _count: true });
-// Enrich unique IDs with Clerk to get displayable names for filter option labels
+// Enrich unique IDs with profile/employees to get displayable names for filter option labels
 // Return: performedBy Map<userId, count> + performedByLabels Map<userId, "First Last">
 
 // _DataTable.tsx — opciones con value=rawId, label=nombre enriquecido
@@ -1221,7 +1221,7 @@ const textFiltersWhere = buildTextFiltersWhere(state.filters, ['name', 'code', '
 - [ ] `searchPlaceholder` descriptivo
 - [ ] **Column→Filter Matrix completa**: para CADA columna verificar que tiene su filtro (faceted para enums/FK/booleans, text para textos, dateRange para fechas). NO puede faltar ninguna columna filtrable.
 - [ ] TODA columna FK (employee, vehicle, category, jobPosition, etc.) tiene filtro `faceted` con opciones del servidor
-- [ ] TODA columna con ID externo enriquecido (Clerk userId → nombre usuario) tiene filtro `faceted` — el ID raw ES un campo real de BD filtrable server-side, y las facetas deben enriquecer los IDs agrupados para mostrar labels legibles
+- [ ] TODA columna con ID externo enriquecido (userId de auth → nombre usuario) tiene filtro `faceted` — el ID raw ES un campo real de BD filtrable server-side, y las facetas deben enriquecer los IDs agrupados para mostrar labels legibles
 - [ ] TODA columna de texto tiene filtro `text` individual
 - [ ] TODA columna de fecha tiene filtro `dateRange`
 - [ ] TODA columna enum tiene filtro `faceted`

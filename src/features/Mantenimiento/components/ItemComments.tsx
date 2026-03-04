@@ -10,6 +10,8 @@ interface ItemCommentsProps {
   item: unknown;
   /** Origen de la solicitud: 'checklist' | 'manual' | null */
   source: string | null | undefined;
+  /** Nombre del supervisor de la solicitud padre, usado como fallback si *_comment_by es null */
+  fallbackAuthorName?: string | null;
 }
 
 /** Configuración visual por estilo de comentario */
@@ -104,8 +106,8 @@ export function CommentAuthorLine({ comment, size = 'sm' }: { comment: CommentEn
  * Componente reutilizable para mostrar comentarios de items de mantenimiento.
  * Deduplica automáticamente comentarios repetidos y ajusta labels según el origen.
  */
-export function ItemComments({ item, source }: ItemCommentsProps) {
-  const comments = getItemComments(item, source);
+export function ItemComments({ item, source, fallbackAuthorName }: ItemCommentsProps) {
+  const comments = getItemComments(item, source, fallbackAuthorName);
 
   if (comments.length === 0) return null;
 

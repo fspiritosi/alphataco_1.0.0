@@ -168,6 +168,10 @@ export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
             engine_hours: true,
             created_at: true,
             source: true,
+            supervisor_id: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -267,6 +271,9 @@ export async function getMaintenanceOrdersPending() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -357,6 +364,9 @@ export async function getMaintenanceOrdersConfirmed() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -432,6 +442,10 @@ export async function getMaintenanceOrderById(orderId: string) {
             engine_hours: true,
             created_at: true,
             source: true,
+            supervisor_id: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -528,6 +542,7 @@ export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryI
         data: {
           kilometer: input.kilometer,
           condition: 'no_operativo',
+          ...(input.engine_hours ? { engine_hours: input.engine_hours } : {}),
         },
       }),
     ]);

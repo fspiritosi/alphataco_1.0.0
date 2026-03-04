@@ -254,7 +254,7 @@ export function DiagramForm({
 
   return (
     <ResizablePanelGroup direction="horizontal" className="pt-6">
-      <ResizablePanel>
+      <ResizablePanel defaultSize={30}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit2)} className="space-y-8">
             <FormField

@@ -1,33 +1,30 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import moment from 'moment';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   DataTable,
   type DataTableExportConfig,
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
 } from '@/shared/components/common/DataTable';
-import { Clock, ClipboardList, HourglassIcon, Wrench } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Clock, HourglassIcon, Loader2 } from 'lucide-react';
+import moment from 'moment';
+import { useMemo, useState } from 'react';
 
-import {
-  getPendingOrdersFacets,
-  getAllPendingOrdersForExport,
-  type PendingOrderListItem,
-} from '../actions.server';
-import { getMaintenanceOrderById, type MaintenanceOrderData } from '../../actions/actionsServer';
-import {
-  getPendingOrderColumns,
-  HIDDEN_COLUMNS_BY_DEFAULT,
-  PENDING_STATUS_LABELS,
-  SOURCE_LABELS,
-  SOURCE_ICONS,
-} from '../columns';
 import { ActivityHistoryModal } from '@/features/Mantenimiento/components/ActivityHistoryModal';
+import { getMaintenanceOrderById, type MaintenanceOrderData } from '../../actions/actionsServer';
 import { PedidoDetailDialog } from '../../components/PedidoDetailDialog';
 import { PlanificarPedidoDialog } from '../../components/PlanificarPedidoDialog';
 import { PEDIDOS_PENDIENTES_QUERY_KEY } from '../../hooks/useMaintenanceOrders';
+import { getAllPendingOrdersForExport, getPendingOrdersFacets, type PendingOrderListItem } from '../actions.server';
+import {
+  HIDDEN_COLUMNS_BY_DEFAULT,
+  PENDING_STATUS_LABELS,
+  SOURCE_ICONS,
+  SOURCE_LABELS,
+  getPendingOrderColumns,
+} from '../columns';
 
 // ── Íconos de estado para filtros ─────────────────────────────────────────────
 const STATUS_ICONS = {
@@ -60,16 +57,25 @@ export function _PendingOrderDataTable({
   const [historyOrder, setHistoryOrder] = useState<PendingOrderListItem | null>(null);
 
   // ── Query para cargar detalles completos al abrir diálogo ─────────────────
-  const { data: selectedOrderDetail } = useQuery({
+  const { data: selectedOrderDetail, isLoading: isLoadingDetail } = useQuery({
     queryKey: ['maintenance-order-detail', selectedOrderId],
     queryFn: () => (selectedOrderId ? getMaintenanceOrderById(selectedOrderId) : null),
     enabled: !!selectedOrderId,
     staleTime: 0,
   });
 
+  const isWaitingForDetail = !!selectedOrderId && !!dialogType && isLoadingDetail;
+
   // ── Facetas (opciones de filtros + counts del servidor) ───────────────────
   const facetParams = useMemo(() => {
-    const { page: _page, pageSize: _pageSize, sort: _sort, sortBy: _sortBy, sortOrder: _sortOrder, ...rest } = searchParams as Record<string, unknown>;
+    const {
+      page: _page,
+      pageSize: _pageSize,
+      sort: _sort,
+      sortBy: _sortBy,
+      sortOrder: _sortOrder,
+      ...rest
+    } = searchParams as Record<string, unknown>;
     return rest as DataTableSearchParams;
   }, [searchParams]);
 
@@ -168,9 +174,7 @@ export function _PendingOrderDataTable({
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    return Object.fromEntries(
-      facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)])
-    );
+    return Object.fromEntries(facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)]));
   }, [initialFilterVisibility, facetedFilters]);
 
   // ── Exportación a Excel ───────────────────────────────────────────────────
@@ -219,6 +223,18 @@ export function _PendingOrderDataTable({
         initialFilterVisibility={mergedFilterVisibility}
         data-testid="pedidos-pendientes-table"
       />
+
+      {/* Loading mientras se cargan datos del pedido */}
+      <Dialog open={isWaitingForDetail} onOpenChange={handleCloseDialog}>
+        <DialogContent className="max-w-xs" showCloseButton={false}>
+          <div className="flex flex-col items-center gap-3 py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              {dialogType === 'schedule' ? 'Cargando datos de planificación...' : 'Cargando detalle del pedido...'}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de detalle */}
       {selectedOrderDetail && dialogType === 'view' && (

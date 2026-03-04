@@ -545,11 +545,11 @@ function CreatedForm() {
       ) : (
         <TooltipProvider delayDuration={0}>
           <ResizablePanelGroup orientation="horizontal" className="h-full max-h-[800px] items-stretch p-0 m-0">
-            <ResizablePanel minSize={30}>
+            <ResizablePanel defaultSize={50} minSize={30}>
               <DisplayCreatedForms createdForms={createdFormsState} setSelectedForm={setSelectedForm} />
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel className="relative" minSize={30}>
+            <ResizablePanel className="relative" defaultSize={50} minSize={30}>
               <div className="absolute inset-0 h-full w-full bg-white dark:bg-slate-950/70 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:16px_16px] rounded-e-xl rounded "></div>
               <FormDisplay
                 campos={selectedForm ?? campos}
