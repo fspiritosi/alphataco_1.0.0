@@ -2,6 +2,9 @@ import { CACHE_TAGS } from './cache';
 
 const T = CACHE_TAGS;
 
+// ── Empresa / Usuarios ──
+export const COMPANY_USERS_INVALIDATION = [T.COMPANY_USERS] as const;
+
 /**
  * Matriz de invalidacion: cada mutacion → tags afectados.
  *

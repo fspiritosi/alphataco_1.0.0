@@ -35,6 +35,9 @@ type Supervisor = {
   id: string;
   fullName: string;
   email: string;
+  hasLinkedEmployee: boolean;
+  hasActiveDiagram: boolean;
+  isAvailable: boolean;
 };
 
 interface CriticalDeviationsRepairModalProps {
@@ -275,10 +278,13 @@ export function CriticalDeviationsRepairModal({
                               <CommandItem
                                 key={supervisor.id}
                                 value={supervisor.fullName}
+                                disabled={!supervisor.isAvailable}
                                 onSelect={() => {
+                                  if (!supervisor.isAvailable) return;
                                   setSelectedSupervisorId(supervisor.id);
                                   setOpenSupervisorSelect(false);
                                 }}
+                                className={cn(!supervisor.isAvailable && 'opacity-50')}
                               >
                                 <Check
                                   className={cn(
@@ -287,7 +293,19 @@ export function CriticalDeviationsRepairModal({
                                   )}
                                 />
                                 <div className="flex flex-col">
-                                  <span>{supervisor.fullName}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span>{supervisor.fullName}</span>
+                                    {!supervisor.hasLinkedEmployee && (
+                                      <Badge variant="outline" className="text-[10px]">
+                                        Sin empleado vinculado
+                                      </Badge>
+                                    )}
+                                    {supervisor.hasLinkedEmployee && !supervisor.hasActiveDiagram && (
+                                      <Badge variant="warning" className="text-[10px]">
+                                        Sin diagrama activo
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <span className="text-xs text-muted-foreground">{supervisor.email}</span>
                                 </div>
                               </CommandItem>

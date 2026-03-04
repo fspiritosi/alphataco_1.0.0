@@ -48,4 +48,7 @@ export const CACHE_TAGS = {
   // ── Pipelines (counts del header) ──
   PIPELINE_OPERACIONES: 'maint:pipe:ops',
   PIPELINE_TALLER: 'maint:pipe:taller',
+
+  // ── Empresa / Usuarios ──
+  COMPANY_USERS: 'empresa:users',
 } as const;

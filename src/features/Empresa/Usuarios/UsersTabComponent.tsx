@@ -1,7 +1,10 @@
 import { TabsManagerServer } from '@/features/TabsManager';
 import { RoleManager } from '@/features/UserPermissionsManager/components';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
 import { Shield, Users } from 'lucide-react';
-import UsersTable from './components/UsersTable';
+import { Suspense } from 'react';
+import { UsersTableSkeleton } from './fallback/UsersTableSkeleton';
+import { UsersTableList } from './table/UsersTableList';
 
 export default function UsersTabComponent({
   searchParams,
@@ -27,7 +30,11 @@ export default function UsersTabComponent({
           ),
           moduleSlug: 'empresa',
           tabSlug: 'usuarios-empleados',
-          content: <UsersTable />,
+          content: (
+            <Suspense fallback={<UsersTableSkeleton />}>
+              <UsersTableList searchParams={searchParams as DataTableSearchParams} permissionsMap={permissions} />
+            </Suspense>
+          ),
         },
         {
           value: 'gestion-roles',

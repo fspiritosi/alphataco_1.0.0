@@ -2,6 +2,7 @@
 
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 
@@ -280,16 +281,13 @@ export type EmployeeForChecklist = Awaited<ReturnType<typeof fetchActiveEmployee
  * Estos son los usuarios que el chofer puede seleccionar al registrar desvíos.
  * Filtra por la compañía actual usando share_company_users.
  *
- * FILTRO DE DIAGRAMA ACTIVO:
+ * FILTRO DE DIAGRAMA LABORALMENTE ACTIVO:
  * - Si el profile tiene employee_id → solo se incluye si tiene un registro en employees_diagram
- *   para el día actual con is_active = true.
- * - Si el profile NO tiene employee_id → se incluye siempre (sin restricción de diagrama).
- *
- * posible cambio: en el futuro podrían ocultarse también los supervisores sin empleado vinculado
+ *   para el día actual con is_active = true Y cuyo diagram_type tenga work_active = true.
+ * - Si el profile NO tiene employee_id → se incluye como no disponible (sin empleado vinculado).
  */
 export async function fetchSupervisorsForChecklist() {
   const cookiesStore = await cookies();
-  const supabase = await supabaseServer();
   const company_id = cookiesStore.get('actualComp')?.value;
 
   if (!company_id) {
@@ -297,124 +295,99 @@ export async function fetchSupervisorsForChecklist() {
     return [];
   }
 
-  // El rol "Administrador Operaciones" tiene id = 20
-  const ADMIN_OPERACIONES_ROLE_ID = 20;
+  try {
+    const ADMIN_OPERACIONES_ROLE_ID = 20;
 
-  // Paso 1: Obtener los user_ids que tienen el rol de Administrador Operaciones
-  const { data: userRolesData, error: userRolesError } = await supabase
-    .from('user_roles')
-    .select('user_id')
-    .eq('role_id', ADMIN_OPERACIONES_ROLE_ID);
+    // Paso 1: Obtener los user_ids con rol Administrador Operaciones
+    const adminUserRoles = await prisma.user_roles.findMany({
+      where: { role_id: ADMIN_OPERACIONES_ROLE_ID },
+      select: { user_id: true },
+    });
 
-  if (userRolesError) {
-    serverLogger.error('Error fetching user_roles for supervisors', { data: { error: userRolesError } });
-    return [];
-  }
+    if (adminUserRoles.length === 0) {
+      serverLogger.warn('No hay usuarios con rol Administrador Operaciones');
+      return [];
+    }
 
-  if (!userRolesData || userRolesData.length === 0) {
-    serverLogger.warn('No hay usuarios con rol Administrador Operaciones');
-    return [];
-  }
+    const userIds = adminUserRoles.map((ur) => ur.user_id);
 
-  const userIds = userRolesData.map((ur) => ur.user_id);
+    // Paso 2: Obtener perfiles que pertenecen a la compañía actual y tienen el rol
+    const profiles = await prisma.profile.findMany({
+      where: {
+        id: { in: userIds },
+        share_company_users: {
+          some: { company_id },
+        },
+      },
+      select: {
+        id: true,
+        fullname: true,
+        email: true,
+        employee_id: true,
+      },
+    });
 
-  // Paso 2: Filtrar por usuarios que pertenecen a la compañía actual
-  // share_company_users tiene profile_id (= user_id) y company_id
-  const { data: companyUsersData, error: companyUsersError } = await supabase
-    .from('share_company_users')
-    .select('profile_id')
-    .eq('company_id', company_id)
-    .in('profile_id', userIds);
+    if (profiles.length === 0) {
+      serverLogger.warn('No hay supervisores en la compañía actual', { data: { company_id } });
+      return [];
+    }
 
-  if (companyUsersError) {
-    serverLogger.error('Error fetching company users for supervisors', { data: { error: companyUsersError } });
-    return [];
-  }
+    // Paso 3: Verificar diagrama laboralmente activo para hoy
+    // FIX: ahora se verifica TANTO is_active del registro COMO work_active del tipo de novedad
+    const employeeIds = profiles.filter((p) => p.employee_id !== null).map((p) => p.employee_id!);
 
-  if (!companyUsersData || companyUsersData.length === 0) {
-    serverLogger.warn('No hay supervisores en la compañía actual', { data: { company_id } });
-    return [];
-  }
+    const activeEmployeeIds = new Set<string>();
 
-  const filteredUserIds = companyUsersData.map((cu) => cu.profile_id);
+    if (employeeIds.length > 0) {
+      const now = moment().utcOffset(-3);
+      const today = {
+        day: now.date(),
+        month: now.month() + 1,
+        year: now.year(),
+      };
 
-  // Paso 3: Obtener los datos de profile (incluyendo employee_id para filtro de diagrama)
-  const { data: profilesData, error: profilesError } = await supabase
-    .from('profile')
-    .select('id, fullname, email, employee_id')
-    .in('id', filteredUserIds);
-
-  if (profilesError) {
-    serverLogger.error('Error fetching profiles for supervisors', { data: { error: profilesError } });
-    return [];
-  }
-
-  if (!profilesData || profilesData.length === 0) {
-    serverLogger.warn('No se encontraron perfiles para los supervisores');
-    return [];
-  }
-
-  // Paso 4: Filtrar por diagrama laboralmente activo del día actual
-  // Solo aplica a supervisores que tienen employee_id vinculado
-  const profilesWithEmployee = profilesData.filter((p) => p.employee_id !== null);
-  const profilesWithoutEmployee = profilesData.filter((p) => p.employee_id === null);
-
-  let activeEmployeeIds = new Set<string>();
-
-  if (profilesWithEmployee.length > 0) {
-    const now = moment().utcOffset(-3);
-    const today = {
-      day: now.date(),
-      month: now.month() + 1, // month() retorna 0-indexed
-      year: now.year(),
-    };
-
-    const employeeIdsToCheck = profilesWithEmployee.map((p) => p.employee_id).filter((id): id is string => id !== null);
-
-    // Una sola query para obtener todos los employee_ids con diagrama activo hoy
-    const { data: diagramData, error: diagramError } = await supabase
-      .from('employees_diagram')
-      .select('employee_id')
-      .in('employee_id', employeeIdsToCheck)
-      .eq('day', today.day)
-      .eq('month', today.month)
-      .eq('year', today.year)
-      .eq('is_active', true);
-
-    if (diagramError) {
-      serverLogger.warn('Error al verificar diagramas activos de supervisores', {
-        data: { error: diagramError },
+      const activeDiagrams = await prisma.employees_diagram.findMany({
+        where: {
+          employee_id: { in: employeeIds },
+          day: today.day,
+          month: today.month,
+          year: today.year,
+          // Solo verificar que el tipo de novedad sea laboralmente activo
+          diagram_type_employees_diagram_diagram_typeTodiagram_type: {
+            work_active: true,
+          },
+        },
+        select: { employee_id: true },
       });
-      // En caso de error, incluir todos para no bloquear la operación
-      employeeIdsToCheck.forEach((id) => activeEmployeeIds.add(id));
-    } else {
-      (diagramData || []).forEach((d) => {
-        if (d.employee_id) activeEmployeeIds.add(d.employee_id);
+
+      activeDiagrams.forEach((d) => activeEmployeeIds.add(d.employee_id));
+
+      serverLogger.debug('Supervisores con diagrama laboralmente activo hoy', {
+        data: {
+          checked: employeeIds.length,
+          active: activeEmployeeIds.size,
+          today,
+        },
       });
     }
 
-    serverLogger.debug('Supervisores con diagrama activo hoy', {
-      data: {
-        checked: employeeIdsToCheck.length,
-        active: activeEmployeeIds.size,
-        today,
-      },
+    // Retornar TODOS los supervisores con metadata de disponibilidad
+    return profiles.map((profile) => {
+      const hasLinkedEmployee = profile.employee_id !== null;
+      const hasActiveDiagram = hasLinkedEmployee ? activeEmployeeIds.has(profile.employee_id!) : false;
+      return {
+        id: profile.id,
+        fullName: profile.fullname || profile.email || 'Sin nombre',
+        email: profile.email,
+        hasLinkedEmployee,
+        hasActiveDiagram,
+        isAvailable: hasLinkedEmployee && hasActiveDiagram,
+      };
     });
+  } catch (error) {
+    serverLogger.error('Error al obtener supervisores para checklist', { data: { error } });
+    return [];
   }
-
-  // Retornar TODOS los supervisores con metadata de disponibilidad
-  return profilesData.map((profile) => {
-    const hasLinkedEmployee = profile.employee_id !== null;
-    const hasActiveDiagram = hasLinkedEmployee ? activeEmployeeIds.has(profile.employee_id!) : false;
-    return {
-      id: profile.id,
-      fullName: profile.fullname || profile.email || 'Sin nombre',
-      email: profile.email,
-      hasLinkedEmployee,
-      hasActiveDiagram,
-      isAvailable: hasLinkedEmployee && hasActiveDiagram,
-    };
-  });
 }
 
 export type SupervisorForChecklist = Awaited<ReturnType<typeof fetchSupervisorsForChecklist>>[number];
