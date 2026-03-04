@@ -182,6 +182,16 @@ export const columns: ColumnDef<RepairSolicitudListItem>[] = [
     enableSorting: false,
   },
 
+  // ─── Fecha de solicitud ───────────────────────────────────────────────────
+  {
+    id: 'scheduled',
+    accessorKey: 'scheduled',
+    meta: { title: 'Fecha solicitud' },
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha solicitud" />,
+    cell: ({ row }) => <div>{row.original.scheduled ? moment(row.original.scheduled).format('DD/MM/YYYY') : '-'}</div>,
+    enableSorting: true,
+  },
+
   // ─── Fecha de creación ────────────────────────────────────────────────────
   {
     id: 'created_at',

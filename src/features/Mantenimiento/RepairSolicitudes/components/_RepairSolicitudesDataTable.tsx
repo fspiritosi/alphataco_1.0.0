@@ -85,6 +85,7 @@ export function _RepairSolicitudesDataTable({
       'domain',
       'serie',
       'intern_number',
+      'scheduled',
       'created_at',
       'updated_at',
     ];
@@ -230,6 +231,13 @@ export function _RepairSolicitudesDataTable({
         placeholder: 'Buscar por N° interno...',
       },
 
+      // Fecha de solicitud (rango)
+      {
+        columnId: 'scheduled',
+        title: 'Fecha solicitud',
+        type: 'dateRange' as const,
+      },
+
       // Fecha de creación (rango)
       {
         columnId: 'created_at',
@@ -274,6 +282,7 @@ export function _RepairSolicitudesDataTable({
         formatters: {
           state: (val) => repairStateLabels[val as string] ?? String(val ?? ''),
           criticity: (val) => repairCriticityLabels[val as string] ?? String(val ?? ''),
+          scheduled: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           created_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
           updated_at: (val) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),
         },

@@ -24,6 +24,7 @@ const logger = new Logger('RepairSolicitudes/actions.server');
 const VALID_SORT_FIELDS = new Set([
   'created_at',
   'updated_at',
+  'scheduled',
   'state',
   'user_description',
   // FK columns (sorted by relation name)
@@ -54,7 +55,7 @@ const CLOSING_LOG_TITLE = 'Finalizado';
 const VEHICLE_TEXT_FILTER_COLUMNS = ['domain', 'serie', 'intern_number'];
 
 /** Columnas con filtro de rango de fechas */
-const DATE_RANGE_COLUMNS = ['created_at', 'updated_at'];
+const DATE_RANGE_COLUMNS = ['created_at', 'updated_at', 'scheduled'];
 
 /**
  * Mapping de columnId (URL) → campo real en Prisma
