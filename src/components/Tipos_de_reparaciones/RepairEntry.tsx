@@ -745,7 +745,7 @@ export default function RepairNewEntry({
   return (
     <Card className="p-6">
       <ResizablePanelGroup direction="horizontal" className="pt-6 flex flex-wrap sm:flex-nowrap w-full">
-        <ResizablePanel className="sm:min-w-[280px] min-w-full">
+        <ResizablePanel className="sm:min-w-[280px] min-w-full" defaultSize={30}>
           <div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>

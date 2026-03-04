@@ -73,7 +73,7 @@ When asked to audit an existing table, execute this complete checklist:
    - `updatedAt` (system, rarely useful to users)
    - Storage keys (`*Key` like `pictureKey`, `logoKey`)
    - Raw FK IDs (`jobPositionId`, `contractTypeId`, etc.) — show the relation name instead
-   - **Raw ID/UUID fields that have a human-readable counterpart column** (e.g., `targetId` when `targetName` already exists, `performedBy` raw Clerk ID when `performedByUser` name is shown). Users don't care about UUIDs — if the referenced entity's name is already in another column, the raw ID column MUST NOT be added.
+   - **Raw ID/UUID fields that have a human-readable counterpart column** (e.g., `targetId` when `targetName` already exists, `performedBy` raw auth user ID when `performedByUser` name is shown). Users don't care about UUIDs — if the referenced entity's name is already in another column, the raw ID column MUST NOT be added.
 5. Fields that MUST be shown (at least as hidden-by-default column):
    - `createdAt` (creation date in system)
    - Any user-entered or business-relevant data
@@ -126,7 +126,7 @@ Filter type reference:
 | --------------------------------------------------------- | ----------- | ---------------------------------------------- | -------------------------------------------------------- |
 | Enum (status, gender)                                     | `faceted`   | `value.includes(row.getValue(id))`             | `buildFiltersWhere`                                      |
 | FK string (UUID)                                          | `faceted`   | `value.includes(row.original.xxx?.id)`         | `buildFiltersWhere` with mapping                         |
-| External ID enriched (Clerk userId, etc.)                 | `faceted`   | `value.includes(row.original.rawField)`        | `buildFiltersWhere` (raw ID IS a real DB column)         |
+| External ID enriched (auth userId, etc.)                  | `faceted`   | `value.includes(row.original.rawField)`        | `buildFiltersWhere` (raw ID IS a real DB column)         |
 | FK Int (nationality)                                      | `faceted`   | `value.includes(String(row.original.xxx?.id))` | Manual `map(Number).filter(!isNaN)`                      |
 | Date                                                      | `dateRange` | NOT needed                                     | `buildDateRangeFiltersWhere`                             |
 | ANY text (name, code, address, phone, email, description) | `text`      | NOT needed                                     | `buildTextFiltersWhere` + `exclude` in buildFiltersWhere |
@@ -141,7 +141,7 @@ Filter type reference:
 3. EVERY enum column MUST have a `faceted` filter.
 4. EVERY date column MUST have a `dateRange` filter.
 5. EVERY boolean column MUST have a `faceted` filter with "Activo"/"Inactivo" or "Sí"/"No" options.
-6. **EVERY column that displays enriched data from external IDs** (e.g., `performedBy` Clerk user ID → shows user name+avatar) MUST have a `faceted` filter. The raw ID IS a real DB column, so server-side filtering works with `buildFiltersWhere`. The facets function must enrich the grouped IDs (via the external service) to provide human-readable labels for filter options. Pattern: `groupBy` on raw ID → enrich unique IDs → return both counts Map and labels Map.
+6. **EVERY column that displays enriched data from external IDs** (e.g., `performedBy` auth user ID → shows user name+avatar) MUST have a `faceted` filter. The raw ID IS a real DB column, so server-side filtering works with `buildFiltersWhere`. The facets function must enrich the grouped IDs (via the external service) to provide human-readable labels for filter options. Pattern: `groupBy` on raw ID → enrich unique IDs → return both counts Map and labels Map.
 7. **EVERY faceted filter for nullable FK/enum columns MUST include a "Sin asignar" option** using the `NULL_FILTER_VALUE` sentinel (`'__null__'`) from `@/shared/components/common/DataTable/helpers`. This allows users to filter records where the field is null/unassigned.
 
 #### Null Filter Pattern (`NULL_FILTER_VALUE`)

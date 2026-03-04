@@ -277,7 +277,7 @@ function DiagramFormUpdated({
 
   return (
     <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel>
+      <ResizablePanel defaultSize={30}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <h2 className="text-xl font-bold mb-4">{'Generar Diagrama'}</h2>
