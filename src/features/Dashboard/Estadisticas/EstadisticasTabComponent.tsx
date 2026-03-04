@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import OperacionesTabContent from '@/features/Dashboard/Estadisticas/Operaciones/OperacionesTabContent';
 import { TabsManagerServer } from '@/features/TabsManager';
 import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
@@ -34,7 +35,7 @@ function EstadisticasTabComponent({
             moduleSlug: 'dashboard',
             tabSlug: 'operaciones',
             content: (
-              <Suspense fallback={<div>Cargando operaciones...</div>}>
+              <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                 <OperacionesTabContent />
               </Suspense>
             ),
@@ -66,7 +67,7 @@ function EstadisticasTabComponent({
             moduleSlug: 'dashboard',
             tabSlug: 'kpis',
             content: (
-              <Suspense fallback={<div>Cargando KPIs...</div>}>
+              <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
                 <KpisTabContent searchParams={searchParams} permissions={permissions} />
               </Suspense>
             ),

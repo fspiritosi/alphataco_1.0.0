@@ -1,7 +1,8 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
+import { getServerAuthProfile } from '@/shared/actions/auth.actions';
+import { prisma } from '@/shared/lib/prisma';
 
 const logger = new Logger('Mantenimiento/supervisorFilter');
 
@@ -9,7 +10,7 @@ const logger = new Logger('Mantenimiento/supervisorFilter');
  * Información del usuario actual y si puede ver todas las solicitudes
  */
 export interface SupervisorFilterInfo {
-  /** ID del usuario actual */
+  /** ID del usuario actual (profile.id — UUID interno usado en FKs como supervisor_id) */
   userId: string;
   /** Si el usuario tiene permiso para ver todas las solicitudes (view_all_requests) */
   hasViewAllPermission: boolean;
@@ -27,57 +28,69 @@ export interface SupervisorFilterInfo {
  * @returns SupervisorFilterInfo con la información del usuario y si debe aplicar filtro
  */
 export async function getSupervisorFilterInfo(): Promise<SupervisorFilterInfo | null> {
-  const supabase = await supabaseServer();
+  const profile = await getServerAuthProfile();
 
-  // Obtener usuario actual
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    logger.warn('No se pudo obtener el usuario actual', { data: { error: authError } });
+  if (!profile) {
+    logger.warn('No se pudo obtener el perfil del usuario actual');
     return null;
-  }
-
-  // Verificar si tiene el permiso view_all_requests en alguna de las tabs de operaciones de mantenimiento
-  const { data: permissions, error: permError } = await supabase.rpc('get_user_permissions', {
-    p_user_id: user.id,
-  });
-
-  if (permError) {
-    logger.error('Error al obtener permisos del usuario', { data: { error: permError, userId: user.id } });
-    // En caso de error, asumir que NO tiene el permiso (más restrictivo)
-    return {
-      userId: user.id,
-      hasViewAllPermission: false,
-      shouldFilterBySupervisor: true,
-    };
   }
 
   // Tabs de operaciones de mantenimiento que usan este filtro
   const operationsTabs = ['maintenance_requests', 'pendientes_ejecutar', 'para_taller'];
 
-  // Verificar si tiene el permiso view_all_requests en alguna de estas tabs
-  const hasViewAllPermission =
-    permissions?.some(
-      (p: { action_slug: string; tab_slug: string }) =>
-        p.action_slug === 'view_all_requests' && operationsTabs.includes(p.tab_slug)
-    ) ?? false;
+  try {
+    // Verificar permisos basados en rol (role_permissions → roles → user_roles → users)
+    const rolePermsCount = await prisma.role_permissions.count({
+      where: {
+        roles: {
+          is_active: true,
+          user_roles: {
+            some: {
+              users_user_roles_user_idTousers: {
+                id: profile.credentialId,
+              },
+            },
+          },
+        },
+        tabs: { slug: { in: operationsTabs } },
+        actions: { slug: 'view_all_requests' },
+      },
+    });
 
-  logger.debug('Información de filtro de supervisor', {
-    data: {
-      userId: user.id,
+    // Verificar permisos específicos por usuario (user_permissions.user_id = users.id = credentialId)
+    const userPermsCount = await prisma.user_permissions.count({
+      where: {
+        users_user_permissions_user_idTousers: {
+          id: profile.credentialId,
+        },
+        tabs: { slug: { in: operationsTabs } },
+        actions: { slug: 'view_all_requests' },
+        is_granted: true,
+      },
+    });
+
+    const hasViewAllPermission = rolePermsCount > 0 || userPermsCount > 0;
+
+    logger.debug('Permiso view_all_requests verificado', {
+      data: { profileId: profile.id, hasViewAllPermission, rolePermsCount, userPermsCount },
+    });
+
+    return {
+      userId: profile.id,
       hasViewAllPermission,
-      permissionsCount: permissions?.length || 0,
-    },
-  });
-
-  return {
-    userId: user.id,
-    hasViewAllPermission,
-    shouldFilterBySupervisor: !hasViewAllPermission,
-  };
+      shouldFilterBySupervisor: !hasViewAllPermission,
+    };
+  } catch (error) {
+    logger.error('Error al verificar permisos del usuario', {
+      data: { error, profileId: profile.id },
+    });
+    // En caso de error, asumir que NO tiene el permiso (más restrictivo)
+    return {
+      userId: profile.id,
+      hasViewAllPermission: false,
+      shouldFilterBySupervisor: true,
+    };
+  }
 }
 
 /**

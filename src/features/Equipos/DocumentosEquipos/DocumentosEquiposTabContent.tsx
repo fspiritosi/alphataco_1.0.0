@@ -1,9 +1,10 @@
 import DocumentNav from '@/components/DocumentNav';
-import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
-import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
+import { MonthlyEquipmentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEquipos/Mensuales/fallback/MonthlyEquipmentDocumentsSkeleton';
+import { MonthlyEquipmentDocumentsList } from '@/features/Documentacion/DocumentosEquipos/Mensuales/MonthlyEquipmentDocumentsList';
+import { EquipmentPermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEquipos/Permanentes/fallback/EquipmentPermanentDocumentsSkeleton';
+import { EquipmentPermanentDocumentsList } from '@/features/Documentacion/DocumentosEquipos/Permanentes/EquipmentPermanentDocumentsList';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { DataTableSkeleton } from '@/shared/components/data-table/base/data-table-skeleton';
 import { Calendar, FileArchive } from 'lucide-react';
 import { Suspense } from 'react';
 
@@ -38,8 +39,8 @@ export default async function DocumentosEquiposTabContent({
             moduleSlug: 'equipos',
             tabSlug: 'docs-equipos-permanentes',
             content: (
-              <Suspense fallback={<DataTableSkeleton columns={5} />}>
-                <PermanentEquipmentDocumentsWrapper />
+              <Suspense fallback={<EquipmentPermanentDocumentsSkeleton />}>
+                <EquipmentPermanentDocumentsList searchParams={searchParams} />
               </Suspense>
             ),
           },
@@ -54,8 +55,8 @@ export default async function DocumentosEquiposTabContent({
             moduleSlug: 'equipos',
             tabSlug: 'docs-equipos-mensuales',
             content: (
-              <Suspense fallback={<DataTableSkeleton columns={5} />}>
-                <MonthlyEquipmentDocumentsWrapper />
+              <Suspense fallback={<MonthlyEquipmentDocumentsSkeleton />}>
+                <MonthlyEquipmentDocumentsList searchParams={searchParams} />
               </Suspense>
             ),
           },

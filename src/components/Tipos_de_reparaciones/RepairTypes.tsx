@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { EquiposConDesviosTabContent } from '@/features/Mantenimiento/EquiposConDesvios';
 import { EquipmentsWithDeviationsSkeleton } from '@/features/Mantenimiento/EquiposConDesvios/fallback';
 import { OperacionesTabContent } from '@/features/Mantenimiento/Operaciones';
@@ -41,7 +42,7 @@ export default async function RepairTypes({
       moduleSlug: moduleSlug,
       tabSlug: 'created_solicitudes' as const,
       content: (
-        <Suspense fallback={<div>Cargando solicitudes...</div>}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <RepairSolicitudesWrapper mechanic={mechanic} equipment_id={equipment_id} />
         </Suspense>
       ),
@@ -73,7 +74,7 @@ export default async function RepairTypes({
       moduleSlug: moduleSlug,
       tabSlug: 'type_of_repair' as const,
       content: (
-        <Suspense fallback={<div>Cargando tipos de reparación...</div>}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <RepairTypeFormWrapper />
         </Suspense>
       ),
@@ -89,7 +90,7 @@ export default async function RepairTypes({
       moduleSlug: moduleSlug,
       tabSlug: 'type_of_repair_new_entry' as const,
       content: (
-        <Suspense fallback={<div>Cargando formulario...</div>}>
+        <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
           <RepairEntryWrapper equipment_id={equipment_id} searchParams={searchParams} permissions={permissions} />
         </Suspense>
       ),
@@ -105,7 +106,7 @@ export default async function RepairTypes({
       moduleSlug: moduleSlug,
       tabSlug: 'maintenance_groups' as const,
       content: (
-        <Suspense fallback={<div>Cargando grupos...</div>}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <MaintenanceGroupsWrapper />
         </Suspense>
       ),

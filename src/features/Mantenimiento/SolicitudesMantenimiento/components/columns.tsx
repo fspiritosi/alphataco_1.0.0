@@ -2,11 +2,12 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { CheckCircle, Eye, History, XCircle } from 'lucide-react';
+import { CheckCircle, Eye, History, UserRoundCog, XCircle } from 'lucide-react';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
 interface ColumnsProps {
@@ -14,6 +15,7 @@ interface ColumnsProps {
   onApprove: (request: MaintenanceRequestData) => void;
   onReject: (request: MaintenanceRequestData) => void;
   onViewHistory: (request: MaintenanceRequestData) => void;
+  onReassign?: (request: MaintenanceRequestData) => void;
 }
 
 export function getColumns({
@@ -21,6 +23,7 @@ export function getColumns({
   onApprove,
   onReject,
   onViewHistory,
+  onReassign,
 }: ColumnsProps): ColumnDef<MaintenanceRequestData>[] {
   return [
     {
@@ -168,6 +171,23 @@ export function getColumns({
                 >
                   <XCircle className="h-4 w-4" />
                 </Button>
+                {onReassign && (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onReassign(request)}
+                          className="text-amber-600 hover:text-amber-700"
+                        >
+                          <UserRoundCog className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reasignar supervisor</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </PermissionGuard>
             )}
           </div>

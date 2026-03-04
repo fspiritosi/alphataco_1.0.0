@@ -100,7 +100,7 @@ const DOCS_EQUIPMENT_PERMANENTES_SELECT = {
 // WHERE CLAUSE BUILDER
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
+function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -224,6 +224,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 
   return {
     // Solo documentos de equipos activos de la compañía
+    ...(equipmentId ? { applies: equipmentId } : {}),
     vehicles: {
       company_id: companyId,
       is_active: true,
@@ -239,14 +240,14 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getEquipmentPermanentDocumentsPaginated(searchParams: DataTableSearchParams) {
+export async function getEquipmentPermanentDocumentsPaginated(searchParams: DataTableSearchParams, equipmentId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, equipmentId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -286,12 +287,12 @@ export type EquipmentPermanentDocumentListItem = Awaited<
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllEquipmentPermanentDocumentsForExport(searchParams: DataTableSearchParams) {
+export async function getAllEquipmentPermanentDocumentsForExport(searchParams: DataTableSearchParams, equipmentId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, equipmentId);
 
     const data = await prisma.documents_equipment.findMany({
       orderBy: [{ vehicles: { domain: 'asc' } }],
@@ -313,7 +314,7 @@ export async function getAllEquipmentPermanentDocumentsForExport(searchParams: D
 /**
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
-export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTableSearchParams) {
+export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTableSearchParams, equipmentId?: string) {
   const companyId = await getServerCompanyId();
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
@@ -326,6 +327,7 @@ export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTa
   function crossWhere(excludeColumn: string) {
     if (!parsedState || !hasActiveFilters) {
       return {
+        ...(equipmentId ? { applies: equipmentId } : {}),
         vehicles: { company_id: companyId, is_active: true },
         document_types: { is_it_montlhy: false, is_active: true },
       };
@@ -334,7 +336,7 @@ export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTa
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(companyId, modified);
+    return buildWhereClause(companyId, modified, equipmentId);
   }
 
   // Helper: construir Map<string, count> con soporte para null → NULL_FILTER_VALUE

@@ -36,6 +36,11 @@ npm run migration-status # Check migration status
 # Testing
 npm run test:e2e         # Run Cypress E2E tests headless
 npm run test:e2e:open    # Open Cypress test runner
+
+# Git Worktree (trabajo paralelo)
+git worktree add ../gh_gestion-<nombre> -b <branch>   # Crear worktree + branch
+git worktree list                                       # Listar worktrees activos
+git worktree remove ../gh_gestion-<nombre>              # Eliminar worktree
 ```
 
 ## MCPs Disponibles
@@ -66,23 +71,62 @@ Los siguientes MCPs estan a tu disposicion:
 3. **MCP de shadcn-ui**: SIEMPRE usar para cualquier cosa relacionada con UI, componentes, estilos o implementacion de componentes de shadcn/ui. Tiene acceso a documentacion y ejemplos actualizados
 4. **MCP de Context7**: SIEMPRE usar como PRIMERA OPCION para consultar documentacion actualizada de librerias, frameworks o herramientas. Si Context7 no tiene la documentacion necesaria, entonces buscar en internet
 
-## Agentes Personalizados
+## Agentes y Skills — Dispatch Automatico
 
-Hay 4 agentes personalizados disponibles. Usarlos segun el contexto:
+**REGLA CRITICA**: Antes de ejecutar cualquier tarea, verificar si hay un agente o skill que la cubra. Si existe, DEBE usarse — no actuar directamente sin invocar el recurso apropiado.
 
-| Agente                       | Cuando usarlo                                                                     |
-| ---------------------------- | --------------------------------------------------------------------------------- |
-| `branch-reviewer`            | Commitear / hacer commit / push / revisar cambios antes de push                   |
-| `supabase-query-optimizer`   | Optimizar queries, N+1, performance de DB, diseñar queries para nuevas tablas     |
-| `project-standards-enforcer` | Implementar features, corregir bugs, refactorizar codigo (uso PROACTIVO)          |
-| `ui-architect`               | Diseñar/implementar nueva UI: formularios, modales, dashboards, tabs, componentes |
+### Agentes Personalizados (3)
 
-**REGLAS DE USO**:
+| Agente         | Cuando usarlo                                                                  |
+| -------------- | ------------------------------------------------------------------------------ |
+| `git-guardian` | **TODA operacion git**: commit, push, PR, merge, crear ramas, subir cambios    |
+| `table-expert` | Crear, auditar o modificar DataTables (columnas, filtros, export, facets)      |
+| `linear-sync`  | Interactuar con Linear: crear/editar issues, sincronizar notas, auditar estado |
 
-- **`branch-reviewer`**: Usar SIEMPRE que el usuario pida commitear, pushear, crear PR o revisar cambios. Incluye revision diferencial automatica (analisis de riesgo, blast radius y consistencia via git diff) antes de cada commit/push.
-- **`supabase-query-optimizer`**: Usar SIEMPRE que el usuario pida optimizar queries, o al crear queries para nuevas tablas paginadas.
-- **`project-standards-enforcer`**: Usar PROACTIVAMENTE para cualquier cambio de codigo (features, bugs, refactors, server actions). No esperar que el usuario lo pida.
-- **`ui-architect`**: Usar PROACTIVAMENTE cuando el usuario necesite una nueva pantalla, componente visual, formulario, modal o rediseño de UI.
+**REGLA GIT — OBLIGATORIA SIN EXCEPCIONES**: TODA operacion git (commit, push, crear PR, merge, subir cambios) DEBE delegarse al agente `git-guardian`. **NUNCA ejecutar `git commit`, `git push`, `gh pr create` o similares directamente.** El agente analiza el diff, verifica calidad del codigo (types, patrones del proyecto, seguridad), y solo entonces ejecuta la operacion. Si encuentra problemas criticos, NO commitea y devuelve un informe con los problemas y sus soluciones propuestas. Operaciones simples (crear rama, checkout, pull, stash) tambien van por el agente pero sin analisis de diff.
+
+**REGLA DataTables**: TODA tarea que involucre DataTables (crear tabla, agregar columna, agregar filtro, auditar tabla, modificar export, corregir filtros, etc.) DEBE delegarse al agente `table-expert`. Si la peticion del usuario incluye trabajo de tabla Y otro trabajo, separar la parte de tabla y delegarla al agente, ejecutando el resto normalmente.
+
+### Skills de Superpowers (invocacion automatica via plugin)
+
+El plugin superpowers se invoca automaticamente segun el contexto. Mapeo de peticiones comunes:
+
+| Peticion del usuario                         | Skill que se invoca automaticamente                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| "Hazme una planificacion / planifica esto"   | `superpowers:brainstorming` → `superpowers:writing-plans`                                        |
+| "Implementa este plan / ejecuta el plan"     | `superpowers:executing-plans`                                                                    |
+| "Debuguea esto / investiga este bug"         | `superpowers:systematic-debugging`                                                               |
+| "Commitea / push / crea PR / revisa cambios" | **DELEGAR al agente `git-guardian`** (el agente usa internamente verification-before-completion) |
+| "Revisa el codigo / code review"             | `superpowers:requesting-code-review`                                                             |
+| "Crea un componente / formulario / modal"    | `superpowers:brainstorming` (diseño) + MCP shadcn (implementacion)                               |
+| "Agrega funcionalidad / nueva feature"       | `superpowers:brainstorming` (primero) → implementacion                                           |
+| "Verifica que funcione / esta listo?"        | `superpowers:verification-before-completion`                                                     |
+
+**No es necesario nombrar las skills explicitamente.** Pedir las cosas de manera natural y el sistema las invoca automaticamente.
+
+### REGLA SUPREMA de Superpowers — SIEMPRE ESTAR ATENTO
+
+**ANTES de ejecutar cualquier accion (escribir codigo, debuggear, commitear, diseñar UI, planificar), DETENERSE y evaluar si alguna skill de superpowers aplica.** No lanzarse directo al codigo. Si hay aunque sea 1% de probabilidad de que una skill aplique, invocarla PRIMERO.
+
+Errores tipicos que NO deben repetirse:
+
+- Debuggear errores de build sin invocar `superpowers:systematic-debugging`
+- Crear/diseñar componentes UI sin invocar `superpowers:brainstorming`
+- **Commitear/pushear/crear PR sin delegar al agente `git-guardian`** (NUNCA ejecutar git commit/push directamente)
+- Terminar trabajo sin invocar `superpowers:requesting-code-review`
+
+**El flujo correcto es: skill/agente PRIMERO → accion DESPUES. Nunca al reves.**
+**Para git: SIEMPRE `git-guardian`. Sin excepciones. Sin atajos.**
+
+## Team Agents (Equipos de Agentes)
+
+Se puede crear un **equipo de agentes paralelos** para analizar o resolver problemas complejos de manera coordinada. Usar cuando el problema tenga multiples aspectos independientes que se beneficien de analisis simultaneo.
+
+**Cuando usarlo** (sin que el usuario lo pida explicitamente):
+
+- Investigar un bug complejo desde varios angulos a la vez (ej: codigo + DB + logs)
+- Analizar impacto de un cambio en multiples features/modulos
+- Tareas con partes claramente separables que no tienen dependencias entre si
 
 ---
 
@@ -106,9 +150,8 @@ Las siguientes reglas son **OBLIGATORIAS** y se aplican automaticamente. Las gui
 | Date pickers con escritura directa          | Integrado en CLAUDE.md              | Todo date picker individual (no date range)       |
 | Forms con shadcn + zod (OBLIGATORIO)        | @.claude/rules/forms.md             | Todo formulario que recolecte datos del usuario   |
 | Evitar useEffect innecesarios               | @.claude/rules/no-useeffect.md      | Siempre al escribir logica reactiva               |
-| Revision Diferencial pre-commit             | Integrado en `branch-reviewer`      | Al commitear, pushear o crear PR                  |
+| Revision Diferencial pre-commit             | Plugin superpowers (skills)         | Al commitear, pushear o crear PR                  |
 
-Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
 ---
@@ -154,11 +197,45 @@ moment(date).format('DD/MM/YYYY');
 moment(date1).isBefore(date2);
 ```
 
-### 3. No Crear Archivos .md
+### 3. NO Usar Dialogs Nativos del Navegador
+
+**NUNCA** usar `window.confirm()`, `window.alert()` o `window.prompt()`. SIEMPRE usar componentes de UI de shadcn (`AlertDialog`, `Dialog`, `toast`) para confirmaciones y alertas.
+
+```typescript
+// ❌ INCORRECTO - NUNCA usar nativos
+const confirmed = window.confirm('¿Desea eliminar?');
+window.alert('Operacion exitosa');
+
+// ✅ CORRECTO - Usar AlertDialog de shadcn
+<AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>¿Desea eliminar?</AlertDialogTitle>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+      <AlertDialogAction onClick={handleConfirm}>Confirmar</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+### 4. No Crear Archivos .md
 
 **NO** crear archivos markdown (.md) a menos que se solicite explicitamente.
 
-### 4. NUNCA Co-Authored-By en Commits
+### 5. NO Commit Automatico — SIEMPRE via git-guardian
+
+**NUNCA** realizar commits automaticamente. Solo hacer commit cuando el usuario lo indique explicitamente (ej: "commitea", "hace commit", "push", etc.). No asumir que se debe commitear despues de completar una tarea.
+
+**CRITICO**: Cuando el usuario pida commitear, pushear, crear PR o cualquier operacion git con cambios, **SIEMPRE delegar al agente `git-guardian`**. NUNCA ejecutar `git commit`, `git push` o `gh pr create` directamente. El agente se encarga de:
+
+1. Analizar el diff buscando problemas (seguridad, tipos, patrones del proyecto)
+2. Ejecutar `npm run check-types` para verificar que compile
+3. Bloquear el commit si hay problemas criticos (con informe + solucion propuesta)
+4. Ejecutar el commit/push/PR solo si todo esta limpio
+
+### 6. NUNCA Co-Authored-By en Commits
 
 **ESTRICTAMENTE PROHIBIDO** agregar `Co-Authored-By` en los mensajes de commit. JAMAS incluir referencias a IA, Claude, o cualquier co-autor automatico en los commits.
 
@@ -172,11 +249,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 git commit -m "feat: something"
 ```
 
-### 4. shadcn/ui MCP
+### 7. shadcn/ui MCP
 
 **SIEMPRE** usar el MCP de shadcn para buscar componentes disponibles antes de implementar UI. Consultar ejemplos y documentacion de componentes con las herramientas del MCP antes de escribir codigo de UI.
 
-### 6. Queries Eficientes
+### 8. Queries Eficientes
 
 Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 
@@ -415,17 +492,4 @@ src/
 
 ### IDs de Modulos (Referencia)
 
-```typescript
-const MODULE_IDS = {
-  dashboard: '91ed9ae4-6713-41ac-a87e-6b156e079948',
-  empresa: 'e0478383-1287-4b5e-a727-985baf867173',
-  empleados: '3c54a757-162c-4afc-8ea5-dca462f92e0c',
-  equipos: '34d7f9e5-7c01-4def-9446-6b3f52d761a0',
-  operaciones: '5563157e-fc3e-470f-b90b-dadd7cc38417',
-  formularios: '6674268f-0d4f-581f-c91c-ebbe8dd49528',
-  ayuda: '7785379f-1e5f-692f-da2d-fccf9ee5af39',
-  documentacion: '4783f7df-3580-4f54-bf8f-6ef7f252d038',
-  mantenimiento: '421e96da-5235-4857-bf81-e63336447f13',
-  comercial: '92bfac14-dc5b-41be-b366-740bfbeaea13',
-};
-```
+Ver tabla completa en `.claude/rules/permissions.md` (seccion "IDs de Modulos").

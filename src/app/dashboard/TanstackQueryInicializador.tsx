@@ -4,8 +4,8 @@ import React from 'react';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 2 * 60 * 1000, // 2 minutos - datos considerados frescos
-      gcTime: 5 * 60 * 1000, // 5 minutos - mantener en cache
+      staleTime: 0,
+      gcTime: 0,
       refetchOnWindowFocus: false,
       retry: 1, // Solo 1 reintento en caso de error
     },

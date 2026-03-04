@@ -4,7 +4,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useMemo, useState } from 'react';
 import type { ExternalWorkshop, OrderManagementData, WorkshopSector } from '../actions/actionsServer';
 import { useOrderManagement } from '../hooks/useOrderManagement';
-import { ManageOrderDialog } from './ManageOrderDialog';
+import { ManageOrderWizard } from './ManageOrderWizard';
 import { getOrderManagementColumns } from './columns';
 
 interface OrderManagementClientProps {
@@ -72,7 +72,7 @@ export function OrderManagementClient({
         }}
       />
 
-      <ManageOrderDialog
+      <ManageOrderWizard
         order={selectedOrder}
         open={dialogOpen}
         onClose={handleCloseDialog}

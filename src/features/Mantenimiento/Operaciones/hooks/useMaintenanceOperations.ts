@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApproveWorkshopEntryInput, RejectOperationInput } from '../../types';
+import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 import { approveWorkshopEntry, getMaintenanceOperations, rejectMaintenanceOperation } from '../actions/actionsServer';
 
 export const MAINTENANCE_OPERATIONS_QUERY_KEY = ['maintenance-operations'];
@@ -15,7 +16,7 @@ export function useMaintenanceOperations() {
 }
 
 /**
- * Hook para rechazar una operación
+ * Hook para rechazar una operación (fecha rechazada → vuelve a pendientes)
  */
 export function useRejectMaintenanceOperation() {
   const queryClient = useQueryClient();
@@ -23,8 +24,7 @@ export function useRejectMaintenanceOperation() {
   return useMutation({
     mutationFn: (input: RejectOperationInput) => rejectMaintenanceOperation(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MAINTENANCE_OPERATIONS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-orders'] });
+      invalidateAllMaintenanceQueries(queryClient);
     },
   });
 }
@@ -38,9 +38,7 @@ export function useApproveWorkshopEntry() {
   return useMutation({
     mutationFn: (input: ApproveWorkshopEntryInput) => approveWorkshopEntry(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MAINTENANCE_OPERATIONS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      invalidateAllMaintenanceQueries(queryClient);
     },
   });
 }

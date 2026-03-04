@@ -109,22 +109,6 @@ export function getColumnsParaTaller({ onViewDetail, onViewHistory }: ColumnsPro
       enableSorting: false,
     },
     {
-      accessorKey: 'status',
-      id: 'Estado',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
-      cell: ({ row }) => {
-        const status = row.original.status;
-        const isInWorkshop = status === 'in_workshop';
-        return (
-          <Badge variant={isInWorkshop ? 'success' : 'warning'}>{isInWorkshop ? 'En Taller' : 'Por Ingresar'}</Badge>
-        );
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(row.original.status);
-      },
-      enableSorting: false,
-    },
-    {
       id: 'actions',
       header: 'Acciones',
       cell: ({ row }) => {

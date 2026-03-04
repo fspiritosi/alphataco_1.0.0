@@ -15,7 +15,9 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly, formatDateShort, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
@@ -129,6 +131,7 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ORDENES_TRABAJO_QUERY_KEY });
+    invalidateAllMaintenanceQueries(queryClient);
   };
 
   const handleStartWork = async () => {
@@ -540,21 +543,9 @@ export function OrdenDetalleDialog({ workOrder, open, onClose }: OrdenDetalleDia
                         </div>
 
                         {/* Comentarios del desvío */}
-                        {item.driverComment && (
-                          <p className="text-sm mb-2">
-                            <span className="text-muted-foreground">Comentario del chofer: </span>
-                            <span className="italic">{item.driverComment}</span>
-                          </p>
-                        )}
-                        {item.validatorComment && (
-                          <div className="text-sm mb-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                            <span className="text-blue-800 dark:text-blue-200 font-medium">
-                              Comentario del validador:{' '}
-                            </span>
-                            <span className="text-blue-700 dark:text-blue-300">{item.validatorComment}</span>
-                          </div>
-                        )}
-                        {item.description && <p className="text-sm text-muted-foreground mb-2">{item.description}</p>}
+                        <div className="mb-2">
+                          <ItemComments item={item} source={null} />
+                        </div>
 
                         {/* Lista de trabajos (repairs) individuales */}
                         <div className="space-y-2 mt-3 border-t pt-3">

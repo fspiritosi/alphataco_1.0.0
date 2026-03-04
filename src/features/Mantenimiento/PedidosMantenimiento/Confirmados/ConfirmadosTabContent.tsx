@@ -1,5 +1,5 @@
-import { getMaintenanceOrdersConfirmed } from '../actions/actionsServer';
-import { ConfirmadosTableClient } from './components/ConfirmadosTableClient';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
+import { ConfirmedOrderList } from './ConfirmedOrderList';
 
 /**
  * Subtab de Pedidos Confirmados
@@ -9,8 +9,11 @@ import { ConfirmadosTableClient } from './components/ConfirmadosTableClient';
  *
  * Ordenamiento: de más viejo a más reciente
  */
-export async function ConfirmadosTabContent() {
-  const initialData = await getMaintenanceOrdersConfirmed();
 
-  return <ConfirmadosTableClient initialData={initialData} />;
+interface ConfirmadosTabContentProps {
+  searchParams?: DataTableSearchParams;
+}
+
+export async function ConfirmadosTabContent({ searchParams = {} }: ConfirmadosTabContentProps) {
+  return <ConfirmedOrderList searchParams={searchParams} />;
 }

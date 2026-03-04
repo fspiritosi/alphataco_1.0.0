@@ -127,7 +127,7 @@ function TimelineItem({
   entry: {
     id: string;
     action_type: string;
-    performed_at: string;
+    performed_at: string | Date;
     performer?: PerformerType;
     notes?: string | null;
     rejection_reason?: string | null;

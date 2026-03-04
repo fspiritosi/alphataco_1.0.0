@@ -1,4 +1,5 @@
 import DocumentNav from '@/components/DocumentNav';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MonthlyEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos';
 import { PermanentEquipmentDocumentsWrapper } from '@/features/Equipos/DocumentosEquipos/Permanents';
 import { TabsManagerServer } from '@/features/TabsManager';
@@ -34,7 +35,7 @@ export default async function EquipmentTabs({
             moduleSlug: 'equipos',
             tabSlug: 'docs-equipos-permanentes',
             content: (
-              <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
+              <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                 <PermanentEquipmentDocumentsWrapper />
               </Suspense>
             ),
@@ -50,7 +51,7 @@ export default async function EquipmentTabs({
             moduleSlug: 'equipos',
             tabSlug: 'docs-equipos-mensuales',
             content: (
-              <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
+              <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                 <MonthlyEquipmentDocumentsWrapper />
               </Suspense>
             ),

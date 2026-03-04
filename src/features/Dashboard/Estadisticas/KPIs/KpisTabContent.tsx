@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { BarChart3, ClipboardList } from 'lucide-react';
 import { cookies } from 'next/headers';
@@ -36,7 +37,7 @@ export default async function KpisTabContent({
           moduleSlug: 'dashboard',
           tabSlug: 'indicadores',
           content: (
-            <Suspense fallback={<div>Cargando indicadores...</div>}>
+            <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
               <KpisTabClient
                 kpis={kpis}
                 savedVisibility={savedVisibility ? JSON.parse(savedVisibility) : {}}
@@ -56,7 +57,7 @@ export default async function KpisTabContent({
           moduleSlug: 'dashboard',
           tabSlug: 'graficos',
           content: (
-            <Suspense fallback={<div>Cargando gráficos...</div>}>
+            <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
               <GraficosTabContent />
             </Suspense>
           ),

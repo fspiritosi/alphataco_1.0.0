@@ -47,6 +47,8 @@ interface Props {
   tableId: string;
   initialColumnVisibility: Record<string, boolean>;
   initialFilterVisibility: Record<string, boolean>;
+  /** Si se provee, filtra documentos de un empleado específico */
+  employeeId?: string;
 }
 
 // ============================================================================
@@ -195,6 +197,7 @@ export function _EmployeePermanentDocumentsDataTable({
   tableId,
   initialColumnVisibility,
   initialFilterVisibility,
+  employeeId,
 }: Props) {
   // Params para facets (sin page/sort)
   const facetParams = useMemo(() => {
@@ -205,8 +208,8 @@ export function _EmployeePermanentDocumentsDataTable({
 
   // Facets con cross-filtering
   const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['employee-permanent-documents-facets', facetParams],
-    queryFn: () => getEmployeePermanentDocumentsFacets(facetParams),
+    queryKey: ['employee-permanent-documents-facets', facetParams, employeeId],
+    queryFn: () => getEmployeePermanentDocumentsFacets(facetParams, employeeId),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -332,7 +335,7 @@ export function _EmployeePermanentDocumentsDataTable({
       data-testid="employee-permanent-documents-table"
       toolbarActions={<PermanentDocumentsDownloadButton tableRows={data} />}
       exportConfig={{
-        fetchAllData: () => getAllEmployeePermanentDocumentsForExport(searchParams),
+        fetchAllData: () => getAllEmployeePermanentDocumentsForExport(searchParams, employeeId),
         options: {
           filename: 'documentos-permanentes-empleados',
           title: 'Documentos Permanentes de Empleados',

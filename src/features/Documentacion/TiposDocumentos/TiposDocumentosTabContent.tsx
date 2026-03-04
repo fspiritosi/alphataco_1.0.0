@@ -1,5 +1,6 @@
 import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
 import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponents/TypesDocumentsViewWrapper';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Truck, User } from 'lucide-react';
@@ -31,7 +32,7 @@ export default async function TiposDocumentosTabContent({
       moduleSlug: 'documentacion' as const,
       tabSlug: 'tipos-docs-personas' as const,
       content: (
-        <Suspense fallback={<div>Cargando tipos de documentos de personas...</div>}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <TypesDocumentsViewWrapper optionChildrenProp="Persona" personas={true} equipos={false} hideTabs={true} />
         </Suspense>
       ),
@@ -51,7 +52,7 @@ export default async function TiposDocumentosTabContent({
       moduleSlug: 'documentacion' as const,
       tabSlug: 'tipos-docs-equipos' as const,
       content: (
-        <Suspense fallback={<div>Cargando tipos de documentos de equipos...</div>}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <TypesDocumentsViewWrapper optionChildrenProp="Equipo" equipos={true} personas={false} hideTabs={true} />
         </Suspense>
       ),

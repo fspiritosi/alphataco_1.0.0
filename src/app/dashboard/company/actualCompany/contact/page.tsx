@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Suspense } from 'react';
 import BackButton from '../../../../../components/BackButton';
@@ -22,7 +23,7 @@ export default async function ContactFormAction({ searchParams, params }: { sear
           searchParams.action === 'new' && 'col-span-8'
         )}
       >
-        <Suspense fallback={<div>Cargando...</div>}>
+        <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
           <ContactComponent id={searchParams.id} />
         </Suspense>
       </div>

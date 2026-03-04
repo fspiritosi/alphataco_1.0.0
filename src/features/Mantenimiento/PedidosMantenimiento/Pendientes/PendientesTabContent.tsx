@@ -1,5 +1,5 @@
-import { getMaintenanceOrdersPending } from '../actions/actionsServer';
-import { PendientesTableClient } from './components/PendientesTableClient';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
+import { PendingOrderList } from './PendingOrderList';
 
 /**
  * Subtab de Pedidos Pendientes
@@ -10,8 +10,11 @@ import { PendientesTableClient } from './components/PendientesTableClient';
  *
  * Ordenamiento: pending_scheduling primero, luego scheduled, de más viejo a más reciente
  */
-export async function PendientesTabContent() {
-  const initialData = await getMaintenanceOrdersPending();
 
-  return <PendientesTableClient initialData={initialData} />;
+interface PendientesTabContentProps {
+  searchParams?: DataTableSearchParams;
+}
+
+export async function PendientesTabContent({ searchParams = {} }: PendientesTabContentProps) {
+  return <PendingOrderList searchParams={searchParams} />;
 }

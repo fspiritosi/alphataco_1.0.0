@@ -1,120 +1,242 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
+import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
+import { CACHE_TAGS } from '@/shared/constants/cache';
+import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
+import { prisma } from '@/shared/lib/prisma';
+import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
+import { cacheLife, cacheTag } from 'next/cache';
 import type { ApproveRequestItemsInput, MaintenanceRequestFilters, RejectRequestInput } from '../../types';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const serverLogger = new Logger('SolicitudesMantenimiento/actions');
 
+// ─── Selector compartido para profile ───────────────────────────────────────
+const PROFILE_SELECT = { id: true, fullname: true, email: true } as const;
+
+// ─── Selector de solicitudes completo ───────────────────────────────────────
+const MAINTENANCE_REQUEST_FULL_SELECT = {
+  id: true,
+  checklist_answer_id: true,
+  equipment_id: true,
+  employee_id: true,
+  user_id: true,
+  status: true,
+  rejection_reason: true,
+  rejected_by: true,
+  rejected_at: true,
+  approved_by: true,
+  approved_at: true,
+  kilometer: true,
+  engine_hours: true,
+  created_at: true,
+  updated_at: true,
+  supervisor_id: true,
+  source: true,
+  vehicles: {
+    select: {
+      id: true,
+      domain: true,
+      serie: true,
+      intern_number: true,
+      kilometer: true,
+      engine_hours: true,
+      condition: true,
+    },
+  },
+  employees: {
+    select: { id: true, firstname: true, lastname: true },
+  },
+  checklist_answers: {
+    select: { id: true, created_at: true, answer_data: true },
+  },
+  profile_maintenance_requests_user_idToprofile: {
+    select: PROFILE_SELECT,
+  },
+  profile_maintenance_requests_supervisor_idToprofile: {
+    select: PROFILE_SELECT,
+  },
+  maintenance_request_items: {
+    select: {
+      id: true,
+      maintenance_request_id: true,
+      checklist_deviation_id: true,
+      repair_type_id: true,
+      status: true,
+      rejection_reason: true,
+      created_at: true,
+      description: true,
+      driver_comment: true,
+      validator_comment: true,
+      driver_comment_by: true,
+      validator_comment_by: true,
+      supervisor_comment: true,
+      supervisor_comment_by: true,
+      checklist_deviations: {
+        select: {
+          id: true,
+          item_code: true,
+          item_label: true,
+          section_code: true,
+          is_critical: true,
+          driver_comment: true,
+        },
+      },
+      types_of_repairs: {
+        select: { id: true, name: true },
+      },
+    },
+  },
+  maintenance_orders: {
+    select: {
+      id: true,
+      status: true,
+      scheduled_date: true,
+      date_approved_at: true,
+      date_approved_by: true,
+    },
+  },
+} as const;
+
 /**
- * Obtiene las solicitudes de mantenimiento con filtros opcionales
- * Incluye información de maintenance_orders para saber el estado del pedido
+ * Mapea el resultado de Prisma agregando aliases de compatibilidad
+ * para que los componentes existentes sigan funcionando sin cambios.
+ */
+function mapRequestWithAliases<
+  T extends {
+    profile_maintenance_requests_user_idToprofile: { id: string; fullname: string | null; email: string | null } | null;
+    profile_maintenance_requests_supervisor_idToprofile: {
+      id: string;
+      fullname: string | null;
+      email: string | null;
+    } | null;
+  },
+>(request: T) {
+  return {
+    ...request,
+    // Alias de compatibilidad para componentes que usan `request.profile_user`
+    profile_user: request.profile_maintenance_requests_user_idToprofile,
+    // Alias de compatibilidad para componentes que usan `request.supervisor`
+    supervisor: request.profile_maintenance_requests_supervisor_idToprofile,
+  };
+}
+
+/**
+ * Obtiene las solicitudes de mantenimiento con filtros opcionales.
+ * Incluye información de maintenance_orders para saber el estado del pedido.
  *
  * FILTRO DE SUPERVISOR:
  * - Usuarios con rol de sistema: ven TODAS las solicitudes
- * - Usuarios sin rol de sistema: solo ven solicitudes donde supervisor_id = su user_id
+ * - Usuarios sin rol de sistema: solo ven solicitudes donde supervisor_id = su profile.id
  */
 export async function getMaintenanceRequests(filters?: MaintenanceRequestFilters) {
-  const supabase = await supabaseServer();
-
   // Obtener información del filtro de supervisor
   const filterInfo = await getSupervisorFilterInfo();
 
-  let query = supabase
-    .from('maintenance_requests')
-    .select(
-      `
-      *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      employees(id, firstname, lastname),
-      profile!maintenance_requests_user_id_fkey(id, fullname),
-      supervisor:profile!maintenance_requests_supervisor_id_fkey(id, fullname, email),
-      checklist_answers(id, created_at, answer_data),
-      maintenance_request_items(
-        *,
-        checklist_deviations(id, item_code, item_label, section_code, is_critical, driver_comment),
-        types_of_repairs(id, name)
-      ),
-      maintenance_orders(
-        id,
-        status,
-        scheduled_date,
-        date_approved_at,
-        date_approved_by
-      )
-    `
-    )
-    // Solo mostrar solicitudes pendientes de aprobación y rechazadas
-    .in('status', ['pending_approval', 'rejected'])
-    .order('created_at', { ascending: false });
+  // Construir el filtro de fechas
+  const createdAtFilter: { gte?: Date; lte?: Date } = {};
+  if (filters?.from_date) createdAtFilter.gte = new Date(filters.from_date);
+  if (filters?.to_date) createdAtFilter.lte = new Date(filters.to_date);
 
-  // Aplicar filtro de supervisor si corresponde
-  if (filterInfo?.shouldFilterBySupervisor) {
-    query = query.eq('supervisor_id', filterInfo.userId);
-  }
+  const where = {
+    status: filters?.status ?? { in: ['pending_approval', 'rejected'] as string[] },
+    ...(filterInfo?.shouldFilterBySupervisor ? { supervisor_id: filterInfo.userId } : {}),
+    ...(filters?.equipment_id ? { equipment_id: filters.equipment_id } : {}),
+    ...(Object.keys(createdAtFilter).length > 0 ? { created_at: createdAtFilter } : {}),
+  };
 
-  // Aplicar filtros adicionales
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
-  if (filters?.equipment_id) {
-    query = query.eq('equipment_id', filters.equipment_id);
-  }
-  if (filters?.from_date) {
-    query = query.gte('created_at', filters.from_date);
-  }
-  if (filters?.to_date) {
-    query = query.lte('created_at', filters.to_date);
-  }
+  try {
+    const requests = await prisma.maintenance_requests.findMany({
+      where,
+      select: MAINTENANCE_REQUEST_FULL_SELECT,
+      orderBy: { created_at: 'desc' },
+    });
 
-  const { data, error } = await query;
-
-  if (error) {
+    return requests.map(mapRequestWithAliases);
+  } catch (error) {
     serverLogger.error('Error al obtener solicitudes de mantenimiento', { data: { error } });
     throw error;
   }
-
-  return data || [];
 }
 
 export type MaintenanceRequestsData = Awaited<ReturnType<typeof getMaintenanceRequests>>;
 export type MaintenanceRequestData = MaintenanceRequestsData[number];
 
 /**
- * Obtiene una solicitud de mantenimiento por ID
+ * Obtiene una solicitud de mantenimiento por ID.
  */
 export async function getMaintenanceRequestById(requestId: string) {
-  const supabase = await supabaseServer();
+  'use cache';
+  cacheTag(CACHE_TAGS.MAINTENANCE_REQUESTS);
+  cacheLife({ expire: 15, revalidate: 15, stale: 5 });
 
-  const { data, error } = await supabase
-    .from('maintenance_requests')
-    .select(
-      `
-      *,
-      vehicles(id, domain, serie, intern_number),
-      employees(id, firstname, lastname),
-      checklist_answers(id, created_at),
-      maintenance_request_items(
-        *,
-        checklist_deviations(id, item_code, item_label, section_code),
-        types_of_repairs(id, name)
-      )
-    `
-    )
-    .eq('id', requestId)
-    .single();
+  try {
+    const request = await prisma.maintenance_requests.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true,
+        checklist_answer_id: true,
+        equipment_id: true,
+        employee_id: true,
+        user_id: true,
+        status: true,
+        rejection_reason: true,
+        kilometer: true,
+        engine_hours: true,
+        created_at: true,
+        updated_at: true,
+        supervisor_id: true,
+        source: true,
+        approved_by: true,
+        approved_at: true,
+        rejected_by: true,
+        rejected_at: true,
+        vehicles: {
+          select: { id: true, domain: true, serie: true, intern_number: true },
+        },
+        employees: {
+          select: { id: true, firstname: true, lastname: true },
+        },
+        checklist_answers: {
+          select: { id: true, created_at: true },
+        },
+        maintenance_request_items: {
+          select: {
+            id: true,
+            maintenance_request_id: true,
+            checklist_deviation_id: true,
+            repair_type_id: true,
+            status: true,
+            rejection_reason: true,
+            description: true,
+            driver_comment: true,
+            validator_comment: true,
+            checklist_deviations: {
+              select: { id: true, item_code: true, item_label: true, section_code: true },
+            },
+            types_of_repairs: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
 
-  if (error) {
+    if (!request) {
+      serverLogger.warn('Solicitud no encontrada', { data: { requestId } });
+      return null;
+    }
+
+    return request;
+  } catch (error) {
     serverLogger.error('Error al obtener solicitud de mantenimiento', { data: { error, requestId } });
     throw error;
   }
-
-  return data;
 }
 
 /**
- * Crea una solicitud de mantenimiento desde desvíos de checklist
+ * Crea una solicitud de mantenimiento desde desvíos de checklist.
  *
  * NUEVO FLUJO (v2):
  * - El chofer NO asigna tipos de reparación, solo comentarios por desvío
@@ -143,94 +265,88 @@ export async function createMaintenanceRequest(input: {
     driverComment?: string;
   }>;
 }) {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Creando solicitud de mantenimiento', { data: input });
 
-  // Crear la solicitud
-  const { data: request, error: requestError } = await supabase
-    .from('maintenance_requests')
-    .insert({
-      checklist_answer_id: input.checklistAnswerId,
-      equipment_id: input.equipmentId,
-      employee_id: input.employeeId || null,
-      user_id: input.userId || null,
-      kilometer: input.kilometer || null,
-      supervisor_id: input.supervisorId || null,
-      status: 'pending_approval',
-    })
-    .select()
-    .single();
+  const profile = await requireServerAuthProfile();
 
-  if (requestError) {
-    serverLogger.error('Error al crear solicitud de mantenimiento', { data: { error: requestError } });
-    throw requestError;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // Crear la solicitud
+      const request = await tx.maintenance_requests.create({
+        data: {
+          checklist_answer_id: input.checklistAnswerId,
+          equipment_id: input.equipmentId,
+          employee_id: input.employeeId ?? null,
+          user_id: input.userId ?? null,
+          kilometer: input.kilometer ?? null,
+          supervisor_id: input.supervisorId ?? null,
+          status: 'pending_approval',
+        },
+      });
+
+      serverLogger.debug('maintenance_request creada', { data: { requestId: request.id } });
+
+      // Determinar los items a insertar
+      type ItemData = {
+        maintenance_request_id: string;
+        checklist_deviation_id: string;
+        repair_type_id: string | null;
+        driver_comment: string | null;
+        driver_comment_by: string | null;
+        status: string;
+      };
+
+      let items: ItemData[];
+
+      if (input.deviationItems && input.deviationItems.length > 0) {
+        serverLogger.debug('Usando formato NUEVO (deviationItems)');
+        items = input.deviationItems.map((item) => ({
+          maintenance_request_id: request.id,
+          checklist_deviation_id: item.deviationId,
+          repair_type_id: item.repairTypeId ?? null,
+          driver_comment: item.driverComment ?? null,
+          driver_comment_by: item.driverComment ? profile.id : null,
+          status: 'pending',
+        }));
+      } else if (input.deviationIds && input.deviationIds.length > 0) {
+        serverLogger.debug('Usando formato ANTIGUO (deviationIds)');
+        items = input.deviationIds.map((deviationId) => ({
+          maintenance_request_id: request.id,
+          checklist_deviation_id: deviationId,
+          repair_type_id: null,
+          driver_comment: null,
+          driver_comment_by: null,
+          status: 'pending',
+        }));
+      } else {
+        throw new Error('Debe proporcionar al menos un desvío');
+      }
+
+      serverLogger.debug('Items a insertar', { data: { count: items.length } });
+
+      await tx.maintenance_request_items.createMany({ data: items });
+
+      return request;
+    });
+
+    serverLogger.info('Solicitud de mantenimiento creada exitosamente', { data: { requestId: result.id } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequest);
+
+    return result;
+  } catch (error) {
+    serverLogger.error('Error al crear solicitud de mantenimiento', { data: { error } });
+    throw error;
   }
-
-  serverLogger.debug('maintenance_request creada', { data: { requestId: request.id } });
-
-  // Crear los items de la solicitud
-  // Soporta tanto el formato antiguo (deviationIds) como el nuevo (deviationItems con driverComment)
-  let items: Array<{
-    maintenance_request_id: string;
-    checklist_deviation_id: string;
-    repair_type_id: string | null;
-    driver_comment: string | null;
-    status: 'pending';
-  }>;
-
-  if (input.deviationItems && input.deviationItems.length > 0) {
-    serverLogger.debug('Usando formato NUEVO (deviationItems)');
-    // Nuevo formato: con comentarios del chofer (sin tipos de reparación)
-    items = input.deviationItems.map((item) => ({
-      maintenance_request_id: request.id,
-      checklist_deviation_id: item.deviationId,
-      repair_type_id: item.repairTypeId || null, // Mantener por compatibilidad, pero no se usa
-      driver_comment: item.driverComment || null,
-      status: 'pending' as const,
-    }));
-  } else if (input.deviationIds && input.deviationIds.length > 0) {
-    serverLogger.debug('Usando formato ANTIGUO (deviationIds)');
-    // Formato antiguo: solo IDs de desvíos, sin tipos de reparación ni comentarios
-    items = input.deviationIds.map((deviationId) => ({
-      maintenance_request_id: request.id,
-      checklist_deviation_id: deviationId,
-      repair_type_id: null,
-      driver_comment: null,
-      status: 'pending' as const,
-    }));
-  } else {
-    serverLogger.error('No se proporcionaron desvíos para la solicitud');
-    // Rollback: eliminar la solicitud creada
-    await supabase.from('maintenance_requests').delete().eq('id', request.id);
-    throw new Error('Debe proporcionar al menos un desvío');
-  }
-
-  serverLogger.debug('Items a insertar', { data: { count: items.length } });
-
-  const { error: itemsError } = await supabase.from('maintenance_request_items').insert(items);
-
-  if (itemsError) {
-    serverLogger.error('Error al crear items de solicitud', { data: { error: itemsError } });
-    // Rollback: eliminar la solicitud creada
-    await supabase.from('maintenance_requests').delete().eq('id', request.id);
-    throw itemsError;
-  }
-
-  serverLogger.info('Solicitud de mantenimiento creada exitosamente', { data: { requestId: request.id } });
-
-  return request;
 }
 
 /**
- * Aprueba items de una solicitud y crea el pedido de mantenimiento
+ * Aprueba items de una solicitud y crea el pedido de mantenimiento.
  *
  * NOTA: Los tipos de reparación NO se asignan en este paso.
  * Se asignan posteriormente en la etapa de Planificación (AsignarTallerDialog).
  */
 export async function approveMaintenanceRequestItems(input: ApproveRequestItemsInput) {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Aprobando items de solicitud', {
     data: {
       requestId: input.requestId,
@@ -239,119 +355,106 @@ export async function approveMaintenanceRequestItems(input: ApproveRequestItemsI
     },
   });
 
-  // Obtener el usuario actual
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await requireServerAuthProfile();
 
-  // Actualizar items aprobados (sin tipos de reparación - se asignan en Planificación)
-  const approvePromises = input.approvedItems.map(async (item) => {
-    const { error } = await supabase
-      .from('maintenance_request_items')
-      .update({
-        status: 'approved',
-        validator_comment: item.validatorComment || null,
-      })
-      .eq('id', item.itemId);
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Actualizar items aprobados (sin tipos de reparación)
+      await Promise.all(
+        input.approvedItems.map((item) =>
+          tx.maintenance_request_items.update({
+            where: { id: item.itemId },
+            data: {
+              status: 'approved',
+              validator_comment: item.validatorComment ?? null,
+              validator_comment_by: item.validatorComment ? profile.id : null,
+            },
+          })
+        )
+      );
 
-    if (error) {
-      serverLogger.error('Error al aprobar item', { data: { error, itemId: item.itemId } });
-      throw error;
-    }
-  });
+      // 2. Actualizar items rechazados
+      await Promise.all(
+        input.rejectedItems.map((item) =>
+          tx.maintenance_request_items.update({
+            where: { id: item.itemId },
+            data: {
+              status: 'rejected',
+              rejection_reason: item.reason,
+              validator_comment: item.validatorComment ?? null,
+              validator_comment_by: item.validatorComment ? profile.id : null,
+            },
+          })
+        )
+      );
 
-  // Actualizar items rechazados en paralelo (cada uno puede tener diferente razón)
-  const rejectPromises = input.rejectedItems.map(async (item) => {
-    const { error } = await supabase
-      .from('maintenance_request_items')
-      .update({
-        status: 'rejected',
-        rejection_reason: item.reason,
-        validator_comment: item.validatorComment || null,
-      })
-      .eq('id', item.itemId);
+      // 3. Obtener la solicitud para crear el pedido
+      const request = await tx.maintenance_requests.findUniqueOrThrow({
+        where: { id: input.requestId },
+        select: { id: true, equipment_id: true, kilometer: true },
+      });
 
-    if (error) {
-      serverLogger.error('Error al rechazar item', { data: { error, itemId: item.itemId } });
-      throw error;
-    }
-  });
+      // 4. Actualizar estado de la solicitud
+      await tx.maintenance_requests.update({
+        where: { id: input.requestId },
+        data: {
+          status: 'approved',
+          approved_by: profile.id,
+          approved_at: new Date(),
+        },
+      });
 
-  // Ejecutar todas las actualizaciones en paralelo
-  await Promise.all([...approvePromises, ...rejectPromises]);
+      // 5. Crear pedido de mantenimiento si hay items aprobados
+      if (input.approvedItems.length > 0) {
+        const order = await tx.maintenance_orders.create({
+          data: {
+            maintenance_request_id: input.requestId,
+            equipment_id: request.equipment_id,
+            status: 'pending_scheduling',
+            kilometer_at_entry: request.kilometer ?? null,
+          },
+        });
 
-  // Obtener la solicitud para crear el pedido
-  const { data: request, error: requestError } = await supabase
-    .from('maintenance_requests')
-    .select('*, items:maintenance_request_items(*)')
-    .eq('id', input.requestId)
-    .single();
+        serverLogger.info('Pedido de mantenimiento creado', { data: { orderId: order.id } });
 
-  if (requestError) {
-    serverLogger.error('Error al obtener solicitud', { data: { error: requestError } });
-    throw requestError;
+        // 6. Actualizar el kilometraje del vehículo si la solicitud tiene km
+        if (request.kilometer) {
+          try {
+            await tx.vehicles.update({
+              where: { id: request.equipment_id },
+              data: { kilometer: request.kilometer },
+            });
+          } catch (vehicleError) {
+            serverLogger.warn('No se pudo actualizar kilometraje del vehículo al generar pedido', {
+              data: { error: vehicleError },
+            });
+          }
+        }
+
+        // 7. Crear items del pedido SIN tipos de reparación
+        await tx.maintenance_order_items.createMany({
+          data: input.approvedItems.map((item) => ({
+            maintenance_order_id: order.id,
+            maintenance_request_item_id: item.itemId,
+            repair_type_id: null,
+            is_critical: false,
+          })),
+        });
+      }
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.approveMaintenanceRequestItems);
+
+    return { success: true };
+  } catch (error) {
+    serverLogger.error('Error al aprobar items de solicitud', { data: { error, requestId: input.requestId } });
+    throw error;
   }
-
-  // Actualizar estado de la solicitud
-  const { error: updateError } = await supabase
-    .from('maintenance_requests')
-    .update({
-      status: 'approved',
-      approved_by: user?.id || null,
-      approved_at: new Date().toISOString(),
-    })
-    .eq('id', input.requestId);
-
-  if (updateError) {
-    serverLogger.error('Error al actualizar estado de solicitud', { data: { error: updateError } });
-    throw updateError;
-  }
-
-  // Crear pedido de mantenimiento si hay items aprobados
-  if (input.approvedItems.length > 0) {
-    const { data: order, error: orderError } = await supabase
-      .from('maintenance_orders')
-      .insert({
-        maintenance_request_id: input.requestId,
-        equipment_id: request.equipment_id,
-        status: 'pending_scheduling',
-      })
-      .select()
-      .single();
-
-    if (orderError) {
-      serverLogger.error('Error al crear pedido de mantenimiento', { data: { error: orderError } });
-      throw orderError;
-    }
-
-    // Crear items del pedido SIN tipos de reparación
-    // Los tipos se asignarán en la etapa de Planificación
-    const orderItems = input.approvedItems.map((item) => ({
-      maintenance_order_id: order.id,
-      maintenance_request_item_id: item.itemId,
-      repair_type_id: null, // Se asigna en Planificación
-      is_critical: false,
-    }));
-
-    const { error: orderItemsError } = await supabase.from('maintenance_order_items').insert(orderItems);
-
-    if (orderItemsError) {
-      serverLogger.error('Error al crear items del pedido', { data: { error: orderItemsError } });
-      throw orderItemsError;
-    }
-
-    serverLogger.info('Pedido de mantenimiento creado', { data: { orderId: order.id } });
-  }
-
-  return { success: true };
 }
 
 /**
- * Asigna tipos de reparación a los items de una solicitud de mantenimiento
- * Usado por el chofer después de completar el checklist para asignar cada desvío a una reparación
- *
- * @param input.equipmentId - ID del equipo (para validación)
- * @param input.assignments - Array de asignaciones: cada desvío con su tipo de reparación
+ * Asigna tipos de reparación a los items de una solicitud de mantenimiento.
+ * Usado por el chofer después de completar el checklist para asignar cada desvío a una reparación.
  */
 export async function assignRepairTypesToDeviations(input: {
   equipmentId: string;
@@ -361,8 +464,6 @@ export async function assignRepairTypesToDeviations(input: {
     description?: string;
   }>;
 }): Promise<{ ok: true; success: true } | { ok: false; error: string }> {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Asignando tipos de reparación a desvíos', {
     data: { equipmentId: input.equipmentId, assignmentsCount: input.assignments.length },
   });
@@ -373,20 +474,15 @@ export async function assignRepairTypesToDeviations(input: {
   }
 
   try {
-    // Buscar los maintenance_request_items que corresponden a estos desvíos
     const deviationIds = input.assignments.map((a) => a.deviationId);
 
-    const { data: items, error: fetchError } = await supabase
-      .from('maintenance_request_items')
-      .select('id, checklist_deviation_id, maintenance_request_id')
-      .in('checklist_deviation_id', deviationIds);
+    // Buscar los maintenance_request_items que corresponden a estos desvíos
+    const items = await prisma.maintenance_request_items.findMany({
+      where: { checklist_deviation_id: { in: deviationIds } },
+      select: { id: true, checklist_deviation_id: true, maintenance_request_id: true },
+    });
 
-    if (fetchError) {
-      serverLogger.error('Error al buscar items de solicitud', { data: { error: fetchError } });
-      return { ok: false, error: 'Error al buscar los items de la solicitud' };
-    }
-
-    if (!items || items.length === 0) {
+    if (items.length === 0) {
       serverLogger.warn('No se encontraron items para los desvíos proporcionados', {
         data: { deviationIds },
       });
@@ -394,32 +490,29 @@ export async function assignRepairTypesToDeviations(input: {
     }
 
     // Actualizar cada item con su tipo de reparación
-    const updatePromises = input.assignments.map(async (assignment) => {
-      const item = items.find((i) => i.checklist_deviation_id === assignment.deviationId);
-      if (!item) {
-        serverLogger.warn('Item no encontrado para desvío', { data: { deviationId: assignment.deviationId } });
-        return;
-      }
+    await Promise.all(
+      input.assignments.map(async (assignment) => {
+        const item = items.find((i) => i.checklist_deviation_id === assignment.deviationId);
+        if (!item) {
+          serverLogger.warn('Item no encontrado para desvío', { data: { deviationId: assignment.deviationId } });
+          return;
+        }
 
-      const { error: updateError } = await supabase
-        .from('maintenance_request_items')
-        .update({
-          repair_type_id: assignment.repairTypeId,
-          description: assignment.description || null,
-        })
-        .eq('id', item.id);
-
-      if (updateError) {
-        serverLogger.error('Error al actualizar item', { data: { error: updateError, itemId: item.id } });
-        throw updateError;
-      }
-    });
-
-    await Promise.all(updatePromises);
+        await prisma.maintenance_request_items.update({
+          where: { id: item.id },
+          data: {
+            repair_type_id: assignment.repairTypeId,
+            description: assignment.description ?? null,
+          },
+        });
+      })
+    );
 
     serverLogger.info('Tipos de reparación asignados exitosamente', {
       data: { equipmentId: input.equipmentId, itemsUpdated: items.length },
     });
+
+    await invalidateCacheTags(INVALIDATION_MAP.approveMaintenanceRequestItems);
 
     return { ok: true, success: true };
   } catch (error) {
@@ -448,8 +541,6 @@ export async function createOrUpdateMaintenanceRequest(input: {
   userId?: string;
   kilometer?: string;
 }): Promise<{ ok: true; requestId?: string; created: boolean } | { ok: false; error: string }> {
-  const supabase = await supabaseServer();
-
   serverLogger.info('createOrUpdateMaintenanceRequest - Iniciando', {
     data: {
       equipmentId: input.equipmentId,
@@ -460,120 +551,115 @@ export async function createOrUpdateMaintenanceRequest(input: {
   });
 
   try {
+    const profile = await requireServerAuthProfile();
     const deviationIds = input.deviations.map((d) => d.deviationId);
 
     // 1. Verificar si los desvíos ya tienen solicitud de mantenimiento
-    const { data: existingItems, error: checkError } = await supabase
-      .from('maintenance_request_items')
-      .select('id, maintenance_request_id, checklist_deviation_id')
-      .in('checklist_deviation_id', deviationIds);
-
-    if (checkError) {
-      serverLogger.error('Error verificando solicitudes existentes', { data: { error: checkError } });
-      return { ok: false, error: 'Error al verificar solicitudes existentes' };
-    }
+    const existingItems = await prisma.maintenance_request_items.findMany({
+      where: { checklist_deviation_id: { in: deviationIds } },
+      select: { id: true, maintenance_request_id: true, checklist_deviation_id: true },
+    });
 
     // 2. Si ya existen items, actualizar la solicitud existente
-    if (existingItems && existingItems.length > 0) {
+    if (existingItems.length > 0) {
       const requestId = existingItems[0].maintenance_request_id;
 
-      // Actualizar supervisor
-      const { error: updateRequestError } = await supabase
-        .from('maintenance_requests')
-        .update({ supervisor_id: input.supervisorId })
-        .eq('id', requestId);
+      await prisma.$transaction(async (tx) => {
+        // Actualizar supervisor
+        await tx.maintenance_requests.update({
+          where: { id: requestId },
+          data: { supervisor_id: input.supervisorId },
+        });
 
-      if (updateRequestError) {
-        serverLogger.error('Error actualizando supervisor', { data: { error: updateRequestError } });
-        return { ok: false, error: 'Error al actualizar el supervisor' };
-      }
+        // Actualizar comentarios en los desvíos y items
+        for (const deviation of input.deviations) {
+          if (deviation.comment) {
+            await tx.checklist_deviations.update({
+              where: { id: deviation.deviationId },
+              data: { driver_comment: deviation.comment },
+            });
 
-      // Actualizar comentarios en los desvíos y items
-      for (const deviation of input.deviations) {
-        if (deviation.comment) {
-          await supabase
-            .from('checklist_deviations')
-            .update({ driver_comment: deviation.comment })
-            .eq('id', deviation.deviationId);
-
-          await supabase
-            .from('maintenance_request_items')
-            .update({ driver_comment: deviation.comment })
-            .eq('checklist_deviation_id', deviation.deviationId);
+            await tx.maintenance_request_items.updateMany({
+              where: { checklist_deviation_id: deviation.deviationId },
+              data: {
+                driver_comment: deviation.comment,
+                driver_comment_by: profile.id,
+              },
+            });
+          }
         }
-      }
+      });
 
       serverLogger.info('Solicitud existente actualizada', { data: { requestId } });
+
+      await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequest);
+
       return { ok: true, requestId, created: false };
     }
 
     // 3. Si NO existen items, crear nueva solicitud
-    // Necesitamos el checklistAnswerId para crear la solicitud
-    if (!input.checklistAnswerId) {
-      // Intentar obtenerlo del primer desvío
-      const { data: deviationData, error: devError } = await supabase
-        .from('checklist_deviations')
-        .select('checklist_answer_id')
-        .eq('id', deviationIds[0])
-        .single();
+    let checklistAnswerId = input.checklistAnswerId;
 
-      if (devError || !deviationData?.checklist_answer_id) {
-        serverLogger.error('No se pudo obtener checklist_answer_id', { data: { error: devError } });
+    if (!checklistAnswerId) {
+      // Intentar obtenerlo del primer desvío
+      const deviationData = await prisma.checklist_deviations.findUnique({
+        where: { id: deviationIds[0] },
+        select: { checklist_answer_id: true },
+      });
+
+      if (!deviationData?.checklist_answer_id) {
+        serverLogger.error('No se pudo obtener checklist_answer_id');
         return { ok: false, error: 'No se pudo determinar el checklist de origen' };
       }
 
-      input.checklistAnswerId = deviationData.checklist_answer_id;
+      checklistAnswerId = deviationData.checklist_answer_id;
     }
 
-    // Crear la solicitud
-    const { data: newRequest, error: createError } = await supabase
-      .from('maintenance_requests')
-      .insert({
-        checklist_answer_id: input.checklistAnswerId,
-        equipment_id: input.equipmentId,
-        employee_id: input.employeeId || null,
-        user_id: input.userId || null,
-        kilometer: input.kilometer || null,
-        supervisor_id: input.supervisorId,
-        status: 'pending_approval',
-      })
-      .select()
-      .single();
+    const userId = input.userId ?? profile.id;
 
-    if (createError || !newRequest) {
-      serverLogger.error('Error creando solicitud', { data: { error: createError } });
-      return { ok: false, error: 'Error al crear la solicitud de mantenimiento' };
-    }
+    const newRequest = await prisma.$transaction(async (tx) => {
+      // Crear la solicitud
+      const request = await tx.maintenance_requests.create({
+        data: {
+          checklist_answer_id: checklistAnswerId!,
+          equipment_id: input.equipmentId,
+          employee_id: input.employeeId ?? null,
+          user_id: userId,
+          kilometer: input.kilometer ?? null,
+          supervisor_id: input.supervisorId,
+          status: 'pending_approval',
+        },
+      });
 
-    // Crear los items de la solicitud
-    const items = input.deviations.map((d) => ({
-      maintenance_request_id: newRequest.id,
-      checklist_deviation_id: d.deviationId,
-      repair_type_id: null,
-      driver_comment: d.comment || null,
-      status: 'pending' as const,
-    }));
+      // Crear los items de la solicitud
+      await tx.maintenance_request_items.createMany({
+        data: input.deviations.map((d) => ({
+          maintenance_request_id: request.id,
+          checklist_deviation_id: d.deviationId,
+          repair_type_id: null,
+          driver_comment: d.comment ?? null,
+          driver_comment_by: d.comment ? profile.id : null,
+          status: 'pending',
+        })),
+      });
 
-    const { error: itemsError } = await supabase.from('maintenance_request_items').insert(items);
-
-    if (itemsError) {
-      serverLogger.error('Error creando items de solicitud', { data: { error: itemsError } });
-      // Rollback
-      await supabase.from('maintenance_requests').delete().eq('id', newRequest.id);
-      return { ok: false, error: 'Error al crear los items de la solicitud' };
-    }
-
-    // Actualizar comentarios en los desvíos
-    for (const deviation of input.deviations) {
-      if (deviation.comment) {
-        await supabase
-          .from('checklist_deviations')
-          .update({ driver_comment: deviation.comment })
-          .eq('id', deviation.deviationId);
+      // Actualizar comentarios en los desvíos
+      for (const deviation of input.deviations) {
+        if (deviation.comment) {
+          await tx.checklist_deviations.update({
+            where: { id: deviation.deviationId },
+            data: { driver_comment: deviation.comment },
+          });
+        }
       }
-    }
+
+      return request;
+    });
 
     serverLogger.info('Nueva solicitud creada', { data: { requestId: newRequest.id } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.createMaintenanceRequest);
+
     return { ok: true, requestId: newRequest.id, created: true };
   } catch (error) {
     serverLogger.error('Error inesperado en createOrUpdateMaintenanceRequest', { data: { error } });
@@ -582,8 +668,8 @@ export async function createOrUpdateMaintenanceRequest(input: {
 }
 
 /**
- * Actualiza los comentarios de los desvíos y el supervisor de una solicitud
- * Usado por el chofer después de completar el checklist
+ * Actualiza los comentarios de los desvíos y el supervisor de una solicitud.
+ * Usado por el chofer después de completar el checklist.
  * @deprecated Usar createOrUpdateMaintenanceRequest en su lugar
  */
 export async function updateDeviationCommentsAndSupervisor(input: {
@@ -594,8 +680,6 @@ export async function updateDeviationCommentsAndSupervisor(input: {
     comment: string;
   }>;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Actualizando comentarios de desvíos y supervisor', {
     data: {
       equipmentId: input.equipmentId,
@@ -605,66 +689,69 @@ export async function updateDeviationCommentsAndSupervisor(input: {
   });
 
   try {
-    // 1. Actualizar los comentarios en checklist_deviations
-    for (const item of input.comments) {
-      const { error: updateDeviationError } = await supabase
-        .from('checklist_deviations')
-        .update({ driver_comment: item.comment })
-        .eq('id', item.deviationId);
+    const deviationIds = input.comments.map((c) => c.deviationId);
 
-      if (updateDeviationError) {
-        serverLogger.error('Error al actualizar comentario de desvío', {
-          data: { error: updateDeviationError, deviationId: item.deviationId },
-        });
-      }
-    }
+    // 1. Actualizar los comentarios en checklist_deviations
+    await Promise.all(
+      input.comments.map((item) =>
+        prisma.checklist_deviations
+          .update({
+            where: { id: item.deviationId },
+            data: { driver_comment: item.comment },
+          })
+          .catch((err) => {
+            serverLogger.error('Error al actualizar comentario de desvío', {
+              data: { error: err, deviationId: item.deviationId },
+            });
+          })
+      )
+    );
 
     // 2. Obtener los IDs de las solicitudes de mantenimiento que contienen estos desvíos
-    const deviationIds = input.comments.map((c) => c.deviationId);
-    const { data: requestItems, error: fetchError } = await supabase
-      .from('maintenance_request_items')
-      .select('maintenance_request_id, checklist_deviation_id')
-      .in('checklist_deviation_id', deviationIds);
+    const requestItems = await prisma.maintenance_request_items.findMany({
+      where: { checklist_deviation_id: { in: deviationIds } },
+      select: { maintenance_request_id: true, checklist_deviation_id: true },
+    });
 
-    if (fetchError) {
-      serverLogger.error('Error al buscar items de solicitud', { data: { error: fetchError } });
-      return { ok: false, error: 'Error al buscar las solicitudes de mantenimiento' };
-    }
+    // 3. Actualizar el supervisor en las solicitudes únicas
+    const uniqueRequestIds = [...new Set(requestItems.map((item) => item.maintenance_request_id))];
 
-    // 3. Actualizar el supervisor y los comentarios en las solicitudes
-    const uniqueRequestIds = [...new Set(requestItems?.map((item) => item.maintenance_request_id) || [])];
-
-    for (const requestId of uniqueRequestIds) {
-      // Actualizar supervisor_id en la solicitud
-      const { error: updateRequestError } = await supabase
-        .from('maintenance_requests')
-        .update({ supervisor_id: input.supervisorId })
-        .eq('id', requestId);
-
-      if (updateRequestError) {
-        serverLogger.error('Error al actualizar supervisor de solicitud', {
-          data: { error: updateRequestError, requestId },
-        });
-      }
-    }
+    await Promise.all(
+      uniqueRequestIds.map((requestId) =>
+        prisma.maintenance_requests
+          .update({
+            where: { id: requestId },
+            data: { supervisor_id: input.supervisorId },
+          })
+          .catch((err) => {
+            serverLogger.error('Error al actualizar supervisor de solicitud', {
+              data: { error: err, requestId },
+            });
+          })
+      )
+    );
 
     // 4. Actualizar los comentarios en maintenance_request_items
-    for (const item of input.comments) {
-      const { error: updateItemError } = await supabase
-        .from('maintenance_request_items')
-        .update({ driver_comment: item.comment })
-        .eq('checklist_deviation_id', item.deviationId);
-
-      if (updateItemError) {
-        serverLogger.error('Error al actualizar comentario de item', {
-          data: { error: updateItemError, deviationId: item.deviationId },
-        });
-      }
-    }
+    await Promise.all(
+      input.comments.map((item) =>
+        prisma.maintenance_request_items
+          .updateMany({
+            where: { checklist_deviation_id: item.deviationId },
+            data: { driver_comment: item.comment },
+          })
+          .catch((err) => {
+            serverLogger.error('Error al actualizar comentario de item', {
+              data: { error: err, deviationId: item.deviationId },
+            });
+          })
+      )
+    );
 
     serverLogger.info('Comentarios y supervisor actualizados exitosamente', {
       data: { requestsUpdated: uniqueRequestIds.length, commentsUpdated: input.comments.length },
     });
+
+    await invalidateCacheTags(INVALIDATION_MAP.reassignRequestSupervisor);
 
     return { ok: true };
   } catch (error) {
@@ -674,124 +761,133 @@ export async function updateDeviationCommentsAndSupervisor(input: {
 }
 
 /**
- * Rechaza una solicitud de mantenimiento completa
+ * Reasigna el supervisor de una solicitud de mantenimiento pendiente de aprobación.
+ * Solo aplica a solicitudes en estado 'pending_approval'.
+ */
+export async function reassignRequestSupervisor(requestId: string, newSupervisorId: string) {
+  serverLogger.info('Reasignando supervisor de solicitud', {
+    data: { requestId, newSupervisorId },
+  });
+
+  try {
+    await prisma.maintenance_requests.update({
+      where: { id: requestId },
+      data: { supervisor_id: newSupervisorId },
+    });
+
+    serverLogger.info('Supervisor reasignado exitosamente', { data: { requestId, newSupervisorId } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.reassignRequestSupervisor);
+
+    return { success: true };
+  } catch (error) {
+    serverLogger.error('Error al reasignar supervisor', { data: { error, requestId, newSupervisorId } });
+    throw error;
+  }
+}
+
+/**
+ * Rechaza una solicitud de mantenimiento completa.
  * @deprecated Usar rejectMaintenanceRequestItems para rechazar items específicos
  */
 export async function rejectMaintenanceRequest(input: RejectRequestInput) {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Rechazando solicitud de mantenimiento', {
     data: { requestId: input.requestId, reason: input.reason },
   });
 
-  // Obtener el usuario actual
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await requireServerAuthProfile();
 
-  // Actualizar todos los items como rechazados
-  const { error: itemsError } = await supabase
-    .from('maintenance_request_items')
-    .update({
-      status: 'rejected',
-      rejection_reason: input.reason,
-    })
-    .eq('maintenance_request_id', input.requestId);
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Actualizar todos los items como rechazados
+      await tx.maintenance_request_items.updateMany({
+        where: { maintenance_request_id: input.requestId },
+        data: {
+          status: 'rejected',
+          rejection_reason: input.reason,
+        },
+      });
 
-  if (itemsError) {
-    serverLogger.error('Error al rechazar items', { data: { error: itemsError } });
-    throw itemsError;
+      // Actualizar estado de la solicitud
+      await tx.maintenance_requests.update({
+        where: { id: input.requestId },
+        data: {
+          status: 'rejected',
+          rejection_reason: input.reason,
+          rejected_by: profile.id,
+          rejected_at: new Date(),
+        },
+      });
+    });
+
+    serverLogger.info('Solicitud rechazada exitosamente', { data: { requestId: input.requestId } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.rejectMaintenanceRequest);
+
+    return { success: true };
+  } catch (error) {
+    serverLogger.error('Error al rechazar solicitud', { data: { error, requestId: input.requestId } });
+    throw error;
   }
-
-  // Actualizar estado de la solicitud
-  const { error: updateError } = await supabase
-    .from('maintenance_requests')
-    .update({
-      status: 'rejected',
-      rejection_reason: input.reason,
-      rejected_by: user?.id || null,
-      rejected_at: new Date().toISOString(),
-    })
-    .eq('id', input.requestId);
-
-  if (updateError) {
-    serverLogger.error('Error al actualizar estado de solicitud', { data: { error: updateError } });
-    throw updateError;
-  }
-
-  serverLogger.info('Solicitud rechazada exitosamente', { data: { requestId: input.requestId } });
-
-  return { success: true };
 }
 
 /**
- * Rechaza items específicos de una solicitud de mantenimiento
- * Permite rechazo selectivo (item por item) con un motivo común
+ * Rechaza items específicos de una solicitud de mantenimiento.
+ * Permite rechazo selectivo (item por item) con un motivo común.
  */
 export async function rejectMaintenanceRequestItems(input: { requestId: string; itemIds: string[]; reason: string }) {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Rechazando items de solicitud', {
     data: { requestId: input.requestId, itemCount: input.itemIds.length, reason: input.reason },
   });
 
-  // Obtener el usuario actual
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await requireServerAuthProfile();
 
-  // Actualizar solo los items seleccionados como rechazados
-  const { error: itemsError } = await supabase
-    .from('maintenance_request_items')
-    .update({
-      status: 'rejected',
-      rejection_reason: input.reason,
-    })
-    .in('id', input.itemIds);
-
-  if (itemsError) {
-    serverLogger.error('Error al rechazar items', { data: { error: itemsError } });
-    throw itemsError;
-  }
-
-  // Verificar si quedan items pendientes en la solicitud
-  const { data: remainingItems, error: checkError } = await supabase
-    .from('maintenance_request_items')
-    .select('id, status')
-    .eq('maintenance_request_id', input.requestId);
-
-  if (checkError) {
-    serverLogger.error('Error al verificar items restantes', { data: { error: checkError } });
-  }
-
-  const pendingItems = remainingItems?.filter((item) => item.status === 'pending') || [];
-  const allRejected = remainingItems?.every((item) => item.status === 'rejected') || false;
-
-  // Si todos los items están rechazados, actualizar el estado de la solicitud
-  if (allRejected && remainingItems && remainingItems.length > 0) {
-    const { error: updateError } = await supabase
-      .from('maintenance_requests')
-      .update({
+  try {
+    // Actualizar solo los items seleccionados como rechazados
+    await prisma.maintenance_request_items.updateMany({
+      where: { id: { in: input.itemIds } },
+      data: {
         status: 'rejected',
         rejection_reason: input.reason,
-        rejected_by: user?.id || null,
-        rejected_at: new Date().toISOString(),
-      })
-      .eq('id', input.requestId);
+      },
+    });
 
-    if (updateError) {
-      serverLogger.error('Error al actualizar estado de solicitud', { data: { error: updateError } });
+    // Verificar si quedan items pendientes en la solicitud
+    const remainingItems = await prisma.maintenance_request_items.findMany({
+      where: { maintenance_request_id: input.requestId },
+      select: { id: true, status: true },
+    });
+
+    const pendingItems = remainingItems.filter((item) => item.status === 'pending');
+    const allRejected = remainingItems.length > 0 && remainingItems.every((item) => item.status === 'rejected');
+
+    // Si todos los items están rechazados, actualizar el estado de la solicitud
+    if (allRejected) {
+      await prisma.maintenance_requests.update({
+        where: { id: input.requestId },
+        data: {
+          status: 'rejected',
+          rejection_reason: input.reason,
+          rejected_by: profile.id,
+          rejected_at: new Date(),
+        },
+      });
     }
+
+    serverLogger.info('Items rechazados exitosamente', {
+      data: {
+        requestId: input.requestId,
+        rejectedCount: input.itemIds.length,
+        pendingCount: pendingItems.length,
+        allRejected,
+      },
+    });
+
+    await invalidateCacheTags(INVALIDATION_MAP.rejectMaintenanceRequestItems);
+
+    return { success: true, pendingCount: pendingItems.length, allRejected };
+  } catch (error) {
+    serverLogger.error('Error al rechazar items de solicitud', { data: { error, requestId: input.requestId } });
+    throw error;
   }
-
-  serverLogger.info('Items rechazados exitosamente', {
-    data: {
-      requestId: input.requestId,
-      rejectedCount: input.itemIds.length,
-      pendingCount: pendingItems.length,
-      allRejected,
-    },
-  });
-
-  return { success: true, pendingCount: pendingItems.length, allRejected };
 }

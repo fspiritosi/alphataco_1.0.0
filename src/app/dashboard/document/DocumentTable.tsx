@@ -3,6 +3,7 @@ import {
   fetchEmployeePermanentDocumentsByEmployeeId,
 } from '@/app/server/GET/actions';
 import DocumentNav from '@/components/DocumentNav';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PermissionGuardServer, getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { formatEmployeeDocuments } from '@/lib/utils';
@@ -49,7 +50,7 @@ export default async function DocumentTable({ employee_id, role, searchParams = 
                   <DocumentNav id_user={employee_id} onlyEmployees onlyNoMultiresource />
                 </div>
               </PermissionGuardServer>
-              <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
+              <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                 <ExpiredDataTable
                   data={permanentDocuments}
                   columns={ExpiredColums}
@@ -87,7 +88,7 @@ export default async function DocumentTable({ employee_id, role, searchParams = 
                   <DocumentNav id_user={employee_id} onlyEmployees onlyNoMultiresource />
                 </div>
               </PermissionGuardServer>
-              <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
+              <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                 <ExpiredDataTable
                   data={monthlyDocuments}
                   columns={ColumnsMonthly}

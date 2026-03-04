@@ -1,12 +1,11 @@
-// import { AlertComponent } from '@/components/AlertComponent'
-// import SideBarContainer from '@/components/SideBarContainer';
 import { FilterCleanupInitializer } from '@/components/FilterCleanupInitializer';
 import { PasswordChangeAlertWrapper } from '@/components/PasswordChangeAlertWrapper';
 import { PermissionsProvider } from '@/components/PermissionsProvider';
+import { Skeleton } from '@/components/ui/skeleton';
 import NavbarFeat from '@/features/Layout/navbar/NavbarFeat';
 import SidebarFeat from '@/features/Layout/sidebar/SidebarFeat';
-import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { Inter } from 'next/font/google';
+import { Suspense } from 'react';
 import '../globals.css';
 import TanstackQueryInicializador from './TanstackQueryInicializador';
 const font = Inter({ subsets: ['latin'] });
@@ -14,35 +13,32 @@ const font = Inter({ subsets: ['latin'] });
 /**
  * DashboardLayout - Layout principal del dashboard
  *
- * OPTIMIZACIÓN: Obtiene permisos UNA VEZ aquí y los pre-carga en cache.
+ * Sidebar and Navbar are wrapped in Suspense because they access cookies()
+ * for auth/permissions, which is incompatible with Next.js 16 prerendering
+ * outside of Suspense boundaries when cacheComponents is enabled.
  *
- * IMPORTANTE: Los permisos se obtienen UNA VEZ en el layout y se pre-cargan en el cache de React.
- * Todos los componentes hijos que usen getUserPermissionsMapServer() compartirán el mismo cache,
- * evitando múltiples queries.
- *
- * Para pasar permisos explícitamente como prop, los componentes deben obtenerlos y pasarlos
- * a TabsManagerServer. El cache asegura que solo se haga UNA query incluso si múltiples
- * componentes obtienen permisos.
+ * Permissions are fetched by individual pages/components that need them.
+ * React cache() deduplicates calls within the same request automatically.
  */
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Obtener permisos UNA VEZ en el layout para pre-cargar el cache
-  // Esto asegura que si múltiples componentes llaman a getUserPermissionsMapServer(),
-  // solo se hará UNA query a la base de datos
-  await getUserPermissionsMapServer();
-
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`grid grid-rows-[auto_1fr] grid-cols-[auto_1fr]`} suppressHydrationWarning>
       <FilterCleanupInitializer />
       <div className="row-span-2 ">
-        <SidebarFeat />
+        <Suspense fallback={<Skeleton className="h-screen w-16" />}>
+          <SidebarFeat />
+        </Suspense>
       </div>
       <div className="border-r border-b border-muted/50 dark:bg-slate-950 mb-2">
-        {/* <NavBar /> */}
-        <NavbarFeat />
+        <Suspense fallback={<Skeleton className="h-14 w-full" />}>
+          <NavbarFeat />
+        </Suspense>
       </div>
       <div className="min-h-0 overflow-y-auto">
         <TanstackQueryInicializador>
-          <PasswordChangeAlertWrapper />
+          <Suspense fallback={null}>
+            <PasswordChangeAlertWrapper />
+          </Suspense>
           <PermissionsProvider>
             <div className="px-6 pb-4">{children}</div>
           </PermissionsProvider>

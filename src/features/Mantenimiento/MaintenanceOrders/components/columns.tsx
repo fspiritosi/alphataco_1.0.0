@@ -5,15 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye } from 'lucide-react';
+import { Eye, Settings2 } from 'lucide-react';
 import moment from 'moment';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 
 interface ColumnsProps {
   onViewDetail: (order: MaintenanceOrderData) => void;
+  onManageOrder?: (order: MaintenanceOrderData) => void;
 }
 
-export function getMaintenanceOrdersColumns({ onViewDetail }: ColumnsProps): ColumnDef<MaintenanceOrderData>[] {
+export function getMaintenanceOrdersColumns({
+  onViewDetail,
+  onManageOrder,
+}: ColumnsProps): ColumnDef<MaintenanceOrderData>[] {
   return [
     {
       accessorKey: 'order_number',
@@ -90,19 +94,32 @@ export function getMaintenanceOrdersColumns({ onViewDetail }: ColumnsProps): Col
         const status = row.original.status;
 
         type StatusVariant = NonNullable<BadgeProps['variant']>;
-        type StatusType = 'in_workshop' | 'pending_workshop_validation' | 'pending_operations_validation' | 'completed';
+        type StatusType =
+          | 'scheduled'
+          | 'in_workshop'
+          | 'pending_workshop_validation'
+          | 'pending_operations_validation'
+          | 'operations_rejected'
+          | 'workshop_rejected'
+          | 'completed';
 
         const statusLabels: Record<StatusType, string> = {
+          scheduled: 'Programada',
           in_workshop: 'En Taller',
           pending_workshop_validation: 'Pend. Validación Taller',
           pending_operations_validation: 'Pend. Validación Operaciones',
+          operations_rejected: 'Rechazada por Ops',
+          workshop_rejected: 'Rechazada por Taller',
           completed: 'Completada',
         };
 
         const statusVariants: Record<StatusType, StatusVariant> = {
+          scheduled: 'warning',
           in_workshop: 'default',
           pending_workshop_validation: 'yellow',
           pending_operations_validation: 'yellow',
+          operations_rejected: 'destructive',
+          workshop_rejected: 'destructive',
           completed: 'success',
         };
 
@@ -158,12 +175,32 @@ export function getMaintenanceOrdersColumns({ onViewDetail }: ColumnsProps): Col
     {
       id: 'actions',
       header: 'Acciones',
-      cell: ({ row }) => (
-        <Button variant="ghost" size="sm" onClick={() => onViewDetail(row.original)}>
-          <Eye className="h-4 w-4 mr-1" />
-          Ver detalle
-        </Button>
-      ),
+      cell: ({ row }) => {
+        const order = row.original;
+        const canManage = order.status === 'in_workshop' || order.status === 'workshop_rejected';
+
+        if (canManage && onManageOrder) {
+          return (
+            <div className="flex gap-1">
+              <Button variant="ghost" size="sm" onClick={() => onManageOrder(order)}>
+                <Settings2 className="h-4 w-4 mr-1" />
+                Gestionar
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => onViewDetail(order)}>
+                <Eye className="h-4 w-4 mr-1" />
+                Detalle
+              </Button>
+            </div>
+          );
+        }
+
+        return (
+          <Button variant="ghost" size="sm" onClick={() => onViewDetail(order)}>
+            <Eye className="h-4 w-4 mr-1" />
+            Ver detalle
+          </Button>
+        );
+      },
       enableSorting: false,
     },
   ];

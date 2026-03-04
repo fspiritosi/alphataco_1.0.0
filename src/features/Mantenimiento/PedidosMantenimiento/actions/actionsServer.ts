@@ -1,76 +1,186 @@
 'use server';
 
 import { Logger } from '@/lib/logger';
-import { supabaseServer } from '@/lib/supabase/server';
+import { requireServerAuthProfile } from '@/shared/actions/auth.actions';
+import { CACHE_TAGS } from '@/shared/constants/cache';
+import { INVALIDATION_MAP } from '@/shared/constants/cache-invalidation-map';
+import { prisma } from '@/shared/lib/prisma';
+import { invalidateCacheTags } from '@/shared/utils/cache-invalidation';
+import { cacheTag } from 'next/cache';
+import { generateMaintenanceOrderNumber } from '../../OrderManagement/actions/actionsServer';
 import type { ApproveWorkshopEntryInput, MaintenanceOrderFilters, ScheduleOrderInput } from '../../types';
 import { getSupervisorFilterInfo } from '../../utils/supervisorFilter';
 
 const serverLogger = new Logger('PedidosMantenimiento/actions');
+
+// ─── Include reutilizable para maintenance_order_items ─────────────────────
+
+const MAINTENANCE_ORDER_ITEMS_INCLUDE = {
+  maintenance_order_item_repair_types: {
+    include: {
+      types_of_repairs: {
+        select: { id: true, name: true },
+      },
+    },
+  },
+  types_of_repairs: {
+    select: { id: true, name: true },
+  },
+  maintenance_request_items: {
+    include: {
+      checklist_deviations: {
+        select: {
+          id: true,
+          item_code: true,
+          item_label: true,
+          section_code: true,
+          driver_comment: true,
+          checklist_answers: {
+            select: {
+              id: true,
+              employees: {
+                select: { id: true, firstname: true, lastname: true },
+              },
+              profile: {
+                select: { id: true, fullname: true, email: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+// Include con answer_data adicional (solo para getMaintenanceOrdersConfirmed)
+const MAINTENANCE_ORDER_ITEMS_INCLUDE_WITH_ANSWER_DATA = {
+  maintenance_order_item_repair_types: {
+    include: {
+      types_of_repairs: {
+        select: { id: true, name: true },
+      },
+    },
+  },
+  types_of_repairs: {
+    select: { id: true, name: true },
+  },
+  maintenance_request_items: {
+    include: {
+      checklist_deviations: {
+        select: {
+          id: true,
+          item_code: true,
+          item_label: true,
+          section_code: true,
+          driver_comment: true,
+          checklist_answers: {
+            select: {
+              id: true,
+              answer_data: true,
+              employees: {
+                select: { id: true, firstname: true, lastname: true },
+              },
+              profile: {
+                select: { id: true, fullname: true, email: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+// ─── Funciones READ ─────────────────────────────────────────────────────────
 
 /**
  * Obtiene los pedidos de mantenimiento con filtros opcionales
  * @deprecated Usar getMaintenanceOrdersPending o getMaintenanceOrdersConfirmed
  */
 export async function getMaintenanceOrders(filters?: MaintenanceOrderFilters) {
-  const supabase = await supabaseServer();
+  'use cache';
+  cacheTag(CACHE_TAGS.MAINTENANCE_ORDERS, CACHE_TAGS.TAB_PEDIDOS_PENDIENTES);
 
-  let query = supabase
-    .from('maintenance_orders')
-    .select(
-      `
-      *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests(id, kilometer, engine_hours, created_at),
-      maintenance_order_items(
-        *,
-        maintenance_request_items(
-          *,
-          checklist_deviations(
-            id,
-            item_code,
-            item_label,
-            section_code,
-            driver_comment,
-            checklist_answers(
-              id,
-              employee:employees(id, firstname, lastname),
-              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
-            )
-          )
-        ),
-        types_of_repairs(id, name),
-        maintenance_order_item_repair_types(
-          repair_type_id,
-          types_of_repairs(id, name)
-        )
-      )
-    `
-    )
-    .in('status', ['pending_scheduling', 'date_confirmed'])
-    .order('created_at', { ascending: false });
+  serverLogger.debug('Obteniendo pedidos de mantenimiento', { data: { filters } });
 
-  // Aplicar filtros
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
-  if (filters?.equipment_id) {
-    query = query.eq('equipment_id', filters.equipment_id);
-  }
-  if (filters?.scheduled_from) {
-    query = query.gte('scheduled_date', filters.scheduled_from);
-  }
-  if (filters?.scheduled_to) {
-    query = query.lte('scheduled_date', filters.scheduled_to);
-  }
+  try {
+    const where = {
+      status: { in: ['pending_scheduling', 'date_confirmed'] },
+      ...(filters?.status ? { status: filters.status } : {}),
+      ...(filters?.equipment_id ? { equipment_id: filters.equipment_id } : {}),
+      ...(filters?.scheduled_from ? { scheduled_date: { gte: new Date(filters.scheduled_from) } } : {}),
+      ...(filters?.scheduled_to
+        ? {
+            scheduled_date: {
+              ...(filters?.scheduled_from ? { gte: new Date(filters.scheduled_from) } : {}),
+              lte: new Date(filters.scheduled_to),
+            },
+          }
+        : {}),
+    };
 
-  const { data, error } = await query;
+    const data = await prisma.maintenance_orders.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        equipment_id: true,
+        status: true,
+        scheduled_date: true,
+        scheduled_by: true,
+        scheduled_at: true,
+        rejection_reason: true,
+        rejected_at: true,
+        workshop_entry_date: true,
+        workshop_approved_by: true,
+        kilometer_at_entry: true,
+        engine_hours_at_entry: true,
+        created_at: true,
+        updated_at: true,
+        date_approved_at: true,
+        date_approved_by: true,
+        date_rejected_at: true,
+        date_rejected_by: true,
+        date_rejection_reason: true,
+        source: true,
+        order_number: true,
+        workshop_validated_at: true,
+        workshop_validation_notes: true,
+        operations_validated_by: true,
+        operations_validated_at: true,
+        operations_validation_notes: true,
+        maintenance_request_id: true,
+        vehicles: {
+          select: {
+            id: true,
+            domain: true,
+            serie: true,
+            intern_number: true,
+            kilometer: true,
+            condition: true,
+            engine_hours: true,
+          },
+        },
+        maintenance_requests: {
+          select: {
+            id: true,
+            kilometer: true,
+            engine_hours: true,
+            created_at: true,
+            source: true,
+          },
+        },
+        maintenance_order_items: {
+          include: MAINTENANCE_ORDER_ITEMS_INCLUDE,
+        },
+      },
+    });
 
-  if (error) {
+    return data;
+  } catch (error) {
     serverLogger.error('Error al obtener pedidos de mantenimiento', { data: { error } });
     throw error;
   }
-
-  return data || [];
 }
 
 export type MaintenanceOrdersData = Awaited<ReturnType<typeof getMaintenanceOrders>>;
@@ -88,60 +198,88 @@ export type MaintenanceOrderData = MaintenanceOrdersData[number];
  * - Usuarios sin rol de sistema: solo ven pedidos cuya solicitud tiene supervisor_id = su user_id
  */
 export async function getMaintenanceOrdersPending() {
-  const supabase = await supabaseServer();
+  serverLogger.debug('Obteniendo pedidos pendientes');
 
-  // Obtener información del filtro de supervisor
-  const filterInfo = await getSupervisorFilterInfo();
+  try {
+    // Obtener información del filtro de supervisor
+    const filterInfo = await getSupervisorFilterInfo();
 
-  let query = supabase
-    .from('maintenance_orders')
-    .select(
-      `
-      *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id),
-      maintenance_order_items(
-        *,
-        maintenance_request_items(
-          *,
-          checklist_deviations(
-            id,
-            item_code,
-            item_label,
-            section_code,
-            driver_comment,
-            checklist_answers(
-              id,
-              employee:employees(id, firstname, lastname),
-              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
-            )
-          )
-        ),
-        types_of_repairs(id, name),
-        maintenance_order_item_repair_types(
-          repair_type_id,
-          types_of_repairs(id, name)
-        )
-      )
-    `
-    )
-    .in('status', ['pending_scheduling', 'scheduled'])
-    .order('status', { ascending: false }) // pending_scheduling (p) antes que scheduled (s) - desc porque p > s alfabéticamente
-    .order('created_at', { ascending: true }); // De más viejo a más reciente
+    const data = await prisma.maintenance_orders.findMany({
+      where: {
+        status: { in: ['pending_scheduling', 'scheduled'] },
+        // !inner equivalent: solo pedidos que tienen una maintenance_request asociada
+        // Cuando se filtra por supervisor_id, Prisma genera un INNER JOIN implícito
+        // Cuando no hay filtro de supervisor, usamos is: {} (existe → isNot null)
+        maintenance_requests: filterInfo?.shouldFilterBySupervisor
+          ? { supervisor_id: filterInfo.userId }
+          : { isNot: undefined },
+      },
+      orderBy: [
+        // pending_scheduling (p) antes que scheduled (s) — desc porque 'p' > 's' alfabéticamente
+        { status: 'desc' },
+        // De más viejo a más reciente
+        { created_at: 'asc' },
+      ],
+      select: {
+        id: true,
+        equipment_id: true,
+        status: true,
+        scheduled_date: true,
+        scheduled_by: true,
+        scheduled_at: true,
+        rejection_reason: true,
+        rejected_at: true,
+        workshop_entry_date: true,
+        workshop_approved_by: true,
+        kilometer_at_entry: true,
+        engine_hours_at_entry: true,
+        created_at: true,
+        updated_at: true,
+        date_approved_at: true,
+        date_approved_by: true,
+        date_rejected_at: true,
+        date_rejected_by: true,
+        date_rejection_reason: true,
+        source: true,
+        order_number: true,
+        workshop_validated_at: true,
+        workshop_validation_notes: true,
+        operations_validated_by: true,
+        operations_validated_at: true,
+        operations_validation_notes: true,
+        maintenance_request_id: true,
+        vehicles: {
+          select: {
+            id: true,
+            domain: true,
+            serie: true,
+            intern_number: true,
+            kilometer: true,
+            condition: true,
+            engine_hours: true,
+          },
+        },
+        maintenance_requests: {
+          select: {
+            id: true,
+            kilometer: true,
+            engine_hours: true,
+            created_at: true,
+            supervisor_id: true,
+            source: true,
+          },
+        },
+        maintenance_order_items: {
+          include: MAINTENANCE_ORDER_ITEMS_INCLUDE,
+        },
+      },
+    });
 
-  // Aplicar filtro de supervisor si corresponde
-  if (filterInfo?.shouldFilterBySupervisor) {
-    query = query.eq('maintenance_requests.supervisor_id', filterInfo.userId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
+    return data;
+  } catch (error) {
     serverLogger.error('Error al obtener pedidos pendientes', { data: { error } });
     throw error;
   }
-
-  return data || [];
 }
 
 export type MaintenanceOrdersPendingData = Awaited<ReturnType<typeof getMaintenanceOrdersPending>>;
@@ -157,60 +295,81 @@ export type MaintenanceOrdersPendingData = Awaited<ReturnType<typeof getMaintena
  * - Usuarios sin rol de sistema: solo ven pedidos cuya solicitud tiene supervisor_id = su user_id
  */
 export async function getMaintenanceOrdersConfirmed() {
-  const supabase = await supabaseServer();
+  serverLogger.debug('Obteniendo pedidos confirmados');
 
-  // Obtener información del filtro de supervisor
-  const filterInfo = await getSupervisorFilterInfo();
+  try {
+    // Obtener información del filtro de supervisor
+    const filterInfo = await getSupervisorFilterInfo();
 
-  let query = supabase
-    .from('maintenance_orders')
-    .select(
-      `
-      *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests!inner(id, kilometer, engine_hours, created_at, supervisor_id),
-      maintenance_order_items(
-        *,
-        maintenance_request_items(
-          *,
-          checklist_deviations(
-            id,
-            item_code,
-            item_label,
-            section_code,
-            driver_comment,
-            checklist_answers(
-              id,
-              answer_data,
-              employee:employees(id, firstname, lastname),
-              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
-            )
-          )
-        ),
-        types_of_repairs(id, name),
-        maintenance_order_item_repair_types(
-          repair_type_id,
-          types_of_repairs(id, name)
-        )
-      )
-    `
-    )
-    .eq('status', 'date_confirmed')
-    .order('created_at', { ascending: true }); // De más viejo a más reciente
+    const data = await prisma.maintenance_orders.findMany({
+      where: {
+        status: 'date_confirmed',
+        // !inner equivalent: solo pedidos que tienen una maintenance_request asociada
+        // Cuando se filtra por supervisor_id, Prisma genera un INNER JOIN implícito
+        // Cuando no hay filtro de supervisor, omitimos la condición (todos los pedidos confirmados)
+        ...(filterInfo?.shouldFilterBySupervisor ? { maintenance_requests: { supervisor_id: filterInfo.userId } } : {}),
+      },
+      orderBy: { created_at: 'asc' }, // De más viejo a más reciente
+      select: {
+        id: true,
+        equipment_id: true,
+        status: true,
+        scheduled_date: true,
+        scheduled_by: true,
+        scheduled_at: true,
+        rejection_reason: true,
+        rejected_at: true,
+        workshop_entry_date: true,
+        workshop_approved_by: true,
+        kilometer_at_entry: true,
+        engine_hours_at_entry: true,
+        created_at: true,
+        updated_at: true,
+        date_approved_at: true,
+        date_approved_by: true,
+        date_rejected_at: true,
+        date_rejected_by: true,
+        date_rejection_reason: true,
+        source: true,
+        order_number: true,
+        workshop_validated_at: true,
+        workshop_validation_notes: true,
+        operations_validated_by: true,
+        operations_validated_at: true,
+        operations_validation_notes: true,
+        maintenance_request_id: true,
+        vehicles: {
+          select: {
+            id: true,
+            domain: true,
+            serie: true,
+            intern_number: true,
+            kilometer: true,
+            condition: true,
+            engine_hours: true,
+          },
+        },
+        maintenance_requests: {
+          select: {
+            id: true,
+            kilometer: true,
+            engine_hours: true,
+            created_at: true,
+            supervisor_id: true,
+            source: true,
+          },
+        },
+        maintenance_order_items: {
+          include: MAINTENANCE_ORDER_ITEMS_INCLUDE_WITH_ANSWER_DATA,
+        },
+      },
+    });
 
-  // Aplicar filtro de supervisor si corresponde
-  if (filterInfo?.shouldFilterBySupervisor) {
-    query = query.eq('maintenance_requests.supervisor_id', filterInfo.userId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
+    return data;
+  } catch (error) {
     serverLogger.error('Error al obtener pedidos confirmados', { data: { error } });
     throw error;
   }
-
-  return data || [];
 }
 
 export type MaintenanceOrdersConfirmedData = Awaited<ReturnType<typeof getMaintenanceOrdersConfirmed>>;
@@ -219,154 +378,171 @@ export type MaintenanceOrdersConfirmedData = Awaited<ReturnType<typeof getMainte
  * Obtiene un pedido de mantenimiento por ID
  */
 export async function getMaintenanceOrderById(orderId: string) {
-  const supabase = await supabaseServer();
+  'use cache';
+  cacheTag(CACHE_TAGS.MAINTENANCE_ORDERS);
 
-  const { data, error } = await supabase
-    .from('maintenance_orders')
-    .select(
-      `
-      *,
-      vehicles(id, domain, serie, intern_number, kilometer, engine_hours, condition),
-      maintenance_requests(id, kilometer, engine_hours, created_at),
-      maintenance_order_items(
-        *,
-        maintenance_request_items(
-          *,
-          checklist_deviations(
-            id,
-            item_code,
-            item_label,
-            section_code,
-            driver_comment,
-            checklist_answers(
-              id,
-              employee:employees(id, firstname, lastname),
-              user:profile!checklist_answers_user_id_fkey(id, fullname, email)
-            )
-          )
-        ),
-        types_of_repairs(id, name),
-        maintenance_order_item_repair_types(
-          repair_type_id,
-          types_of_repairs(id, name)
-        )
-      )
-    `
-    )
-    .eq('id', orderId)
-    .single();
+  serverLogger.debug('Obteniendo pedido por ID', { data: { orderId } });
 
-  if (error) {
-    serverLogger.error('Error al obtener pedido de mantenimiento', { data: { error, orderId } });
+  try {
+    const data = await prisma.maintenance_orders.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        equipment_id: true,
+        status: true,
+        scheduled_date: true,
+        scheduled_by: true,
+        scheduled_at: true,
+        rejection_reason: true,
+        rejected_at: true,
+        workshop_entry_date: true,
+        workshop_approved_by: true,
+        kilometer_at_entry: true,
+        engine_hours_at_entry: true,
+        created_at: true,
+        updated_at: true,
+        date_approved_at: true,
+        date_approved_by: true,
+        date_rejected_at: true,
+        date_rejected_by: true,
+        date_rejection_reason: true,
+        source: true,
+        order_number: true,
+        workshop_validated_at: true,
+        workshop_validation_notes: true,
+        operations_validated_by: true,
+        operations_validated_at: true,
+        operations_validation_notes: true,
+        maintenance_request_id: true,
+        vehicles: {
+          select: {
+            id: true,
+            domain: true,
+            serie: true,
+            intern_number: true,
+            kilometer: true,
+            condition: true,
+            engine_hours: true,
+          },
+        },
+        maintenance_requests: {
+          select: {
+            id: true,
+            kilometer: true,
+            engine_hours: true,
+            created_at: true,
+            source: true,
+          },
+        },
+        maintenance_order_items: {
+          include: MAINTENANCE_ORDER_ITEMS_INCLUDE,
+        },
+      },
+    });
+
+    if (!data) {
+      serverLogger.warn('Pedido no encontrado', { data: { orderId } });
+    }
+
+    return data;
+  } catch (error) {
+    serverLogger.error('Error al obtener pedido por ID', { data: { error, orderId } });
     throw error;
   }
-
-  return data;
 }
+
+// ─── Funciones WRITE ─────────────────────────────────────────────────────────
 
 /**
  * Planifica un pedido de mantenimiento asignando una fecha
  */
 export async function scheduleMaintenanceOrder(input: ScheduleOrderInput) {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Planificando pedido de mantenimiento', {
     data: { orderId: input.orderId, scheduledDate: input.scheduledDate },
   });
 
-  // Obtener el usuario actual
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Obtener el perfil del usuario actual para scheduled_by
+  const profile = await requireServerAuthProfile();
 
-  const { data, error } = await supabase
-    .from('maintenance_orders')
-    .update({
-      status: 'scheduled',
-      scheduled_date: input.scheduledDate,
-      scheduled_by: user?.id || null,
-      scheduled_at: new Date().toISOString(),
-    })
-    .eq('id', input.orderId)
-    .select()
-    .single();
+  try {
+    const data = await prisma.maintenance_orders.update({
+      where: { id: input.orderId },
+      data: {
+        status: 'scheduled',
+        scheduled_date: input.scheduledDate ? new Date(input.scheduledDate) : null,
+        scheduled_by: profile.id,
+        scheduled_at: new Date(),
+      },
+    });
 
-  if (error) {
+    serverLogger.info('Pedido planificado exitosamente', { data: { orderId: input.orderId } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.scheduleMaintenanceOrder);
+
+    return data;
+  } catch (error) {
     serverLogger.error('Error al planificar pedido', { data: { error, orderId: input.orderId } });
     throw error;
   }
-
-  serverLogger.info('Pedido planificado exitosamente', { data: { orderId: input.orderId } });
-
-  return data;
 }
 
 /**
  * Aprueba la entrada a taller de un pedido de mantenimiento
  * - Actualiza el estado del pedido a 'in_workshop'
  * - Actualiza el kilometraje y condición del vehículo a 'no_operativo'
+ * - Usa transacción para garantizar atomicidad
  */
 export async function approveWorkshopEntryFromOrder(input: ApproveWorkshopEntryInput) {
-  const supabase = await supabaseServer();
-
   serverLogger.info('Aprobando entrada a taller', {
-    data: { orderId: input.orderId, kilometer: input.kilometer, engine_hours: input.engine_hours },
+    data: { orderId: input.orderId, kilometer: input.kilometer },
   });
 
-  // Obtener el pedido para saber el equipment_id
-  const { data: order, error: orderError } = await supabase
-    .from('maintenance_orders')
-    .select('equipment_id')
-    .eq('id', input.orderId)
-    .single();
+  // Obtener el perfil del usuario actual para workshop_approved_by
+  const profile = await requireServerAuthProfile();
 
-  if (orderError || !order) {
-    serverLogger.error('Error al obtener pedido', { data: { orderError, orderId: input.orderId } });
-    throw orderError || new Error('Pedido no encontrado');
-  }
-
-  // Obtener el usuario actual
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Actualizar el pedido a 'in_workshop'
-  const { error: updateOrderError } = await supabase
-    .from('maintenance_orders')
-    .update({
-      status: 'in_workshop',
-      workshop_entry_date: new Date().toISOString(),
-      workshop_approved_by: user?.id || null,
-      kilometer_at_entry: input.kilometer,
-      engine_hours_at_entry: input.engine_hours || null,
-    })
-    .eq('id', input.orderId);
-
-  if (updateOrderError) {
-    serverLogger.error('Error al actualizar pedido', { data: { updateOrderError, orderId: input.orderId } });
-    throw updateOrderError;
-  }
-
-  // Actualizar el vehículo: kilometraje, horómetro y condición
-  const { error: updateVehicleError } = await supabase
-    .from('vehicles')
-    .update({
-      kilometer: input.kilometer,
-      condition: 'no operativo',
-      ...(input.engine_hours !== undefined && { engine_hours: input.engine_hours }),
-    })
-    .eq('id', order.equipment_id);
-
-  if (updateVehicleError) {
-    serverLogger.error('Error al actualizar vehículo', {
-      data: { updateVehicleError, equipmentId: order.equipment_id },
+  try {
+    // Obtener el pedido para saber el equipment_id
+    const order = await prisma.maintenance_orders.findUnique({
+      where: { id: input.orderId },
+      select: { equipment_id: true },
     });
-    throw updateVehicleError;
+
+    if (!order) {
+      const errorMsg = 'Pedido no encontrado';
+      serverLogger.error(errorMsg, { data: { orderId: input.orderId } });
+      throw new Error(errorMsg);
+    }
+
+    // Transacción atómica: actualizar pedido + vehículo simultáneamente
+    await prisma.$transaction([
+      prisma.maintenance_orders.update({
+        where: { id: input.orderId },
+        data: {
+          status: 'in_workshop',
+          workshop_entry_date: new Date(),
+          workshop_approved_by: profile.id,
+        },
+      }),
+      prisma.vehicles.update({
+        where: { id: order.equipment_id },
+        data: {
+          kilometer: input.kilometer,
+          condition: 'no_operativo',
+        },
+      }),
+    ]);
+
+    // Generar número de orden de mantenimiento (OM-DOMAIN-XXXXXX)
+    // NOTA: generateMaintenanceOrderNumber pertenece a OrderManagement, se migra en su propio PR
+    await generateMaintenanceOrderNumber(input.orderId);
+
+    serverLogger.info('Entrada a taller aprobada exitosamente', { data: { orderId: input.orderId } });
+
+    await invalidateCacheTags(INVALIDATION_MAP.approveWorkshopEntry);
+
+    return { success: true };
+  } catch (error) {
+    serverLogger.error('Error al aprobar entrada a taller', { data: { error, orderId: input.orderId } });
+    throw error;
   }
-
-  serverLogger.info('Entrada a taller aprobada exitosamente', {
-    data: { orderId: input.orderId, kilometer: input.kilometer, engine_hours: input.engine_hours },
-  });
-
-  return { success: true };
 }

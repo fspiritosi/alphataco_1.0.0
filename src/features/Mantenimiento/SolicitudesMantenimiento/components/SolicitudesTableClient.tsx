@@ -11,6 +11,7 @@ import {
   type MaintenanceRequestsData,
 } from '../actions/actionsServer';
 import { MAINTENANCE_REQUESTS_QUERY_KEY } from '../hooks/useMaintenanceRequests';
+import { ReassignSupervisorDialog } from './ReassignSupervisorDialog';
 import { SolicitudApprovalDialog } from './SolicitudApprovalDialog';
 import { SolicitudDetailDialog } from './SolicitudDetailDialog';
 import { SolicitudRejectDialog } from './SolicitudRejectDialog';
@@ -30,6 +31,8 @@ export function SolicitudesTableClient({ initialData }: SolicitudesTableClientPr
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequestData | null>(null);
   const [dialogType, setDialogType] = useState<'view' | 'approve' | 'reject' | null>(null);
   const [historyRequestId, setHistoryRequestId] = useState<string | null>(null);
+  const [reassignRequest, setReassignRequest] = useState<MaintenanceRequestData | null>(null);
+  const [showReassignDialog, setShowReassignDialog] = useState(false);
 
   // useQuery con initialData para refetching/invalidacion
   const { data: requests } = useQuery({
@@ -81,6 +84,11 @@ export function SolicitudesTableClient({ initialData }: SolicitudesTableClientPr
     setHistoryRequestId(null);
   };
 
+  const handleReassign = (request: MaintenanceRequestData) => {
+    setReassignRequest(request);
+    setShowReassignDialog(true);
+  };
+
   const columns = useMemo(
     () =>
       getColumns({
@@ -88,6 +96,7 @@ export function SolicitudesTableClient({ initialData }: SolicitudesTableClientPr
         onApprove: handleApprove,
         onReject: handleReject,
         onViewHistory: handleViewHistory,
+        onReassign: handleReassign,
       }),
     []
   );
@@ -134,6 +143,17 @@ export function SolicitudesTableClient({ initialData }: SolicitudesTableClientPr
 
       {selectedRequest && dialogType === 'reject' && (
         <SolicitudRejectDialog request={selectedRequest} open={true} onClose={handleCloseDialog} />
+      )}
+
+      {reassignRequest && (
+        <ReassignSupervisorDialog
+          request={reassignRequest}
+          open={showReassignDialog}
+          onOpenChange={(open) => {
+            setShowReassignDialog(open);
+            if (!open) setReassignRequest(null);
+          }}
+        />
       )}
 
       <ActivityHistoryModal

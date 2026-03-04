@@ -257,7 +257,13 @@ export function NuevoPedidoForm({
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Equipo</FormLabel>
-                    <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
+                    <Popover
+                      open={equipmentOpen}
+                      onOpenChange={(open) => {
+                        setEquipmentOpen(open);
+                        if (!open) setSearchTerm('');
+                      }}
+                    >
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button

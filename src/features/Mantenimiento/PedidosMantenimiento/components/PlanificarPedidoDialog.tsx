@@ -15,6 +15,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateForDB, formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CalendarIcon, Loader2, Wrench } from 'lucide-react';
@@ -137,23 +138,14 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
                         return (
                           <div key={item.id} className="flex items-start gap-2 text-sm">
                             <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                            <div>
+                            <div className="flex-1">
                               <span className="font-medium">{deviation?.item_label || 'Item sin descripción'}</span>
                               {deviation?.section_code && (
                                 <span className="text-muted-foreground ml-2 text-xs">
                                   (Sección: {deviation.section_code.replace('_', ' ')})
                                 </span>
                               )}
-                              {((item.maintenance_request_items as any)?.driver_comment ||
-                                deviation?.driver_comment) && (
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  <span>Chofer: </span>
-                                  <span className="italic">
-                                    {(item.maintenance_request_items as any)?.driver_comment ||
-                                      deviation?.driver_comment}
-                                  </span>
-                                </p>
-                              )}
+                              <ItemComments item={item} source={order.maintenance_requests?.source} />
                             </div>
                           </div>
                         );

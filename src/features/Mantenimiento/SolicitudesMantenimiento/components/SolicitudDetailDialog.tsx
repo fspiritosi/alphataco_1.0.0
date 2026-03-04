@@ -77,7 +77,7 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Creado por:</span>
-                  <p className="font-medium">{request.profile?.fullname || 'No especificado'}</p>
+                  <p className="font-medium">{request.profile_user?.fullname || 'No especificado'}</p>
                 </div>
                 {request.kilometer && (
                   <div>

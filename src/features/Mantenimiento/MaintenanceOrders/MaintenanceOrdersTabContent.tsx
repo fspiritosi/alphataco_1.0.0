@@ -1,25 +1,40 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getMaintenanceOrders } from './actions/actionsServer';
-import { MaintenanceOrdersClient } from './components/MaintenanceOrdersClient';
+import { fetchAllTypesOfRepairs } from '@/components/Tipos_de_reparaciones/actions/actions';
+import { Suspense } from 'react';
+import { getActiveExternalWorkshops, getActiveWorkshopSectors } from '../OrderManagement/actions/actionsServer';
+import { DIAGNOSTICO_REPAIR_TYPE_ID } from '../utils/constants';
+import { MaintenanceOrdersSkeleton } from './fallback/MaintenanceOrdersSkeleton';
+import { MaintenanceOrderList } from './table/MaintenanceOrderList';
 
 /**
- * Tab de Ordenes de Mantenimiento - Taller
+ * Tab de Órdenes de Mantenimiento - Taller
  *
- * Muestra las ordenes de mantenimiento con su progreso por sectores.
- * Permite ver el detalle con timeline de sectores y estado de cada tarea.
+ * Muestra las órdenes de mantenimiento con su progreso por sectores.
+ * Los datos del wizard (sectors, repairTypes, externalWorkshops) se cargan
+ * en el servidor y se pasan como props serializables hasta el Client Component.
  */
-export async function MaintenanceOrdersTabContent() {
-  const initialData = await getMaintenanceOrders();
+export async function MaintenanceOrdersTabContent({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  const [sectorsData, repairTypesData, externalWorkshopsData] = await Promise.all([
+    getActiveWorkshopSectors(),
+    fetchAllTypesOfRepairs(),
+    getActiveExternalWorkshops(),
+  ]);
+
+  const repairTypes = repairTypesData
+    .filter((r) => r.id !== DIAGNOSTICO_REPAIR_TYPE_ID)
+    .map((r) => ({ id: r.id, name: r.name }));
 
   return (
-    <Card>
-      <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
-        <CardTitle>Ordenes de Mantenimiento</CardTitle>
-        <CardDescription>Seguimiento de ordenes con progreso por sectores y secuencia de ejecucion</CardDescription>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <MaintenanceOrdersClient initialData={initialData} />
-      </CardContent>
-    </Card>
+    <Suspense fallback={<MaintenanceOrdersSkeleton />}>
+      <MaintenanceOrderList
+        searchParams={searchParams ?? {}}
+        sectors={sectorsData}
+        repairTypes={repairTypes}
+        externalWorkshops={externalWorkshopsData}
+      />
+    </Suspense>
   );
 }

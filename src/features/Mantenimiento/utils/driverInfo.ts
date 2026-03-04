@@ -1,5 +1,12 @@
 /**
- * Utilidad para extraer información del chofer desde los datos de checklist_deviations
+ * Utilidad para extraer información de comentarios de items de mantenimiento.
+ *
+ * Maneja correctamente la distinción entre:
+ * - Solicitudes de checklist (creadas por chofer): muestra "Comentario del chofer"
+ * - Solicitudes manuales (creadas por supervisor): muestra "Comentario del supervisor"
+ *
+ * Deduplica comentarios idénticos entre driver_comment, supervisor_comment, validator_comment y description.
+ * Incluye nombre del autor y rol para cada comentario.
  */
 
 /**
@@ -7,19 +14,23 @@
  * Prioriza: employee firstname+lastname > user.fullname > user.email
  */
 export function getDriverName(item: unknown): string | null {
-  const checklistAnswers = (item as any)?.maintenance_request_items?.checklist_deviations?.checklist_answers;
+  const checklistAnswers = (item as Record<string, unknown>)?.maintenance_request_items as
+    | Record<string, unknown>
+    | undefined;
+  const deviations = checklistAnswers?.checklist_deviations as Record<string, unknown> | undefined;
+  const answers = deviations?.checklist_answers as Record<string, unknown> | undefined;
 
-  if (!checklistAnswers) return null;
+  if (!answers) return null;
 
   // Prioridad 1: Employee firstname + lastname
-  const employee = checklistAnswers.employee;
+  const employee = answers.employee as { firstname?: string; lastname?: string } | undefined;
   if (employee?.firstname || employee?.lastname) {
     const name = [employee.firstname, employee.lastname].filter(Boolean).join(' ');
     if (name) return name;
   }
 
-  // Prioridad 2: User fullname
-  const user = checklistAnswers.user;
+  // Prioridad 2: User fullname (Prisma retorna 'profile', Supabase retornaba 'user' — soportar ambos)
+  const user = (answers.profile ?? answers.user) as { fullname?: string; email?: string } | undefined;
   if (user?.fullname) {
     return user.fullname;
   }
@@ -37,15 +48,18 @@ export function getDriverName(item: unknown): string | null {
  * Busca en maintenance_request_items.driver_comment o checklist_deviations.driver_comment
  */
 export function getDriverComment(item: unknown): string | null {
-  const itemAny = item as any;
+  const requestItems = (item as Record<string, unknown>)?.maintenance_request_items as
+    | Record<string, unknown>
+    | undefined;
 
   // Prioridad al comentario en maintenance_request_items
-  const requestComment = itemAny?.maintenance_request_items?.driver_comment;
-  if (requestComment) return requestComment;
+  const requestComment = requestItems?.driver_comment;
+  if (typeof requestComment === 'string' && requestComment) return requestComment;
 
   // Fallback al comentario en checklist_deviations
-  const deviationComment = itemAny?.maintenance_request_items?.checklist_deviations?.driver_comment;
-  if (deviationComment) return deviationComment;
+  const deviations = requestItems?.checklist_deviations as Record<string, unknown> | undefined;
+  const deviationComment = deviations?.driver_comment;
+  if (typeof deviationComment === 'string' && deviationComment) return deviationComment;
 
   return null;
 }
@@ -60,4 +74,203 @@ export function getDriverCommentInfo(item: unknown): { driverName: string | null
 
   const driverName = getDriverName(item);
   return { driverName, comment };
+}
+
+// =============================================================================
+// Sistema de comentarios con deduplicación, detección de origen y autor
+// =============================================================================
+
+export interface CommentEntry {
+  /** Label a mostrar (ej: "Comentario del chofer", "Comentario del supervisor") */
+  label: string;
+  /** El texto del comentario */
+  text: string;
+  /** Estilo visual: 'driver' (amber), 'validator' (blue), 'description' (neutral), 'chief' (emerald), 'operator' (purple) */
+  style: 'driver' | 'validator' | 'description' | 'chief' | 'operator';
+  /** Nombre del autor del comentario (del profile JOIN) */
+  authorName?: string;
+  /** Rol del autor */
+  role: string;
+}
+
+/** Helper para extraer fullname de un profile JOIN resuelto */
+function getProfileName(profile: unknown): string | undefined {
+  if (!profile || typeof profile !== 'object') return undefined;
+  const p = profile as { fullname?: string | null };
+  return p.fullname || undefined;
+}
+
+/**
+ * Obtiene todos los comentarios de un item de maintenance_order deduplicados.
+ *
+ * @param item - Item de maintenance_order_items (con maintenance_request_items embebido)
+ * @param source - Origen de la solicitud: 'checklist' | 'manual' | null
+ * @returns Array de comentarios únicos con labels apropiados según el origen
+ */
+export function getItemComments(item: unknown, source: string | null | undefined): CommentEntry[] {
+  const comments: CommentEntry[] = [];
+  const seenTexts = new Set<string>();
+
+  const itemObj = item as Record<string, unknown>;
+  const requestItems = itemObj?.maintenance_request_items as Record<string, unknown> | undefined;
+
+  const isManual = source === 'manual';
+
+  // 1. driver_comment - "Comentario del chofer" (solo para source=checklist)
+  const driverComment = getDriverComment(item);
+  if (driverComment && !isManual) {
+    const driverProfileName = getProfileName(requestItems?.driver_comment_profile);
+    const driverName = driverProfileName || getDriverName(item);
+
+    comments.push({
+      label: 'Comentario del chofer',
+      text: driverComment,
+      style: 'driver',
+      authorName: driverName || undefined,
+      role: 'Chofer',
+    });
+    seenTexts.add(driverComment.trim().toLowerCase());
+  }
+
+  // 2. supervisor_comment - "Comentario del supervisor" (campo nuevo, para source=manual)
+  const supervisorComment = requestItems?.supervisor_comment;
+  if (typeof supervisorComment === 'string' && supervisorComment) {
+    const normalized = supervisorComment.trim().toLowerCase();
+    if (!seenTexts.has(normalized)) {
+      const supervisorProfileName = getProfileName(requestItems?.supervisor_comment_profile);
+
+      comments.push({
+        label: 'Comentario del supervisor',
+        text: supervisorComment,
+        style: 'validator',
+        authorName: supervisorProfileName,
+        role: 'Supervisor',
+      });
+      seenTexts.add(normalized);
+    }
+  }
+
+  // 2b. Fallback: si es manual y no hay supervisor_comment, usar driver_comment como supervisor
+  if (isManual && driverComment && !supervisorComment) {
+    const supervisorProfileName = getProfileName(requestItems?.driver_comment_profile);
+    const driverName = supervisorProfileName || getDriverName(item);
+
+    comments.push({
+      label: 'Comentario del supervisor',
+      text: driverComment,
+      style: 'validator',
+      authorName: driverName || undefined,
+      role: 'Supervisor',
+    });
+    seenTexts.add(driverComment.trim().toLowerCase());
+  }
+
+  // 3. validator_comment - "Comentario del validador" (solo si es diferente)
+  const validatorComment = requestItems?.validator_comment;
+  if (typeof validatorComment === 'string' && validatorComment) {
+    const normalized = validatorComment.trim().toLowerCase();
+    if (!seenTexts.has(normalized)) {
+      const validatorProfileName = getProfileName(requestItems?.validator_comment_profile);
+
+      comments.push({
+        label: 'Comentario del validador',
+        text: validatorComment,
+        style: 'validator',
+        authorName: validatorProfileName,
+        role: 'Supervisor',
+      });
+      seenTexts.add(normalized);
+    }
+  }
+
+  // 4. description del request_item - "Descripción del desvío" (solo si es diferente)
+  const requestDescription = requestItems?.description;
+  if (typeof requestDescription === 'string' && requestDescription) {
+    const normalized = requestDescription.trim().toLowerCase();
+    if (!seenTexts.has(normalized)) {
+      comments.push({
+        label: 'Descripción del desvío',
+        text: requestDescription,
+        style: 'description',
+        role: '',
+      });
+      seenTexts.add(normalized);
+    }
+  }
+
+  // 5. description del order_item - "Descripción adicional" (solo si es diferente)
+  const itemDescription = itemObj?.description;
+  if (typeof itemDescription === 'string' && itemDescription) {
+    const normalized = itemDescription.trim().toLowerCase();
+    if (!seenTexts.has(normalized)) {
+      comments.push({
+        label: 'Descripción adicional',
+        text: itemDescription,
+        style: 'description',
+        role: '',
+      });
+      seenTexts.add(normalized);
+    }
+  }
+
+  // 6. workshop_chief_comment - "Comentario del Jefe de Taller"
+  const chiefComment = itemObj?.workshop_chief_comment;
+  if (typeof chiefComment === 'string' && chiefComment) {
+    const normalized = chiefComment.trim().toLowerCase();
+    if (!seenTexts.has(normalized)) {
+      const chiefProfileName = getProfileName(itemObj?.workshop_chief_comment_profile);
+
+      comments.push({
+        label: 'Comentario del Jefe de Taller',
+        text: chiefComment,
+        style: 'chief',
+        authorName: chiefProfileName,
+        role: 'Jefe de Taller',
+      });
+      seenTexts.add(normalized);
+    }
+  }
+
+  // 7. technician_notes (de work_order_item_repairs) - se agregan externamente si se necesitan
+
+  return comments;
+}
+
+/**
+ * Extrae comentarios de technician_notes de los repairs de un item.
+ * Se usa para agregar notas del operario al array de comentarios.
+ */
+export function getTechnicianComments(item: unknown): CommentEntry[] {
+  const comments: CommentEntry[] = [];
+  const itemObj = item as Record<string, unknown>;
+
+  // Acceder a work_orders -> work_order_items -> work_order_item_repairs
+  const workOrders = itemObj?.work_orders;
+  if (!workOrders || Array.isArray(workOrders)) return comments;
+
+  const woItems = (workOrders as Record<string, unknown>)?.work_order_items;
+  if (!Array.isArray(woItems)) return comments;
+
+  for (const woItem of woItems) {
+    const repairs = (woItem as Record<string, unknown>)?.work_order_item_repairs;
+    if (!Array.isArray(repairs)) continue;
+
+    for (const repair of repairs) {
+      const repairObj = repair as Record<string, unknown>;
+      const notes = repairObj?.technician_notes;
+      if (typeof notes !== 'string' || !notes) continue;
+
+      const techProfileName = getProfileName(repairObj?.technician_notes_profile);
+
+      comments.push({
+        label: 'Notas del operario',
+        text: notes,
+        style: 'operator',
+        authorName: techProfileName,
+        role: 'Operario',
+      });
+    }
+  }
+
+  return comments;
 }

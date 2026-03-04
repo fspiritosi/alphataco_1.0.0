@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import CustomerEquipmentTabWrapper from '@/features/Comercial/Comerce/components/CustomerEquipmentTabWrapper';
 import CustomerTabWrapper from '@/features/Comercial/Comerce/components/CustomerTabWrapper';
 import DataCustomersWrapper from '@/features/Comercial/Comerce/components/DataCustomersWrapper';
@@ -34,7 +35,7 @@ export default function ComerceTabContent({
           moduleSlug: 'comercial',
           tabSlug: 'customers',
           content: (
-            <Suspense fallback={<div>Cargando clientes...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <DataCustomersWrapper />
             </Suspense>
           ),
@@ -50,7 +51,7 @@ export default function ComerceTabContent({
           moduleSlug: 'comercial',
           tabSlug: 'areas',
           content: (
-            <Suspense fallback={<div>Cargando áreas...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <CustomerTabWrapper />
             </Suspense>
           ),
@@ -66,7 +67,7 @@ export default function ComerceTabContent({
           moduleSlug: 'comercial',
           tabSlug: 'equipment',
           content: (
-            <Suspense fallback={<div>Cargando equipos...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <CustomerEquipmentTabWrapper />
             </Suspense>
           ),
@@ -82,7 +83,7 @@ export default function ComerceTabContent({
           moduleSlug: 'comercial',
           tabSlug: 'sector',
           content: (
-            <Suspense fallback={<div>Cargando sectores...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <SectorTabsWrapper />
             </Suspense>
           ),
@@ -98,7 +99,7 @@ export default function ComerceTabContent({
           moduleSlug: 'comercial',
           tabSlug: 'service',
           content: (
-            <Suspense fallback={<div>Cargando contratos...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <ServiceComponentWrapper />
             </Suspense>
           ),
@@ -114,7 +115,7 @@ export default function ComerceTabContent({
           moduleSlug: 'comercial',
           tabSlug: 'mensure_units',
           content: (
-            <Suspense fallback={<div>Cargando unidades...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <MensureUnitsWrapper />
             </Suspense>
           ),
@@ -130,7 +131,7 @@ export default function ComerceTabContent({
           moduleSlug: 'comercial',
           tabSlug: 'daily_reports',
           content: (
-            <Suspense fallback={<div>Cargando partes diarios...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <DayliReportWraper />
             </Suspense>
           ),

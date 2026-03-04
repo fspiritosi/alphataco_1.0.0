@@ -1,6 +1,9 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getMaintenanceOrdersPendingApproval } from '../actions/actionsServer';
-import { PendientesEjecutarTableClient } from './components/PendientesEjecutarTableClient';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
+import { PendingExecutionList } from './PendingExecutionList';
+
+interface PendientesEjecutarTabContentProps {
+  searchParams?: DataTableSearchParams;
+}
 
 /**
  * Tab de Pendientes de Ejecutar
@@ -17,18 +20,12 @@ import { PendientesEjecutarTableClient } from './components/PendientesEjecutarTa
  * Estados que se muestran: 'scheduled', 'date_confirmed'
  * Ordenamiento: scheduled primero (pendientes), luego date_confirmed (confirmados)
  */
-export async function PendientesEjecutarTabContent() {
-  const initialData = await getMaintenanceOrdersPendingApproval();
-
+export async function PendientesEjecutarTabContent({
+  searchParams = {},
+}: PendientesEjecutarTabContentProps = {}) {
   return (
-    <Card>
-      <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
-        <CardTitle>Pendientes de Ejecutar</CardTitle>
-        <CardDescription>Pedidos de mantenimiento pendientes de aprobación y confirmados</CardDescription>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <PendientesEjecutarTableClient initialData={initialData} />
-      </CardContent>
-    </Card>
+    <PendingExecutionList
+      searchParams={searchParams}
+    />
   );
 }

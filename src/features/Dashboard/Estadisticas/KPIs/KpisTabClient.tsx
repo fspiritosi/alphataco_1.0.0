@@ -2,6 +2,7 @@
 
 import { Card } from '@/components/ui/card';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
 import { Suspense } from 'react';
 import { KpiForm } from './components/KpiForm';
@@ -34,7 +35,7 @@ export function KpisTabClient({ kpis, savedVisibility, savedFilter }: KpisTabCli
         )}
 
         <ResizablePanel defaultSize={canCreateOrUpdate ? 60 : 100}>
-          <Suspense fallback={<p>Cargando KPIs...</p>}>
+          <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
             <KpisTable savedVisibility={savedVisibility} kpis={kpis} savedFilter={savedFilter} />
           </Suspense>
         </ResizablePanel>

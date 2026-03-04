@@ -104,7 +104,7 @@ const MONTHLY_DOCS_SELECT = {
 // HELPERS INTERNOS
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
+function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, employeeId?: string) {
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -213,6 +213,8 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     { employees: { company_id: companyId } },
     // Filtro base: solo tipos de documento mensuales y activos
     { document_types: { is_it_montlhy: true, is_active: true } },
+    // Filtro opcional por empleado específico (para vista de detalle)
+    ...(employeeId ? [{ applies: employeeId }] : []),
   ];
 
   // Búsqueda global por nombre de empleado
@@ -272,7 +274,7 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getMonthlyEmployeeDocumentsPaginated(searchParams: DataTableSearchParams) {
+export async function getMonthlyEmployeeDocumentsPaginated(searchParams: DataTableSearchParams, employeeId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
@@ -280,7 +282,7 @@ export async function getMonthlyEmployeeDocumentsPaginated(searchParams: DataTab
 
     const { skip, take } = stateToPrismaParams(state);
 
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, employeeId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -320,12 +322,12 @@ export type MonthlyEmployeeDocumentListItem = Awaited<
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllMonthlyEmployeeDocumentsForExport(searchParams: DataTableSearchParams) {
+export async function getAllMonthlyEmployeeDocumentsForExport(searchParams: DataTableSearchParams, employeeId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, employeeId);
 
     const data = await prisma.documents_employees.findMany({
       orderBy: [{ employees: { lastname: 'asc' } }],
@@ -347,7 +349,7 @@ export async function getAllMonthlyEmployeeDocumentsForExport(searchParams: Data
 /**
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
-export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTableSearchParams) {
+export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTableSearchParams, employeeId?: string) {
   const companyId = await getServerCompanyId();
 
   const baseDocumentTypesWhere = {
@@ -366,14 +368,18 @@ export async function getMonthlyEmployeeDocumentsFacets(searchParams?: DataTable
     if (!parsedState || !hasActiveFilters) {
       // Sin filtros activos: solo condiciones base
       return {
-        AND: [{ employees: { company_id: companyId } }, { document_types: baseDocumentTypesWhere }],
+        AND: [
+          { employees: { company_id: companyId } },
+          { document_types: baseDocumentTypesWhere },
+          ...(employeeId ? [{ applies: employeeId }] : []),
+        ],
       };
     }
     const modified = { ...parsedState, filters: { ...parsedState.filters } };
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(companyId, modified);
+    return buildWhereClause(companyId, modified, employeeId);
   }
 
   // Helper: construir Map<string, count> con soporte para null → NULL_FILTER_VALUE

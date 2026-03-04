@@ -1,5 +1,6 @@
 'use client';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerClient } from '@/features/TabsManager/TabsManagerClient';
 import { Building2, Layers } from 'lucide-react';
 import { Suspense } from 'react';
@@ -40,7 +41,7 @@ export function MantenimientoTabClient({
             </span>
           ),
           content: (
-            <Suspense fallback={<div className="p-4">Cargando talleres...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <TalleresTabClient
                 workshops={workshops}
                 savedVisibility={savedVisibilityTalleres}
@@ -58,7 +59,7 @@ export function MantenimientoTabClient({
             </span>
           ),
           content: (
-            <Suspense fallback={<div className="p-4">Cargando sectores...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <SectoresTabClient
                 workshopSectors={workshopSectors}
                 internalWorkshops={internalWorkshops}

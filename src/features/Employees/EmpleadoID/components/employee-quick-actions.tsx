@@ -70,7 +70,12 @@ export function EmployeeQuickActions({ employeeId, isActive, email }: EmployeeQu
   async function onSubmit(values: z.infer<typeof terminationSchema>) {
     startTransition(async () => {
       try {
-        await toggleEmployeeStatus(employeeId, false, values.reason_for_termination, values.termination_date);
+        await toggleEmployeeStatus(
+          employeeId,
+          false,
+          values.reason_for_termination as Parameters<typeof toggleEmployeeStatus>[2],
+          values.termination_date
+        );
         toast.success(`Empleado dado de baja correctamente`);
         setShowDeactivateDialog(false);
         form.reset();

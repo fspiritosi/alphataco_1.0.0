@@ -5,7 +5,7 @@ import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { getMaintenanceOrders, type MaintenanceOrderData, type MaintenanceOrdersData } from '../actions/actionsServer';
-import { MAINTENANCE_ORDERS_QUERY_KEY } from '../hooks/useMaintenanceOrders';
+import { PEDIDOS_MANTENIMIENTO_QUERY_KEY } from '../hooks/useMaintenanceOrders';
 import { EntradaTallerDialog } from './EntradaTallerDialog';
 import { PedidoDetailDialog } from './PedidoDetailDialog';
 import { PlanificarPedidoDialog } from './PlanificarPedidoDialog';
@@ -26,9 +26,10 @@ export function PedidosTableClient({ initialData }: PedidosTableClientProps) {
 
   // useQuery con initialData para refetching/invalidacion
   const { data: orders } = useQuery({
-    queryKey: MAINTENANCE_ORDERS_QUERY_KEY,
+    queryKey: PEDIDOS_MANTENIMIENTO_QUERY_KEY,
     queryFn: () => getMaintenanceOrders(),
     initialData,
+    staleTime: 0,
   });
 
   // Generar opciones de equipos dinámicamente desde los datos
