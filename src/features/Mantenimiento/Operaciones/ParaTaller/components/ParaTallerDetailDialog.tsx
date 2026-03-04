@@ -18,7 +18,10 @@ interface OrderForDialog {
     engine_hours?: string | null;
   } | null;
   scheduled_date?: string | Date | null;
-  maintenance_requests?: { source?: string | null } | null;
+  maintenance_requests?: {
+    source?: string | null;
+    profile_maintenance_requests_supervisor_idToprofile?: { fullname?: string | null } | null;
+  } | null;
   maintenance_order_items?: Array<{
     id: string;
     maintenance_request_items?: {
@@ -138,7 +141,13 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                             Sección:{' '}
                             {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
                           </p>
-                          <ItemComments item={item} source={order.maintenance_requests?.source} />
+                          <ItemComments
+                            item={item}
+                            source={order.maintenance_requests?.source}
+                            fallbackAuthorName={
+                              order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                            }
+                          />
                         </div>
                         {repairTypeNames.length > 0 && (
                           <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">

@@ -20,8 +20,8 @@ import 'moment/locale/es';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { approveMaintenanceOrderDate } from '../../actions/actionsServer';
-import type { PendingExecutionListItem } from '../actions.server';
 import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
+import type { PendingExecutionListItem } from '../actions.server';
 
 // Configurar moment en español
 moment.locale('es');
@@ -39,7 +39,7 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
   const [isLoading, setIsLoading] = useState(false);
 
   const vehicle = order.vehicles;
-  const scheduledDate = order.scheduled_date ? moment(order.scheduled_date) : null;
+  const scheduledDate = order.scheduled_date ? moment.utc(order.scheduled_date) : null;
   const items = order.maintenance_order_items || [];
 
   const handleApprove = async () => {
@@ -103,10 +103,10 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
                   const formattedCode = deviation?.item_code?.replace(/_/g, ' ') || '';
 
                   // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
                   const repairTypeNames: string[] =
                     pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
                       : item.types_of_repairs?.name
                         ? [item.types_of_repairs.name]
                         : [];
@@ -125,7 +125,13 @@ export function AprobarFechaDialog({ order, open, onClose }: AprobarFechaDialogP
                         ))}
                       </div>
                       <div className="mt-1">
-                        <ItemComments item={item} source={order.maintenance_requests?.source} />
+                        <ItemComments
+                          item={item}
+                          source={order.maintenance_requests?.source}
+                          fallbackAuthorName={
+                            order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                          }
+                        />
                       </div>
                     </div>
                   );

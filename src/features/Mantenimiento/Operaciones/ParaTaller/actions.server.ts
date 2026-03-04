@@ -67,6 +67,9 @@ const FOR_WORKSHOP_SELECT = {
       source: true,
       kilometer: true,
       created_at: true,
+      profile_maintenance_requests_supervisor_idToprofile: {
+        select: { id: true, fullname: true },
+      },
     },
   },
   maintenance_order_items: {
@@ -144,10 +147,7 @@ function buildWhereClause(
     const realValues = vehicleFilter.filter((v) => v !== NULL_FILTER_VALUE);
     if (hasNull && realValues.length > 0) {
       andConditions.push({
-        OR: [
-          { equipment_id: { in: realValues } },
-          { equipment_id: null },
-        ],
+        OR: [{ equipment_id: { in: realValues } }, { equipment_id: null }],
       });
     } else if (hasNull) {
       andConditions.push({ equipment_id: null });
@@ -163,10 +163,7 @@ function buildWhereClause(
     const realValues = conditionFilter.filter((v) => v !== NULL_FILTER_VALUE);
     if (hasNull && realValues.length > 0) {
       andConditions.push({
-        OR: [
-          { vehicles: { condition: { in: realValues } } },
-          { vehicles: { condition: null } },
-        ],
+        OR: [{ vehicles: { condition: { in: realValues } } }, { vehicles: { condition: null } }],
       });
     } else if (hasNull) {
       andConditions.push({ vehicles: { condition: null } });
@@ -217,9 +214,7 @@ export async function getForWorkshopOrdersPaginated(searchParams: DataTableSearc
         resolvedSorts.push(fkMapper ? fkMapper(dir) : { [s.id]: dir });
       }
     }
-    const safeOrderBy = resolvedSorts.length > 0
-      ? resolvedSorts
-      : [{ scheduled_date: 'asc' as const }];
+    const safeOrderBy = resolvedSorts.length > 0 ? resolvedSorts : [{ scheduled_date: 'asc' as const }];
 
     const where = buildWhereClause(companyId, state, supervisorUserId);
 
@@ -261,9 +256,7 @@ export async function getAllForWorkshopOrdersForExport(searchParams: DataTableSe
         resolvedSorts.push(fkMapper ? fkMapper(dir) : { [s.id]: dir });
       }
     }
-    const safeOrderBy = resolvedSorts.length > 0
-      ? resolvedSorts
-      : [{ scheduled_date: 'asc' as const }];
+    const safeOrderBy = resolvedSorts.length > 0 ? resolvedSorts : [{ scheduled_date: 'asc' as const }];
 
     const where = buildWhereClause(companyId, state, supervisorUserId);
 
@@ -309,17 +302,16 @@ export async function getForWorkshopOrdersFacets(searchParams?: DataTableSearchP
     ]);
 
     // Ronda 2: resolver nombres de vehículos
-    const vehicleIds = vehicleCountsRaw
-      .filter((r) => r.equipment_id)
-      .map((r) => r.equipment_id);
+    const vehicleIds = vehicleCountsRaw.filter((r) => r.equipment_id).map((r) => r.equipment_id);
 
-    const vehicles = vehicleIds.length > 0
-      ? await prisma.vehicles.findMany({
-          where: { id: { in: vehicleIds } },
-          select: { id: true, domain: true, serie: true, intern_number: true },
-          orderBy: { domain: 'asc' },
-        })
-      : [];
+    const vehicles =
+      vehicleIds.length > 0
+        ? await prisma.vehicles.findMany({
+            where: { id: { in: vehicleIds } },
+            select: { id: true, domain: true, serie: true, intern_number: true },
+            orderBy: { domain: 'asc' },
+          })
+        : [];
 
     // Construir Maps de counts (null → NULL_FILTER_VALUE para consistencia con filterFn)
     const vehicleCounts = new Map<string, number>();

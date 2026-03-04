@@ -136,7 +136,13 @@ export function PendienteDetailDialog({ order, open, onClose }: PendienteDetailD
                               ))}
                             </div>
                           )}
-                          <ItemComments item={item} source={order.maintenance_requests?.source} />
+                          <ItemComments
+                            item={item}
+                            source={order.maintenance_requests?.source}
+                            fallbackAuthorName={
+                              order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                            }
+                          />
                         </div>
                       </div>
                     </div>

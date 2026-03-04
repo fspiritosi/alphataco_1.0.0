@@ -2,8 +2,6 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -12,13 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
-import { formatDateForDB, formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
-import { cn } from '@/lib/utils';
-import { AlertCircle, CalendarIcon, Loader2, Wrench } from 'lucide-react';
+import { formatDateForDB } from '@/features/Mantenimiento/utils/dateFormat';
+import { Clock, Gauge, Loader2, Truck, Wrench } from 'lucide-react';
+import moment from 'moment';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
@@ -30,20 +29,38 @@ interface PlanificarPedidoDialogProps {
   onClose: () => void;
 }
 
+function formatSectionCode(code: string | null | undefined): string {
+  if (!code) return '';
+  return code
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedidoDialogProps) {
-  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [dateStr, setDateStr] = useState<string>('');
   const scheduleMutation = useScheduleMaintenanceOrder();
 
+  const equipmentLabel = order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar';
+  const internNumber = order.vehicles?.intern_number;
+  const itemCount = order.maintenance_order_items?.length ?? 0;
+
   const handleSchedule = async () => {
-    if (!date) {
+    if (!dateStr) {
       toast.error('Debe seleccionar una fecha');
+      return;
+    }
+
+    const parsedDate = new Date(dateStr + 'T00:00:00');
+    if (Number.isNaN(parsedDate.getTime())) {
+      toast.error('Fecha inválida');
       return;
     }
 
     try {
       await scheduleMutation.mutateAsync({
         orderId: order.id,
-        scheduledDate: formatDateForDB(date),
+        scheduledDate: formatDateForDB(parsedDate),
       });
       toast.success('Pedido planificado exitosamente');
       onClose();
@@ -55,16 +72,14 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
   // Agrupar items por tipo de reparación (soporta múltiples tipos)
   const itemsByRepairType = (order.maintenance_order_items || []).reduce(
     (acc, item) => {
-      // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-      const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+      const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
       const repairTypeNames: string[] =
         pivotRepairTypes.length > 0
-          ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+          ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
           : item.types_of_repairs?.name
             ? [item.types_of_repairs.name]
             : ['Sin tipo asignado'];
 
-      // Si hay múltiples tipos, el item aparecerá en cada grupo
       repairTypeNames.forEach((typeName) => {
         if (!acc[typeName]) {
           acc[typeName] = [];
@@ -76,121 +91,141 @@ export function PlanificarPedidoDialog({ order, open, onClose }: PlanificarPedid
     {} as Record<string, typeof order.maintenance_order_items>
   );
 
+  // Fecha mínima: hoy en formato YYYY-MM-DD
+  const todayStr = moment().format('YYYY-MM-DD');
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Planificar Pedido de Mantenimiento</DialogTitle>
-          <DialogDescription>
-            Seleccione la fecha en que el equipo{' '}
-            <span className="font-medium">{order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar'}</span>{' '}
-            será recibido en el taller.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+        {/* ── Header compacto ──────────────────────────────────────────── */}
+        <div className="px-6 pt-6 pb-4 space-y-3">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-base">Planificar Pedido de Mantenimiento</DialogTitle>
+            <DialogDescription className="flex items-center gap-3 text-xs">
+              <span className="inline-flex items-center gap-1">
+                <Truck className="h-3 w-3" />
+                {equipmentLabel}
+                {internNumber && <span className="text-muted-foreground">(#{internNumber})</span>}
+              </span>
+              {order.order_number && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span>Pedido #{order.order_number}</span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="py-4 space-y-4">
-          {/* Información del equipo */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Equipo:</span>
-                  <p className="font-medium">
-                    {order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar'}
-                    {order.vehicles?.intern_number && ` (Nº ${order.vehicles.intern_number})`}
-                  </p>
+          {/* ── Datos clave (fila horizontal) ───────────────────────────── */}
+          {(order.maintenance_requests?.kilometer ||
+            order.vehicles?.kilometer ||
+            order.maintenance_requests?.engine_hours ||
+            order.vehicles?.engine_hours) && (
+            <div className="flex flex-wrap gap-4 text-sm">
+              {(order.vehicles?.kilometer || order.maintenance_requests?.kilometer) && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Gauge className="h-3.5 w-3.5" />
+                  <span className="text-foreground font-medium">
+                    {Number(order.vehicles?.kilometer ?? order.maintenance_requests?.kilometer).toLocaleString('es-AR')}{' '}
+                    km
+                  </span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Kilometraje:</span>
-                  <p className="font-medium">
-                    {order.maintenance_requests?.kilometer || order.vehicles?.kilometer || '-'} km
-                  </p>
+              )}
+              {(order.vehicles?.engine_hours || order.maintenance_requests?.engine_hours) && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="text-foreground font-medium">
+                    {Number(order.vehicles?.engine_hours ?? order.maintenance_requests?.engine_hours).toLocaleString(
+                      'es-AR'
+                    )}{' '}
+                    hs
+                  </span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Horómetro:</span>
-                  <p className="font-medium">
-                    {order.maintenance_requests?.engine_hours || order.vehicles?.engine_hours || '-'} hs
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          )}
 
-          {/* Lista de items a reparar */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
-              Items a reparar ({order.maintenance_order_items?.length || 0})
-            </Label>
-            <ScrollArea className="h-[200px] rounded-md border p-3">
-              <div className="space-y-4">
-                {Object.entries(itemsByRepairType).map(([repairType, items]) => (
-                  <div key={repairType} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="font-medium">
-                        {repairType}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">({items?.length || 0} items)</span>
-                    </div>
-                    <div className="ml-4 space-y-1">
-                      {items?.map((item) => {
-                        const deviation = item.maintenance_request_items?.checklist_deviations;
-                        return (
-                          <div key={item.id} className="flex items-start gap-2 text-sm">
-                            <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <span className="font-medium">{deviation?.item_label || 'Item sin descripción'}</span>
-                              {deviation?.section_code && (
-                                <span className="text-muted-foreground ml-2 text-xs">
-                                  (Sección: {deviation.section_code.replace('_', ' ')})
-                                </span>
-                              )}
-                              <ItemComments item={item} source={order.maintenance_requests?.source} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                {(!order.maintenance_order_items || order.maintenance_order_items.length === 0) && (
-                  <p className="text-sm text-muted-foreground text-center py-4">No hay items registrados</p>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* Selector de fecha */}
-          <div className="space-y-2">
-            <Label>Fecha de recepción en taller</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn('w-full justify-start text-left font-normal', !date && 'text-muted-foreground')}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? formatDateOnly(date) : 'Seleccionar fecha'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          {/* ── Selector de fecha (escritura directa) ──────────────────── */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Fecha de recepción en taller</Label>
+            <Input
+              type="date"
+              value={dateStr}
+              min={todayStr}
+              onChange={(e) => setDateStr(e.target.value)}
+              className="w-full"
+            />
           </div>
         </div>
 
-        <DialogFooter>
+        <Separator />
+
+        {/* ── Items a reparar ──────────────────────────────────────────── */}
+        <div className="px-6 pt-3 pb-1">
+          <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase flex items-center gap-1.5">
+            <Wrench className="h-3.5 w-3.5" />
+            Items a reparar
+            <span className="text-xs font-normal normal-case">({itemCount})</span>
+          </h3>
+        </div>
+
+        <ScrollArea className="max-h-[35vh]">
+          <div className="px-6 pb-4 space-y-3">
+            {Object.entries(itemsByRepairType).map(([repairType, items]) => (
+              <div key={repairType} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-medium text-xs">
+                    {repairType}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">({items?.length || 0})</span>
+                </div>
+                <div className="space-y-1.5">
+                  {items?.map((item, index) => {
+                    const deviation = item.maintenance_request_items?.checklist_deviations;
+                    return (
+                      <div key={item.id} className="p-2.5 border rounded-lg space-y-1">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                            #{index + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm leading-snug">
+                              {deviation?.item_label || 'Item sin descripción'}
+                            </p>
+                            {deviation?.section_code && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {formatSectionCode(deviation.section_code)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <ItemComments
+                          item={item}
+                          source={order.maintenance_requests?.source}
+                          fallbackAuthorName={
+                            order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {itemCount === 0 && (
+              <p className="text-muted-foreground text-center py-6 text-sm">No hay items registrados</p>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* ── Footer ──────────────────────────────────────────────────── */}
+        <Separator />
+        <DialogFooter className="px-6 py-4">
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSchedule} disabled={scheduleMutation.isPending || !date}>
+          <Button onClick={handleSchedule} disabled={scheduleMutation.isPending || !dateStr}>
             {scheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar Planificación
           </Button>

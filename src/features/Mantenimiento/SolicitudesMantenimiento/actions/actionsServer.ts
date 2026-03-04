@@ -73,6 +73,15 @@ const MAINTENANCE_REQUEST_FULL_SELECT = {
       validator_comment_by: true,
       supervisor_comment: true,
       supervisor_comment_by: true,
+      profile_maintenance_request_items_driver_comment_byToprofile: {
+        select: PROFILE_SELECT,
+      },
+      profile_maintenance_request_items_validator_comment_byToprofile: {
+        select: PROFILE_SELECT,
+      },
+      profile_maintenance_request_items_supervisor_comment_byToprofile: {
+        select: PROFILE_SELECT,
+      },
       checklist_deviations: {
         select: {
           id: true,
@@ -111,6 +120,24 @@ function mapRequestWithAliases<
       fullname: string | null;
       email: string | null;
     } | null;
+    maintenance_request_items: Array<{
+      profile_maintenance_request_items_driver_comment_byToprofile: {
+        id: string;
+        fullname: string | null;
+        email: string | null;
+      } | null;
+      profile_maintenance_request_items_validator_comment_byToprofile: {
+        id: string;
+        fullname: string | null;
+        email: string | null;
+      } | null;
+      profile_maintenance_request_items_supervisor_comment_byToprofile: {
+        id: string;
+        fullname: string | null;
+        email: string | null;
+      } | null;
+      [key: string]: unknown;
+    }>;
   },
 >(request: T) {
   return {
@@ -119,6 +146,13 @@ function mapRequestWithAliases<
     profile_user: request.profile_maintenance_requests_user_idToprofile,
     // Alias de compatibilidad para componentes que usan `request.supervisor`
     supervisor: request.profile_maintenance_requests_supervisor_idToprofile,
+    // Mapear aliases de profile en cada item para que ItemComments los encuentre
+    maintenance_request_items: request.maintenance_request_items.map((item) => ({
+      ...item,
+      driver_comment_profile: item.profile_maintenance_request_items_driver_comment_byToprofile,
+      validator_comment_profile: item.profile_maintenance_request_items_validator_comment_byToprofile,
+      supervisor_comment_profile: item.profile_maintenance_request_items_supervisor_comment_byToprofile,
+    })),
   };
 }
 

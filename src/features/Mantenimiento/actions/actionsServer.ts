@@ -61,6 +61,9 @@ const MAINTENANCE_REQUEST_SELECT = {
   created_at: true,
   supervisor_id: true,
   source: true,
+  profile_maintenance_requests_supervisor_idToprofile: {
+    select: { id: true, fullname: true },
+  },
 } as const;
 
 // ─── Construcción de where con filtro de supervisor ───────────────────────────

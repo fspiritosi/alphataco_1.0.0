@@ -130,7 +130,7 @@ export function Step1Tasks({
                       ? 'border-l-4 border-l-emerald-500'
                       : repairTypeNames.length === 0
                         ? 'border-l-4 border-l-amber-400'
-                        : ''
+                        : 'border-l-4 border-l-primary/40'
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -173,7 +173,11 @@ export function Step1Tasks({
                       </p>
                     )}
                     {/* Comments with attribution */}
-                    <ItemComments item={item} source={order.maintenance_requests?.source} />
+                    <ItemComments
+                      item={item}
+                      source={order.maintenance_requests?.source}
+                      fallbackAuthorName={order.maintenance_requests?.supervisor_name}
+                    />
                   </div>
                   {/* Actions */}
                   <div className="flex items-center gap-1.5 ml-3 shrink-0">
@@ -247,15 +251,13 @@ export function Step1Tasks({
                         </div>
                       </div>
                     ) : hasChiefComment ? (
-                      <div className="flex items-start gap-2 p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded text-sm">
+                      <div className="flex items-start gap-2 p-2 rounded border bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-sm">
                         <MessageSquare className="h-3.5 w-3.5 mt-0.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <span className="font-medium text-emerald-800 dark:text-emerald-200 text-xs">
-                            Mi comentario:{' '}
+                          <span className="font-semibold text-emerald-900 dark:text-emerald-100 text-xs">
+                            Mi comentario
                           </span>
-                          <span className="text-emerald-700 dark:text-emerald-300 text-xs italic">
-                            {item.workshop_chief_comment}
-                          </span>
+                          <p className="mt-0.5 text-sm italic">{item.workshop_chief_comment}</p>
                         </div>
                         <Button
                           variant="ghost"
@@ -268,9 +270,9 @@ export function Step1Tasks({
                       </div>
                     ) : (
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
                         onClick={() => setEditingCommentItemId(item.id)}
                       >
                         <MessageSquare className="h-3 w-3 mr-1" />

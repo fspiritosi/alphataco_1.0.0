@@ -197,6 +197,9 @@ export async function getMaintenanceOperations() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -290,6 +293,9 @@ export async function getOrdersForWorkshop() {
             created_at: true,
             supervisor_id: true,
             source: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {

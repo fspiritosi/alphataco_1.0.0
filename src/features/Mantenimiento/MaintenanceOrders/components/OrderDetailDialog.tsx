@@ -491,7 +491,9 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
       // Skip diagnostico items - they are auto-generated and have no user comments
       if (item.is_diagnostico) return;
 
-      const comments = getItemComments(item, order?.maintenance_requests?.source);
+      const supervisorFallback =
+        order?.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname;
+      const comments = getItemComments(item, order?.maintenance_requests?.source, supervisorFallback);
       // Add technician notes from work_order_item_repairs
       const techComments = getTechnicianComments(item);
       const allComments = [...comments, ...techComments];
@@ -1228,7 +1230,11 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                                 ? (item.workshop_sectors.name as string)
                                 : null;
 
-                            const itemComments = getItemComments(item, order?.maintenance_requests?.source);
+                            const itemComments = getItemComments(
+                              item,
+                              order?.maintenance_requests?.source,
+                              order?.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                            );
 
                             // Get rejected_by profile name
                             const rejectedByProfile = (item as Record<string, unknown>)?.rejected_by_profile as {

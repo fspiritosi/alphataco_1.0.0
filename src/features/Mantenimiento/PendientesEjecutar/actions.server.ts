@@ -20,13 +20,9 @@ const logger = new Logger('PendientesEjecutar/actions.server');
 // CONSTANTS
 // ============================================================================
 
-const PENDING_EXECUTION_STATUSES = ['scheduled', 'date_confirmed'];
+const PENDING_EXECUTION_STATUSES = ['pending_scheduling', 'scheduled'];
 
-const VALID_SORT_FIELDS = new Set([
-  'created_at',
-  'scheduled_date',
-  'vehicle',
-]);
+const VALID_SORT_FIELDS = new Set(['created_at', 'scheduled_date', 'vehicle']);
 
 const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknown>> = {
   vehicle: (dir) => ({ vehicles: { domain: dir } }),
@@ -67,6 +63,9 @@ const PENDING_EXECUTION_SELECT = {
       created_at: true,
       source: true,
       supervisor_id: true,
+      profile_maintenance_requests_supervisor_idToprofile: {
+        select: { id: true, fullname: true },
+      },
     },
   },
   maintenance_order_items: {

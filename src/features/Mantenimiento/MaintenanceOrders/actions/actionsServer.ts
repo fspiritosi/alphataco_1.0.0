@@ -82,6 +82,9 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             created_at: true,
             source: true,
             supervisor_id: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {
@@ -273,6 +276,9 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             created_at: true,
             source: true,
             supervisor_id: true,
+            profile_maintenance_requests_supervisor_idToprofile: {
+              select: { id: true, fullname: true },
+            },
           },
         },
         maintenance_order_items: {

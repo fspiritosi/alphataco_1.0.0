@@ -3,18 +3,19 @@
 import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
 import { prisma } from '@/shared/lib/prisma';
+import { getSupervisorFilterInfo } from '../../../utils/supervisorFilter';
 import type { PipelineCounts } from '../../types';
 
 const logger = new Logger('Pipeline/Taller/counts');
 
 /**
  * Obtiene los counts para cada paso del pipeline de Taller.
- * Filtrado por company_id. El pipeline de Taller no aplica filtro de supervisor.
+ * Filtrado por company_id y supervisor (si el usuario no tiene view_all_requests).
  *
  * Pasos:
- * - schedule:    Ordenes en estado pending_scheduling o date_rejected (por programar)
- * - confirmed:   Ordenes en estado workshop_pending o date_confirmed (confirmadas, esperando entrada)
- * - in_workshop: Ordenes en estado in_progress (actualmente en taller)
+ * - schedule:    Ordenes en estado pending_scheduling o scheduled (por programar)
+ * - confirmed:   Ordenes en estado date_confirmed (confirmadas, esperando entrada)
+ * - in_workshop: Ordenes en estado in_workshop (actualmente en taller)
  * - approvals:   Reparaciones de items en estado pending_approval o reassignment_requested
  *
  * Cadena de relacion para approvals (work_order_item_repairs):
@@ -22,26 +23,31 @@ const logger = new Logger('Pipeline/Taller/counts');
  */
 export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
   try {
-    const companyId = await getServerCompanyId();
+    const [companyId, supervisorFilter] = await Promise.all([getServerCompanyId(), getSupervisorFilterInfo()]);
+
+    const supervisorCondition: Record<string, unknown> = {};
+    if (supervisorFilter?.shouldFilterBySupervisor) {
+      supervisorCondition.maintenance_requests = {
+        supervisor_id: supervisorFilter.userId,
+      };
+    }
 
     const ordersWhere = {
       vehicles: { company_id: companyId },
+      ...supervisorCondition,
     };
 
     const [schedule, confirmed, inWorkshop, approvals] = await Promise.all([
-      // Paso 1: Por Programar — ordenes sin fecha asignada o con fecha rechazada por Operaciones
+      // Paso 1: Por Programar — ordenes pendientes de programacion o con fecha propuesta
       prisma.maintenance_orders.count({
         where: {
           ...ordersWhere,
-          status: { in: ['pending_scheduling', 'date_rejected'] },
+          status: { in: ['pending_scheduling', 'scheduled'] },
         },
       }),
-      // Paso 2: Confirmados — fecha aprobada por Operaciones, esperando entrada al taller
+      // Paso 2: Confirmados — fecha confirmada por Operaciones, esperando entrada al taller
       prisma.maintenance_orders.count({
-        where: {
-          ...ordersWhere,
-          status: { in: ['workshop_pending', 'date_confirmed'] },
-        },
+        where: { ...ordersWhere, status: 'date_confirmed' },
       }),
       // Paso 3: En Taller — ordenes actualmente en taller
       prisma.maintenance_orders.count({
@@ -56,6 +62,7 @@ export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
             maintenance_order_items: {
               maintenance_orders: {
                 vehicles: { company_id: companyId },
+                ...supervisorCondition,
               },
             },
           },

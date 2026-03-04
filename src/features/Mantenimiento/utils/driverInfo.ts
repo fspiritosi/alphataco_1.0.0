@@ -107,7 +107,11 @@ function getProfileName(profile: unknown): string | undefined {
  * @param source - Origen de la solicitud: 'checklist' | 'manual' | null
  * @returns Array de comentarios únicos con labels apropiados según el origen
  */
-export function getItemComments(item: unknown, source: string | null | undefined): CommentEntry[] {
+export function getItemComments(
+  item: unknown,
+  source: string | null | undefined,
+  fallbackAuthorName?: string | null
+): CommentEntry[] {
   const comments: CommentEntry[] = [];
   const seenTexts = new Set<string>();
 
@@ -143,7 +147,7 @@ export function getItemComments(item: unknown, source: string | null | undefined
         label: 'Comentario del supervisor',
         text: supervisorComment,
         style: 'validator',
-        authorName: supervisorProfileName,
+        authorName: supervisorProfileName || fallbackAuthorName || undefined,
         role: 'Supervisor',
       });
       seenTexts.add(normalized);
@@ -159,7 +163,7 @@ export function getItemComments(item: unknown, source: string | null | undefined
       label: 'Comentario del supervisor',
       text: driverComment,
       style: 'validator',
-      authorName: driverName || undefined,
+      authorName: driverName || fallbackAuthorName || undefined,
       role: 'Supervisor',
     });
     seenTexts.add(driverComment.trim().toLowerCase());
@@ -176,7 +180,7 @@ export function getItemComments(item: unknown, source: string | null | undefined
         label: 'Comentario del validador',
         text: validatorComment,
         style: 'validator',
-        authorName: validatorProfileName,
+        authorName: validatorProfileName || fallbackAuthorName || undefined,
         role: 'Supervisor',
       });
       seenTexts.add(normalized);
