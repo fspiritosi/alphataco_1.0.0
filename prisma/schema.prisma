@@ -564,33 +564,32 @@ model checklist_answer_repairs {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model checklist_answers {
-  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  template_id              String                     @db.Uuid
-  equipment_id             String                     @db.Uuid
-  employee_id              String?                    @db.Uuid
-  user_id                  String?                    @db.Uuid
-  answer_data              Json
-  result                   String?
-  observations             String?
-  critical_items_failed    String[]
-  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
-  ut_checklist_answer_id   String?                    @db.Uuid
-  // Columna FK directa para el chofer (empleado seleccionado en el form)
-  chofer_employee_id       String?                    @db.Uuid
-  // Columnas GENERATED desde el JSONB answer_data — solo lectura en Postgres
-  customer_id              String?                    @db.Uuid
-  kilometraje              Decimal?
-  horometro                Decimal?
-  checklist_answer_repairs checklist_answer_repairs[]
-  employees                employees?                 @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vehicles                 vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  checklist_templates      checklist_templates        @relation(fields: [template_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  checklist_answers        checklist_answers?         @relation("checklist_answersTochecklist_answers", fields: [ut_checklist_answer_id], references: [id], onUpdate: NoAction)
-  other_checklist_answers  checklist_answers[]        @relation("checklist_answersTochecklist_answers")
-  checklist_deviations     checklist_deviations[]
-  maintenance_requests     maintenance_requests[]
+  id                                                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id                                               String                     @db.Uuid
+  equipment_id                                              String                     @db.Uuid
+  employee_id                                               String?                    @db.Uuid
+  user_id                                                   String?                    @db.Uuid
+  answer_data                                               Json
+  result                                                    String?
+  observations                                              String?
+  critical_items_failed                                     String[]
+  created_at                                                DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at                                                DateTime?                  @default(now()) @db.Timestamptz(6)
+  ut_checklist_answer_id                                    String?                    @db.Uuid
+  chofer_employee_id                                        String?                    @db.Uuid
+  customer_id                                               String?                    @default(dbgenerated("\nCASE\n    WHEN (((answer_data ->> 'customer_id'::text) IS NOT NULL) AND ((answer_data ->> 'customer_id'::text) <> 'null'::text)) THEN ((answer_data ->> 'customer_id'::text))::uuid\n    ELSE NULL::uuid\nEND")) @db.Uuid
+  horometro                                                 Decimal?                   @default(dbgenerated("\nCASE\n    WHEN (((answer_data ->> 'horometro'::text) IS NOT NULL) AND ((answer_data ->> 'horometro'::text) <> ''::text) AND ((answer_data ->> 'horometro'::text) ~ '^[0-9]+(\\.[0-9]+)?$'::text)) THEN ((answer_data ->> 'horometro'::text))::numeric\n    ELSE NULL::numeric\nEND")) @db.Decimal
+  kilometraje                                               Decimal?                   @default(dbgenerated("\nCASE\n    WHEN (((answer_data ->> 'kilometraje'::text) IS NOT NULL) AND ((answer_data ->> 'kilometraje'::text) <> ''::text) AND ((answer_data ->> 'kilometraje'::text) ~ '^[0-9]+(\\.[0-9]+)?$'::text)) THEN ((answer_data ->> 'kilometraje'::text))::numeric\n    ELSE NULL::numeric\nEND")) @db.Decimal
+  checklist_answer_repairs                                  checklist_answer_repairs[]
+  employees_checklist_answers_chofer_employee_idToemployees employees?                 @relation("checklist_answers_chofer_employee_idToemployees", fields: [chofer_employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees                                                 employees?                 @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vehicles                                                  vehicles                   @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklist_templates                                       checklist_templates        @relation(fields: [template_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profile                                                   profile?                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checklist_answers                                         checklist_answers?         @relation("checklist_answersTochecklist_answers", fields: [ut_checklist_answer_id], references: [id], onUpdate: NoAction)
+  other_checklist_answers                                   checklist_answers[]        @relation("checklist_answersTochecklist_answers")
+  checklist_deviations                                      checklist_deviations[]
+  maintenance_requests                                      maintenance_requests[]
 
   @@index([created_at(sort: Desc)], map: "idx_checklist_answers_created")
   @@index([equipment_id], map: "idx_checklist_answers_equipment")
@@ -799,7 +798,7 @@ model companies_employees {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model company {
-  id                  String                @id(map: "companies_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                  String                @id(map: "companies_pkey") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   company_name        String                @db.VarChar(255)
   description         String
   website             String?               @db.VarChar(255)
@@ -848,6 +847,7 @@ model company {
   work_orders         work_orders[]
   workshops           workshops[]
 
+  @@index([owner_id])
   @@schema("public")
 }
 
@@ -893,6 +893,7 @@ model contractor_employee {
   employees     employees? @relation(fields: [employee_id], references: [id], onDelete: Cascade)
 
   @@unique([employee_id, contractor_id], map: "unique_contractor_employee")
+  @@index([employee_id])
   @@schema("public")
 }
 
@@ -906,6 +907,7 @@ model contractor_equipment {
   vehicles      vehicles?  @relation(fields: [equipment_id], references: [id], onDelete: Cascade)
 
   @@unique([equipment_id, contractor_id], map: "contractor_equipment_employee_id_contractor_id_key")
+  @@index([equipment_id])
   @@schema("public")
 }
 
@@ -1032,6 +1034,7 @@ model customers {
   sector_customer            sector_customer[]
   share_company_users        share_company_users[]
 
+  @@index([company_id])
   @@schema("public")
 }
 
@@ -1064,6 +1067,7 @@ model dailyreport {
   company         company                        @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_dailyreport_company_id_fkey")
   dailyreportrows dailyreportrows[]
 
+  @@index([date])
   @@schema("public")
 }
 
@@ -1075,6 +1079,7 @@ model dailyreport_customer_equipment_relations {
   equipos_clientes      equipos_clientes @relation(fields: [customer_equipment_id], references: [id], onDelete: Cascade, map: "dailyreport_customer_equipment_relat_customer_equipment_id_fkey")
   dailyreportrows       dailyreportrows  @relation(fields: [daily_report_row_id], references: [id], onDelete: Cascade, map: "dailyreport_customer_equipment_relatio_daily_report_row_id_fkey")
 
+  @@index([daily_report_row_id], map: "dailyreport_customer_equipment_relation_daily_report_row_id_idx")
   @@schema("public")
 }
 
@@ -1232,6 +1237,8 @@ model document_types {
   documents_equipment documents_equipment[]
 
   @@index([equipment_type], map: "idx_document_types_equipment_type")
+  @@index([is_active])
+  @@index([is_it_montlhy])
   @@schema("public")
 }
 
@@ -1257,7 +1264,7 @@ model documents_company {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model documents_contracts {
-  id          String    @id(map: "documents_pkey1") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String    @id(map: "documents_pkey1") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String
   type        String
   date        DateTime? @default(now()) @db.Timestamptz(6)
@@ -1291,6 +1298,10 @@ model documents_employees {
   profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
   documents_employees_logs documents_employees_logs[]
 
+  @@index([applies])
+  @@index([created_at])
+  @@index([id_document_types])
+  @@index([validity])
   @@schema("public")
 }
 
@@ -1301,6 +1312,7 @@ model documents_employees_logs {
   updated_at             DateTime            @default(now()) @db.Timestamptz(6)
   documents_employees    documents_employees @relation(fields: [documents_employees_id], references: [id], onDelete: Cascade, map: "public_documents_employees_logs_documents_employees_id_fkey")
 
+  @@index([documents_employees_id])
   @@schema("public")
 }
 
@@ -1322,6 +1334,8 @@ model documents_equipment {
   profile                  profile?                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
   documents_equipment_logs documents_equipment_logs[]
 
+  @@index([created_at])
+  @@index([id_document_types])
   @@schema("public")
 }
 
@@ -1332,6 +1346,7 @@ model documents_equipment_logs {
   updated_at             DateTime            @default(now()) @db.Timestamptz(6)
   documents_equipment    documents_equipment @relation(fields: [documents_equipment_id], references: [id], onDelete: Cascade, map: "public_documents_equipment_logs_documents_equipment_id_fkey")
 
+  @@index([documents_equipment_id])
   @@schema("public")
 }
 
@@ -1354,79 +1369,82 @@ model empleado_aptitudes {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model employees {
-  created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
-  picture                      String?
-  nationality                  nationality_enum?
-  lastname                     String
-  firstname                    String
-  cuil                         String                         @unique(map: "companies_employees_cuil_key")
-  document_type                document_type_enum?
-  document_number              String                         @unique(map: "companies_employees_document_number_key")
-  birthplace                   String                         @db.Uuid
-  gender                       gender_enum?
-  marital_status               marital_status_enum?
-  level_of_education           level_of_education_enum?
-  street                       String
-  street_number                String
-  province                     BigInt
-  postal_code                  String?
-  phone                        String
-  email                        String?
-  file                         String
-  normal_hours                 String?
-  date_of_admission            DateTime                       @db.Date
-  affiliate_status             affiliate_status_enum?
-  city                         BigInt?
-  hierarchical_position        String?                        @db.Uuid
-  workflow_diagram             String?                        @db.Uuid
-  id                           String                         @id(map: "companies_employees_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  allocated_to                 String[]                       @db.Uuid
-  company_id                   String?                        @db.Uuid
-  is_active                    Boolean?                       @default(true)
-  reason_for_termination       reason_for_termination_enum?
-  termination_date             DateTime?                      @db.Date
-  status                       status_type?                   @default(Incompleto)
-  category_id                  String?                        @db.Uuid
-  covenants_id                 String?                        @db.Uuid
-  guild_id                     String?                        @db.Uuid
-  cost_center_id               String?                        @db.Uuid
-  born_date                    String?
-  company_position             String?                        @db.Uuid
-  type_of_contract             String?                        @db.Uuid
-  cost_type                    cost_type_enum?
-  workshop_sector_id           String?                        @db.Uuid
-  full_name                    String?                        @default(dbgenerated("((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))"))
-  assing_customer              assing_customer[]
-  category_employee            category_employee[]
-  checklist_answers            checklist_answers[]
-  checklist_deviations         checklist_deviations[]
-  companies_employees          companies_employees[]
-  contractor_employee          contractor_employee[]
-  dailyreportemployeerelations dailyreportemployeerelations[]
-  diagrams_logs                diagrams_logs[]
-  documents_employees          documents_employees[]
-  empleado_aptitudes           empleado_aptitudes[]
-  countries                    countries                      @relation(fields: [birthplace], references: [id], onDelete: Cascade)
-  category                     category?                      @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  cities                       cities?                        @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  company                      company?                       @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  company_positions            company_positions?             @relation(fields: [company_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  cost_center                  cost_center?                   @relation(fields: [cost_center_id], references: [id])
-  covenant                     covenant?                      @relation(fields: [covenants_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  guild                        guild?                         @relation(fields: [guild_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  hierarchy                    hierarchy?                     @relation(fields: [hierarchical_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  provinces                    provinces                      @relation(fields: [province], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  types_of_contract            types_of_contract?             @relation(fields: [type_of_contract], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  work_diagram                 work_diagram?                  @relation(fields: [workflow_diagram], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workshop_sectors             workshop_sectors?              @relation(fields: [workshop_sector_id], references: [id], onUpdate: NoAction)
-  employees_diagram            employees_diagram[]
-  maintenance_requests         maintenance_requests[]
-  profile                      profile[]
-  repair_solicitudes           repair_solicitudes[]
-  repairlogs                   repairlogs[]
+  created_at                                                        DateTime                       @default(now()) @db.Timestamptz(6)
+  picture                                                           String?
+  nationality                                                       nationality_enum?
+  lastname                                                          String
+  firstname                                                         String
+  cuil                                                              String                         @unique(map: "companies_employees_cuil_key")
+  document_type                                                     document_type_enum?
+  document_number                                                   String                         @unique(map: "companies_employees_document_number_key")
+  birthplace                                                        String                         @db.Uuid
+  gender                                                            gender_enum?
+  marital_status                                                    marital_status_enum?
+  level_of_education                                                level_of_education_enum?
+  street                                                            String
+  street_number                                                     String
+  province                                                          BigInt
+  postal_code                                                       String?
+  phone                                                             String
+  email                                                             String?
+  file                                                              String
+  normal_hours                                                      String?
+  date_of_admission                                                 DateTime                       @db.Date
+  affiliate_status                                                  affiliate_status_enum?
+  city                                                              BigInt?
+  hierarchical_position                                             String?                        @db.Uuid
+  workflow_diagram                                                  String?                        @db.Uuid
+  id                                                                String                         @id(map: "companies_employees_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  allocated_to                                                      String[]                       @db.Uuid
+  company_id                                                        String?                        @db.Uuid
+  is_active                                                         Boolean?                       @default(true)
+  reason_for_termination                                            reason_for_termination_enum?
+  termination_date                                                  DateTime?                      @db.Date
+  status                                                            status_type?                   @default(Incompleto)
+  category_id                                                       String?                        @db.Uuid
+  covenants_id                                                      String?                        @db.Uuid
+  guild_id                                                          String?                        @db.Uuid
+  cost_center_id                                                    String?                        @db.Uuid
+  born_date                                                         String?
+  company_position                                                  String?                        @db.Uuid
+  type_of_contract                                                  String?                        @db.Uuid
+  cost_type                                                         cost_type_enum?
+  workshop_sector_id                                                String?                        @db.Uuid
+  full_name                                                         String?                        @default(dbgenerated("((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))"))
+  assing_customer                                                   assing_customer[]
+  category_employee                                                 category_employee[]
+  checklist_answers_checklist_answers_chofer_employee_idToemployees checklist_answers[]            @relation("checklist_answers_chofer_employee_idToemployees")
+  checklist_answers                                                 checklist_answers[]
+  checklist_deviations                                              checklist_deviations[]
+  companies_employees                                               companies_employees[]
+  contractor_employee                                               contractor_employee[]
+  dailyreportemployeerelations                                      dailyreportemployeerelations[]
+  diagrams_logs                                                     diagrams_logs[]
+  documents_employees                                               documents_employees[]
+  empleado_aptitudes                                                empleado_aptitudes[]
+  countries                                                         countries                      @relation(fields: [birthplace], references: [id], onDelete: Cascade)
+  category                                                          category?                      @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cities                                                            cities?                        @relation(fields: [city], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                                                           company?                       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  company_positions                                                 company_positions?             @relation(fields: [company_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cost_center                                                       cost_center?                   @relation(fields: [cost_center_id], references: [id])
+  covenant                                                          covenant?                      @relation(fields: [covenants_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  guild                                                             guild?                         @relation(fields: [guild_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hierarchy                                                         hierarchy?                     @relation(fields: [hierarchical_position], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  provinces                                                         provinces                      @relation(fields: [province], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  types_of_contract                                                 types_of_contract?             @relation(fields: [type_of_contract], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  work_diagram                                                      work_diagram?                  @relation(fields: [workflow_diagram], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workshop_sectors                                                  workshop_sectors?              @relation(fields: [workshop_sector_id], references: [id], onUpdate: NoAction)
+  employees_diagram                                                 employees_diagram[]
+  maintenance_requests                                              maintenance_requests[]
+  profile                                                           profile[]
+  repair_solicitudes                                                repair_solicitudes[]
+  repairlogs                                                        repairlogs[]
 
   @@index([type_of_contract], map: "idx_employees_type_of_contract")
   @@index([workshop_sector_id], map: "idx_employees_workshop_sector_id")
+  @@index([is_active])
+  @@index([lastname])
   @@schema("public")
 }
 
@@ -1444,6 +1462,7 @@ model employees_diagram {
   diagram_type_employees_diagram_diagram_typeTodiagram_type diagram_type @relation("employees_diagram_diagram_typeTodiagram_type", fields: [diagram_type], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_employees_diagram_diagram_type_fkey")
 
   @@unique([employee_id, year, month, day], map: "unique_employee_year_month_day")
+  @@index([employee_id])
   @@schema("public")
 }
 
@@ -1461,7 +1480,7 @@ model equipment_owner_contract_types {
 }
 
 model equipment_owners {
-  id                             String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                             String                           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                           String
   cuit                           String
   contract_type                  contract_type_enum
@@ -1487,6 +1506,7 @@ model equipos_clientes {
   customers                                customers                                  @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   preparte                                 preparte[]
 
+  @@index([customer_id])
   @@schema("public")
 }
 
@@ -1675,13 +1695,13 @@ model maintenance_order_items {
   planned_start_date                                                 DateTime?                             @db.Date
   work_order_id                                                      String?                               @db.Uuid
   is_critical                                                        Boolean?                              @default(false)
-  sector_sequence_order                                              Int?
   is_diagnostico                                                     Boolean                               @default(false)
-  workshop_chief_comment                                             String?
+  sector_sequence_order                                              Int?
   is_rejected                                                        Boolean                               @default(false)
-  rejection_reason                                                   String?
-  rejected_by                                                        String?                               @db.Uuid
   rejected_at                                                        DateTime?                             @db.Timestamptz(6)
+  rejected_by                                                        String?                               @db.Uuid
+  rejection_reason                                                   String?
+  workshop_chief_comment                                             String?
   workshop_chief_comment_by                                          String?                               @db.Uuid
   maintenance_order_item_repair_types                                maintenance_order_item_repair_types[]
   profile_maintenance_order_items_assigned_byToprofile               profile?                              @relation("maintenance_order_items_assigned_byToprofile", fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1728,12 +1748,12 @@ model maintenance_orders {
   date_rejected_by                                         String?                    @db.Uuid
   date_rejection_reason                                    String?
   source                                                   String?                    @default("checklist")
+  operations_validated_at                                  DateTime?                  @db.Timestamptz(6)
+  operations_validated_by                                  String?                    @db.Uuid
+  operations_validation_notes                              String?
   order_number                                             String?
   workshop_validated_at                                    DateTime?                  @db.Timestamptz(6)
   workshop_validation_notes                                String?
-  operations_validated_by                                  String?                    @db.Uuid
-  operations_validated_at                                  DateTime?                  @db.Timestamptz(6)
-  operations_validation_notes                              String?
   engine_hours_at_entry                                    String?
   maintenance_activity_log                                 maintenance_activity_log[]
   maintenance_order_items                                  maintenance_order_items[]
@@ -1780,9 +1800,9 @@ model maintenance_request_items {
   driver_comment                                                   String?
   validator_comment                                                String?
   driver_comment_by                                                String?                   @db.Uuid
-  validator_comment_by                                             String?                   @db.Uuid
   supervisor_comment                                               String?
   supervisor_comment_by                                            String?                   @db.Uuid
+  validator_comment_by                                             String?                   @db.Uuid
   maintenance_order_items                                          maintenance_order_items[]
   checklist_deviations                                             checklist_deviations      @relation(fields: [checklist_deviation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   profile_maintenance_request_items_driver_comment_byToprofile     profile?                  @relation("maintenance_request_items_driver_comment_byToprofile", fields: [driver_comment_by], references: [id], onUpdate: NoAction)
@@ -2019,6 +2039,12 @@ model preparte {
 
   @@index([cliente_id], map: "idx_preparte_cliente")
   @@index([executionDate], map: "idx_preparte_fecha_ejecucion")
+  @@index([cliente_id], map: "idx_preparte_cliente_id")
+  @@index([contrato_id], map: "idx_preparte_contrato_id")
+  @@index([created_at(sort: Desc)], map: "idx_preparte_created_at")
+  @@index([numero_pedido], map: "idx_preparte_numero_pedido")
+  @@index([status], map: "idx_preparte_status")
+  @@index([created_at])
   @@schema("public")
 }
 
@@ -2033,12 +2059,13 @@ model preparte_change_logs {
   changed_by  String?  @db.Uuid
   changed_at  DateTime @default(now()) @db.Timestamptz(6)
   metadata    Json?    @default("{}")
-  profile     profile? @relation(fields: [changed_by], references: [credential_id], onDelete: NoAction, onUpdate: NoAction)
+  profile     profile? @relation(fields: [changed_by], references: [credential_id], onUpdate: NoAction, map: "fk_preparte_change_logs_profile")
   preparte    preparte @relation(fields: [preparte_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([changed_at(sort: Desc)], map: "idx_preparte_change_logs_changed_at")
   @@index([field_name], map: "idx_preparte_change_logs_field_name")
   @@index([preparte_id], map: "idx_preparte_change_logs_preparte_id")
+  @@index([changed_by], map: "idx_preparte_change_logs_changed_by")
   @@schema("public")
 }
 
@@ -2170,6 +2197,7 @@ model repair_solicitudes {
   profile_repair_solicitudes_user_idToprofile     profile?                   @relation("repair_solicitudes_user_idToprofile", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   repairlogs                                      repairlogs[]
 
+  @@index([created_at])
   @@schema("public")
 }
 
@@ -2187,6 +2215,7 @@ model repairlogs {
   profile              profile?            @relation(fields: [modified_by_user], references: [id])
   repair_solicitudes   repair_solicitudes? @relation(fields: [repair_id], references: [id], onDelete: Cascade, map: "reparirlogs_repair_id_fkey")
 
+  @@index([repair_id])
   @@schema("public")
 }
 
@@ -2236,6 +2265,7 @@ model sector_customer {
   sectors     sectors   @relation(fields: [sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([sector_id, customer_id])
+  @@index([customer_id])
   @@schema("public")
 }
 
@@ -2277,6 +2307,10 @@ model service_areas {
   customer_services customer_services @relation(fields: [service_id], references: [id], onDelete: Cascade)
 
   @@id([service_id, area_id, id])
+  @@index([area_id], map: "idx_service_areas_area_id")
+  @@index([service_id, area_id], map: "idx_service_areas_service_area")
+  @@index([service_id], map: "idx_service_areas_service_id")
+  @@index([service_id])
   @@schema("public")
 }
 
@@ -2293,14 +2327,15 @@ model service_items {
   is_active           Boolean?          @default(true)
   code_item           String?
   item_number         String?
-  needs_personnel     Boolean           @default(true)
   needs_equipment     Boolean           @default(true)
+  needs_personnel     Boolean           @default(true)
   dailyreportrows     dailyreportrows[]
   preparte            preparte[]
   company             company           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_service_items_company_id_fkey")
   measure_units       measure_units     @relation(fields: [item_measure_units], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "public_service_items_item_measure_units_fkey")
   customer_services   customer_services @relation(fields: [customer_service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([customer_service_id])
   @@schema("public")
 }
 
@@ -2316,6 +2351,9 @@ model service_sectors {
   customer_services customer_services @relation(fields: [service_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([service_id, sector_id], map: "service_sectors_unique")
+  @@index([sector_id], map: "idx_service_sectors_sector_id")
+  @@index([service_id], map: "idx_service_sectors_service_id")
+  @@index([service_id, sector_id], map: "idx_service_sectors_service_sector")
   @@schema("public")
 }
 
@@ -2331,6 +2369,7 @@ model share_company_users {
   profile     profile?   @relation(fields: [profile_id], references: [id], onDelete: Cascade, map: "public_share_company_users_profile_id_fkey")
   customers   customers? @relation(fields: [customer_id], references: [id])
 
+  @@index([profile_id])
   @@schema("public")
 }
 
@@ -2401,8 +2440,8 @@ model type {
   company_id                                                 String?                    @db.Uuid
   has_hitch                                                  Boolean?                   @default(false)
   is_tractor_unit                                            Boolean?                   @default(false)
-  generates_qr                                               Boolean?                   @default(true)
   applies_to                                                 String?                    @default("vehicle") @db.VarChar(20)
+  generates_qr                                               Boolean?                   @default(true)
   is_operative                                               Boolean?                   @default(false)
   checklist_template_types                                   checklist_template_types[]
   other_equipment                                            other_equipment[]
@@ -2588,6 +2627,7 @@ model vehicles {
   profile                       profile?                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   work_orders                   work_orders[]
 
+  @@index([is_active])
   @@schema("public")
 }
 
@@ -2632,13 +2672,13 @@ model work_order_item_repairs {
   created_at                                                   DateTime?              @default(now()) @db.Timestamptz(6)
   updated_at                                                   DateTime?              @default(now()) @db.Timestamptz(6)
   added_by                                                     String?                @db.Uuid
-  approved_by                                                  String?                @db.Uuid
   approved_at                                                  DateTime?              @db.Timestamptz(6)
-  rejection_reason                                             String?
-  original_sector_id                                           String?                @db.Uuid
-  is_operator_added                                            Boolean?               @default(false)
-  return_reason                                                String?
+  approved_by                                                  String?                @db.Uuid
   is_diagnostico                                               Boolean                @default(false)
+  is_operator_added                                            Boolean?               @default(false)
+  original_sector_id                                           String?                @db.Uuid
+  rejection_reason                                             String?
+  return_reason                                                String?
   technician_notes_by                                          String?                @db.Uuid
   profile_work_order_item_repairs_added_byToprofile            profile?               @relation("work_order_item_repairs_added_byToprofile", fields: [added_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profile_work_order_item_repairs_approved_byToprofile         profile?               @relation("work_order_item_repairs_approved_byToprofile", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -2804,15 +2844,13 @@ model buckets {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model buckets_analytics {
-  name               String               @unique(map: "buckets_analytics_unique_name_idx", where: raw("(deleted_at IS NULL)"))
-  type               buckettype           @default(ANALYTICS)
-  format             String               @default("ICEBERG")
-  created_at         DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
-  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  deleted_at         DateTime?            @db.Timestamptz(6)
-  iceberg_namespaces iceberg_namespaces[]
-  iceberg_tables     iceberg_tables[]
+  name       String     @unique(map: "buckets_analytics_unique_name_idx", where: raw("(deleted_at IS NULL)"))
+  type       buckettype @default(ANALYTICS)
+  format     String     @default("ICEBERG")
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at DateTime   @default(now()) @db.Timestamptz(6)
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deleted_at DateTime?  @db.Timestamptz(6)
 
   @@schema("storage")
 }
@@ -2825,42 +2863,6 @@ model buckets_vectors {
   updated_at     DateTime         @default(now()) @db.Timestamptz(6)
   vector_indexes vector_indexes[]
 
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model iceberg_namespaces {
-  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bucket_name       String
-  name              String
-  created_at        DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
-  metadata          Json              @default("{}")
-  catalog_id        String            @db.Uuid
-  buckets_analytics buckets_analytics @relation(fields: [catalog_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  iceberg_tables    iceberg_tables[]
-
-  @@unique([catalog_id, name], map: "idx_iceberg_namespaces_bucket_id")
-  @@schema("storage")
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model iceberg_tables {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  namespace_id       String             @db.Uuid
-  bucket_name        String
-  name               String
-  location           String             @unique(map: "idx_iceberg_tables_location")
-  created_at         DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime           @default(now()) @db.Timestamptz(6)
-  remote_table_id    String?
-  shard_key          String?
-  shard_id           String?
-  catalog_id         String             @db.Uuid
-  buckets_analytics  buckets_analytics  @relation(fields: [catalog_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  iceberg_namespaces iceberg_namespaces @relation(fields: [namespace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([catalog_id, namespace_id, name], map: "idx_iceberg_tables_namespace_id")
   @@schema("storage")
 }
 
@@ -2960,6 +2962,40 @@ model user_table_preferences {
   updated_at  DateTime @default(now()) @db.Timestamptz(6)
 
   @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model custom_oauth_providers {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_type         String
+  identifier            String    @unique
+  name                  String
+  client_id             String
+  client_secret         String
+  acceptable_client_ids String[]  @default([])
+  scopes                String[]  @default([])
+  pkce_enabled          Boolean   @default(true)
+  attribute_mapping     Json      @default("{}")
+  authorization_params  Json      @default("{}")
+  enabled               Boolean   @default(true)
+  email_optional        Boolean   @default(false)
+  issuer                String?
+  discovery_url         String?
+  skip_nonce_check      Boolean   @default(false)
+  cached_discovery      Json?
+  discovery_cached_at   DateTime? @db.Timestamptz(6)
+  authorization_url     String?
+  token_url             String?
+  userinfo_url          String?
+  jwks_uri              String?
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([created_at])
+  @@index([enabled])
+  @@index([identifier])
+  @@index([provider_type])
+  @@schema("auth")
 }
 
 enum aal_level {

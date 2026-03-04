@@ -2,9 +2,9 @@ alter table "public"."maintenance_orders" drop constraint "maintenance_orders_st
 
 alter table "public"."preparte_change_logs" drop constraint "preparte_change_logs_changed_by_fkey";
 
-alter table "public"."employees" add column "full_name" text generated always as (((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))) stored;
+-- alter table "public"."employees" add column "full_name" text generated always as (((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))) stored;
 
-alter table "public"."maintenance_order_items" add column "workshop_chief_comment" text;
+-- alter table "public"."maintenance_order_items" add column "workshop_chief_comment" text;
 
 alter table "public"."maintenance_orders" add constraint "maintenance_orders_status_check" CHECK ((status = ANY (ARRAY['pending_scheduling'::text, 'scheduled'::text, 'date_confirmed'::text, 'date_rejected'::text, 'in_workshop'::text, 'pending_workshop_validation'::text, 'pending_operations_validation'::text, 'completed'::text, 'rejected'::text, 'operations_rejected'::text]))) not valid;
 
@@ -332,19 +332,3 @@ grant trigger on table "public"."sector_repair_types" to "postgres";
 grant truncate on table "public"."sector_repair_types" to "postgres";
 
 grant update on table "public"."sector_repair_types" to "postgres";
-
-drop trigger if exists "objects_delete_delete_prefix" on "storage"."objects";
-
-drop trigger if exists "objects_insert_create_prefix" on "storage"."objects";
-
-drop trigger if exists "objects_update_create_prefix" on "storage"."objects";
-
-drop trigger if exists "prefixes_create_hierarchy" on "storage"."prefixes";
-
-drop trigger if exists "prefixes_delete_hierarchy" on "storage"."prefixes";
-
-CREATE TRIGGER protect_buckets_delete BEFORE DELETE ON storage.buckets FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
-
-CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
-
-
