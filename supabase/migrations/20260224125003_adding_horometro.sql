@@ -75,7 +75,7 @@ alter table "public"."user_table_preferences" enable row level security;
 
 alter table "public"."document_types" add column "equipment_type" character varying(20) default NULL::character varying;
 
--- alter table "public"."employees" add column "full_name" text generated always as (((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))) stored;
+alter table "public"."employees" add column "full_name" text generated always as (((COALESCE(lastname, ''::text) || ' '::text) || COALESCE(firstname, ''::text))) stored;
 
 alter table "public"."maintenance_order_items" add column "is_rejected" boolean not null default false;
 
@@ -85,7 +85,7 @@ alter table "public"."maintenance_order_items" add column "rejected_by" uuid;
 
 alter table "public"."maintenance_order_items" add column "rejection_reason" text;
 
--- alter table "public"."maintenance_order_items" add column "workshop_chief_comment" text;
+alter table "public"."maintenance_order_items" add column "workshop_chief_comment" text;
 
 alter table "public"."maintenance_order_items" add column "workshop_chief_comment_by" uuid;
 
