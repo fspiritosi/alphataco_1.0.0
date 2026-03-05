@@ -20,6 +20,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Check, FileText, MessageSquare, RotateCcw, ShieldCheck, Truck, Wrench, X } from 'lucide-react';
 import { useState } from 'react';
@@ -226,35 +227,50 @@ export function ApprovalInboxClient({
 
   return (
     <>
-      {/* ── Indicadores ── */}
-      {(pendingCount > 0 || returnedCount > 0) && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {pendingCount > 0 && (
-            <button
-              onClick={() => setShowPendingModal(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Autorizaciones
-              <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5">
-                {pendingCount}
-              </Badge>
-            </button>
+      {/* ── Indicadores — siempre visibles, deshabilitados si no hay pendientes ── */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => pendingCount > 0 && setShowPendingModal(true)}
+          disabled={pendingCount === 0}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+            pendingCount > 0
+              ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60 cursor-pointer'
+              : 'border-muted bg-muted/40 text-muted-foreground cursor-default opacity-60'
           )}
-          {returnedCount > 0 && (
-            <button
-              onClick={() => setShowReturnedModal(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-950/60"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Reasignaciones
-              <Badge variant="warning" className="ml-1 h-5 min-w-5 px-1.5">
-                {returnedCount}
-              </Badge>
-            </button>
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Autorizaciones
+          {pendingCount > 0 ? (
+            <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5">
+              {pendingCount}
+            </Badge>
+          ) : (
+            <span className="ml-1 text-xs">— sin pendientes</span>
           )}
-        </div>
-      )}
+        </button>
+
+        <button
+          onClick={() => returnedCount > 0 && setShowReturnedModal(true)}
+          disabled={returnedCount === 0}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+            returnedCount > 0
+              ? 'border-orange-200 bg-orange-50 text-orange-800 hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-950/60 cursor-pointer'
+              : 'border-muted bg-muted/40 text-muted-foreground cursor-default opacity-60'
+          )}
+        >
+          <RotateCcw className="h-4 w-4" />
+          Reasignaciones
+          {returnedCount > 0 ? (
+            <Badge variant="warning" className="ml-1 h-5 min-w-5 px-1.5">
+              {returnedCount}
+            </Badge>
+          ) : (
+            <span className="ml-1 text-xs">— sin pendientes</span>
+          )}
+        </button>
+      </div>
 
       {/* ── Tabla principal: Ordenes pendientes de validacion ── */}
       <Card>

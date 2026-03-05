@@ -3,7 +3,9 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { OrderDetailDialog } from '@/features/Mantenimiento/MaintenanceOrders/components/OrderDetailDialog';
+import { calculateRepairProgress } from '@/features/Mantenimiento/utils/repairProgress';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -21,19 +23,6 @@ export type ValidationOrder = ValidationOrdersData[number];
 // ============================================================================
 // HELPERS
 // ============================================================================
-
-function calculateProgress(order: ValidationOrder): { total: number; completed: number; percent: number } {
-  const items = order.maintenance_order_items ?? [];
-  const allRepairs = items.flatMap((item) => {
-    const woItems = item.work_orders?.work_order_items ?? [];
-    return woItems.flatMap((woi) => woi.work_order_item_repairs ?? []);
-  });
-  const activeRepairs = allRepairs.filter((r) => r.status !== 'cancelled' && r.status !== 'rejected');
-  const total = activeRepairs.length;
-  const completed = activeRepairs.filter((r) => r.status === 'completed').length;
-  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-  return { total, completed, percent };
-}
 
 function getSectors(order: ValidationOrder): string[] {
   const items = order.maintenance_order_items ?? [];
@@ -127,18 +116,27 @@ function ValidationOrdersTable({
       // ── Progreso ──────────────────────────────────────────────────────────
       {
         id: 'progress',
-        accessorFn: (row) => calculateProgress(row).percent,
+        accessorFn: (row) => calculateRepairProgress(row.maintenance_order_items).percent,
         meta: { title: 'Progreso' },
         header: ({ column }) => <DataTableColumnHeader column={column} title="Progreso" />,
         cell: ({ row }) => {
-          const { percent, completed, total } = calculateProgress(row.original);
+          const { percent, completed, total } = calculateRepairProgress(row.original.maintenance_order_items);
           return (
-            <div className="flex items-center gap-2 min-w-[120px]">
-              <Progress value={percent} className="h-2 flex-1" />
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {completed}/{total}
-              </span>
-            </div>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 min-w-[120px] cursor-default">
+                    <Progress value={percent} className="h-2 flex-1" />
+                    <span className="text-xs text-muted-foreground tabular-nums">{percent}%</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    {completed} de {total} reparaciones completadas
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           );
         },
         enableSorting: false,

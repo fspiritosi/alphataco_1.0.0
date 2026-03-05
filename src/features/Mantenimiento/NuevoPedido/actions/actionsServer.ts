@@ -70,29 +70,50 @@ export async function createMaintenanceOrderDirect(input: CreateMaintenanceOrder
     return { order, items };
   });
 
-  // 3. Actualizar el kilometraje del vehículo si se proporcionó (fuera de transacción — es warning, no crítico)
-  if (input.kilometer) {
+  // 3. Actualizar kilometraje y horómetro del vehículo (fuera de transacción — es warning, no crítico)
+  if (input.kilometer || input.engine_hours) {
     try {
       const currentVehicle = await prisma.vehicles.findUnique({
         where: { id: input.equipment_id },
-        select: { kilometer: true },
+        select: { kilometer: true, engine_hours: true },
       });
 
-      const currentKm = Number(currentVehicle?.kilometer) || 0;
-      const newKm = Number(input.kilometer);
+      const updateData: Record<string, unknown> = {};
 
-      if (newKm >= currentKm) {
+      // Kilometraje: solo si es >= al actual
+      if (input.kilometer) {
+        const currentKm = Number(currentVehicle?.kilometer) || 0;
+        const newKm = Number(input.kilometer);
+        if (newKm >= currentKm) {
+          updateData.kilometer = input.kilometer;
+        } else {
+          serverLogger.warn('Kilometraje ignorado: menor al actual', {
+            data: { newKm, currentKm, equipmentId: input.equipment_id },
+          });
+        }
+      }
+
+      // Horómetro: solo si es >= al actual
+      if (input.engine_hours) {
+        const currentHours = Number(currentVehicle?.engine_hours) || 0;
+        const newHours = Number(input.engine_hours);
+        if (newHours >= currentHours) {
+          updateData.engine_hours = input.engine_hours;
+        } else {
+          serverLogger.warn('Horómetro ignorado: menor al actual', {
+            data: { newHours, currentHours, equipmentId: input.equipment_id },
+          });
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
         await prisma.vehicles.update({
           where: { id: input.equipment_id },
-          data: { kilometer: input.kilometer },
-        });
-      } else {
-        serverLogger.warn('Kilometraje ignorado: menor al actual', {
-          data: { newKm, currentKm, equipmentId: input.equipment_id },
+          data: updateData,
         });
       }
     } catch (vehicleError) {
-      serverLogger.warn('No se pudo actualizar kilometraje del vehículo', {
+      serverLogger.warn('No se pudo actualizar datos del vehículo', {
         data: { error: vehicleError },
       });
     }
@@ -365,29 +386,48 @@ export async function createMaintenanceOrderFromDeviations(input: {
     return { request, order };
   });
 
-  // 7. Actualizar el kilometraje del vehículo (fuera de transacción — es warning, no crítico)
-  if (input.kilometer) {
+  // 7. Actualizar kilometraje y horómetro del vehículo (fuera de transacción — es warning, no crítico)
+  if (input.kilometer || input.engine_hours) {
     try {
       const currentVehicle = await prisma.vehicles.findUnique({
         where: { id: input.equipmentId },
-        select: { kilometer: true },
+        select: { kilometer: true, engine_hours: true },
       });
 
-      const currentKm = Number(currentVehicle?.kilometer) || 0;
-      const newKm = Number(input.kilometer);
+      const updateData: Record<string, unknown> = {};
 
-      if (newKm >= currentKm) {
+      if (input.kilometer) {
+        const currentKm = Number(currentVehicle?.kilometer) || 0;
+        const newKm = Number(input.kilometer);
+        if (newKm >= currentKm) {
+          updateData.kilometer = input.kilometer;
+        } else {
+          serverLogger.warn('Kilometraje ignorado: menor al actual', {
+            data: { newKm, currentKm, equipmentId: input.equipmentId },
+          });
+        }
+      }
+
+      if (input.engine_hours) {
+        const currentHours = Number(currentVehicle?.engine_hours) || 0;
+        const newHours = Number(input.engine_hours);
+        if (newHours >= currentHours) {
+          updateData.engine_hours = input.engine_hours;
+        } else {
+          serverLogger.warn('Horómetro ignorado: menor al actual', {
+            data: { newHours, currentHours, equipmentId: input.equipmentId },
+          });
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
         await prisma.vehicles.update({
           where: { id: input.equipmentId },
-          data: { kilometer: input.kilometer },
-        });
-      } else {
-        serverLogger.warn('Kilometraje ignorado: menor al actual', {
-          data: { newKm, currentKm, equipmentId: input.equipmentId },
+          data: updateData,
         });
       }
     } catch (vehicleError) {
-      serverLogger.warn('No se pudo actualizar kilometraje del vehículo', {
+      serverLogger.warn('No se pudo actualizar datos del vehículo', {
         data: { error: vehicleError },
       });
     }
@@ -505,6 +545,53 @@ export async function createMaintenanceRequestPendingApproval(input: {
 
     return { request, requestItems };
   });
+
+  // 5. Actualizar kilometraje y horómetro del vehículo (fuera de transacción — es warning, no crítico)
+  if (input.kilometer || input.engine_hours) {
+    try {
+      const currentVehicle = await prisma.vehicles.findUnique({
+        where: { id: input.equipmentId },
+        select: { kilometer: true, engine_hours: true },
+      });
+
+      const updateData: Record<string, unknown> = {};
+
+      if (input.kilometer) {
+        const currentKm = Number(currentVehicle?.kilometer) || 0;
+        const newKm = Number(input.kilometer);
+        if (newKm >= currentKm) {
+          updateData.kilometer = input.kilometer;
+        } else {
+          serverLogger.warn('Kilometraje ignorado: menor al actual', {
+            data: { newKm, currentKm, equipmentId: input.equipmentId },
+          });
+        }
+      }
+
+      if (input.engine_hours) {
+        const currentHours = Number(currentVehicle?.engine_hours) || 0;
+        const newHours = Number(input.engine_hours);
+        if (newHours >= currentHours) {
+          updateData.engine_hours = input.engine_hours;
+        } else {
+          serverLogger.warn('Horómetro ignorado: menor al actual', {
+            data: { newHours, currentHours, equipmentId: input.equipmentId },
+          });
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await prisma.vehicles.update({
+          where: { id: input.equipmentId },
+          data: updateData,
+        });
+      }
+    } catch (vehicleError) {
+      serverLogger.warn('No se pudo actualizar datos del vehículo', {
+        data: { error: vehicleError },
+      });
+    }
+  }
 
   serverLogger.info('Solicitud creada exitosamente - Pendiente de aprobación', {
     data: {
