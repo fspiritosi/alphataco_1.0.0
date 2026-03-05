@@ -19,6 +19,7 @@ import { AlertTriangle, Ban, MessageSquare, Pencil, Plus, RotateCcw, Trash2, Wre
 import { useState } from 'react';
 import type { OrderManagementItem } from '../../actions/actionsServer';
 import type { LocalItem } from '../ManageOrderWizard';
+import { getItemLabel } from './helpers';
 
 interface Step1TasksProps {
   order: OrderManagementItem;
@@ -66,15 +67,15 @@ export function Step1Tasks({
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h4 className="text-sm font-medium">Items de reparacion ({regularItems.length})</h4>
+          <h4 className="text-sm font-medium">Desvíos de reparación ({regularItems.length})</h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Revise y ajuste los items. Cada item debe tener al menos un tipo de reparacion.
+            Revise y ajuste los desvíos. Cada uno debe tener al menos un tipo de reparación.
           </p>
         </div>
         <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="create">
           <Button variant="outline" size="sm" onClick={onAddItem}>
             <Plus className="h-4 w-4 mr-1" />
-            Agregar item
+            Agregar reparación
           </Button>
         </PermissionGuard>
       </div>
@@ -84,14 +85,15 @@ export function Step1Tasks({
         <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="text-xs">
-            {itemsWithoutRepairType.length} item(s) sin tipo de reparacion asignado. Asigne al menos uno para continuar.
+            {itemsWithoutRepairType.length} desvío(s) sin tipo de reparación asignado. Asigne al menos uno para
+            continuar.
           </span>
         </div>
       )}
 
       {/* Items list */}
       {regularItems.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">No hay items en este pedido</p>
+        <p className="text-sm text-muted-foreground text-center py-8">No hay desvíos en este pedido</p>
       ) : (
         <div className="space-y-2">
           {regularItems.map((item) => {
@@ -143,29 +145,29 @@ export function Step1Tasks({
                         </Badge>
                       )}
                       {hasWorkOrder && (
-                        <Badge variant="success" className="text-[10px] px-1.5 py-0">
+                        <Badge variant="success" className="text-xs px-2 py-0.5">
                           OT generada
                         </Badge>
                       )}
                       {repairTypeNames.length > 0 ? (
                         repairTypeNames.map((name, idx) => (
-                          <Badge key={idx} variant="default" className="text-[10px] px-1.5 py-0">
+                          <Badge key={idx} variant="default" className="text-xs px-2 py-0.5">
                             {name}
                           </Badge>
                         ))
                       ) : (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        <Badge variant="secondary" className="text-xs px-2 py-0.5">
                           Sin tipo asignado
                         </Badge>
                       )}
                       {hasAutorizable && (
-                        <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                        <Badge variant="warning" className="text-xs px-2 py-0.5">
                           Autorizable
                         </Badge>
                       )}
                     </div>
                     {/* Description - READ ONLY */}
-                    {item.description && <p className="text-sm text-foreground">{String(item.description)}</p>}
+                    {getItemLabel(item) && <p className="text-sm text-foreground">{getItemLabel(item)}</p>}
                     {/* Deviation info */}
                     {deviation && (
                       <p className="text-xs text-muted-foreground/80 italic">
@@ -290,7 +292,7 @@ export function Step1Tasks({
       {/* Rejected items section */}
       {rejectedItems.length > 0 && (
         <div className="space-y-2 mt-4">
-          <h4 className="text-sm font-medium text-destructive">Items rechazados ({rejectedItems.length})</h4>
+          <h4 className="text-sm font-medium text-destructive">Desvíos rechazados ({rejectedItems.length})</h4>
           {rejectedItems.map((item) => (
             <div
               key={item.id}
@@ -298,7 +300,7 @@ export function Step1Tasks({
             >
               <div className="space-y-1 flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                  <Badge variant="destructive" className="text-xs px-2 py-0.5">
                     Rechazado
                   </Badge>
                 </div>
@@ -328,9 +330,9 @@ export function Step1Tasks({
       <AlertDialog open={!!rejectDialogItemId} onOpenChange={(open) => !open && setRejectDialogItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rechazar item</AlertDialogTitle>
+            <AlertDialogTitle>Rechazar desvío</AlertDialogTitle>
             <AlertDialogDescription>
-              El item rechazado no se incluira en las ordenes de trabajo. Ingrese el motivo del rechazo.
+              El desvío rechazado no se incluirá en las órdenes de trabajo. Ingrese el motivo del rechazo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea

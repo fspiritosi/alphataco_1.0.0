@@ -36,7 +36,7 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
 
   const handleSubmit = () => {
     if (!description.trim()) {
-      toast.error('La descripcion es requerida');
+      toast.error('La descripción es requerida');
       return;
     }
 
@@ -54,14 +54,14 @@ export function AddItemDialog({ open, onClose, repairTypes, onAdd }: AddItemDial
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Agregar Item</DialogTitle>
-          <DialogDescription>Agregar un nuevo item de reparacion al pedido</DialogDescription>
+          <DialogTitle>Agregar Reparación</DialogTitle>
+          <DialogDescription>Agregar una reparación extra a la orden de mantenimiento</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Descripcion *</Label>
+            <Label>Descripción *</Label>
             <Textarea
-              placeholder="Descripcion del item de reparacion"
+              placeholder="Descripción de la reparación"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />

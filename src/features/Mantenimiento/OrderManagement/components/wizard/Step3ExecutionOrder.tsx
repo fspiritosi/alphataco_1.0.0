@@ -40,15 +40,20 @@ interface Step3ExecutionOrderProps {
 
 // ─── Sortable Sector Card ──────────────────────────────────
 
+interface SectorCounts {
+  items: number;
+  repairTypes: number;
+}
+
 interface SortableSectorCardProps {
   entry: SectorOrderEntry;
   index: number;
   totalCount: number;
-  itemCount: number;
+  sectorCounts: SectorCounts;
   onReorder: (sectorId: string, direction: 'up' | 'down') => void;
 }
 
-function SortableSectorCard({ entry, index, totalCount, itemCount, onReorder }: SortableSectorCardProps) {
+function SortableSectorCard({ entry, index, totalCount, sectorCounts, onReorder }: SortableSectorCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: entry.sectorId,
   });
@@ -84,12 +89,14 @@ function SortableSectorCard({ entry, index, totalCount, itemCount, onReorder }: 
       {/* Sector info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium">{entry.sectorName}</p>
-        <p className="text-xs text-muted-foreground">{itemCount} item(s) + Diagnostico</p>
+        <p className="text-xs text-muted-foreground">
+          {sectorCounts.items} {sectorCounts.items === 1 ? 'solicitud' : 'solicitudes'} + Diagnóstico
+        </p>
       </div>
 
-      {/* Item count badge */}
+      {/* Task count badge (repair types + diagnostic) */}
       <Badge variant="outline" className="shrink-0">
-        {itemCount + 1} tareas
+        {sectorCounts.repairTypes + 1} {sectorCounts.repairTypes + 1 === 1 ? 'tarea' : 'tareas'}
       </Badge>
 
       {/* Reorder buttons (keyboard/accessibility alternative) */}
@@ -130,15 +137,28 @@ export function Step3ExecutionOrder({
 
   const sectorIds = useMemo(() => sorted.map((s) => s.sectorId), [sorted]);
 
-  // Count items per sector
-  const itemCountBySector = useMemo(() => {
-    const counts = new Map<string, number>();
-    const regularItems = localItems.filter((i) => !i.is_diagnostico && !i._deleted && !i.work_order_id);
+  // Count items and repair types per sector
+  const countsBySector = useMemo(() => {
+    const counts = new Map<string, SectorCounts>();
+    const eligibleItems = localItems.filter(
+      (i) => !i.is_diagnostico && !i._deleted && !i.work_order_id && !i._rejected
+    );
 
-    for (const item of regularItems) {
+    for (const item of eligibleItems) {
       const sectorId = sectorAssignments.get(item.id) || item.assigned_sector_id;
       if (sectorId) {
-        counts.set(sectorId, (counts.get(sectorId) || 0) + 1);
+        const current = counts.get(sectorId) || { items: 0, repairTypes: 0 };
+        current.items += 1;
+
+        // Count repair types for this item
+        if (item._isTemp && item._tempRepairTypeIds) {
+          current.repairTypes += item._tempRepairTypeIds.length;
+        } else {
+          const pivotTypes = item.maintenance_order_item_repair_types || [];
+          current.repairTypes += pivotTypes.length > 0 ? pivotTypes.length : item.types_of_repairs ? 1 : 0;
+        }
+
+        counts.set(sectorId, current);
       }
     }
     return counts;
@@ -168,9 +188,9 @@ export function Step3ExecutionOrder({
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="text-sm font-medium">Orden de Ejecucion</h4>
+        <h4 className="text-sm font-medium">Orden de Ejecución</h4>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Defina el orden en que el vehiculo pasara por cada sector. Arrastre para reordenar o use las flechas.
+          Defina el orden en que el vehículo pasará por cada sector. Arrastre para reordenar o use las flechas.
         </p>
       </div>
 
@@ -186,7 +206,7 @@ export function Step3ExecutionOrder({
                   entry={entry}
                   index={index}
                   totalCount={sorted.length}
-                  itemCount={itemCountBySector.get(entry.sectorId) || 0}
+                  sectorCounts={countsBySector.get(entry.sectorId) || { items: 0, repairTypes: 0 }}
                   onReorder={onReorder}
                 />
               ))}

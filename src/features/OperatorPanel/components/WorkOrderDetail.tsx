@@ -271,6 +271,16 @@ export function WorkOrderDetail({ initialData }: { initialData: OperatorWorkOrde
         <AddTaskDialog
           workOrderId={data.id}
           maintenanceOrderId={maintenanceOrderId}
+          maintenanceOrderNumber={maintenanceOrders?.order_number}
+          vehicleContext={
+            vehicle
+              ? {
+                  domain: vehicle.domain,
+                  internNumber: vehicle.intern_number,
+                  subType: vehicle.sub_type?.name,
+                }
+              : null
+          }
           open={addTaskOpen}
           onClose={() => setAddTaskOpen(false)}
         />

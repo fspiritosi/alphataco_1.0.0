@@ -4,7 +4,7 @@ import type { BadgeProps } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertTriangle, RotateCcw, UserPlus } from 'lucide-react';
+import { AlertTriangle, Clock, RotateCcw, UserPlus } from 'lucide-react';
 import { TaskNotes } from './TaskNotes';
 
 type BadgeVariant = NonNullable<BadgeProps['variant']>;
@@ -60,6 +60,7 @@ export function TaskCard({
   const isCompleted = repair.status === 'completed';
   const isRejected = repair.status === 'rejected';
   const isReassignmentRequested = repair.status === 'reassignment_requested';
+  const isPendingApproval = repair.status === 'pending_approval';
   const repairType = repair.types_of_repairs;
 
   const borderColor = isCompleted
@@ -68,13 +69,15 @@ export function TaskCard({
       ? 'border-l-red-500'
       : isReassignmentRequested
         ? 'border-l-orange-400'
-        : 'border-l-slate-300 dark:border-l-slate-600';
+        : isPendingApproval
+          ? 'border-l-amber-400'
+          : 'border-l-slate-300 dark:border-l-slate-600';
 
   return (
     <div
       className={`rounded-lg border border-l-4 ${borderColor} bg-card transition-all duration-200 ${
         isCompleted && !isRejected ? 'opacity-60' : ''
-      } ${isBlockedByDiag || isBlockedByPending ? 'opacity-30 pointer-events-none' : ''}`}
+      } ${isPendingApproval || isRejected ? 'opacity-50' : ''} ${isBlockedByDiag || isBlockedByPending ? 'opacity-30 pointer-events-none' : ''}`}
     >
       <div className="p-4 sm:p-5">
         <div className="flex items-start gap-3.5">
@@ -82,7 +85,14 @@ export function TaskCard({
             id={`task-${repair.id}`}
             checked={isCompleted}
             onCheckedChange={() => onToggle(repair.id, isCompleted)}
-            disabled={isBlockedByDiag || isBlockedByPending || isReassignmentRequested || isMutating}
+            disabled={
+              isBlockedByDiag ||
+              isBlockedByPending ||
+              isReassignmentRequested ||
+              isPendingApproval ||
+              isRejected ||
+              isMutating
+            }
             className="mt-0.5 h-5 w-5 sm:h-6 sm:w-6 rounded-md"
           />
           <div className="flex-1 min-w-0 space-y-2">
@@ -123,6 +133,12 @@ export function TaskCard({
                   Rechazada
                 </Badge>
               )}
+              {isPendingApproval && (
+                <Badge variant="warning" className="text-[10px] px-1.5 py-0 gap-0.5">
+                  <Clock className="h-2.5 w-2.5" />
+                  Pend. Aprobacion
+                </Badge>
+              )}
               {isReassignmentRequested && (
                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0 gap-0.5">
                   <AlertTriangle className="h-2.5 w-2.5" />
@@ -153,7 +169,7 @@ export function TaskCard({
             )}
 
             {/* Notes (collapsible) */}
-            {!isBlockedByDiag && (
+            {!isBlockedByDiag && !isPendingApproval && !isRejected && (
               <TaskNotes
                 repairId={repair.id}
                 initialNotes={localNotes}
@@ -164,7 +180,7 @@ export function TaskCard({
             )}
 
             {/* Return button */}
-            {!isCompleted && !isReassignmentRequested && !isBlockedByDiag && (
+            {!isCompleted && !isRejected && !isReassignmentRequested && !isPendingApproval && !isBlockedByDiag && (
               <Button
                 variant="ghost"
                 size="sm"

@@ -94,6 +94,7 @@ const sectorStatusBadge: Record<SectorStatus, BadgeVariant> = {
   blocked: 'outline',
   pending: 'secondary',
   in_progress: 'warning',
+  paused: 'outline',
   completed: 'success',
 };
 

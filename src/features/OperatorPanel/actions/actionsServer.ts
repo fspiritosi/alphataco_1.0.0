@@ -3,6 +3,7 @@
 import { DIAGNOSTICO_REPAIR_TYPE_ID } from '@/features/Mantenimiento/utils/constants';
 import { Logger } from '@/lib/logger';
 import { supabaseServer } from '@/lib/supabase/server';
+import { prisma } from '@/shared/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -858,74 +859,91 @@ export async function addTaskToOwnWorkOrder(
   description: string,
   isAutorizable: boolean
 ) {
-  const supabase = await supabaseServer();
+  try {
+    // Get work order with sector_id and maintenance_order_id from existing item
+    const workOrder = await prisma.work_orders.findUniqueOrThrow({
+      where: { id: workOrderId },
+      select: {
+        sector_id: true,
+        work_order_items: {
+          take: 1,
+          select: {
+            maintenance_order_items: {
+              select: { maintenance_order_id: true },
+            },
+          },
+        },
+      },
+    });
 
-  // Get maintenance_order_item_id from an existing work order item (required FK)
-  const { data: woItem } = await supabase
-    .from('work_order_items')
-    .select('maintenance_order_item_id')
-    .eq('work_order_id', workOrderId)
-    .not('maintenance_order_item_id', 'is', null)
-    .limit(1)
-    .single();
+    const maintenanceOrderId = workOrder.work_order_items[0]?.maintenance_order_items?.maintenance_order_id;
+    if (!maintenanceOrderId) {
+      throw new Error('No se encontró la orden de mantenimiento asociada a esta OT');
+    }
 
-  if (!woItem?.maintenance_order_item_id) {
-    throw new Error('No se encontro un item de referencia para asociar la tarea');
+    const repairStatus = isAutorizable ? 'pending_approval' : 'pending';
+
+    // Transaction: create maintenance_order_item → work_order_item → repair
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create new maintenance_order_item (with sector assigned + linked to this WO)
+      const newMoItem = await tx.maintenance_order_items.create({
+        data: {
+          maintenance_order_id: maintenanceOrderId,
+          repair_type_id: repairTypeId,
+          description,
+          is_diagnostico: false,
+          assigned_sector_id: workOrder.sector_id,
+          work_order_id: workOrderId,
+        },
+        select: { id: true },
+      });
+
+      // 2. Create work_order_item pointing to the new maintenance_order_item
+      const newWoItem = await tx.work_order_items.create({
+        data: {
+          work_order_id: workOrderId,
+          maintenance_order_item_id: newMoItem.id,
+          status: 'pending',
+        },
+        select: { id: true },
+      });
+
+      // 3. Create repair entry
+      await tx.work_order_item_repairs.create({
+        data: {
+          work_order_item_id: newWoItem.id,
+          repair_type_id: repairTypeId,
+          status: repairStatus,
+          is_operator_added: true,
+        },
+      });
+
+      return newWoItem;
+    });
+
+    logger.info('Task added to own work order', { data: { workOrderId, woItemId: result.id } });
+    revalidatePath('/operator');
+    return { requiresApproval: isAutorizable };
+  } catch (error) {
+    logger.error('Error adding task to own work order', { data: { error, workOrderId } });
+    throw error;
   }
-
-  // Create work order item
-  const { data: newItem, error: itemError } = await supabase
-    .from('work_order_items')
-    .insert({
-      work_order_id: workOrderId,
-      maintenance_order_item_id: woItem.maintenance_order_item_id,
-      status: 'pending',
-    })
-    .select('id')
-    .single();
-
-  if (itemError || !newItem) {
-    logger.error('Error creating work order item', { data: { error: itemError } });
-    throw itemError || new Error('Failed to create work order item');
-  }
-
-  // Create repair entry
-  const repairStatus = isAutorizable ? 'pending_approval' : 'pending';
-
-  const { error: repairError } = await supabase.from('work_order_item_repairs').insert({
-    work_order_item_id: newItem.id,
-    repair_type_id: repairTypeId,
-    description,
-    status: repairStatus,
-    is_operator_added: true,
-  });
-
-  if (repairError) {
-    logger.error('Error creating repair', { data: { error: repairError } });
-    throw repairError;
-  }
-
-  revalidatePath('/operator');
-  return { requiresApproval: isAutorizable };
 }
 
 export async function requestTaskForOtherSector(maintenanceOrderId: string, repairTypeId: string, description: string) {
-  const supabase = await supabaseServer();
+  try {
+    await prisma.maintenance_order_items.create({
+      data: {
+        maintenance_order_id: maintenanceOrderId,
+        repair_type_id: repairTypeId,
+        description,
+        is_diagnostico: false,
+      },
+    });
 
-  // Create a maintenance_order_item without sector assignment (jefe decides)
-  const { error } = await supabase.from('maintenance_order_items').insert({
-    maintenance_order_id: maintenanceOrderId,
-    repair_type_id: repairTypeId,
-    description,
-    is_diagnostico: false,
-    assigned_sector_id: null,
-    assigned_workshop_id: null,
-  });
-
-  if (error) {
+    revalidatePath('/operator');
+  } catch (error) {
     logger.error('Error requesting task for other sector', { data: { error } });
     throw error;
   }
-
-  revalidatePath('/operator');
 }

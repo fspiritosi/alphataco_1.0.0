@@ -9,7 +9,7 @@ interface WizardStep {
 }
 
 const STEPS: WizardStep[] = [
-  { number: 1, label: 'Tareas' },
+  { number: 1, label: 'Desvíos' },
   { number: 2, label: 'Sectores' },
   { number: 3, label: 'Orden' },
   { number: 4, label: 'Confirmar' },

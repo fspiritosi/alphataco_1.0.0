@@ -2,13 +2,17 @@
 
 import { DataTable } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import type { DataTableFacetedFilterConfig, DataTableFilterOption, DataTableSearchParams } from '@/shared/components/common/DataTable/types';
+import type {
+  DataTableFacetedFilterConfig,
+  DataTableFilterOption,
+  DataTableSearchParams,
+} from '@/shared/components/common/DataTable/types';
 import { useQuery } from '@tanstack/react-query';
 import { CircleOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { OrderDetailDialog } from '../MaintenanceOrders/components/OrderDetailDialog';
-import { getAllWorkshopTrackingForExport, getWorkshopTrackingFacets } from './actions.server';
 import type { WorkshopTrackingListItem } from './actions.server';
+import { getAllWorkshopTrackingForExport, getWorkshopTrackingFacets } from './actions.server';
 import {
   HIDDEN_COLUMNS_BY_DEFAULT,
   WORKSHOP_STATUS_FILTER_OPTIONS,
@@ -50,8 +54,10 @@ export function _WorkshopTrackingDataTable({
   // ── Dialog state ──────────────────────────────────────────────────────────
   const [selectedOrder, setSelectedOrder] = useState<WorkshopTrackingListItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const handleViewDetail = (order: WorkshopTrackingListItem) => {
+    setLoadingDetail(true);
     setSelectedOrder(order);
     setDialogOpen(true);
   };
@@ -147,9 +153,7 @@ export function _WorkshopTrackingDataTable({
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    return Object.fromEntries(
-      facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)])
-    );
+    return Object.fromEntries(facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)]));
   }, [initialFilterVisibility, facetedFilters]);
 
   // ── Export config ─────────────────────────────────────────────────────────
@@ -187,15 +191,25 @@ export function _WorkshopTrackingDataTable({
         initialFilterVisibility={mergedFilterVisibility}
       />
 
+      {/* Loading overlay para carga de detalle */}
+      {loadingDetail && (
+        <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50">
+          <div className="bg-card p-4 rounded-lg shadow-lg flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-sm">Cargando detalle de orden...</span>
+          </div>
+        </div>
+      )}
+
       {/* Dialog de detalle — solo lectura para operaciones */}
-      {/* Cast needed: OrderDetailDialog expects the Supabase legacy type, but data is structurally compatible */}
       <OrderDetailDialog
-        order={selectedOrder as never}
+        orderId={selectedOrder?.id}
         open={dialogOpen}
         onClose={() => {
           setDialogOpen(false);
           setSelectedOrder(null);
         }}
+        onLoaded={() => setLoadingDetail(false)}
         context="operations"
       />
     </>

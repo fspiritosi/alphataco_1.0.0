@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import type { MaintenanceOrderData, ValidationHistoryData } from '../actions/actionsServer';
 import {
   completeExternalWorkOrder,
+  getMaintenanceOrderDetail,
   getValidationHistory,
   operationsRejectItems,
   operationsRejectOrder,
@@ -50,14 +51,20 @@ import {
   workshopChiefReturnOrder,
   workshopChiefValidateOrder,
 } from '../actions/actionsServer';
+import { getRepairDisplayName } from '../utils/repairDisplayName';
 import { ExternalWorkshopCard } from './ExternalWorkshopCard';
 import { SectorCard } from './SectorCard';
 import { SectorTimeline, type SectorStatus, type SectorTimelineItem } from './SectorTimeline';
 
 interface OrderDetailDialogProps {
-  order: MaintenanceOrderData | null;
+  /** Pass orderId to fetch full data from server (preferred) */
+  orderId?: string | null;
+  /** Pass order data directly (legacy — only from MaintenanceOrdersClient that already has full data) */
+  order?: MaintenanceOrderData | null;
   open: boolean;
   onClose: () => void;
+  /** Called when order data has finished loading (use to dismiss external loading overlays) */
+  onLoaded?: () => void;
   /** Controls which validation actions are available:
    * - 'workshop': Workshop chief can validate/return. Operations section is info-only.
    * - 'operations': Operations can validate/reject. Workshop section is hidden.
@@ -80,7 +87,14 @@ interface SelectableRepair {
   status: string;
 }
 
-export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }: OrderDetailDialogProps) {
+export function OrderDetailDialog({
+  orderId: propOrderId,
+  order: propOrder,
+  open,
+  onClose,
+  onLoaded,
+  context = 'workshop',
+}: OrderDetailDialogProps) {
   const queryClient = useQueryClient();
   const [validationNotes, setValidationNotes] = useState('');
   const [returnReason, setReturnReason] = useState('');
@@ -91,13 +105,34 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
   const [showOperationsRejectDialog, setShowOperationsRejectDialog] = useState(false);
   const [showOpsItemRejectDialog, setShowOpsItemRejectDialog] = useState(false);
 
+  // Fetch full order detail — ALWAYS when dialog is open (fresh data from DB)
+  const resolvedOrderId = propOrderId ?? propOrder?.id;
+  const { data: fetchedOrder, isLoading: isLoadingOrder } = useQuery({
+    queryKey: ['maintenance', 'order-detail', resolvedOrderId],
+    queryFn: () => getMaintenanceOrderDetail(resolvedOrderId!),
+    enabled: !!resolvedOrderId && open,
+    staleTime: 30 * 1000,
+  });
+
+  // Prioritize fetched data (fresh) over prop data (potentially stale from table cache)
+  const order = (fetchedOrder ?? propOrder ?? null) as MaintenanceOrderData | null;
+
+  // Notify parent when data is ready (dismiss loading overlay)
+  useEffect(() => {
+    if (order && !isLoadingOrder) {
+      onLoaded?.();
+    }
+  }, [order, isLoadingOrder, onLoaded]);
+
   // Supervisor de operaciones a asignar al validar (Jefe de Taller → Operaciones)
-  const [selectedOperationsSupervisorId, setSelectedOperationsSupervisorId] = useState<string | undefined>(
-    // Pre-cargar con el supervisor actual de la maintenance_request
-    order?.maintenance_requests && !Array.isArray(order.maintenance_requests)
-      ? order.maintenance_requests.supervisor_id ?? undefined
-      : undefined
-  );
+  const [selectedOperationsSupervisorId, setSelectedOperationsSupervisorId] = useState<string | undefined>(undefined);
+
+  // Sync supervisor selection when order data loads
+  useEffect(() => {
+    if (order?.maintenance_requests && !Array.isArray(order.maintenance_requests)) {
+      setSelectedOperationsSupervisorId(order.maintenance_requests.supervisor_id ?? undefined);
+    }
+  }, [order?.id, order?.maintenance_requests]);
 
   // Item-level rejection state: { repairId: comment }
   const [selectedRejections, setSelectedRejections] = useState<Record<string, string>>({});
@@ -361,7 +396,7 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
           if (repair.status !== 'completed') return;
           repairs.push({
             repairId: repair.id,
-            repairName: String(repair.types_of_repairs?.name || item.description || 'Sin descripcion'),
+            repairName: String(repair.types_of_repairs?.name || getRepairDisplayName(item)),
             sectorName: group.sectorName,
             status: repair.status,
           });
@@ -371,27 +406,47 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
     return repairs;
   }, [sectorGroups]);
 
+  // Count individual tasks for a group (matches getSectorTasks logic)
+  const countGroupTasks = (groupItems: MaintenanceOrderData['maintenance_order_items']) => {
+    let total = 0;
+    let completed = 0;
+    for (const item of groupItems) {
+      const repairs = getRepairsForItem(item);
+      if (repairs.length > 0) {
+        // Case A: OT exists — count each work_order_item_repair
+        total += repairs.length;
+        completed += repairs.filter((r) => r.status === 'completed').length;
+      } else {
+        // Case B: No OT — count each pivot M:M entry (or 1 fallback)
+        const pivotTypes = item.maintenance_order_item_repair_types?.filter((rt) => rt.types_of_repairs?.name);
+        total += pivotTypes && pivotTypes.length > 0 ? pivotTypes.length : 1;
+      }
+    }
+    return { total, completed };
+  };
+
   // Build timeline data
   const timelineData = useMemo((): SectorTimelineItem[] => {
     return sectorGroups.map((group, index) => {
-      const allRepairs = getGroupRepairs(group.items);
-
-      const totalTasks = allRepairs.length || group.items.length;
-      const completedTasks = allRepairs.filter((r) => r.status === 'completed').length;
+      const { total: totalTasks, completed: completedTasks } = countGroupTasks(group.items);
       const diagItem = group.items.find((i) => i.is_diagnostico);
       const diagRepairs = diagItem ? getRepairsForItem(diagItem) : [];
       const diagCompleted = diagRepairs.some((r) => r.status === 'completed');
 
+      // Check if the work order for this sector is paused
+      const woStatus = group.items.find((i) => i.work_orders && !Array.isArray(i.work_orders))?.work_orders;
+      const isPaused = woStatus && !Array.isArray(woStatus) && woStatus.status === 'paused';
+
       let sectorStatus: SectorStatus = 'pending';
       if (completedTasks === totalTasks && totalTasks > 0) {
         sectorStatus = 'completed';
+      } else if (isPaused) {
+        sectorStatus = 'paused';
       } else if (completedTasks > 0) {
         sectorStatus = 'in_progress';
       } else if (index > 0) {
         const prevGroup = sectorGroups[index - 1];
-        const prevRepairs = getGroupRepairs(prevGroup.items);
-        const prevTotal = prevRepairs.length || prevGroup.items.length;
-        const prevCompleted = prevRepairs.filter((r) => r.status === 'completed').length;
+        const { total: prevTotal, completed: prevCompleted } = countGroupTasks(prevGroup.items);
         if (prevCompleted < prevTotal) {
           sectorStatus = 'blocked';
         }
@@ -420,11 +475,12 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
     setSelectedOperationsSupervisorId(currentSupervisorId);
   }, [order?.id]);
 
-  // Build task list for each sector card
+  // Build task list for each sector card — 1 task per individual repair
   const getSectorTasks = (group: SectorGroup) => {
     const tasks: Array<{
       id: string;
       repairTypeName: string;
+      description?: string;
       status: string;
       isDiagnostico: boolean;
       isAutorizable: boolean;
@@ -451,12 +507,12 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
       );
 
       if (repairs.length > 0) {
+        // Case A: OT exists — 1 task per work_order_item_repair (individual status)
         repairs.forEach((repair) => {
           tasks.push({
             id: repair.id,
-            repairTypeName: repair.is_diagnostico
-              ? 'DIAGNOSTICO'
-              : String(repair.types_of_repairs?.name || item.description || 'Sin descripcion'),
+            repairTypeName: repair.is_diagnostico ? 'DIAGNOSTICO' : String(repair.types_of_repairs?.name || 'Sin tipo'),
+            description: item.description || undefined,
             status: String(repair.status),
             isDiagnostico: repair.is_diagnostico ?? false,
             isAutorizable: repair.types_of_repairs?.autorizable ?? false,
@@ -464,16 +520,36 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
           });
         });
       } else {
-        tasks.push({
-          id: item.id,
-          repairTypeName: item.is_diagnostico
-            ? 'DIAGNOSTICO'
-            : String(item.types_of_repairs?.name || item.description || 'Sin descripcion'),
-          status: 'pending',
-          isDiagnostico: item.is_diagnostico ?? false,
-          isAutorizable: item.types_of_repairs?.autorizable ?? false,
-          isOperatorAdded: false,
-        });
+        // Case B: No OT yet — expand each repair type from the item as individual pending tasks
+        const pivotTypes = item.maintenance_order_item_repair_types?.filter((rt) => rt.types_of_repairs?.name);
+
+        if (pivotTypes && pivotTypes.length > 0) {
+          // M:M pivot: 1 task per repair type
+          pivotTypes.forEach((rt, idx) => {
+            tasks.push({
+              id: `${item.id}-pivot-${idx}`,
+              repairTypeName: item.is_diagnostico ? 'DIAGNOSTICO' : String(rt.types_of_repairs?.name),
+              description: item.description || undefined,
+              status: 'pending',
+              isDiagnostico: item.is_diagnostico ?? false,
+              isAutorizable: item.types_of_repairs?.autorizable ?? false,
+              isOperatorAdded: false,
+            });
+          });
+        } else {
+          // Single FK or description fallback
+          tasks.push({
+            id: item.id,
+            repairTypeName: item.is_diagnostico
+              ? 'DIAGNOSTICO'
+              : item.types_of_repairs?.name || item.description || 'Sin tipo',
+            description: item.description || undefined,
+            status: 'pending',
+            isDiagnostico: item.is_diagnostico ?? false,
+            isAutorizable: item.types_of_repairs?.autorizable ?? false,
+            isOperatorAdded: false,
+          });
+        }
       }
     });
 
@@ -507,8 +583,7 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
         | undefined;
       const deviation = reqItem?.checklist_deviations;
 
-      const itemLabel =
-        deviation?.item_label || (item.types_of_repairs?.name ? String(item.types_of_repairs.name) : null) || 'Item';
+      const itemLabel = deviation?.item_label || getRepairDisplayName(item);
 
       result.push({ itemLabel, comments: allComments });
     });
@@ -831,34 +906,102 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
     );
   };
 
+  // Loading state when fetching order detail
+  if (isLoadingOrder && !propOrder) {
+    return (
+      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col items-center justify-center py-12">
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-sm text-muted-foreground">Cargando detalle de orden...</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!order) return null;
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            Detalle de Orden
+          <DialogTitle className="flex items-center gap-3 flex-wrap">
+            <span>Detalle de Orden</span>
+            {order.order_number && (
+              <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">#{order.order_number}</code>
+            )}
             <Badge variant="outline">{vehicle?.domain || vehicle?.serie || 'Sin patente'}</Badge>
             {vehicle?.vehicle_type?.name && <Badge variant="secondary">{vehicle.vehicle_type.name}</Badge>}
+            <Badge
+              variant={
+                status === 'completed'
+                  ? 'success'
+                  : status === 'in_workshop'
+                    ? 'warning'
+                    : status === 'operations_rejected' || status === 'workshop_rejected'
+                      ? 'destructive'
+                      : 'default'
+              }
+            >
+              {status === 'in_workshop'
+                ? 'En taller'
+                : status === 'pending_workshop_validation'
+                  ? 'Pend. validacion taller'
+                  : status === 'pending_operations_validation'
+                    ? 'Pend. validacion operaciones'
+                    : status === 'operations_rejected'
+                      ? 'Rechazada por operaciones'
+                      : status === 'workshop_rejected'
+                        ? 'Rechazada por taller'
+                        : status === 'completed'
+                          ? 'Completada'
+                          : status}
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
           <div className="space-y-4 pb-4">
             {/* Info del equipo */}
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">N. Interno:</span>{' '}
-                <span className="font-medium">{vehicle?.intern_number || '-'}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Ingreso:</span>{' '}
-                <span className="font-medium">
-                  {order.workshop_entry_date ? moment(order.workshop_entry_date).format('DD/MM/YYYY') : '-'}
-                </span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Km:</span>{' '}
-                <span className="font-medium">{String(vehicle?.kilometer || '-')}</span>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground block">N. Interno</span>
+                  <span className="font-medium">{vehicle?.intern_number || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Ingreso a taller</span>
+                  <span className="font-medium">
+                    {order.workshop_entry_date ? moment(order.workshop_entry_date).format('DD/MM/YYYY') : '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Km al ingreso</span>
+                  <span className="font-medium">
+                    {order.kilometer_at_entry != null ? String(order.kilometer_at_entry) : '-'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Horometro</span>
+                  <span className="font-medium">
+                    {order.engine_hours_at_entry != null ? `${order.engine_hours_at_entry} hs` : '-'}
+                  </span>
+                </div>
+                {vehicle?.condition && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Condicion</span>
+                    <span className="font-medium capitalize">{String(vehicle.condition).replace(/_/g, ' ')}</span>
+                  </div>
+                )}
+                {order.source && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Origen</span>
+                    <span className="font-medium capitalize">
+                      {order.source === 'checklist' ? 'Checklist' : 'Manual'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -891,6 +1034,16 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                 <>
                   {sectorGroups.map((group) => {
                     const timelineItem = timelineData.find((t) => t.sectorId === group.sectorId);
+                    // Extract OT info from the first item that has a work_order
+                    const woInfo = group.items.find((i) => i.work_orders && !Array.isArray(i.work_orders))?.work_orders;
+                    const workOrderNumber =
+                      woInfo && typeof woInfo === 'object' && 'order_number' in woInfo
+                        ? (woInfo.order_number as string) ?? undefined
+                        : undefined;
+                    const workOrderStatus =
+                      woInfo && typeof woInfo === 'object' && 'status' in woInfo
+                        ? (woInfo.status as string) ?? undefined
+                        : undefined;
                     return (
                       <SectorCard
                         key={group.sectorId}
@@ -899,6 +1052,8 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                         status={timelineItem?.status || 'pending'}
                         tasks={getSectorTasks(group)}
                         diagnosticoCompleted={timelineItem?.diagnosticoCompleted || false}
+                        workOrderNumber={workOrderNumber}
+                        workOrderStatus={workOrderStatus}
                       />
                     );
                   })}
@@ -991,9 +1146,7 @@ export function OrderDetailDialog({ order, open, onClose, context = 'workshop' }
                                   Externo
                                 </Badge>
                               )}
-                              <span className="truncate">
-                                {item.types_of_repairs?.name || item.description || 'Sin descripcion'}
-                              </span>
+                              <span className="truncate">{getRepairDisplayName(item)}</span>
                               <Badge
                                 variant={
                                   woStatus === 'completed'

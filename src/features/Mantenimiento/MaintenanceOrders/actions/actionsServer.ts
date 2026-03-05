@@ -113,8 +113,12 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
             rejected_at: true,
             workshop_chief_comment_by: true,
             types_of_repairs: { select: { id: true, name: true, autorizable: true } },
+            maintenance_order_item_repair_types: {
+              select: { types_of_repairs: { select: { id: true, name: true } } },
+            },
             workshop_sectors: { select: { id: true, name: true } },
             workshops: { select: { id: true, name: true, type: true } },
+            work_orders: { select: { id: true, order_number: true, status: true, priority: true } },
             profile_maintenance_order_items_rejected_byToprofile: { select: { id: true, fullname: true } },
             profile_maintenance_order_items_workshop_chief_comment_byToprofile: {
               select: { id: true, fullname: true },
@@ -197,9 +201,9 @@ export async function getMaintenanceOrders(statusFilter?: string | string[]) {
           item.work_order_items.length > 0
             ? {
                 id: item.work_order_id,
-                order_number: null as string | null,
-                status: null as string | null,
-                priority: null as string | null,
+                order_number: item.work_orders?.order_number ?? null,
+                status: item.work_orders?.status ?? null,
+                priority: item.work_orders?.priority ?? null,
                 work_order_items: item.work_order_items.map((woi) => ({
                   ...woi,
                   work_order_item_repairs: woi.work_order_item_repairs.map((repair) => ({
@@ -307,8 +311,12 @@ export async function getMaintenanceOrderDetail(orderId: string) {
             rejected_at: true,
             workshop_chief_comment_by: true,
             types_of_repairs: { select: { id: true, name: true, autorizable: true } },
+            maintenance_order_item_repair_types: {
+              select: { types_of_repairs: { select: { id: true, name: true } } },
+            },
             workshop_sectors: { select: { id: true, name: true } },
             workshops: { select: { id: true, name: true, type: true } },
+            work_orders: { select: { id: true, order_number: true, status: true, priority: true } },
             profile_maintenance_order_items_rejected_byToprofile: { select: { id: true, fullname: true } },
             profile_maintenance_order_items_workshop_chief_comment_byToprofile: {
               select: { id: true, fullname: true },
@@ -336,6 +344,7 @@ export async function getMaintenanceOrderDetail(orderId: string) {
               select: {
                 id: true,
                 status: true,
+                maintenance_order_item_id: true,
                 work_order_item_repairs: {
                   select: {
                     id: true,
@@ -393,9 +402,9 @@ export async function getMaintenanceOrderDetail(orderId: string) {
           item.work_order_items.length > 0
             ? {
                 id: item.work_order_id,
-                order_number: null as string | null,
-                status: null as string | null,
-                priority: null as string | null,
+                order_number: item.work_orders?.order_number ?? null,
+                status: item.work_orders?.status ?? null,
+                priority: item.work_orders?.priority ?? null,
                 work_order_items: item.work_order_items.map((woi) => ({
                   ...woi,
                   work_order_item_repairs: woi.work_order_item_repairs.map((repair) => ({

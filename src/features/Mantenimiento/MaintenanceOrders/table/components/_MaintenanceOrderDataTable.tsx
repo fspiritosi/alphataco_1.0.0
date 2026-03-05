@@ -1,39 +1,30 @@
 'use client';
 
 import {
-  DataTable,
-  type DataTableFacetedFilterConfig,
-  type DataTableSearchParams,
-} from '@/shared/components/common/DataTable';
-import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import {
   getOrderForManagement,
   type ExternalWorkshop,
   type OrderManagementItem,
   type WorkshopSector,
 } from '@/features/Mantenimiento/OrderManagement/actions/actionsServer';
 import { ManageOrderWizard } from '@/features/Mantenimiento/OrderManagement/components/ManageOrderWizard';
-import { useQuery } from '@tanstack/react-query';
 import {
-  Activity,
-  CheckCircle2,
-  CircleOff,
-  Clock,
-  type LucideIcon,
-  Settings,
-  Truck,
-  XCircle,
-} from 'lucide-react';
+  DataTable,
+  type DataTableFacetedFilterConfig,
+  type DataTableSearchParams,
+} from '@/shared/components/common/DataTable';
+import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import { useQuery } from '@tanstack/react-query';
+import { Activity, CheckCircle2, CircleOff, Clock, Settings, Truck, XCircle, type LucideIcon } from 'lucide-react';
 import moment from 'moment';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { OrderDetailDialog } from '../../components/OrderDetailDialog';
 import {
   getAllMaintenanceOrdersForExport,
   getMaintenanceOrdersFacets,
   type MaintenanceOrderListItem,
 } from '../actions.server';
-import { getMaintenanceOrdersColumns, HIDDEN_COLUMNS_BY_DEFAULT, statusLabels } from '../columns';
-import { OrderDetailDialog } from '../../components/OrderDetailDialog';
+import { HIDDEN_COLUMNS_BY_DEFAULT, getMaintenanceOrdersColumns, statusLabels } from '../columns';
 
 // ============================================================================
 // TYPES
@@ -89,6 +80,7 @@ export function _MaintenanceOrderDataTable({
 }: Props) {
   const [selectedOrder, setSelectedOrder] = useState<MaintenanceOrderListItem | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // ─── Manage Order Wizard state ──────────────────────────────────────────
   const [manageOrder, setManageOrder] = useState<OrderManagementItem | null>(null);
@@ -115,6 +107,7 @@ export function _MaintenanceOrderDataTable({
 
   // ─── Detail Dialog Handlers ─────────────────────────────────────────────
   const handleViewDetail = (order: MaintenanceOrderListItem) => {
+    setLoadingDetail(true);
     setSelectedOrder(order);
     setDetailDialogOpen(true);
   };
@@ -272,10 +265,8 @@ export function _MaintenanceOrderDataTable({
           const label = vehicle?.domain ?? vehicle?.serie ?? 'Sin identificar';
           return vehicle?.intern_number ? `${label} (#${vehicle.intern_number})` : label;
         },
-        workshop_entry_date: (val: unknown) =>
-          val ? moment(val as string).format('DD/MM/YYYY') : '',
-        created_at: (val: unknown) =>
-          val ? moment(val as string).format('DD/MM/YYYY HH:mm') : '',
+        workshop_entry_date: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY') : ''),
+        created_at: (val: unknown) => (val ? moment(val as string).format('DD/MM/YYYY HH:mm') : ''),
         status: (val: unknown) => {
           const status = val as string;
           return statusLabels[status] ?? status ?? '';
@@ -337,11 +328,22 @@ export function _MaintenanceOrderDataTable({
         showFilterToggle={true}
       />
 
+      {/* Loading overlay para carga de detalle */}
+      {loadingDetail && (
+        <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50">
+          <div className="bg-card p-4 rounded-lg shadow-lg flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-sm">Cargando detalle de orden...</span>
+          </div>
+        </div>
+      )}
+
       {/* Dialog de detalle */}
       <OrderDetailDialog
-        order={selectedOrder as never}
+        orderId={selectedOrder?.id}
         open={detailDialogOpen}
         onClose={handleCloseDetail}
+        onLoaded={() => setLoadingDetail(false)}
         context="workshop"
       />
 

@@ -37,41 +37,71 @@ export async function getTallerPipelineCounts(): Promise<PipelineCounts> {
       ...supervisorCondition,
     };
 
-    const [schedule, confirmed, inWorkshop, approvals] = await Promise.all([
-      // Paso 1: Por Programar — ordenes pendientes de programacion o con fecha propuesta
-      prisma.maintenance_orders.count({
-        where: {
-          ...ordersWhere,
-          status: { in: ['pending_scheduling', 'scheduled'] },
-        },
-      }),
-      // Paso 2: Confirmados — fecha confirmada por Operaciones, esperando entrada al taller
-      prisma.maintenance_orders.count({
-        where: { ...ordersWhere, status: 'date_confirmed' },
-      }),
-      // Paso 3: En Taller — ordenes actualmente en taller
-      prisma.maintenance_orders.count({
-        where: { ...ordersWhere, status: 'in_workshop' },
-      }),
-      // Paso 4: Aprobaciones — reparaciones de items pendientes de aprobacion o reasignacion
-      // Cadena: work_order_item_repairs → work_order_items → maintenance_order_items → maintenance_orders → vehicles
-      prisma.work_order_item_repairs.count({
-        where: {
-          status: { in: ['pending_approval', 'reassignment_requested'] },
-          work_order_items: {
-            maintenance_order_items: {
-              maintenance_orders: {
-                vehicles: { company_id: companyId },
-                ...supervisorCondition,
+    const [schedule, confirmed, inWorkshop, validationOrders, pendingApprovalRepairs, reassignmentRepairs] =
+      await Promise.all([
+        // Paso 1: Por Programar — ordenes pendientes de programacion o con fecha propuesta
+        prisma.maintenance_orders.count({
+          where: {
+            ...ordersWhere,
+            status: { in: ['pending_scheduling', 'scheduled'] },
+          },
+        }),
+        // Paso 2: Confirmados — fecha confirmada por Operaciones, esperando entrada al taller
+        prisma.maintenance_orders.count({
+          where: { ...ordersWhere, status: 'date_confirmed' },
+        }),
+        // Paso 3: En Taller — ordenes actualmente en taller (sin pending_workshop_validation)
+        prisma.maintenance_orders.count({
+          where: { ...ordersWhere, status: 'in_workshop' },
+        }),
+        // Paso 4a: Ordenes pendientes de validacion del jefe de taller
+        prisma.maintenance_orders.count({
+          where: { ...ordersWhere, status: 'pending_workshop_validation' },
+        }),
+        // Paso 4b: Reparaciones pendientes de aprobacion
+        prisma.work_order_item_repairs.count({
+          where: {
+            status: 'pending_approval',
+            work_order_items: {
+              maintenance_order_items: {
+                maintenance_orders: {
+                  vehicles: { company_id: companyId },
+                  ...supervisorCondition,
+                },
               },
             },
           },
-        },
-      }),
-    ]);
+        }),
+        // Paso 4c: Reparaciones en reasignacion
+        prisma.work_order_item_repairs.count({
+          where: {
+            status: 'reassignment_requested',
+            work_order_items: {
+              maintenance_order_items: {
+                maintenance_orders: {
+                  vehicles: { company_id: companyId },
+                  ...supervisorCondition,
+                },
+              },
+            },
+          },
+        }),
+      ]);
+
+    // Paso 4: suma de validaciones + autorizaciones + reasignaciones
+    const approvals = validationOrders + pendingApprovalRepairs + reassignmentRepairs;
 
     logger.debug('Counts de pipeline Taller obtenidos', {
-      data: { schedule, confirmed, inWorkshop, approvals, companyId },
+      data: {
+        schedule,
+        confirmed,
+        inWorkshop,
+        approvals,
+        validationOrders,
+        pendingApprovalRepairs,
+        reassignmentRepairs,
+        companyId,
+      },
     });
 
     return {

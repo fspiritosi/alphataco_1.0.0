@@ -69,22 +69,16 @@ interface ColumnCallbacks {
 // ============================================================================
 
 function calculateProgress(order: MaintenanceOrderListItem): { total: number; completed: number; percent: number } {
-  let total = 0;
-  let completed = 0;
-
-  for (const item of order.maintenance_order_items ?? []) {
-    if (item.is_diagnostico) continue;
-    const workOrder = item.work_orders;
-    if (workOrder) {
-      for (const woItem of workOrder.work_order_items ?? []) {
-        for (const repair of woItem.work_order_item_repairs ?? []) {
-          total++;
-          if (repair.status === 'completed') completed++;
-        }
-      }
-    }
-  }
-
+  const items = order.maintenance_order_items ?? [];
+  // Collect ALL repairs from all work orders
+  const allRepairs = items.flatMap((item) => {
+    const woItems = item.work_orders?.work_order_items ?? [];
+    return woItems.flatMap((woi) => woi.work_order_item_repairs ?? []);
+  });
+  // Exclude cancelled and rejected from the count
+  const activeRepairs = allRepairs.filter((r) => r.status !== 'cancelled' && r.status !== 'rejected');
+  const total = activeRepairs.length;
+  const completed = activeRepairs.filter((r) => r.status === 'completed').length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
   return { total, completed, percent };
 }
@@ -130,9 +124,7 @@ export function getMaintenanceOrdersColumns({
       id: 'order_number',
       meta: { title: 'N° Orden' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="N° Orden" />,
-      cell: ({ row }) => (
-        <span className="font-mono text-sm font-medium">{row.original.order_number ?? '-'}</span>
-      ),
+      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.order_number ?? '-'}</span>,
     },
 
     // ── Equipo / Vehículo (FK → vehicles) ──────────────────────────────────
@@ -146,9 +138,7 @@ export function getMaintenanceOrdersColumns({
         return (
           <div className="flex flex-col">
             <span className="font-medium">{vehicle?.domain ?? vehicle?.serie ?? 'Sin identificar'}</span>
-            {vehicle?.intern_number && (
-              <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>
-            )}
+            {vehicle?.intern_number && <span className="text-xs text-muted-foreground">#{vehicle.intern_number}</span>}
           </div>
         );
       },

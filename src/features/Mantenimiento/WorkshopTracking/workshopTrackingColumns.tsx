@@ -4,20 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { DataTableColumnHeader } from '@/shared/components/common/DataTable';
+import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import { type ColumnDef } from '@tanstack/react-table';
 import type { LucideIcon } from 'lucide-react';
-import {
-  AlertCircle,
-  CheckCircle2,
-  Circle,
-  CircleOff,
-  Clock,
-  Eye,
-  Play,
-  XCircle,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Circle, Clock, Eye, Play, XCircle } from 'lucide-react';
 import moment from 'moment';
 import type { WorkshopTrackingListItem } from './actions.server';
 
@@ -57,9 +48,7 @@ function getSectorStatus(sectorItems: MaintenanceOrderItem[]): 'completed' | 'in
     const wo = item.work_orders;
     if (!wo) return [];
     const woi = wo.work_order_items ?? [];
-    return woi
-      .filter((w) => w.maintenance_order_item_id === item.id)
-      .flatMap((w) => w.work_order_item_repairs ?? []);
+    return woi.filter((w) => w.maintenance_order_item_id === item.id).flatMap((w) => w.work_order_item_repairs ?? []);
   });
 
   if (repairs.length === 0) return 'pending';
@@ -67,6 +56,26 @@ function getSectorStatus(sectorItems: MaintenanceOrderItem[]): 'completed' | 'in
   if (completed === repairs.length) return 'completed';
   if (completed > 0 || repairs.some((r) => r.status === 'in_progress')) return 'in_progress';
   return 'pending';
+}
+
+// ============================================================================
+// HELPER: Calculate repair progress from work_order_item_repairs
+// ============================================================================
+
+function calculateRepairProgress(items: WorkshopTrackingListItem['maintenance_order_items']): {
+  total: number;
+  completed: number;
+  percent: number;
+} {
+  const allRepairs = (items ?? []).flatMap((item) => {
+    const woItems = item.work_orders?.work_order_items ?? [];
+    return woItems.flatMap((woi) => woi.work_order_item_repairs ?? []);
+  });
+  const activeRepairs = allRepairs.filter((r) => r.status !== 'cancelled' && r.status !== 'rejected');
+  const total = activeRepairs.length;
+  const completed = activeRepairs.filter((r) => r.status === 'completed').length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return { total, completed, percent };
 }
 
 // ============================================================================
@@ -85,9 +94,7 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
       id: 'order_number',
       meta: { title: 'N° Orden' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="N° Orden" />,
-      cell: ({ row }) => (
-        <span className="font-mono text-sm font-medium">{row.original.order_number || '-'}</span>
-      ),
+      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.original.order_number || '-'}</span>,
     },
 
     // ── Equipo (FK → vehicles) ────────────────────────────────────────────────
@@ -160,10 +167,7 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
         const items = row.original.maintenance_order_items ?? [];
 
         // Agrupar items por sector con su orden de secuencia
-        const sectorMap = new Map<
-          string,
-          { name: string; seq: number; items: typeof items }
-        >();
+        const sectorMap = new Map<string, { name: string; seq: number; items: typeof items }>();
         items.forEach((item) => {
           const sectorId = item.assigned_sector_id;
           if (!sectorId) return;
@@ -188,32 +192,17 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
             <div className="flex items-center gap-1 flex-wrap">
               {sectors.map((sector, idx) => {
                 const status = getSectorStatus(sector.items);
-                const Icon =
-                  status === 'completed' ? CheckCircle2 : status === 'in_progress' ? Play : Circle;
+                const Icon = status === 'completed' ? CheckCircle2 : status === 'in_progress' ? Play : Circle;
                 const statusLabel =
-                  status === 'completed'
-                    ? 'Completado'
-                    : status === 'in_progress'
-                      ? 'En progreso'
-                      : 'Pendiente';
+                  status === 'completed' ? 'Completado' : status === 'in_progress' ? 'En progreso' : 'Pendiente';
                 return (
                   <Tooltip key={`${sector.name}-${idx}`}>
                     <TooltipTrigger asChild>
                       <div className="flex items-center gap-1">
-                        {idx > 0 && (
-                          <span className="text-muted-foreground text-[10px]">&rarr;</span>
-                        )}
+                        {idx > 0 && <span className="text-muted-foreground text-[10px]">&rarr;</span>}
                         <Badge
-                          variant={
-                            status === 'completed'
-                              ? 'secondary'
-                              : status === 'in_progress'
-                                ? 'info'
-                                : 'outline'
-                          }
-                          className={`text-[10px] gap-1 ${
-                            status === 'completed' ? 'opacity-50 line-through' : ''
-                          }`}
+                          variant={status === 'completed' ? 'secondary' : status === 'in_progress' ? 'info' : 'outline'}
+                          className={`text-[10px] gap-1 ${status === 'completed' ? 'opacity-50 line-through' : ''}`}
                         >
                           <Icon className="h-2.5 w-2.5" />
                           {sector.name}
@@ -269,12 +258,7 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
       meta: { title: 'Progreso' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Progreso" />,
       cell: ({ row }) => {
-        const items = row.original.maintenance_order_items ?? [];
-        const workItems = items.filter((i) => !i.is_diagnostico);
-        const total = workItems.length;
-        const assigned = workItems.filter((i) => i.assigned_sector_id).length;
-        const percent = total > 0 ? Math.round((assigned / total) * 100) : 0;
-
+        const { percent } = calculateRepairProgress(row.original.maintenance_order_items);
         return (
           <div className="flex items-center gap-2 min-w-[120px]">
             <Progress value={percent} className="h-2 flex-1" />
@@ -305,12 +289,7 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
       enableHiding: false,
       header: '',
       cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onViewDetail(row.original)}
-          className="gap-1"
-        >
+        <Button variant="ghost" size="sm" onClick={() => onViewDetail(row.original)} className="gap-1">
           <Eye className="h-4 w-4" />
           Ver
         </Button>
@@ -323,13 +302,11 @@ export function getWorkshopTrackingColumns({ onViewDetail }: ColumnsProps): Colu
 // STATUS FILTER OPTIONS (para los filtros faceted del cliente)
 // ============================================================================
 
-export const WORKSHOP_STATUS_FILTER_OPTIONS = Object.entries(WORKSHOP_STATUS_CONFIG).map(
-  ([value, config]) => ({
-    value,
-    label: config.label,
-    icon: config.icon,
-  })
-);
+export const WORKSHOP_STATUS_FILTER_OPTIONS = Object.entries(WORKSHOP_STATUS_CONFIG).map(([value, config]) => ({
+  value,
+  label: config.label,
+  icon: config.icon,
+}));
 
 // ============================================================================
 // EXPORT CONFIG: formatters
@@ -372,12 +349,8 @@ export function getWorkshopTrackingExportFormatters() {
       return sorted.map((s) => s.name).join(' → ') || 'Sin asignar';
     },
     progress: (_val: unknown, row: WorkshopTrackingListItem) => {
-      const items = row.maintenance_order_items ?? [];
-      const workItems = items.filter((i) => !i.is_diagnostico);
-      const total = workItems.length;
-      const assigned = workItems.filter((i) => i.assigned_sector_id).length;
-      if (total === 0) return '0%';
-      return `${Math.round((assigned / total) * 100)}%`;
+      const { percent } = calculateRepairProgress(row.maintenance_order_items);
+      return `${percent}%`;
     },
     days_in_workshop: (_val: unknown, row: WorkshopTrackingListItem) => {
       const date = row.workshop_entry_date;
