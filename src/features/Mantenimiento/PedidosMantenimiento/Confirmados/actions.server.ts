@@ -52,7 +52,7 @@ const DATE_RANGE_COLUMNS = ['created_at', 'scheduled_date', 'date_approved_at'];
 const COLUMN_MAP: Record<string, string> = {
   vehicle: 'equipment_id',
   condition: 'condition', // campo en vehicles, manejado manualmente
-  source: 'source',       // campo en maintenance_requests, manejado manualmente
+  source: 'source', // campo en maintenance_requests, manejado manualmente
 };
 
 /** Select común con todas las relaciones resueltas */
@@ -72,6 +72,7 @@ const CONFIRMED_ORDERS_SELECT = {
       intern_number: true,
       kilometer: true,
       condition: true,
+      engine_hours: true,
     },
   },
   maintenance_requests: {
@@ -135,8 +136,8 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
       ...TEXT_COLUMNS,
       ...DATE_RANGE_COLUMNS.flatMap((c) => [`${c}_from`, `${c}_to`]),
       'condition', // manejado manualmente (en vehicles)
-      'vehicle',   // manejado manualmente (FK)
-      'source',    // manejado manualmente (en maintenance_requests)
+      'vehicle', // manejado manualmente (FK)
+      'source', // manejado manualmente (en maintenance_requests)
     ],
   });
 
@@ -235,10 +236,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
     const realValues = sourceValues.filter((v) => v !== NULL_FILTER_VALUE);
     if (hasNull && realValues.length > 0) {
       extraAndConditions.push({
-        OR: [
-          { maintenance_requests: { source: { in: realValues } } },
-          { maintenance_requests: { source: null } },
-        ],
+        OR: [{ maintenance_requests: { source: { in: realValues } } }, { maintenance_requests: { source: null } }],
       });
     }
   }
@@ -459,7 +457,9 @@ export async function getConfirmedOrdersFacets(searchParams?: DataTableSearchPar
     return {
       vehicle: toFacetMap(vehicleCounts.map((r) => ({ key: r.equipment_id, count: r._count }))),
       vehicleOptions: vehicles,
-      condition: toFacetMap(conditionCounts.map((r) => ({ key: r.condition as string | null, count: r._count.maintenance_orders }))),
+      condition: toFacetMap(
+        conditionCounts.map((r) => ({ key: r.condition as string | null, count: r._count.maintenance_orders }))
+      ),
       source: toFacetMap(sourceCounts.map((r) => ({ key: r.source as string | null, count: r._count }))),
     };
   } catch (error) {

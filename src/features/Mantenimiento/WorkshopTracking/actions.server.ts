@@ -13,6 +13,7 @@ import {
 } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { prisma } from '@/shared/lib/prisma';
+import { getSupervisorFilterInfo } from '../utils/supervisorFilter';
 
 const logger = new Logger('WorkshopTracking/actions.server');
 
@@ -128,8 +129,11 @@ const WORKSHOP_TRACKING_SELECT = {
 /**
  * Construye el WHERE base para workshop tracking.
  * Muestra órdenes en todos los estados relevantes de taller.
+ * Aplica filtro de supervisor: si el usuario no tiene view_all_requests,
+ * solo ve órdenes donde él es supervisor de la solicitud.
  */
 async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseSearchParams>) {
+  const supervisorFilter = await getSupervisorFilterInfo();
   const searchWhere = buildSearchWhere(state.search, ['order_number']);
 
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
@@ -191,6 +195,14 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
     }
   }
 
+  // ─── Filtro supervisor: si no tiene view_all_requests, solo ve las suyas ──
+  const supervisorCondition: Record<string, unknown> = {};
+  if (supervisorFilter?.shouldFilterBySupervisor) {
+    supervisorCondition.maintenance_requests = {
+      supervisor_id: supervisorFilter.userId,
+    };
+  }
+
   return {
     status: { in: WORKSHOP_TRACKING_STATUSES },
     vehicles: { company_id: companyId },
@@ -199,6 +211,7 @@ async function buildBaseWhere(companyId: string, state: ReturnType<typeof parseS
     ...textFiltersWhere,
     ...dateFiltersWhere,
     ...vehicleFilter,
+    ...supervisorCondition,
     ...(extraAndConditions.length > 0 ? { AND: extraAndConditions } : {}),
   };
 }
@@ -289,10 +302,20 @@ export async function getAllWorkshopTrackingForExport(searchParams: DataTableSea
  */
 export async function getWorkshopTrackingFacets(searchParams?: DataTableSearchParams) {
   const companyId = await getServerCompanyId();
+  const supervisorFilter = await getSupervisorFilterInfo();
+
+  // Filtro supervisor: si no tiene view_all_requests, solo ve las suyas
+  const supervisorCondition: Record<string, unknown> = {};
+  if (supervisorFilter?.shouldFilterBySupervisor) {
+    supervisorCondition.maintenance_requests = {
+      supervisor_id: supervisorFilter.userId,
+    };
+  }
 
   const baseWhere = {
     status: { in: WORKSHOP_TRACKING_STATUSES },
     vehicles: { company_id: companyId },
+    ...supervisorCondition,
   };
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
