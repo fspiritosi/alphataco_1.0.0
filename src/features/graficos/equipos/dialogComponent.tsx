@@ -174,7 +174,7 @@ export default function DialogComponent({
           </CardContent>
         </Card>
       </DialogTrigger>
-      <DialogContent className="max-w-[70vw] max-h-full overflow-y-auto pb-8">
+      <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {vehiclesNotInDailyReport?.length ? 'Disponibles' : 'Unidades en Reparación'} (
