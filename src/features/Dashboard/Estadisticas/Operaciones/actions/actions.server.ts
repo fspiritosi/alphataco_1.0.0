@@ -30,7 +30,7 @@ export type OperationsChartData = {
 
 export async function getOperationsChartData(): Promise<OperationsChartData> {
   const companyId = await getServerCompanyId();
-  const since = moment().subtract(90, 'days').format('YYYY-MM-DD');
+  const since = moment().subtract(12, 'months').startOf('month').format('YYYY-MM-DD');
 
   logger.debug('Fetching operations chart data', { data: { companyId, since } });
 

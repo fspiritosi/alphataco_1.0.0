@@ -13,7 +13,7 @@
  * TODO: Eliminar este archivo cuando se complete la migración de todos los lugares que lo usan.
  */
 'use client';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -24,12 +24,11 @@ import { formatDocumentTypeName } from '@/lib/utils/utils';
 import { TypeOfRepair } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
+import moment from 'moment';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { FiTool } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -42,9 +41,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
-import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
-import { criticidad } from './RepairSolicitudesTable/data';
 type FormValues = {
   description: string;
   repair: string;
@@ -56,12 +53,17 @@ type FormValues = {
 }[];
 
 import { fetchAllEquipmentBasicData } from '@/app/server/GET/actions';
+import { Calendar } from '@/components/ui/calendar';
 import { createFilterOptions } from '@/features/Employees/Empleados/components/utils/utils';
+import { Logger } from '@/lib/logger';
 import { BaseDataTable } from '@/shared/components/data-table/base/data-table';
 import { DataTableColumnHeader } from '@/shared/components/data-table/base/data-table-column-header';
 import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { CalendarDays } from 'lucide-react';
 import { createRepairSolicitud } from './actions/actions';
 import { fetchMaintenanceGroupsActionType } from './actions/maintenanceGroupActions';
+
+const logger = new Logger('RepairEntry');
 
 interface RepairDetailsModalProps {
   isOpen: boolean;
@@ -321,6 +323,9 @@ export default function RepairNewEntry({
 }) {
   const router = useRouter();
   const [allRepairs, setAllRepairs] = useState<FormValues>([]);
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
+  const [scheduledInputValue, setScheduledInputValue] = useState<string>('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [typeOfEquipment, setTypeOfEquipment] = useState<{ name: string } | undefined>(
     equipment?.find((equip) => equip.id === default_equipment_id)?.types_of_vehicles?.name as any
   );
@@ -549,6 +554,7 @@ export default function RepairNewEntry({
                 state: 'Pendiente' as const,
                 employee_id,
                 kilometer: e.kilometer,
+                scheduled: scheduledDate ? scheduledDate.toISOString() : null,
               };
             })
           );
@@ -601,7 +607,7 @@ export default function RepairNewEntry({
                       try {
                         await formatImagesUrl(image, e.domain, e.repair, index);
                       } catch (error) {
-                        console.error(`Error al subir imagen ${index} para reparación ${e.repair}:`, error);
+                        logger.error(`Error al subir imagen ${index} para reparación ${e.repair}`, { data: { error } });
                         // No lanzamos el error para que las demás imágenes se sigan subiendo
                       }
                     })
@@ -616,7 +622,8 @@ export default function RepairNewEntry({
             onReturn();
           }
         } catch (error) {
-          console.error(error);
+          logger.error('Error al crear reparaciones', { data: { error } });
+          throw error;
         }
       },
       {
@@ -744,8 +751,8 @@ export default function RepairNewEntry({
 
   return (
     <Card className="p-6">
-      <ResizablePanelGroup direction="horizontal" className="pt-6 flex flex-wrap sm:flex-nowrap w-full">
-        <ResizablePanel className="sm:min-w-[280px] min-w-full" defaultSize={30}>
+      <ResizablePanelGroup direction="horizontal" className="pt-6 w-full">
+        <ResizablePanel defaultSize={40} minSize={25} className="min-w-[260px]">
           <div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -958,6 +965,53 @@ export default function RepairNewEntry({
                       </PopoverContent>
                     </Popover>
                   </div>
+
+                  {/* Campo de fecha de solicitud (aplica a todas las reparaciones del batch) */}
+                  <div className="flex flex-col space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <CalendarDays className="h-4 w-4" />
+                      Fecha de solicitud
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="DD/MM/YYYY"
+                        value={scheduledInputValue}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setScheduledInputValue(raw);
+                          const parsed = moment(raw, 'DD/MM/YYYY', true);
+                          if (parsed.isValid()) {
+                            setScheduledDate(parsed.toDate());
+                          } else {
+                            setScheduledDate(undefined);
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="icon" type="button" className="shrink-0">
+                            <CalendarDays className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={scheduledDate}
+                            onSelect={(date) => {
+                              setScheduledDate(date);
+                              setScheduledInputValue(date ? moment(date).format('DD/MM/YYYY') : '');
+                              setCalendarOpen(false);
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Fecha de cuándo es esta OS. Permite cargar órdenes históricas con cualquier fecha.
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-4 mt-4 pt-4 border-t justify-end pr-4 mb-2">
                   <Button type="submit" variant={'outline'} className="w-full sm:w-auto">
@@ -968,8 +1022,8 @@ export default function RepairNewEntry({
             </Form>
           </div>
         </ResizablePanel>
-        <ResizableHandle withHandle className="hidden md:flex" />
-        <ResizablePanel className="pl-6 min-w-[600px] hidden sm:flex w-full" defaultSize={70}>
+        <ResizableHandle withHandle />
+        <ResizablePanel className="pl-6 min-w-0 overflow-hidden" defaultSize={60} minSize={30}>
           <div className="flex flex-col gap-4 w-full ">
             <CardTitle>Se registraran las siguientes reparaciones</CardTitle>
 
@@ -1001,139 +1055,6 @@ export default function RepairNewEntry({
             )}
           </div>
         </ResizablePanel>
-        <ResizablePanel className=" min-w-[250px] sm:hidden" defaultSize={70}>
-          <div>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                {/* <CardTitle className="text-2xl font-bold">{repair?.name}</CardTitle> */}
-                {/* <Badge variant="outline" className="text-sm">
-                {repair?.criticity}
-              </Badge> */}
-              </CardHeader>
-              <CardContent className="grid p-0 gap-4 overflow-x-auto w-full">
-                <div className="flex p-2 gap-3 flex-wrap">
-                  {vehicle?.picture && (
-                    <div className="relative w-20 h-20 rounded-md overflow-hidden shrink-0">
-                      <Image
-                        src={vehicle?.picture}
-                        alt={`Vehicle ${vehicle?.domain || vehicle?.serie}`}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">{vehicle?.domain || vehicle?.serie || 'Sin identificador'}</p>
-                    {vehicle?.types_of_vehicles?.name && (
-                      <p className="text-xs text-muted-foreground mt-1">{vehicle.types_of_vehicles.name}</p>
-                    )}
-                    {vehicle?.kilometer && <p className="text-xs text-muted-foreground">{vehicle.kilometer} km</p>}
-                  </div>
-                </div>
-                <Separator className="my-2" />
-                <ul className="w-full space-y-3 p-2 pb-0">
-                  {allRepairs?.map((field, index) => {
-                    const repair = tipo_de_mantenimiento.find((e) => e.id === field.repair);
-                    const maintenance = tipo_de_mantenimiento.find((e) => e.id === field.repair);
-                    const priority = criticidad.find((priority) => priority.value === repair?.criticity);
-                    const badgeVariant =
-                      repair?.criticity === 'Baja'
-                        ? 'success'
-                        : repair?.criticity === 'Media'
-                          ? 'yellow'
-                          : ('destructive' as
-                              | 'success'
-                              | 'default'
-                              | 'destructive'
-                              | 'outline'
-                              | 'secondary'
-                              | 'yellow'
-                              | 'red'
-                              | null
-                              | undefined);
-                    return (
-                      <li key={field.provicionalId}>
-                        <Card className="border-l-4 border-l-primary">
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <CardTitle className="text-base font-semibold line-clamp-2">{repair?.name}</CardTitle>
-                                <Badge variant={badgeVariant} className="mt-2 font-medium">
-                                  {priority?.icon && <priority.icon className="mr-1.5 h-3.5 w-3.5" />}
-                                  {repair?.criticity}
-                                </Badge>
-                              </div>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="pt-0 space-y-3">
-                            {/* Información siempre visible */}
-                            <div className="space-y-2 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <FiTool className="h-4 w-4 shrink-0" />
-                                <span>Tipo de mantenimiento: {maintenance?.type_of_maintenance || '-'}</span>
-                              </div>
-                            </div>
-
-                            {/* Botones de acción */}
-                            <div className="flex flex-col gap-2 pt-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenDetailsModal(field.provicionalId)}
-                                className="w-full"
-                              >
-                                {field.description ? 'Editar detalles' : 'Agregar detalles'}
-                              </Button>
-
-                              {/* Indicadores de estado */}
-                              {(field.description || field.user_images.some((img) => img !== null)) && (
-                                <div className="flex gap-2 flex-wrap">
-                                  {field.description && (
-                                    <Badge variant="success" className="text-xs">
-                                      ✓ Descripción
-                                    </Badge>
-                                  )}
-                                  {field.user_images.some((img) => img !== null) && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {field.user_images.filter((img) => img !== null).length} imagen
-                                      {field.user_images.filter((img) => img !== null).length > 1 ? 'es' : ''}
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDeleteRepair(field.provicionalId)}
-                                className="w-full"
-                              >
-                                Eliminar
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </CardContent>
-            </Card>
-
-            {allRepairs?.length > 0 && (
-              <Button
-                onClick={() => {
-                  createRepair();
-                }}
-                className="w-full mt-4"
-              >
-                Registrar solicitudes
-              </Button>
-            )}
-          </div>
-        </ResizablePanel>
-
         {/* Modal de detalles */}
         <RepairDetailsModal
           isOpen={detailsModalOpen}
