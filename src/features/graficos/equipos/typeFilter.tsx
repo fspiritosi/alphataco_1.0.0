@@ -51,7 +51,7 @@ export function TypeFilter({ typesVehicle }: TypeFilterProps) {
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="w-full">
-      <Card className="overflow-hidden p-2">
+      <Card className="p-2">
         {/* <h1 className="text-lg font-semibold">Indicadores por Tipo de unidad:</h1> */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="shrink-0">
@@ -59,19 +59,21 @@ export function TypeFilter({ typesVehicle }: TypeFilterProps) {
             <p className="text-gray-600">Filtrar por Tipos de unidad</p>
           </div>
 
-          <div className="flex min-w-0 flex-col sm:flex-row gap-3">
-            <MultiSelectCombobox
-              options={typesVehicle}
-              selectedValues={selectedValues}
-              onChange={handlePositionChange}
-              placeholder="Seleccionar Tipos de unidad..."
-              showSelectAll={true}
-              emptyMessage="No hay Tipos de unidad"
-            />
+          <div className="flex min-w-0 flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <MultiSelectCombobox
+                options={typesVehicle}
+                selectedValues={selectedValues}
+                onChange={handlePositionChange}
+                placeholder="Seleccionar Tipos de unidad..."
+                showSelectAll={true}
+                emptyMessage="No hay Tipos de unidad"
+              />
+            </div>
             <Button
               type="button"
               onClick={handleApplyFilter}
-              className="whitespace-nowrap min-w-[100px] ml-2"
+              className="whitespace-nowrap min-w-[100px] shrink-0"
               disabled={isPending}
             >
               {isPending ? (
