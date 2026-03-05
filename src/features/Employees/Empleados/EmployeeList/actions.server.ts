@@ -445,6 +445,15 @@ export async function getEmployeesFacets(isActive: boolean, searchParams?: DataT
       countryCounts,
       provinceCounts,
       cityCounts,
+      // M:M queries (parallelized — previously ran sequentially after Round 2)
+      contractorRelations,
+      allContractorRels,
+      totalInContractorCross,
+      withContractor,
+      aptitudRelations,
+      allAptitudRels,
+      totalInAptitudCross,
+      withAptitud,
     ] = await Promise.all([
       prisma.employees.groupBy({ by: ['status'], where: crossWhere('status'), _count: true }),
       prisma.employees.groupBy({ by: ['gender'], where: crossWhere('gender'), _count: true }),
@@ -492,6 +501,34 @@ export async function getEmployeesFacets(isActive: boolean, searchParams?: DataT
       prisma.employees.groupBy({ by: ['birthplace'], where: crossWhere('countries'), _count: true }),
       prisma.employees.groupBy({ by: ['province'], where: crossWhere('province'), _count: true }),
       prisma.employees.groupBy({ by: ['city'], where: crossWhere('city'), _count: true }),
+      // M:M contractor queries (parallelized with groupBy)
+      prisma.contractor_employee.findMany({
+        where: { employees: crossWhere('contractor_employee') },
+        select: { contractor_id: true, customers: { select: { id: true, name: true } } },
+        distinct: ['contractor_id'],
+      }),
+      prisma.contractor_employee.findMany({
+        where: { employees: crossWhere('contractor_employee') },
+        select: { contractor_id: true },
+      }),
+      prisma.employees.count({ where: crossWhere('contractor_employee') }),
+      prisma.employees.count({
+        where: { ...crossWhere('contractor_employee'), contractor_employee: { some: {} } },
+      }),
+      // M:M aptitud queries (parallelized with groupBy)
+      prisma.empleado_aptitudes.findMany({
+        where: { employees: crossWhere('empleado_aptitudes') },
+        select: { aptitud_id: true, aptitudes_tecnicas: { select: { id: true, nombre: true } } },
+        distinct: ['aptitud_id'],
+      }),
+      prisma.empleado_aptitudes.findMany({
+        where: { employees: crossWhere('empleado_aptitudes') },
+        select: { aptitud_id: true },
+      }),
+      prisma.employees.count({ where: crossWhere('empleado_aptitudes') }),
+      prisma.employees.count({
+        where: { ...crossWhere('empleado_aptitudes'), empleado_aptitudes: { some: {} } },
+      }),
     ]);
 
     // Round 2: resolver nombres de FK (solo IDs que aparecen en los counts)
@@ -575,58 +612,25 @@ export async function getEmployeesFacets(isActive: boolean, searchParams?: DataT
         : [],
     ]);
 
-    // M:M facets: contractor_employee (con cross-filter)
-    const contractorCrossWhere = crossWhere('contractor_employee');
-    const contractorRelations = await prisma.contractor_employee.findMany({
-      where: { employees: contractorCrossWhere },
-      select: { contractor_id: true, customers: { select: { id: true, name: true } } },
-      distinct: ['contractor_id'],
-    });
+    // M:M facets processing (queries already ran in parallel in Round 1)
     const contractorIds = contractorRelations.map((r) => r.contractor_id).filter(Boolean) as string[];
-
     const contractorCountMap = new Map<string, number>();
-    const allContractorRels = await prisma.contractor_employee.findMany({
-      where: { employees: contractorCrossWhere },
-      select: { contractor_id: true },
-    });
     for (const rel of allContractorRels) {
       if (rel.contractor_id) {
         contractorCountMap.set(rel.contractor_id, (contractorCountMap.get(rel.contractor_id) ?? 0) + 1);
       }
     }
-    // Contar empleados SIN ninguna afectación
-    const totalInContractorCross = await prisma.employees.count({ where: contractorCrossWhere });
-    const withContractor = await prisma.employees.count({
-      where: { ...contractorCrossWhere, contractor_employee: { some: {} } },
-    });
     const unassignedContractorCount = totalInContractorCross - withContractor;
     if (unassignedContractorCount > 0) {
       contractorCountMap.set(NULL_FILTER_VALUE, unassignedContractorCount);
     }
 
-    // M:M facets: empleado_aptitudes (con cross-filter)
-    const aptitudCrossWhere = crossWhere('empleado_aptitudes');
-    const aptitudRelations = await prisma.empleado_aptitudes.findMany({
-      where: { employees: aptitudCrossWhere },
-      select: { aptitud_id: true, aptitudes_tecnicas: { select: { id: true, nombre: true } } },
-      distinct: ['aptitud_id'],
-    });
-
     const aptitudCountMap = new Map<string, number>();
-    const allAptitudRels = await prisma.empleado_aptitudes.findMany({
-      where: { employees: aptitudCrossWhere },
-      select: { aptitud_id: true },
-    });
     for (const rel of allAptitudRels) {
       if (rel.aptitud_id) {
         aptitudCountMap.set(rel.aptitud_id, (aptitudCountMap.get(rel.aptitud_id) ?? 0) + 1);
       }
     }
-    // Contar empleados SIN ninguna aptitud
-    const totalInAptitudCross = await prisma.employees.count({ where: aptitudCrossWhere });
-    const withAptitud = await prisma.employees.count({
-      where: { ...aptitudCrossWhere, empleado_aptitudes: { some: {} } },
-    });
     const unassignedAptitudCount = totalInAptitudCross - withAptitud;
     if (unassignedAptitudCount > 0) {
       aptitudCountMap.set(NULL_FILTER_VALUE, unassignedAptitudCount);

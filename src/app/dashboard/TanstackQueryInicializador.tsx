@@ -5,7 +5,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 0,
-      gcTime: 0,
+      gcTime: 5 * 60 * 1000, // 5 minutos — mantener cache al cambiar de tab/página
       refetchOnWindowFocus: false,
       retry: 1, // Solo 1 reintento en caso de error
     },

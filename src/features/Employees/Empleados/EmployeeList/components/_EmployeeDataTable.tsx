@@ -31,12 +31,18 @@ import {
   nationalityLabels,
   reasonForTerminationLabels,
 } from '@/shared/utils/mappers';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { CircleOff, Plus } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { getAllEmployeesForExport, getEmployeesFacets, type EmployeeListItem } from '../actions.server';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  getAllEmployeesForExport,
+  getEmployeesFacets,
+  getEmployeesPaginated,
+  type EmployeeFacets,
+  type EmployeeListItem,
+} from '../actions.server';
 import {
   HIDDEN_COLUMNS_BY_DEFAULT,
   affiliateStatusIcons,
@@ -63,6 +69,8 @@ interface EmployeeDataTableProps {
   tableId: string;
   /** Flat permissions map from server: "module:tab:action" → boolean */
   permissionsMap: Record<string, boolean>;
+  /** Pre-fetched facets from SSR — eliminates client waterfall on initial load */
+  initialFacets: EmployeeFacets;
   initialColumnVisibility?: Record<string, boolean>;
   initialFilterVisibility?: Record<string, boolean>;
 }
@@ -78,6 +86,7 @@ export default function _EmployeeDataTable({
   isActive,
   tableId,
   permissionsMap,
+  initialFacets,
   initialColumnVisibility,
   initialFilterVisibility,
 }: EmployeeDataTableProps) {
@@ -90,16 +99,33 @@ export default function _EmployeeDataTable({
     [permissionsMap]
   );
 
+  // ─── Client-side navigation: estado reactivo para queries dependientes ──────
+  // Cuando DataTable cambia filtros/paginación (via onStateChange), actualizamos
+  // currentParams → React Query se re-ejecuta → facets y export usan params frescos
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
+
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla
+  const tableQueryFn = useCallback(
+    (params: DataTableSearchParams) => getEmployeesPaginated(params, isActive),
+    [isActive]
+  );
+
   // Extraer solo los params relevantes para facets (sin page/sort)
   const facetParams = useMemo(() => {
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
+    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = currentParams;
     return rest;
-  }, [searchParams]);
+  }, [currentParams]);
 
-  // Facets con cross-filtering: se recalculan cuando cambian los filtros
+  // Facets con cross-filtering: initialData del SSR + keepPreviousData evita flash al cambiar filtros
   const { data: facets, isFetching: isFetchingFacets } = useQuery({
     queryKey: ['employees-facets', isActive, facetParams],
     queryFn: () => getEmployeesFacets(isActive, facetParams),
+    initialData: initialFacets ?? undefined,
+    placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -578,13 +604,15 @@ export default function _EmployeeDataTable({
       toolbarActions={toolbarActions}
       showFilterToggle
       isFetchingFacets={isFetchingFacets}
-      // showSearch
-      // searchPlaceholder="Buscar por nombre, CUIL o legajo..."
+      // Client-side navigation: fetch instantáneo via React Query, sin router.push
+      queryFn={tableQueryFn}
+      queryKey={['employees-paginated', isActive]}
+      onStateChange={handleStateChange}
       enableRowSelection
       showRowSelection
       emptyMessage="No se encontraron empleados"
       exportConfig={{
-        fetchAllData: () => getAllEmployeesForExport(searchParams, isActive),
+        fetchAllData: () => getAllEmployeesForExport(currentParams, isActive),
         options: {
           filename: isActive ? 'empleados-activos' : 'empleados-inactivos',
           sheetName: isActive ? 'Empleados Activos' : 'Empleados Inactivos',

@@ -2,7 +2,7 @@
 
 import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useMemo, useTransition } from 'react';
+import { useCallback, useMemo, useState, useTransition } from 'react';
 
 import { DEFAULT_PAGE_SIZE, PARAM_SEPARATOR, parseSearchParams, stateToSearchParams } from './helpers';
 import type { DataTableSearchParams, DataTableState } from './types';
@@ -32,6 +32,11 @@ interface UseDataTableOptions {
   filterableColumns?: string[];
   /** ID de la tabla para namespacing de URL params (aísla filtros entre tablas) */
   tableId?: string;
+  /**
+   * Cuando true, usa window.history.replaceState en lugar de router.push.
+   * Esto evita re-renders del servidor (no navega) — la tabla debe obtener datos via React Query.
+   */
+  clientSideNavigation?: boolean;
 }
 
 interface UseDataTableReturn {
@@ -53,73 +58,96 @@ interface UseDataTableReturn {
   onGlobalFilterChange: (value: string) => void;
   /** Resetear todos los filtros */
   resetFilters: () => void;
-  /** Indica si hay una navegación pendiente (transición React) */
+  /** Indica si hay una navegación pendiente (transición React) — siempre false en modo client-side */
   isPending: boolean;
   /** Función para envolver navegaciones en una transición React */
   startTransition: (callback: () => void) => void;
+  /** Notifica que la URL cambió externamente (para modo client-side) */
+  notifyUrlChange: () => void;
+  /** Versión del URL (se incrementa con cada cambio, para reactividad) */
+  urlVersion: number;
+  /** Si está en modo client-side */
+  isClientSide: boolean;
 }
 
 /**
- * Hook para manejar el estado del DataTable sincronizado con la URL
+ * Hook para manejar el estado del DataTable sincronizado con la URL.
  *
- * @example
- * ```tsx
- * const {
- *   state,
- *   pagination,
- *   sorting,
- *   columnFilters,
- *   onPaginationChange,
- *   onSortingChange,
- *   onColumnFiltersChange,
- * } = useDataTable({
- *   defaultPageSize: 20,
- *   filterableColumns: ['status', 'priority'],
- * });
- *
- * const table = useReactTable({
- *   manualPagination: true,
- *   manualSorting: true,
- *   manualFiltering: true,
- *   state: { pagination, sorting, columnFilters },
- *   onPaginationChange,
- *   onSortingChange,
- *   onColumnFiltersChange,
- *   // ...
- * });
- * ```
+ * Soporta dos modos:
+ * - **Server mode** (default): usa router.push, lo que dispara re-renders del servidor.
+ * - **Client-side mode**: usa window.history.replaceState — actualiza la URL silenciosamente
+ *   sin notificar a Next.js. La tabla debe obtener datos via React Query.
  */
 export function useDataTable(options: UseDataTableOptions = {}): UseDataTableReturn {
-  const { defaultPageSize = DEFAULT_PAGE_SIZE, filterableColumns = [], tableId } = options;
+  const {
+    defaultPageSize = DEFAULT_PAGE_SIZE,
+    filterableColumns = [],
+    tableId,
+    clientSideNavigation = false,
+  } = options;
 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
+  const [isPendingTransition, startTransition] = useTransition();
 
   // Prefijo para namespacing de params en la URL (vacío = sin namespace)
   const prefix = tableId ? `${tableId}${PARAM_SEPARATOR}` : '';
 
-  // Parsear estado actual de la URL (solo params con nuestro prefijo)
+  // For client-side mode: version counter triggers re-parse from window.location.search
+  const [urlVersion, setUrlVersion] = useState(0);
+
+  const notifyUrlChange = useCallback(() => {
+    setUrlVersion((v) => v + 1);
+  }, []);
+
+  // Parsear estado actual
+  // - Server mode: lee de useSearchParams() (reactivo a router.push)
+  // - Client-side mode: lee de window.location.search (reactivo a urlVersion)
   const state = useMemo(() => {
     const params: DataTableSearchParams = {};
-    searchParams.forEach((value, key) => {
-      if (prefix) {
-        // Solo leer params con nuestro prefijo, quitándolo
-        if (key.startsWith(prefix)) {
-          params[key.slice(prefix.length)] = value;
+
+    if (clientSideNavigation && typeof window !== 'undefined') {
+      // Leer directamente del browser URL (no del estado interno de Next.js)
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.forEach((value, key) => {
+        if (prefix) {
+          if (key.startsWith(prefix)) {
+            params[key.slice(prefix.length)] = value;
+          }
+        } else {
+          params[key] = value;
         }
-      } else {
-        params[key] = value;
-      }
-    });
+      });
+    } else {
+      // Server mode: usar useSearchParams de Next.js
+      searchParams.forEach((value, key) => {
+        if (prefix) {
+          if (key.startsWith(prefix)) {
+            params[key.slice(prefix.length)] = value;
+          }
+        } else {
+          params[key] = value;
+        }
+      });
+    }
+
     const parsed = parseSearchParams(params);
+
     // Aplicar defaultPageSize si no hay pageSize en URL
-    if (!searchParams.has(`${prefix}pageSize`)) {
+    const pageSizeKey = `${prefix}pageSize`;
+    const hasPageSize =
+      clientSideNavigation && typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).has(pageSizeKey)
+        : searchParams.has(pageSizeKey);
+
+    if (!hasPageSize) {
       parsed.pageSize = defaultPageSize;
     }
+
     return parsed;
-  }, [searchParams, defaultPageSize, prefix]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- urlVersion triggers re-read in client-side mode
+  }, [searchParams, urlVersion, defaultPageSize, prefix, clientSideNavigation]);
 
   // Convertir a formatos de TanStack Table
   const pagination: PaginationState = useMemo(
@@ -150,6 +178,14 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
     return filters;
   }, [state.search, state.filters, filterableColumns]);
 
+  // Helper: leer los searchParams actuales (del lugar correcto según modo)
+  const getCurrentSearchParams = useCallback(() => {
+    if (clientSideNavigation && typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search);
+    }
+    return new URLSearchParams(searchParams.toString());
+  }, [clientSideNavigation, searchParams]);
+
   // Función helper para actualizar URL
   const updateURL = useCallback(
     (newState: Partial<DataTableState>) => {
@@ -158,10 +194,11 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
 
       // Construir URL final preservando params de otras tablas/navegación
       const finalParams = new URLSearchParams();
+      const currentParams = getCurrentSearchParams();
 
       if (prefix) {
         // Mantener todos los params que NO pertenecen a esta tabla
-        searchParams.forEach((value, key) => {
+        currentParams.forEach((value, key) => {
           if (!key.startsWith(prefix)) {
             finalParams.set(key, value);
           }
@@ -178,13 +215,22 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
       }
 
       const queryString = finalParams.toString();
-      startTransition(() => {
-        router.push(queryString ? `${pathname}?${queryString}` : pathname, {
-          scroll: false,
+
+      if (clientSideNavigation) {
+        // Actualización silenciosa de URL (NO navega, NO re-renderiza server components)
+        const url = queryString ? `${pathname}?${queryString}` : pathname;
+        window.history.replaceState(window.history.state, '', url);
+        notifyUrlChange();
+      } else {
+        // Navegación del servidor (comportamiento actual para tablas no migradas)
+        startTransition(() => {
+          router.push(queryString ? `${pathname}?${queryString}` : pathname, {
+            scroll: false,
+          });
         });
-      });
+      }
     },
-    [state, pathname, router, startTransition, searchParams, prefix]
+    [state, pathname, router, startTransition, prefix, clientSideNavigation, notifyUrlChange, getCurrentSearchParams]
   );
 
   // Handlers
@@ -247,24 +293,54 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
   );
 
   const resetFilters = useCallback(() => {
-    if (prefix) {
-      // Solo quitar params de esta tabla, mantener el resto
-      const finalParams = new URLSearchParams();
-      searchParams.forEach((value, key) => {
-        if (!key.startsWith(prefix)) {
-          finalParams.set(key, value);
-        }
-      });
-      const queryString = finalParams.toString();
-      startTransition(() => {
-        router.push(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
-      });
+    if (clientSideNavigation) {
+      const currentParams = getCurrentSearchParams();
+      if (prefix) {
+        // Solo quitar params de esta tabla, mantener el resto
+        const keysToDelete: string[] = [];
+        currentParams.forEach((_, key) => {
+          if (key.startsWith(prefix)) keysToDelete.push(key);
+        });
+        keysToDelete.forEach((key) => currentParams.delete(key));
+        const qs = currentParams.toString();
+        window.history.replaceState(window.history.state, '', qs ? `${pathname}?${qs}` : pathname);
+      } else {
+        window.history.replaceState(window.history.state, '', pathname);
+      }
+      notifyUrlChange();
     } else {
-      startTransition(() => {
-        router.push(pathname, { scroll: false });
-      });
+      if (prefix) {
+        // Solo quitar params de esta tabla, mantener el resto
+        const finalParams = new URLSearchParams();
+        searchParams.forEach((value, key) => {
+          if (!key.startsWith(prefix)) {
+            finalParams.set(key, value);
+          }
+        });
+        const queryString = finalParams.toString();
+        startTransition(() => {
+          router.push(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
+        });
+      } else {
+        startTransition(() => {
+          router.push(pathname, { scroll: false });
+        });
+      }
     }
-  }, [pathname, router, startTransition, searchParams, prefix]);
+  }, [
+    pathname,
+    router,
+    startTransition,
+    searchParams,
+    prefix,
+    clientSideNavigation,
+    notifyUrlChange,
+    getCurrentSearchParams,
+  ]);
+
+  // En modo client-side, isPending es siempre false (no hay navegación pendiente)
+  // El estado de carga viene de React Query (isFetching) en el componente padre
+  const isPending = clientSideNavigation ? false : isPendingTransition;
 
   return {
     state,
@@ -278,5 +354,8 @@ export function useDataTable(options: UseDataTableOptions = {}): UseDataTableRet
     resetFilters,
     isPending,
     startTransition,
+    notifyUrlChange,
+    urlVersion,
+    isClientSide: clientSideNavigation,
   };
 }

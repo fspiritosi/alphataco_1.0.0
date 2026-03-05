@@ -216,6 +216,24 @@ export interface DataTableProps<TData, TValue = unknown> {
   'data-testid'?: string;
   /** Indica que los facets se están re-fetcheando (muestra skeletons en los filtros activos) */
   isFetchingFacets?: boolean;
+
+  // ---- Client-side navigation mode ----
+
+  /**
+   * Función para fetch de datos client-side. Cuando se provee, la tabla usa React Query
+   * internamente y window.history.replaceState (NO router.push) para actualizar la URL.
+   * Los props `data` y `totalRows` se usan como datos iniciales (SSR).
+   */
+  queryFn?: (params: DataTableSearchParams) => Promise<{ data: TData[]; total: number }>;
+
+  /** Key base para React Query (solo con queryFn). Se le agrega el state como último elemento. */
+  queryKey?: readonly unknown[];
+
+  /**
+   * Callback que se dispara cada vez que el estado de la tabla cambia (filtros, sort, paginación).
+   * Útil para que el padre actualice queries dependientes (ej: facets) con los nuevos params.
+   */
+  onStateChange?: (searchParams: DataTableSearchParams) => void;
 }
 
 /**
