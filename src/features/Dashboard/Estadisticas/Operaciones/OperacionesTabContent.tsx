@@ -1,14 +1,8 @@
-import { ChartBarServiceHistory } from '@/features/Dashboard/Estadisticas/Operaciones/Components/BarServiceHistory';
-import { ServicesHistory } from '@/features/Dashboard/Estadisticas/Operaciones/Components/ServicesHistory';
-import { getDailyReportsLatest } from '@/features/Operaciones/PartesDiarios/actions/actions';
+import { getOperationsChartData } from './actions/actions.server';
+import { OperacionesChartsDynamic } from './components/OperacionesChartsDynamic';
 
 export default async function OperacionesTabContent() {
-  const dailyReports = await getDailyReportsLatest();
+  const data = await getOperationsChartData();
 
-  return (
-    <section className=" grid grid-cols-1 gap-3 mb-4">
-      <ServicesHistory dailyReports={dailyReports} />
-      <ChartBarServiceHistory dailyReports={dailyReports} />
-    </section>
-  );
+  return <OperacionesChartsDynamic data={data} />;
 }

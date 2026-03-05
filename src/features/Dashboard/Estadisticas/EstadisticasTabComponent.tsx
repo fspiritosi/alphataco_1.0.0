@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/card';
 import OperacionesTabContent from '@/features/Dashboard/Estadisticas/Operaciones/OperacionesTabContent';
+import { OperacionesChartsSkeleton } from '@/features/Dashboard/Estadisticas/Operaciones/fallback/OperacionesChartsSkeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import FeatureFlagShow from '@/shared/components/posthug/FeatureFlagShow';
 import { BarChart3, Calendar, Users } from 'lucide-react';
@@ -34,7 +35,7 @@ function EstadisticasTabComponent({
             moduleSlug: 'dashboard',
             tabSlug: 'operaciones',
             content: (
-              <Suspense fallback={<div>Cargando operaciones...</div>}>
+              <Suspense fallback={<OperacionesChartsSkeleton />}>
                 <OperacionesTabContent />
               </Suspense>
             ),
