@@ -51,26 +51,28 @@ export function PositionFilterCard({ positions }: PositionFilterProps) {
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="w-full">
-      <Card className="overflow-hidden p-2">
+      <Card className="p-2">
         {/* <h1 className="text-lg font-semibold">Indicadores por posiciones:</h1> */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="shrink-0">
             {/* <h1 className="text-2xl font-bold text-gray-900 mb-2">Filtrar por Tipo de unidad:</h1> */}
             <p className="text-gray-600">Filtrar por posiciones</p>
           </div>
-          <div className="flex min-w-0 flex-col sm:flex-row gap-3">
-            <MultiSelectCombobox
-              options={positions}
-              selectedValues={selectedValues}
-              onChange={handlePositionChange}
-              placeholder="Seleccionar posiciones..."
-              showSelectAll={true}
-              emptyMessage="No hay posiciones"
-            />
+          <div className="flex min-w-0 flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <MultiSelectCombobox
+                options={positions}
+                selectedValues={selectedValues}
+                onChange={handlePositionChange}
+                placeholder="Seleccionar posiciones..."
+                showSelectAll={true}
+                emptyMessage="No hay posiciones"
+              />
+            </div>
             <Button
               type="button"
               onClick={handleApplyFilter}
-              className="whitespace-nowrap min-w-[100px] ml-2"
+              className="whitespace-nowrap min-w-[100px] shrink-0"
               disabled={isPending}
             >
               {isPending ? (

@@ -139,7 +139,7 @@ export function ServicesDistributionSection({ servicesSummary }: { servicesSumma
                   Ver detalle
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Detalle de servicios por cliente</DialogTitle>
                   <DialogDescription>
