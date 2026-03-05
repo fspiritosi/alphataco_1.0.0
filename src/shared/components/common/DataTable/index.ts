@@ -62,6 +62,7 @@ export type {
   DataTableState,
   DataTableToolbarProps,
   DataTableViewOptionsProps,
+  FacetResult,
   PrismaTableParams,
   // Sorting
   SortItem,

@@ -17,6 +17,7 @@ import {
   DataTable,
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
+  type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
 import {
@@ -31,12 +32,17 @@ import {
   nationalityLabels,
   reasonForTerminationLabels,
 } from '@/shared/utils/mappers';
-import { useQuery } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
 import { CircleOff, Plus } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { getAllEmployeesForExport, getEmployeesFacets, type EmployeeListItem } from '../actions.server';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  getAllEmployeesForExport,
+  getEmployeeSingleFacet,
+  getEmployeesPaginated,
+  type EmployeeListItem,
+} from '../actions.server';
 import {
   HIDDEN_COLUMNS_BY_DEFAULT,
   affiliateStatusIcons,
@@ -68,6 +74,45 @@ interface EmployeeDataTableProps {
 }
 
 // ============================================================================
+// HELPERS — builders para reducir boilerplate en fetchFacet
+// ============================================================================
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  icons: Record<string, LucideIcon | undefined>,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      ...enumValues.map((value) => ({
+        value,
+        label: labels[value] ?? value,
+        icon: icons[value],
+      })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK/M:M: opciones del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+// ============================================================================
 // COMPONENT
 // ============================================================================
 
@@ -90,18 +135,18 @@ export default function _EmployeeDataTable({
     [permissionsMap]
   );
 
-  // Extraer solo los params relevantes para facets (sin page/sort)
-  const facetParams = useMemo(() => {
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
-    return rest;
-  }, [searchParams]);
+  // ─── Client-side navigation: estado reactivo para queries dependientes ──────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  // Facets con cross-filtering: se recalculan cuando cambian los filtros
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['employees-facets', isActive, facetParams],
-    queryFn: () => getEmployeesFacets(isActive, facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn para fetch client-side de datos de tabla
+  const tableQueryFn = useCallback(
+    (params: DataTableSearchParams) => getEmployeesPaginated(params, isActive),
+    [isActive]
+  );
 
   // Columns
   const columns = useMemo(() => getColumns(permissions, isActive), [permissions, isActive]);
@@ -120,11 +165,9 @@ export default function _EmployeeDataTable({
     ? ['status', 'hierarchy', 'company_positions']
     : ['reason_for_termination', 'status', 'hierarchy'];
   const mergedFilterVisibility = useMemo(() => {
-    // Si el usuario ya tiene preferencias guardadas, usarlas
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
     }
-    // Caso contrario, solo mostrar los filtros por defecto
     const allFilterIds = [
       'status',
       'gender',
@@ -168,361 +211,158 @@ export default function _EmployeeDataTable({
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTERS.includes(id)]));
   }, [initialFilterVisibility]);
 
-  // ─── Filtros facetados ─────────────────────────────────────────────────────
+  // ─── fetchFacet factories: cada filtro tiene su fetchFacet lazy ────────────
+
+  // Helper genérico para enum facets
+  const makeEnumFetchFacet = useCallback(
+    (
+      columnId: string,
+      enumValues: string[],
+      labels: Record<string, string>,
+      icons: Record<string, LucideIcon | undefined>
+    ) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getEmployeeSingleFacet(columnId, isActive, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildEnumFacetResult(enumValues, labels, icons, result.counts);
+      };
+    },
+    [isActive]
+  );
+
+  // Helper genérico para FK/M:M facets
+  const makeFkFetchFacet = useCallback(
+    (columnId: string, nullLabel = 'Sin asignar') => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getEmployeeSingleFacet(columnId, isActive, params);
+        if (!result) return { options: [], counts: new Map() };
+        return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+      };
+    },
+    [isActive]
+  );
+
+  // ─── Filtros facetados con lazy-load ───────────────────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       // ── Enums ──────────────────────────────────────────────────────────────
-
-      // status (enum nullable) — con iconos que coinciden con las celdas
       {
         columnId: 'status',
         title: 'Estado',
-        options: [
-          ...Object.values(status_type).map((value) => ({
-            value,
-            label: employeeStatusLabels[value] ?? value,
-            icon: employeeStatusIcons[value],
-          })),
-          ...(facets?.status?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.status,
+        fetchFacet: makeEnumFetchFacet('status', Object.values(status_type), employeeStatusLabels, employeeStatusIcons),
       },
-
-      // gender (enum nullable)
       {
         columnId: 'gender',
         title: 'Genero',
-        options: [
-          ...Object.values(gender_enum).map((value) => ({
-            value,
-            label: genderLabels[value] ?? value,
-            icon: genderIcons[value],
-          })),
-          ...(facets?.gender?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.gender,
+        fetchFacet: makeEnumFetchFacet('gender', Object.values(gender_enum), genderLabels, genderIcons),
       },
-
-      // nationality (enum nullable)
       {
         columnId: 'nationality',
         title: 'Nacionalidad',
-        options: [
-          ...Object.values(nationality_enum).map((value) => ({
-            value,
-            label: nationalityLabels[value] ?? value,
-            icon: nationalityIcons[value],
-          })),
-          ...(facets?.nationality?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.nationality,
+        fetchFacet: makeEnumFetchFacet(
+          'nationality',
+          Object.values(nationality_enum),
+          nationalityLabels,
+          nationalityIcons
+        ),
       },
-
-      // document_type (enum nullable)
       {
         columnId: 'document_type',
         title: 'Tipo de Documento',
-        options: [
-          ...Object.values(document_type_enum).map((value) => ({
-            value,
-            label: documentTypeLabels[value] ?? value,
-            icon: documentTypeIcons[value],
-          })),
-          ...(facets?.document_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.document_type,
+        fetchFacet: makeEnumFetchFacet(
+          'document_type',
+          Object.values(document_type_enum),
+          documentTypeLabels,
+          documentTypeIcons
+        ),
       },
-
-      // marital_status (enum nullable)
       {
         columnId: 'marital_status',
         title: 'Estado Civil',
-        options: [
-          ...Object.values(marital_status_enum).map((value) => ({
-            value,
-            label: maritalStatusLabels[value] ?? value,
-            icon: maritalStatusIcons[value],
-          })),
-          ...(facets?.marital_status?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.marital_status,
+        fetchFacet: makeEnumFetchFacet(
+          'marital_status',
+          Object.values(marital_status_enum),
+          maritalStatusLabels,
+          maritalStatusIcons
+        ),
       },
-
-      // level_of_education (enum nullable)
       {
         columnId: 'level_of_education',
         title: 'Nivel de Educacion',
-        options: [
-          ...Object.values(level_of_education_enum).map((value) => ({
-            value,
-            label: levelOfEducationLabels[value] ?? value,
-            icon: levelOfEducationIcons[value],
-          })),
-          ...(facets?.level_of_education?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.level_of_education,
+        fetchFacet: makeEnumFetchFacet(
+          'level_of_education',
+          Object.values(level_of_education_enum),
+          levelOfEducationLabels,
+          levelOfEducationIcons
+        ),
       },
-
-      // cost_type (enum nullable)
       {
         columnId: 'cost_type',
         title: 'Tipo de costo',
-        options: [
-          ...Object.values(cost_type_enum).map((value) => ({
-            value,
-            label: costTypeLabels[value] ?? value,
-            icon: costTypeIcons[value],
-          })),
-          ...(facets?.cost_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.cost_type,
+        fetchFacet: makeEnumFetchFacet('cost_type', Object.values(cost_type_enum), costTypeLabels, costTypeIcons),
       },
-
-      // affiliate_status (enum nullable)
       {
         columnId: 'affiliate_status',
         title: 'Estado de afiliacion',
-        options: [
-          ...Object.values(affiliate_status_enum).map((value) => ({
-            value,
-            label: affiliateStatusLabels[value] ?? value,
-            icon: affiliateStatusIcons[value],
-          })),
-          ...(facets?.affiliate_status?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.affiliate_status,
+        fetchFacet: makeEnumFetchFacet(
+          'affiliate_status',
+          Object.values(affiliate_status_enum),
+          affiliateStatusLabels,
+          affiliateStatusIcons
+        ),
       },
-
-      // reason_for_termination (enum nullable) — solo visible en inactivos pero siempre creado
       {
         columnId: 'reason_for_termination',
         title: 'Motivo de baja',
-        options: [
-          ...Object.values(reason_for_termination_enum).map((value) => ({
-            value,
-            label: reasonForTerminationLabels[value] ?? value,
-            icon: reasonForTerminationIcons[value],
-          })),
-          ...(facets?.reason_for_termination?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.reason_for_termination,
+        fetchFacet: makeEnumFetchFacet(
+          'reason_for_termination',
+          Object.values(reason_for_termination_enum),
+          reasonForTerminationLabels,
+          reasonForTerminationIcons
+        ),
       },
-
-      // is_active (booleano)
       {
         columnId: 'is_active',
         title: 'Activo',
-        options: [
-          { value: 'true', label: 'Activo' },
-          { value: 'false', label: 'Inactivo' },
-        ],
-        externalCounts: facets?.is_active,
+        fetchFacet: async (params: DataTableSearchParams): Promise<FacetResult> => {
+          const result = await getEmployeeSingleFacet('is_active', isActive, params);
+          if (!result) return { options: [], counts: new Map() };
+          return {
+            options: [
+              { value: 'true', label: 'Activo' },
+              { value: 'false', label: 'Inactivo' },
+            ],
+            counts: result.counts,
+          };
+        },
       },
 
       // ── FK UUID ────────────────────────────────────────────────────────────
-
-      // hierarchy (FK UUID nullable — sector jerárquico)
-      {
-        columnId: 'hierarchy',
-        title: 'Sector',
-        options: [
-          ...(facets?.hierarchyOptions?.map((h) => ({ value: h.id, label: h.name ?? '' })) ?? []),
-          ...(facets?.hierarchy?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.hierarchy,
-      },
-
-      // company_positions (FK UUID nullable)
-      {
-        columnId: 'company_positions',
-        title: 'Puesto',
-        options: [
-          ...(facets?.companyPositionOptions?.map((p) => ({ value: p.id, label: p.name ?? '' })) ?? []),
-          ...(facets?.company_positions?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.company_positions,
-      },
-
-      // types_of_contract (FK UUID nullable)
-      {
-        columnId: 'types_of_contract',
-        title: 'Tipo de Contrato',
-        options: [
-          ...(facets?.typeOfContractOptions?.map((t) => ({ value: t.id, label: t.name ?? '' })) ?? []),
-          ...(facets?.types_of_contract?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.types_of_contract,
-      },
-
-      // work_diagram (FK UUID nullable)
-      {
-        columnId: 'work_diagram',
-        title: 'Diagrama',
-        options: [
-          ...(facets?.workDiagramOptions?.map((d) => ({ value: d.id, label: d.name ?? '' })) ?? []),
-          ...(facets?.work_diagram?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.work_diagram,
-      },
-
-      // workshop_sectors (FK UUID nullable)
-      {
-        columnId: 'workshop_sectors',
-        title: 'Sector de taller',
-        options: [
-          ...(facets?.workshopSectorOptions?.map((s) => ({ value: s.id, label: s.name ?? '' })) ?? []),
-          ...(facets?.workshop_sectors?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.workshop_sectors,
-      },
-
-      // category (FK UUID nullable)
-      {
-        columnId: 'category',
-        title: 'Categoria',
-        options: [
-          ...(facets?.categoryOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.category?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.category,
-      },
-
-      // covenant (FK UUID nullable)
-      {
-        columnId: 'covenant',
-        title: 'Convenio',
-        options: [
-          ...(facets?.covenantOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.covenant?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.covenant,
-      },
-
-      // guild (FK UUID nullable)
-      {
-        columnId: 'guild',
-        title: 'Sindicato',
-        options: [
-          ...(facets?.guildOptions?.map((g) => ({ value: g.id, label: g.name ?? '' })) ?? []),
-          ...(facets?.guild?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.guild,
-      },
-
-      // cost_center (FK UUID nullable)
-      {
-        columnId: 'cost_center',
-        title: 'Centro de costo',
-        options: [
-          ...(facets?.costCenterOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.cost_center?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.cost_center,
-      },
-
-      // countries (FK UUID nullable — lugar de nacimiento)
-      {
-        columnId: 'countries',
-        title: 'Pais de nacimiento',
-        options: [
-          ...(facets?.countryOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.countries?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.countries,
-      },
+      { columnId: 'hierarchy', title: 'Sector', fetchFacet: makeFkFetchFacet('hierarchy') },
+      { columnId: 'company_positions', title: 'Puesto', fetchFacet: makeFkFetchFacet('company_positions') },
+      { columnId: 'types_of_contract', title: 'Tipo de Contrato', fetchFacet: makeFkFetchFacet('types_of_contract') },
+      { columnId: 'work_diagram', title: 'Diagrama', fetchFacet: makeFkFetchFacet('work_diagram') },
+      { columnId: 'workshop_sectors', title: 'Sector de taller', fetchFacet: makeFkFetchFacet('workshop_sectors') },
+      { columnId: 'category', title: 'Categoria', fetchFacet: makeFkFetchFacet('category') },
+      { columnId: 'covenant', title: 'Convenio', fetchFacet: makeFkFetchFacet('covenant') },
+      { columnId: 'guild', title: 'Sindicato', fetchFacet: makeFkFetchFacet('guild') },
+      { columnId: 'cost_center', title: 'Centro de costo', fetchFacet: makeFkFetchFacet('cost_center') },
+      { columnId: 'countries', title: 'Pais de nacimiento', fetchFacet: makeFkFetchFacet('countries') },
 
       // ── FK BigInt ──────────────────────────────────────────────────────────
+      { columnId: 'province', title: 'Provincia', fetchFacet: makeFkFetchFacet('province') },
+      { columnId: 'city', title: 'Ciudad', fetchFacet: makeFkFetchFacet('city') },
 
-      // province (FK BigInt nullable)
-      {
-        columnId: 'province',
-        title: 'Provincia',
-        options: [
-          ...(facets?.provinceOptions?.map((p) => ({ value: String(p.id), label: p.name ?? '' })) ?? []),
-          ...(facets?.province?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.province,
-      },
-
-      // city (FK BigInt nullable)
-      {
-        columnId: 'city',
-        title: 'Ciudad',
-        options: [
-          ...(facets?.cityOptions?.map((c) => ({ value: String(c.id), label: c.name ?? '' })) ?? []),
-          ...(facets?.city?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.city,
-      },
-
-      // ── M:M ───────────────────────────────────────────────────────────────
-
-      // contractor_employee (M:M → customers — incluye "Sin afectar")
+      // ── M:M ────────────────────────────────────────────────────────────────
       {
         columnId: 'contractor_employee',
         title: 'Afectaciones',
-        options: [
-          ...(facets?.contractorOptions?.map((c) => ({ value: c.id, label: c.name ?? '' })) ?? []),
-          ...(facets?.contractor_employee?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin afectar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.contractor_employee,
+        fetchFacet: makeFkFetchFacet('contractor_employee', 'Sin afectar'),
       },
-
-      // empleado_aptitudes (M:M → aptitudes_tecnicas — incluye "Sin afectar")
       {
         columnId: 'empleado_aptitudes',
         title: 'Aptitudes tecnicas',
-        options: [
-          ...(facets?.aptitudOptions?.map((a) => ({ value: a.id, label: a.name ?? '' })) ?? []),
-          ...(facets?.empleado_aptitudes?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin afectar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.empleado_aptitudes,
+        fetchFacet: makeFkFetchFacet('empleado_aptitudes', 'Sin afectar'),
       },
 
       // ── Filtros de texto libre ─────────────────────────────────────────────
@@ -548,7 +388,7 @@ export default function _EmployeeDataTable({
       { columnId: 'created_at', title: 'Fecha de creacion', type: 'dateRange' as const },
       { columnId: 'termination_date', title: 'Fecha de baja', type: 'dateRange' as const },
     ],
-    [facets]
+    [makeEnumFetchFacet, makeFkFetchFacet, isActive]
   );
 
   // ─── Botón de creación protegido por permisos (solo en tab activos) ─────────
@@ -577,14 +417,15 @@ export default function _EmployeeDataTable({
       initialFilterVisibility={mergedFilterVisibility}
       toolbarActions={toolbarActions}
       showFilterToggle
-      isFetchingFacets={isFetchingFacets}
-      // showSearch
-      // searchPlaceholder="Buscar por nombre, CUIL o legajo..."
+      // Client-side navigation: fetch instantáneo via React Query, sin router.push
+      queryFn={tableQueryFn}
+      queryKey={['employees-paginated', isActive]}
+      onStateChange={handleStateChange}
       enableRowSelection
       showRowSelection
       emptyMessage="No se encontraron empleados"
       exportConfig={{
-        fetchAllData: () => getAllEmployeesForExport(searchParams, isActive),
+        fetchAllData: () => getAllEmployeesForExport(currentParams, isActive),
         options: {
           filename: isActive ? 'empleados-activos' : 'empleados-inactivos',
           sheetName: isActive ? 'Empleados Activos' : 'Empleados Inactivos',

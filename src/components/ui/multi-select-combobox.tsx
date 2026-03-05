@@ -148,19 +148,21 @@ export function MultiSelectCombobox({
             )}
           </CommandEmpty>
           {showSelectAll && (
-            <div className="px-2 py-1 border-b flex items-center">
-              <div
-                className="flex items-center gap-2 text-sm cursor-pointer hover:text-foreground transition-colors"
-                onClick={handleSelectAll}
-              >
-                {selectableOptions.every((option) => selectedValues.includes(option.value)) ? (
-                  <CheckSquare className="h-4 w-4" />
-                ) : (
-                  <Square className="h-4 w-4" />
-                )}
-                <span className="text-xs">Seleccionar todos</span>
-              </div>
-            </div>
+            <CommandItem onSelect={handleSelectAll} className="border-b rounded-none">
+              {selectableOptions.every((option) => selectedValues.includes(option.value)) ? (
+                <CheckSquare className="mr-2 h-4 w-4 text-primary" />
+              ) : selectedValues.length > 0 ? (
+                <span className="mr-2 h-4 w-4 inline-flex items-center justify-center border rounded-[4px] border-primary">
+                  <span className="h-2 w-2 bg-primary rounded-[2px]" />
+                </span>
+              ) : (
+                <Square className="mr-2 h-4 w-4" />
+              )}
+              <span className="font-medium">Todos</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {selectedValues.length}/{selectableOptions.length}
+              </span>
+            </CommandItem>
           )}
           <CommandGroup className="max-h-64 overflow-auto">
             {options?.map((option) => (

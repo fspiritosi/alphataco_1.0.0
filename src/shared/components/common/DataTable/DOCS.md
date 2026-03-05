@@ -20,6 +20,8 @@ Componente de tabla de datos server-side con soporte para paginación, sorting, 
 - [Cross-Filter Facets](#cross-filter-facets)
 - [buildWhereClause — Helper DRY](#buildwhereclause--helper-dry)
 - [Multi-Sort con resolución FK](#multi-sort-con-resolución-fk)
+- [Client-Side Navigation Mode (Performance)](#client-side-navigation-mode-performance)
+- [Lazy-Load Facets (On-Demand)](#lazy-load-facets-on-demand)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -42,6 +44,7 @@ Componente de tabla de datos server-side con soporte para paginación, sorting, 
 - ✅ **URL Param Isolation** - Múltiples tablas en la misma página con params de URL independientes via `paramNamespace`
 - ✅ **Multi-Sort** - Sort por múltiples columnas con Shift+Click, incluyendo columnas FK via `FK_SORT_MAP`
 - ✅ **Sticky Header** - El encabezado de columnas permanece visible al hacer scroll vertical interno (max-h 60vh)
+- ✅ **Client-Side Navigation Mode** - Filtros instantáneos via React Query + `replaceState`, sin re-render de tabs hermanas (opt-in con `queryFn`)
 
 ---
 
@@ -455,28 +458,32 @@ export default async function Page({ searchParams }: Props) {
 
 ## Props del DataTable
 
-| Prop                      | Tipo                             | Default                           | Descripción                                                             |
-| ------------------------- | -------------------------------- | --------------------------------- | ----------------------------------------------------------------------- |
-| `columns`                 | `ColumnDef<TData>[]`             | **required**                      | Definiciones de columnas de TanStack Table                              |
-| `data`                    | `TData[]`                        | **required**                      | Datos de la página actual                                               |
-| `totalRows`               | `number`                         | **required**                      | Total de filas en el servidor                                           |
-| `searchParams`            | `DataTableSearchParams`          | `{}`                              | Search params actuales de la URL                                        |
-| `facetedFilters`          | `DataTableFacetedFilterConfig[]` | `[]`                              | Configuración de filtros                                                |
-| `searchPlaceholder`       | `string`                         | `'Buscar...'`                     | Placeholder del input de búsqueda global                                |
-| `showColumnToggle`        | `boolean`                        | `true`                            | Mostrar selector de columnas                                            |
-| `showRowSelection`        | `boolean`                        | `false`                           | Mostrar contador de selección                                           |
-| `enableRowSelection`      | `boolean`                        | `false`                           | Habilitar checkboxes de selección                                       |
-| `onRowSelectionChange`    | `(rows: TData[]) => void`        | `undefined`                       | Callback de selección                                                   |
-| `emptyMessage`            | `string`                         | `'No se encontraron resultados.'` | Mensaje cuando no hay datos                                             |
-| `pageSizeOptions`         | `number[]`                       | `[10, 20, 30, 50, 100]`           | Opciones de filas por página                                            |
-| `toolbarActions`          | `ReactNode`                      | `undefined`                       | Acciones adicionales en el toolbar                                      |
-| `exportConfig`            | `DataTableExportConfig<TData>`   | `undefined`                       | Configuración de exportación Excel                                      |
-| `initialColumnVisibility` | `Record<string, boolean>`        | `{}`                              | Columnas ocultas por defecto                                            |
-| `tableId`                 | `string`                         | `undefined`                       | ID para persistir preferencias de columnas y filtros                    |
-| `showFilterToggle`        | `boolean`                        | `false`                           | Mostrar botón para ocultar/mostrar filtros                              |
-| `initialFilterVisibility` | `Record<string, boolean>`        | `{}`                              | Visibilidad inicial de filtros (desde BD)                               |
-| `paramNamespace`          | `string`                         | `undefined`                       | Namespace para aislar params de URL entre DataTables en la misma página |
-| `data-testid`             | `string`                         | `'data-table'`                    | ID para testing con Cypress                                             |
+| Prop                      | Tipo                                 | Default                           | Descripción                                                             |
+| ------------------------- | ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------- |
+| `columns`                 | `ColumnDef<TData>[]`                 | **required**                      | Definiciones de columnas de TanStack Table                              |
+| `data`                    | `TData[]`                            | **required**                      | Datos de la página actual                                               |
+| `totalRows`               | `number`                             | **required**                      | Total de filas en el servidor                                           |
+| `searchParams`            | `DataTableSearchParams`              | `{}`                              | Search params actuales de la URL                                        |
+| `facetedFilters`          | `DataTableFacetedFilterConfig[]`     | `[]`                              | Configuración de filtros                                                |
+| `searchPlaceholder`       | `string`                             | `'Buscar...'`                     | Placeholder del input de búsqueda global                                |
+| `showColumnToggle`        | `boolean`                            | `true`                            | Mostrar selector de columnas                                            |
+| `showRowSelection`        | `boolean`                            | `false`                           | Mostrar contador de selección                                           |
+| `enableRowSelection`      | `boolean`                            | `false`                           | Habilitar checkboxes de selección                                       |
+| `onRowSelectionChange`    | `(rows: TData[]) => void`            | `undefined`                       | Callback de selección                                                   |
+| `emptyMessage`            | `string`                             | `'No se encontraron resultados.'` | Mensaje cuando no hay datos                                             |
+| `pageSizeOptions`         | `number[]`                           | `[10, 20, 30, 50, 100]`           | Opciones de filas por página                                            |
+| `toolbarActions`          | `ReactNode`                          | `undefined`                       | Acciones adicionales en el toolbar                                      |
+| `exportConfig`            | `DataTableExportConfig<TData>`       | `undefined`                       | Configuración de exportación Excel                                      |
+| `initialColumnVisibility` | `Record<string, boolean>`            | `{}`                              | Columnas ocultas por defecto                                            |
+| `tableId`                 | `string`                             | `undefined`                       | ID para persistir preferencias de columnas y filtros                    |
+| `showFilterToggle`        | `boolean`                            | `false`                           | Mostrar botón para ocultar/mostrar filtros                              |
+| `initialFilterVisibility` | `Record<string, boolean>`            | `{}`                              | Visibilidad inicial de filtros (desde BD)                               |
+| `paramNamespace`          | `string`                             | `undefined`                       | Namespace para aislar params de URL entre DataTables en la misma página |
+| `data-testid`             | `string`                             | `'data-table'`                    | ID para testing con Cypress                                             |
+| `isFetchingFacets`        | `boolean`                            | `undefined`                       | Loading state de facets — evita flash vacío en opciones de filtro       |
+| `queryFn`                 | `(params) => Promise<{data, total}>` | `undefined`                       | Activa client-side mode: datos via React Query en vez de SSR            |
+| `queryKey`                | `readonly unknown[]`                 | `undefined`                       | Query key base para React Query (client-side mode)                      |
+| `onStateChange`           | `(params) => void`                   | `undefined`                       | Callback cuando filtros/paginación cambian (para facets reactivos)      |
 
 ---
 
@@ -1149,6 +1156,243 @@ const safeOrderBy = [...resolvedSorts, { name: 'asc' as const }]; // fallback so
 
 ---
 
+## Client-Side Navigation Mode (Performance)
+
+### Problema que resuelve
+
+Por defecto, cada cambio de filtro/paginación/sorting ejecuta `router.push`, lo que dispara un **re-render completo del servidor** — incluyendo TODAS las tabs de la página, no solo la tabla activa. Esto causa:
+
+- Delay de 1-2 segundos por cada interacción
+- Efecto visual "deshabilitado" (opacity-50) prolongado
+- Re-ejecución innecesaria de queries de permisos, otras tabs, etc.
+
+### Solución: modo client-side
+
+Al pasar `queryFn` al componente `<DataTable>`, se activa el modo client-side:
+
+- **URL**: se actualiza con `window.history.replaceState` (silencioso, sin navegación)
+- **Datos**: se obtienen via React Query (fetch directo, sin pasar por SSR)
+- **Cache**: datos se mantienen en cache 5 minutos — navegar entre páginas ya visitadas es instantáneo
+- **Efecto disabled**: usa `isPlaceholderData` de React Query — solo se aplica cuando se muestran datos stale mientras carga nuevos, NO durante refetches de datos cacheados
+- **Resultado**: filtros instantáneos, cache entre páginas, sin re-render de tabs hermanas
+
+### Dos modos de operación
+
+| Aspecto             | Server mode (default)                     | Client-side mode (con `queryFn`)               |
+| ------------------- | ----------------------------------------- | ---------------------------------------------- |
+| URL update          | `router.push` (navegación completa)       | `replaceState` (silencioso)                    |
+| Data fetching       | SSR (props del servidor)                  | React Query (`useQuery`)                       |
+| Re-render scope     | Toda la página (layout + tabs)            | Solo la tabla                                  |
+| Cache               | Sin cache (cada navegación = fetch nuevo) | 5 min cache (gcTime)                           |
+| Efecto disabled     | `useTransition isPending`                 | `isPlaceholderData` (solo con datos stale)     |
+| Backward compatible | —                                         | Tablas sin `queryFn` siguen usando server mode |
+
+### Cómo migrar una tabla a client-side mode
+
+**Prerequisito**: La tabla debe usar el sistema nuevo de DataTable (Prisma, `@/shared/components/common/DataTable/`).
+
+#### Paso 1: Verificar el server action
+
+El server action de datos paginados debe devolver `{ data, total }`:
+
+```typescript
+export async function getEntityPaginated(
+  searchParams: DataTableSearchParams,
+  ...extraArgs
+): Promise<{ data: EntityItem[]; total: number }>;
+```
+
+#### Paso 2: Agregar estado y callbacks en el Client Component
+
+```typescript
+import { useCallback, useState } from 'react';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
+
+// Estado reactivo: cuando DataTable cambia filtros, actualiza currentParams
+// → React Query de facets se re-ejecuta con params frescos
+const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
+
+const handleStateChange = useCallback((params: DataTableSearchParams) => {
+  setCurrentParams(params);
+}, []);
+
+// queryFn para fetch client-side de datos de tabla
+const tableQueryFn = useCallback(
+  (params: DataTableSearchParams) => getEntityPaginated(params, ...extraArgs),
+  [extraArgs] // dependencias estables
+);
+```
+
+#### Paso 3: Cambiar facets para usar currentParams
+
+```diff
+  const facetParams = useMemo(() => {
+-   const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
++   const { page, pageSize, sort, sortBy, sortOrder, ...rest } = currentParams;
+    return rest;
+- }, [searchParams]);
++ }, [currentParams]);
+```
+
+#### Paso 4: Agregar props al DataTable
+
+```diff
+  <DataTable
+    columns={columns}
+    data={data}
+    totalRows={totalRows}
+    searchParams={searchParams}
++   queryFn={tableQueryFn}
++   queryKey={['entity-list', ...stableKeys]}
++   onStateChange={handleStateChange}
+    exportConfig={{
+-     fetchAllData: () => getAllForExport(searchParams, ...),
++     fetchAllData: () => getAllForExport(currentParams, ...),
+    }}
+  />
+```
+
+### Cómo funciona internamente
+
+```
+Filtro click
+  → TanStack Table onColumnFiltersChange
+  → useDataTable.updateURL (client-side mode)
+  → window.history.replaceState (URL silenciosa)
+  → notifyUrlChange() → urlVersion++
+  → state useMemo re-computa (lee window.location.search)
+  → stateSearchParams cambia
+  → React Query key cambia → fetch nuevos datos
+  → onStateChange(params) → parent actualiza facets query
+```
+
+### Notas importantes
+
+- **Backward compatible**: tablas sin `queryFn` siguen usando `router.push` como siempre
+- **queryKey debe ser estable**: no incluir objetos que cambien en cada render. Usar valores primitivos (strings, booleans)
+- **onStateChange es opcional**: solo necesario si la tabla tiene facets u otras queries que dependen del estado de la tabla
+- **exportConfig.fetchAllData**: usar `currentParams` (no `searchParams` original) para que la exportación respete los filtros actuales
+- **gcTime global**: configurado a 5 minutos en `TanstackQueryInicializador.tsx` — datos se mantienen en cache al cambiar de tab y volver
+- **El efecto deshabilitado (opacity-50)**: usa `isPlaceholderData` — solo se aplica cuando se muestran datos stale de un query key anterior mientras carga nuevos. Si los datos vienen del cache, no se aplica
+
+### Tablas migradas
+
+- [x] Empleados activos / inactivos (`_EmployeeDataTable.tsx`)
+
+---
+
+## Lazy-Load Facets (On-Demand)
+
+Los filtros facetados pueden cargarse bajo demanda (al abrir el popover) en vez de en bulk con todos los facets. Esto mejora significativamente el rendimiento inicial de la página y reduce tráfico de red.
+
+### Cómo funciona
+
+1. Cada filtro recibe una función `fetchFacet` que obtiene opciones+counts para ESE filtro
+2. Al abrir el popover por primera vez, se dispara el fetch con skeleton loading
+3. Los resultados se cachean en React Query (staleTime 5min) — re-abrir es instantáneo
+4. Si hay filtros activos (desde URL), se cargan automáticamente para mostrar labels
+5. Cuando cambian los filtros de la tabla, los facets ya cargados se refetchean (cross-filtering)
+
+### Implementación
+
+#### 1. Server Action — `getEntitySingleFacet`
+
+```typescript
+// actions.server.ts
+export async function getEntitySingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  // Usa crossWhere(columnId) para cross-filtering
+  // Retorna counts + opciones resueltas (para FK/M:M)
+}
+```
+
+#### 2. Client Component — `fetchFacet` en cada filtro
+
+```typescript
+// Para enums: opciones estáticas + counts del servidor
+{
+  columnId: 'status',
+  title: 'Estado',
+  fetchFacet: async (params) => {
+    const result = await getEntitySingleFacet('status', params);
+    if (!result) return { options: [], counts: new Map() };
+    return buildEnumFacetResult(Object.values(StatusEnum), statusLabels, statusIcons, result.counts);
+  },
+}
+
+// Para FK/M:M: opciones Y counts del servidor
+{
+  columnId: 'category',
+  title: 'Categoría',
+  fetchFacet: async (params) => {
+    const result = await getEntitySingleFacet('category', params);
+    if (!result) return { options: [], counts: new Map() };
+    return buildFkFacetResult(result.resolvedOptions, result.counts);
+  },
+}
+```
+
+#### 3. Helpers de construcción de FacetResult
+
+```typescript
+import type { FacetResult, DataTableFilterOption } from '@/shared/components/common/DataTable';
+import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  icons: Record<string, LucideIcon | undefined>,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      ...enumValues.map((value) => ({ value, label: labels[value] ?? value, icon: icons[value] })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK/M:M: opciones del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+```
+
+### Diferencias con Bulk Facets
+
+| Aspecto          | Bulk (anterior)                          | Lazy (nuevo)                               |
+| ---------------- | ---------------------------------------- | ------------------------------------------ |
+| Carga inicial    | TODOS los facets en SSR + useQuery       | Solo datos de tabla (facets a demanda)     |
+| Primer render    | Lento (~30 groupBy en paralelo)          | Rápido (sin queries de facets)             |
+| Abrir filtro     | Instantáneo (ya cargado)                 | Skeleton breve (~100-200ms por filtro)     |
+| Re-abrir filtro  | Instantáneo                              | Instantáneo (cache React Query)            |
+| Cross-filtering  | 1 request bulk                           | N requests individuales (solo cargados)    |
+| Server Component | `getEntityFacets(params)` en Promise.all | Sin facets en SSR                          |
+| Client Component | 1 useQuery para todos                    | N useQuery internos (1 por filtro abierto) |
+
+### Backward Compatibility
+
+Tablas que NO usan `fetchFacet` siguen funcionando exactamente igual (modo bulk con `options` + `externalCounts` props). El lazy-load es opt-in por filtro.
+
+---
+
 ## Troubleshooting
 
 ### El filtro facetado no filtra en servidor
@@ -1196,11 +1440,20 @@ La función de facetas debe recibir `searchParams` y usar `crossWhere(excludeCol
 
 Verificar que el columnId de la FK está en `VALID_SORT_FIELDS` Y tiene una entrada en `FK_SORT_MAP` que mapea a `{ relation: { field: dir } }`.
 
-### Performance lenta en filtros
+### Performance lenta en filtros (server mode)
 
 - Agregar índices en Prisma para campos de búsqueda/filtro frecuentes
 - Usar `select` para traer solo los campos necesarios
 - El `staleTime: 5 * 60 * 1000` en el `useQuery` de facets evita refetches innecesarios
+- **Migrar a client-side mode** con `queryFn` si la tabla está en una página con tabs — evita re-render de tabs hermanas
+
+### El efecto disabled se muestra en páginas cacheadas (client-side mode)
+
+Si al navegar a una página ya cacheada la tabla muestra opacity-50 brevemente, verificar que `isPending` use `isPlaceholderData` (no `isFetching`). `isFetching` es true durante background refetches; `isPlaceholderData` es true solo cuando se muestran datos stale.
+
+### Los filtros de tabs hermanas se re-ejecutan al filtrar la tabla (server mode)
+
+Esto es inherente al server mode (`router.push` re-renderiza toda la página). Migrar a client-side mode con `queryFn` para evitarlo.
 
 ---
 

@@ -33,18 +33,28 @@
 
 6. **IDs externos enriquecidos** (ej: userId de auth que se muestra como nombre) DEBEN tener filtro `faceted`. El campo raw ES una columna real de BD, filtrable server-side. Las facetas enriquecen los IDs para labels legibles.
 
-## externalCounts Obligatorio
+## Lazy-Load Facets — fetchFacet Obligatorio
 
-Todo filtro `faceted` DEBE tener `externalCounts` configurado (un `Map<string, number>` del servidor). Sin esto, los counts se calculan solo sobre la pagina actual (impreciso con paginacion).
+Todo filtro `faceted` DEBE usar `fetchFacet` para cargar opciones y counts on-demand (lazy-load). **NO usar `options`/`externalCounts` props estáticos** — ese es el patrón viejo (bulk).
 
 ```typescript
+// ✅ CORRECTO — lazy-load con fetchFacet
 {
   columnId: 'status',
   title: 'Estado',
-  options: [...],
-  externalCounts: facets?.status,  // Map<string, number> del servidor
+  fetchFacet: makeEnumFetchFacet('status', Object.values(EntityStatus), statusLabels, statusIcons),
+}
+
+// ❌ INCORRECTO — patrón viejo bulk (DEPRECADO)
+{
+  columnId: 'status',
+  title: 'Estado',
+  options: statusOptions,                    // ❌ opciones estáticas
+  externalCounts: facets?.status,            // ❌ counts del bulk query
 }
 ```
+
+El componente `DataTableFacetedFilter` tiene un `useQuery` interno que se activa al abrir el popover. Muestra skeleton mientras carga y cachea los resultados (staleTime: 5min). Cross-filter se maneja server-side en `getEntitySingleFacet`.
 
 ## Manejo de Null — "Sin asignar" (TODA columna nullable)
 
@@ -85,5 +95,6 @@ Todo filtro `faceted` DEBE tener `externalCounts` configurado (un `Map<string, n
 ## Documentacion Detallada
 
 - **Plantilla completa de filtros**: `.claude/skills/new-datatable/SKILL.md` (seccion "Tipos de columnas y sus filtros")
-- **Auditoria de filtros**: `.claude/agents/table-expert.md` (seccion C. Filters)
-- **API del componente**: `src/shared/components/common/DataTable/DOCS.md` (seccion Filtros)
+- **Auditoria de filtros**: `.claude/agents/table-expert.md` (seccion C. Filters + F. Facets Lazy-Load + K2. Lazy-Load Facets)
+- **API del componente**: `src/shared/components/common/DataTable/DOCS.md` (seccion Filtros + Lazy-Load Facets)
+- **Referencia de implementacion**: tabla de empleados (`src/features/Employees/Empleados/EmployeeList/`) — primera tabla con lazy-load completo

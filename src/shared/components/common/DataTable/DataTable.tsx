@@ -1,5 +1,6 @@
 'use client';
 
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   flexRender,
   getCoreRowModel,
@@ -17,58 +18,26 @@ import { DataTablePagination } from './DataTablePagination';
 import { DataTablePendingProvider } from './DataTablePendingContext';
 import { DataTableToolbar } from './DataTableToolbar';
 import { _DataTableExportButton } from './_DataTableExportButton';
-import type { DataTableProps } from './types';
+import { stateToSearchParams } from './helpers';
+import type { DataTableProps, DataTableSearchParams } from './types';
 import { useDataTable } from './useDataTable';
 
 /**
- * DataTable Server-Side con soporte para paginación, sorting y filtros
+ * DataTable Server-Side con soporte para paginación, sorting y filtros.
  *
- * Este componente está diseñado para trabajar con datos paginados desde el servidor.
- * El estado se sincroniza automáticamente con la URL para permitir compartir links
- * y navegación con el botón atrás/adelante del navegador.
+ * Soporta dos modos de operación:
  *
- * @example
- * ```tsx
- * // 1. Server Component (page.tsx)
- * export default async function EmployeesPage({ searchParams }) {
- *   const params = await searchParams;
- *   const { data, total } = await getEmployees(params);
+ * **Server mode** (default): El estado se sincroniza con la URL via router.push,
+ * lo que dispara re-renders del servidor. Los datos llegan via props desde SSR.
  *
- *   return (
- *     <DataTable
- *       columns={columns}
- *       data={data}
- *       totalRows={total}
- *       searchParams={params}
- *       searchPlaceholder="Buscar empleados..."
- *       tableId="employees-list"
- *       showFilterToggle={true}
- *       facetedFilters={[
- *         { columnId: 'status', title: 'Estado', options: statusOptions },
- *         { columnId: 'createdAt', title: 'Fecha', type: 'dateRange' },
- *       ]}
- *     />
- *   );
- * }
- *
- * // 2. Server Action
- * export async function getEmployees(searchParams: DataTableSearchParams) {
- *   const state = parseSearchParams(searchParams);
- *   const prismaParams = stateToPrismaParams(state);
- *
- *   const [data, total] = await Promise.all([
- *     prisma.employee.findMany({ ...prismaParams, where: { companyId } }),
- *     prisma.employee.count({ where: { companyId } }),
- *   ]);
- *
- *   return { data, total };
- * }
- * ```
+ * **Client-side mode** (cuando se pasa `queryFn`): Usa window.history.replaceState
+ * para actualizar la URL silenciosamente (sin navegación) y React Query para
+ * obtener datos. El resultado: filtros instantáneos sin re-renderizar otras tabs.
  */
 export function DataTable<TData extends Record<string, unknown>, TValue = unknown>({
   columns,
-  data,
-  totalRows,
+  data: propData,
+  totalRows: propTotalRows,
   searchParams = {},
   facetedFilters = [],
   searchPlaceholder = 'Buscar...',
@@ -90,7 +59,13 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   initialFilterVisibility = {},
   'data-testid': dataTestId = 'data-table',
   isFetchingFacets,
+  // Client-side mode props
+  queryFn,
+  queryKey: queryKeyProp,
+  onStateChange,
 }: DataTableProps<TData, TValue>) {
+  const isClientSide = !!queryFn;
+
   // Estado de selección de filas (local)
   const [rowSelection, setRowSelection] = React.useState({});
 
@@ -111,19 +86,66 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     onSortingChange,
     onColumnFiltersChange,
     onGlobalFilterChange,
-    isPending,
+    isPending: isNavigationPending,
     startTransition,
+    notifyUrlChange,
+    urlVersion,
   } = useDataTable({
     filterableColumns,
     tableId: paramNamespace,
+    clientSideNavigation: isClientSide,
   });
 
+  // ---- Client-side data fetching (cuando queryFn está presente) ----
+
+  // Convertir state a DataTableSearchParams para queryFn y onStateChange
+  const stateSearchParams = React.useMemo(() => {
+    const urlParams = stateToSearchParams(state);
+    const obj: DataTableSearchParams = {};
+    urlParams.forEach((v, k) => {
+      obj[k] = v;
+    });
+    return obj;
+  }, [state]);
+
+  // Derivar facetParams (sin page/sort) para lazy-load de facets individuales
+  const facetParams = React.useMemo(() => {
+    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = stateSearchParams;
+    return rest;
+  }, [stateSearchParams]);
+
+  // Notificar al padre cuando el estado cambia (para facets y queries dependientes)
+  const onStateChangeRef = React.useRef(onStateChange);
+  onStateChangeRef.current = onStateChange;
+
+  React.useEffect(() => {
+    onStateChangeRef.current?.(stateSearchParams);
+  }, [stateSearchParams]);
+
+  // React Query para fetch client-side
+  // NO usar initialData — se aplica a cada query key nuevo (cada filtro), dando datos SSR incorrectos.
+  // En su lugar: placeholderData: keepPreviousData muestra datos anteriores mientras carga,
+  // y propData es fallback en el primer render (antes de la primera fetch).
+  const { data: queryResult, isPlaceholderData } = useQuery({
+    queryKey: [...(queryKeyProp ?? ['data-table']), stateSearchParams],
+    queryFn: () => queryFn!(stateSearchParams),
+    placeholderData: keepPreviousData,
+    enabled: isClientSide,
+  });
+
+  // Datos finales para la tabla
+  const tableData = isClientSide ? queryResult?.data ?? propData : propData;
+  const tableTotalRows = isClientSide ? queryResult?.total ?? propTotalRows : propTotalRows;
+  // isPlaceholderData = true SOLO cuando se muestra data stale de un query key anterior
+  // (mientras se fetch data nueva). false cuando se muestra data real del cache → sin efecto disabled.
+  const isPending = isClientSide ? isPlaceholderData : isNavigationPending;
+
   // Calcular pageCount basado en totalRows
-  const pageCount = Math.ceil(totalRows / pagination.pageSize);
+  const pageCount = Math.ceil(tableTotalRows / pagination.pageSize);
 
   // Configurar tabla con TanStack Table
   const table = useReactTable({
-    data,
+    data: tableData,
     columns,
     pageCount,
     state: {
@@ -143,7 +165,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
       if (onRowSelectionChange) {
         const selectedRows = Object.keys(newSelection)
           .filter((key) => newSelection[key as keyof typeof newSelection])
-          .map((index) => data[Number(index)]);
+          .map((index) => tableData[Number(index)]);
         onRowSelectionChange(selectedRows);
       }
     },
@@ -178,7 +200,15 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
   }, [columnVisibility, tableId]);
 
   return (
-    <DataTablePendingProvider value={{ isPending, startTransition }}>
+    <DataTablePendingProvider
+      value={{
+        isPending,
+        startTransition,
+        isClientSide,
+        notifyUrlChange,
+        urlVersion,
+      }}
+    >
       <div className="space-y-4" data-testid={dataTestId}>
         {/* Toolbar */}
         <DataTableToolbar
@@ -193,6 +223,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           onFilterVisibilityChange={setFilterVisibility}
           paramNamespace={paramNamespace}
           isFetchingFacets={isFetchingFacets}
+          facetParams={facetParams}
           onSearchChange={onGlobalFilterChange}
           searchValue={state.search}
           exportActions={
@@ -249,7 +280,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
         {/* Pagination */}
         <DataTablePagination
           table={table}
-          totalRows={totalRows}
+          totalRows={tableTotalRows}
           pageSizeOptions={pageSizeOptions}
           showRowSelection={showRowSelection && enableRowSelection}
         />
