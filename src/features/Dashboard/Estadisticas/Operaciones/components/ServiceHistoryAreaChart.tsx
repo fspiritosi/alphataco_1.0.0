@@ -8,11 +8,11 @@ import { CustomChartTooltip } from './CustomChartTooltip';
 const chartConfig = {
   mensual: {
     label: 'Mensual',
-    color: 'var(--chart-1)',
+    color: 'oklch(0.78 0.145 70)',
   },
   adicional: {
     label: 'Adicional',
-    color: 'var(--chart-2)',
+    color: 'oklch(0.70 0.10 185)',
   },
 } satisfies ChartConfig;
 
