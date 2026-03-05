@@ -12,6 +12,7 @@ import { AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { getSectorCandidatesForRepairTypes, type WorkshopSector } from '../../actions/actionsServer';
 import type { LocalItem } from '../ManageOrderWizard';
+import { getItemLabel, getItemRepairTypeIds as getRepairTypeIds } from './helpers';
 
 const logger = new Logger('Step2SectorAssignment');
 
@@ -50,7 +51,7 @@ export function Step2SectorAssignment({
   const allRepairTypeIds = useMemo(() => {
     const ids = new Set<string>();
     for (const item of regularItems) {
-      const itemRtIds = getItemRepairTypeIds(item);
+      const itemRtIds = getRepairTypeIds(item);
       itemRtIds.forEach((id) => ids.add(id));
     }
     return Array.from(ids);
@@ -83,7 +84,7 @@ export function Step2SectorAssignment({
   // Compute assignment info for each item
   const itemAssignments: ItemAssignmentInfo[] = useMemo(() => {
     return regularItems.map((item) => {
-      const repairTypeIds = getItemRepairTypeIds(item);
+      const repairTypeIds = getRepairTypeIds(item);
       const repairTypeNames = repairTypeIds
         .map((id) => repairTypes.find((rt) => rt.id === id)?.name)
         .filter((n): n is string => !!n);
@@ -170,9 +171,9 @@ export function Step2SectorAssignment({
   return (
     <div className="space-y-5">
       <div>
-        <h4 className="text-sm font-medium">Asignacion de Sectores</h4>
+        <h4 className="text-sm font-medium">Asignación de Sectores</h4>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Los items se asignan automaticamente segun los tipos de reparacion configurados en cada sector.
+          Los desvíos se asignan automáticamente según los tipos de reparación configurados en cada sector.
         </p>
       </div>
 
@@ -180,7 +181,7 @@ export function Step2SectorAssignment({
       {unassignedCount > 0 && (
         <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="text-xs">{unassignedCount} item(s) necesitan asignacion manual de sector.</span>
+          <span className="text-xs">{unassignedCount} desvío(s) necesitan asignación manual de sector.</span>
         </div>
       )}
 
@@ -195,28 +196,28 @@ export function Step2SectorAssignment({
             {autoAssigned.map((info) => {
               const sectorId = info.assignedSectorId;
               const sectorName = sectorId ? sectors.find((s) => s.id === sectorId)?.name || 'Desconocido' : '—';
+              const label = getItemLabel(info.item);
 
               return (
                 <div
                   key={info.item.id}
-                  className="flex items-center justify-between p-2.5 border rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30"
+                  className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30 border-border"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {info.repairTypeNames.map((name, idx) => (
-                        <Badge key={idx} variant="default" className="text-[10px] px-1.5 py-0">
+                        <Badge key={idx} variant="default" className="text-xs px-2 py-0.5">
                           {name}
                         </Badge>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 truncate">
-                      {String(info.item.description || 'Sin descripcion')}
-                    </p>
+                    {label && <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>}
                   </div>
                   <Badge
                     variant="outline"
-                    className="ml-2 shrink-0 bg-emerald-100 dark:bg-emerald-900/40 border-emerald-300"
+                    className="ml-2 shrink-0 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 text-emerald-700 dark:text-emerald-400"
                   >
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
                     {sectorName}
                   </Badge>
                 </div>
@@ -233,7 +234,7 @@ export function Step2SectorAssignment({
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <HelpCircle className="h-4 w-4 text-amber-500" />
-            <span className="text-sm font-medium">Requieren seleccion manual ({needsManualSelection.length})</span>
+            <span className="text-sm font-medium">Requieren selección manual ({needsManualSelection.length})</span>
           </div>
           <div className="space-y-2">
             {needsManualSelection.map((info) => {
@@ -241,6 +242,7 @@ export function Step2SectorAssignment({
                 info.candidateSectorIds.length > 0
                   ? sectors.filter((s) => info.candidateSectorIds.includes(s.id))
                   : sectors;
+              const label = getItemLabel(info.item);
 
               return (
                 <div
@@ -248,7 +250,7 @@ export function Step2SectorAssignment({
                   className={cn(
                     'p-3 border rounded-lg',
                     info.assignedSectorId
-                      ? 'border-blue-200 dark:border-blue-800/50 bg-blue-50/30 dark:bg-blue-950/20'
+                      ? 'border-border bg-muted/20'
                       : 'border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20'
                   )}
                 >
@@ -257,27 +259,20 @@ export function Step2SectorAssignment({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {info.repairTypeNames.length > 0 ? (
                           info.repairTypeNames.map((name, idx) => (
-                            <Badge key={idx} variant="default" className="text-[10px] px-1.5 py-0">
+                            <Badge key={idx} variant="default" className="text-xs px-2 py-0.5">
                               {name}
                             </Badge>
                           ))
                         ) : (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          <Badge variant="secondary" className="text-xs px-2 py-0.5">
                             Sin tipo
                           </Badge>
                         )}
-                        {info.status === 'ambiguous' && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 border-amber-300">
-                            {info.candidateSectorIds.length} sectores posibles
-                          </Badge>
-                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {String(info.item.description || 'Sin descripcion')}
-                      </p>
+                      {label && <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>}
                     </div>
                     <div className="shrink-0 w-44">
-                      <Label className="text-[10px] text-muted-foreground">Sector</Label>
+                      <Label className="text-xs text-muted-foreground">Sector</Label>
                       <Select
                         value={info.assignedSectorId || ''}
                         onValueChange={(value) => onAssignmentChange(info.item.id, value)}
@@ -306,7 +301,7 @@ export function Step2SectorAssignment({
       {regularItems.length > 0 && unassignedCount === 0 && (
         <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span className="text-xs font-medium">Todos los items tienen sector asignado.</span>
+          <span className="text-xs font-medium">Todos los desvíos tienen sector asignado.</span>
         </div>
       )}
     </div>
@@ -315,22 +310,7 @@ export function Step2SectorAssignment({
 
 // ─── Helpers ───────────────────────────────────────────────
 
-function getItemRepairTypeIds(item: LocalItem): string[] {
-  if (item._isTemp && item._tempRepairTypeIds) {
-    return item._tempRepairTypeIds;
-  }
-
-  const pivotTypes = item.maintenance_order_item_repair_types || [];
-  if (pivotTypes.length > 0) {
-    return pivotTypes.map((rt) => rt.repair_type_id).filter(Boolean) as string[];
-  }
-
-  if (item.repair_type_id) {
-    return [item.repair_type_id];
-  }
-
-  return [];
-}
+// getItemRepairTypeIds imported from ./helpers as getRepairTypeIds
 
 /**
  * Finds candidate sectors for an item by intersecting sectors that handle

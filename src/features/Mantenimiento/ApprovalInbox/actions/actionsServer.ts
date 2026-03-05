@@ -186,6 +186,72 @@ export async function getReturnedTasks() {
 export type ReturnedTasksData = Awaited<ReturnType<typeof getReturnedTasks>>;
 export type ReturnedTaskData = ReturnedTasksData[number];
 
+/**
+ * Obtiene ordenes de mantenimiento pendientes de validacion del jefe de taller.
+ * Estas son ordenes donde todas las OTs fueron completadas y necesitan revision.
+ */
+export async function getOrdersPendingValidation() {
+  'use cache';
+  cacheTag(CACHE_TAGS.TAB_APPROVALS, CACHE_TAGS.MAINTENANCE_ORDERS);
+  cacheLife({ expire: CACHE_TTL.PAGINATED_LIST, revalidate: CACHE_TTL.PAGINATED_LIST, stale: 30 });
+
+  logger.debug('Obteniendo ordenes pendientes de validacion');
+
+  try {
+    const orders = await prisma.maintenance_orders.findMany({
+      where: { status: 'pending_workshop_validation' },
+      orderBy: { updated_at: 'desc' },
+      select: {
+        id: true,
+        order_number: true,
+        status: true,
+        workshop_entry_date: true,
+        updated_at: true,
+        equipment_id: true,
+        vehicles: {
+          select: {
+            id: true,
+            domain: true,
+            intern_number: true,
+            serie: true,
+          },
+        },
+        maintenance_order_items: {
+          select: {
+            id: true,
+            is_diagnostico: true,
+            assigned_sector_id: true,
+            workshop_sectors: { select: { id: true, name: true } },
+            work_orders: {
+              select: {
+                id: true,
+                order_number: true,
+                status: true,
+                work_order_items: {
+                  select: {
+                    id: true,
+                    work_order_item_repairs: {
+                      select: { id: true, status: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return orders;
+  } catch (error) {
+    logger.error('Error al obtener ordenes pendientes de validacion', { data: { error } });
+    throw error;
+  }
+}
+
+export type ValidationOrdersData = Awaited<ReturnType<typeof getOrdersPendingValidation>>;
+export type ValidationOrderItem = ValidationOrdersData[number];
+
 // =============================================================================
 // MUTATIONS
 // =============================================================================

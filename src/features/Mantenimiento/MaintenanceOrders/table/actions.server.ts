@@ -233,17 +233,11 @@ function buildWhereClause(state: ReturnType<typeof parseSearchParams>, options?:
   }
 
   // Filtrar para mostrar solo órdenes relevantes de taller (excluir scheduled/pending_scheduling)
+  // pending_workshop_validation se mueve al paso 4 (Aprobaciones)
   // Si ya hay un filtro de status aplicado, NO sobreescribir
   if (!statusValues?.length) {
     where.status = {
-      in: [
-        'in_workshop',
-        'pending_workshop_validation',
-        'pending_operations_validation',
-        'operations_rejected',
-        'workshop_rejected',
-        'completed',
-      ],
+      in: ['in_workshop', 'pending_operations_validation', 'operations_rejected', 'workshop_rejected', 'completed'],
     };
   }
 

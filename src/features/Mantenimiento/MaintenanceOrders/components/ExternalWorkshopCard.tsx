@@ -8,6 +8,7 @@ import { PermissionGuard } from '@/features/Permissions/components/PermissionGua
 import { Building2, CheckCircle2, ChevronDown, Loader2, Wrench } from 'lucide-react';
 import React, { useState } from 'react';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
+import { getRepairDisplayName } from '../utils/repairDisplayName';
 
 type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
 
@@ -55,7 +56,7 @@ export function ExternalWorkshopCard({
         id: wo.id,
         orderNumber: wo.order_number,
         status: wo.status,
-        repairName: item.types_of_repairs?.name || item.description || 'Sin descripcion',
+        repairName: getRepairDisplayName(item),
         itemId: item.id,
       };
     })
@@ -104,7 +105,7 @@ export function ExternalWorkshopCard({
               return (
                 <div key={wo.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/30">
                   <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-sm font-medium">{wo.orderNumber || 'Sin N°'}</span>
+                  <code className="text-xs font-mono text-muted-foreground">{wo.orderNumber || 'Sin N°'}</code>
                   <span className="text-sm flex-1 text-muted-foreground">{wo.repairName}</span>
                   <Badge variant={wo.status ? woStatusBadge[wo.status] || 'outline' : 'outline'}>
                     {wo.status ? woStatusLabels[wo.status] || wo.status : 'Desconocido'}

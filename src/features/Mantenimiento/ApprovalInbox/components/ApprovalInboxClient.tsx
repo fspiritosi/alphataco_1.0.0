@@ -17,12 +17,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Check, FileText, MessageSquare, RotateCcw, Truck, Wrench, X } from 'lucide-react';
+import { ArrowRight, Check, FileText, MessageSquare, RotateCcw, ShieldCheck, Truck, Wrench, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -33,12 +32,17 @@ import {
   type PendingTasksData,
   type ReturnedTaskData,
   type ReturnedTasksData,
+  type ValidationOrdersData,
 } from '../actions/actionsServer';
-import { usePendingTasks, useReturnedTasks } from '../hooks/useApprovalInbox';
+import { usePendingTasks, useReturnedTasks, useValidationOrders } from '../hooks/useApprovalInbox';
+import { _ValidationOrdersDataTable } from './_ValidationOrdersDataTable';
 
 const logger = new Logger('ApprovalInbox');
 
-/** Helper para extraer el nombre del tipo de reparacion de una task */
+// =============================================================================
+// HELPERS — Extraer info nested de tareas de aprobacion/reasignacion
+// =============================================================================
+
 function getRepairTypeName(task: PendingTaskData | ReturnedTaskData | null): string {
   if (!task) return 'Sin tipo';
   const rt = task.types_of_repairs;
@@ -48,7 +52,6 @@ function getRepairTypeName(task: PendingTaskData | ReturnedTaskData | null): str
   return 'Sin tipo';
 }
 
-/** Helper para navegar la estructura nested de work_order_items */
 function getMaintenanceOrderItems(task: PendingTaskData | ReturnedTaskData) {
   const woItems = task.work_order_items;
   if (!woItems || typeof woItems !== 'object') return null;
@@ -121,31 +124,47 @@ function getAddedByName(task: PendingTaskData): string | null {
   return null;
 }
 
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 interface ApprovalInboxClientProps {
+  initialValidationOrders: ValidationOrdersData;
   initialPendingTasks: PendingTasksData;
   initialReturnedTasks: ReturnedTasksData;
   sectors: Array<{ id: string; name: string }>;
 }
 
-export function ApprovalInboxClient({ initialPendingTasks, initialReturnedTasks, sectors }: ApprovalInboxClientProps) {
+export function ApprovalInboxClient({
+  initialValidationOrders,
+  initialPendingTasks,
+  initialReturnedTasks,
+  sectors,
+}: ApprovalInboxClientProps) {
   const queryClient = useQueryClient();
+  const { data: validationOrders } = useValidationOrders(initialValidationOrders);
   const { data: pendingTasks } = usePendingTasks(initialPendingTasks);
   const { data: returnedTasks } = useReturnedTasks(initialReturnedTasks);
 
-  // Rechazar dialog state
+  // Modal states for indicators
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [showReturnedModal, setShowReturnedModal] = useState(false);
+
+  // Approve task dialog state
+  const [approveTarget, setApproveTarget] = useState<PendingTaskData | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
+
+  // Reject task dialog state
   const [rejectTarget, setRejectTarget] = useState<PendingTaskData | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
 
-  // Reasignar dialog state
+  // Reassign task dialog state
   const [reassignTarget, setReassignTarget] = useState<ReturnedTaskData | null>(null);
   const [newSectorId, setNewSectorId] = useState('');
   const [isReassigning, setIsReassigning] = useState(false);
 
-  // Aprobar confirmacion
-  const [approveTarget, setApproveTarget] = useState<PendingTaskData | null>(null);
-  const [isApproving, setIsApproving] = useState(false);
-
+  // Handlers
   const handleApprove = async () => {
     if (!approveTarget) return;
     setIsApproving(true);
@@ -202,31 +221,59 @@ export function ApprovalInboxClient({ initialPendingTasks, initialReturnedTasks,
     }
   };
 
+  const pendingCount = pendingTasks?.length ?? 0;
+  const returnedCount = returnedTasks?.length ?? 0;
+
   return (
     <>
-      <Tabs defaultValue="pendientes">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="pendientes">
-            Pendientes de Autorizacion
-            {(pendingTasks?.length ?? 0) > 0 && (
-              <Badge variant="destructive" className="ml-2">
-                {String(pendingTasks?.length ?? 0)}
+      {/* ── Indicadores ── */}
+      {(pendingCount > 0 || returnedCount > 0) && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {pendingCount > 0 && (
+            <button
+              onClick={() => setShowPendingModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Autorizaciones
+              <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5">
+                {pendingCount}
               </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="devueltas">
-            Reasignacion
-            {(returnedTasks?.length ?? 0) > 0 && (
-              <Badge variant="warning" className="ml-2">
-                {String(returnedTasks?.length ?? 0)}
+            </button>
+          )}
+          {returnedCount > 0 && (
+            <button
+              onClick={() => setShowReturnedModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-950/60"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reasignaciones
+              <Badge variant="warning" className="ml-1 h-5 min-w-5 px-1.5">
+                {returnedCount}
               </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+            </button>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="pendientes" className="mt-4">
+      {/* ── Tabla principal: Ordenes pendientes de validacion ── */}
+      <Card>
+        <CardContent className="pt-6">
+          <_ValidationOrdersDataTable validationOrders={validationOrders ?? []} />
+        </CardContent>
+      </Card>
+
+      {/* ── Modal: Autorizaciones (tareas pendientes de aprobacion) ── */}
+      <Dialog open={showPendingModal} onOpenChange={setShowPendingModal}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              Autorizaciones pendientes
+            </DialogTitle>
+          </DialogHeader>
           {!pendingTasks || pendingTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-12">No hay tareas pendientes de autorizacion</p>
+            <p className="text-sm text-muted-foreground text-center py-8">No hay tareas pendientes de autorizacion</p>
           ) : (
             <div className="space-y-3">
               {pendingTasks.map((task) => {
@@ -317,11 +364,20 @@ export function ApprovalInboxClient({ initialPendingTasks, initialReturnedTasks,
               })}
             </div>
           )}
-        </TabsContent>
+        </DialogContent>
+      </Dialog>
 
-        <TabsContent value="devueltas" className="mt-4">
+      {/* ── Modal: Reasignaciones (tareas devueltas) ── */}
+      <Dialog open={showReturnedModal} onOpenChange={setShowReturnedModal}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" />
+              Reasignaciones pendientes
+            </DialogTitle>
+          </DialogHeader>
           {!returnedTasks || returnedTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-12">No hay tareas devueltas para reasignacion</p>
+            <p className="text-sm text-muted-foreground text-center py-8">No hay tareas devueltas para reasignacion</p>
           ) : (
             <div className="space-y-3">
               {returnedTasks.map((task) => {
@@ -399,10 +455,10 @@ export function ApprovalInboxClient({ initialPendingTasks, initialReturnedTasks,
               })}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </DialogContent>
+      </Dialog>
 
-      {/* Aprobar confirmation */}
+      {/* ── Aprobar task confirmation ── */}
       <AlertDialog open={!!approveTarget} onOpenChange={(open) => !open && setApproveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -420,7 +476,7 @@ export function ApprovalInboxClient({ initialPendingTasks, initialReturnedTasks,
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Rechazar dialog */}
+      {/* ── Rechazar task dialog ── */}
       <Dialog open={!!rejectTarget} onOpenChange={(open) => !open && setRejectTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -450,7 +506,7 @@ export function ApprovalInboxClient({ initialPendingTasks, initialReturnedTasks,
         </DialogContent>
       </Dialog>
 
-      {/* Reasignar dialog */}
+      {/* ── Reasignar task dialog ── */}
       <Dialog open={!!reassignTarget} onOpenChange={(open) => !open && setReassignTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

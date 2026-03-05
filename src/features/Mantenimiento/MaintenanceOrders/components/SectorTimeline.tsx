@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
-export type SectorStatus = 'blocked' | 'pending' | 'in_progress' | 'completed';
+export type SectorStatus = 'blocked' | 'pending' | 'in_progress' | 'paused' | 'completed';
 
 export interface SectorTimelineItem {
   sectorId: string;
@@ -28,6 +28,7 @@ const statusColors: Record<SectorStatus, string> = {
   blocked: 'bg-muted border-muted-foreground/30 text-muted-foreground',
   pending: 'bg-blue-100 border-blue-500 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   in_progress: 'bg-yellow-100 border-yellow-500 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+  paused: 'bg-orange-100 border-orange-500 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
   completed: 'bg-green-100 border-green-500 text-green-700 dark:bg-green-950 dark:text-green-300',
 };
 
@@ -35,6 +36,7 @@ const statusLineColors: Record<SectorStatus, string> = {
   blocked: 'bg-muted-foreground/30',
   pending: 'bg-blue-300',
   in_progress: 'bg-yellow-300',
+  paused: 'bg-orange-300',
   completed: 'bg-green-500',
 };
 
@@ -42,6 +44,7 @@ const statusLabels: Record<SectorStatus, string> = {
   blocked: 'Bloqueado',
   pending: 'Pendiente',
   in_progress: 'En progreso',
+  paused: 'Pausado',
   completed: 'Completado',
 };
 
