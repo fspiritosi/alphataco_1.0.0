@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { getTablePreferences } from '@/shared/actions/table-preferences';
 import { stripPrefixFromSearchParams } from '@/shared/components/common/DataTable/helpers';
 import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
-import { getEmployeesFacets, getEmployeesPaginated } from './actions.server';
+import { getEmployeesPaginated } from './actions.server';
 import _EmployeeDataTable from './components/_EmployeeDataTable';
 
 // ============================================================================
@@ -25,10 +25,10 @@ export default async function EmployeeList({ searchParams, isActive, permissions
   // Extraer solo los params de esta tabla (quitar prefijo del namespace)
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
 
-  const [{ data, total }, preferences, initialFacets] = await Promise.all([
+  // Facets se cargan lazy (on-demand al abrir cada popover) — no en SSR
+  const [{ data, total }, preferences] = await Promise.all([
     getEmployeesPaginated(tableParams, isActive),
     getTablePreferences(tableId),
-    getEmployeesFacets(isActive, tableParams),
   ]);
 
   return (
@@ -41,7 +41,6 @@ export default async function EmployeeList({ searchParams, isActive, permissions
           isActive={isActive}
           tableId={tableId}
           permissionsMap={permissions}
-          initialFacets={initialFacets}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}
         />

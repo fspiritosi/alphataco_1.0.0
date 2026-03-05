@@ -21,6 +21,7 @@ Componente de tabla de datos server-side con soporte para paginación, sorting, 
 - [buildWhereClause — Helper DRY](#buildwhereclause--helper-dry)
 - [Multi-Sort con resolución FK](#multi-sort-con-resolución-fk)
 - [Client-Side Navigation Mode (Performance)](#client-side-navigation-mode-performance)
+- [Lazy-Load Facets (On-Demand)](#lazy-load-facets-on-demand)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -1277,6 +1278,118 @@ Filtro click
 ### Tablas migradas
 
 - [x] Empleados activos / inactivos (`_EmployeeDataTable.tsx`)
+
+---
+
+## Lazy-Load Facets (On-Demand)
+
+Los filtros facetados pueden cargarse bajo demanda (al abrir el popover) en vez de en bulk con todos los facets. Esto mejora significativamente el rendimiento inicial de la página y reduce tráfico de red.
+
+### Cómo funciona
+
+1. Cada filtro recibe una función `fetchFacet` que obtiene opciones+counts para ESE filtro
+2. Al abrir el popover por primera vez, se dispara el fetch con skeleton loading
+3. Los resultados se cachean en React Query (staleTime 5min) — re-abrir es instantáneo
+4. Si hay filtros activos (desde URL), se cargan automáticamente para mostrar labels
+5. Cuando cambian los filtros de la tabla, los facets ya cargados se refetchean (cross-filtering)
+
+### Implementación
+
+#### 1. Server Action — `getEntitySingleFacet`
+
+```typescript
+// actions.server.ts
+export async function getEntitySingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  // Usa crossWhere(columnId) para cross-filtering
+  // Retorna counts + opciones resueltas (para FK/M:M)
+}
+```
+
+#### 2. Client Component — `fetchFacet` en cada filtro
+
+```typescript
+// Para enums: opciones estáticas + counts del servidor
+{
+  columnId: 'status',
+  title: 'Estado',
+  fetchFacet: async (params) => {
+    const result = await getEntitySingleFacet('status', params);
+    if (!result) return { options: [], counts: new Map() };
+    return buildEnumFacetResult(Object.values(StatusEnum), statusLabels, statusIcons, result.counts);
+  },
+}
+
+// Para FK/M:M: opciones Y counts del servidor
+{
+  columnId: 'category',
+  title: 'Categoría',
+  fetchFacet: async (params) => {
+    const result = await getEntitySingleFacet('category', params);
+    if (!result) return { options: [], counts: new Map() };
+    return buildFkFacetResult(result.resolvedOptions, result.counts);
+  },
+}
+```
+
+#### 3. Helpers de construcción de FacetResult
+
+```typescript
+import type { FacetResult, DataTableFilterOption } from '@/shared/components/common/DataTable';
+import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  icons: Record<string, LucideIcon | undefined>,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      ...enumValues.map((value) => ({ value, label: labels[value] ?? value, icon: icons[value] })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK/M:M: opciones del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+```
+
+### Diferencias con Bulk Facets
+
+| Aspecto          | Bulk (anterior)                          | Lazy (nuevo)                               |
+| ---------------- | ---------------------------------------- | ------------------------------------------ |
+| Carga inicial    | TODOS los facets en SSR + useQuery       | Solo datos de tabla (facets a demanda)     |
+| Primer render    | Lento (~30 groupBy en paralelo)          | Rápido (sin queries de facets)             |
+| Abrir filtro     | Instantáneo (ya cargado)                 | Skeleton breve (~100-200ms por filtro)     |
+| Re-abrir filtro  | Instantáneo                              | Instantáneo (cache React Query)            |
+| Cross-filtering  | 1 request bulk                           | N requests individuales (solo cargados)    |
+| Server Component | `getEntityFacets(params)` en Promise.all | Sin facets en SSR                          |
+| Client Component | 1 useQuery para todos                    | N useQuery internos (1 por filtro abierto) |
+
+### Backward Compatibility
+
+Tablas que NO usan `fetchFacet` siguen funcionando exactamente igual (modo bulk con `options` + `externalCounts` props). El lazy-load es opt-in por filtro.
 
 ---
 

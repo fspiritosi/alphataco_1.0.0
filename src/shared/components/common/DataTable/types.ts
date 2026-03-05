@@ -66,6 +66,16 @@ export interface DataTableFilterOption {
 }
 
 /**
+ * Resultado de un fetch de facet individual (lazy-load)
+ */
+export interface FacetResult {
+  /** Opciones del filtro (con labels resueltos) */
+  options: DataTableFilterOption[];
+  /** Mapa de contadores por valor */
+  counts: Map<string, number>;
+}
+
+/**
  * Configuración de un filtro faceteado
  */
 export interface DataTableFacetedFilterConfig {
@@ -83,6 +93,13 @@ export interface DataTableFacetedFilterConfig {
   externalCounts?: Map<string, number>;
   /** Deshabilitar el filtro (ej. mientras se cargan las opciones) */
   disabled?: boolean;
+  /**
+   * Fetch individual de opciones+counts bajo demanda.
+   * Cuando se provee, las opciones se cargan lazy al abrir el popover (no en bulk).
+   * Recibe los searchParams actuales (sin page/sort) para cross-filtering.
+   * El resultado se cachea en React Query (staleTime 5min).
+   */
+  fetchFacet?: (facetParams: DataTableSearchParams) => Promise<FacetResult>;
 }
 
 // ============================================================================
@@ -256,6 +273,8 @@ export interface DataTableToolbarProps<TData> {
   paramNamespace?: string;
   /** Indica que los facets se están re-fetcheando (se propaga a cada FacetedFilter) */
   isFetchingFacets?: boolean;
+  /** Params actuales de la tabla (sin page/sort) para lazy-load de facets */
+  facetParams?: DataTableSearchParams;
   /**
    * Handler externo para cambios de búsqueda global (sincroniza con URL via router).
    * Cuando se provee, reemplaza el comportamiento local de TanStack Table (setGlobalFilter).
@@ -299,6 +318,13 @@ export interface DataTableFacetedFilterProps<TData, TValue> {
   disabled?: boolean;
   /** Indica que los facets se están re-fetcheando (muestra skeletons en el popover) */
   isFetching?: boolean;
+  /**
+   * Fetch individual de opciones+counts bajo demanda (lazy-load).
+   * Cuando se provee, las opciones se cargan al abrir el popover.
+   */
+  fetchFacet?: (facetParams: DataTableSearchParams) => Promise<FacetResult>;
+  /** Params actuales de la tabla (sin page/sort) para queryKey de React Query */
+  facetParams?: DataTableSearchParams;
 }
 
 /**

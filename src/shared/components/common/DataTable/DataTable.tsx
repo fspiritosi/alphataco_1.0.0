@@ -108,6 +108,12 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
     return obj;
   }, [state]);
 
+  // Derivar facetParams (sin page/sort) para lazy-load de facets individuales
+  const facetParams = React.useMemo(() => {
+    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = stateSearchParams;
+    return rest;
+  }, [stateSearchParams]);
+
   // Notificar al padre cuando el estado cambia (para facets y queries dependientes)
   const onStateChangeRef = React.useRef(onStateChange);
   onStateChangeRef.current = onStateChange;
@@ -217,6 +223,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue = unknow
           onFilterVisibilityChange={setFilterVisibility}
           paramNamespace={paramNamespace}
           isFetchingFacets={isFetchingFacets}
+          facetParams={facetParams}
           onSearchChange={onGlobalFilterChange}
           searchValue={state.search}
           exportActions={

@@ -20,7 +20,7 @@ Aplica cuando:
 - [ ] `getTablePreferences(tableId)` llamado en el `Promise.all`
 - [ ] Permisos cargados en servidor (`getUserPermissionsMapServer()` o `getModulePermissions()`) y pasados como prop al Client Component (solo si la tabla tiene columna `actions` con botones protegidos)
 - [ ] `<PermissionGuard module="x" action="view" redirect>` envuelve la página completa (si aplica a la tabla)
-- [ ] `getXxxFacets(tableSearchParams)` recibe los params filtrados (cross-filter support)
+- [ ] **NO cargar facets en SSR** — los facets se cargan lazy (on-demand) en el cliente. El Server Component NO debe llamar a `getXxxFacets()` ni pasar `initialFacets` como prop
 - [ ] Card wrapper: `<Card><CardContent className="pt-6">` envuelve el Client Component **salvo que el componente padre ya provea un `<Card>`** — en ese caso omitir o reemplazar por `<div>` para evitar Card anidada. Verificar el árbol de componentes antes de decidir.
 
 ### CLIENT COMPONENT (\_{Entity}DataTable.tsx)
@@ -30,8 +30,7 @@ Aplica cuando:
 - [ ] `searchPlaceholder` prop presente y descriptivo
 - [ ] `showFilterToggle={true}` prop presente
 - [ ] `emptyMessage` prop presente (en español)
-- [ ] **`isFetchingFacets={isFetchingFacets}` en `<DataTable>` — OBLIGATORIO**. Extraer `isFetching` del `useQuery` de facets y pasarlo. Sin esto, al cambiar filtros las opciones del popover desaparecen momentáneamente y puede aparecer "Sin resultados" falso
-- [ ] `facetedFilters` configurado con `externalCounts` (Maps del servidor) en todos los filtros facetados
+- [ ] **Lazy-load facets con `fetchFacet`** — cada filtro facetado DEBE usar `fetchFacet` en vez de `options`/`externalCounts` estáticos. Ver sección "Lazy-Load Facets" abajo
 - [ ] `exportConfig` configurado con formatters para TODOS los campos exportables (enums→labels, fechas→DD/MM/YYYY, booleanos→Sí/No)
 - [ ] Permisos recibidos como prop del Server Component — NUNCA re-fetched en el cliente (solo si la tabla tiene columna `actions`)
 - [ ] Acciones individuales (editar/eliminar) condicionadas a permisos dentro de la columna `actions` — nunca ocultar la columna completa
@@ -41,11 +40,21 @@ Aplica cuando:
 
 - [ ] **`queryFn` prop en `<DataTable>` — OBLIGATORIO**. Activa client-side mode: datos via React Query + `replaceState` en vez de `router.push` + SSR. Sin esto, cada filtro/paginación re-renderiza TODA la página
 - [ ] **`queryKey` prop estable** — valores primitivos (strings, booleans), NO objetos
-- [ ] **`onStateChange` + `currentParams` (useState)** — si la tabla tiene facets, el Client Component DEBE mantener `currentParams` en estado local y pasarlo al DataTable via `onStateChange`
+- [ ] **`onStateChange` + `currentParams` (useState)** — el Client Component DEBE mantener `currentParams` en estado local para export con filtros activos
 - [ ] **`tableQueryFn` memoizado con `useCallback`** — referencia estable para React Query
-- [ ] **`facetParams` derivado de `currentParams`** — NO de `searchParams` original
 - [ ] **`exportConfig.fetchAllData` usa `currentParams`** — para respetar filtros activos en la exportación
 - [ ] **Referencia**: `docs/desarrollo/client-side-datatable-migration.md` (guía paso a paso)
+
+### LAZY-LOAD FACETS — OBLIGATORIO
+
+- [ ] **`fetchFacet` en cada filtro facetado** — cada filtro carga sus opciones+counts on-demand al abrir el popover. NO usar `options`/`externalCounts` props estáticos
+- [ ] **`getEntitySingleFacet(columnId, ...args, searchParams)` en `actions.server.ts`** — función que retorna `{ counts: Map, resolvedOptions?: [...] }` para UNA sola columna
+- [ ] **`crossWhere(excludeColumn)` dentro de `getEntitySingleFacet`** — cross-filter obligatorio: excluir filtro propio de la columna
+- [ ] **Helpers `buildEnumFacetResult` y `buildFkFacetResult`** en el Client Component para reducir boilerplate al construir `FacetResult`
+- [ ] **Factory callbacks `makeEnumFetchFacet` y `makeFkFetchFacet`** con `useCallback` para referencia estable
+- [ ] **NO pasar `isFetchingFacets` al DataTable** — cada filtro maneja su propio loading internamente via `useQuery`
+- [ ] **NO cargar facets en SSR** — el Server Component NO llama a `getEntityFacets()`. Solo carga datos paginados + preferencias
+- [ ] **Referencia**: `src/shared/components/common/DataTable/DOCS.md` sección "Lazy-Load Facets (On-Demand)"
 
 ### COLUMNS (columns.tsx)
 
@@ -65,7 +74,7 @@ Aplica cuando:
 - [ ] `VALID_SORT_FIELDS` whitelist + `FK_SORT_MAP` para columnas FK
 - [ ] Multi-sort: iterar `state.sorting` (array) — NO usar `state.sortBy` (patrón viejo)
 - [ ] `buildSearchWhere`, `buildFiltersWhere`, `buildTextFiltersWhere`, `buildDateRangeFiltersWhere`
-- [ ] **`getXxxFacets(searchParams?)` implementa `crossWhere(excludeColumn)` — OBLIGATORIO**. Cada `groupBy` excluye su propia columna de los filtros activos. Sin esto, los counts se vuelven incorrectos cuando hay filtros activos
+- [ ] **`getXxxSingleFacet(columnId, ...args, searchParams)` — función de facet por columna individual** con `crossWhere(excludeColumn)`. Retorna `{ counts: Map, resolvedOptions? }`. Reemplaza al viejo `getXxxFacets()` que cargaba TODAS las facetas en una sola llamada
 - [ ] `getXxxForExport()` sin `skip`/`take`, usa `buildWhereClause` (misma lógica de filtros)
 - [ ] Tipo inferido: `Awaited<ReturnType<typeof getXxx>>['data'][number]` — NUNCA tipar manualmente
 - [ ] Logger (`new Logger(...)`) + try-catch en todas las funciones
@@ -135,18 +144,51 @@ const tableQueryFn = useCallback(
   []
 );
 
-// facetParams derivado de currentParams (NO searchParams)
-const facetParams = useMemo(() => {
-  const { page, pageSize, sort, sortBy, sortOrder, ...rest } = currentParams;
-  return rest;
-}, [currentParams]);
+// ── Lazy-load facets — helpers y factories ──────────────────────────────
+// Helper: construir FacetResult para enums
+function buildEnumFacetResult(enumValues, labels, icons, counts): FacetResult {
+  const options = enumValues.map(v => ({
+    value: v, label: labels[v] ?? v, ...(icons?.[v] ? { icon: icons[v] } : {}),
+  }));
+  return { options, counts };
+}
 
-// useQuery de facets — SIEMPRE extraer isFetching
-const { data: facets, isFetching: isFetchingFacets } = useQuery({
-  queryKey: ['entity-facets', facetParams],
-  queryFn: () => getEntityFacets(facetParams),
-  staleTime: 5 * 60 * 1000,
-});
+// Factory: crear fetchFacet callback para enums
+const makeEnumFetchFacet = useCallback(
+  (columnId, enumValues, labels, icons?) => {
+    return async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getEntitySingleFacet(columnId, params);
+      if (!result) return { options: [], counts: new Map() };
+      return buildEnumFacetResult(enumValues, labels, icons, result.counts);
+    };
+  }, []
+);
+
+// Factory: crear fetchFacet callback para FK
+const makeFkFetchFacet = useCallback(
+  (columnId, nullLabel?) => {
+    return async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getEntitySingleFacet(columnId, params);
+      if (!result) return { options: [], counts: new Map() };
+      return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+    };
+  }, []
+);
+
+// ── Configurar facetedFilters con fetchFacet ────────────────────────────
+const facetedFilters = useMemo(() => [
+  {
+    columnId: 'status',
+    title: 'Estado',
+    fetchFacet: makeEnumFetchFacet('status', Object.values(EntityStatus), statusLabels, statusIcons),
+  },
+  {
+    columnId: 'type',
+    title: 'Tipo',
+    fetchFacet: makeFkFetchFacet('type'),
+  },
+  // ... más filtros
+], [makeEnumFetchFacet, makeFkFetchFacet]);
 
 <DataTable
   columns={columns}
@@ -155,9 +197,8 @@ const { data: facets, isFetching: isFetchingFacets } = useQuery({
   searchParams={searchParams}
   queryFn={tableQueryFn}               // OBLIGATORIO — activa client-side mode
   queryKey={['entity-list']}           // OBLIGATORIO — key estable para React Query
-  onStateChange={handleStateChange}    // OBLIGATORIO si hay facets
-  facetedFilters={facetedFilters}      // Filtros con externalCounts
-  isFetchingFacets={isFetchingFacets}  // Loading state para filtros (evita flash vacío)
+  onStateChange={handleStateChange}    // Para export con filtros activos
+  facetedFilters={facetedFilters}      // Filtros con fetchFacet (lazy-load)
   exportConfig={{
     fetchAllData: () => getAllForExport(currentParams),  // usa currentParams, NO searchParams
     ...
@@ -369,6 +410,20 @@ Si encuentras CUALQUIERA de estos, la tabla usa el sistema viejo y **DEBE ser re
 | `filterableColumns` / `searchableColumns`     | Config vieja de toolbar                                         |
 | Import de `@/shared/components/data-table/`   | Path del componente viejo                                       |
 | `import { cookies }` para tabla               | Persistencia vieja                                              |
+
+### Marcadores de Facets Bulk (DEPRECADO — migrar a Lazy-Load)
+
+Si encuentras CUALQUIERA de estos patrones, los facets usan el sistema viejo **bulk** y DEBEN migrarse a **lazy-load**:
+
+| Marcador                                                      | Descripcion                                                                 |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `getXxxFacets()` que retorna TODAS las facetas en una llamada | Patrón bulk — reemplazar por `getXxxSingleFacet(columnId, ...)`             |
+| `initialFacets` prop en Client Component                      | Facets cargados en SSR — NO cargar en servidor, usar lazy-load              |
+| `options: statusOptions` (array estático) en facetedFilters   | Opciones pre-calculadas — reemplazar por `fetchFacet`                       |
+| `externalCounts: facets?.status` en facetedFilters            | Counts del bulk query — reemplazar por `fetchFacet`                         |
+| `useQuery` de facets BULK en Client Component                 | Un solo `useQuery` que carga todas las facetas — eliminar                   |
+| `isFetchingFacets` prop en `<DataTable>`                      | Loading state del bulk — no necesario con lazy-load (cada filtro lo maneja) |
+| `getXxxFacets` en `Promise.all` del Server Component          | Facets en SSR — eliminar del `Promise.all`                                  |
 
 ### Regla de Migracion
 

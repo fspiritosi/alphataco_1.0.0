@@ -698,5 +698,269 @@ export async function getEmployeesFacets(isActive: boolean, searchParams?: DataT
 // EXPORTED TYPES
 // ============================================================================
 
+// ============================================================================
+// SINGLE FACET (lazy-load individual)
+// ============================================================================
+
+/**
+ * Obtiene opciones y counts para UN SOLO filtro facetado, con cross-filtering.
+ * Diseñado para lazy-load: cada filtro llama a esta función al abrirse.
+ */
+export async function getEmployeeSingleFacet(
+  columnId: string,
+  isActive: boolean,
+  searchParams?: DataTableSearchParams
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  const companyId = await getServerCompanyId();
+  const baseWhere = { company_id: companyId, is_active: isActive };
+
+  let parsedState: ReturnType<typeof parseSearchParams> | null = null;
+  if (searchParams && Object.keys(searchParams).length > 0) {
+    parsedState = parseSearchParams(searchParams);
+    for (const key of IGNORED_PARAMS) {
+      delete parsedState.filters[key];
+    }
+  }
+
+  const hasActiveFilters = parsedState && (Object.keys(parsedState.filters).length > 0 || parsedState.search);
+
+  function crossWhere(excludeColumn: string) {
+    if (!parsedState || !hasActiveFilters) return baseWhere;
+    const modified = { ...parsedState, filters: { ...parsedState.filters } };
+    delete modified.filters[excludeColumn];
+    delete modified.filters[`${excludeColumn}_from`];
+    delete modified.filters[`${excludeColumn}_to`];
+    return buildWhereClause(companyId, isActive, modified);
+  }
+
+  function toFacetMap(rows: { key: string | bigint | null | undefined; count: number }[]): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const { key, count } of rows) {
+      if (key == null) {
+        map.set(NULL_FILTER_VALUE, (map.get(NULL_FILTER_VALUE) ?? 0) + count);
+      } else {
+        map.set(String(key), count);
+      }
+    }
+    return map;
+  }
+
+  try {
+    const where = crossWhere(columnId);
+
+    // ── Enum columns (direct field on employees) ──
+    const ENUM_COLUMN_TO_FIELD: Record<string, string> = {
+      status: 'status',
+      gender: 'gender',
+      nationality: 'nationality',
+      document_type: 'document_type',
+      marital_status: 'marital_status',
+      level_of_education: 'level_of_education',
+      cost_type: 'cost_type',
+      affiliate_status: 'affiliate_status',
+      reason_for_termination: 'reason_for_termination',
+    };
+
+    if (columnId in ENUM_COLUMN_TO_FIELD) {
+      const field = ENUM_COLUMN_TO_FIELD[columnId]!;
+      const rows = await prisma.employees.groupBy({
+        by: [field as 'status'],
+        where,
+        _count: true,
+      });
+      return {
+        counts: toFacetMap(
+          rows.map((r) => ({ key: (r as Record<string, unknown>)[field] as string | null, count: r._count }))
+        ),
+      };
+    }
+
+    // ── Boolean ──
+    if (columnId === 'is_active') {
+      const rows = await prisma.employees.groupBy({ by: ['is_active'], where, _count: true });
+      return {
+        counts: toFacetMap(rows.map((r) => ({ key: String(r.is_active), count: r._count }))),
+      };
+    }
+
+    // ── FK UUID columns ──
+    const FK_UUID_CONFIG: Record<
+      string,
+      {
+        prismaField: string;
+        resolver: (ids: string[]) => Promise<Array<{ id: string; name: string | null }>>;
+      }
+    > = {
+      hierarchy: {
+        prismaField: 'hierarchical_position',
+        resolver: (ids) => prisma.hierarchy.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      company_positions: {
+        prismaField: 'company_position',
+        resolver: (ids) =>
+          prisma.company_positions.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      types_of_contract: {
+        prismaField: 'type_of_contract',
+        resolver: (ids) =>
+          prisma.types_of_contract.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      work_diagram: {
+        prismaField: 'workflow_diagram',
+        resolver: (ids) =>
+          prisma.work_diagram.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      workshop_sectors: {
+        prismaField: 'workshop_sector_id',
+        resolver: (ids) =>
+          prisma.workshop_sectors.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      category: {
+        prismaField: 'category_id',
+        resolver: (ids) => prisma.category.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      covenant: {
+        prismaField: 'covenants_id',
+        resolver: (ids) => prisma.covenant.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      guild: {
+        prismaField: 'guild_id',
+        resolver: (ids) => prisma.guild.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      cost_center: {
+        prismaField: 'cost_center_id',
+        resolver: (ids) =>
+          prisma.cost_center.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+      countries: {
+        prismaField: 'birthplace',
+        resolver: (ids) => prisma.countries.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+      },
+    };
+
+    if (columnId in FK_UUID_CONFIG) {
+      const config = FK_UUID_CONFIG[columnId]!;
+      const rows = await prisma.employees.groupBy({
+        by: [config.prismaField as 'hierarchical_position'],
+        where,
+        _count: true,
+      });
+      const counts = toFacetMap(
+        rows.map((r) => ({
+          key: (r as Record<string, unknown>)[config.prismaField] as string | null,
+          count: r._count,
+        }))
+      );
+      const ids = rows.map((r) => (r as Record<string, unknown>)[config.prismaField]).filter(Boolean) as string[];
+      const resolvedOptions = ids.length > 0 ? await config.resolver(ids) : [];
+      return { counts, resolvedOptions };
+    }
+
+    // ── FK BigInt columns ──
+    if (columnId === 'province') {
+      const rows = await prisma.employees.groupBy({ by: ['province'], where, _count: true });
+      const counts = toFacetMap(rows.map((r) => ({ key: r.province, count: r._count })));
+      const ids = rows.map((r) => r.province).filter(Boolean) as bigint[];
+      const resolvedOptions =
+        ids.length > 0
+          ? (await prisma.provinces.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })).map(
+              (p) => ({ id: String(p.id), name: p.name })
+            )
+          : [];
+      return { counts, resolvedOptions };
+    }
+
+    if (columnId === 'city') {
+      const rows = await prisma.employees.groupBy({ by: ['city'], where, _count: true });
+      const counts = toFacetMap(rows.map((r) => ({ key: r.city, count: r._count })));
+      const ids = rows.map((r) => r.city).filter(Boolean) as bigint[];
+      const resolvedOptions =
+        ids.length > 0
+          ? (await prisma.cities.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })).map(
+              (c) => ({ id: String(c.id), name: c.name })
+            )
+          : [];
+      return { counts, resolvedOptions };
+    }
+
+    // ── M:M: contractor_employee ──
+    if (columnId === 'contractor_employee') {
+      const [relations, allRels, totalInCross, withSome] = await Promise.all([
+        prisma.contractor_employee.findMany({
+          where: { employees: where },
+          select: { contractor_id: true, customers: { select: { id: true, name: true } } },
+          distinct: ['contractor_id'],
+        }),
+        prisma.contractor_employee.findMany({
+          where: { employees: where },
+          select: { contractor_id: true },
+        }),
+        prisma.employees.count({ where }),
+        prisma.employees.count({ where: { ...where, contractor_employee: { some: {} } } }),
+      ]);
+
+      const countMap = new Map<string, number>();
+      for (const rel of allRels) {
+        if (rel.contractor_id) {
+          countMap.set(rel.contractor_id, (countMap.get(rel.contractor_id) ?? 0) + 1);
+        }
+      }
+      const unassigned = totalInCross - withSome;
+      if (unassigned > 0) countMap.set(NULL_FILTER_VALUE, unassigned);
+
+      const resolvedOptions = relations
+        .filter((r) => r.contractor_id && r.customers)
+        .map((r) => ({ id: r.customers!.id, name: r.customers!.name }));
+
+      return { counts: countMap, resolvedOptions };
+    }
+
+    // ── M:M: empleado_aptitudes ──
+    if (columnId === 'empleado_aptitudes') {
+      const [relations, allRels, totalInCross, withSome] = await Promise.all([
+        prisma.empleado_aptitudes.findMany({
+          where: { employees: where },
+          select: { aptitud_id: true, aptitudes_tecnicas: { select: { id: true, nombre: true } } },
+          distinct: ['aptitud_id'],
+        }),
+        prisma.empleado_aptitudes.findMany({
+          where: { employees: where },
+          select: { aptitud_id: true },
+        }),
+        prisma.employees.count({ where }),
+        prisma.employees.count({ where: { ...where, empleado_aptitudes: { some: {} } } }),
+      ]);
+
+      const countMap = new Map<string, number>();
+      for (const rel of allRels) {
+        if (rel.aptitud_id) {
+          countMap.set(rel.aptitud_id, (countMap.get(rel.aptitud_id) ?? 0) + 1);
+        }
+      }
+      const unassigned = totalInCross - withSome;
+      if (unassigned > 0) countMap.set(NULL_FILTER_VALUE, unassigned);
+
+      const resolvedOptions = relations
+        .filter((r) => r.aptitud_id && r.aptitudes_tecnicas)
+        .map((r) => ({ id: r.aptitudes_tecnicas!.id, name: r.aptitudes_tecnicas!.nombre }));
+
+      return { counts: countMap, resolvedOptions };
+    }
+
+    logger.warn('Facet column not recognized', { data: { columnId } });
+    return null;
+  } catch (error) {
+    logger.error('Error al obtener facet individual', { data: { error, columnId } });
+    return null;
+  }
+}
+
+// ============================================================================
+// EXPORTED TYPES
+// ============================================================================
+
 export type EmployeeListItem = Awaited<ReturnType<typeof getEmployeesPaginated>>['data'][number];
 export type EmployeeFacets = Awaited<ReturnType<typeof getEmployeesFacets>>;

@@ -37,6 +37,7 @@ export function DataTableToolbar<TData>({
   onFilterVisibilityChange,
   paramNamespace,
   isFetchingFacets,
+  facetParams,
   onSearchChange,
   searchValue: externalSearchValue,
 }: DataTableToolbarProps<TData>) {
@@ -103,6 +104,8 @@ export function DataTableToolbar<TData>({
                 externalCounts={filter.externalCounts}
                 disabled={filter.disabled}
                 isFetching={isFetchingFacets}
+                fetchFacet={filter.fetchFacet}
+                facetParams={facetParams}
               />
             );
           })}
