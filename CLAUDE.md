@@ -75,17 +75,20 @@ Los siguientes MCPs estan a tu disposicion:
 
 **REGLA CRITICA**: Antes de ejecutar cualquier tarea, verificar si hay un agente o skill que la cubra. Si existe, DEBE usarse — no actuar directamente sin invocar el recurso apropiado.
 
-### Agentes Personalizados (3)
+### Agentes Personalizados (4)
 
-| Agente         | Cuando usarlo                                                                  |
-| -------------- | ------------------------------------------------------------------------------ |
-| `git-guardian` | **TODA operacion git**: commit, push, PR, merge, crear ramas, subir cambios    |
-| `table-expert` | Crear, auditar o modificar DataTables (columnas, filtros, export, facets)      |
-| `linear-sync`  | Interactuar con Linear: crear/editar issues, sincronizar notas, auditar estado |
+| Agente                  | Cuando usarlo                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `git-guardian`          | **TODA operacion git**: commit, push, PR, merge, crear ramas, subir cambios    |
+| `table-expert`          | Crear, auditar o modificar DataTables (columnas, filtros, export, facets)      |
+| `linear-sync`           | Interactuar con Linear: crear/editar issues, sincronizar notas, auditar estado |
+| `performance-optimizer` | Auditar, optimizar y medir rendimiento (queries, componentes, bundle, routing) |
 
 **REGLA GIT — OBLIGATORIA SIN EXCEPCIONES**: TODA operacion git (commit, push, crear PR, merge, subir cambios) DEBE delegarse al agente `git-guardian`. **NUNCA ejecutar `git commit`, `git push`, `gh pr create` o similares directamente.** El agente analiza el diff, verifica calidad del codigo (types, patrones del proyecto, seguridad), y solo entonces ejecuta la operacion. Si encuentra problemas criticos, NO commitea y devuelve un informe con los problemas y sus soluciones propuestas. Operaciones simples (crear rama, checkout, pull, stash) tambien van por el agente pero sin analisis de diff.
 
 **REGLA DataTables**: TODA tarea que involucre DataTables (crear tabla, agregar columna, agregar filtro, auditar tabla, modificar export, corregir filtros, etc.) DEBE delegarse al agente `table-expert`. Si la peticion del usuario incluye trabajo de tabla Y otro trabajo, separar la parte de tabla y delegarla al agente, ejecutando el resto normalmente.
+
+**REGLA Performance**: Tareas de optimizacion de rendimiento (auditar page, optimizar queries, medir tiempos, buscar problemas de rendimiento) se delegan al agente `performance-optimizer`. Tiene 5 modos: AUDIT (analizar), FIX (aplicar), MEASURE (chrome-devtools), COMPARE (antes/despues), SCAN (global). Tracking en `memory/performance/optimization-tracker.md`.
 
 ### Skills de Superpowers (invocacion automatica via plugin)
 
