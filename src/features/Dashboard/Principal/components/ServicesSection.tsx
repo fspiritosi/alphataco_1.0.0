@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import moment from 'moment';
 import dynamic from 'next/dynamic';
 import * as React from 'react';
@@ -97,9 +97,9 @@ export function ServicesSection({ servicesSummary }: Props) {
               <CardTitle className="text-base">Servicios del Día</CardTitle>
               <CardDescription>{date}</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              Ver detalle por cliente
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setDialogOpen(true)}>
+              <Eye className="h-4 w-4" />
+              Ver detalle
             </Button>
           </div>
         </CardHeader>
