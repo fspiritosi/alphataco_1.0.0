@@ -465,7 +465,7 @@ export async function getPendingDeviations(equipmentId: string) {
         fullname,
         email
       ),
-      employees:created_by_employee_id(
+      employees!checklist_deviations_created_by_employee_id_fkey(
         id,
         firstname,
         lastname,
