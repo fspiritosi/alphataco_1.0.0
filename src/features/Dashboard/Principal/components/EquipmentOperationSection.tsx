@@ -1,7 +1,7 @@
 import moment from 'moment';
 import { cookies } from 'next/headers';
 import type { EquipmentIndicatorResult } from '../actions/actions.server';
-import { getAllVehicleTypes, getEquipmentIndicators, getVehiclesNotInDailyReport } from '../actions/actions.server';
+import { getAllVehicleTypes, getEquipmentIndicators } from '../actions/actions.server';
 import { EquipmentOperationClient } from './EquipmentOperationClient';
 
 export async function EquipmentOperationSection() {
@@ -10,15 +10,12 @@ export async function EquipmentOperationSection() {
   const typeIds = typeFilter ? typeFilter.split(',').filter(Boolean) : undefined;
   const initialFilterValues = typeIds ?? [];
 
-  const [equipmentData, vehiclesNotInReport, vehicleTypes] = await Promise.all([
-    getEquipmentIndicators(typeIds),
-    getVehiclesNotInDailyReport(typeIds),
-    getAllVehicleTypes(),
-  ]);
+  // async-parallel — only indicators + types for SSR; vehicle detail loads lazily in dialog
+  const [equipmentData, vehicleTypes] = await Promise.all([getEquipmentIndicators(typeIds), getAllVehicleTypes()]);
 
   const date = moment().format('DD/MM/YYYY');
 
-  // Pre-compute values on server with SINGLE LOOP
+  // server-serialization — pre-compute with SINGLE LOOP (js-combine-iterations)
   let totalActive = 0;
   let totalInUse = 0;
   let totalNotAvailable = 0;
@@ -41,7 +38,7 @@ export async function EquipmentOperationSection() {
       return {
         name,
         shortName,
-        activos: item.available_units - item.used_units,
+        activos: Math.max(0, item.available_units - item.used_units),
         fueraDeServicio: item.not_available_units,
         trabajando: item.used_units,
       };
@@ -56,7 +53,7 @@ export async function EquipmentOperationSection() {
       totalInUse={totalInUse}
       totalAvailable={totalAvailable}
       usagePercentage={usagePercentage}
-      vehiclesNotInReport={vehiclesNotInReport}
+      typeIds={typeIds}
       vehicleTypes={vehicleTypes.map((t) => ({ label: t.name ?? '', value: t.id }))}
       initialFilterValues={initialFilterValues}
     />

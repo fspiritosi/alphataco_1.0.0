@@ -2,126 +2,296 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DataTable,
+  type DataTableFacetedFilterConfig,
+  type DataTableSearchParams,
+  type FacetResult,
+} from '@/shared/components/common/DataTable';
+import { DataTableColumnHeader } from '@/shared/components/common/DataTable/DataTableColumnHeader';
+import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
+import type { ColumnDef } from '@tanstack/react-table';
+import { CircleOff } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import type { EmployeeNotInReportResult } from '../actions/actions.server';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  getAllAvailableEmployeesForExport,
+  getAvailableEmployeeSingleFacet,
+  getAvailableEmployeesPaginated,
+  type AvailableEmployeeListItem,
+} from '../actions/actions.server';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  employees: EmployeeNotInReportResult[];
   count: number;
+  positionIds?: string[];
 }
 
-export default function AvailableEmployeesDialog({ open, onOpenChange, employees, count }: Props) {
-  const [search, setSearch] = useState('');
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers — FacetResult builders
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return employees;
-    const term = search.toLowerCase();
-    return employees.filter(
-      (e) =>
-        e.lastname?.toLowerCase().includes(term) ||
-        e.firstname?.toLowerCase().includes(term) ||
-        e.file_number?.toLowerCase().includes(term) ||
-        e.cuil?.toLowerCase().includes(term)
-    );
-  }, [employees, search]);
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function AvailableEmployeesDialog({ open, onOpenChange, count, positionIds }: Props) {
+  // Estado reactivo para export con filtros activos
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>({});
+
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // queryFn server-side — Prisma skip/take, se activa solo cuando el dialog está abierto
+  const tableQueryFn = useCallback(
+    (params: DataTableSearchParams) => getAvailableEmployeesPaginated(params, positionIds),
+    [positionIds]
+  );
+
+  // ─── Columnas ──────────────────────────────────────────────────────────────
+
+  const columns = useMemo<ColumnDef<AvailableEmployeeListItem>[]>(
+    () => [
+      {
+        id: 'file',
+        accessorKey: 'file',
+        meta: { title: 'Legajo' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Legajo" />,
+        cell: ({ row }) => <span className="font-mono text-sm">{row.original.file ?? '-'}</span>,
+      },
+      {
+        id: 'name',
+        accessorFn: (row) => `${row.lastname} ${row.firstname}`,
+        meta: { title: 'Nombre' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
+        cell: ({ row }) => (
+          <Link
+            href={`/dashboard/employee/action?action=view&employee_id=${row.original.id}`}
+            target="_blank"
+            className="font-medium hover:underline"
+          >
+            {row.original.lastname}, {row.original.firstname}
+          </Link>
+        ),
+      },
+      {
+        id: 'cuil',
+        accessorKey: 'cuil',
+        meta: { title: 'CUIL' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="CUIL" />,
+        cell: ({ row }) => <span className="text-muted-foreground font-mono text-sm">{row.original.cuil ?? '-'}</span>,
+      },
+      {
+        id: 'company_positions',
+        accessorFn: (row) => row.company_positions?.name ?? '',
+        meta: { title: 'Posición' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Posición" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.company_positions?.name ?? 'Sin posición'}</span>
+        ),
+        filterFn: (row, _id, value: string[]) => {
+          const id = row.original.company_position;
+          if (id == null) return value.includes(NULL_FILTER_VALUE);
+          return value.includes(id);
+        },
+      },
+      {
+        id: 'customers',
+        accessorFn: (row) =>
+          row.contractor_employee
+            .map((ce) => ce.customers?.name)
+            .filter(Boolean)
+            .join(', ') ?? '',
+        meta: { title: 'Clientes' },
+        enableSorting: false,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Clientes" />,
+        cell: ({ row }) => {
+          const customerNames = row.original.contractor_employee
+            .map((ce) => ce.customers?.name)
+            .filter((n): n is string => n != null);
+          if (customerNames.length === 0) {
+            return <Badge variant="outline">Sin afectar</Badge>;
+          }
+          return (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline">
+                    {customerNames[0]}
+                    {customerNames.length > 1 && ` +${customerNames.length - 1}`}
+                  </Badge>
+                </TooltipTrigger>
+                {customerNames.length > 1 && (
+                  <TooltipContent>
+                    <div className="flex flex-col gap-1">
+                      {customerNames.map((name) => (
+                        <span key={name}>{name}</span>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          );
+        },
+        filterFn: (row, _id, value: string[]) => {
+          const contractorIds = row.original.contractor_employee
+            .map((ce) => ce.contractor_id)
+            .filter((id): id is string => id != null);
+          if (contractorIds.length === 0) return value.includes(NULL_FILTER_VALUE);
+          return contractorIds.some((id) => value.includes(id));
+        },
+      },
+      {
+        id: 'diagram',
+        accessorFn: (row) => {
+          const d = row.employees_diagram[0];
+          return d?.diagram_type_employees_diagram_diagram_typeTodiagram_type?.short_description ?? '';
+        },
+        meta: { title: 'Diagrama' },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Diagrama" />,
+        cell: ({ row }) => {
+          const d = row.original.employees_diagram[0];
+          const dt = d?.diagram_type_employees_diagram_diagram_typeTodiagram_type;
+          return (
+            <div className="flex items-center gap-2">
+              {dt?.color && (
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: dt.color }} />
+              )}
+              <span className="text-muted-foreground">{dt?.short_description ?? '-'}</span>
+            </div>
+          );
+        },
+        filterFn: (row, _id, value: string[]) => {
+          const d = row.original.employees_diagram[0];
+          const diagramTypeId = d?.diagram_type ?? null;
+          if (diagramTypeId == null) return value.includes(NULL_FILTER_VALUE);
+          return value.includes(diagramTypeId);
+        },
+      },
+    ],
+    []
+  );
+
+  // ─── Lazy-load facets ──────────────────────────────────────────────────────
+
+  const makeFkFetchFacet = useCallback(
+    (columnId: string, nullLabel = 'Sin asignar') => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getAvailableEmployeeSingleFacet(columnId, params, positionIds);
+        if (!result) return { options: [], counts: new Map() };
+        return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+      };
+    },
+    [positionIds]
+  );
+
+  const facetedFilters = useMemo<DataTableFacetedFilterConfig[]>(
+    () => [
+      {
+        columnId: 'company_positions',
+        title: 'Posición',
+        fetchFacet: makeFkFetchFacet('company_positions'),
+      },
+      {
+        columnId: 'customers',
+        title: 'Clientes',
+        fetchFacet: makeFkFetchFacet('customers', 'Sin afectar'),
+      },
+      {
+        columnId: 'diagram',
+        title: 'Diagrama',
+        fetchFacet: makeFkFetchFacet('diagram'),
+      },
+    ],
+    [makeFkFetchFacet]
+  );
+
+  // ─── Export config ─────────────────────────────────────────────────────────
+
+  const exportConfig = useMemo(
+    () => ({
+      fetchAllData: () => getAllAvailableEmployeesForExport(currentParams, positionIds),
+      options: {
+        filename: 'empleados-disponibles',
+        sheetName: 'Empleados Disponibles',
+        title: 'Empleados Disponibles',
+      },
+      formatters: {
+        customers: (_val: unknown, row: AvailableEmployeeListItem) => {
+          const names = row.contractor_employee.map((ce) => ce.customers?.name).filter((n): n is string => n != null);
+          return names.length > 0 ? names.join(', ') : 'Sin afectar';
+        },
+        name: (_val: unknown, row: AvailableEmployeeListItem) => `${row.lastname}, ${row.firstname}`,
+        company_positions: (_val: unknown, row: AvailableEmployeeListItem) =>
+          row.company_positions?.name ?? 'Sin posición',
+        diagram: (_val: unknown, row: AvailableEmployeeListItem) => {
+          const d = row.employees_diagram[0];
+          return d?.diagram_type_employees_diagram_diagram_typeTodiagram_type?.short_description ?? '-';
+        },
+      },
+    }),
+    [currentParams, positionIds]
+  );
+
+  // ─── Filtros visibles por defecto ──────────────────────────────────────────
+  const DEFAULT_VISIBLE_FILTERS = ['company_positions', 'customers', 'diagram'];
+  const mergedFilterVisibility = useMemo(
+    () => Object.fromEntries(facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)])),
+    [facetedFilters]
+  );
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Empleados Disponibles ({count})</DialogTitle>
           <DialogDescription>
-            Empleados con diagrama activo que no estan asignados al parte diario de hoy.
+            Empleados con diagrama activo que no están asignados al parte diario de hoy.
           </DialogDescription>
         </DialogHeader>
 
         <div className="mt-2">
-          <Input
-            placeholder="Buscar por legajo, nombre o CUIL..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-sm"
+          <DataTable
+            columns={columns as never}
+            data={[]}
+            totalRows={0}
+            queryFn={tableQueryFn as never}
+            queryKey={['available-employees-dialog', ...(positionIds ?? [])]}
+            onStateChange={handleStateChange}
+            facetedFilters={facetedFilters}
+            initialFilterVisibility={mergedFilterVisibility}
+            searchPlaceholder="Buscar por legajo, nombre o CUIL..."
+            showSearch
+            showFilterToggle
+            showColumnToggle
+            emptyMessage="No hay empleados disponibles"
+            exportConfig={exportConfig as never}
+            paramNamespace="avail-emp"
           />
-        </div>
-
-        <div className="mt-4">
-          {filtered.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>CUIL</TableHead>
-                  <TableHead>Posicion</TableHead>
-                  <TableHead>Clientes</TableHead>
-                  <TableHead>Diagrama</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((emp) => {
-                  const customerNames = emp.customers?.map((c) => c.customer_name).filter(Boolean) ?? [];
-                  return (
-                    <TableRow key={emp.employee_id}>
-                      <TableCell>
-                        <Link
-                          href={`/dashboard/employee/action?action=view&employee_id=${emp.employee_id}`}
-                          target="_blank"
-                          className="font-medium hover:underline"
-                        >
-                          [{emp.file_number ?? '-'}] {emp.lastname}, {emp.firstname}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{emp.cuil ?? '-'}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.position_name ?? 'Sin posicion'}</TableCell>
-                      <TableCell>
-                        {customerNames.length === 0 ? (
-                          <Badge variant="outline">Sin afectar</Badge>
-                        ) : (
-                          <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="outline">
-                                  {customerNames[0]}
-                                  {customerNames.length > 1 && ` +${customerNames.length - 1}`}
-                                </Badge>
-                              </TooltipTrigger>
-                              {customerNames.length > 1 && (
-                                <TooltipContent>
-                                  <div className="flex flex-col gap-1">
-                                    {customerNames.map((name) => (
-                                      <span key={name}>{name}</span>
-                                    ))}
-                                  </div>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {emp.diagram_color && (
-                            <span
-                              className="h-2.5 w-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: emp.diagram_color }}
-                            />
-                          )}
-                          <span className="text-muted-foreground">{emp.diagram_short_description ?? '-'}</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">No hay empleados disponibles</div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

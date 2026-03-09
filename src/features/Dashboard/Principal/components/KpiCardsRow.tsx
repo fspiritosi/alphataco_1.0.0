@@ -1,4 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Activity, ClipboardList, Container, Truck, Users } from 'lucide-react';
 import { getDashboardKpis } from '../actions/actions.server';
@@ -38,8 +39,9 @@ export async function KpiCardsRow() {
     {
       icon: Activity,
       value: kpis.operativityPercentage,
-      subtitle: 'operatividad general',
+      subtitle: 'activos / flota total',
       label: 'Operatividad',
+      tooltip: `(Equipos activos / Flota total) × 100 = (${kpis.activeVehicles} / ${kpis.totalFleet}) × 100`,
       colorClass: cn(
         kpis.operativityPercentage >= 75
           ? 'text-emerald-600 bg-emerald-50/60'
@@ -51,26 +53,41 @@ export async function KpiCardsRow() {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        const isPercentage = card.label === 'Operatividad';
-        return (
-          <Card key={card.label}>
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className={cn('rounded-lg p-2.5', card.colorClass)}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums">
-                  {isPercentage ? `${card.value}%` : card.value.toLocaleString('es-AR')}
-                </p>
-                <p className="text-xs text-muted-foreground">{card.subtitle}</p>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          const isPercentage = card.label === 'Operatividad';
+          const content = (
+            <Card key={card.label}>
+              <CardContent className="flex items-center gap-4 p-4">
+                <div className={cn('rounded-lg p-2.5', card.colorClass)}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold tabular-nums">
+                    {isPercentage ? `${card.value}%` : card.value.toLocaleString('es-AR')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{card.subtitle}</p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+
+          if (card.tooltip) {
+            return (
+              <Tooltip key={card.label}>
+                <TooltipTrigger asChild>{content}</TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{card.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return content;
+        })}
+      </div>
+    </TooltipProvider>
   );
 }

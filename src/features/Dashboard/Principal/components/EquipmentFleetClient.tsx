@@ -5,7 +5,6 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import dynamic from 'next/dynamic';
 import * as React from 'react';
 import { Cell, Label, Pie, PieChart } from 'recharts';
-import type { VehicleNotInReportResult } from '../actions/actions.server';
 import { RadialGauge } from '../shared/RadialGauge';
 
 const VehiclesOnRepairDialog = dynamic(() => import('./VehiclesOnRepairDialog'), {
@@ -19,7 +18,6 @@ interface Props {
   totalFleet: number;
   availabilityPercent: number;
   usagePercent: number;
-  vehiclesOnRepair: VehicleNotInReportResult[];
   // Motor unit metrics (Chasis & Tractor)
   motorActive: number;
   motorInUse: number;
@@ -77,7 +75,6 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
   totalFleet,
   availabilityPercent,
   usagePercent,
-  vehiclesOnRepair,
   motorActive,
   motorInUse,
   motorNotAvailable,
@@ -310,16 +307,19 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
               </div>
             </div>
           )}
+          <div className="grid grid-cols-2 gap-6 mt-4 pt-3 border-t">
+            <p className="text-[11px] text-muted-foreground text-center">
+              <span className="font-semibold">Disponibilidad</span> = Total de flota − Equipos en reparacion
+            </p>
+            <p className="text-[11px] text-muted-foreground text-center">
+              <span className="font-semibold">Uso</span> = Equipos activos − Equipos en uso
+            </p>
+          </div>
         </CardContent>
       </Card>
 
       {repairDialogOpen && (
-        <VehiclesOnRepairDialog
-          open={repairDialogOpen}
-          onOpenChange={setRepairDialogOpen}
-          vehicles={vehiclesOnRepair}
-          count={totalNotAvailable}
-        />
+        <VehiclesOnRepairDialog open={repairDialogOpen} onOpenChange={setRepairDialogOpen} count={totalNotAvailable} />
       )}
     </>
   );

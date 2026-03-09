@@ -42,13 +42,13 @@ export const RadialGauge = React.memo(function RadialGauge({
 
   return (
     <div className={cn('flex flex-col items-center', className)}>
-      <ChartContainer config={chartConfig} className="aspect-square w-full max-w-[200px]">
+      <ChartContainer config={chartConfig} className="w-full max-w-[200px] h-[110px]">
         <RadialBarChart data={chartData} startAngle={180} endAngle={0} innerRadius="70%" outerRadius="100%">
           <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
           <RadialBar dataKey="value" cornerRadius={8} background={{ fill: 'hsl(var(--muted))' }} />
         </RadialBarChart>
       </ChartContainer>
-      <div className="-mt-12 text-center">
+      <div className="-mt-4 text-center relative z-10">
         <p className={cn('text-2xl font-bold tabular-nums', statusColor)}>{Math.round(value)}%</p>
         <p className="text-xs text-muted-foreground">{label}</p>
       </div>

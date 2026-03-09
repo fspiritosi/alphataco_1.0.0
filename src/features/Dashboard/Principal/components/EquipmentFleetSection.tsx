@@ -1,13 +1,13 @@
-import { getEquipmentIndicators, getVehiclesOnRepair } from '../actions/actions.server';
+import { getEquipmentIndicators } from '../actions/actions.server';
 import { EquipmentFleetClient } from './EquipmentFleetClient';
 
 const MOTOR_UNIT_TYPES = ['chasis', 'tractor'];
 
 export async function EquipmentFleetSection() {
-  // Promise.all — async-parallel (Vercel best practice)
   // getEquipmentIndicators is wrapped with React.cache() so it deduplicates
   // with EquipmentOperationSection's call in the same render.
-  const [equipmentData, vehiclesOnRepair] = await Promise.all([getEquipmentIndicators(), getVehiclesOnRepair()]);
+  // vehiclesOnRepair loads lazily in dialog via useQuery (bundle-dynamic-imports)
+  const equipmentData = await getEquipmentIndicators();
 
   // Pre-compute fleet metrics with SINGLE LOOP (not 4 separate .reduce())
   let totalActive = 0;
@@ -48,7 +48,6 @@ export async function EquipmentFleetSection() {
       totalFleet={totalFleet}
       availabilityPercent={availabilityPercent}
       usagePercent={usagePercent}
-      vehiclesOnRepair={vehiclesOnRepair}
       motorActive={motorActive}
       motorInUse={motorInUse}
       motorNotAvailable={motorNotAvailable}

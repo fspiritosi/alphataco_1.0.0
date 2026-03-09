@@ -165,6 +165,22 @@ Para CADA columna en `columns.tsx`, preguntar:
 - Todas: olvidar `externalCounts: facets?.campo` → los counts son incorrectos con paginación
 - Campos de tablas relacionadas (ej: `source` de `maintenance_requests`): el campo se incluye en el `select` Prisma pero se omite la columna y el filtro en la tabla. Verificar SIEMPRE que todos los campos del `select` tengan columna visible.
 
+### Dashboard Principal — Dialogs con DataTable
+
+**`AvailableEmployeesDialog.tsx` — MIGRADO (2026-03)**
+- Reescrito con `queryFn` → `getAvailableEmployeesPaginated(params, positionIds)` (Prisma skip/take)
+- Facets lazy-load: `getAvailableEmployeeSingleFacet(columnId, params, positionIds)` con crossWhere
+- Columnas: file (legajo), name, cuil, company_positions (FK), customers (M:M), diagram (virtual)
+- `paramNamespace="avail-emp"`, `queryKey=['available-employees-dialog', ...positionIds]`
+- Count mismatch fix: `getEmployeeIndicators` ahora filtra `usedRelations` por `employees_diagram.work_active: true` (alinea numerador con denominador)
+- Patrón especial: Dialog es Client Component con `queryFn` — NO hay Server Component intermediario
+- `buildAvailableEmployeesWhere` es async (hace 2 queries previas: inReport + diagramEmployees con Promise.all)
+- `contractor_employee.employee_id` y `contractor_id` son `String?` (nullable) en Prisma — siempre filtrar con `.filter(Boolean)`
+
+**Dialogs PENDIENTE MIGRACIÓN:** `src/features/Dashboard/Principal/components/`
+- `AvailableVehiclesDialog.tsx`, `VehiclesOnRepairDialog.tsx`, `ServicesDetailDialog.tsx`
+- `vehicle-dialog-helpers.tsx` — helpers compartidos
+
 - **PedidosConfirmados**: `src/features/Mantenimiento/PedidosMantenimiento/Confirmados/`
   - Auditoría 2026-03: `order_number` y `source` (de maintenance_requests) faltaban como columnas y filtros
   - `order_number`: agregado columna + filtro text + VALID_SORT_FIELDS + TEXT_COLUMNS + buildTextFiltersWhere + export formatter

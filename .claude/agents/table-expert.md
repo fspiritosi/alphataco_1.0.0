@@ -34,16 +34,17 @@ You have access to these skills via the Skill tool. **Invoke them when their are
 
 ---
 
-## CRITICAL: Legacy Tables Must Be Recreated From Scratch
+## CRITICAL: Invalid Table Patterns Must Be Recreated From Scratch
 
-**The project has TWO DataTable systems — ONLY the NEW one is valid:**
+**The project has THREE known table patterns — ONLY the NEW one is valid:**
 
-| System            | Components                                                    | Data Layer                                                     | Status                      |
-| ----------------- | ------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------- |
-| **OLD (LEGACY)**  | `BaseDataTable` from `src/shared/components/data-table/base/` | Supabase direct queries (`queryWithPagination`, `probando.ts`) | **DEPRECATED — DO NOT USE** |
-| **NEW (CURRENT)** | `DataTable` from `src/shared/components/common/DataTable/`    | Prisma 7 (`prisma.entity.findMany`)                            | **MANDATORY**               |
+| System                       | Components                                                    | Data Layer                                                                  | Status                                 |
+| ---------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------- |
+| **OLD (LEGACY)**             | `BaseDataTable` from `src/shared/components/data-table/base/` | Supabase direct queries (`queryWithPagination`, `probando.ts`)              | **DEPRECATED — DO NOT USE**            |
+| **IN-MEMORY (ANTI-PATTERN)** | `DataTable` from `src/shared/components/common/DataTable/`    | Fetch ALL data to client, then `Array.filter()` + `Array.slice()` in memory | **PROHIBITED — MUST BE RECREATED**     |
+| **NEW (CURRENT)**            | `DataTable` from `src/shared/components/common/DataTable/`    | Prisma 7 with real server-side `skip`/`take` pagination                     | **MANDATORY — THE ONLY VALID PATTERN** |
 
-**RULE: When you encounter a table using the OLD system (any of these indicators):**
+### Detecting the OLD (LEGACY) system:
 
 - Imports from `@/shared/components/data-table/base/` or `data-table-server`
 - Uses `queryWithPagination` or functions from `probando.ts`
@@ -52,16 +53,50 @@ You have access to these skills via the Skill tool. **Invoke them when their are
 - Has `accessorKey` with dot notation like `'provinces.name'` (Supabase relation pattern)
 - Uses `toolbarOptions` prop pattern instead of `facetedFilters`
 
-**→ The table MUST be completely recreated from scratch using the NEW system.** Do NOT try to fix or patch the old implementation. Create entirely new files following the 3-layer architecture (page → List → \_DataTable) with Prisma queries.
+### Detecting the IN-MEMORY (ANTI-PATTERN) system:
+
+**This pattern uses the correct `<DataTable>` component but feeds it data incorrectly. It is equally invalid as the OLD system and MUST be recreated.**
+
+Markers:
+
+- `queryFn` points to a local function (not a server action) that filters/paginates an in-memory array
+- Functions like `filterAndPaginateXxx(allData, params)` that take an array and slice it with `Array.slice(page * pageSize, ...)`
+- A `useQuery` that fetches ALL data and stores it in state, then passes it to a local filter/paginate function
+- Facets computed from the in-memory array with `Set/Map` instead of `getEntitySingleFacet()` server action
+- `useMemo(() => filterAndPaginateXxx(data, {}), [data])` for `initialData`
+- No `skip`/`take` in any Prisma query — the server action returns ALL rows
+- Types cast as `as never` on DataTable props (indicates type mismatch between in-memory data and DataTable's expected types)
+- The table navigates between pages WITHOUT any loading state (because all data is already in memory)
+
+**Why this is invalid:**
+
+1. **Does NOT scale** — fetches ALL rows to the client (100, 1000, 10000+)
+2. **Different visual behavior** — no loading spinner on page change (user notices it's not real pagination)
+3. **Facets are imprecise** — computed from local data, not from the full database with proper cross-filtering
+4. **No persistence of preferences** — missing `tableId` for column/filter visibility persistence in DB
+5. **Type safety bypassed** — `as never` casts hide type errors
+
+**→ ANY table using either the OLD or IN-MEMORY pattern MUST be completely recreated from scratch using the NEW system.** Do NOT try to fix or patch. Create entirely new files following the 3-layer architecture.
+
+### Where this applies:
+
+This rule applies to ALL DataTables in the project — whether they are in pages, tabs, dialogs, or modals. **A DataTable inside a Dialog/Modal follows the EXACT same architecture as a page-level table.** The only difference is that the DataTable is rendered inside a `<Dialog>` wrapper, but the data fetching, pagination, filtering, and facets MUST all be server-side.
+
+For tables inside dialogs:
+
+- The paginated server action receives the same `DataTableSearchParams`
+- The `queryFn` prop points to the server action (not an in-memory function)
+- Facets use `fetchFacet` with `getEntitySingleFacet()` server actions
+- The dialog uses `enabled: open` on the React Query to lazy-load on open
 
 **Migration checklist:**
 
-1. Create new `actions.server.ts` with Prisma queries (NOT Supabase)
+1. Create new `actions.server.ts` with Prisma queries using real `skip`/`take` pagination (NOT fetch-all)
 2. Create new `columns.tsx` following the NEW patterns (`meta.title`, `accessorFn` for FK, etc.)
-3. Create new Server Component (`{Entity}List.tsx`) with `getModulePermissions` + `getTablePreferences`
-4. Create new Client Component (`_{Entity}DataTable.tsx`) with facets via `useQuery`
-5. Delete or archive old implementation files
-6. Update page imports to point to new components
+3. Create new Server Component (`{Entity}List.tsx`) with `getModulePermissions` + `getTablePreferences` — OR for dialogs, create the Client Component directly with `queryFn` pointing to the server action
+4. Create new Client Component (`_{Entity}DataTable.tsx`) with lazy-load facets via `fetchFacet`
+5. Delete or archive old implementation files (including any `filterAndPaginateXxx` helper functions)
+6. Update page/dialog imports to point to new components
 
 ---
 

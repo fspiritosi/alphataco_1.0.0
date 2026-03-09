@@ -214,6 +214,31 @@ export const repairCriticityLabels: Record<string, string> = {
 };
 
 // ============================================================================
+// DAILY REPORT ROW ENUM LABELS
+// ============================================================================
+
+/**
+ * Labels para daily_report_status (status de filas del parte diario)
+ */
+export const dailyReportRowStatusLabels: Record<string, string> = {
+  pendiente: 'Pendiente',
+  sin_recursos_asignados: 'Sin recursos',
+  ejecutado: 'Ejecutado',
+  reprogramado: 'Reprogramado',
+  cancelado: 'Cancelado',
+  en_certificacion: 'En certificación',
+};
+
+/**
+ * Labels para daily_report_type_enum (tipo de servicio del parte diario)
+ */
+export const dailyReportTypeLabels: Record<string, string> = {
+  mensual: 'Mensual',
+  adicional: 'Adicional',
+  adicional_permanente: 'Adicional permanente',
+};
+
+// ============================================================================
 // GENERIC HELPER
 // ============================================================================
 

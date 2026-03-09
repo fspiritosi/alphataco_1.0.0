@@ -1,11 +1,6 @@
 import moment from 'moment';
 import { cookies } from 'next/headers';
-import {
-  getAllPositions,
-  getDiagramIndicators,
-  getEmployeeIndicators,
-  getEmployeesNotInDailyReport,
-} from '../actions/actions.server';
+import { getAllPositions, getDiagramIndicators, getEmployeeIndicators } from '../actions/actions.server';
 import { RrhhSectionClient } from './RrhhSectionClient';
 
 export async function RrhhSection() {
@@ -14,17 +9,16 @@ export async function RrhhSection() {
   const positionIds = positionFilter ? positionFilter.split(',').filter(Boolean) : undefined;
   const initialFilterValues = positionIds ?? [];
 
-  // Promise.all — async-parallel (Vercel best practice)
-  const [employeeIndicator, diagramData, employeesNotInReport, positions] = await Promise.all([
+  // async-parallel — only fetch indicator data for SSR; detail data loads lazily in dialog
+  const [employeeIndicator, diagramData, positions] = await Promise.all([
     getEmployeeIndicators(positionIds),
     getDiagramIndicators(positionIds),
-    getEmployeesNotInDailyReport(positionIds),
     getAllPositions(),
   ]);
 
   const date = moment().format('DD/MM/YYYY');
 
-  // Pre-compute values on server (server-serialization)
+  // server-serialization — pre-compute values, minimize props to client
   const operativos = employeeIndicator.employees_operativos;
   const enOperacion = employeeIndicator.employees_used;
   const disponibles = operativos - enOperacion;
@@ -38,7 +32,7 @@ export async function RrhhSection() {
       enOperacion={enOperacion}
       disponibles={disponibles}
       indicatorPercent={indicatorPercent}
-      employeesNotInReport={employeesNotInReport}
+      positionIds={positionIds}
       positions={positions.map((p) => ({ label: p.name ?? '', value: p.id }))}
       initialFilterValues={initialFilterValues}
     />

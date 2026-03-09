@@ -5,11 +5,12 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import dynamic from 'next/dynamic';
 import * as React from 'react';
 import { Cell, Label, Pie, PieChart } from 'recharts';
-import type { DiagramIndicatorResult, EmployeeNotInReportResult } from '../actions/actions.server';
+import type { DiagramIndicatorResult } from '../actions/actions.server';
 import { CookieFilter } from '../shared/CookieFilter';
 import { IndicatorStats } from '../shared/IndicatorStats';
 import { RadialGauge } from '../shared/RadialGauge';
 
+// bundle-dynamic-imports — dialog loads only when opened
 const AvailableEmployeesDialog = dynamic(() => import('./AvailableEmployeesDialog'), {
   ssr: false,
 });
@@ -21,7 +22,7 @@ interface Props {
   enOperacion: number;
   disponibles: number;
   indicatorPercent: number;
-  employeesNotInReport: EmployeeNotInReportResult[];
+  positionIds?: string[];
   positions: { label: string; value: string }[];
   initialFilterValues: string[];
 }
@@ -33,7 +34,7 @@ export function RrhhSectionClient({
   enOperacion,
   disponibles,
   indicatorPercent,
-  employeesNotInReport,
+  positionIds,
   positions,
   initialFilterValues,
 }: Props) {
@@ -155,6 +156,9 @@ export function RrhhSectionClient({
               <RadialGauge value={indicatorPercent} label="Operativos" accentColor="var(--chart-2)" />
             </div>
           </div>
+          <p className="text-[11px] text-muted-foreground mt-4 pt-3 border-t text-center">
+            <span className="font-semibold">Indicador</span> = Empleados con diagrama − Empleados en operacion
+          </p>
         </CardContent>
       </Card>
 
@@ -162,8 +166,8 @@ export function RrhhSectionClient({
         <AvailableEmployeesDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          employees={employeesNotInReport}
           count={disponibles}
+          positionIds={positionIds}
         />
       )}
     </>

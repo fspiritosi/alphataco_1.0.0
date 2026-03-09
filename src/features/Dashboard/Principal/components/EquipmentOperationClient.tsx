@@ -12,11 +12,10 @@ import {
 import dynamic from 'next/dynamic';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
-import type { VehicleNotInReportResult } from '../actions/actions.server';
 import { CookieFilter } from '../shared/CookieFilter';
-import { IndicatorStats } from '../shared/IndicatorStats';
 import { RadialGauge } from '../shared/RadialGauge';
 
+// bundle-dynamic-imports — dialog loads only when opened
 const AvailableVehiclesDialog = dynamic(() => import('./AvailableVehiclesDialog'), {
   ssr: false,
 });
@@ -51,7 +50,7 @@ interface Props {
   totalInUse: number;
   totalAvailable: number;
   usagePercentage: number;
-  vehiclesNotInReport: VehicleNotInReportResult[];
+  typeIds?: string[];
   vehicleTypes: { label: string; value: string }[];
   initialFilterValues: string[];
 }
@@ -63,7 +62,7 @@ export function EquipmentOperationClient({
   totalInUse,
   totalAvailable,
   usagePercentage,
-  vehiclesNotInReport,
+  typeIds,
   vehicleTypes,
   initialFilterValues,
 }: Props) {
@@ -81,7 +80,8 @@ export function EquipmentOperationClient({
   const dynamicHeight = React.useMemo(() => {
     const len = chartData.length;
     if (len === 0) return 200;
-    return Math.max(len * 44, 160);
+    // Each bar needs ~44px height; add 40px bottom padding for the legend
+    return Math.max(len * 44 + 40, 200);
   }, [chartData]);
 
   return (
@@ -105,7 +105,7 @@ export function EquipmentOperationClient({
           {/* Chart */}
           {chartData.length > 0 ? (
             <ChartContainer config={chartConfig} className="w-full" style={{ height: dynamicHeight }}>
-              <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 24, bottom: 0, left: 8 }}>
+              <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 140, bottom: 0, left: 8 }}>
                 <CartesianGrid horizontal={false} />
                 <XAxis type="number" hide />
                 <YAxis
@@ -127,7 +127,7 @@ export function EquipmentOperationClient({
                   radius={[0, 0, 0, 0]}
                 />
                 <Bar dataKey="trabajando" stackId="stack" fill="var(--color-trabajando)" radius={[0, 2, 2, 0]}>
-                  <LabelList dataKey="shortName" position="right" offset={8} fontSize={11} width={120} />
+                  <LabelList dataKey="shortName" position="right" offset={8} fontSize={11} />
                 </Bar>
               </BarChart>
             </ChartContainer>
@@ -137,11 +137,31 @@ export function EquipmentOperationClient({
             </div>
           )}
 
-          {/* Stats + Gauge */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-4 border-t">
-            <IndicatorStats items={stats} />
-            <RadialGauge value={usagePercentage} label="Operatividad" accentColor="var(--chart-2)" />
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-2 mt-6 pt-4 border-t text-center">
+            {stats.map((stat) =>
+              stat.onClick ? (
+                <button
+                  key={stat.label}
+                  type="button"
+                  onClick={stat.onClick}
+                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors"
+                >
+                  <p className="text-lg font-bold tabular-nums">{stat.value.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+                </button>
+              ) : (
+                <div key={stat.label} className="rounded-lg border p-2">
+                  <p className="text-lg font-bold tabular-nums">{stat.value.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+                </div>
+              )
+            )}
           </div>
+          <RadialGauge value={usagePercentage} label="Operatividad" accentColor="var(--chart-2)" />
+          <p className="text-[11px] text-muted-foreground mt-4 pt-3 border-t text-center">
+            <span className="font-semibold">Indicador</span> = Equipos activos − Equipos en uso
+          </p>
         </CardContent>
       </Card>
 
@@ -149,8 +169,8 @@ export function EquipmentOperationClient({
         <AvailableVehiclesDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          vehicles={vehiclesNotInReport}
           count={totalAvailable}
+          typeIds={typeIds}
         />
       )}
     </>
