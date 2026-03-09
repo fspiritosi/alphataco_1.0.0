@@ -30,7 +30,7 @@ export async function EquipmentOperationSection() {
   const totalAvailable = totalActive - totalInUse;
   const usagePercentage = totalVehicles > 0 ? Math.round((totalActive / totalVehicles) * 100) : 0;
 
-  // Build stacked bar chart data: Activos / Fuera de Servicio / Trabajando
+  // Build stacked bar chart data: Disponibles / Fuera de Servicio / Trabajando
   const chartData = equipmentData
     .map((item: EquipmentIndicatorResult) => {
       const name = item.type_name;
@@ -38,7 +38,7 @@ export async function EquipmentOperationSection() {
       return {
         name,
         shortName,
-        activos: Math.max(0, item.available_units - item.used_units),
+        disponibles: Math.max(0, item.available_units - item.used_units),
         fueraDeServicio: item.not_available_units,
         trabajando: item.used_units,
       };

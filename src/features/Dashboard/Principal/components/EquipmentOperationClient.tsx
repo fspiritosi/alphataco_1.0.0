@@ -21,8 +21,8 @@ const AvailableVehiclesDialog = dynamic(() => import('./AvailableVehiclesDialog'
 });
 
 const chartConfig = {
-  activos: {
-    label: 'Activos',
+  disponibles: {
+    label: 'Disponibles',
     color: 'var(--chart-2)',
   },
   fueraDeServicio: {
@@ -38,7 +38,7 @@ const chartConfig = {
 interface EquipmentChartItem {
   name: string;
   shortName: string;
-  activos: number;
+  disponibles: number;
   fueraDeServicio: number;
   trabajando: number;
 }
@@ -70,7 +70,7 @@ export function EquipmentOperationClient({
 
   const stats = React.useMemo(
     () => [
-      { label: 'Activos', value: totalActive },
+      { label: 'Disponibles', value: totalActive },
       { label: 'En Uso', value: totalInUse },
       { label: 'Disponibles', value: totalAvailable, onClick: () => setDialogOpen(true) },
     ],
@@ -91,7 +91,7 @@ export function EquipmentOperationClient({
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <CardTitle className="text-base">Estado de Equipos</CardTitle>
-              <CardDescription>Activos, Fuera de Servicio y Trabajando por Tipo</CardDescription>
+              <CardDescription>Disponibles, Fuera de Servicio y Trabajando por Tipo</CardDescription>
             </div>
             <CookieFilter
               cookieName="type-filter"
@@ -119,7 +119,7 @@ export function EquipmentOperationClient({
                 />
                 <ChartTooltip cursor={false} content={<ChartTooltipContent className="w-[200px]" />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="activos" stackId="stack" fill="var(--color-activos)" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="disponibles" stackId="stack" fill="var(--color-disponibles)" radius={[0, 0, 0, 0]} />
                 <Bar
                   dataKey="fueraDeServicio"
                   stackId="stack"
@@ -160,7 +160,7 @@ export function EquipmentOperationClient({
           </div>
           <RadialGauge value={usagePercentage} label="Operatividad" accentColor="var(--chart-2)" />
           <p className="text-[11px] text-muted-foreground mt-4 pt-3 border-t text-center">
-            <span className="font-semibold">Indicador</span> = Equipos activos − Equipos en uso
+            <span className="font-semibold">Indicador</span> = Equipos disponibles − Equipos en uso
           </p>
         </CardContent>
       </Card>
