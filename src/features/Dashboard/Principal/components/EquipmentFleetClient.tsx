@@ -159,87 +159,11 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-2 gap-6">
-            {/* Disponibilidad */}
-            <div className="flex flex-col items-center gap-2">
-              <h4 className="text-sm font-medium self-start">Disponibilidad</h4>
-              <DonutWithCenter
-                data={availabilityData}
-                config={availabilityConfig}
-                centerValue={totalFleet}
-                centerLabel="Flota"
-              />
-              <div className="flex gap-3 justify-center flex-wrap">
-                {availabilityData.map((d) => (
-                  <div key={d.name} className="flex items-center gap-1.5 text-xs">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
-                    {d.name}: {d.value}
-                  </div>
-                ))}
-              </div>
-              {/* Key stats inline */}
-              <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
-                <div className="rounded-lg border p-2">
-                  <p className="text-lg font-bold tabular-nums">{totalActive.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">Disponibles</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={totalNotAvailable > 0 ? () => setRepairDialogOpen(true) : undefined}
-                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors"
-                >
-                  <p className="text-lg font-bold tabular-nums">{totalNotAvailable.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">En reparacion</p>
-                </button>
-                <div className="rounded-lg border p-2">
-                  <p className="text-lg font-bold tabular-nums">{totalFleet.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">Total flota</p>
-                </div>
-              </div>
-              <RadialGauge value={availabilityPercent} label="Disponibilidad" accentColor="var(--chart-2)" />
-            </div>
-
-            {/* Uso */}
-            <div className="flex flex-col items-center gap-2">
-              <h4 className="text-sm font-medium self-start">Uso</h4>
-              <DonutWithCenter
-                data={usageData}
-                config={usageConfig}
-                centerValue={totalActive}
-                centerLabel="Disponibles"
-              />
-              <div className="flex gap-3 justify-center flex-wrap">
-                {usageData.map((d) => (
-                  <div key={d.name} className="flex items-center gap-1.5 text-xs">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
-                    {d.name}: {d.value}
-                  </div>
-                ))}
-              </div>
-              {/* Key stats inline */}
-              <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
-                <div className="rounded-lg border p-2">
-                  <p className="text-lg font-bold tabular-nums">{totalInUse.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">En uso</p>
-                </div>
-                <div className="rounded-lg border p-2">
-                  <p className="text-lg font-bold tabular-nums">{(totalActive - totalInUse).toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">Sin usar</p>
-                </div>
-                <div className="rounded-lg border p-2">
-                  <p className="text-lg font-bold tabular-nums">{totalActive.toLocaleString('es-AR')}</p>
-                  <p className="text-[10px] text-muted-foreground">Disponibles</p>
-                </div>
-              </div>
-              <RadialGauge value={usagePercent} label="Uso" accentColor="var(--chart-5)" />
-            </div>
-          </div>
-
-          {/* Unidades Motoras (Chasis & Tractor) */}
+          {/* Unidades Motoras (Chasis & Tractor) — primera fila */}
           {motorFleet > 0 && (
-            <div className="mt-6 pt-4 border-t">
+            <div className="mb-6 pb-4 border-b">
               <h4 className="text-sm font-medium mb-3">
-                Unidades Motoras <span className="text-muted-foreground font-normal">(Chasis & Tractor)</span>
+                Solo Unidades Motoras <span className="text-muted-foreground font-normal">(Chasis & Tractor)</span>
               </h4>
               <div className="grid grid-cols-2 gap-6">
                 {/* Motor: Disponibilidad */}
@@ -312,6 +236,83 @@ export const EquipmentFleetClient = React.memo(function EquipmentFleetClient({
               </div>
             </div>
           )}
+
+          {/* Disponibilidad y Uso — segunda fila */}
+          <div className="grid grid-cols-2 gap-6">
+            {/* Disponibilidad */}
+            <div className="flex flex-col items-center gap-2">
+              <h4 className="text-sm font-medium self-start">Disponibilidad — Todos los Equipos</h4>
+              <DonutWithCenter
+                data={availabilityData}
+                config={availabilityConfig}
+                centerValue={totalFleet}
+                centerLabel="Flota"
+              />
+              <div className="flex gap-3 justify-center flex-wrap">
+                {availabilityData.map((d) => (
+                  <div key={d.name} className="flex items-center gap-1.5 text-xs">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
+                    {d.name}: {d.value}
+                  </div>
+                ))}
+              </div>
+              {/* Key stats inline */}
+              <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
+                <div className="rounded-lg border p-2">
+                  <p className="text-lg font-bold tabular-nums">{totalActive.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">Disponibles</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={totalNotAvailable > 0 ? () => setRepairDialogOpen(true) : undefined}
+                  className="rounded-lg border p-2 hover:bg-muted/50 transition-colors"
+                >
+                  <p className="text-lg font-bold tabular-nums">{totalNotAvailable.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">En reparacion</p>
+                </button>
+                <div className="rounded-lg border p-2">
+                  <p className="text-lg font-bold tabular-nums">{totalFleet.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">Total flota</p>
+                </div>
+              </div>
+              <RadialGauge value={availabilityPercent} label="Disponibilidad" accentColor="var(--chart-2)" />
+            </div>
+
+            {/* Uso */}
+            <div className="flex flex-col items-center gap-2">
+              <h4 className="text-sm font-medium self-start">Uso — Todos los Equipos</h4>
+              <DonutWithCenter
+                data={usageData}
+                config={usageConfig}
+                centerValue={totalActive}
+                centerLabel="Disponibles"
+              />
+              <div className="flex gap-3 justify-center flex-wrap">
+                {usageData.map((d) => (
+                  <div key={d.name} className="flex items-center gap-1.5 text-xs">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
+                    {d.name}: {d.value}
+                  </div>
+                ))}
+              </div>
+              {/* Key stats inline */}
+              <div className="grid grid-cols-3 gap-2 w-full text-center mt-1">
+                <div className="rounded-lg border p-2">
+                  <p className="text-lg font-bold tabular-nums">{totalInUse.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">En uso</p>
+                </div>
+                <div className="rounded-lg border p-2">
+                  <p className="text-lg font-bold tabular-nums">{(totalActive - totalInUse).toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">Sin usar</p>
+                </div>
+                <div className="rounded-lg border p-2">
+                  <p className="text-lg font-bold tabular-nums">{totalActive.toLocaleString('es-AR')}</p>
+                  <p className="text-[10px] text-muted-foreground">Disponibles</p>
+                </div>
+              </div>
+              <RadialGauge value={usagePercent} label="Uso" accentColor="var(--chart-5)" />
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-6 mt-4 pt-3 border-t">
             <p className="text-[11px] text-muted-foreground text-center">
               <span className="font-semibold">Disponibilidad</span> = Total de flota − Equipos en reparacion
