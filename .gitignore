@@ -65,3 +65,6 @@ agent-memory
 
 # Prisma generated
 src/generated/
+
+# Docs
+/docs

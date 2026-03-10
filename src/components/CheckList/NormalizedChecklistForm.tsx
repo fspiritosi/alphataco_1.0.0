@@ -21,7 +21,7 @@ import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actio
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Calendar, Check, ChevronsUpDown, Link as LinkIcon, X } from 'lucide-react';
 import moment from 'moment';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -404,6 +404,26 @@ const ChecklistItemField = ({
   const isCritical = item.is_critical || false;
   const requiresSideValidation = isSideValidationItem(item);
 
+  // Detectar si el valor actual es fallido ('M' o 'Malo') en modo readOnly
+  const currentValue = form.watch(fieldName);
+  const leftValue = form.watch(`${fieldName}_left`);
+  const rightValue = form.watch(`${fieldName}_right`);
+  const isFailed = readOnly && (currentValue === 'M' || currentValue === 'Malo');
+  const isLeftFailed = readOnly && (leftValue === 'M' || leftValue === 'Malo');
+  const isRightFailed = readOnly && (rightValue === 'M' || rightValue === 'Malo');
+  const isAnySideFailed = isLeftFailed || isRightFailed;
+
+  const failedContainerClass = 'border-2 border-destructive bg-destructive/10';
+  const normalContainerClass = 'border bg-muted/20';
+
+  const FailedBadge = () =>
+    isFailed || isAnySideFailed ? (
+      <Badge variant="destructive" className="text-xs whitespace-nowrap gap-1">
+        <AlertTriangle className="w-3 h-3" />
+        Fallido
+      </Badge>
+    ) : null;
+
   // Parsear opciones si es un select
   let options: string[] = ['B', 'M']; // Por defecto
   if (item.input_type === 'select' && item.options) {
@@ -417,7 +437,7 @@ const ChecklistItemField = ({
   // Renderizar campo de fecha
   if (item.input_type === 'date') {
     return (
-      <div className="border rounded-lg p-4 bg-muted/20">
+      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
         <FormField
           control={typedControl}
           name={fieldName}
@@ -438,6 +458,7 @@ const ChecklistItemField = ({
                         Certificación
                       </Badge>
                     )}
+                    <FailedBadge />
                   </div>
                 </div>
               </FormLabel>
@@ -455,16 +476,19 @@ const ChecklistItemField = ({
   // Renderizar campo doble (izquierda/derecha)
   if (requiresSideValidation) {
     return (
-      <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
+      <div className={`rounded-lg p-4 space-y-4 ${isAnySideFailed ? failedContainerClass : 'border bg-muted/30'}`}>
         <div className="pb-2 border-b">
           <FormLabel className="text-base font-semibold block">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <span className="flex-1">{label}</span>
-              {isCritical && (
-                <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                  CRÍTICO
-                </Badge>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {isCritical && (
+                  <Badge variant="destructive" className="text-xs whitespace-nowrap">
+                    CRÍTICO
+                  </Badge>
+                )}
+                <FailedBadge />
+              </div>
             </div>
           </FormLabel>
         </div>
@@ -474,8 +498,14 @@ const ChecklistItemField = ({
             name={`${fieldName}_left`}
             render={({ field }) => {
               return (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium text-muted-foreground">Izquierda</FormLabel>
+                <FormItem
+                  className={cn('rounded-md p-2', isLeftFailed && 'bg-destructive/10 ring-1 ring-destructive/30')}
+                >
+                  <FormLabel
+                    className={cn('text-sm font-medium text-muted-foreground', isLeftFailed && 'text-destructive')}
+                  >
+                    Izquierda {isLeftFailed && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                  </FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={(value) => {
@@ -506,8 +536,14 @@ const ChecklistItemField = ({
             name={`${fieldName}_right`}
             render={({ field }) => {
               return (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium text-muted-foreground">Derecha</FormLabel>
+                <FormItem
+                  className={cn('rounded-md p-2', isRightFailed && 'bg-destructive/10 ring-1 ring-destructive/30')}
+                >
+                  <FormLabel
+                    className={cn('text-sm font-medium text-muted-foreground', isRightFailed && 'text-destructive')}
+                  >
+                    Derecha {isRightFailed && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                  </FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={(value) => {
@@ -541,7 +577,7 @@ const ChecklistItemField = ({
   // Renderizar campo select
   if (item.input_type === 'select') {
     return (
-      <div className="border rounded-lg p-4 bg-muted/20">
+      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
         <FormField
           control={typedControl}
           name={fieldName}
@@ -551,11 +587,14 @@ const ChecklistItemField = ({
                 <FormLabel className="text-base font-semibold mb-3 block">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <span className="flex-1">{label}</span>
-                    {isCritical && (
-                      <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                        CRÍTICO
-                      </Badge>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isCritical && (
+                        <Badge variant="destructive" className="text-xs whitespace-nowrap">
+                          CRÍTICO
+                        </Badge>
+                      )}
+                      <FailedBadge />
+                    </div>
                   </div>
                 </FormLabel>
                 <FormControl>
@@ -590,7 +629,7 @@ const ChecklistItemField = ({
   // Renderizar campo de texto
   if (item.input_type === 'text') {
     return (
-      <div className="border rounded-lg p-4 bg-muted/20">
+      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
         <FormField
           control={typedControl}
           name={fieldName}
@@ -599,11 +638,14 @@ const ChecklistItemField = ({
               <FormLabel className="text-base font-semibold mb-3 block">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <span className="flex-1">{label}</span>
-                  {isCritical && (
-                    <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                      CRÍTICO
-                    </Badge>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isCritical && (
+                      <Badge variant="destructive" className="text-xs whitespace-nowrap">
+                        CRÍTICO
+                      </Badge>
+                    )}
+                    <FailedBadge />
+                  </div>
                 </div>
               </FormLabel>
               <FormControl>
@@ -620,7 +662,7 @@ const ChecklistItemField = ({
   // Renderizar campo numérico
   if (item.input_type === 'number') {
     return (
-      <div className="border rounded-lg p-4 bg-muted/20">
+      <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
         <FormField
           control={typedControl}
           name={fieldName}
@@ -629,11 +671,14 @@ const ChecklistItemField = ({
               <FormLabel className="text-base font-semibold mb-3 block">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <span className="flex-1">{label}</span>
-                  {isCritical && (
-                    <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                      CRÍTICO
-                    </Badge>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isCritical && (
+                      <Badge variant="destructive" className="text-xs whitespace-nowrap">
+                        CRÍTICO
+                      </Badge>
+                    )}
+                    <FailedBadge />
+                  </div>
                 </div>
               </FormLabel>
               <FormControl>
@@ -649,7 +694,7 @@ const ChecklistItemField = ({
 
   // Por defecto, renderizar como radio group (B/M)
   return (
-    <div className="border rounded-lg p-4 bg-muted/20">
+    <div className={`rounded-lg p-4 ${isFailed ? failedContainerClass : normalContainerClass}`}>
       <FormField
         control={typedControl}
         name={fieldName}
@@ -658,11 +703,14 @@ const ChecklistItemField = ({
             <FormLabel className="text-base font-semibold mb-3 block">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <span className="flex-1">{label}</span>
-                {isCritical && (
-                  <Badge variant="destructive" className="text-xs whitespace-nowrap">
-                    CRÍTICO
-                  </Badge>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {isCritical && (
+                    <Badge variant="destructive" className="text-xs whitespace-nowrap">
+                      CRÍTICO
+                    </Badge>
+                  )}
+                  <FailedBadge />
+                </div>
               </div>
             </FormLabel>
             <FormControl>
@@ -1582,12 +1630,33 @@ export function NormalizedChecklistForm({
 
             const sortedItems = uniqueItems.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
 
+            // Contar items fallidos en la sección (solo en modo readOnly)
+            const failedCount = readOnly
+              ? sortedItems.reduce((count, item) => {
+                  const itemCode = item.code || `item_${item.id}`;
+                  const fieldName = `${sectionCode}__${itemCode}`;
+                  const val = form.getValues(fieldName);
+                  const leftVal = form.getValues(`${fieldName}_left`);
+                  const rightVal = form.getValues(`${fieldName}_right`);
+                  const hasFail = (v: unknown) => v === 'M' || v === 'Malo';
+                  return count + (hasFail(val) || hasFail(leftVal) || hasFail(rightVal) ? 1 : 0);
+                }, 0)
+              : 0;
+
             return (
               <Card key={section.id}>
                 <AccordionItem className="pr-5" value={section.id}>
                   <AccordionTrigger>
                     <CardHeader className="text-start flex-1 min-w-0">
-                      <CardTitle>{sectionName}</CardTitle>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <CardTitle>{sectionName}</CardTitle>
+                        {failedCount > 0 && (
+                          <Badge variant="destructive" className="text-xs gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {failedCount} {failedCount === 1 ? 'item fallido' : 'items fallidos'}
+                          </Badge>
+                        )}
+                      </div>
                       {sectionDescription && <CardDescription>{sectionDescription}</CardDescription>}
                     </CardHeader>
                   </AccordionTrigger>
