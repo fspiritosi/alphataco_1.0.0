@@ -1,12 +1,14 @@
 import TypesDocumentAction from '@/app/dashboard/document/documentComponents/TypesDocumentAction';
-import DocumentTabComponent from '@/components/DocumentTabComponent';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import CompanyDocsList from '@/features/Empresa/General/Documentacion/components/CompanyDocsList';
+import { CompanyDocsTableSkeleton } from '@/features/Empresa/General/Documentacion/fallback/CompanyDocsTableSkeleton';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, DollarSign, FileText, Network, Users, Wrench } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
 import { CreateUserModal } from '../Usuarios/components/create-user-modal';
 import CompanyComponent from './components/company/CompanyComponent';
@@ -143,7 +145,13 @@ export default async function GeneralTabContent({
                 <PermissionGuardServer module="empresa" tab="documentacion" action="create">
                   <TypesDocumentAction optionChildrenProp="Empresa" />
                 </PermissionGuardServer>
-                <DocumentTabComponent />
+                <Card className="mt-4">
+                  <CardContent className="pt-6">
+                    <Suspense fallback={<CompanyDocsTableSkeleton />}>
+                      <CompanyDocsList searchParams={searchParams} />
+                    </Suspense>
+                  </CardContent>
+                </Card>
               </div>
             ),
           },

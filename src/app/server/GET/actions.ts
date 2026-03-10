@@ -74,6 +74,9 @@ export const fetchallResources = async (applies: string) => {
       return data;
     }
   }
+
+  // Empresa u otros tipos no tienen recursos individuales
+  return [];
 };
 
 export const fettchExistingEntries = async (applies: string, id_document_types: string) => {
@@ -698,6 +701,21 @@ export const getDocumentEquipmentById = async (id: string) => {
     .eq('id', id);
   return documents_vehicle;
 };
+export const getDocumentCompanyById = async (id: string) => {
+  const supabase = await supabaseServer();
+  const { data: documents_company } = await supabase
+    .from('documents_company')
+    .select(
+      `
+      *,
+      document_types(*),
+      company(*,province_id(name))
+      `
+    )
+    .eq('id', id);
+  return documents_company;
+};
+
 export const fetchTypeVehicles = async () => {
   const cookiesStore = await cookies();
   const supabase = await supabaseServer();
