@@ -1721,18 +1721,20 @@ export function NormalizedChecklistForm({
           isOpen={showDeviationsModal}
           onClose={() => {
             setShowDeviationsModal(false);
-            // Redirigir a la lista de respuestas
-            // NOTA: No llamar router.refresh() después de router.push() porque interfiere con la navegación
-            if (pathname?.includes('/dashboard/forms/')) {
-              const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
-              if (formIdMatch && formIdMatch[1]) {
-                router.push(`/dashboard/forms/${formIdMatch[1]}`);
+            // Redirigir a la lista de respuestas con delay para que el Dialog termine su animación
+            setTimeout(() => {
+              if (pathname?.includes('/dashboard/forms/')) {
+                const formIdMatch = pathname.match(/\/dashboard\/forms\/([^/]+)/);
+                if (formIdMatch && formIdMatch[1]) {
+                  router.push(`/dashboard/forms/${formIdMatch[1]}`);
+                } else {
+                  router.push('/dashboard/forms');
+                }
               } else {
-                router.push('/dashboard/forms');
+                router.push(`/maintenance/equipment/${currentEquipmentId}/checklists`);
               }
-            } else {
-              router.push(`/maintenance/equipment/${currentEquipmentId}/checklists`);
-            }
+              router.refresh();
+            }, 300);
           }}
           onComplete={() => {
             setShowDeviationsModal(false);

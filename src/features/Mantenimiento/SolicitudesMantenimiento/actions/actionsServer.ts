@@ -208,53 +208,7 @@ export async function getMaintenanceRequestById(requestId: string) {
   try {
     const request = await prisma.maintenance_requests.findUnique({
       where: { id: requestId },
-      select: {
-        id: true,
-        checklist_answer_id: true,
-        equipment_id: true,
-        employee_id: true,
-        user_id: true,
-        status: true,
-        rejection_reason: true,
-        kilometer: true,
-        engine_hours: true,
-        created_at: true,
-        updated_at: true,
-        supervisor_id: true,
-        source: true,
-        approved_by: true,
-        approved_at: true,
-        rejected_by: true,
-        rejected_at: true,
-        vehicles: {
-          select: { id: true, domain: true, serie: true, intern_number: true },
-        },
-        employees: {
-          select: { id: true, firstname: true, lastname: true },
-        },
-        checklist_answers: {
-          select: { id: true, created_at: true },
-        },
-        maintenance_request_items: {
-          select: {
-            id: true,
-            maintenance_request_id: true,
-            checklist_deviation_id: true,
-            repair_type_id: true,
-            status: true,
-            rejection_reason: true,
-            description: true,
-            driver_comment: true,
-            validator_comment: true,
-            checklist_deviations: {
-              select: { id: true, item_code: true, item_label: true, section_code: true },
-            },
-            types_of_repairs: {
-              select: { id: true, name: true },
-            },
-          },
-        },
-      },
+      select: MAINTENANCE_REQUEST_FULL_SELECT,
     });
 
     if (!request) {
@@ -262,7 +216,7 @@ export async function getMaintenanceRequestById(requestId: string) {
       return null;
     }
 
-    return request;
+    return mapRequestWithAliases(request);
   } catch (error) {
     serverLogger.error('Error al obtener solicitud de mantenimiento', { data: { error, requestId } });
     throw error;
