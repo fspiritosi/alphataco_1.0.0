@@ -36,6 +36,11 @@ npm run migration-status # Check migration status
 # Testing
 npm run test:e2e         # Run Cypress E2E tests headless
 npm run test:e2e:open    # Open Cypress test runner
+
+# Git Worktree (trabajo paralelo)
+git worktree add ../gh_gestion-<nombre> -b <branch>   # Crear worktree + branch
+git worktree list                                       # Listar worktrees activos
+git worktree remove ../gh_gestion-<nombre>              # Eliminar worktree
 ```
 
 ## MCPs Disponibles
@@ -70,12 +75,15 @@ Los siguientes MCPs estan a tu disposicion:
 
 **REGLA CRITICA**: Antes de ejecutar cualquier tarea, verificar si hay un agente o skill que la cubra. Si existe, DEBE usarse — no actuar directamente sin invocar el recurso apropiado.
 
-### Agentes Personalizados (2)
+### Agentes Personalizados (3)
 
 | Agente         | Cuando usarlo                                                                  |
 | -------------- | ------------------------------------------------------------------------------ |
+| `git-guardian` | **TODA operacion git**: commit, push, PR, merge, crear ramas, subir cambios    |
 | `table-expert` | Crear, auditar o modificar DataTables (columnas, filtros, export, facets)      |
 | `linear-sync`  | Interactuar con Linear: crear/editar issues, sincronizar notas, auditar estado |
+
+**REGLA GIT — OBLIGATORIA SIN EXCEPCIONES**: TODA operacion git (commit, push, crear PR, merge, subir cambios) DEBE delegarse al agente `git-guardian`. **NUNCA ejecutar `git commit`, `git push`, `gh pr create` o similares directamente.** El agente analiza el diff, verifica calidad del codigo (types, patrones del proyecto, seguridad), y solo entonces ejecuta la operacion. Si encuentra problemas criticos, NO commitea y devuelve un informe con los problemas y sus soluciones propuestas. Operaciones simples (crear rama, checkout, pull, stash) tambien van por el agente pero sin analisis de diff.
 
 **REGLA DataTables**: TODA tarea que involucre DataTables (crear tabla, agregar columna, agregar filtro, auditar tabla, modificar export, corregir filtros, etc.) DEBE delegarse al agente `table-expert`. Si la peticion del usuario incluye trabajo de tabla Y otro trabajo, separar la parte de tabla y delegarla al agente, ejecutando el resto normalmente.
 
@@ -83,18 +91,42 @@ Los siguientes MCPs estan a tu disposicion:
 
 El plugin superpowers se invoca automaticamente segun el contexto. Mapeo de peticiones comunes:
 
-| Peticion del usuario                         | Skill que se invoca automaticamente                                                                                             |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| "Hazme una planificacion / planifica esto"   | `superpowers:brainstorming` → `superpowers:writing-plans`                                                                       |
-| "Implementa este plan / ejecuta el plan"     | `superpowers:executing-plans`                                                                                                   |
-| "Debuguea esto / investiga este bug"         | `superpowers:systematic-debugging`                                                                                              |
-| "Commitea / push / crea PR / revisa cambios" | `superpowers:differential-review` + `superpowers:verification-before-completion` + `superpowers:finishing-a-development-branch` |
-| "Revisa el codigo / code review"             | `superpowers:requesting-code-review`                                                                                            |
-| "Crea un componente / formulario / modal"    | `superpowers:brainstorming` (diseño) + MCP shadcn (implementacion)                                                              |
-| "Agrega funcionalidad / nueva feature"       | `superpowers:brainstorming` (primero) → implementacion                                                                          |
-| "Verifica que funcione / esta listo?"        | `superpowers:verification-before-completion`                                                                                    |
+| Peticion del usuario                         | Skill que se invoca automaticamente                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| "Hazme una planificacion / planifica esto"   | `superpowers:brainstorming` → `superpowers:writing-plans`                                        |
+| "Implementa este plan / ejecuta el plan"     | `superpowers:executing-plans`                                                                    |
+| "Debuguea esto / investiga este bug"         | `superpowers:systematic-debugging`                                                               |
+| "Commitea / push / crea PR / revisa cambios" | **DELEGAR al agente `git-guardian`** (el agente usa internamente verification-before-completion) |
+| "Revisa el codigo / code review"             | `superpowers:requesting-code-review`                                                             |
+| "Crea un componente / formulario / modal"    | `superpowers:brainstorming` (diseño) + MCP shadcn (implementacion)                               |
+| "Agrega funcionalidad / nueva feature"       | `superpowers:brainstorming` (primero) → implementacion                                           |
+| "Verifica que funcione / esta listo?"        | `superpowers:verification-before-completion`                                                     |
 
 **No es necesario nombrar las skills explicitamente.** Pedir las cosas de manera natural y el sistema las invoca automaticamente.
+
+### REGLA SUPREMA de Superpowers — SIEMPRE ESTAR ATENTO
+
+**ANTES de ejecutar cualquier accion (escribir codigo, debuggear, commitear, diseñar UI, planificar), DETENERSE y evaluar si alguna skill de superpowers aplica.** No lanzarse directo al codigo. Si hay aunque sea 1% de probabilidad de que una skill aplique, invocarla PRIMERO.
+
+Errores tipicos que NO deben repetirse:
+
+- Debuggear errores de build sin invocar `superpowers:systematic-debugging`
+- Crear/diseñar componentes UI sin invocar `superpowers:brainstorming`
+- **Commitear/pushear/crear PR sin delegar al agente `git-guardian`** (NUNCA ejecutar git commit/push directamente)
+- Terminar trabajo sin invocar `superpowers:requesting-code-review`
+
+**El flujo correcto es: skill/agente PRIMERO → accion DESPUES. Nunca al reves.**
+**Para git: SIEMPRE `git-guardian`. Sin excepciones. Sin atajos.**
+
+## Team Agents (Equipos de Agentes)
+
+Se puede crear un **equipo de agentes paralelos** para analizar o resolver problemas complejos de manera coordinada. Usar cuando el problema tenga multiples aspectos independientes que se beneficien de analisis simultaneo.
+
+**Cuando usarlo** (sin que el usuario lo pida explicitamente):
+
+- Investigar un bug complejo desde varios angulos a la vez (ej: codigo + DB + logs)
+- Analizar impacto de un cambio en multiples features/modulos
+- Tareas con partes claramente separables que no tienen dependencias entre si
 
 ---
 
@@ -165,11 +197,45 @@ moment(date).format('DD/MM/YYYY');
 moment(date1).isBefore(date2);
 ```
 
-### 3. No Crear Archivos .md
+### 3. NO Usar Dialogs Nativos del Navegador
+
+**NUNCA** usar `window.confirm()`, `window.alert()` o `window.prompt()`. SIEMPRE usar componentes de UI de shadcn (`AlertDialog`, `Dialog`, `toast`) para confirmaciones y alertas.
+
+```typescript
+// ❌ INCORRECTO - NUNCA usar nativos
+const confirmed = window.confirm('¿Desea eliminar?');
+window.alert('Operacion exitosa');
+
+// ✅ CORRECTO - Usar AlertDialog de shadcn
+<AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>¿Desea eliminar?</AlertDialogTitle>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+      <AlertDialogAction onClick={handleConfirm}>Confirmar</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+### 4. No Crear Archivos .md
 
 **NO** crear archivos markdown (.md) a menos que se solicite explicitamente.
 
-### 4. NUNCA Co-Authored-By en Commits
+### 5. NO Commit Automatico — SIEMPRE via git-guardian
+
+**NUNCA** realizar commits automaticamente. Solo hacer commit cuando el usuario lo indique explicitamente (ej: "commitea", "hace commit", "push", etc.). No asumir que se debe commitear despues de completar una tarea.
+
+**CRITICO**: Cuando el usuario pida commitear, pushear, crear PR o cualquier operacion git con cambios, **SIEMPRE delegar al agente `git-guardian`**. NUNCA ejecutar `git commit`, `git push` o `gh pr create` directamente. El agente se encarga de:
+
+1. Analizar el diff buscando problemas (seguridad, tipos, patrones del proyecto)
+2. Ejecutar `npm run check-types` para verificar que compile
+3. Bloquear el commit si hay problemas criticos (con informe + solucion propuesta)
+4. Ejecutar el commit/push/PR solo si todo esta limpio
+
+### 6. NUNCA Co-Authored-By en Commits
 
 **ESTRICTAMENTE PROHIBIDO** agregar `Co-Authored-By` en los mensajes de commit. JAMAS incluir referencias a IA, Claude, o cualquier co-autor automatico en los commits.
 
@@ -183,11 +249,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 git commit -m "feat: something"
 ```
 
-### 4. shadcn/ui MCP
+### 7. shadcn/ui MCP
 
 **SIEMPRE** usar el MCP de shadcn para buscar componentes disponibles antes de implementar UI. Consultar ejemplos y documentacion de componentes con las herramientas del MCP antes de escribir codigo de UI.
 
-### 6. Queries Eficientes
+### 8. Queries Eficientes
 
 Analiza el contexto de uso para asegurar que las peticiones sean eficientes:
 

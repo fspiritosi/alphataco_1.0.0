@@ -55,6 +55,7 @@ cypress/downloads
 cypress.env.json
 .mcp.json
 settings.local.json
+.claude/settings.local.json
 .kiro
 .cursor
 .zed
@@ -66,5 +67,5 @@ agent-memory
 # Prisma generated
 src/generated/
 
-# Docs
-/docs
+# Plans / notes (local only)
+docs/plans/
