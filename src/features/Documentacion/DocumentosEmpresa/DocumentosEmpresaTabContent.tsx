@@ -1,34 +1,18 @@
 import { TabsManagerServer } from '@/features/TabsManager';
-import { supabaseServer } from '@/lib/supabase/server';
-import { CompanyDocumentsType } from '@/store/loggedUser';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable/types';
 import { Calendar, FileArchive } from 'lucide-react';
-import { cookies } from 'next/headers';
 import { Suspense } from 'react';
-import EmpresaMensualesWrapper from './components/EmpresaMensualesWrapper';
-import EmpresaPermanentesWrapper from './components/EmpresaPermanentesWrapper';
+import CompanyDocsMensualesList from './components/CompanyDocsMensualesList';
+import CompanyDocsPermanentesList from './components/CompanyDocsPermanentesList';
+import { CompanyDocsTableSkeleton } from './fallback/CompanyDocsTableSkeleton';
 
 export default async function DocumentosEmpresaTabContent({
   searchParams,
   permissions,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: DataTableSearchParams;
   permissions: Record<string, boolean>;
 }) {
-  // Fetch company documents data
-  const supabase = await supabaseServer();
-  const user = await supabase.auth.getUser();
-  const cookiesStore = await cookies();
-  const actualCompany = cookiesStore.get('actualComp')?.value;
-
-  let { data: documents_company } = await supabase
-    .from('documents_company')
-    .select('*,id_document_types(*),user_id(*)')
-    .eq('applies', actualCompany || '');
-
-  // Type the data and filter if needed based on role
-  const typedDataCompany: CompanyDocumentsType[] | null = documents_company as CompanyDocumentsType[] | null;
-  const companyData = typedDataCompany;
-
   return (
     <TabsManagerServer
       paramName="subtab"
@@ -44,11 +28,11 @@ export default async function DocumentosEmpresaTabContent({
               Documentos Permanentes
             </span>
           ),
-          moduleSlug: 'empresa',
-          tabSlug: 'documentacion',
+          moduleSlug: 'documentacion',
+          tabSlug: 'docs-empresa-permanentes',
           content: (
-            <Suspense fallback={<div>Cargando documentos permanentes...</div>}>
-              <EmpresaPermanentesWrapper companyData={companyData || []} />
+            <Suspense fallback={<CompanyDocsTableSkeleton />}>
+              <CompanyDocsPermanentesList searchParams={searchParams} />
             </Suspense>
           ),
         },
@@ -60,11 +44,11 @@ export default async function DocumentosEmpresaTabContent({
               Documentos Mensuales
             </span>
           ),
-          moduleSlug: 'empresa',
-          tabSlug: 'documentacion',
+          moduleSlug: 'documentacion',
+          tabSlug: 'docs-empresa-mensuales',
           content: (
-            <Suspense fallback={<div>Cargando documentos mensuales...</div>}>
-              <EmpresaMensualesWrapper companyData={companyData || []} />
+            <Suspense fallback={<CompanyDocsTableSkeleton />}>
+              <CompanyDocsMensualesList searchParams={searchParams} />
             </Suspense>
           ),
         },

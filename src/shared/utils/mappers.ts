@@ -214,6 +214,30 @@ export const repairCriticityLabels: Record<string, string> = {
 };
 
 // ============================================================================
+// DOCUMENT STATE ENUM LABELS (documents_company.state)
+// ============================================================================
+
+/**
+ * Labels para el enum `state` de documentos (documents_company, documents_employees, etc.)
+ * Keys: valores del enum Prisma (presentado, rechazado, aprobado, vencido, pendiente)
+ */
+export const documentStateLabels: Record<string, string> = {
+  presentado: 'Presentado',
+  rechazado: 'Rechazado',
+  aprobado: 'Aprobado',
+  vencido: 'Vencido',
+  pendiente: 'Pendiente',
+};
+
+export const documentStateBadges: Record<string, BadgeVariant> = {
+  presentado: 'default',
+  rechazado: 'destructive',
+  aprobado: 'success',
+  vencido: 'yellow',
+  pendiente: 'secondary',
+};
+
+// ============================================================================
 // GENERIC HELPER
 // ============================================================================
 
