@@ -803,8 +803,23 @@ export const PERMISSIONS = {
         name: 'Documentos de Empresa',
         tabId: '50000000-0000-0000-0000-000000000003',
         parent: null,
-        allowedActions: ['view'],
-        subtabs: {},
+        allowedActions: ['view', 'create'],
+        subtabs: {
+          'docs-empresa-permanentes': {
+            slug: 'docs-empresa-permanentes',
+            name: 'Permanentes',
+            tabId: '60000000-0000-0000-0000-000000000016',
+            parent: 'documentos-de-empresa',
+            allowedActions: ['view', 'update'],
+          },
+          'docs-empresa-mensuales': {
+            slug: 'docs-empresa-mensuales',
+            name: 'Mensuales',
+            tabId: '60000000-0000-0000-0000-000000000017',
+            parent: 'documentos-de-empresa',
+            allowedActions: ['view', 'update'],
+          },
+        },
       },
       'tipos-de-documentos': {
         slug: 'tipos-de-documentos',
@@ -826,6 +841,13 @@ export const PERMISSIONS = {
             tabId: '60000000-0000-0000-0000-000000000007',
             parent: 'tipos-de-documentos',
             allowedActions: ['view', 'update', 'create'], // view, update y create para crear tipos de documentos de equipos
+          },
+          'tipos-docs-empresa': {
+            slug: 'tipos-docs-empresa',
+            name: 'Empresa',
+            tabId: '60000000-0000-0000-0000-000000000018',
+            parent: 'tipos-de-documentos',
+            allowedActions: ['view', 'update', 'create'],
           },
         },
       },

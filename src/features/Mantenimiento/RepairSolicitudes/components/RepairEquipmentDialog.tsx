@@ -19,9 +19,7 @@ import { formatDocumentTypeName } from '@/lib/utils/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PersonIcon } from '@radix-ui/react-icons';
 import type { Row } from '@tanstack/react-table';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarDays, CalendarIcon } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -353,6 +351,15 @@ export function RepairEquipmentDialog({ row }: RepairEquipmentDialogProps) {
                 {original.types_of_repairs?.type_of_maintenance}
               </Badge>
             </div>
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4" />
+                Fecha de solicitud
+              </Label>
+              <div className="font-medium">
+                {original.scheduled ? moment(original.scheduled).format('DD/MM/YYYY') : '-'}
+              </div>
+            </div>
           </div>
 
           {/* Selector de estado */}
@@ -434,7 +441,7 @@ export function RepairEquipmentDialog({ row }: RepairEquipmentDialogProps) {
                                     )}
                                   >
                                     {field.value ? (
-                                      format(field.value, 'PPP', { locale: es })
+                                      moment(field.value).format('DD/MM/YYYY')
                                     ) : (
                                       <span>Seleccionar fecha</span>
                                     )}

@@ -3,24 +3,26 @@ import TypesDocumentsViewWrapper from '@/app/dashboard/document/documentComponen
 import { Skeleton } from '@/components/ui/skeleton';
 import { PermissionGuardServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
-import { Truck, User } from 'lucide-react';
+import { Building2, Truck, User } from 'lucide-react';
 import { Suspense } from 'react';
 
 export default async function TiposDocumentosTabContent({
   searchParams,
   showOnlyPersonas = false,
   showOnlyEquipos = false,
+  showOnlyEmpresa = false,
   permissions,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
   showOnlyPersonas?: boolean;
   showOnlyEquipos?: boolean;
+  showOnlyEmpresa?: boolean;
   permissions: Record<string, boolean>;
 }) {
   const allTabs = [];
 
   // Solo agregar tab de Personas si corresponde
-  if (!showOnlyEquipos) {
+  if (!showOnlyEquipos && !showOnlyEmpresa) {
     allTabs.push({
       value: 'Personas',
       label: (
@@ -40,7 +42,7 @@ export default async function TiposDocumentosTabContent({
   }
 
   // Solo agregar tab de Equipos si corresponde
-  if (!showOnlyPersonas) {
+  if (!showOnlyPersonas && !showOnlyEmpresa) {
     allTabs.push({
       value: 'Equipos',
       label: (
@@ -59,7 +61,39 @@ export default async function TiposDocumentosTabContent({
     });
   }
 
-  const defaultTab = showOnlyPersonas ? 'Personas' : showOnlyEquipos ? 'Equipos' : 'Personas';
+  // Solo agregar tab de Empresa si corresponde
+  if (!showOnlyPersonas && !showOnlyEquipos) {
+    allTabs.push({
+      value: 'Empresa',
+      label: (
+        <span className="flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Empresa
+        </span>
+      ),
+      moduleSlug: 'documentacion' as const,
+      tabSlug: 'tipos-docs-empresa' as const,
+      content: (
+        <Suspense fallback={<div>Cargando tipos de documentos de empresa...</div>}>
+          <TypesDocumentsViewWrapper
+            optionChildrenProp="Empresa"
+            empresa={true}
+            personas={false}
+            equipos={false}
+            hideTabs={true}
+          />
+        </Suspense>
+      ),
+    });
+  }
+
+  const defaultTab = showOnlyPersonas
+    ? 'Personas'
+    : showOnlyEquipos
+      ? 'Equipos'
+      : showOnlyEmpresa
+        ? 'Empresa'
+        : 'Personas';
 
   return (
     <div>

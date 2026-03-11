@@ -270,6 +270,7 @@ export default function NewDocumentType({
   const { canCreate } = usePermissions();
   const canCreatePersona = canCreate('documentacion', 'tipos-docs-personas');
   const canCreateEquipos = canCreate('documentacion', 'tipos-docs-equipos');
+  const canCreateEmpresa = canCreate('documentacion', 'tipos-docs-empresa');
 
   // Devuelve el valor de la propiedad del vehículo
 
@@ -985,8 +986,7 @@ export default function NewDocumentType({
                     <SelectContent>
                       {canCreatePersona && <SelectItem value="Persona">Persona</SelectItem>}
                       {canCreateEquipos && <SelectItem value="Equipos">Equipos</SelectItem>}
-                      {/* Opción de Empresa oculta temporalmente - no hay tab de tipos de documentos de empresa */}
-                      {/* {canCreateEmpresa && <SelectItem value="Empresa">Empresa</SelectItem>} */}
+                      {canCreateEmpresa && <SelectItem value="Empresa">Empresa</SelectItem>}
                     </SelectContent>
                   ) : (
                     <SelectContent>

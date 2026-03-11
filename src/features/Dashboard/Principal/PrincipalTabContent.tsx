@@ -1,29 +1,42 @@
-import EmployeeDiagramsDataSection from '@/features/Dashboard/Principal/components/EmployeeDiagramsDataSection';
-import EquipmentDataSection from '@/features/Dashboard/Principal/components/EquipmentDataSection';
-import { ResourcesOverviewChart } from '@/features/Dashboard/Principal/components/ResourcesOverviewChart';
-import { ServicesDistributionSection } from '@/features/Dashboard/Principal/components/ServicesDistributionSection';
-import EquipmentChart from '@/features/graficos/equipos/data-indicator- equipos';
-import { getServicesSummaryByType } from '@/features/Operaciones/PartesDiarios/actions/actions';
-import { fetchAllEmployeesCount, fetchAllVehiclesCount } from '@/shared/actions/employees.actions';
+import { Suspense } from 'react';
+import { getServicesSummary } from './actions/actions.server';
+import { EquipmentFleetSection } from './components/EquipmentFleetSection';
+import { EquipmentOperationSection } from './components/EquipmentOperationSection';
+import { KpiCardsRow } from './components/KpiCardsRow';
+import { RrhhSection } from './components/RrhhSection';
+import { ServicesSection } from './components/ServicesSection';
+import { KpiCardsSkeleton } from './fallback/KpiCardsSkeleton';
+import { SectionSkeleton } from './fallback/SectionSkeleton';
+
+async function ServicesSectionWrapper() {
+  const servicesSummary = await getServicesSummary();
+  return <ServicesSection servicesSummary={servicesSummary} />;
+}
 
 export default async function PrincipalTabContent() {
-  const employees = await fetchAllEmployeesCount();
-  const equipments = await fetchAllVehiclesCount();
-  const servicesSummary = await getServicesSummaryByType();
-
   return (
-    <section className="grid grid-cols-1 xl:grid-cols-4 gap-3 mb-4">
-      <section className="flex flex-col gap-4 w-full min-w-0">
-        <ResourcesOverviewChart employees={employees} equipments={equipments} />
-        <ServicesDistributionSection servicesSummary={servicesSummary} />
-      </section>
-      <section className="col-span-3 min-w-0">
-        <section className="flex flex-col gap-4 w-full">
-          <EmployeeDiagramsDataSection />
-          <EquipmentChart />
-          <EquipmentDataSection />
-        </section>
-      </section>
+    <section className="flex flex-col gap-4 mb-4">
+      <Suspense fallback={<KpiCardsSkeleton />}>
+        <KpiCardsRow />
+      </Suspense>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <Suspense fallback={<SectionSkeleton />}>
+          <ServicesSectionWrapper />
+        </Suspense>
+
+        <Suspense fallback={<SectionSkeleton />}>
+          <RrhhSection />
+        </Suspense>
+
+        <Suspense fallback={<SectionSkeleton />}>
+          <EquipmentOperationSection />
+        </Suspense>
+
+        <Suspense fallback={<SectionSkeleton />}>
+          <EquipmentFleetSection />
+        </Suspense>
+      </div>
     </section>
   );
 }
