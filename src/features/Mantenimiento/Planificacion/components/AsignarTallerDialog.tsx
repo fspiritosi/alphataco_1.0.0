@@ -20,11 +20,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WORK_ORDER_PRIORITY_LABELS, type WorkOrderPriority } from '@/features/Mantenimiento/OrdenesTrabajo/types';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateForDB, formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertTriangle, CalendarIcon, ClipboardList, Loader2, Wrench } from 'lucide-react';
 import moment from 'moment';
@@ -32,7 +33,6 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import type { SectorOccupancy } from '../actions/actionsServer';
 import { assignWorkshopToItem, createWorkOrder, getSectorOccupancy } from '../actions/actionsServer';
-import { PLANIFICACION_QUERY_KEY } from '../hooks/usePlanificacion';
 import type { DesvioRowData } from './columns';
 
 const logger = new Logger('AsignarTallerDialog');
@@ -187,14 +187,8 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
         toast.success('Asignación guardada correctamente');
       }
 
-      // Invalidar todas las vistas relacionadas
-      queryClient.invalidateQueries({ queryKey: PLANIFICACION_QUERY_KEY });
-      // Invalidar ocupación de sectores para refrescar contadores
+      invalidateAllMaintenanceQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ['sector-occupancy'] });
-      // Si se creó una OT, invalidar también la vista de Órdenes de Trabajo
-      if (generateWorkOrder) {
-        queryClient.invalidateQueries({ queryKey: ['ordenes-trabajo'] });
-      }
       onClose();
     } catch (error) {
       logger.error('Error al guardar asignación', { data: { error } });
@@ -257,25 +251,9 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
                     )}
                   </div>
                 )}
+                <Separator />
+                <ItemComments item={desvio} source={null} />
               </div>
-              {desvio.driverComment && (
-                <>
-                  <Separator />
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Comentario del chofer: </span>
-                    <span className="italic">{desvio.driverComment}</span>
-                  </div>
-                </>
-              )}
-              {desvio.description && (
-                <>
-                  <Separator />
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Descripción: </span>
-                    <span>{desvio.description}</span>
-                  </div>
-                </>
-              )}
               <Separator />
               <div className="flex gap-4 text-sm">
                 <div>
@@ -497,7 +475,7 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
                   <Label>Fecha Inicio {!hasWorkOrder && '*'}</Label>
                   {hasWorkOrder ? (
                     <div className="p-2 bg-muted rounded-md text-sm">
-                      {startDate ? format(startDate, 'dd/MM/yyyy', { locale: es }) : 'Sin fecha'}
+                      {startDate ? moment(startDate).format('DD/MM/YYYY') : 'Sin fecha'}
                     </div>
                   ) : (
                     <Popover>
@@ -510,7 +488,7 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {startDate ? format(startDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
+                          {startDate ? moment(startDate).format('DD/MM/YYYY') : 'Seleccionar'}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -524,7 +502,7 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
                   <Label>Fecha Fin {!hasWorkOrder && '*'}</Label>
                   {hasWorkOrder ? (
                     <div className="p-2 bg-muted rounded-md text-sm">
-                      {endDate ? format(endDate, 'dd/MM/yyyy', { locale: es }) : 'Sin fecha'}
+                      {endDate ? moment(endDate).format('DD/MM/YYYY') : 'Sin fecha'}
                     </div>
                   ) : (
                     <Popover>
@@ -537,7 +515,7 @@ export function AsignarTallerDialog({ desvio, open, onClose, workshops, sectors 
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {endDate ? format(endDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
+                          {endDate ? moment(endDate).format('DD/MM/YYYY') : 'Seleccionar'}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">

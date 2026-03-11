@@ -12,9 +12,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
 import { createOrUpdateMaintenanceRequest } from '@/features/Mantenimiento/SolicitudesMantenimiento/actions/actionsServer';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, Loader2, MessageSquarePlus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -34,6 +35,9 @@ type Supervisor = {
   id: string;
   fullName: string;
   email: string;
+  hasLinkedEmployee: boolean;
+  hasActiveDiagram: boolean;
+  isAvailable: boolean;
 };
 
 interface CriticalDeviationsRepairModalProps {
@@ -63,6 +67,8 @@ export function CriticalDeviationsRepairModal({
   userId,
   kilometer,
 }: CriticalDeviationsRepairModalProps) {
+  const queryClient = useQueryClient();
+
   // Fetch de supervisores internamente usando useQuery
   const {
     data: supervisors = [],
@@ -179,6 +185,9 @@ export function CriticalDeviationsRepairModal({
         description: `Se registraron ${deviations.length} desvío(s) para revisión del supervisor.`,
       });
 
+      // Invalidar todas las queries de mantenimiento para que las tabs se actualicen
+      invalidateAllMaintenanceQueries(queryClient);
+
       // Marcar que el submit fue exitoso para evitar que onOpenChange dispare onClose
       submitSuccessRef.current = true;
 
@@ -269,10 +278,13 @@ export function CriticalDeviationsRepairModal({
                               <CommandItem
                                 key={supervisor.id}
                                 value={supervisor.fullName}
+                                disabled={!supervisor.isAvailable}
                                 onSelect={() => {
+                                  if (!supervisor.isAvailable) return;
                                   setSelectedSupervisorId(supervisor.id);
                                   setOpenSupervisorSelect(false);
                                 }}
+                                className={cn(!supervisor.isAvailable && 'opacity-50')}
                               >
                                 <Check
                                   className={cn(
@@ -281,7 +293,19 @@ export function CriticalDeviationsRepairModal({
                                   )}
                                 />
                                 <div className="flex flex-col">
-                                  <span>{supervisor.fullName}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span>{supervisor.fullName}</span>
+                                    {!supervisor.hasLinkedEmployee && (
+                                      <Badge variant="outline" className="text-[10px]">
+                                        Sin empleado vinculado
+                                      </Badge>
+                                    )}
+                                    {supervisor.hasLinkedEmployee && !supervisor.hasActiveDiagram && (
+                                      <Badge variant="warning" className="text-[10px]">
+                                        Sin diagrama activo
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <span className="text-xs text-muted-foreground">{supervisor.email}</span>
                                 </div>
                               </CommandItem>

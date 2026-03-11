@@ -1,4 +1,3 @@
-import DocumentTable from '@/app/dashboard/document/DocumentTable';
 import {
   fetchDiagramsByEmployeeId,
   fetchDiagramsHistoryByEmployeeId,
@@ -9,6 +8,7 @@ import {
 import BackButton from '@/components/BackButton';
 import { DiagramDetailEmployeeView } from '@/components/Diagrams/DiagramDetailEmployeeView';
 import { Card } from '@/components/ui/card';
+import { EmployeeDocumentDetail } from '@/features/Employees/EmpleadoID/components/employee-document-detail';
 import { EmployeeHeader } from '@/features/Employees/EmpleadoID/components/employee-header';
 import { EmployeeTabs } from '@/features/Employees/EmpleadoID/components/employee-tabs';
 import { EmployeeHeaderSkeleton } from '@/features/Employees/EmpleadoID/components/skeletons/employee-header-skeleton';
@@ -28,10 +28,13 @@ import {
 import { fetchAllAptitudesTecnicas } from '@/features/Empresa/RRHH/actions/actions';
 import { fetchAllContractTypes } from '@/features/Empresa/RRHH/components/TypeContract/actions/actions';
 import { fetchCountrys } from '@/shared/actions/employees.actions';
+import { Logger } from '@/lib/logger';
 import moment from 'moment';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+
+const logger = new Logger('EmployeePage');
 
 interface EmployeePageProps {
   params: {
@@ -62,7 +65,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
         notFound();
       }
     } catch (error) {
-      console.error('Error fetching employee:', error);
+      logger.error('Error al obtener empleado', { data: { error, employee_id } });
       notFound();
     }
   }
@@ -121,7 +124,7 @@ export default async function EmployeePage({ searchParams }: EmployeePageProps) 
             mode={mode}
             employee={employee}
             //Componentes
-            documentsComponent={<DocumentTable employee_id={employee_id} searchParams={resolvedSearchParams} />}
+            documentsComponent={<EmployeeDocumentDetail employeeId={employee_id} searchParams={resolvedSearchParams} />}
             diagramsComponent={
               <DiagramDetailEmployeeView
                 historyData={historyData}

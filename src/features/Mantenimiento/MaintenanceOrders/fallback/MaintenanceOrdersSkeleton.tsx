@@ -5,7 +5,7 @@ export function MaintenanceOrdersSkeleton() {
   return (
     <Card>
       <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
-        <CardTitle>Ordenes de Mantenimiento</CardTitle>
+        <CardTitle>Gestión del Taller</CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="space-y-4">

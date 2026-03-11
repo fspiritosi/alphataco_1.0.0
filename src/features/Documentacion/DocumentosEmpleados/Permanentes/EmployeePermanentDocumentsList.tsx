@@ -17,18 +17,20 @@ export const TABLE_ID = 'employee-permanent-docs';
 
 interface EmployeePermanentDocumentsListProps {
   searchParams: Record<string, string | string[] | undefined>;
+  /** Si se provee, filtra documentos de un empleado específico (vista de detalle) */
+  employeeId?: string;
 }
 
 // ============================================================================
 // SERVER COMPONENT
 // ============================================================================
 
-export async function EmployeePermanentDocumentsList({ searchParams }: EmployeePermanentDocumentsListProps) {
+export async function EmployeePermanentDocumentsList({ searchParams, employeeId }: EmployeePermanentDocumentsListProps) {
   // Extraer solo los params de esta tabla (quitar prefijo)
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, TABLE_ID);
 
   const [{ data, total }, preferences] = await Promise.all([
-    getEmployeePermanentDocumentsPaginated(tableParams),
+    getEmployeePermanentDocumentsPaginated(tableParams, employeeId),
     getTablePreferences(TABLE_ID),
   ]);
 
@@ -42,6 +44,7 @@ export async function EmployeePermanentDocumentsList({ searchParams }: EmployeeP
           tableId={TABLE_ID}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}
+          employeeId={employeeId}
         />
       </CardContent>
     </Card>

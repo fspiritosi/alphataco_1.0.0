@@ -1,5 +1,15 @@
 'use client';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
 import { Logger } from '@/lib/logger';
@@ -83,6 +94,7 @@ export function ManageOrderDialog({
     repairTypeUpdates: [],
     sequenceUpdates: [],
     descriptionUpdates: [],
+    chiefCommentUpdates: [],
     workshopAssignments: [],
   });
 
@@ -114,6 +126,7 @@ export function ManageOrderDialog({
         repairTypeUpdates: [],
         sequenceUpdates: [],
         descriptionUpdates: [],
+        chiefCommentUpdates: [],
         workshopAssignments: [],
       });
     }
@@ -233,7 +246,13 @@ export function ManageOrderDialog({
           .map((rtId) => {
             const rt = repairTypes.find((r) => r.id === rtId);
             return rt
-              ? { repair_type_id: rtId, types_of_repairs: { id: rt.id, name: rt.name, autorizable: false } }
+              ? {
+                  id: '',
+                  maintenance_order_item_id: itemId,
+                  created_at: null,
+                  repair_type_id: rtId,
+                  types_of_repairs: { id: rt.id, name: rt.name, autorizable: false },
+                }
               : null;
           })
           .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -412,6 +431,7 @@ export function ManageOrderDialog({
         repairTypeUpdates: [],
         sequenceUpdates: [],
         descriptionUpdates: [],
+        chiefCommentUpdates: [],
         workshopAssignments: [],
       });
     } catch (error) {
@@ -422,11 +442,18 @@ export function ManageOrderDialog({
     }
   };
 
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
   const handleClose = () => {
     if (hasChanges) {
-      const confirmed = window.confirm('Hay cambios sin guardar. ¿Desea descartarlos?');
-      if (!confirmed) return;
+      setShowDiscardConfirm(true);
+      return;
     }
+    onClose();
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
     onClose();
   };
 
@@ -435,47 +462,40 @@ export function ManageOrderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              {order.order_number ? <span className="text-primary">{order.order_number}</span> : 'Gestionar Orden'}
-              <Badge variant="outline">{vehicle?.domain || vehicle?.serie || 'Sin patente'}</Badge>
-              {vehicle?.vehicle_type?.name && <Badge variant="secondary">{vehicle.vehicle_type.name}</Badge>}
+        <DialogContent className="max-w-5xl max-h-[90vh]">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-lg">{order.order_number || 'Orden sin numero'}</span>
+              </div>
               {hasChanges && (
-                <Badge variant="warning" className="text-xs">
+                <Badge variant="warning" className="text-xs animate-pulse">
                   Cambios sin guardar
                 </Badge>
               )}
             </DialogTitle>
+
+            {/* Vehicle info bar */}
+            <div className="flex items-center gap-3 px-3 py-2 bg-muted/50 rounded-lg text-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold">{vehicle?.domain || vehicle?.serie || 'Sin patente'}</span>
+                {vehicle?.intern_number && <span className="text-muted-foreground">({vehicle.intern_number})</span>}
+              </div>
+              <Separator orientation="vertical" className="h-4" />
+              <span className="text-muted-foreground">{vehicle?.vehicle_type?.name || 'Sin tipo'}</span>
+              <Separator orientation="vertical" className="h-4" />
+              <span className="text-muted-foreground">
+                Ingreso:{' '}
+                <span className="text-foreground font-medium">
+                  {order.workshop_entry_date ? moment(order.workshop_entry_date).format('DD/MM/YYYY') : '-'}
+                </span>
+              </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span className="text-muted-foreground">
+                Km: <span className="text-foreground font-medium">{String(vehicle?.kilometer || '-')}</span>
+              </span>
+            </div>
           </DialogHeader>
-
-          {/* Info del equipo */}
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">N. Interno:</span>{' '}
-              <span className="font-medium">{vehicle?.intern_number || '-'}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Ingreso:</span>{' '}
-              <span className="font-medium">
-                {order.workshop_entry_date ? moment(order.workshop_entry_date).format('DD/MM/YYYY') : '-'}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Km:</span>{' '}
-              <span className="font-medium">
-                {String(order.maintenance_requests?.kilometer || vehicle?.kilometer || '-')}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Hs:</span>{' '}
-              <span className="font-medium">
-                {String(order.maintenance_requests?.engine_hours || vehicle?.engine_hours || '-')}
-              </span>
-            </div>
-          </div>
-
-          <Separator />
 
           <Tabs defaultValue="items" className="flex-1">
             <TabsList className="grid w-full grid-cols-2">
@@ -483,7 +503,7 @@ export function ManageOrderDialog({
               <TabsTrigger value="asignar">Asignacion a Sectores</TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[50vh] mt-4">
+            <ScrollArea className="h-[60vh] mt-4">
               <TabsContent value="items" className="mt-0">
                 <div className="space-y-3">
                   {/* Header con botones */}
@@ -542,35 +562,45 @@ export function ManageOrderDialog({
                         return (
                           <div
                             key={item.id}
-                            className={`flex items-start justify-between p-3 border rounded-lg ${
-                              item._isTemp ? 'border-dashed border-blue-300 bg-blue-50/30' : ''
+                            className={`group relative flex items-start justify-between p-3 border rounded-lg transition-colors hover:bg-muted/30 ${
+                              item._isTemp
+                                ? 'border-dashed border-blue-300 bg-blue-50/30 dark:bg-blue-950/20'
+                                : hasWorkOrder
+                                  ? 'border-l-4 border-l-emerald-500'
+                                  : !sectorName && !item.assigned_workshop_id
+                                    ? 'border-l-4 border-l-orange-400'
+                                    : ''
                             }`}
                           >
-                            <div className="space-y-1 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
+                            <div className="space-y-1.5 flex-1 min-w-0">
+                              {/* Status + Repair type badges row */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 {item._isTemp && (
-                                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] text-blue-600 border-blue-300 px-1.5 py-0"
+                                  >
                                     Nuevo
                                   </Badge>
                                 )}
                                 {hasWorkOrder && (
-                                  <Badge variant="success" className="text-xs">
+                                  <Badge variant="success" className="text-[10px] px-1.5 py-0">
                                     OT generada
                                   </Badge>
                                 )}
                                 {repairTypeNames.length > 0 ? (
                                   repairTypeNames.map((name, idx) => (
-                                    <Badge key={idx} variant="default">
+                                    <Badge key={idx} variant="default" className="text-[10px] px-1.5 py-0">
                                       {name}
                                     </Badge>
                                   ))
                                 ) : (
-                                  <Badge variant="secondary" className="text-xs">
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                     Sin tipo asignado
                                   </Badge>
                                 )}
                                 {hasAutorizable && (
-                                  <Badge variant="warning" className="text-xs">
+                                  <Badge variant="warning" className="text-[10px] px-1.5 py-0">
                                     Autorizable
                                   </Badge>
                                 )}
@@ -579,9 +609,8 @@ export function ManageOrderDialog({
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6"
+                                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                                       onClick={() => {
-                                        // Find the original item for the dialog
                                         const originalItem = (order.maintenance_order_items || []).find(
                                           (i) => i.id === item.id
                                         );
@@ -589,39 +618,49 @@ export function ManageOrderDialog({
                                       }}
                                       title="Asignar tipos de reparacion"
                                     >
-                                      <Wrench className="h-3.5 w-3.5" />
+                                      <Wrench className="h-3 w-3" />
                                     </Button>
                                   </PermissionGuard>
                                 )}
                               </div>
+                              {/* Description */}
                               {!hasWorkOrder ? (
                                 <Input
                                   value={item.description || ''}
                                   onChange={(e) => handleDescriptionChange(item.id, e.target.value)}
                                   placeholder="Descripcion del item"
-                                  className="h-7 text-sm mt-1"
+                                  className="h-7 text-sm"
                                 />
                               ) : (
                                 item.description && (
-                                  <p className="text-sm text-muted-foreground">{String(item.description)}</p>
+                                  <p className="text-sm text-muted-foreground truncate">{String(item.description)}</p>
                                 )
                               )}
+                              {/* Deviation info */}
                               {deviation && (
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-muted-foreground/80 italic">
                                   Desvio: {String(deviation.item_label || deviation.item_code)}
-                                  {deviation.driver_comment && ` - ${String(deviation.driver_comment)}`}
                                 </p>
                               )}
+                              {/* Comments with attribution */}
+                              <ItemComments
+                                item={item}
+                                source={order.maintenance_requests?.source}
+                                fallbackAuthorName={order.maintenance_requests?.supervisor_name}
+                              />
                             </div>
-                            <div className="flex items-center gap-2">
+                            {/* Right side: sector + actions */}
+                            <div className="flex items-center gap-1.5 ml-3 shrink-0">
                               {sectorName ? (
                                 <div className="flex items-center gap-1">
-                                  <Badge variant="outline">{sectorName}</Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {sectorName}
+                                  </Badge>
                                   {!hasWorkOrder && (
                                     <Input
                                       type="number"
                                       min={1}
-                                      className="w-14 h-7 text-xs"
+                                      className="w-12 h-6 text-[11px] text-center"
                                       value={item.sector_sequence_order ?? ''}
                                       onChange={(e) => handleSequenceChange(item.id, Number(e.target.value))}
                                       title="Orden de secuencia"
@@ -633,7 +672,7 @@ export function ManageOrderDialog({
                                   Taller Externo
                                 </Badge>
                               ) : (
-                                <Badge variant="destructive" className="text-xs">
+                                <Badge variant="destructive" className="text-[10px]">
                                   Sin sector
                                 </Badge>
                               )}
@@ -642,7 +681,7 @@ export function ManageOrderDialog({
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    className="h-6 w-6 text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                                     onClick={() => handleDeleteItem(item.id)}
                                     title="Eliminar item"
                                   >
@@ -673,34 +712,31 @@ export function ManageOrderDialog({
 
           {/* Footer con botones de accion */}
           <Separator />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {hasChanges && (
-                <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                  {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-                </Button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="create">
-                <Button
-                  variant="default"
-                  disabled={!canGenerateWorkOrders}
-                  onClick={() => setGenerateWoOpen(true)}
-                  title={
-                    hasChanges
-                      ? 'Guarde los cambios primero'
-                      : !canGenerateWorkOrders
-                        ? 'Todos los items deben tener sector y tipo de reparacion asignados'
-                        : 'Generar ordenes de trabajo'
-                  }
-                >
-                  <ClipboardList className="h-4 w-4 mr-1" />
-                  Generar OT
-                </Button>
-              </PermissionGuard>
-            </div>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            {hasChanges && (
+              <Button onClick={handleSave} disabled={isSaving} size="sm">
+                {isSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            )}
+            <PermissionGuard module="mantenimiento" tab="gestion_ordenes" action="create">
+              <Button
+                variant="default"
+                size="sm"
+                disabled={!canGenerateWorkOrders}
+                onClick={() => setGenerateWoOpen(true)}
+                title={
+                  hasChanges
+                    ? 'Guarde los cambios primero'
+                    : !canGenerateWorkOrders
+                      ? 'Todos los items deben tener sector y tipo de reparacion asignados'
+                      : 'Generar ordenes de trabajo'
+                }
+              >
+                <ClipboardList className="h-4 w-4 mr-1.5" />
+                Generar OT
+              </Button>
+            </PermissionGuard>
           </div>
         </DialogContent>
       </Dialog>
@@ -726,6 +762,27 @@ export function ManageOrderDialog({
       {order && (
         <GenerateWorkOrderDialog open={generateWoOpen} onClose={() => setGenerateWoOpen(false)} orderId={order.id} />
       )}
+
+      {/* Discard changes confirmation */}
+      <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hay cambios sin guardar</AlertDialogTitle>
+            <AlertDialogDescription>
+              Si cierra ahora, los cambios no guardados se perderan. ¿Desea continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Seguir editando</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDiscard}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Descartar cambios
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

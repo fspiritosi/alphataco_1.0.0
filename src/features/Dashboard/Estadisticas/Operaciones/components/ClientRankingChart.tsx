@@ -1,7 +1,10 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 
 const MAX_CLIENTS_VISIBLE = 7;
@@ -29,20 +32,21 @@ interface ClientRankingChartProps {
 }
 
 export function ClientRankingChart({ data, periodLabel }: ClientRankingChartProps) {
-  const visible = data.slice(0, MAX_CLIENTS_VISIBLE);
-  const remainingCount = data.length - visible.length;
+  const [showAll, setShowAll] = useState(false);
 
-  if (visible.length === 0) {
+  const remainingCount = Math.max(0, data.length - MAX_CLIENTS_VISIBLE);
+  const displayData = showAll ? data : data.slice(0, MAX_CLIENTS_VISIBLE);
+
+  if (displayData.length === 0) {
     return null;
   }
 
-  // Truncate long names for the Y axis
-  const chartData = visible.map((item) => ({
+  const chartData = displayData.map((item) => ({
     ...item,
     shortName: item.name.length > 20 ? item.name.slice(0, 18) + '...' : item.name,
   }));
 
-  const chartHeight = Math.max(180, visible.length * 40 + 40);
+  const chartHeight = Math.max(180, displayData.length * 40 + 40);
 
   return (
     <Card className="py-0">
@@ -69,9 +73,25 @@ export function ClientRankingChart({ data, periodLabel }: ClientRankingChartProp
           </BarChart>
         </ChartContainer>
         {remainingCount > 0 && (
-          <p className="text-xs text-muted-foreground text-center mt-1">
-            +{remainingCount} {remainingCount === 1 ? 'cliente' : 'clientes'} mas
-          </p>
+          <div className="flex justify-center mt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground h-7 gap-1"
+              onClick={() => setShowAll((prev) => !prev)}
+            >
+              {showAll ? (
+                <>
+                  Mostrar menos <ChevronUp className="h-3.5 w-3.5" />
+                </>
+              ) : (
+                <>
+                  +{remainingCount} {remainingCount === 1 ? 'cliente' : 'clientes'}{' '}
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

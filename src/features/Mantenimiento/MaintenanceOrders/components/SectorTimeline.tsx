@@ -1,9 +1,11 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 
-export type SectorStatus = 'blocked' | 'pending' | 'in_progress' | 'completed';
+export type SectorStatus = 'blocked' | 'pending' | 'in_progress' | 'paused' | 'completed';
 
 export interface SectorTimelineItem {
   sectorId: string;
@@ -17,12 +19,16 @@ export interface SectorTimelineItem {
 
 interface SectorTimelineProps {
   sectors: SectorTimelineItem[];
+  /** When provided, shows reorder arrows to swap sector positions */
+  onReorder?: (sectorId: string, direction: 'up' | 'down') => void;
+  isReordering?: boolean;
 }
 
 const statusColors: Record<SectorStatus, string> = {
   blocked: 'bg-muted border-muted-foreground/30 text-muted-foreground',
   pending: 'bg-blue-100 border-blue-500 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   in_progress: 'bg-yellow-100 border-yellow-500 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+  paused: 'bg-orange-100 border-orange-500 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
   completed: 'bg-green-100 border-green-500 text-green-700 dark:bg-green-950 dark:text-green-300',
 };
 
@@ -30,6 +36,7 @@ const statusLineColors: Record<SectorStatus, string> = {
   blocked: 'bg-muted-foreground/30',
   pending: 'bg-blue-300',
   in_progress: 'bg-yellow-300',
+  paused: 'bg-orange-300',
   completed: 'bg-green-500',
 };
 
@@ -37,10 +44,11 @@ const statusLabels: Record<SectorStatus, string> = {
   blocked: 'Bloqueado',
   pending: 'Pendiente',
   in_progress: 'En progreso',
+  paused: 'Pausado',
   completed: 'Completado',
 };
 
-export function SectorTimeline({ sectors }: SectorTimelineProps) {
+export function SectorTimeline({ sectors, onReorder, isReordering }: SectorTimelineProps) {
   const sorted = [...sectors].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
 
   if (sorted.length === 0) {
@@ -56,13 +64,41 @@ export function SectorTimeline({ sectors }: SectorTimelineProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex flex-col items-center min-w-[80px]">
+                  {onReorder && (
+                    <div className="flex gap-0.5 mb-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        disabled={index === 0 || isReordering}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReorder(sector.sectorId, 'up');
+                        }}
+                      >
+                        <ArrowLeft className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        disabled={index === sorted.length - 1 || isReordering}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReorder(sector.sectorId, 'down');
+                        }}
+                      >
+                        <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                   <div
                     className={cn(
                       'w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold',
                       statusColors[sector.status]
                     )}
                   >
-                    {sector.sequenceOrder}
+                    {index + 1}
                   </div>
                   <span className="text-xs mt-1 text-center truncate max-w-[80px]">{sector.sectorName}</span>
                   <span className="text-[10px] text-muted-foreground">

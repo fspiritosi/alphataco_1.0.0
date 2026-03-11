@@ -1,8 +1,15 @@
 import { getOperationsChartData } from './actions/actions.server';
+import { getPreparteKpiData } from './actions/preparte-kpi.server';
 import { OperacionesChartsDynamic } from './components/OperacionesChartsDynamic';
+import { OrderManagementDynamic } from './components/OrderManagementDynamic';
 
 export default async function OperacionesTabContent() {
-  const data = await getOperationsChartData();
+  const [chartData, preparteKpiData] = await Promise.all([getOperationsChartData(), getPreparteKpiData()]);
 
-  return <OperacionesChartsDynamic data={data} />;
+  return (
+    <div className="space-y-3">
+      <OperacionesChartsDynamic data={chartData} />
+      <OrderManagementDynamic data={preparteKpiData} />
+    </div>
+  );
 }

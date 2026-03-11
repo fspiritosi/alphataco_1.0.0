@@ -1,9 +1,12 @@
-import { getMaintenanceRequests } from './actions/actionsServer';
-import { SolicitudesTableClient } from './components/SolicitudesTableClient';
+import type { DataTableSearchParams } from '@/shared/components/common/DataTable';
+import { MaintenanceRequestList } from './MaintenanceRequestList';
 
-export async function SolicitudesMantenimientoTabContent() {
-  // Fetching en el servidor
-  const initialData = await getMaintenanceRequests();
+interface SolicitudesMantenimientoTabContentProps {
+  searchParams?: DataTableSearchParams;
+}
 
-  return <SolicitudesTableClient initialData={initialData} />;
+export async function SolicitudesMantenimientoTabContent({
+  searchParams = {},
+}: SolicitudesMantenimientoTabContentProps) {
+  return <MaintenanceRequestList searchParams={searchParams} canApproveReject />;
 }

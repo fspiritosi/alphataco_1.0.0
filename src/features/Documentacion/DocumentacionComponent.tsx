@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Building2, FileType, Truck, Users } from 'lucide-react';
@@ -71,7 +72,7 @@ export default async function DocumentacionComponent({
             moduleSlug: 'documentacion',
             tabSlug: 'tipos-de-documentos',
             content: (
-              <Suspense fallback={<div>Cargando tipos de documentos...</div>}>
+              <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
                 <TiposDocumentosTabContent searchParams={searchParams} permissions={permissions} />
               </Suspense>
             ),

@@ -1,4 +1,4 @@
 export { SolicitudesMantenimientoTabContent } from './SolicitudesMantenimientoTabContent';
+export { MaintenanceRequestList, TABLE_ID as MAINTENANCE_REQUESTS_TABLE_ID } from './MaintenanceRequestList';
 export * from './actions/actionsServer';
-export { SolicitudesTable } from './components/SolicitudesTable';
 export * from './hooks/useMaintenanceRequests';

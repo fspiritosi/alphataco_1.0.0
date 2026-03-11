@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
 import type { MaintenanceRequestData } from '../actions/actionsServer';
 
@@ -77,7 +78,7 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Creado por:</span>
-                  <p className="font-medium">{request.profile?.fullname || 'No especificado'}</p>
+                  <p className="font-medium">{request.profile_user?.fullname || 'No especificado'}</p>
                 </div>
                 {request.kilometer && (
                   <div>
@@ -125,22 +126,6 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                       </Badge>
                     </div>
 
-                    {(item.driver_comment || item.checklist_deviations?.driver_comment) && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Comentario del chofer: </span>
-                        <span className="italic">
-                          {item.driver_comment || item.checklist_deviations?.driver_comment}
-                        </span>
-                      </div>
-                    )}
-
-                    {item.validator_comment && (
-                      <div className="text-sm p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                        <span className="text-blue-800 dark:text-blue-200 font-medium">Comentario del validador: </span>
-                        <span className="text-blue-700 dark:text-blue-300">{item.validator_comment}</span>
-                      </div>
-                    )}
-
                     {item.types_of_repairs && (
                       <div className="text-sm">
                         <span className="text-muted-foreground">Tipo de reparación: </span>
@@ -148,12 +133,11 @@ export function SolicitudDetailDialog({ request, open, onClose }: SolicitudDetai
                       </div>
                     )}
 
-                    {item.description && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Descripción: </span>
-                        <span>{item.description}</span>
-                      </div>
-                    )}
+                    <ItemComments
+                      item={{ maintenance_request_items: item }}
+                      source={request.source}
+                      fallbackAuthorName={request.profile_maintenance_requests_supervisor_idToprofile?.fullname}
+                    />
 
                     {item.status === 'rejected' && item.rejection_reason && (
                       <div className="text-sm p-2 bg-red-50 rounded">

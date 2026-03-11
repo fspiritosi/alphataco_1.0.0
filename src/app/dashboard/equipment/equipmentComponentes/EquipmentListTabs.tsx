@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Car, Package, XCircle } from 'lucide-react';
 import { Suspense } from 'react';
@@ -30,7 +31,7 @@ export default async function EquipmentListTabs({
           moduleSlug: 'equipos',
           tabSlug: 'vehicles',
           content: (
-            <Suspense fallback={<div>Cargando vehículos...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <EquipmentTableWrapperServer types_of_vehicles="Vehículos" />
             </Suspense>
           ),
@@ -46,7 +47,7 @@ export default async function EquipmentListTabs({
           moduleSlug: 'equipos',
           tabSlug: 'others',
           content: (
-            <Suspense fallback={<div>Cargando otros equipos...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <OtrosEquipmentTableWrapperServer types_of_vehicles="Otros" />
             </Suspense>
           ),
@@ -62,7 +63,7 @@ export default async function EquipmentListTabs({
           moduleSlug: 'equipos',
           tabSlug: 'inactive',
           content: (
-            <Suspense fallback={<div>Cargando equipos dados de baja...</div>}>
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-md" />}>
               <EquipmentTableWrapperServerInactive types_of_vehicles="all" />
             </Suspense>
           ),

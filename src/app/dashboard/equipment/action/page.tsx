@@ -4,13 +4,14 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import BackButton from '@/components/BackButton';
-import DocumentEquipmentComponent from '@/components/DocumentEquipmentComponent';
+import { EquipmentDocumentDetail } from '@/features/Equipos/EquipoID/components/equipment-document-detail';
 import RepairTypes from '@/components/Tipos_de_reparaciones/RepairTypes';
 import { Card } from '@/components/ui/card';
 import { fetchAllCostCenters } from '@/features/Empresa/General/actions/actions';
 import { VehicleChecklistsTabContent } from '@/features/Equipos/EquipoID/components/vehicle-checklists-tab-content';
 import { VehicleForm } from '@/features/Equipos/EquipoID/components/vehicle-form';
 import { VehicleHeader } from '@/features/Equipos/EquipoID/components/vehicle-header';
+import { VehicleOperationsHistory } from '@/features/Equipos/EquipoID/components/vehicle-operations-history';
 import VehicleQr from '@/features/Equipos/EquipoID/components/vehicle-qr';
 import {
   getHierarchicalPositions,
@@ -21,7 +22,9 @@ import {
   getVehicleOwners,
   getVehicleTypes,
 } from '@/features/Equipos/EquipoID/lib/actions/vehicle-catalog-actions';
+import { getMaintenanceOrdersForEquipment } from '@/features/Equipos/EquipoID/lib/actions/vehicle-operations-actions';
 import { getUserPermissionsMapServer } from '@/features/Permissions';
+import { Logger } from '@/lib/logger';
 import { fetchAllContractorForVehicles } from '../../employee/action/actions/actions';
 
 // Componentes de Otros Equipos
@@ -35,6 +38,8 @@ import { OtherEquipmentForm } from '@/features/Equipos/OtherEquipment/components
 import { OtherEquipmentHeader } from '@/features/Equipos/OtherEquipment/components/OtherEquipmentHeader';
 import { OtherEquipmentQr } from '@/features/Equipos/OtherEquipment/components/OtherEquipmentQr';
 import { OtherEquipmentHeaderSkeleton } from '@/features/Equipos/OtherEquipment/fallback/OtherEquipmentHeaderSkeleton';
+
+const logger = new Logger('VehiclePage');
 
 interface VehiclePageProps {
   searchParams: Promise<{ action?: 'new' | 'edit' | 'view'; id?: string; type?: string }>;
@@ -134,10 +139,14 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
   if (mode !== 'new') {
     try {
       vehicle = await getVehicleById(id!);
-    } catch {
+    } catch (error) {
+      logger.error('Error fetching vehicle', { data: { error } });
       notFound();
     }
   }
+
+  // Pre-fetch maintenance orders for the operations tab
+  const initialOrders = vehicle?.id ? await getMaintenanceOrdersForEquipment(vehicle.id) : [];
 
   const actualMode = id === 'new' ? 'new' : mode;
 
@@ -169,7 +178,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           modelsPromise={getModelsByBrand(vehicle?.brand_vehicles?.id!)}
           typesOfVehiclesPromise={getTypesOfVehicles()}
           hierarchicalPositionsPromise={getHierarchicalPositions()}
-          documentsComponent={<DocumentEquipmentComponent id={vehicle?.id || ''} searchParams={resolvedSearchParams} />}
+          documentsComponent={<EquipmentDocumentDetail equipmentId={vehicle?.id || ''} searchParams={resolvedSearchParams} />}
           repairsComponent={
             <RepairTypes
               searchParams={resolvedSearchParams}
@@ -189,6 +198,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
           }
           qrComponent={<VehicleQr vehicle={vehicle} />}
           checklistsComponent={<VehicleChecklistsTabContent equipmentId={vehicle?.id || ''} />}
+          operationsComponent={<VehicleOperationsHistory equipmentId={vehicle?.id || ''} initialData={initialOrders} />}
         />
       </Card>
     </div>

@@ -958,7 +958,7 @@ export const PERMISSIONS = {
             name: 'Seguimiento en Taller',
             tabId: '60000000-0000-0000-0000-000000000026',
             parent: 'maint_operaciones',
-            allowedActions: ['view'],
+            allowedActions: ['view', 'update'], // update = validar/rechazar orden desde operaciones
           },
         },
       },

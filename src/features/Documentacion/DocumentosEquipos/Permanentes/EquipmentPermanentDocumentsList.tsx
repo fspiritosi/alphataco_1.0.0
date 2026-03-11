@@ -17,18 +17,19 @@ export const TABLE_ID = 'equipment-permanent-docs';
 
 interface EquipmentPermanentDocumentsListProps {
   searchParams: Record<string, string | string[] | undefined>;
+  equipmentId?: string;
 }
 
 // ============================================================================
 // SERVER COMPONENT
 // ============================================================================
 
-export async function EquipmentPermanentDocumentsList({ searchParams }: EquipmentPermanentDocumentsListProps) {
+export async function EquipmentPermanentDocumentsList({ searchParams, equipmentId }: EquipmentPermanentDocumentsListProps) {
   // Extraer solo los params de esta tabla (quitar prefijo)
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, TABLE_ID);
 
   const [{ data, total }, preferences] = await Promise.all([
-    getEquipmentPermanentDocumentsPaginated(tableParams),
+    getEquipmentPermanentDocumentsPaginated(tableParams, equipmentId),
     getTablePreferences(TABLE_ID),
   ]);
 
@@ -42,6 +43,7 @@ export async function EquipmentPermanentDocumentsList({ searchParams }: Equipmen
           tableId={TABLE_ID}
           initialColumnVisibility={preferences.columnVisibility ?? {}}
           initialFilterVisibility={preferences.filterVisibility ?? {}}
+          equipmentId={equipmentId}
         />
       </CardContent>
     </Card>

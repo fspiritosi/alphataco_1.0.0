@@ -1,8 +1,10 @@
 import EmployesDiagram from '@/components/Diagrams/EmployesDiagram';
 import DocumentNav from '@/components/DocumentNav';
+import { MonthlyEmployeeDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/fallback/MonthlyEmployeeDocumentsSkeleton';
+import { MonthlyEmployeeDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Mensuales/MonthlyEmployeeDocumentsList';
+import { EmployeePermanentDocumentsSkeleton } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/fallback/EmployeePermanentDocumentsSkeleton';
+import { EmployeePermanentDocumentsList } from '@/features/Documentacion/DocumentosEmpleados/Permanentes/EmployeePermanentDocumentsList';
 import TiposDocumentosTabContent from '@/features/Documentacion/TiposDocumentos/TiposDocumentosTabContent';
-import MonthlyDocuments from '@/features/Employees/Empleados/Documents/Monthly/MonthlyDocuments';
-import PermanentDocuments from '@/features/Employees/Empleados/Documents/Permanents/PermanentDocuments';
 import EmployeeList from '@/features/Employees/Empleados/EmployeeList/EmployeeList';
 import { EmployeeTableSkeleton } from '@/features/Employees/Empleados/EmployeeList/fallback/EmployeeTableSkeleton';
 import { getCompanyName } from '@/features/Empresa/General/actions/actions';
@@ -136,8 +138,8 @@ export default async function EmployeePage({
                   moduleSlug: 'empleados',
                   tabSlug: 'docs-empleados-permanentes',
                   content: (
-                    <Suspense fallback={<DataTableSkeleton columns={5} />}>
-                      <PermanentDocuments />
+                    <Suspense fallback={<EmployeePermanentDocumentsSkeleton />}>
+                      <EmployeePermanentDocumentsList searchParams={resolvedSearchParams} />
                     </Suspense>
                   ),
                 },
@@ -152,8 +154,8 @@ export default async function EmployeePage({
                   moduleSlug: 'empleados',
                   tabSlug: 'docs-empleados-mensuales',
                   content: (
-                    <Suspense fallback={<DataTableSkeleton columns={5} />}>
-                      <MonthlyDocuments />
+                    <Suspense fallback={<MonthlyEmployeeDocumentsSkeleton />}>
+                      <MonthlyEmployeeDocumentsList searchParams={resolvedSearchParams} />
                     </Suspense>
                   ),
                 },

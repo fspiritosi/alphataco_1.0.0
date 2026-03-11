@@ -25,6 +25,7 @@ export default async function EmployeeList({ searchParams, isActive, permissions
   // Extraer solo los params de esta tabla (quitar prefijo del namespace)
   const tableParams = stripPrefixFromSearchParams(searchParams as DataTableSearchParams, tableId);
 
+  // Facets se cargan lazy (on-demand al abrir cada popover) — no en SSR
   const [{ data, total }, preferences] = await Promise.all([
     getEmployeesPaginated(tableParams, isActive),
     getTablePreferences(tableId),

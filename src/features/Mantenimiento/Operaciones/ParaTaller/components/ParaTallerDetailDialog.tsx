@@ -4,12 +4,46 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly } from '@/features/Mantenimiento/utils/dateFormat';
-import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
-import { type OrderForWorkshopData } from '../../actions/actionsServer';
+
+/** Tipo mínimo que el dialog necesita — compatible con ambos sistemas (Prisma y Supabase legacy) */
+interface OrderForDialog {
+  vehicles?: {
+    domain?: string | null;
+    serie?: string | null;
+    intern_number?: string | null;
+    condition?: string | null;
+    kilometer?: string | null;
+    engine_hours?: string | null;
+  } | null;
+  scheduled_date?: string | Date | null;
+  maintenance_requests?: {
+    source?: string | null;
+    profile_maintenance_requests_supervisor_idToprofile?: { fullname?: string | null } | null;
+  } | null;
+  maintenance_order_items?: Array<{
+    id: string;
+    maintenance_request_items?: {
+      checklist_deviations?: {
+        item_label?: string | null;
+        section_code?: string | null;
+      } | null;
+      description?: string | null;
+      driver_comment?: string | null;
+      supervisor_comment?: string | null;
+      validator_comment?: string | null;
+    } | null;
+    types_of_repairs?: { id: string; name: string } | null;
+    maintenance_order_item_repair_types?: Array<{
+      repair_type_id: string;
+      types_of_repairs?: { id: string; name: string } | null;
+    }>;
+  }>;
+}
 
 interface ParaTallerDetailDialogProps {
-  order: OrderForWorkshopData;
+  order: OrderForDialog;
   open: boolean;
   onClose: () => void;
 }
@@ -88,21 +122,18 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
               <div className="space-y-3">
                 {order.maintenance_order_items?.map((item) => {
                   // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
+                  const pivotRepairTypes = item.maintenance_order_item_repair_types || [];
                   const repairTypeNames: string[] =
                     pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
+                      ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => !!n)
                       : item.types_of_repairs?.name
                         ? [item.types_of_repairs.name]
                         : [];
 
-                  // Obtener información del chofer
-                  const driverInfo = getDriverCommentInfo(item);
-
                   return (
                     <div key={item.id} className="p-3 border rounded-lg space-y-2">
                       <div className="flex items-start justify-between">
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium">
                             {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
                           </p>
@@ -110,6 +141,13 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                             Sección:{' '}
                             {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
                           </p>
+                          <ItemComments
+                            item={item}
+                            source={order.maintenance_requests?.source}
+                            fallbackAuthorName={
+                              order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                            }
+                          />
                         </div>
                         {repairTypeNames.length > 0 && (
                           <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
@@ -121,33 +159,6 @@ export function ParaTallerDetailDialog({ order, open, onClose }: ParaTallerDetai
                           </div>
                         )}
                       </div>
-
-                      {driverInfo && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">
-                            Comentario del chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
-                          </span>
-                          <span className="italic">{driverInfo.comment}</span>
-                        </div>
-                      )}
-
-                      {(item.maintenance_request_items as any)?.validator_comment && (
-                        <div className="text-sm p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                          <span className="text-blue-800 dark:text-blue-200 font-medium">
-                            Comentario del validador:{' '}
-                          </span>
-                          <span className="text-blue-700 dark:text-blue-300">
-                            {(item.maintenance_request_items as any).validator_comment}
-                          </span>
-                        </div>
-                      )}
-
-                      {item.maintenance_request_items?.description && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Descripción del desvío: </span>
-                          {item.maintenance_request_items.description}
-                        </div>
-                      )}
                     </div>
                   );
                 })}

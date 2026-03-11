@@ -10,7 +10,6 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import UsersTabComponent from '../Usuarios/UsersTabComponent';
-import { CreateUserModal } from '../Usuarios/components/create-user-modal';
 import CompanyComponent from './components/company/CompanyComponent';
 import CostCenterTab from './components/cost-center/CostCenterTab';
 import MantenimientoTab from './components/mantenimiento/MantenimientoTab';
@@ -121,14 +120,7 @@ export default async function GeneralTabContent({
             ),
             moduleSlug: 'empresa',
             tabSlug: 'users',
-            content: (
-              <div>
-                <PermissionGuardServer module="empresa" tab="usuarios-empleados" action="create">
-                  <CreateUserModal />
-                </PermissionGuardServer>
-                <UsersTabComponent searchParams={searchParams} permissions={permissions} />
-              </div>
-            ),
+            content: <UsersTabComponent searchParams={searchParams} permissions={permissions} />,
           },
           {
             value: 'documentacion',

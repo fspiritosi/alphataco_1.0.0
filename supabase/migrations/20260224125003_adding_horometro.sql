@@ -402,15 +402,15 @@ BEGIN
           AND ce.contractor_id = dr.customer_id
       ) AS is_unassigned_to_client,
       ed.id IS NULL AS has_no_diagram,
-      CASE 
-        WHEN ed.id IS NOT NULL THEN COALESCE(dt.work_active, true) = false 
-        ELSE false 
+      CASE
+        WHEN ed.id IS NOT NULL THEN COALESCE(dt.work_active, true) = false
+        ELSE false
       END AS is_non_work_day,
       dt.name AS diagram_type_name
     FROM dailyreportemployeerelations der
     INNER JOIN dailyreportrows dr ON dr.id = der.daily_report_row_id
     LEFT JOIN employees e ON e.id = der.employee_id
-    LEFT JOIN employees_diagram ed 
+    LEFT JOIN employees_diagram ed
       ON ed.employee_id = der.employee_id
       AND ed.day = v_day AND ed.month = v_month AND ed.year = v_year
       AND (ed.is_active = true OR ed.is_active IS NULL)
@@ -551,7 +551,7 @@ BEGIN
     SELECT der.employee_id
     FROM dailyreportemployeerelations der
     INNER JOIN dailyreportrows dr ON dr.id = der.daily_report_row_id
-    LEFT JOIN employees_diagram ed 
+    LEFT JOIN employees_diagram ed
       ON ed.employee_id = der.employee_id
       AND ed.day = v_day AND ed.month = v_month AND ed.year = v_year
       AND (ed.is_active = true OR ed.is_active IS NULL)

@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { BarChart3, FileSpreadsheet, FolderOpen, Plus } from 'lucide-react';
 import { Suspense } from 'react';
@@ -31,7 +32,7 @@ export default async function EmployesDiagram({
           moduleSlug: 'empleados',
           tabSlug: 'old',
           content: (
-            <Suspense fallback={<div>Cargando diagramas...</div>}>
+            <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
               <EmployesDiagramWrapper />
             </Suspense>
           ),
@@ -47,7 +48,7 @@ export default async function EmployesDiagram({
           moduleSlug: 'empleados',
           tabSlug: 'new',
           content: (
-            <Suspense fallback={<div>Cargando formulario...</div>}>
+            <Suspense fallback={<Skeleton className="h-64 w-full rounded-md" />}>
               <DiagramFormUpdatedWrapper />
             </Suspense>
           ),
@@ -63,7 +64,7 @@ export default async function EmployesDiagram({
           moduleSlug: 'empleados',
           tabSlug: 'massive_diagram',
           content: (
-            <Suspense fallback={<div>Cargando carga masiva...</div>}>
+            <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
               <DiagramMassive />
             </Suspense>
           ),
@@ -79,7 +80,7 @@ export default async function EmployesDiagram({
           moduleSlug: 'empleados',
           tabSlug: 'reports',
           content: (
-            <Suspense fallback={<div>Cargando reportes...</div>}>
+            <Suspense fallback={<Skeleton className="h-[300px] w-full rounded-md" />}>
               <DiagramReportsWrapper />
             </Suspense>
           ),

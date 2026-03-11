@@ -1,11 +1,12 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { ItemComments } from '@/features/Mantenimiento/components/ItemComments';
 import { formatDateOnly, formatDateTime } from '@/features/Mantenimiento/utils/dateFormat';
-import { getDriverCommentInfo } from '@/features/Mantenimiento/utils/driverInfo';
+import { AlertTriangle, Calendar, Clock, Gauge, Truck } from 'lucide-react';
 import type { MaintenanceOrderData } from '../actions/actionsServer';
 
 interface PedidoDetailDialogProps {
@@ -14,184 +15,177 @@ interface PedidoDetailDialogProps {
   onClose: () => void;
 }
 
-export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogProps) {
-  const statusConfig: Record<
-    string,
-    { label: string; variant: 'warning' | 'success' | 'default' | 'secondary' | 'destructive' }
-  > = {
-    pending_scheduling: { label: 'Pendiente Planificar', variant: 'warning' },
-    scheduled: { label: 'Planificado', variant: 'secondary' },
-    date_confirmed: { label: 'Fecha Confirmada', variant: 'success' },
-    in_workshop: { label: 'En Taller', variant: 'default' },
-    completed: { label: 'Completado', variant: 'secondary' },
-    rejected: { label: 'Rechazado', variant: 'destructive' },
-  };
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; variant: 'warning' | 'success' | 'default' | 'secondary' | 'destructive' }
+> = {
+  pending_scheduling: { label: 'Pendiente Planificar', variant: 'warning' },
+  scheduled: { label: 'Planificado', variant: 'secondary' },
+  date_confirmed: { label: 'Fecha Confirmada', variant: 'success' },
+  in_workshop: { label: 'En Taller', variant: 'default' },
+  completed: { label: 'Completado', variant: 'secondary' },
+  rejected: { label: 'Rechazado', variant: 'destructive' },
+};
 
-  // Función para formatear el código de sección (sistema_electrico -> Sistema Eléctrico)
-  const formatSectionCode = (code: string | null | undefined): string => {
-    if (!code) return '-';
-    return code
-      .split('_')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
+function formatSectionCode(code: string | null | undefined): string {
+  if (!code) return '-';
+  return code
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+export function PedidoDetailDialog({ order, open, onClose }: PedidoDetailDialogProps) {
+  const equipmentLabel = order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar';
+  const internNumber = order.vehicles?.intern_number;
+  const statusInfo = STATUS_CONFIG[order.status] ?? { label: order.status, variant: 'secondary' as const };
+  const itemCount = order.maintenance_order_items?.length ?? 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Detalle de Pedido de Mantenimiento</DialogTitle>
-          <DialogDescription>Pedido creado el {formatDateTime(order.created_at)}</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+        {/* ── Header compacto ──────────────────────────────────────────── */}
+        <div className="px-6 pt-6 pb-4 space-y-3">
+          <DialogHeader className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+              <DialogTitle className="text-base">
+                {order.order_number ? `Pedido #${order.order_number}` : 'Pedido de Mantenimiento'}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="flex items-center gap-3 text-xs">
+              <span className="inline-flex items-center gap-1">
+                <Truck className="h-3 w-3" />
+                {equipmentLabel}
+                {internNumber && <span className="text-muted-foreground">(#{internNumber})</span>}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span>Creado {formatDateTime(order.created_at)}</span>
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Información general */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Información General</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm text-muted-foreground">Equipo:</span>
-                  <p className="font-medium">
-                    {order.vehicles?.domain || order.vehicles?.serie || 'Sin identificar'}
-                    {order.vehicles?.intern_number && ` (#${order.vehicles.intern_number})`}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm text-muted-foreground">Estado:</span>
-                  <div className="mt-1">
-                    <Badge variant={statusConfig[order.status]?.variant || 'secondary'}>
-                      {statusConfig[order.status]?.label || order.status}
-                    </Badge>
-                  </div>
-                </div>
-                {order.scheduled_date && (
-                  <div>
-                    <span className="text-sm text-muted-foreground">Fecha Planificada:</span>
-                    <p className="font-medium">{formatDateOnly(order.scheduled_date)}</p>
-                  </div>
-                )}
-                {order.maintenance_requests?.kilometer && (
-                  <div>
-                    <span className="text-sm text-muted-foreground">Kilometraje:</span>
-                    <p className="font-medium">{order.maintenance_requests.kilometer} km</p>
-                  </div>
-                )}
-                {order.maintenance_requests?.engine_hours && (
-                  <div>
-                    <span className="text-sm text-muted-foreground">Horómetro:</span>
-                    <p className="font-medium">{order.maintenance_requests.engine_hours} hs</p>
-                  </div>
-                )}
-              </div>
-
-              {order.date_rejection_reason && (
-                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
-                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    Motivo de reprogramación:
+          {/* ── Datos clave (fila horizontal) ───────────────────────────── */}
+          {(order.scheduled_date ||
+            order.maintenance_requests?.kilometer ||
+            order.maintenance_requests?.engine_hours) && (
+            <div className="flex flex-wrap gap-4 text-sm">
+              {order.scheduled_date && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>
+                    Planificado:{' '}
+                    <span className="text-foreground font-medium">{formatDateOnly(order.scheduled_date)}</span>
                   </span>
-                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{order.date_rejection_reason}</p>
+                </div>
+              )}
+              {(order.vehicles?.kilometer || order.maintenance_requests?.kilometer) && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Gauge className="h-3.5 w-3.5" />
+                  <span className="text-foreground font-medium">
+                    {Number(order.vehicles?.kilometer ?? order.maintenance_requests?.kilometer).toLocaleString('es-AR')}{' '}
+                    km
+                  </span>
+                </div>
+              )}
+              {(order.vehicles?.engine_hours || order.maintenance_requests?.engine_hours) && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="text-foreground font-medium">
+                    {Number(order.vehicles?.engine_hours ?? order.maintenance_requests?.engine_hours).toLocaleString(
+                      'es-AR'
+                    )}{' '}
+                    hs
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Alert de reprogramación ──────────────────────────────── */}
+          {order.date_rejection_reason && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Motivo de reprogramación
+                  </span>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{order.date_rejection_reason}</p>
                   {order.date_rejected_at && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                       Rechazado el {formatDateTime(order.date_rejected_at)}
                     </p>
                   )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Separator />
-
-          {/* Items del pedido */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Items a Reparar ({order.maintenance_order_items?.length || 0})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {order.maintenance_order_items?.map((item) => {
-                  // Extraer tipos de reparación de la tabla pivot (prioridad) o del campo legacy
-                  const pivotRepairTypes = (item as any).maintenance_order_item_repair_types || [];
-                  const repairTypeNames: string[] =
-                    pivotRepairTypes.length > 0
-                      ? pivotRepairTypes.map((rt: any) => rt.types_of_repairs?.name).filter(Boolean)
-                      : item.types_of_repairs?.name
-                        ? [item.types_of_repairs.name]
-                        : [];
-
-                  // Obtener información del chofer
-                  const driverInfo = getDriverCommentInfo(item);
-
-                  return (
-                    <div key={item.id} className="p-3 border rounded-lg space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Sección:{' '}
-                            {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
-                          </p>
-                        </div>
-                        {repairTypeNames.length > 0 && (
-                          <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
-                            {repairTypeNames.map((name, idx) => (
-                              <Badge key={idx} variant="secondary">
-                                {name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {driverInfo && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">
-                            Comentario del chofer{driverInfo.driverName && ` (${driverInfo.driverName})`}:{' '}
-                          </span>
-                          <span className="italic">{driverInfo.comment}</span>
-                        </div>
-                      )}
-
-                      {(item.maintenance_request_items as any)?.validator_comment && (
-                        <div className="text-sm p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                          <span className="text-blue-800 dark:text-blue-200 font-medium">
-                            Comentario del validador:{' '}
-                          </span>
-                          <span className="text-blue-700 dark:text-blue-300">
-                            {(item.maintenance_request_items as any).validator_comment}
-                          </span>
-                        </div>
-                      )}
-
-                      {item.maintenance_request_items?.description && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Descripción del desvío: </span>
-                          {item.maintenance_request_items.description}
-                        </div>
-                      )}
-
-                      {item.description && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Descripción adicional: </span>
-                          {item.description}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {(!order.maintenance_order_items || order.maintenance_order_items.length === 0) && (
-                  <p className="text-muted-foreground text-center py-4">No hay items registrados</p>
-                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
+
+        <Separator />
+
+        {/* ── Items a reparar ──────────────────────────────────────────── */}
+        <div className="px-6 pt-3 pb-1">
+          <h3 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
+            Items a reparar
+            <span className="ml-1.5 text-xs font-normal normal-case">({itemCount})</span>
+          </h3>
+        </div>
+
+        <ScrollArea className="max-h-[45vh]">
+          <div className="px-6 pb-6 space-y-3">
+            {order.maintenance_order_items?.map((item, index) => {
+              const pivotRepairTypes = item.maintenance_order_item_repair_types ?? [];
+              const repairTypeNames: string[] =
+                pivotRepairTypes.length > 0
+                  ? pivotRepairTypes.map((rt) => rt.types_of_repairs?.name).filter((n): n is string => Boolean(n))
+                  : item.types_of_repairs?.name
+                    ? [item.types_of_repairs.name]
+                    : [];
+
+              return (
+                <div key={item.id} className="p-3 border rounded-lg space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                        #{index + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-medium leading-snug">
+                          {item.maintenance_request_items?.checklist_deviations?.item_label || 'Sin título'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {formatSectionCode(item.maintenance_request_items?.checklist_deviations?.section_code)}
+                        </p>
+                      </div>
+                    </div>
+                    {repairTypeNames.length > 0 && (
+                      <div className="flex flex-wrap gap-1 justify-end shrink-0">
+                        {repairTypeNames.map((name, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <ItemComments
+                    item={item}
+                    source={order.maintenance_requests?.source}
+                    fallbackAuthorName={
+                      order.maintenance_requests?.profile_maintenance_requests_supervisor_idToprofile?.fullname
+                    }
+                  />
+                </div>
+              );
+            })}
+
+            {itemCount === 0 && (
+              <p className="text-muted-foreground text-center py-6 text-sm">No hay items registrados</p>
+            )}
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

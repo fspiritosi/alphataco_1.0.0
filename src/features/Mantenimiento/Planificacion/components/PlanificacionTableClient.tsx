@@ -71,7 +71,7 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
           vehicleDomain: vehicle?.domain || null,
           vehicleSerie: vehicle?.serie || null,
           vehicleInternNumber: vehicle?.intern_number || null,
-          vehicleType: vehicle?.vehicle_type?.name || null,
+          vehicleType: vehicle?.type_vehicles_typeTotype?.name || null,
           vehicleCondition: vehicle?.condition || null,
           // Info del desvío
           deviationId: deviation?.id || null,
@@ -87,7 +87,7 @@ export function PlanificacionTableClient({ initialData, workshops = [], sectors 
           repairTypeIds,
           repairTypeNames,
           // Info de la orden
-          workshopEntryDate: order.workshop_entry_date,
+          workshopEntryDate: order.workshop_entry_date?.toISOString() ?? null,
           kilometer: order.maintenance_requests?.kilometer || null,
           // Asignaciones
           workshopId: (item as any).assigned_workshop_id || null,

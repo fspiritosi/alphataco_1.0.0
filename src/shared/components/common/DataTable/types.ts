@@ -66,6 +66,16 @@ export interface DataTableFilterOption {
 }
 
 /**
+ * Resultado de un fetch de facet individual (lazy-load)
+ */
+export interface FacetResult {
+  /** Opciones del filtro (con labels resueltos) */
+  options: DataTableFilterOption[];
+  /** Mapa de contadores por valor */
+  counts: Map<string, number>;
+}
+
+/**
  * Configuración de un filtro faceteado
  */
 export interface DataTableFacetedFilterConfig {
@@ -83,6 +93,13 @@ export interface DataTableFacetedFilterConfig {
   externalCounts?: Map<string, number>;
   /** Deshabilitar el filtro (ej. mientras se cargan las opciones) */
   disabled?: boolean;
+  /**
+   * Fetch individual de opciones+counts bajo demanda.
+   * Cuando se provee, las opciones se cargan lazy al abrir el popover (no en bulk).
+   * Recibe los searchParams actuales (sin page/sort) para cross-filtering.
+   * El resultado se cachea en React Query (staleTime 5min).
+   */
+  fetchFacet?: (facetParams: DataTableSearchParams) => Promise<FacetResult>;
 }
 
 // ============================================================================
@@ -216,6 +233,24 @@ export interface DataTableProps<TData, TValue = unknown> {
   'data-testid'?: string;
   /** Indica que los facets se están re-fetcheando (muestra skeletons en los filtros activos) */
   isFetchingFacets?: boolean;
+
+  // ---- Client-side navigation mode ----
+
+  /**
+   * Función para fetch de datos client-side. Cuando se provee, la tabla usa React Query
+   * internamente y window.history.replaceState (NO router.push) para actualizar la URL.
+   * Los props `data` y `totalRows` se usan como datos iniciales (SSR).
+   */
+  queryFn?: (params: DataTableSearchParams) => Promise<{ data: TData[]; total: number }>;
+
+  /** Key base para React Query (solo con queryFn). Se le agrega el state como último elemento. */
+  queryKey?: readonly unknown[];
+
+  /**
+   * Callback que se dispara cada vez que el estado de la tabla cambia (filtros, sort, paginación).
+   * Útil para que el padre actualice queries dependientes (ej: facets) con los nuevos params.
+   */
+  onStateChange?: (searchParams: DataTableSearchParams) => void;
 }
 
 /**
@@ -238,6 +273,8 @@ export interface DataTableToolbarProps<TData> {
   paramNamespace?: string;
   /** Indica que los facets se están re-fetcheando (se propaga a cada FacetedFilter) */
   isFetchingFacets?: boolean;
+  /** Params actuales de la tabla (sin page/sort) para lazy-load de facets */
+  facetParams?: DataTableSearchParams;
   /**
    * Handler externo para cambios de búsqueda global (sincroniza con URL via router).
    * Cuando se provee, reemplaza el comportamiento local de TanStack Table (setGlobalFilter).
@@ -281,6 +318,13 @@ export interface DataTableFacetedFilterProps<TData, TValue> {
   disabled?: boolean;
   /** Indica que los facets se están re-fetcheando (muestra skeletons en el popover) */
   isFetching?: boolean;
+  /**
+   * Fetch individual de opciones+counts bajo demanda (lazy-load).
+   * Cuando se provee, las opciones se cargan al abrir el popover.
+   */
+  fetchFacet?: (facetParams: DataTableSearchParams) => Promise<FacetResult>;
+  /** Params actuales de la tabla (sin page/sort) para queryKey de React Query */
+  facetParams?: DataTableSearchParams;
 }
 
 /**

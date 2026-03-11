@@ -1,7 +1,8 @@
 'use client';
 
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Check, PlusCircle } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,28 +23,45 @@ import { cn } from '@/lib/utils';
 import type { DataTableFacetedFilterProps } from './types';
 
 /**
- * Filtro faceteado multi-select para columnas del DataTable
+ * Filtro faceteado multi-select para columnas del DataTable.
  *
- * @example
- * ```tsx
- * <DataTableFacetedFilter
- *   column={table.getColumn('status')}
- *   title="Estado"
- *   options={[
- *     { value: 'PENDING', label: 'Pendiente', icon: Clock },
- *     { value: 'APPROVED', label: 'Aprobado', icon: CheckCircle },
- *   ]}
- * />
- * ```
+ * Soporta dos modos:
+ * - **Modo bulk** (default): `options` y `externalCounts` vienen como props del padre.
+ * - **Modo lazy** (cuando `fetchFacet` está presente): las opciones se cargan on-demand
+ *   al abrir el popover por primera vez, con skeleton y cache de React Query.
  */
 export function DataTableFacetedFilter<TData, TValue>({
   column,
   title,
-  options,
-  externalCounts,
+  options: propOptions,
+  externalCounts: propExternalCounts,
   disabled,
-  isFetching,
+  isFetching: propIsFetching,
+  fetchFacet,
+  facetParams,
 }: DataTableFacetedFilterProps<TData, TValue>) {
+  // ── Lazy-load state ──────────────────────────────────────────────────────
+  const [hasOpened, setHasOpened] = useState(false);
+  const isLazy = !!fetchFacet;
+
+  // Si hay valores seleccionados (ej: de URL), eager-load para mostrar labels en el badge
+  const selectedFromTable = column?.getFilterValue() as string[] | undefined;
+  const hasSelectedValues = (selectedFromTable?.length ?? 0) > 0;
+
+  // React Query interno: solo se activa en modo lazy
+  const { data: lazyData, isFetching: isLazyFetching } = useQuery({
+    queryKey: ['datatable-facet', column?.id, facetParams],
+    queryFn: () => fetchFacet!(facetParams ?? {}),
+    enabled: isLazy && (hasOpened || hasSelectedValues),
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Resolver fuente de datos según modo ──────────────────────────────────
+  const options = isLazy ? lazyData?.options ?? [] : propOptions;
+  const externalCounts = isLazy ? lazyData?.counts : propExternalCounts;
+  const isFetching = isLazy ? isLazyFetching && !lazyData : propIsFetching;
+
   const facets = externalCounts ?? column?.getFacetedUniqueValues();
   const selectedValues = new Set(column?.getFilterValue() as string[]);
 
@@ -71,12 +89,20 @@ export function DataTableFacetedFilter<TData, TValue>({
   }
 
   // El trigger muestra skeleton cuando hay valores seleccionados pero las opciones aún
-  // no están disponibles para resolver los labels (recarga de página).
+  // no están disponibles para resolver los labels (recarga de página / lazy-load).
   const selectedLabels = options.filter((opt) => selectedValues.has(opt.value));
   const triggerShowsSkeleton = selectedValues.size > 0 && options.length === 0;
 
+  // En modo lazy, el isFetching para la opacidad del popover solo aplica cuando
+  // ya hay datos previos (isPlaceholderData) — no en la carga inicial.
+  const isRefetching = isLazy ? isLazyFetching && !!lazyData : propIsFetching;
+
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open) => {
+        if (open && !hasOpened) setHasOpened(true);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -90,12 +116,12 @@ export function DataTableFacetedFilter<TData, TValue>({
           {selectedValues?.size > 0 && (
             <>
               <Separator orientation="vertical" className="mx-2 h-4" />
-              {/* Contador compacto (mobile) */}
-              <Badge variant="secondary" className="rounded-sm px-1 font-normal lg:hidden">
+              {/* Contador compacto (solo phones < 640px) */}
+              <Badge variant="secondary" className="rounded-sm px-1 font-normal sm:hidden">
                 {selectedValues.size}
               </Badge>
-              {/* Badges con labels (desktop) */}
-              <div className="hidden space-x-1 lg:flex">
+              {/* Badges con labels (tablets y desktop >= 640px) */}
+              <div className="hidden space-x-1 sm:flex">
                 {triggerShowsSkeleton ? (
                   // Skeleton mientras las opciones no están disponibles para resolver labels
                   Array.from({ length: Math.min(selectedValues.size, 2) }, (_, i) => (
@@ -122,7 +148,7 @@ export function DataTableFacetedFilter<TData, TValue>({
           <CommandInput placeholder={`Buscar ${title.toLowerCase()}...`} />
           <CommandList>
             {/* Skeleton del popover: se muestra cuando está cargando Y no hay opciones */}
-            {isFetching && visibleOptions.length === 0 ? (
+            {(isFetching || (isLazy && isLazyFetching && !lazyData)) && visibleOptions.length === 0 ? (
               <CommandGroup>
                 {Array.from({ length: 4 }, (_, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1.5">
@@ -135,8 +161,8 @@ export function DataTableFacetedFilter<TData, TValue>({
             ) : (
               <>
                 {/* Ocultar "Sin resultados" durante el fetching para evitar flash */}
-                {!isFetching && <CommandEmpty>Sin resultados.</CommandEmpty>}
-                <CommandGroup className={cn(isFetching && 'opacity-60 transition-opacity')}>
+                {!isFetching && !isLazyFetching && <CommandEmpty>Sin resultados.</CommandEmpty>}
+                <CommandGroup className={cn(isRefetching && 'opacity-60 transition-opacity')}>
                   {visibleOptions.map((option) => {
                     const isSelected = selectedValues.has(option.value);
                     return (

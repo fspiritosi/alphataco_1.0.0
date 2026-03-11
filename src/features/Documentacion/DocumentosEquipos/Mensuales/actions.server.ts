@@ -103,7 +103,7 @@ const MONTHLY_EQUIPMENT_DOCS_SELECT = {
 // HELPERS INTERNOS
 // ============================================================================
 
-function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>) {
+function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearchParams>, equipmentId?: string) {
   const filtersWhere = buildFiltersWhere(state.filters, COLUMN_MAP, {
     exclude: [
       ...TEXT_FILTER_COLUMNS,
@@ -218,6 +218,8 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     { document_types: { is_it_montlhy: true, is_active: true } },
     // Filtro base: solo vehículos activos
     { vehicles: { is_active: true } },
+    // Filtro opcional por equipo específico (para vista de detalle)
+    ...(equipmentId ? [{ applies: equipmentId }] : []),
   ];
 
   // Búsqueda global por dominio / serie / número interno del equipo
@@ -278,13 +280,13 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getMonthlyEquipmentDocumentsPaginated(searchParams: DataTableSearchParams) {
+export async function getMonthlyEquipmentDocumentsPaginated(searchParams: DataTableSearchParams, equipmentId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
     const { skip, take } = stateToPrismaParams(state);
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, equipmentId);
 
     // Safe orderBy: multi-sort, solo campos válidos
     const resolvedSorts: Record<string, unknown>[] = [];
@@ -324,12 +326,12 @@ export type MonthlyEquipmentDocumentListItem = Awaited<
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllMonthlyEquipmentDocumentsForExport(searchParams: DataTableSearchParams) {
+export async function getAllMonthlyEquipmentDocumentsForExport(searchParams: DataTableSearchParams, equipmentId?: string) {
   const companyId = await getServerCompanyId();
 
   try {
     const state = parseSearchParams(searchParams);
-    const where = buildWhereClause(companyId, state);
+    const where = buildWhereClause(companyId, state, equipmentId);
 
     const data = await prisma.documents_equipment.findMany({
       orderBy: [{ vehicles: { domain: 'asc' } }],
@@ -351,7 +353,7 @@ export async function getAllMonthlyEquipmentDocumentsForExport(searchParams: Dat
 /**
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
  */
-export async function getMonthlyEquipmentDocumentsFacets(searchParams?: DataTableSearchParams) {
+export async function getMonthlyEquipmentDocumentsFacets(searchParams?: DataTableSearchParams, equipmentId?: string) {
   const companyId = await getServerCompanyId();
 
   let parsedState: ReturnType<typeof parseSearchParams> | null = null;
@@ -369,6 +371,7 @@ export async function getMonthlyEquipmentDocumentsFacets(searchParams?: DataTabl
           { vehicles: { company_id: companyId } },
           { document_types: { is_it_montlhy: true, is_active: true } },
           { vehicles: { is_active: true } },
+          ...(equipmentId ? [{ applies: equipmentId }] : []),
         ],
       };
     }
@@ -376,7 +379,7 @@ export async function getMonthlyEquipmentDocumentsFacets(searchParams?: DataTabl
     delete modified.filters[excludeColumn];
     delete modified.filters[`${excludeColumn}_from`];
     delete modified.filters[`${excludeColumn}_to`];
-    return buildWhereClause(companyId, modified);
+    return buildWhereClause(companyId, modified, equipmentId);
   }
 
   // Helper: construir Map<string, count> con soporte para null → NULL_FILTER_VALUE

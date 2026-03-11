@@ -1,44 +1,12 @@
-import { supabaseServer } from '@/lib/supabase/server';
 import TanstackQueryInicializador from '../dashboard/TanstackQueryInicializador';
 import { MaintenanceLayoutProvider } from './maintenance-layout-provider';
 
-export default async function MaintenanceLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await supabaseServer();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const employeeId =
-    ((user?.app_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined) ??
-    ((user?.user_metadata as unknown as Record<string, unknown>)?.employee_id as string | undefined);
-
-  // Obtener datos del empleado si existe
-  let employeeData: { firstname: string; lastname: string; cuil: string } | null = null;
-
-  if (employeeId) {
-    // Buscar el empleado directamente (la tabla employees tiene company_id)
-    const { data: empData } = await supabase
-      .from('employees')
-      .select('id, firstname, lastname, cuil')
-      .eq('id', employeeId)
-      .single();
-
-    if (empData) {
-      employeeData = {
-        firstname: empData.firstname || '',
-        lastname: empData.lastname || '',
-        cuil: empData.cuil || '',
-      };
-    }
-  }
-
-  const employeeFullName = employeeData ? `${employeeData.firstname} ${employeeData.lastname}`.trim() : null;
-  const employeeCuil = employeeData?.cuil || null;
-
+export default function MaintenanceLayout({ children }: { children: React.ReactNode }) {
+  // Employee data is resolved client-side by MaintenanceHeader via useEmployeeDataMaintenance() hook.
+  // This avoids calling cookies()/supabase in the layout, which breaks Next.js 16 prerendering.
   return (
     <TanstackQueryInicializador>
-      <MaintenanceLayoutProvider employeeName={employeeFullName} employeeCuil={employeeCuil}>
+      <MaintenanceLayoutProvider employeeName={null} employeeCuil={null}>
         {children}
       </MaintenanceLayoutProvider>
     </TanstackQueryInicializador>

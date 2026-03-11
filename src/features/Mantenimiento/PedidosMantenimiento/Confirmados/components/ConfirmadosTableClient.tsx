@@ -29,6 +29,7 @@ export function ConfirmadosTableClient({ initialData }: ConfirmadosTableClientPr
     queryKey: PEDIDOS_CONFIRMADOS_QUERY_KEY,
     queryFn: () => getMaintenanceOrdersConfirmed(),
     initialData,
+    staleTime: 0,
   });
 
   const equipmentOptions = useMemo(() => {

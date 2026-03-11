@@ -6,6 +6,7 @@ import type {
   MaintenanceRequestFilters,
   RejectRequestInput,
 } from '../../types';
+import { invalidateAllMaintenanceQueries } from '../../utils/queryInvalidation';
 import {
   approveMaintenanceRequestItems,
   getMaintenanceRequests,
@@ -34,17 +35,7 @@ export function useApproveMaintenanceRequestItems() {
   return useMutation({
     mutationFn: (input: ApproveRequestItemsInput) => approveMaintenanceRequestItems(input),
     onSuccess: () => {
-      // Invalidar la vista de Solicitudes (esta tabla)
-      queryClient.invalidateQueries({ queryKey: MAINTENANCE_REQUESTS_QUERY_KEY });
-      // Invalidar todas las vistas de Pedidos de Mantenimiento
-      queryClient.invalidateQueries({ queryKey: ['maintenance-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance', 'pedidos'] }); // Incluye pendientes y confirmados
-      // Invalidar la tab de Equipos con Desvíos ya que los items aprobados ya no deben aparecer ahí
-      queryClient.invalidateQueries({ queryKey: ['equipments-with-deviations'] });
-      // Invalidar Pendientes de Ejecutar para que aparezcan los items recién aprobados
-      queryClient.invalidateQueries({ queryKey: ['maintenance', 'pendientes-ejecutar'] });
-      // Invalidar Planificación
-      queryClient.invalidateQueries({ queryKey: ['maintenance', 'planificacion'] });
+      invalidateAllMaintenanceQueries(queryClient);
     },
   });
 }
@@ -59,9 +50,7 @@ export function useRejectMaintenanceRequest() {
   return useMutation({
     mutationFn: (input: RejectRequestInput) => rejectMaintenanceRequest(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MAINTENANCE_REQUESTS_QUERY_KEY });
-      // Los items rechazados deberían volver a aparecer en Equipos con Desvíos
-      queryClient.invalidateQueries({ queryKey: ['equipments-with-deviations'] });
+      invalidateAllMaintenanceQueries(queryClient);
     },
   });
 }
@@ -77,9 +66,7 @@ export function useRejectMaintenanceRequestItems() {
     mutationFn: (input: { requestId: string; itemIds: string[]; reason: string }) =>
       rejectMaintenanceRequestItems(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MAINTENANCE_REQUESTS_QUERY_KEY });
-      // Los items rechazados deberían volver a aparecer en Equipos con Desvíos
-      queryClient.invalidateQueries({ queryKey: ['equipments-with-deviations'] });
+      invalidateAllMaintenanceQueries(queryClient);
     },
   });
 }
@@ -94,11 +81,7 @@ export function useApproveWorkshopEntryFromRequest() {
   return useMutation({
     mutationFn: (input: ApproveWorkshopEntryInput) => approveWorkshopEntry(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MAINTENANCE_REQUESTS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-orders-pending-approval'] });
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      invalidateAllMaintenanceQueries(queryClient);
     },
   });
 }

@@ -4,41 +4,19 @@ import { getTractorUnitsWithPendingDeviations } from '@/app/maintenance/actions'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-
-type EquipmentWithDeviations = {
-  id: string;
-  domain: string | null;
-  serie: string | null;
-  intern_number: string | null;
-  type_name: string | null;
-  deviation_count: number;
-};
 
 export function ChecklistDeviationsDashboard() {
-  const [equipments, setEquipments] = useState<EquipmentWithDeviations[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [totalDeviations, setTotalDeviations] = useState(0);
+  const { data: equipments = [], isLoading } = useQuery({
+    queryKey: ['tractor-units-pending-deviations'],
+    queryFn: () => getTractorUnitsWithPendingDeviations(),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setIsLoading(true);
-        const equipmentsData = await getTractorUnitsWithPendingDeviations();
-        setEquipments(equipmentsData as any);
-        const total = equipmentsData.reduce((sum, eq) => sum + eq.deviation_count, 0);
-        setTotalDeviations(total);
-      } catch (error) {
-        console.error('Error loading equipments with deviations:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadData();
-  }, []);
+  const totalDeviations = equipments.reduce((sum, eq) => sum + eq.deviation_count, 0);
 
   if (isLoading) {
     return (
@@ -47,6 +25,12 @@ export function ChecklistDeviationsDashboard() {
           <CardTitle>Desvíos de Checklist Pendientes</CardTitle>
           <CardDescription>Cargando datos...</CardDescription>
         </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        </CardContent>
       </Card>
     );
   }

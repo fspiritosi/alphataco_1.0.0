@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchSupervisorsForChecklist } from '@/features/Checklist/actions/actionsServer';
+import { invalidateAllMaintenanceQueries } from '@/features/Mantenimiento/utils/queryInvalidation';
 import { Logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -224,6 +225,15 @@ export function NuevoPedidoChecklistForm({
       return;
     }
 
+    // Validar que el kilometraje no sea menor al actual
+    if (kilometer) {
+      const currentKm = Number(selectedEquipment?.kilometer) || 0;
+      if (Number(kilometer) < currentKm) {
+        toast.error(`El kilometraje no puede ser menor al actual (${currentKm} km)`);
+        return;
+      }
+    }
+
     // Si es supervisor actual, usar su ID; si no, usar el seleccionado
     const supervisorId = isCurrentUserSupervisor ? currentUser?.id : selectedSupervisorId;
 
@@ -253,10 +263,8 @@ export function NuevoPedidoChecklistForm({
 
         toast.success('Pedido de mantenimiento creado exitosamente');
 
-        // Invalidar queries de pedidos
-        queryClient.invalidateQueries({ queryKey: ['maintenance'] });
-        queryClient.invalidateQueries({ queryKey: ['maintenance-orders'] });
-        queryClient.invalidateQueries({ queryKey: ['pedidos-pendientes'] });
+        // Invalidar todas las queries de mantenimiento
+        invalidateAllMaintenanceQueries(queryClient);
       } else {
         // FLUJO 2: Usuario NO es supervisor → crear solicitud pendiente de aprobación
         await createMaintenanceRequestPendingApproval({
@@ -269,10 +277,8 @@ export function NuevoPedidoChecklistForm({
 
         toast.success('Solicitud enviada. El supervisor debe aprobarla antes de que pase a Pedidos.');
 
-        // Invalidar queries de solicitudes pendientes
-        queryClient.invalidateQueries({ queryKey: ['maintenance'] });
-        queryClient.invalidateQueries({ queryKey: ['maintenance-requests'] });
-        queryClient.invalidateQueries({ queryKey: ['solicitudes-pendientes'] });
+        // Invalidar todas las queries de mantenimiento
+        invalidateAllMaintenanceQueries(queryClient);
       }
 
       // Reset form
@@ -343,7 +349,13 @@ export function NuevoPedidoChecklistForm({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Selecciona el equipo</Label>
-        <Popover open={equipmentOpen} onOpenChange={setEquipmentOpen}>
+        <Popover
+          open={equipmentOpen}
+          onOpenChange={(open) => {
+            setEquipmentOpen(open);
+            if (!open) setSearchTerm('');
+          }}
+        >
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -669,7 +681,10 @@ export function NuevoPedidoChecklistForm({
                             <CommandItem
                               key={supervisor.id}
                               value={supervisor.fullName}
+                              disabled={!supervisor.isAvailable}
+                              className={cn(!supervisor.isAvailable && 'opacity-50')}
                               onSelect={() => {
+                                if (!supervisor.isAvailable) return;
                                 setSelectedSupervisorId(supervisor.id);
                                 setSupervisorOpen(false);
                               }}
@@ -681,7 +696,19 @@ export function NuevoPedidoChecklistForm({
                                 )}
                               />
                               <div className="flex flex-col">
-                                <span>{supervisor.fullName}</span>
+                                <div className="flex items-center gap-2">
+                                  <span>{supervisor.fullName}</span>
+                                  {!supervisor.hasLinkedEmployee && (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      Sin empleado vinculado
+                                    </Badge>
+                                  )}
+                                  {supervisor.hasLinkedEmployee && !supervisor.hasActiveDiagram && (
+                                    <Badge variant="warning" className="text-[10px]">
+                                      Sin diagrama activo
+                                    </Badge>
+                                  )}
+                                </div>
                                 <span className="text-xs text-muted-foreground">{supervisor.email}</span>
                               </div>
                             </CommandItem>

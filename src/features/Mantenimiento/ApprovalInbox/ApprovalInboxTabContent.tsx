@@ -1,17 +1,19 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getActiveWorkshopSectors } from '../OrderManagement/actions/actionsServer';
-import { getPendingApprovalTasks, getReturnedTasks } from './actions/actionsServer';
+import { getOrdersPendingValidation, getPendingApprovalTasks, getReturnedTasks } from './actions/actionsServer';
 import { ApprovalInboxClient } from './components/ApprovalInboxClient';
 
 /**
- * Tab de Bandeja de Aprobaciones - Jefe de Taller
+ * Tab de Aprobaciones - Jefe de Taller (Paso 4)
  *
- * Dos sub-secciones:
- * 1. Pendientes de Autorizacion: tareas con tipos de reparacion autorizables agregadas por operarios
- * 2. Reasignacion: tareas devueltas por operarios para reasignacion a otro sector
+ * Estructura:
+ * - Indicadores: badges clickeables para Autorizaciones y Reasignaciones (abren modales)
+ * - Tabla principal: ordenes pendientes de validacion (pending_workshop_validation)
+ *
+ * Las acciones de validacion de ordenes se importan de MaintenanceOrders/actions/actionsServer.ts
  */
 export async function ApprovalInboxTabContent() {
-  const [pendingTasks, returnedTasks, sectorsData] = await Promise.all([
+  const [validationOrders, pendingTasks, returnedTasks, sectorsData] = await Promise.all([
+    getOrdersPendingValidation(),
     getPendingApprovalTasks(),
     getReturnedTasks(),
     getActiveWorkshopSectors(),
@@ -20,18 +22,11 @@ export async function ApprovalInboxTabContent() {
   const sectors = sectorsData.map((s) => ({ id: s.id, name: s.name }));
 
   return (
-    <Card>
-      <CardHeader className="bg-gh dark:bg-muted/50 border-b-2">
-        <CardTitle>Bandeja de Aprobaciones</CardTitle>
-        <CardDescription>Aprobar tareas autorizables y reasignar tareas devueltas por operarios</CardDescription>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <ApprovalInboxClient
-          initialPendingTasks={pendingTasks}
-          initialReturnedTasks={returnedTasks}
-          sectors={sectors}
-        />
-      </CardContent>
-    </Card>
+    <ApprovalInboxClient
+      initialValidationOrders={validationOrders}
+      initialPendingTasks={pendingTasks}
+      initialReturnedTasks={returnedTasks}
+      sectors={sectors}
+    />
   );
 }
