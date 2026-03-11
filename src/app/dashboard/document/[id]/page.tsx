@@ -1,4 +1,4 @@
-import { getDocumentEmployeesById, getDocumentEquipmentById } from '@/app/server/GET/actions';
+import { getDocumentCompanyById, getDocumentEmployeesById, getDocumentEquipmentById } from '@/app/server/GET/actions';
 import BackButton from '@/components/BackButton';
 import DeleteDocument from '@/components/DeleteDocument';
 import ReplaceDocument from '@/components/ReplaceDocument';
@@ -12,12 +12,46 @@ import { checkPermissionServer, getUserPermissionsMapServer } from '@/features/P
 import { TabsManagerServer } from '@/features/TabsManager';
 import { supabaseServer } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
-import { formatDate } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { Building2, FileText, User, Wrench } from 'lucide-react';
 import moment from 'moment';
 import { Suspense } from 'react';
 import DownloadButton from '../documentComponents/DownloadButton';
+
+// Tipo auxiliar para los datos del documento (las 3 tablas tienen forma similar)
+type DocumentRecord = {
+  id: string;
+  document_path?: string | null;
+  state?: string | null;
+  deny_reason?: string | null;
+  validity?: string | null;
+  period?: string | null;
+  created_at?: string | null;
+  document_types?: {
+    id?: string;
+    name?: string;
+    mandatory?: boolean;
+    multiresource?: boolean;
+    explired?: boolean;
+    is_it_montlhy?: boolean;
+    applies?: string;
+    special?: boolean;
+    description?: string;
+  } | null;
+  // Solo para company docs
+  company?: {
+    company_name?: string;
+    company_cuit?: string;
+    company_logo?: string;
+    address?: string;
+    country?: string;
+    contact_phone?: string;
+    contact_email?: string;
+    province_id?: { name?: string } | null;
+  } | null;
+  // Solo para employee/equipment docs (estructura anidada de Supabase)
+  applies?: Record<string, unknown> | null;
+};
+
 export default async function page({
   params,
   searchParams,
@@ -25,54 +59,56 @@ export default async function page({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ resource: string }>;
 }) {
-  // En Next.js 16, params y searchParams son Promises, necesitamos hacer await
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
 
-  let documents_employees: any[] | null = [];
   let resource = '';
-  let documentName = '';
-  let documentUrl = '';
-  let document: any[] | null = [];
-  let documentType: string | null = null;
-  let resourceType: string | null = null;
+  let doc: DocumentRecord | null = null;
   const supabase = await supabaseServer();
 
+  // Cargar datos según tipo de recurso
   if (resolvedSearchParams.resource === 'Persona') {
-    const documents_employee = await getDocumentEmployeesById(resolvedParams.id);
-    document = documents_employee;
-    resourceType = 'documentos-empleados';
+    const result = await getDocumentEmployeesById(resolvedParams.id);
+    doc = (result?.[0] ?? null) as unknown as DocumentRecord | null;
     resource = 'employee';
-  }
-
-  if (resolvedSearchParams.resource === 'Equipos') {
-    const documents_equipment = await getDocumentEquipmentById(resolvedParams.id);
-    document = documents_equipment;
-    resourceType = 'documentos-equipos';
+  } else if (resolvedSearchParams.resource === 'Equipos') {
+    const result = await getDocumentEquipmentById(resolvedParams.id);
+    doc = (result?.[0] ?? null) as unknown as DocumentRecord | null;
     resource = 'vehicle';
+  } else if (resolvedSearchParams.resource === 'Empresa') {
+    const result = await getDocumentCompanyById(resolvedParams.id);
+    doc = (result?.[0] ?? null) as unknown as DocumentRecord | null;
+    resource = 'company';
+  } else {
+    // Fallback: buscar en las 3 tablas si no se especifica resource
+    const [empDoc, eqDoc, compDoc] = await Promise.all([
+      getDocumentEmployeesById(resolvedParams.id),
+      getDocumentEquipmentById(resolvedParams.id),
+      getDocumentCompanyById(resolvedParams.id),
+    ]);
+    if (empDoc && empDoc.length > 0) {
+      doc = empDoc[0] as unknown as DocumentRecord;
+      resource = 'employee';
+    } else if (eqDoc && eqDoc.length > 0) {
+      doc = eqDoc[0] as unknown as DocumentRecord;
+      resource = 'vehicle';
+    } else if (compDoc && compDoc.length > 0) {
+      doc = compDoc[0] as unknown as DocumentRecord;
+      resource = 'company';
+    }
   }
 
-  documentType = document?.[0]?.document_types?.id;
+  const documentName = doc?.document_path ?? '';
+  const { data: url } = supabase.storage.from('document-files').getPublicUrl(documentName);
+  const documentUrl = url.publicUrl;
+  const docTypes = doc?.document_types;
+  const isCompanyDoc = resource === 'company';
 
-  //const resorceId = document?.[0]?.applies?.id;
-  // const { data } = await supabase.storage.from('document-files').list(resourceType, {
-  //   search: `document-${documentType ?? ''}-${resorceId ?? ''}`,
-  // });
-
-  const { data: url } = supabase.storage.from('document-files').getPublicUrl(document?.[0]?.document_path);
-
-  documentName = document?.[0]?.document_path;
-  documentUrl = url.publicUrl;
-  documents_employees = document;
-
-  // Obtener permisos (usará cache pre-cargado en layout, sin query adicional)
+  // Obtener permisos
   const permissions = await getUserPermissionsMapServer();
-
-  // Verificar permisos de view y update
   const canView = await checkPermissionServer('documentacion', 'detalle-de-documento', 'view');
   const canUpdate = await checkPermissionServer('documentacion', 'detalle-de-documento', 'update');
 
-  // Si no tiene permiso de view, mostrar placeholder de sin acceso
   if (!canView) {
     return (
       <section className="md:mx-2">
@@ -88,13 +124,108 @@ export default async function page({
     );
   }
 
-  // Preparar tabs para TabsManagerServer
   const searchParamsObj = resolvedSearchParams;
-
   const tabs = [];
 
-  // Tab Empresa (solo si no es company)
-  if (resource !== 'company') {
+  // ========================================================================
+  // Tab Empresa
+  // ========================================================================
+  if (isCompanyDoc) {
+    // Documentos de empresa: mostrar datos de la empresa directamente (relación company)
+    const companyData = doc?.company;
+    tabs.push({
+      value: 'Empresa',
+      label: (
+        <span className="flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Empresa
+        </span>
+      ),
+      moduleSlug: 'documentacion' as const,
+      tabSlug: 'detalle-doc-empresa' as const,
+      content: (
+        <Card>
+          <div className="space-y-3 p-3">
+            <CardDescription>Datos de la empresa a la que pertenece este documento</CardDescription>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableCell className="flex items-center gap-3">
+                    <Avatar className="size-24">
+                      <AvatarImage
+                        src={companyData?.company_logo}
+                        alt="Logo de la empresa"
+                        className="rounded-full object-contain"
+                      />
+                      <AvatarFallback>Logo</AvatarFallback>
+                    </Avatar>
+                    <CardTitle className="font-bold text-lg">{companyData?.company_name}</CardTitle>
+                  </TableCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>
+                    <CardDescription>
+                      <span className="font-bold">CUIT:</span>{' '}
+                      {companyData?.company_cuit?.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3')}
+                    </CardDescription>
+                  </TableCell>
+                </TableRow>
+                {companyData?.address && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription className="capitalize">
+                        <span className="font-bold">Dirección:</span> {companyData.address}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {companyData?.country && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription className="capitalize">
+                        <span className="font-bold">País:</span> {companyData.country}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {companyData?.province_id?.name && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription className="capitalize">
+                        <span className="font-bold">Provincia:</span> {companyData.province_id.name}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {companyData?.contact_phone && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription>
+                        <span className="font-bold">Teléfono de contacto:</span> {companyData.contact_phone}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {companyData?.contact_email && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription>
+                        <span className="font-bold">Email de contacto:</span> {companyData.contact_email}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      ),
+    });
+  } else {
+    // Documentos de empleado/equipo: mostrar empresa del recurso (applies.company_id)
+    const appliesCompany = (doc?.applies as Record<string, unknown>)?.company_id as Record<string, unknown> | undefined;
     tabs.push({
       value: 'Empresa',
       label: (
@@ -112,19 +243,16 @@ export default async function page({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableCell className="flex  items-center gap-3">
-                    {' '}
+                  <TableCell className="flex items-center gap-3">
                     <Avatar className="size-24">
                       <AvatarImage
-                        src={documents_employees?.[0]?.applies?.company_id?.company_logo}
+                        src={appliesCompany?.company_logo as string}
                         alt="Logo de la empresa"
                         className="rounded-full object-contain"
                       />
                       <AvatarFallback>Logo</AvatarFallback>
                     </Avatar>
-                    <CardTitle className="font-bold text-lg">
-                      {documents_employees?.[0]?.applies?.company_id?.company_name}
-                    </CardTitle>
+                    <CardTitle className="font-bold text-lg">{appliesCompany?.company_name as string}</CardTitle>
                   </TableCell>
                 </TableRow>
               </TableHeader>
@@ -133,73 +261,75 @@ export default async function page({
                   <TableCell>
                     <CardDescription>
                       <span className="font-bold">CUIT:</span>{' '}
-                      {documents_employees?.[0]?.applies?.company_id?.company_cuit?.replace(
-                        /(\d{2})(\d{8})(\d{1})/,
-                        '$1-$2-$3'
-                      )}
+                      {(appliesCompany?.company_cuit as string)?.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3')}
                     </CardDescription>
                   </TableCell>
                 </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <CardDescription className="capitalize">
-                      <span className="font-bold capitalize">Dirección:</span>{' '}
-                      {documents_employees?.[0]?.applies?.company_id?.address}
-                    </CardDescription>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <CardDescription className="capitalize">
-                      <span className="font-bold">País:</span> {documents_employees?.[0]?.applies?.company_id?.country}
-                    </CardDescription>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <CardDescription className="capitalize">
-                      <span className="font-bold">Provincia:</span>{' '}
-                      {documents_employees?.[0]?.applies?.company_id?.province_id?.name}
-                    </CardDescription>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <CardDescription>
-                      <span className="font-bold">Teléfono de contacto:</span>{' '}
-                      {documents_employees?.[0]?.applies?.company_id?.contact_phone}
-                    </CardDescription>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <CardDescription>
-                      <span className="font-bold">Email de contacto:</span>{' '}
-                      {documents_employees?.[0]?.applies?.company_id?.contact_email}
-                    </CardDescription>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <CardDescription>
-                      <span className="font-bold">Fecha de alta:</span>{' '}
-                      {(documents_employees?.[0]?.applies?.date_of_admission &&
-                        formatDate(documents_employees?.[0]?.applies?.date_of_admission, 'dd/MM/yyyy', {
-                          locale: es,
-                        })) ||
-                        (documents_employees?.[0]?.applies?.created_at &&
-                          formatDate(documents_employees?.[0]?.applies?.created_at, 'dd/MM/yyyy', {
-                            locale: es,
-                          }))}
-                    </CardDescription>
-                  </TableCell>
-                </TableRow>
-                {documents_employees?.[0]?.applies?.company_id?.description && (
+                {String(appliesCompany?.address ?? '') && (
                   <TableRow>
                     <TableCell>
                       <CardDescription className="capitalize">
-                        <span className="font-bold">Descripción:</span>{' '}
-                        {documents_employees?.[0]?.applies?.company_id?.description}
+                        <span className="font-bold capitalize">Dirección:</span> {String(appliesCompany?.address ?? '')}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {String(appliesCompany?.country ?? '') && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription className="capitalize">
+                        <span className="font-bold">País:</span> {String(appliesCompany?.country ?? '')}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {Boolean((appliesCompany?.province_id as Record<string, unknown> | undefined)?.name) && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription className="capitalize">
+                        <span className="font-bold">Provincia:</span>{' '}
+                        {String((appliesCompany?.province_id as Record<string, unknown> | undefined)?.name ?? '')}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {String(appliesCompany?.contact_phone ?? '') && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription>
+                        <span className="font-bold">Teléfono de contacto:</span>{' '}
+                        {String(appliesCompany?.contact_phone ?? '')}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {String(appliesCompany?.contact_email ?? '') && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription>
+                        <span className="font-bold">Email de contacto:</span>{' '}
+                        {String(appliesCompany?.contact_email ?? '')}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {Boolean((doc?.applies as Record<string, unknown> | undefined)?.date_of_admission) && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription>
+                        <span className="font-bold">Fecha de alta:</span>{' '}
+                        {moment(
+                          String((doc?.applies as Record<string, unknown> | undefined)?.date_of_admission ?? '')
+                        ).format('DD/MM/YYYY')}
+                      </CardDescription>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {String(appliesCompany?.description ?? '') && (
+                  <TableRow>
+                    <TableCell>
+                      <CardDescription className="capitalize">
+                        <span className="font-bold">Descripción:</span> {String(appliesCompany?.description ?? '')}
                       </CardDescription>
                     </TableCell>
                   </TableRow>
@@ -212,209 +342,210 @@ export default async function page({
     });
   }
 
-  // Tab Empleado/Equipo
-  tabs.push({
-    value: 'Empleado',
-    label: (
-      <span className="flex items-center gap-2">
-        <User className="h-4 w-4" />
-        {resource === 'employee' ? 'Empleado' : 'Equipo'}
-      </span>
-    ),
-    moduleSlug: 'documentacion' as const,
-    tabSlug: 'detalle-doc-empleado' as const,
-    content: (
-      <Card>
-        <div className="p-3">
-          <div className="space-y-3">
-            <CardDescription>
-              Datos del {resource === 'employee' ? 'empleado' : 'equipo'} al que se le solicita el documento
-            </CardDescription>
-            <div className="flex items-center gap-3">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableCell className="flex  items-center gap-3">
-                      {' '}
-                      <Avatar className="size-24">
-                        <AvatarImage
-                          src={documents_employees?.[0]?.applies?.picture}
-                          className="rounded-full object-cover"
-                          alt="Imagen del recurso"
-                        />
-                        <AvatarFallback>recurso</AvatarFallback>
-                      </Avatar>
-                      <CardTitle className="font-bold text-lg">
-                        {resource === 'employee'
-                          ? documents_employees?.[0]?.applies.lastname +
-                            ' ' +
-                            documents_employees?.[0]?.applies.firstname
-                          : documents_employees?.[0]?.applies.domain || documents_employees?.[0]?.applies.intern_number}
-                      </CardTitle>
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell>
-                      <CardDescription>
-                        {resource === 'employee' ? (
-                          <>
-                            <span className="font-bold">DNI:</span> {documents_employees?.[0]?.applies?.document_number}
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-bold">Dominio:</span> {documents_employees?.[0]?.applies?.domain}
-                          </>
-                        )}
-                      </CardDescription>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <CardDescription>
-                        {resource === 'employee' ? (
-                          <>
-                            <span className="font-bold">CUIL:</span>{' '}
-                            {documents_employees?.[0]?.applies?.cuil?.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3')}
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-bold">Numero interno:</span>{' '}
-                            {documents_employees?.[0]?.applies?.intern_number}
-                          </>
-                        )}
-                      </CardDescription>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <CardDescription>
-                        {resource === 'employee' ? (
-                          <>
-                            <span className="font-bold">Dirección:</span>{' '}
-                            {documents_employees?.[0]?.applies?.street +
-                              ' ' +
-                              documents_employees?.[0]?.applies?.street_number +
-                              ', ' +
-                              documents_employees?.[0]?.applies?.city.name}
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-bold">Marca:</span> {documents_employees?.[0]?.applies?.brand?.name}
-                          </>
-                        )}
-                      </CardDescription>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <CardDescription>
-                        {resource === 'employee' ? (
-                          <>
-                            <span className="font-bold">Provincia:</span>{' '}
-                            {documents_employees?.[0]?.applies?.province?.name}
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-bold">Modelo:</span> {documents_employees?.[0]?.applies?.model?.name}
-                          </>
-                        )}
-                      </CardDescription>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <CardDescription>
-                        {resource === 'employee' ? (
-                          <>
-                            <span className="font-bold">Teléfono de contacto:</span>{' '}
-                            {documents_employees?.[0]?.applies?.phone}
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-bold">Fecha de alta:</span>{' '}
-                            {documents_employees?.[0]?.applies?.created_at &&
-                              formatDate(documents_employees?.[0]?.applies?.created_at, 'dd/MM/yyyy', {
-                                locale: es,
-                              })}
-                          </>
-                        )}
-                      </CardDescription>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <CardDescription>
-                        {resource === 'employee' ? (
-                          <>
-                            <span className="font-bold">Email de contacto:</span>{' '}
-                            {documents_employees?.[0]?.applies?.email}
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-bold">Motor:</span> {documents_employees?.[0]?.applies?.engine}
-                          </>
-                        )}
-                      </CardDescription>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <CardDescription>
-                        {resource === 'employee' ? (
-                          <>
-                            <span className="font-bold">Fecha de alta:</span>{' '}
-                            {documents_employees?.[0]?.applies?.created_at &&
-                              formatDate(documents_employees?.[0]?.applies?.created_at, 'dd/MM/yyyy', {
-                                locale: es,
-                              })}
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-bold">Chasis:</span> {documents_employees?.[0]?.applies?.chassis}
-                          </>
-                        )}
-                      </CardDescription>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <div>
-                        {resource === 'employee' ? (
-                          <>
-                            <CardDescription>
-                              <span className="font-bold">Afectaciones:</span>{' '}
-                            </CardDescription>
-                            <ul>
+  // ========================================================================
+  // Tab Empleado/Equipo (solo para empleados y equipos, NO para empresa)
+  // ========================================================================
+  if (!isCompanyDoc) {
+    const appliesData = doc?.applies as Record<string, unknown> | undefined;
+
+    tabs.push({
+      value: 'Empleado',
+      label: (
+        <span className="flex items-center gap-2">
+          <User className="h-4 w-4" />
+          {resource === 'employee' ? 'Empleado' : 'Equipo'}
+        </span>
+      ),
+      moduleSlug: 'documentacion' as const,
+      tabSlug: 'detalle-doc-empleado' as const,
+      content: (
+        <Card>
+          <div className="p-3">
+            <div className="space-y-3">
+              <CardDescription>
+                Datos del {resource === 'employee' ? 'empleado' : 'equipo'} al que se le solicita el documento
+              </CardDescription>
+              <div className="flex items-center gap-3">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableCell className="flex items-center gap-3">
+                        <Avatar className="size-24">
+                          <AvatarImage
+                            src={appliesData?.picture as string}
+                            className="rounded-full object-cover"
+                            alt="Imagen del recurso"
+                          />
+                          <AvatarFallback>recurso</AvatarFallback>
+                        </Avatar>
+                        <CardTitle className="font-bold text-lg">
+                          {resource === 'employee'
+                            ? (appliesData?.lastname as string) + ' ' + (appliesData?.firstname as string)
+                            : (appliesData?.domain as string) || (appliesData?.intern_number as string)}
+                        </CardTitle>
+                      </TableCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>
+                        <CardDescription>
+                          {resource === 'employee' ? (
+                            <>
+                              <span className="font-bold">DNI:</span> {appliesData?.document_number as string}
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">Dominio:</span> {appliesData?.domain as string}
+                            </>
+                          )}
+                        </CardDescription>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <CardDescription>
+                          {resource === 'employee' ? (
+                            <>
+                              <span className="font-bold">CUIL:</span>{' '}
+                              {(appliesData?.cuil as string)?.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3')}
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">Numero interno:</span> {appliesData?.intern_number as string}
+                            </>
+                          )}
+                        </CardDescription>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <CardDescription>
+                          {resource === 'employee' ? (
+                            <>
+                              <span className="font-bold">Dirección:</span>{' '}
+                              {(appliesData?.street as string) +
+                                ' ' +
+                                (appliesData?.street_number as string) +
+                                ', ' +
+                                ((appliesData?.city as Record<string, unknown>)?.name as string)}
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">Marca:</span>{' '}
+                              {(appliesData?.brand as Record<string, unknown>)?.name as string}
+                            </>
+                          )}
+                        </CardDescription>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <CardDescription>
+                          {resource === 'employee' ? (
+                            <>
+                              <span className="font-bold">Provincia:</span>{' '}
+                              {(appliesData?.province as Record<string, unknown>)?.name as string}
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">Modelo:</span>{' '}
+                              {(appliesData?.model as Record<string, unknown>)?.name as string}
+                            </>
+                          )}
+                        </CardDescription>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <CardDescription>
+                          {resource === 'employee' ? (
+                            <>
+                              <span className="font-bold">Teléfono de contacto:</span> {appliesData?.phone as string}
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">Fecha de alta:</span>{' '}
+                              {appliesData?.created_at && moment(appliesData.created_at as string).format('DD/MM/YYYY')}
+                            </>
+                          )}
+                        </CardDescription>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <CardDescription>
+                          {resource === 'employee' ? (
+                            <>
+                              <span className="font-bold">Email de contacto:</span> {appliesData?.email as string}
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">Motor:</span> {appliesData?.engine as string}
+                            </>
+                          )}
+                        </CardDescription>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <CardDescription>
+                          {resource === 'employee' ? (
+                            <>
+                              <span className="font-bold">Fecha de alta:</span>{' '}
+                              {appliesData?.created_at && moment(appliesData.created_at as string).format('DD/MM/YYYY')}
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">Chasis:</span> {appliesData?.chassis as string}
+                            </>
+                          )}
+                        </CardDescription>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>
+                        <div>
+                          {resource === 'employee' ? (
+                            <>
                               <CardDescription>
-                                {documents_employees?.[0]?.applies?.contractor_employee?.map((contractor: any) => {
-                                  return <li key={contractor?.contractors?.name}>{contractor?.contractors?.name}</li>;
-                                })}
+                                <span className="font-bold">Afectaciones:</span>
                               </CardDescription>
-                            </ul>
-                          </>
-                        ) : (
-                          <>
-                            <CardDescription>
-                              <span className="font-bold">Tipo de vehiculo:</span>{' '}
-                              {documents_employees?.[0]?.applies?.type_of_vehicle?.name}
-                            </CardDescription>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                              <ul>
+                                <CardDescription>
+                                  {(appliesData?.contractor_employee as Record<string, unknown>[])?.map(
+                                    (contractor: Record<string, unknown>) => {
+                                      const customers = contractor?.contractors as Record<string, unknown>;
+                                      return <li key={customers?.name as string}>{customers?.name as string}</li>;
+                                    }
+                                  )}
+                                </CardDescription>
+                              </ul>
+                            </>
+                          ) : (
+                            <>
+                              <CardDescription>
+                                <span className="font-bold">Tipo de vehiculo:</span>{' '}
+                                {(appliesData?.type_of_vehicle as Record<string, unknown>)?.name as string}
+                              </CardDescription>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
-    ),
-  });
+        </Card>
+      ),
+    });
+  }
 
+  // ========================================================================
   // Tab Documento
+  // ========================================================================
   tabs.push({
     value: 'Documento',
     label: (
@@ -428,74 +559,73 @@ export default async function page({
     content: (
       <Card>
         <div className="p-3">
-          <CardTitle className="pb-3">Datos del documento que se le solicita al empleado</CardTitle>
+          <CardTitle className="pb-3">
+            {isCompanyDoc ? 'Datos del documento de empresa' : 'Datos del documento que se le solicita al empleado'}
+          </CardTitle>
 
           <Table>
             <TableHeader>
               <TableRow>
                 <TableCell>
-                  {' '}
-                  <CardTitle className="pb-3">{documents_employees?.[0]?.document_types?.name}</CardTitle>
+                  <CardTitle className="pb-3">{docTypes?.name}</CardTitle>
                 </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow>
                 <TableCell>
-                  <CardDescription>
-                    {documents_employees?.[0]?.document_types?.mandatory ? 'Es mandatorio' : 'No es mandatorio'}
-                  </CardDescription>
+                  <CardDescription>{docTypes?.mandatory ? 'Es mandatorio' : 'No es mandatorio'}</CardDescription>
                 </TableCell>
               </TableRow>
+              {!isCompanyDoc && (
+                <TableRow>
+                  <TableCell>
+                    <CardDescription>
+                      {docTypes?.multiresource ? 'Es multirecurso' : 'No es multirecurso'}
+                    </CardDescription>
+                  </TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell>
                   <CardDescription>
-                    {documents_employees?.[0]?.document_types?.multiresource ? 'Es multirecurso' : 'No es multirecurso'}
-                  </CardDescription>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>
-                  <CardDescription>
-                    {documents_employees?.[0]?.document_types?.explired
-                      ? 'Vence el ' + moment(documents_employees?.[0]?.validity).format('DD/MM/YYYY')
+                    {docTypes?.explired
+                      ? 'Vence el ' + moment(doc?.validity).format('DD/MM/YYYY')
                       : 'No tiene vencimiento'}
                   </CardDescription>
                 </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>
-                  <CardDescription>
-                    Documento aplica a {documents_employees?.[0]?.document_types?.applies}
-                  </CardDescription>
+                  <CardDescription>Documento aplica a {docTypes?.applies}</CardDescription>
                 </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>
                   <CardDescription>
-                    Subido el{' '}
-                    {documents_employees?.[0]?.created_at &&
-                      formatDate(documents_employees?.[0]?.created_at, 'dd/MM/yyyy', {
-                        locale: es,
-                      })}{' '}
-                    a las{' '}
-                    {documents_employees?.[0]?.created_at &&
-                      formatDate(documents_employees?.[0]?.created_at, 'p', {
-                        locale: es,
-                      })}
+                    Subido el {doc?.created_at && moment(doc.created_at).format('DD/MM/YYYY')} a las{' '}
+                    {doc?.created_at && moment(doc.created_at).format('HH:mm')}
                   </CardDescription>
                 </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell>
-                  {documents_employees?.[0]?.document_types?.special && (
+              {doc?.period && (
+                <TableRow>
+                  <TableCell>
                     <CardDescription>
-                      Este documento tiene consideraciones especiales a tener en cuenta (
-                      {documents_employees?.[0]?.document_types?.description})
+                      <span className="font-bold">Período:</span> {doc.period}
                     </CardDescription>
-                  )}
-                </TableCell>
-              </TableRow>
+                  </TableCell>
+                </TableRow>
+              )}
+              {docTypes?.special && (
+                <TableRow>
+                  <TableCell>
+                    <CardDescription>
+                      Este documento tiene consideraciones especiales a tener en cuenta ({docTypes?.description})
+                    </CardDescription>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
@@ -503,7 +633,9 @@ export default async function page({
     ),
   });
 
-  // Tab Actualizar (solo si tiene permiso de update de la tab principal)
+  // ========================================================================
+  // Tab Actualizar (solo si tiene permiso de update)
+  // ========================================================================
   if (canUpdate) {
     tabs.push({
       value: 'Actualizar',
@@ -513,8 +645,6 @@ export default async function page({
           Actualizar
         </span>
       ),
-      // Sin moduleSlug/tabSlug para que TabsManagerServer no filtre esta tab por permisos
-      // La visibilidad ya está controlada por canUpdate
       content: (
         <Card>
           <div className="p-3 text-center space-y-3">
@@ -527,22 +657,22 @@ export default async function page({
                 id={resolvedParams.id}
                 resource={resource}
                 documentName={documentName}
-                expires={documents_employees?.[0]?.document_types?.explired}
-                montly={documents_employees?.[0]?.document_types?.is_it_montlhy ?? false}
+                expires={docTypes?.explired ?? false}
+                montly={docTypes?.is_it_montlhy ?? false}
               />
               <ReplaceDocument
                 id={resolvedParams.id}
                 resource={resource}
                 documentName={documentName}
-                expires={documents_employees?.[0]?.validity}
-                montly={documents_employees?.[0]?.period}
-                appliesId={document?.[0]?.id}
+                expires={doc?.validity ?? null}
+                montly={doc?.period ?? null}
+                appliesId={doc?.id ?? null}
               />
               <DeleteDocument
                 id={resolvedParams.id}
                 resource={resource}
                 documentName={documentName}
-                expires={documents_employees?.[0]?.document_types?.explired}
+                expires={docTypes?.explired ?? false}
               />
             </div>
           </div>
@@ -554,42 +684,41 @@ export default async function page({
   return (
     <section className="md:mx-2">
       <Card className="p-4 px-2">
-        <div className="grid lg:grid-cols-3 grid-cols-1 gap-col-3 ">
+        <div className="grid lg:grid-cols-3 grid-cols-1 gap-col-3">
           <div className="lg:max-w-[30vw] col-span-1">
-            <div className="flex  flex-col ">
+            <div className="flex flex-col">
               <div>
                 <CardHeader>
-                  <CardTitle className=" text-2xl">{documents_employees?.[0]?.document_types?.name}</CardTitle>
+                  <CardTitle className="text-2xl">{docTypes?.name}</CardTitle>
 
-                  {documents_employees?.[0]?.state && (
+                  {doc?.state && (
                     <div className="flex flex-col">
                       <Badge
                         variant={
-                          documents_employees?.[0]?.state === 'rechazado'
+                          doc.state === 'rechazado'
                             ? 'destructive'
-                            : documents_employees?.[0]?.state === 'aprobado'
+                            : doc.state === 'aprobado'
                               ? 'success'
-                              : documents_employees?.[0]?.state === 'vencido'
+                              : doc.state === 'vencido'
                                 ? 'yellow'
                                 : 'default'
                         }
-                        className={'mb-3 capitalize w-fit'}
+                        className="mb-3 capitalize w-fit"
                       >
-                        {documents_employees?.[0]?.state}
+                        {doc.state}
                       </Badge>
-                      {documents_employees?.[0]?.deny_reason && (
+                      {doc.deny_reason && (
                         <Badge
                           variant={
-                            documents_employees?.[0]?.state === 'rechazado' ||
-                            documents_employees?.[0]?.state === 'vencido'
+                            doc.state === 'rechazado' || doc.state === 'vencido'
                               ? 'destructive'
-                              : documents_employees?.[0]?.state === 'aprobado'
+                              : doc.state === 'aprobado'
                                 ? 'success'
                                 : 'default'
                           }
                           className="mb-3 capitalize w-fit"
                         >
-                          {documents_employees?.[0]?.deny_reason}
+                          {doc.deny_reason}
                         </Badge>
                       )}
                     </div>
@@ -597,10 +726,7 @@ export default async function page({
                 </CardHeader>
               </div>
               <div className="flex justify-between mb-5 px-2">
-                <DownloadButton
-                  fileName={documents_employees?.[0]?.document_types?.name}
-                  path={documents_employees?.[0]?.document_path}
-                />
+                <DownloadButton fileName={docTypes?.name ?? ''} path={documentName} />
                 <BackButton />
               </div>
             </div>

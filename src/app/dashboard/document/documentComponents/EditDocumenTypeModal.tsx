@@ -665,7 +665,7 @@ export function EditModal({ Equipo }: Props) {
   // }
   // Filtrar los recursos que no tienen una entrada en la tabla correspondiente
   const existingResourceIds = existingEntries.map((entry: any) => entry.applies.id);
-  let filteredResources: any[] = allResources;
+  let filteredResources: any[] = allResources ?? [];
   if (Equipo.special) {
     if (Equipo.applies === 'Persona') {
       filteredResources = matchingEmployees;

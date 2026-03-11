@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { usePermissions } from '@/features/Permissions';
 import { TabsManagerClientSide } from '@/features/TabsManager/TabsManagerClientSide';
 import { VisibilityState } from '@tanstack/react-table';
-import { Truck, User } from 'lucide-react';
+import { Building2, Truck, User } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import DocumentsTable from './DocumentsTable';
 import FilterHeader from './FilterComponent';
@@ -44,6 +44,7 @@ function TypesDocumentsView({
   const { hasPermission } = usePermissions();
   const canEditPersonas = hasPermission('documentacion', 'tipos-docs-personas', 'update');
   const canEditEquipos = hasPermission('documentacion', 'tipos-docs-equipos', 'update');
+  const canEditEmpresa = hasPermission('documentacion', 'tipos-docs-empresa', 'update');
 
   const [filters, setFilters] = useState({
     personas: { name: '', multiresource: '', special: '', monthly: '', expired: '', mandatory: '', private: '' },
@@ -169,16 +170,47 @@ function TypesDocumentsView({
     });
   }
 
-  // Empresa tab removed - no existe en el sistema de permisos
+  if (empresa) {
+    tabs.push({
+      value: 'Empresa',
+      label: (
+        <span className="flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Empresa ({filteredDocEmpresa?.length || 0})
+        </span>
+      ),
+      moduleSlug: 'documentacion' as const,
+      tabSlug: 'tipos-docs-empresa' as const,
+      content: (
+        <Card className="p-6">
+          <DocumentsTable
+            savedVisibility={savedVisibility}
+            savedFilters={savedFilters}
+            data={filteredDocEmpresa || []}
+            filters={filters.empresa}
+            canEdit={canEditEmpresa}
+          >
+            <FilterHeader
+              filters={filters.empresa}
+              docOptions={docOptions as any}
+              onFilterChange={(name, value) => handleFilterChange('empresa', name, value)}
+            />
+          </DocumentsTable>
+        </Card>
+      ),
+    });
+  }
 
   // Si hideTabs es true, mostrar solo el contenido sin tabs (para uso desde TiposDocumentosTabContent)
   if (hideTabs) {
     const content =
-      personas && !equipos
+      personas && !equipos && !empresa
         ? tabs.find((t) => t.value === 'Personas')?.content
-        : equipos && !personas
+        : equipos && !personas && !empresa
           ? tabs.find((t) => t.value === 'Equipos')?.content
-          : null;
+          : empresa && !personas && !equipos
+            ? tabs.find((t) => t.value === 'Empresa')?.content
+            : null;
 
     return <>{content}</>;
   }

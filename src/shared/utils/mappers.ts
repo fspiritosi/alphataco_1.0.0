@@ -214,28 +214,27 @@ export const repairCriticityLabels: Record<string, string> = {
 };
 
 // ============================================================================
-// DAILY REPORT ROW ENUM LABELS
+// DOCUMENT STATE ENUM LABELS (documents_company.state)
 // ============================================================================
 
 /**
- * Labels para daily_report_status (status de filas del parte diario)
+ * Labels para el enum `state` de documentos (documents_company, documents_employees, etc.)
+ * Keys: valores del enum Prisma (presentado, rechazado, aprobado, vencido, pendiente)
  */
-export const dailyReportRowStatusLabels: Record<string, string> = {
+export const documentStateLabels: Record<string, string> = {
+  presentado: 'Presentado',
+  rechazado: 'Rechazado',
+  aprobado: 'Aprobado',
+  vencido: 'Vencido',
   pendiente: 'Pendiente',
-  sin_recursos_asignados: 'Sin recursos',
-  ejecutado: 'Ejecutado',
-  reprogramado: 'Reprogramado',
-  cancelado: 'Cancelado',
-  en_certificacion: 'En certificación',
 };
 
-/**
- * Labels para daily_report_type_enum (tipo de servicio del parte diario)
- */
-export const dailyReportTypeLabels: Record<string, string> = {
-  mensual: 'Mensual',
-  adicional: 'Adicional',
-  adicional_permanente: 'Adicional permanente',
+export const documentStateBadges: Record<string, BadgeVariant> = {
+  presentado: 'default',
+  rechazado: 'destructive',
+  aprobado: 'success',
+  vencido: 'yellow',
+  pendiente: 'secondary',
 };
 
 // ============================================================================
