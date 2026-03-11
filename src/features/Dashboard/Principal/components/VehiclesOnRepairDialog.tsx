@@ -228,7 +228,7 @@ export default function VehiclesOnRepairDialog({ open, onOpenChange, count }: Pr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Vehiculos en Reparacion ({count})</DialogTitle>
+          <DialogTitle>Vehiculos no disponibles ({count})</DialogTitle>
           <DialogDescription>Vehiculos que se encuentran actualmente no operativos.</DialogDescription>
         </DialogHeader>
 

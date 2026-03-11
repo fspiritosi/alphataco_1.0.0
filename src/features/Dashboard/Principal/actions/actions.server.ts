@@ -494,7 +494,11 @@ export const getEquipmentIndicators = cache(async (typeIds?: string[]): Promise<
     const todayDate = moment().utcOffset(-3).format('YYYY-MM-DD');
 
     const typeFilter = typeIds?.length ? { type: { in: typeIds } } : {};
-    const NOT_OPERATIVE_CONDITIONS: ('no_operativo' | 'en_reparacion')[] = ['no_operativo', 'en_reparacion'];
+    const NOT_OPERATIVE_CONDITIONS: ('no_operativo' | 'en_reparacion' | 'en_preparacion')[] = [
+      'no_operativo',
+      'en_reparacion',
+      'en_preparacion',
+    ];
 
     // Parallel: all active vehicles + vehicles used in today's report
     const [allVehicles, usedInReport] = await Promise.all([
@@ -544,16 +548,16 @@ export const getEquipmentIndicators = cache(async (typeIds?: string[]): Promise<
       const entry = typeMap.get(typeName)!;
 
       const isNotOperative =
-        v.condition != null && NOT_OPERATIVE_CONDITIONS.includes(v.condition as 'no_operativo' | 'en_reparacion');
+        v.condition != null &&
+        NOT_OPERATIVE_CONDITIONS.includes(v.condition as 'no_operativo' | 'en_reparacion' | 'en_preparacion');
 
       if (isNotOperative) {
         entry.notAvailable++;
       } else {
         entry.available++;
-      }
-
-      if (usedIds.has(v.id)) {
-        entry.used++;
+        if (usedIds.has(v.id)) {
+          entry.used++;
+        }
       }
     }
 
@@ -1529,7 +1533,7 @@ function buildRepairVehiclesWhereClause(companyId: string, state: ReturnType<typ
   return {
     is_active: true,
     company_id: companyId,
-    condition: 'no_operativo' as const,
+    condition: { in: ['no_operativo', 'en_reparacion', 'en_preparacion'] as const },
     ...buildVehicleFiltersWhere(state),
   };
 }
