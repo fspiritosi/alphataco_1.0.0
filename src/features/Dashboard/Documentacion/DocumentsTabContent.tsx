@@ -3,7 +3,6 @@ import DocumentsTableServerWrapper from '@/features/Dashboard/Documentacion/comp
 import EmployeesTableServerWrapper from '@/features/Dashboard/Documentacion/components/EmployeesTableServerWrapper';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Truck, Users } from 'lucide-react';
-import { MissingDocumentList } from './components/MissingDocumentList';
 
 function DocumentsTabContent({
   searchParams,
@@ -13,11 +12,11 @@ function DocumentsTabContent({
   permissions: Record<string, boolean>;
 }) {
   return (
-    <section className=" grid grid-cols-1 xl:grid-cols-4 gap-3 mb-4 ">
-      <section className="flex flex-col gap-4 w-full">
+    <section className=" grid grid-cols-1  gap-3 mb-4 ">
+      {/*<section className="flex flex-col gap-4 w-full">
         <MissingDocumentList />
-      </section>
-      <section className="col-span-3">
+      </section>*/}
+      <section className="">
         <Card className=" flex flex-col justify-between overflow-hidden">
           <div>
             <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
@@ -28,7 +27,7 @@ function DocumentsTabContent({
             </CardHeader>
 
             <CardContent></CardContent>
-            <div>
+            <div className="p-4">
               {/* Nested Tabs para Empleados/Vehiculos */}
               <TabsManagerServer
                 paramName="subtab"
