@@ -148,6 +148,14 @@ export default function ServicesDetailDialog({ open, onOpenChange }: Props) {
 
         {/* Capturable content — this div is what gets exported as image */}
         <div ref={captureRef}>
+          {/* Title + description — hidden on screen, visible only in exported image */}
+          <div className={isExporting ? 'mb-2' : 'hidden'}>
+            <h3 className="text-lg font-semibold">Detalle de servicios por cliente</h3>
+            <p className="text-sm text-muted-foreground">
+              Distribucion detallada de servicios mensuales y adicionales por cliente
+            </p>
+          </div>
+
           {/* Date header for the image export */}
           <div className="mb-3 text-sm font-medium text-muted-foreground">
             Fecha: {moment(selectedDate).locale('es').format('DD [de] MMMM [de] YYYY')}
