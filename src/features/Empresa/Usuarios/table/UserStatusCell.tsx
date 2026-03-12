@@ -137,21 +137,23 @@ export function UserStatusCell({ row, canBan, canReactivate }: UserStatusCellPro
       {isActive && canBan && (
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          size="sm"
+          className="h-7 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={handleBanClick}
         >
           <Ban className="h-3.5 w-3.5" />
+          <span className="text-xs">Dar de baja</span>
         </Button>
       )}
       {!isActive && canReactivate && (
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-green-600 hover:text-green-600 hover:bg-green-600/10"
+          size="sm"
+          className="h-7 gap-1.5 text-green-600 hover:text-green-600 hover:bg-green-600/10"
           onClick={handleReactivateClick}
         >
           <UserCheck className="h-3.5 w-3.5" />
+          <span className="text-xs">Reactivar</span>
         </Button>
       )}
 

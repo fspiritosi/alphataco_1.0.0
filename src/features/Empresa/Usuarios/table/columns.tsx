@@ -119,8 +119,8 @@ function RoleCell({ row }: { row: CompanyUserListItem }) {
 
 // ── Columnas de la tabla ──────────────────────────────────────────────────────
 export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<CompanyUserListItem>[] {
-  const canDelete = permissions.hasPermission('empresa', 'usuarios', 'delete');
-  const canUpdate = permissions.hasPermission('empresa', 'usuarios', 'update');
+  const canDelete = permissions.hasPermission('empresa', 'usuarios-empleados', 'delete');
+  const canUpdate = permissions.hasPermission('empresa', 'usuarios-empleados', 'update');
 
   return [
     // ── Nombre + Avatar ────────────────────────────────────────────────────────
