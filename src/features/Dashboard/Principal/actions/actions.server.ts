@@ -166,7 +166,10 @@ export async function getServicesSummary(): Promise<ServicesSummaryResult[]> {
 
     const grouped = await prisma.dailyreportrows.groupBy({
       by: ['type_service'],
-      where: reportWhere,
+      where: {
+        status: { in: ['pendiente', 'ejecutado'] },
+        ...reportWhere,
+      },
       _count: { id: true },
     });
 
@@ -784,6 +787,7 @@ export async function getServicesDetailByClient(date?: string): Promise<ServiceD
     const rows = await prisma.dailyreportrows.findMany({
       where: {
         customer_id: { not: null },
+        status: { in: ['pendiente', 'ejecutado'] },
         ...reportWhere,
       },
       select: {
