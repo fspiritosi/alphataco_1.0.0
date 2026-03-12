@@ -1,7 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Logger } from '@/lib/logger';
 import { getServerCompanyId } from '@/shared/actions/company.actions';
-import { getDailyAbsenceTimeseries } from '../actions.server';
-import { _DailyAbsenceDataTable } from './DailyAbsenceTable/_DailyAbsenceDataTable';
+import { getDailyAbsenceTimeseries } from '../../actions.server';
+import { _DailyAbsenceDataTable } from './_DailyAbsenceDataTable';
+
+const logger = new Logger('features/Dashboard/RRHH/DailyAbsenceList');
 
 function getCurrentMonthYearLabel(date = new Date()) {
   const month = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(date);
@@ -9,8 +12,11 @@ function getCurrentMonthYearLabel(date = new Date()) {
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`;
 }
 
-export async function DetailedAbsenceTable() {
+export async function DailyAbsenceList() {
   const companyId = await getServerCompanyId();
+
+  logger.debug('Cargando serie temporal diaria de ausentismo', { data: { companyId } });
+
   const data = await getDailyAbsenceTimeseries(companyId);
 
   return (
@@ -19,10 +25,10 @@ export async function DetailedAbsenceTable() {
         <CardTitle className="text-lg font-semibold">Ausentismo Diario - {getCurrentMonthYearLabel()}</CardTitle>
         <CardDescription>
           Esta tabla muestra la serie diaria de ausentismo del período seleccionado para analizar su evolución día a
-          día.
+          día. Haz click en una fila para ver el detalle de empleados ausentes en esa fecha.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <_DailyAbsenceDataTable data={data} companyId={companyId} />
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 'use client';
 
-import Cookies from 'js-cookie';
+import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, X } from 'lucide-react';
 import React from 'react';
 
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { type ChartConfig } from '@/components/ui/chart';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { YearMonthPicker } from '@/components/ui/year-month-picker';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { getDailyAbsenceTimeseries } from '../actions.server';
 import { HeadcountTrendChartComponent } from './charts/headcount-trend-chart';
 
 const chartConfig = {
@@ -27,57 +27,41 @@ type HeadcountTrendData = {
 const formatDate = (d: Date) =>
   new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
 
-export function HeadcountTrendChart() {
+interface HeadcountTrendChartProps {
+  companyId: string;
+}
+
+export function HeadcountTrendChart({ companyId }: HeadcountTrendChartProps) {
   const [timeRange, setTimeRange] = React.useState<'7d' | '30d' | '90d'>('7d');
-  const [data, setData] = React.useState<HeadcountTrendData[]>([]);
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined);
 
-  React.useEffect(() => {
-    const fetchData = async () => {
-      const companyId = Cookies.get('actualComp')?.replace(/^|"|"$/g, '') || '';
-      if (!companyId) {
-        setData([]);
-        return;
-      }
-
-      let from: Date;
-      let to: Date;
-
-      if (selectedDate) {
-        // Si hay una fecha seleccionada, filtrar desde el inicio hasta el final del mes
-        from = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        to = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-      } else {
-        // Usar el rango de tiempo seleccionado
-        const daysToSubtract = timeRange === '90d' ? 90 : timeRange === '7d' ? 7 : 30;
-        to = new Date();
-        from = new Date();
-        from.setDate(to.getDate() - daysToSubtract);
-      }
-
-      const supabase = supabaseBrowser();
-      const { data: rpcData, error } = await supabase.rpc('hr_get_daily_absence_timeseries', {
-        p_company_id: companyId,
-        p_from: formatDate(from),
-        p_to: formatDate(to),
-        save_to_table: false,
-      });
-
-      if (error) {
-        console.error('Error fetching daily absence timeseries:', error);
-        setData([]);
-        return;
-      }
-
-      const mapped = ((rpcData as any[]) ?? []).map((d) => ({
-        date: d.fecha ?? d.date,
-        dotacion: typeof d.totalDotacion === 'number' ? d.totalDotacion : d.dotacion ?? 0,
-      }));
-      setData(mapped);
+  const { from, to } = React.useMemo(() => {
+    if (selectedDate) {
+      return {
+        from: formatDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)),
+        to: formatDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)),
+      };
+    }
+    const daysToSubtract = timeRange === '90d' ? 90 : timeRange === '7d' ? 7 : 30;
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(toDate.getDate() - daysToSubtract);
+    return {
+      from: formatDate(fromDate),
+      to: formatDate(toDate),
     };
+  }, [selectedDate, timeRange]);
 
-    fetchData();
-  }, [timeRange, selectedDate]);
+  const { data: rawData = [] } = useQuery({
+    queryKey: ['daily-absence-timeseries', companyId, from, to],
+    queryFn: () => getDailyAbsenceTimeseries(companyId, from, to),
+    enabled: !!companyId,
+  });
+
+  const data: HeadcountTrendData[] = rawData.map((d) => ({
+    date: d.fecha,
+    dotacion: d.totalDotacion,
+  }));
 
   const currentValue = data[data.length - 1]?.dotacion ?? 0;
   const previousValue = data[data.length - 2]?.dotacion ?? 0;

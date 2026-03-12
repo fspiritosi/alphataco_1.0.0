@@ -1,6 +1,6 @@
 'use client';
 
-import Cookies from 'js-cookie';
+import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, X } from 'lucide-react';
 import React from 'react';
 
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { type ChartConfig } from '@/components/ui/chart';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { YearMonthPicker } from '@/components/ui/year-month-picker';
-import { supabaseBrowser } from '@/lib/supabase/browser';
+import { getAbsenteeismTrend } from '../actions.server';
 import { AbsenteeismTrendChartComponent } from './charts/absenteeism-trend-chart';
 
 const chartConfig = {
@@ -19,61 +19,39 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-type TrendData = {
-  date: string;
-  percentage: number;
-};
-
 const formatDate = (d: Date) =>
   new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
 
-export function AbsenteeismTrendChart() {
+interface AbsenteeismTrendChartProps {
+  companyId: string;
+}
+
+export function AbsenteeismTrendChart({ companyId }: AbsenteeismTrendChartProps) {
   const [timeRange, setTimeRange] = React.useState<'7d' | '30d' | '90d'>('7d');
-  const [data, setData] = React.useState<TrendData[]>([]);
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined);
 
-  React.useEffect(() => {
-    const fetchData = async () => {
-      const companyId = Cookies.get('actualComp')?.replace(/^"|"/g, '') || '';
-      if (!companyId) {
-        setData([]);
-        return;
-      }
-
-      let from: Date;
-      let to: Date;
-
-      if (selectedDate) {
-        // Si hay una fecha seleccionada, filtrar desde el inicio hasta el final del mes
-        from = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        to = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-      } else {
-        // Usar el rango de tiempo seleccionado
-        const daysToSubtract = timeRange === '90d' ? 90 : timeRange === '7d' ? 7 : 30;
-        to = new Date();
-        from = new Date();
-        from.setDate(to.getDate() - daysToSubtract);
-      }
-
-      const supabase = supabaseBrowser();
-      const { data: rpcData, error } = await supabase.rpc('hr_get_absenteeism_trend', {
-        p_company_id: companyId,
-        p_from: formatDate(from),
-        p_to: formatDate(to),
-        save_to_table: false,
-      });
-
-      if (error) {
-        console.error('Error fetching absenteeism trend:', error);
-        setData([]);
-        return;
-      }
-
-      setData((rpcData as TrendData[]) ?? []);
+  const { from, to } = React.useMemo(() => {
+    if (selectedDate) {
+      return {
+        from: formatDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)),
+        to: formatDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)),
+      };
+    }
+    const daysToSubtract = timeRange === '90d' ? 90 : timeRange === '7d' ? 7 : 30;
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(toDate.getDate() - daysToSubtract);
+    return {
+      from: formatDate(fromDate),
+      to: formatDate(toDate),
     };
+  }, [selectedDate, timeRange]);
 
-    fetchData();
-  }, [timeRange, selectedDate]);
+  const { data = [] } = useQuery({
+    queryKey: ['absenteeism-trend', companyId, from, to],
+    queryFn: () => getAbsenteeismTrend(companyId, from, to),
+    enabled: !!companyId,
+  });
 
   const currentValue = data[data.length - 1]?.percentage ?? 0;
   const previousValue = data[data.length - 2]?.percentage ?? 0;

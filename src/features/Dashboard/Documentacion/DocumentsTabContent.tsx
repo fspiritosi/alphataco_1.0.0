@@ -1,8 +1,10 @@
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import DocumentsTableServerWrapper from '@/features/Dashboard/Documentacion/components/DocumentsTableServerWrapper';
-import EmployeesTableServerWrapper from '@/features/Dashboard/Documentacion/components/EmployeesTableServerWrapper';
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmployeeExpiringDocsList } from '@/features/Dashboard/Documentacion/Empleados/EmployeeExpiringDocsList';
+import { VehicleExpiringDocsList } from '@/features/Dashboard/Documentacion/Vehiculos/VehicleExpiringDocsList';
 import { TabsManagerServer } from '@/features/TabsManager';
 import { Truck, Users } from 'lucide-react';
+import { Suspense } from 'react';
 
 function DocumentsTabContent({
   searchParams,
@@ -12,23 +14,18 @@ function DocumentsTabContent({
   permissions: Record<string, boolean>;
 }) {
   return (
-    <section className=" grid grid-cols-1  gap-3 mb-4 ">
-      {/*<section className="flex flex-col gap-4 w-full">
-        <MissingDocumentList />
-      </section>*/}
-      <section className="">
-        <Card className=" flex flex-col justify-between overflow-hidden">
+    <section className="grid grid-cols-1 gap-3 mb-4">
+      <section>
+        <Card className="flex flex-col justify-between overflow-hidden">
           <div>
             <CardHeader className="flex flex-row items-start bg-gh dark:bg-muted/50 border-b-2">
               <div className="gap-1">
-                <CardTitle className="flex items-center text-lg ">Proximos vencimientos</CardTitle>
+                <CardTitle className="flex items-center text-lg">Proximos vencimientos</CardTitle>
                 <CardDescription className="capitalize">Documentos que vencen en los proximos 30 dias</CardDescription>
               </div>
             </CardHeader>
 
-            <CardContent></CardContent>
             <div className="p-4">
-              {/* Nested Tabs para Empleados/Vehiculos */}
               <TabsManagerServer
                 paramName="subtab"
                 searchParams={searchParams}
@@ -45,7 +42,18 @@ function DocumentsTabContent({
                     ),
                     moduleSlug: 'dashboard',
                     tabSlug: 'empleados',
-                    content: <EmployeesTableServerWrapper />,
+                    content: (
+                      <Suspense
+                        fallback={
+                          <div className="space-y-3 p-4">
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-64 w-full" />
+                          </div>
+                        }
+                      >
+                        <EmployeeExpiringDocsList searchParams={searchParams} />
+                      </Suspense>
+                    ),
                   },
                   {
                     value: 'vehiculos',
@@ -57,7 +65,18 @@ function DocumentsTabContent({
                     ),
                     moduleSlug: 'dashboard',
                     tabSlug: 'vehiculos',
-                    content: <DocumentsTableServerWrapper />,
+                    content: (
+                      <Suspense
+                        fallback={
+                          <div className="space-y-3 p-4">
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-64 w-full" />
+                          </div>
+                        }
+                      >
+                        <VehicleExpiringDocsList searchParams={searchParams} />
+                      </Suspense>
+                    ),
                   },
                 ]}
               />

@@ -1,12 +1,12 @@
 'use client';
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
-import { GetEmployeesByContractType } from '../../actions/actions';
+import { EmployeesByContractTypeData } from '../../actions.server';
 
 interface EmployeeContractTypeChartProps {
-  data: GetEmployeesByContractType;
+  data: EmployeesByContractTypeData;
 }
 
 const chartConfig = {
@@ -17,7 +17,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function EmployeeContractTypeChartComponent({ data }: EmployeeContractTypeChartProps) {
-  const [chartData, setChartData] = useState(() => {
+  const chartData = useMemo(() => {
     // Contar empleados por tipo de contrato
     const contractCounts = new Map<string, number>();
 
@@ -33,7 +33,7 @@ export function EmployeeContractTypeChartComponent({ data }: EmployeeContractTyp
         count: count,
       }))
       .sort((a, b) => b.count - a.count);
-  });
+  }, [data]);
 
   return (
     <div>
@@ -53,16 +53,7 @@ export function EmployeeContractTypeChartComponent({ data }: EmployeeContractTyp
         >
           <CartesianGrid horizontal={false} />
           <XAxis type="number" hide />
-          <YAxis
-            dataKey="month"
-            type="category"
-            tickLine={false}
-            tickMargin={10}
-            axisLine={false}
-            // width={85}
-            hide
-            // tickFormatter={(value) => value.length > 15 ? value.substring(0, 15) + '...' : value}
-          />
+          <YAxis dataKey="month" type="category" tickLine={false} tickMargin={10} axisLine={false} hide />
           <ChartTooltip
             cursor={false}
             content={<ChartTooltipContent />}
