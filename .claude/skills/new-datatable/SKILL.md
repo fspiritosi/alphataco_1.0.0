@@ -1102,6 +1102,61 @@ Ver la tabla de empleados como referencia completa de implementacion.
 
 ---
 
+### Regla: Columna FK de Empleado → columna y filtro de Legajo OBLIGATORIOS
+
+Toda tabla que tenga una columna FK de empleado (sea `faceted` o `text`) DEBE tener tambien una columna y filtro SEPARADOS para el numero de legajo (`file_number`). Los usuarios identifican empleados por su legajo — el nombre puede repetirse, el legajo es unico.
+
+**Requisitos:**
+
+1. **Columna separada**: El legajo NO puede estar integrado dentro de la columna del nombre del empleado. Debe ser una columna independiente con su propio `id`, `accessorFn` y `meta: { title: 'Legajo' }`.
+2. **Filtro separado**: El legajo debe tener su propio filtro de tipo `text`, independiente del filtro de empleado. No se puede reutilizar el filtro de empleado para buscar por legajo.
+3. **Coincidencia EXACTA**: El filtro de legajo DEBE usar `equals` (coincidencia exacta), NO `contains` (coincidencia parcial). Si el usuario escribe "1", solo debe aparecer el empleado con legajo "1", NO los legajos "10", "100", "101", etc. Esto es porque los legajos son numeros cortos y la busqueda parcial genera falsos positivos masivos.
+4. **Indicador visual de coincidencia exacta**: El filtro debe incluir un tooltip o icono (`HelpCircle` o `Info`) que al hacer hover muestre un mensaje como "Coincidencia exacta: ingrese el numero de legajo completo". Esto comunica al usuario que debe escribir el legajo completo, no parcial.
+5. **Aplica a TODA tabla con FK de empleado**: tablas de documentos, diagramas, solicitudes de mantenimiento, ordenes de trabajo, formularios — cualquier tabla que muestre datos de empleados.
+
+**Implementacion:**
+
+```typescript
+// columns.tsx — columna separada de legajo
+{
+  id: 'fileNumber',
+  accessorFn: (row) => row.employee?.file_number ?? '',
+  meta: { title: 'Legajo' },
+  header: ({ column }) => <DataTableColumnHeader column={column} title="Legajo" />,
+  cell: ({ row }) => <span>{row.original.employee?.file_number ?? '-'}</span>,
+},
+
+// _DataTable.tsx — filtro text separado con tooltip de coincidencia exacta
+{
+  columnId: 'fileNumber',
+  title: 'Legajo',
+  type: 'text' as const,
+  placeholder: 'Nro. de legajo exacto...',
+  exactMatch: true,  // Indica al DataTable que este filtro usa coincidencia exacta
+  tooltip: 'Coincidencia exacta: ingrese el numero de legajo completo',
+}
+
+// actions.server.ts — incluir file_number en el select de la relacion
+select: {
+  employee: { select: { id: true, firstname: true, lastname: true, file_number: true } },
+}
+
+// actions.server.ts — IMPORTANTE: usar `equals` (NO `contains`)
+// El filtro de legajo usa coincidencia EXACTA
+const fileNumberFilter = state.filters['fileNumber'];
+if (fileNumberFilter?.length) {
+  andConditions.push({
+    employees: { file_number: { equals: fileNumberFilter[0], mode: 'insensitive' } },
+  });
+}
+// NUNCA usar `contains` para legajo — genera falsos positivos masivos
+// (ej: buscar "1" trae "1", "10", "100", "101", "112", etc.)
+```
+
+**Deteccion en auditoria**: Si una tabla tiene columna `employee` (FK) pero NO tiene columna `fileNumber` con filtro `text` separado → **MISSING — HIGH priority**. Si el filtro de legajo usa `contains` en vez de `equals` → **BUG — HIGH priority**.
+
+---
+
 ### Columna texto (nombre, codigo, direccion, email, telefono, etc.) → `text`
 
 **REGLA: TODA columna de texto necesita su propio filtro `text`, incluso si tambien esta en `searchPlaceholder`.** La busqueda global busca en TODOS los campos a la vez — no permite filtrar por un campo especifico. Ambos mecanismos coexisten.
@@ -1221,6 +1276,7 @@ const textFiltersWhere = buildTextFiltersWhere(state.filters, ['name', 'code', '
 - [ ] `searchPlaceholder` descriptivo
 - [ ] **Column→Filter Matrix completa**: para CADA columna verificar que tiene su filtro (faceted para enums/FK/booleans, text para textos, dateRange para fechas). NO puede faltar ninguna columna filtrable.
 - [ ] TODA columna FK (employee, vehicle, category, jobPosition, etc.) tiene filtro `faceted` con opciones del servidor
+- [ ] **Si la tabla tiene FK de empleado → DEBE tener columna `fileNumber` separada (legajo) + filtro `text` separado. El legajo NO va integrado en la columna del nombre.**
 - [ ] TODA columna con ID externo enriquecido (userId de auth → nombre usuario) tiene filtro `faceted` — el ID raw ES un campo real de BD filtrable server-side, y las facetas deben enriquecer los IDs agrupados para mostrar labels legibles
 - [ ] TODA columna de texto tiene filtro `text` individual
 - [ ] TODA columna de fecha tiene filtro `dateRange`

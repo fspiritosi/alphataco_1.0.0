@@ -85,11 +85,6 @@ export const columns: ColumnDef<MonthlyEquipmentDocumentListItem>[] = [
         </Link>
       );
     },
-    filterFn: (row, _id, value: string[]) => {
-      const id = row.original.applies;
-      if (id == null) return value.includes(NULL_FILTER_VALUE);
-      return value.includes(id);
-    },
     enableSorting: true,
   },
 
