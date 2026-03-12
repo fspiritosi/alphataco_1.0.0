@@ -4,11 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePermissions } from '@/features/Permissions/hooks/usePermissions';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import moment from 'moment';
 import { fetchKPIRevisions } from '../actions/actions';
-import { KPI, KPIRevision } from '../types';
+import { KPI } from '../types';
 import { KpiEditNumberForm } from './KpiEditNumberForm';
 
 interface KpiDetailModalProps {
@@ -18,48 +17,29 @@ interface KpiDetailModalProps {
 }
 
 export function KpiDetailModal({ kpi, isOpen, onClose }: KpiDetailModalProps) {
-  const [revisions, setRevisions] = useState<KPIRevision[]>([]);
-  const [loadingRevisions, setLoadingRevisions] = useState(false);
   const { hasPermission } = usePermissions();
   const canUpdate = hasPermission('dashboard', 'kpis', 'update');
 
-  useEffect(() => {
-    if (isOpen && kpi) {
-      loadRevisions();
-    }
-  }, [isOpen, kpi]);
-
-  const loadRevisions = async () => {
-    setLoadingRevisions(true);
-    try {
-      const data = await fetchKPIRevisions(kpi.id);
-      setRevisions(data);
-    } catch (error) {
-      console.error('Error loading revisions:', error);
-    } finally {
-      setLoadingRevisions(false);
-    }
-  };
+  // Cargar revisiones con useQuery — se activa solo cuando el modal está abierto
+  const {
+    data: revisions = [],
+    isFetching: loadingRevisions,
+    refetch: refetchRevisions,
+  } = useQuery({
+    queryKey: ['kpi-revisions', kpi.id],
+    queryFn: () => fetchKPIRevisions(kpi.id),
+    enabled: isOpen && !!kpi.id,
+    staleTime: 0,
+  });
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
-    try {
-      return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
-    } catch {
-      return dateString;
-    }
+    return moment(dateString).format('DD/MM/YYYY');
   };
 
   const isExpired = () => {
     if (!kpi.validity_date) return false;
-    try {
-      const validityDate = new Date(kpi.validity_date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return validityDate < today;
-    } catch {
-      return false;
-    }
+    return moment(kpi.validity_date).isBefore(moment(), 'day');
   };
 
   return (
@@ -85,7 +65,7 @@ export function KpiDetailModal({ kpi, isOpen, onClose }: KpiDetailModalProps) {
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-muted-foreground">Número</label>
-                  <p className="text-base">{kpi.number || <span className="text-muted-foreground">-</span>}</p>
+                  <p className="text-base">{kpi.number ?? <span className="text-muted-foreground">-</span>}</p>
                 </div>
               </div>
 
@@ -132,7 +112,7 @@ export function KpiDetailModal({ kpi, isOpen, onClose }: KpiDetailModalProps) {
 
               {canUpdate && (
                 <div className="pt-4 border-t">
-                  <KpiEditNumberForm kpi={kpi} onSuccess={loadRevisions} />
+                  <KpiEditNumberForm kpi={kpi} onSuccess={() => refetchRevisions()} />
                 </div>
               )}
             </div>
@@ -152,11 +132,11 @@ export function KpiDetailModal({ kpi, isOpen, onClose }: KpiDetailModalProps) {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm font-semibold text-muted-foreground">Número Anterior</label>
-                            <p className="text-base">{revision.previous_number || '-'}</p>
+                            <p className="text-base">{revision.previous_number ?? '-'}</p>
                           </div>
                           <div>
                             <label className="text-sm font-semibold text-muted-foreground">Número Nuevo</label>
-                            <p className="text-base font-semibold text-green-600">{revision.new_number || '-'}</p>
+                            <p className="text-base font-semibold text-green-600">{revision.new_number ?? '-'}</p>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 mt-2">
