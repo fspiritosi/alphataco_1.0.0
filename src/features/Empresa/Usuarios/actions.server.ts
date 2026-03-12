@@ -18,7 +18,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 const logger = new Logger('Empresa/Usuarios');
 
 // ── Campos válidos para ordenamiento ──────────────────────────────────────────
-const VALID_SORT_FIELDS = new Set(['created_at', 'fullname', 'email']);
+const VALID_SORT_FIELDS = new Set(['created_at', 'fullname', 'email', 'is_active']);
 
 // ── Columnas de texto con filtro individual ────────────────────────────────────
 const TEXT_COLUMNS = ['fullname', 'email'];
@@ -31,6 +31,7 @@ const SHARE_USER_SELECT = {
   id: true,
   created_at: true,
   profile_id: true,
+  is_active: true,
   profile: {
     select: {
       id: true,
@@ -38,6 +39,7 @@ const SHARE_USER_SELECT = {
       fullname: true,
       avatar: true,
       employee_id: true,
+      credential_id: true,
       employees: {
         select: {
           id: true,
@@ -45,6 +47,7 @@ const SHARE_USER_SELECT = {
           lastname: true,
           file: true,
           picture: true,
+          is_active: true,
         },
       },
     },
@@ -67,6 +70,7 @@ export type CompanyUserRow = {
   id: string;
   created_at: Date;
   profile_id: string | null;
+  is_active: boolean;
   isOwner: boolean;
   profile: {
     id: string;
@@ -74,12 +78,14 @@ export type CompanyUserRow = {
     fullname: string | null;
     avatar: string | null;
     employee_id: string | null;
+    credential_id: string | null;
     employees: {
       id: string;
       firstname: string | null;
       lastname: string | null;
       file: string;
       picture: string | null;
+      is_active: boolean | null;
     } | null;
     user_roles: UserRoleWithRole[];
   } | null;
@@ -155,8 +161,36 @@ function buildWhereClause(
     if (profileIdsWithRole.length > 0) {
       roleWhere = { profile_id: { in: profileIdsWithRole } };
     } else {
-      // Lista vacía → ningún resultado
       roleWhere = { id: '00000000-0000-0000-0000-000000000000' };
+    }
+  }
+
+  // Filtro de is_active (booleano como faceted)
+  let isActiveWhere: Record<string, unknown> = {};
+  if (state.filters.is_active?.length) {
+    const vals = state.filters.is_active;
+    if (vals.length === 1) {
+      isActiveWhere = { is_active: vals[0] === 'true' };
+    }
+    // Si tiene ambos valores no se filtra (equivale a sin filtro)
+  }
+
+  // Filtro de linked_employee (FK facetado)
+  let linkedEmployeeWhere: Record<string, unknown> = {};
+  if (state.filters.linked_employee?.length) {
+    const vals = state.filters.linked_employee;
+    const includesNull = vals.includes(NULL_FILTER_VALUE);
+    const realIds = vals.filter((v) => v !== NULL_FILTER_VALUE);
+
+    if (includesNull && realIds.length === 0) {
+      linkedEmployeeWhere = { profile: { employee_id: null } };
+    } else if (!includesNull && realIds.length > 0) {
+      linkedEmployeeWhere = { profile: { employee_id: { in: realIds } } };
+    } else {
+      // Mixto: null + ids reales
+      linkedEmployeeWhere = {
+        OR: [{ profile: { employee_id: null } }, { profile: { employee_id: { in: realIds } } }],
+      };
     }
   }
 
@@ -167,6 +201,8 @@ function buildWhereClause(
     ...emailFilter,
     ...dateFiltersWhere,
     ...roleWhere,
+    ...isActiveWhere,
+    ...linkedEmployeeWhere,
   };
 }
 
@@ -247,6 +283,7 @@ async function getCompanyOwner(companyId: string): Promise<CompanyUserRow | null
         fullname: true,
         avatar: true,
         employee_id: true,
+        credential_id: true,
         employees: {
           select: {
             id: true,
@@ -254,6 +291,7 @@ async function getCompanyOwner(companyId: string): Promise<CompanyUserRow | null
             lastname: true,
             file: true,
             picture: true,
+            is_active: true,
           },
         },
       },
@@ -267,8 +305,9 @@ async function getCompanyOwner(companyId: string): Promise<CompanyUserRow | null
 
     return {
       id: `owner-${company.owner_id}`,
-      created_at: new Date(0), // placeholder — el owner no tiene fecha de alta en share_company_users
+      created_at: new Date(0),
       profile_id: company.owner_id,
+      is_active: true,
       isOwner: true,
       profile: {
         id: ownerProfile.id,
@@ -276,13 +315,10 @@ async function getCompanyOwner(companyId: string): Promise<CompanyUserRow | null
         fullname: ownerProfile.fullname,
         avatar: ownerProfile.avatar,
         employee_id: ownerProfile.employee_id,
+        credential_id: ownerProfile.credential_id,
         employees: ownerProfile.employees
           ? {
-              id: ownerProfile.employees.id,
-              firstname: ownerProfile.employees.firstname,
-              lastname: ownerProfile.employees.lastname,
-              file: ownerProfile.employees.file,
-              picture: ownerProfile.employees.picture,
+              ...ownerProfile.employees,
             }
           : null,
         user_roles: ownerRoles,
@@ -306,6 +342,7 @@ async function normalizeRows(
     id: row.id,
     created_at: row.created_at,
     profile_id: row.profile_id,
+    is_active: row.is_active,
     isOwner,
     profile: row.profile
       ? {
@@ -349,7 +386,7 @@ export async function getCompanyUsersPaginated(companyId: string, searchParams: 
         }
       }
     }
-    const safeOrderBy = [...resolvedSorts, { profile: { fullname: 'asc' as const } }];
+    const safeOrderBy = [...resolvedSorts, { is_active: 'desc' as const }, { profile: { fullname: 'asc' as const } }];
 
     const [rawRows, total, ownerRow] = await Promise.all([
       prisma.share_company_users.findMany({
@@ -520,7 +557,172 @@ export async function getAvailableRoles() {
   }
 }
 
-// ── Acción: eliminar usuario de empresa ───────────────────────────────────────
+// ── Accion: ban de usuario de empresa (soft delete) ──────────────────────────
+export async function banCompanyUser(shareCompanyUserId: string, employeeTermination?: { reason: string; date: Date }) {
+  logger.debug('Baneando usuario de empresa', { data: { shareCompanyUserId } });
+
+  try {
+    // 1. Buscar usuario con profile (credential_id) y empleado vinculado
+    const shareUser = await prisma.share_company_users.findUnique({
+      where: { id: shareCompanyUserId },
+      select: {
+        ...SHARE_USER_SELECT,
+        company_id: true,
+      },
+    });
+
+    if (!shareUser) throw new Error('Usuario no encontrado');
+    if (!shareUser.profile?.credential_id) {
+      throw new Error('El usuario no tiene credenciales de acceso vinculadas.');
+    }
+
+    const credentialId = shareUser.profile.credential_id;
+
+    // 2. Banear en Supabase Auth PRIMERO
+    const { adminSupabaseServer } = await import('@/lib/supabase/server');
+    const adminSupabase = await adminSupabaseServer();
+    const { error: banError } = await adminSupabase.auth.admin.updateUserById(credentialId, {
+      ban_duration: '876600h',
+    });
+
+    if (banError) {
+      logger.error('Error baneando usuario en Auth', { data: { banError, credentialId } });
+      throw new Error(`Error al banear usuario: ${banError.message}`);
+    }
+
+    // 3. Actualizar is_active en Prisma
+    try {
+      await prisma.share_company_users.update({
+        where: { id: shareCompanyUserId },
+        data: { is_active: false },
+      });
+    } catch (prismaError) {
+      // Rollback: desbanear en Auth si Prisma falla
+      logger.error('Error actualizando Prisma, rollback de ban en Auth', { data: { prismaError } });
+      try {
+        await adminSupabase.auth.admin.updateUserById(credentialId, { ban_duration: 'none' });
+      } catch (rollbackError) {
+        logger.error('CRITICO: Rollback de ban fallo', {
+          data: { rollbackError, credentialId, shareCompanyUserId },
+        });
+      }
+      throw prismaError;
+    }
+
+    // 4. Si hay terminacion de empleado vinculado
+    if (employeeTermination && shareUser.profile.employees?.is_active) {
+      const employeeId = shareUser.profile.employees.id;
+      const { supabaseServer } = await import('@/lib/supabase/server');
+      const supabaseClient = await supabaseServer();
+
+      await prisma.employees.update({
+        where: { id: employeeId },
+        data: {
+          is_active: false,
+          reason_for_termination: employeeTermination.reason as never,
+          termination_date: employeeTermination.date,
+        },
+      });
+
+      await supabaseClient.rpc('update_employee_diagram_status', {
+        p_employee_id: employeeId,
+        p_is_active: false,
+      });
+
+      logger.info('Empleado vinculado dado de baja', { data: { employeeId } });
+    }
+
+    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
+    logger.info('Usuario baneado exitosamente', { data: { shareCompanyUserId, credentialId } });
+  } catch (error) {
+    logger.error('Error baneando usuario de empresa', { data: { error, shareCompanyUserId } });
+    throw error;
+  }
+}
+
+// ── Accion: unban de usuario de empresa (reactivar) ─────────────────────────
+export async function unbanCompanyUser(shareCompanyUserId: string, reactivateEmployee?: boolean) {
+  logger.debug('Desbaneando usuario de empresa', { data: { shareCompanyUserId } });
+
+  try {
+    const shareUser = await prisma.share_company_users.findUnique({
+      where: { id: shareCompanyUserId },
+      select: {
+        ...SHARE_USER_SELECT,
+        company_id: true,
+      },
+    });
+
+    if (!shareUser) throw new Error('Usuario no encontrado');
+    if (!shareUser.profile?.credential_id) {
+      throw new Error('El usuario no tiene credenciales de acceso vinculadas.');
+    }
+
+    const credentialId = shareUser.profile.credential_id;
+
+    // 1. Desbanear en Auth PRIMERO
+    const { adminSupabaseServer } = await import('@/lib/supabase/server');
+    const adminSupabase = await adminSupabaseServer();
+    const { error: unbanError } = await adminSupabase.auth.admin.updateUserById(credentialId, {
+      ban_duration: 'none',
+    });
+
+    if (unbanError) {
+      logger.error('Error desbaneando usuario en Auth', { data: { unbanError, credentialId } });
+      throw new Error(`Error al reactivar usuario: ${unbanError.message}`);
+    }
+
+    // 2. Actualizar is_active en Prisma
+    try {
+      await prisma.share_company_users.update({
+        where: { id: shareCompanyUserId },
+        data: { is_active: true },
+      });
+    } catch (prismaError) {
+      // Rollback: re-banear en Auth si Prisma falla
+      logger.error('Error actualizando Prisma, rollback de unban en Auth', { data: { prismaError } });
+      try {
+        await adminSupabase.auth.admin.updateUserById(credentialId, { ban_duration: '876600h' });
+      } catch (rollbackError) {
+        logger.error('CRITICO: Rollback de unban fallo', {
+          data: { rollbackError, credentialId, shareCompanyUserId },
+        });
+      }
+      throw prismaError;
+    }
+
+    // 3. Reactivar empleado vinculado si se pidio
+    if (reactivateEmployee && shareUser.profile.employees && !shareUser.profile.employees.is_active) {
+      const employeeId = shareUser.profile.employees.id;
+      const { supabaseServer } = await import('@/lib/supabase/server');
+      const supabaseClient = await supabaseServer();
+
+      await prisma.employees.update({
+        where: { id: employeeId },
+        data: {
+          is_active: true,
+          reason_for_termination: null,
+          termination_date: null,
+        },
+      });
+
+      await supabaseClient.rpc('update_employee_diagram_status', {
+        p_employee_id: employeeId,
+        p_is_active: true,
+      });
+
+      logger.info('Empleado vinculado reactivado', { data: { employeeId } });
+    }
+
+    await invalidateCacheTags(COMPANY_USERS_INVALIDATION);
+    logger.info('Usuario desbaneado exitosamente', { data: { shareCompanyUserId, credentialId } });
+  } catch (error) {
+    logger.error('Error desbaneando usuario de empresa', { data: { error, shareCompanyUserId } });
+    throw error;
+  }
+}
+
+// ── Accion: eliminar usuario de empresa (legacy) ────────────────────────────
 export async function deleteCompanyUser(shareCompanyUserId: string) {
   logger.debug('Eliminando usuario de empresa', { data: { shareCompanyUserId } });
 
@@ -597,5 +799,156 @@ export async function linkEmployeeToProfile(profileId: string, employeeId: strin
   } catch (error) {
     logger.error('Error vinculando empleado a perfil', { data: { error, profileId } });
     throw error;
+  }
+}
+
+// ── Facet individual (lazy-load) ─────────────────────────────────────────────
+export type CompanyUserFacetResult = {
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ value: string; label: string }>;
+};
+
+export async function getCompanyUserSingleFacet(
+  columnId: string,
+  companyId: string,
+  searchParams: DataTableSearchParams
+): Promise<CompanyUserFacetResult | null> {
+  'use cache';
+  cacheTag(CACHE_TAGS.COMPANY_USERS);
+  cacheLife({ expire: CACHE_TTL.FACETS, revalidate: CACHE_TTL.FACETS, stale: 30 });
+
+  logger.debug('Obteniendo faceta individual', { data: { columnId } });
+
+  try {
+    const state = parseSearchParams(searchParams);
+
+    // Cross-filter: excluir la columna propia del filtro
+    const crossState = {
+      ...state,
+      filters: Object.fromEntries(Object.entries(state.filters).filter(([key]) => key !== columnId)),
+    };
+
+    // Resolver filtro de rol para cross-where (si no es la columna excluida)
+    const profileIdsWithRole =
+      columnId !== 'role' && crossState.filters.role?.length
+        ? await resolveRoleFilter(crossState.filters.role, companyId)
+        : null;
+
+    const crossWhere = buildWhereClause(companyId, crossState, profileIdsWithRole);
+
+    switch (columnId) {
+      case 'is_active': {
+        const grouped = await prisma.share_company_users.groupBy({
+          by: ['is_active'],
+          where: crossWhere,
+          _count: true,
+        });
+
+        const counts = new Map<string, number>();
+        for (const g of grouped) {
+          counts.set(String(g.is_active), g._count);
+        }
+
+        return { counts };
+      }
+
+      case 'role': {
+        // Obtener profileIds de usuarios que matchean cross-filter
+        const users = await prisma.share_company_users.findMany({
+          where: crossWhere,
+          select: { profile_id: true },
+        });
+        const profileIds = users.map((u) => u.profile_id).filter(Boolean) as string[];
+
+        // Contar user_roles
+        const userRolesRows = await prisma.user_roles.findMany({
+          where: { user_id: { in: profileIds } },
+          select: { user_id: true, role_id: true },
+        });
+
+        const counts = new Map<string, number>();
+
+        // Usuarios sin roles
+        const usersWithRoles = new Set(userRolesRows.map((ur) => ur.user_id));
+        const nullCount = profileIds.filter((id) => !usersWithRoles.has(id)).length;
+        if (nullCount > 0) {
+          counts.set(NULL_FILTER_VALUE, nullCount);
+        }
+
+        // Contar por role_id
+        for (const ur of userRolesRows) {
+          const key = String(ur.role_id);
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+
+        // Resolver labels de roles
+        const roleIds = [...counts.keys()]
+          .filter((k) => k !== NULL_FILTER_VALUE)
+          .map(Number)
+          .filter((n) => !isNaN(n));
+
+        const roles =
+          roleIds.length > 0
+            ? await prisma.roles.findMany({
+                where: { id: { in: roleIds } },
+                select: { id: true, name: true },
+              })
+            : [];
+
+        const resolvedOptions = roles.map((r) => ({
+          value: String(r.id),
+          label: r.name ?? 'Sin nombre',
+        }));
+
+        return { counts, resolvedOptions };
+      }
+
+      case 'linked_employee': {
+        // Obtener usuarios con cross-filter y sus empleados vinculados
+        const users = await prisma.share_company_users.findMany({
+          where: crossWhere,
+          select: {
+            profile: {
+              select: {
+                employee_id: true,
+                employees: {
+                  select: { id: true, firstname: true, lastname: true, file: true },
+                },
+              },
+            },
+          },
+        });
+
+        const counts = new Map<string, number>();
+        const employeeLabels = new Map<string, string>();
+
+        for (const u of users) {
+          const empId = u.profile?.employee_id;
+          if (!empId) {
+            counts.set(NULL_FILTER_VALUE, (counts.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            counts.set(empId, (counts.get(empId) ?? 0) + 1);
+            if (u.profile?.employees && !employeeLabels.has(empId)) {
+              const emp = u.profile.employees;
+              employeeLabels.set(empId, `[${emp.file}] ${emp.lastname} ${emp.firstname}`);
+            }
+          }
+        }
+
+        const resolvedOptions = [...employeeLabels.entries()].map(([value, label]) => ({
+          value,
+          label,
+        }));
+
+        return { counts, resolvedOptions };
+      }
+
+      default:
+        logger.warn('Columna de faceta no soportada', { data: { columnId } });
+        return null;
+    }
+  } catch (error) {
+    logger.error('Error obteniendo faceta individual', { data: { error, columnId } });
+    return null;
   }
 }

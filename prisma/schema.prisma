@@ -2321,6 +2321,7 @@ model share_company_users {
   id          String     @id @unique(map: "share_company_users_id2_key") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   customer_id String?    @db.Uuid
   modules     modulos[]
+  is_active   Boolean    @default(true)
   company     company?   @relation(fields: [company_id], references: [id], onDelete: Cascade, map: "public_share_company_users_company_id_fkey")
   profile     profile?   @relation(fields: [profile_id], references: [id], onDelete: Cascade, map: "public_share_company_users_profile_id_fkey")
   customers   customers? @relation(fields: [customer_id], references: [id])
