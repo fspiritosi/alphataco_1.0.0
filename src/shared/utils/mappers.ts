@@ -213,6 +213,15 @@ export const repairCriticityLabels: Record<string, string> = {
   Alta: 'Alta',
 };
 
+/**
+ * Labels para tipo de mantenimiento (Correctivo, Preventivo, Otro)
+ */
+export const typeOfMaintenanceLabels: Record<string, string> = {
+  Correctivo: 'Correctivo',
+  Preventivo: 'Preventivo',
+  Otro: 'Otro',
+};
+
 // ============================================================================
 // DOCUMENT STATE ENUM LABELS (documents_company.state)
 // ============================================================================
