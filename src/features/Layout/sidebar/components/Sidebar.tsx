@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useActiveLink } from '../hooks/useActiveLink';
 import { useSidebarLinks } from '../hooks/useSidebarLinks';
@@ -13,20 +14,10 @@ import { SidebarLink } from './SidebarLink';
  *
  * Renderiza el sidebar con los links filtrados según permisos del usuario
  * Usa hooks personalizados para separar la lógica de negocio
- *
- * Estrategia de pathname:
- * - initialPathname: Viene del servidor (SSR) para la primera carga
- * - usePathname(): Se sincroniza automáticamente en navegaciones client-side
- * - Fallback: Si usePathname() falla, usa initialPathname
  */
-export function Sidebar({ initialPathname, accessibleModules }: SidebarProps) {
+export function Sidebar({ accessibleModules }: SidebarProps) {
   const isActiveSidebar = useSidebarStore((state) => state.isActiveSidebar);
-
-  // Obtener pathname actual del cliente (se actualiza automáticamente)
-  const clientPathname = usePathname();
-
-  // Usar pathname del cliente si está disponible, sino usar el inicial del servidor
-  const currentPathname = clientPathname || initialPathname;
+  const currentPathname = usePathname();
 
   // Hooks personalizados para lógica de negocio
   const filteredLinks = useSidebarLinks(accessibleModules);
@@ -42,7 +33,7 @@ export function Sidebar({ initialPathname, accessibleModules }: SidebarProps) {
       {/* Logo */}
       <div className={cn('flex items-center p-2 justify-center')}>
         <span className="text-white text-xl flex items-center gap-2 relative overflow-hidden">
-          <img src="/gh_logo.png" alt="codeControl logo" className="relative block" />
+          <Image src="/gh_logo.png" alt="codeControl logo" width={160} height={40} priority />
         </span>
       </div>
 
