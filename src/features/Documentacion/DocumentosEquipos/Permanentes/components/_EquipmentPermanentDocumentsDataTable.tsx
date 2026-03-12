@@ -20,18 +20,19 @@ import {
   DataTable,
   type DataTableFacetedFilterConfig,
   type DataTableSearchParams,
+  type FacetResult,
 } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import { useQuery } from '@tanstack/react-query';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
-import { CheckCircle2, CircleOff, Download } from 'lucide-react';
+import { Check, CheckCircle2, CircleOff, Download, X } from 'lucide-react';
 import moment from 'moment';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   getAllEquipmentPermanentDocumentsForExport,
-  getEquipmentPermanentDocumentsFacets,
+  getEquipmentPermanentDocumentsPaginated,
+  getEquipmentPermanentDocumentsSingleFacet,
   type EquipmentPermanentDocumentListItem,
 } from '../actions.server';
 import { HIDDEN_COLUMNS_BY_DEFAULT, columns, stateIcons, stateLabels } from '../columns';
@@ -55,6 +56,46 @@ interface Props {
 // ============================================================================
 
 const DEFAULT_VISIBLE_FILTER_IDS = ['state', 'vehicle', 'document_type'];
+
+// ============================================================================
+// HELPERS — builders para reducir boilerplate en fetchFacet
+// ============================================================================
+
+/** Construye FacetResult para enums: opciones estáticas + counts del servidor */
+function buildEnumFacetResult(
+  enumValues: string[],
+  labels: Record<string, string>,
+  icons: Record<string, React.ComponentType<{ className?: string }> | undefined>,
+  counts: Map<string, number>
+): FacetResult {
+  return {
+    options: [
+      ...enumValues.map((value) => ({
+        value,
+        label: labels[value] ?? value,
+        // LucideIcon es compatible en runtime; el cast evita incompatibilidad de tipos estructurales
+        ...(icons[value] ? { icon: icons[value] as import('lucide-react').LucideIcon } : {}),
+      })),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: 'Sin estado', icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
+
+/** Construye FacetResult para FK: opciones del servidor + counts */
+function buildFkFacetResult(
+  resolvedOptions: Array<{ id: string; name: string | null }> | undefined,
+  counts: Map<string, number>,
+  nullLabel = 'Sin asignar'
+): FacetResult {
+  return {
+    options: [
+      ...(resolvedOptions?.map((o) => ({ value: o.id, label: o.name ?? '' })) ?? []),
+      ...(counts.has(NULL_FILTER_VALUE) ? [{ value: NULL_FILTER_VALUE, label: nullLabel, icon: CircleOff }] : []),
+    ],
+    counts,
+  };
+}
 
 // ============================================================================
 // DOWNLOAD BUTTON
@@ -195,27 +236,25 @@ export function _EquipmentPermanentDocumentsDataTable({
   initialFilterVisibility,
   equipmentId,
 }: Props) {
-  // Params para facets (sin page/sort)
-  const facetParams = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams;
-    return rest;
-  }, [searchParams]);
+  // ─── Client-side navigation mode ──────────────────────────────────────────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
 
-  // Facets con cross-filtering
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['equipment-permanent-documents-facets', facetParams, equipmentId],
-    queryFn: () => getEquipmentPermanentDocumentsFacets(facetParams, equipmentId),
-    staleTime: 5 * 60 * 1000,
-  });
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
 
-  // Merge column visibility: defaults + saved preferences
+  const tableQueryFn = useCallback(
+    (params: DataTableSearchParams) => getEquipmentPermanentDocumentsPaginated(params, equipmentId),
+    [equipmentId]
+  );
+
+  // ─── Column visibility ─────────────────────────────────────────────────────
   const mergedColumnVisibility = useMemo(() => {
     const defaults = Object.fromEntries(HIDDEN_COLUMNS_BY_DEFAULT.map((col) => [col, false]));
     return { ...defaults, ...initialColumnVisibility };
   }, [initialColumnVisibility]);
 
-  // Merge filter visibility
+  // ─── Filter visibility ─────────────────────────────────────────────────────
   const mergedFilterVisibility = useMemo(() => {
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
@@ -229,27 +268,72 @@ export function _EquipmentPermanentDocumentsDataTable({
       'contractor',
       'validity',
       'created_at',
+      'deny_reason',
+      'serie',
     ];
     return Object.fromEntries(allFilterIds.map((id) => [id, DEFAULT_VISIBLE_FILTER_IDS.includes(id)]));
   }, [initialFilterVisibility]);
 
-  // ─── Filtros facetados ────────────────────────────────────────────────────
+  // ─── fetchFacet factories ──────────────────────────────────────────────────
+
+  /** Factory para filtros de enum */
+  const makeEnumFetchFacet = useCallback(
+    (
+      columnId: string,
+      enumValues: string[],
+      labels: Record<string, string>,
+      icons: Record<string, React.ComponentType<{ className?: string }> | undefined>
+    ) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getEquipmentPermanentDocumentsSingleFacet(columnId, params, equipmentId);
+        if (!result) return { options: [], counts: new Map() };
+        return buildEnumFacetResult(enumValues, labels, icons, result.counts);
+      };
+    },
+    [equipmentId]
+  );
+
+  /** Factory para filtros de FK con opciones resueltas del servidor */
+  const makeFkFetchFacet = useCallback(
+    (columnId: string, nullLabel = 'Sin asignar') => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getEquipmentPermanentDocumentsSingleFacet(columnId, params, equipmentId);
+        if (!result) return { options: [], counts: new Map() };
+        return buildFkFacetResult(result.resolvedOptions, result.counts, nullLabel);
+      };
+    },
+    [equipmentId]
+  );
+
+  /** Factory para filtros booleanos (mandatory, multiresource) */
+  const makeBoolFetchFacet = useCallback(
+    (columnId: string, trueLabel: string, falseLabel: string) => {
+      return async (params: DataTableSearchParams): Promise<FacetResult> => {
+        const result = await getEquipmentPermanentDocumentsSingleFacet(columnId, params, equipmentId);
+        if (!result) return { options: [], counts: new Map() };
+        return {
+          options: [
+            { value: 'true', label: trueLabel, icon: Check },
+            { value: 'false', label: falseLabel, icon: X },
+            ...(result.counts.has(NULL_FILTER_VALUE)
+              ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
+              : []),
+          ],
+          counts: result.counts,
+        };
+      };
+    },
+    [equipmentId]
+  );
+
+  // ─── Filtros facetados con lazy-load ───────────────────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       // Estado (enum state)
       {
         columnId: 'state',
         title: 'Estado',
-        options: [
-          ...Object.keys(stateLabels).map((value) => {
-            const Icon = stateIcons[value];
-            return { value, label: stateLabels[value] ?? value, icon: Icon };
-          }),
-          ...(facets?.state?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin estado', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.state,
+        fetchFacet: makeEnumFetchFacet('state', Object.keys(stateLabels), stateLabels, stateIcons),
       },
 
       // Equipo (texto libre — busca por dominio, serie o número interno)
@@ -264,44 +348,28 @@ export function _EquipmentPermanentDocumentsDataTable({
       {
         columnId: 'document_type',
         title: 'Tipo de documento',
-        options: [
-          ...(facets?.documentTypeOptions?.map((dt) => ({
-            value: dt.id,
-            label: dt.name,
-          })) ?? []),
-          ...(facets?.document_type?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin tipo', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.document_type,
+        fetchFacet: makeFkFetchFacet('document_type', 'Sin tipo'),
       },
 
       // Mandatorio (booleano en document_types)
       {
         columnId: 'mandatory',
         title: 'Mandatorio',
-        options: [
-          { value: 'true', label: 'Mandatorio' },
-          { value: 'false', label: 'No Mandatorio' },
-          ...(facets?.mandatory?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.mandatory,
+        fetchFacet: makeBoolFetchFacet('mandatory', 'Mandatorio', 'No Mandatorio'),
       },
 
       // Multirecurso (booleano en document_types)
       {
         columnId: 'multiresource',
         title: 'Multirecurso',
-        options: [
-          { value: 'true', label: 'Multirecurso' },
-          { value: 'false', label: 'No Multirecurso' },
-          ...(facets?.multiresource?.has(NULL_FILTER_VALUE)
-            ? [{ value: NULL_FILTER_VALUE, label: 'Sin asignar', icon: CircleOff }]
-            : []),
-        ],
-        externalCounts: facets?.multiresource,
+        fetchFacet: makeBoolFetchFacet('multiresource', 'Multirecurso', 'No Multirecurso'),
+      },
+
+      // Afectado a (M:M contractor)
+      {
+        columnId: 'contractor',
+        title: 'Afectado a',
+        fetchFacet: makeFkFetchFacet('contractor', 'Sin afectar'),
       },
 
       // Vencimiento (rango de fechas)
@@ -317,8 +385,24 @@ export function _EquipmentPermanentDocumentsDataTable({
         title: 'Subido el',
         type: 'dateRange' as const,
       },
+
+      // Motivo de rechazo (texto libre)
+      {
+        columnId: 'deny_reason',
+        title: 'Motivo de rechazo',
+        type: 'text' as const,
+        placeholder: 'Buscar por motivo de rechazo...',
+      },
+
+      // Serie (texto libre — campo del vehículo)
+      {
+        columnId: 'serie',
+        title: 'Serie',
+        type: 'text' as const,
+        placeholder: 'Buscar por serie del equipo...',
+      },
     ],
-    [facets]
+    [makeEnumFetchFacet, makeFkFetchFacet, makeBoolFetchFacet]
   );
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -335,12 +419,15 @@ export function _EquipmentPermanentDocumentsDataTable({
       tableId={tableId}
       paramNamespace={tableId}
       showFilterToggle={true}
-      isFetchingFacets={isFetchingFacets}
       emptyMessage="No hay documentos permanentes de equipos registrados"
       data-testid="equipment-permanent-documents-table"
       toolbarActions={<EquipmentDocumentsDownloadButton tableRows={data} />}
+      // Client-side navigation: fetch instantáneo via React Query, sin router.push
+      queryFn={tableQueryFn}
+      queryKey={['equipment-permanent-docs', equipmentId ?? 'all']}
+      onStateChange={handleStateChange}
       exportConfig={{
-        fetchAllData: () => getAllEquipmentPermanentDocumentsForExport(searchParams, equipmentId),
+        fetchAllData: () => getAllEquipmentPermanentDocumentsForExport(currentParams, equipmentId),
         options: {
           filename: 'documentos-permanentes-equipos',
           title: 'Documentos Permanentes de Equipos',

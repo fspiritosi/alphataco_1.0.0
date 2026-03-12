@@ -143,6 +143,9 @@ Filter type reference:
 5. EVERY boolean column MUST have a `faceted` filter with "Activo"/"Inactivo" or "Sí"/"No" options.
 6. **EVERY column that displays enriched data from external IDs** (e.g., `performedBy` Clerk user ID → shows user name+avatar) MUST have a `faceted` filter. The raw ID IS a real DB column, so server-side filtering works with `buildFiltersWhere`. The facets function must enrich the grouped IDs (via the external service) to provide human-readable labels for filter options. Pattern: `groupBy` on raw ID → enrich unique IDs → return both counts Map and labels Map.
 7. **EVERY faceted filter for nullable FK/enum columns MUST include a "Sin asignar" option** using the `NULL_FILTER_VALUE` sentinel (`'__null__'`) from `@/shared/components/common/DataTable/helpers`. This allows users to filter records where the field is null/unassigned.
+8. **EVERY table with an employee FK column MUST have a SEPARATE `fileNumber` (legajo) column AND a SEPARATE `text` filter for it.** The legajo is how users identify employees — names can repeat, legajo is unique. The legajo CANNOT be integrated into the employee name column — it must be its own column with its own `id: 'fileNumber'`, `accessorFn`, `meta: { title: 'Legajo' }`, and a `text` filter. This applies to ALL tables with employee data: documents, diagrams, maintenance requests, work orders, forms, etc. If an employee FK exists but `fileNumber` column+filter is missing → report as **MISSING — HIGH priority**.
+   - **EXACT MATCH ONLY**: The legajo filter MUST use `equals` (exact match) in the server action, NOT `contains` (partial match). Legajos are short numbers — partial matching causes massive false positives (searching "1" returns "1", "10", "100", "101", etc.). If the filter uses `contains` instead of `equals` → report as **BUG — HIGH priority**.
+   - **Visual indicator**: The filter should include a tooltip (via `HelpCircle` or `Info` icon) explaining "Coincidencia exacta: ingrese el numero de legajo completo" so users understand they must type the full legajo number.
 
 #### Null Filter Pattern (`NULL_FILTER_VALUE`)
 
@@ -543,6 +546,8 @@ Referencia rapida:
 | JSONB / virtual / calculada | SIN filtro                                                      | No filtrable server-side               |
 | Acciones / select           | SIN filtro                                                      | —                                      |
 
+**Regla de Legajo (file_number)**: Si la tabla tiene una columna FK de empleado, verificar que TAMBIEN exista una columna separada `fileNumber` con filtro `text`. Si falta → **MISSING — HIGH priority**. El legajo NO puede estar integrado en la columna del nombre del empleado. Debe ser columna independiente con `id: 'fileNumber'`, `accessorFn: (row) => row.employee?.file_number ?? ''`, `meta: { title: 'Legajo' }`, y filtro `{ columnId: 'fileNumber', title: 'Legajo', type: 'text' }`.
+
 ### Paso 2: Iconos en Filtros y Columnas (OBLIGATORIO — NO SALTEAR)
 
 **Este es el SEGUNDO paso mas frecuentemente olvidado. DEBES verificar iconos SIEMPRE.**
@@ -681,6 +686,8 @@ The employees table at `/dashboard/employees` is the most complete in the system
 - Table preferences persistence
 
 Use it as reference when creating or auditing other tables.
+
+**Regla de Legajo**: Toda tabla que tenga FK de empleado (documentos, diagramas, solicitudes, OTs, formularios, etc.) DEBE incluir una columna separada `fileNumber` (legajo) con filtro `text` independiente. El legajo identifica univocamente al empleado y no puede estar integrado en la columna del nombre. Verificar en TODA auditoria de tablas con datos de empleados.
 
 ---
 

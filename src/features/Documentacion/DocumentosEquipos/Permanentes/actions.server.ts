@@ -35,7 +35,7 @@ const FK_SORT_MAP: Record<string, (dir: 'asc' | 'desc') => Record<string, unknow
 };
 
 /** Columnas con filtro de texto libre */
-const TEXT_FILTER_COLUMNS: string[] = ['vehicle'];
+const TEXT_FILTER_COLUMNS: string[] = ['vehicle', 'deny_reason', 'serie'];
 
 /** Columnas con filtro de rango de fechas */
 const DATE_RANGE_COLUMNS = ['created_at', 'validity'];
@@ -185,6 +185,22 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
     });
   }
 
+  // Filtro texto de serie (campo directo del vehículo)
+  const serieTextVal = state.filters['serie']?.[0];
+  if (serieTextVal) {
+    searchConditions.push({
+      vehicles: { serie: { contains: serieTextVal, mode: 'insensitive' } },
+    });
+  }
+
+  // Filtro texto de motivo de rechazo (campo directo en documents_equipment)
+  const denyReasonTextVal = state.filters['deny_reason']?.[0];
+  if (denyReasonTextVal) {
+    searchConditions.push({
+      deny_reason: { contains: denyReasonTextVal, mode: 'insensitive' },
+    });
+  }
+
   const andConditions: Record<string, unknown>[] = [
     ...(searchConditions.length > 0 ? searchConditions : []),
     ...(contractorCondition ? [contractorCondition] : []),
@@ -240,7 +256,10 @@ function buildWhereClause(companyId: string, state: ReturnType<typeof parseSearc
 // PAGINATED QUERY
 // ============================================================================
 
-export async function getEquipmentPermanentDocumentsPaginated(searchParams: DataTableSearchParams, equipmentId?: string) {
+export async function getEquipmentPermanentDocumentsPaginated(
+  searchParams: DataTableSearchParams,
+  equipmentId?: string
+) {
   const companyId = await getServerCompanyId();
 
   try {
@@ -287,7 +306,10 @@ export type EquipmentPermanentDocumentListItem = Awaited<
 // EXPORT QUERY (sin paginación)
 // ============================================================================
 
-export async function getAllEquipmentPermanentDocumentsForExport(searchParams: DataTableSearchParams, equipmentId?: string) {
+export async function getAllEquipmentPermanentDocumentsForExport(
+  searchParams: DataTableSearchParams,
+  equipmentId?: string
+) {
   const companyId = await getServerCompanyId();
 
   try {
@@ -308,11 +330,193 @@ export async function getAllEquipmentPermanentDocumentsForExport(searchParams: D
 }
 
 // ============================================================================
-// FACETS
+// FACETS — Single facet (lazy-load on-demand)
+// ============================================================================
+
+/**
+ * Retorna counts + opciones resueltas para UNA sola columna (lazy-load).
+ * Implementa crossWhere: aplica todos los filtros EXCEPTO el de la columna solicitada.
+ */
+export async function getEquipmentPermanentDocumentsSingleFacet(
+  columnId: string,
+  searchParams?: DataTableSearchParams,
+  equipmentId?: string
+): Promise<{
+  counts: Map<string, number>;
+  resolvedOptions?: Array<{ id: string; name: string | null }>;
+} | null> {
+  const companyId = await getServerCompanyId();
+
+  let parsedState: ReturnType<typeof parseSearchParams> | null = null;
+  if (searchParams && Object.keys(searchParams).length > 0) {
+    parsedState = parseSearchParams(searchParams);
+  }
+
+  function crossWhere(excludeColumn: string) {
+    if (!parsedState) {
+      return {
+        ...(equipmentId ? { applies: equipmentId } : {}),
+        vehicles: { company_id: companyId, is_active: true },
+        document_types: { is_it_montlhy: false, is_active: true },
+      };
+    }
+    const modified = { ...parsedState, filters: { ...parsedState.filters } };
+    delete modified.filters[excludeColumn];
+    delete modified.filters[`${excludeColumn}_from`];
+    delete modified.filters[`${excludeColumn}_to`];
+    return buildWhereClause(companyId, modified, equipmentId);
+  }
+
+  function toFacetMap(rows: { key: string | null | undefined; count: number }[]): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const { key, count } of rows) {
+      if (key == null) {
+        map.set(NULL_FILTER_VALUE, (map.get(NULL_FILTER_VALUE) ?? 0) + count);
+      } else {
+        map.set(String(key), count);
+      }
+    }
+    return map;
+  }
+
+  try {
+    switch (columnId) {
+      case 'state': {
+        const rows = await prisma.documents_equipment.groupBy({
+          by: ['state'],
+          where: crossWhere('state'),
+          _count: { state: true },
+        });
+        return {
+          counts: toFacetMap(rows.map((r) => ({ key: r.state as string | null, count: r._count.state }))),
+        };
+      }
+
+      case 'document_type': {
+        const rows = await prisma.documents_equipment.groupBy({
+          by: ['id_document_types'],
+          where: crossWhere('document_type'),
+          _count: { id_document_types: true },
+        });
+        const counts = toFacetMap(rows.map((r) => ({ key: r.id_document_types, count: r._count.id_document_types })));
+        const ids = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
+        const options =
+          ids.length > 0
+            ? await prisma.document_types.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })
+            : [];
+        return { counts, resolvedOptions: options };
+      }
+
+      case 'mandatory': {
+        const rows = await prisma.documents_equipment.groupBy({
+          by: ['id_document_types'],
+          where: crossWhere('mandatory'),
+          _count: { id_document_types: true },
+        });
+        const dtIds = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
+        const dtRecords =
+          dtIds.length > 0
+            ? await prisma.document_types.findMany({
+                where: { id: { in: dtIds } },
+                select: { id: true, mandatory: true },
+              })
+            : [];
+        const boolDtMap = new Map(dtRecords.map((dt) => [dt.id, dt]));
+        const countMap = new Map<string, number>();
+        for (const row of rows) {
+          const count = row._count.id_document_types;
+          if (row.id_document_types == null) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + count);
+          } else {
+            const dt = boolDtMap.get(row.id_document_types);
+            const val = dt?.mandatory;
+            const key = val == null ? NULL_FILTER_VALUE : String(val);
+            countMap.set(key, (countMap.get(key) ?? 0) + count);
+          }
+        }
+        return { counts: countMap };
+      }
+
+      case 'multiresource': {
+        const rows = await prisma.documents_equipment.groupBy({
+          by: ['id_document_types'],
+          where: crossWhere('multiresource'),
+          _count: { id_document_types: true },
+        });
+        const dtIds = rows.map((r) => r.id_document_types).filter((id): id is string => id != null);
+        const dtRecords =
+          dtIds.length > 0
+            ? await prisma.document_types.findMany({
+                where: { id: { in: dtIds } },
+                select: { id: true, multiresource: true },
+              })
+            : [];
+        const boolDtMap = new Map(dtRecords.map((dt) => [dt.id, dt]));
+        const countMap = new Map<string, number>();
+        for (const row of rows) {
+          const count = row._count.id_document_types;
+          if (row.id_document_types == null) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + count);
+          } else {
+            const dt = boolDtMap.get(row.id_document_types);
+            const val = dt?.multiresource;
+            const key = val == null ? NULL_FILTER_VALUE : String(val);
+            countMap.set(key, (countMap.get(key) ?? 0) + count);
+          }
+        }
+        return { counts: countMap };
+      }
+
+      case 'contractor': {
+        const rowsData = await prisma.documents_equipment.findMany({
+          where: crossWhere('contractor'),
+          select: {
+            vehicles: {
+              select: {
+                contractor_equipment: {
+                  select: { customers: { select: { id: true, name: true } } },
+                },
+              },
+            },
+          },
+        });
+        const countMap = new Map<string, number>();
+        const optionsMap = new Map<string, string>();
+        for (const row of rowsData) {
+          const contractors = row.vehicles?.contractor_equipment ?? [];
+          if (contractors.length === 0) {
+            countMap.set(NULL_FILTER_VALUE, (countMap.get(NULL_FILTER_VALUE) ?? 0) + 1);
+          } else {
+            for (const ce of contractors) {
+              if (ce.customers?.id) {
+                countMap.set(ce.customers.id, (countMap.get(ce.customers.id) ?? 0) + 1);
+                optionsMap.set(ce.customers.id, ce.customers.name);
+              }
+            }
+          }
+        }
+        const resolvedOptions = Array.from(optionsMap.entries()).map(([id, name]) => ({ id, name }));
+        return { counts: countMap, resolvedOptions };
+      }
+
+      default:
+        return null;
+    }
+  } catch (error) {
+    logger.error('Error al obtener facet individual de documentos permanentes de equipos', {
+      data: { error, columnId },
+    });
+    return null;
+  }
+}
+
+// ============================================================================
+// FACETS — Bulk (kept for backward compat, prefer single facet)
 // ============================================================================
 
 /**
  * Facets con cross-filtering: los counts de cada columna excluyen su propio filtro.
+ * @deprecated Usar getEquipmentPermanentDocumentsSingleFacet en su lugar (lazy-load).
  */
 export async function getEquipmentPermanentDocumentsFacets(searchParams?: DataTableSearchParams, equipmentId?: string) {
   const companyId = await getServerCompanyId();

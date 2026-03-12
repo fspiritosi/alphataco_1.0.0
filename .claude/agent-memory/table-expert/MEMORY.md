@@ -187,3 +187,13 @@ Para CADA columna en `columns.tsx`, preguntar:
   - `source`: agregado columna (oculta por defecto) + filtro facetado + SOURCE_LABELS/SOURCE_ICONS + groupBy en facets vía maintenance_requests + source en exclude de buildFiltersWhere + filtro manual sourceFilter + export formatter
   - `condition`: agregado íconos semánticos (CheckCircle2, XCircle, Wrench, AlertCircle, Settings2) en opciones del filtro facetado
   - `SOURCE_ICONS` en columns.tsx tipado como `Record<string, LucideIcon>` para compatibilidad con `DataTableFilterOption.icon`
+
+- **DocumentosEmpleadosMensuales**: `src/features/Documentacion/DocumentosEmpleados/Mensuales/`
+  - Fix 2026-03: migrado de bulk facets a lazy-load + client-side navigation mode
+  - `period` es `String?` en DB (no DateTime) — filtro `text` NO `dateRange`. Eliminado de DATE_RANGE_COLUMNS
+  - Columnas booleanas `mandatory`/`multiresource` viven en `document_types` (no en la tabla principal) — se manejan con groupBy + lookup en document_types para obtener los valores bool. crossWhere excluye 'mandatory'/'multiresource' correctamente del exclude
+  - `contractor` es M:M via `employees.contractor_employee` — facet usa `findMany` + conteo manual (no groupBy)
+  - Factory `makeBoolFetchFacet` para booleanos en document_types — patrón específico de esta tabla
+  - `filterFn` de columna `employee` eliminada (era filtro text, no faceted — filterFn no aplica a text filters)
+  - Filtros text agregados: `period` + `deny_reason` en TEXT_FILTER_COLUMNS y en buildWhereClause manualmente
+  - `getMonthlyEmployeeDocumentsSingleFacet(columnId, searchParams?, employeeId?)` — función lazy-load con crossWhere
