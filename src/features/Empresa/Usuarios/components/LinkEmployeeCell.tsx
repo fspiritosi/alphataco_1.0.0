@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { linkEmployeeToProfile, searchEmployeesForLink } from '../actions.server';
-import { COMPANY_USERS_QUERY_KEY } from '../table/DeleteUserCell';
+import { COMPANY_USERS_QUERY_KEY } from '../table/UserStatusCell';
 
 const logger = new Logger('LinkEmployeeCell');
 

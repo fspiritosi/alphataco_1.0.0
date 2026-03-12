@@ -11,10 +11,10 @@ import moment from 'moment';
 import Link from 'next/link';
 import type { CompanyUserListItem } from '../actions.server';
 import { LinkEmployeeCell } from '../components/LinkEmployeeCell';
-import { DeleteUserCell } from './DeleteUserCell';
+import { UserStatusCell } from './UserStatusCell';
 
 type Permissions = {
-  canDelete: boolean;
+  hasPermission: (module: string, tab: string, action: string) => boolean;
 };
 
 // ── Componente de celda de roles ──────────────────────────────────────────────
@@ -119,6 +119,9 @@ function RoleCell({ row }: { row: CompanyUserListItem }) {
 
 // ── Columnas de la tabla ──────────────────────────────────────────────────────
 export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<CompanyUserListItem>[] {
+  const canDelete = permissions.hasPermission('empresa', 'usuarios', 'delete');
+  const canUpdate = permissions.hasPermission('empresa', 'usuarios', 'update');
+
   return [
     // ── Nombre + Avatar ────────────────────────────────────────────────────────
     {
@@ -132,7 +135,6 @@ export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<Comp
         const id = row.original.id;
         const isOwner = row.original.isOwner;
 
-        // Avatar: foto del usuario → foto del empleado vinculado → iniciales
         const avatarSrc = profile?.avatar || profile?.employees?.picture || '';
         const initials =
           fullname
@@ -184,11 +186,25 @@ export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<Comp
       },
       enableSorting: true,
     },
+    // ── Estado (is_active) ──────────────────────────────────────────────────────
+    {
+      id: 'is_active',
+      accessorFn: (row) => row.is_active,
+      meta: { title: 'Estado' },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+      cell: ({ row }) => {
+        const isActive = row.original.is_active;
+        return <Badge variant={isActive ? 'success' : 'destructive'}>{isActive ? 'Activo' : 'Baneado'}</Badge>;
+      },
+      filterFn: (row, _id, value: string[]) => {
+        return value.includes(String(row.original.is_active));
+      },
+      enableSorting: true,
+    },
     // ── Rol ──────────────────────────────────────────────────────────────────
     {
       id: 'role',
       accessorFn: (row) => {
-        // Para export: devolver nombres de roles separados por coma
         const roles = row.profile?.user_roles ?? [];
         if (row.isOwner && roles.length === 0) return 'Propietario';
         if (roles.length === 0) return 'Sin rol';
@@ -198,7 +214,7 @@ export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<Comp
           .join(', ');
       },
       meta: { title: 'Rol' },
-      header: 'Rol',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Rol" />,
       cell: ({ row }) => <RoleCell row={row.original} />,
       filterFn: (row, _id, value: string[]) => {
         const userRoles = row.original.profile?.user_roles ?? [];
@@ -213,7 +229,7 @@ export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<Comp
       accessorFn: (row) => {
         const emp = row.profile?.employees;
         if (!emp) return '';
-        return `${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
+        return `[${emp.file}] ${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
       },
       meta: { title: 'Empleado vinculado' },
       header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado vinculado" />,
@@ -224,15 +240,20 @@ export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<Comp
               id: profile.employees.id,
               firstname: profile.employees.firstname ?? '',
               lastname: profile.employees.lastname ?? '',
+              file: profile.employees.file,
               cuil: '',
             }
           : null;
         const profileId = profile?.id;
 
-        // El owner se muestra igual — puede vincular empleado también
         if (!profileId) return <span className="text-muted-foreground text-sm">-</span>;
 
         return <LinkEmployeeCell profileId={profileId} employee={employee} />;
+      },
+      filterFn: (row, _id, value: string[]) => {
+        const empId = row.original.profile?.employee_id;
+        if (empId == null) return value.includes(NULL_FILTER_VALUE);
+        return value.includes(empId);
       },
       enableSorting: false,
     },
@@ -250,20 +271,20 @@ export function getCompanyUsersColumns(permissions: Permissions): ColumnDef<Comp
       enableSorting: true,
     },
     // ── Acciones ──────────────────────────────────────────────────────────────
-    ...(permissions.canDelete
-      ? [
-          {
-            id: 'actions',
-            meta: { excludeFromExport: true, title: '' },
-            enableSorting: false,
-            enableHiding: false,
-            cell: ({ row }: { row: { original: CompanyUserListItem } }) => {
-              // El owner no se puede eliminar desde aquí
-              if (row.original.isOwner) return null;
-              return <DeleteUserCell shareCompanyUserId={row.original.id} />;
-            },
-          } satisfies ColumnDef<CompanyUserListItem>,
-        ]
-      : []),
+    {
+      id: 'actions',
+      meta: { excludeFromExport: true, title: '' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => {
+        // El owner no se puede banear ni eliminar
+        if (row.original.isOwner) return null;
+
+        // Mostrar UserStatusCell si tiene permiso de delete (ban) o update (reactivar)
+        if (!canDelete && !canUpdate) return null;
+
+        return <UserStatusCell row={row.original} canBan={canDelete} canReactivate={canUpdate} />;
+      },
+    },
   ];
 }

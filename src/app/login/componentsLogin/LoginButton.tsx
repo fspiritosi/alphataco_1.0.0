@@ -1,10 +1,13 @@
 'use client';
 import { Button } from '@/components/ui/button';
+import { Logger } from '@/lib/logger';
 import { loginSchema } from '@/zodSchemas/schemas';
 import { useRouter } from 'next/navigation';
 import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 import { login } from '../actions';
+
+const logger = new Logger('LoginButton');
 
 export const LoginButton = () => {
   const { pending } = useFormStatus();
@@ -25,7 +28,7 @@ export const LoginButton = () => {
       result.error.issues.forEach((issue) => {
         const element = document.getElementById(`${issue.path}_error`);
         if (element) {
-          element.innerText = issue.message; //->mensaje de error
+          element.innerText = issue.message;
           element.style.color = 'red';
         }
       });
@@ -42,21 +45,24 @@ export const LoginButton = () => {
     }
     toast.promise(
       async () => {
-        const data: any = await login(formData);
-        if (data.error) {
-          console.error(data.error);
+        const data = await login(formData);
+        if ('error' in data) {
+          logger.error('Login error', { data: { error: data.error } });
           throw new Error(data.error);
         }
         return 'success';
       },
       {
-        loading: 'Iniciando Sesión...',
+        loading: 'Iniciando Sesion...',
         success: () => {
           router.push('/dashboard');
           return '¡Bienvenido!';
         },
         error: (error) => {
-          console.error(error, 'este es el error');
+          logger.error('Login failed', { data: { error } });
+          if (error?.message?.includes('banned')) {
+            return 'Tu acceso ha sido revocado. Contacta al administrador de tu empresa.';
+          }
           return error?.message || 'Error desconocido';
         },
       }
@@ -69,7 +75,7 @@ export const LoginButton = () => {
       disabled={pending}
       data-testid="login-submit-button"
     >
-      {pending ? 'Cargando...' : 'Iniciar Sesión'}
+      {pending ? 'Cargando...' : 'Iniciar Sesion'}
     </Button>
   );
 };

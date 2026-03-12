@@ -1,22 +1,25 @@
 'use client';
 
 import { PermissionGuard } from '@/features/Permissions/components/PermissionGuard';
-import type { DataTableFacetedFilterConfig, DataTableSearchParams } from '@/shared/components/common/DataTable';
+import type {
+  DataTableFacetedFilterConfig,
+  DataTableFilterOption,
+  DataTableSearchParams,
+  FacetResult,
+} from '@/shared/components/common/DataTable';
 import { DataTable } from '@/shared/components/common/DataTable';
 import { NULL_FILTER_VALUE } from '@/shared/components/common/DataTable/helpers';
-import { useQuery } from '@tanstack/react-query';
-import { CircleOff, Shield } from 'lucide-react';
+import { Ban, CheckCircle2, CircleOff, Shield } from 'lucide-react';
 import moment from 'moment';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { CompanyUserListItem } from '../actions.server';
-import { getAllCompanyUsersForExport, getAvailableRoles, getCompanyUserFacets } from '../actions.server';
+import { getAllCompanyUsersForExport, getCompanyUserSingleFacet, getCompanyUsersPaginated } from '../actions.server';
 import { CreateUserModal } from '../components/create-user-modal';
 import { getCompanyUsersColumns } from './columns';
 
 const TABLE_ID = 'company-users';
 
-// ── Filtros visibles por defecto (máximo 3) ───────────────────────────────────
-const DEFAULT_VISIBLE_FILTERS = ['role', 'created_at'];
+const DEFAULT_VISIBLE_FILTERS = ['is_active', 'role', 'linked_employee'];
 
 interface UsersDataTableProps {
   data: CompanyUserListItem[];
@@ -39,63 +42,109 @@ export function _UsersDataTable({
   initialFilterVisibility,
   permissionsMap,
 }: UsersDataTableProps) {
+  // ── State para client-side navigation ─────────────────────────────────────
+  const [currentParams, setCurrentParams] = useState<DataTableSearchParams>(searchParams);
+  const handleStateChange = useCallback((params: DataTableSearchParams) => {
+    setCurrentParams(params);
+  }, []);
+
+  // ── queryFn para client-side navigation ───────────────────────────────────
+  const tableQueryFn = useCallback(
+    (params: DataTableSearchParams) => getCompanyUsersPaginated(companyId, params),
+    [companyId]
+  );
+
   // ── Permisos (construidos desde el map del servidor) ──────────────────────
-  const canDelete = permissionsMap['empresa:usuarios-empleados:delete'] === true;
+  const permissions = useMemo(
+    () => ({
+      hasPermission: (module: string, tab: string, action: string) =>
+        permissionsMap[`${module}:${tab}:${action}`] === true,
+    }),
+    [permissionsMap]
+  );
+
   const canCreate = permissionsMap['empresa:usuarios-empleados:create'] === true;
 
   // ── Columnas (con permisos) ───────────────────────────────────────────────
-  const columns = useMemo(() => getCompanyUsersColumns({ canDelete }), [canDelete]);
+  const columns = useMemo(() => getCompanyUsersColumns(permissions), [permissions]);
 
-  // ── Params para facets (excluir paginación y sorting) ─────────────────────
-  const facetParams = useMemo(() => {
-    const { page, pageSize, sort, sortBy, sortOrder, ...rest } = searchParams as Record<string, unknown>;
-    return rest as DataTableSearchParams;
-  }, [searchParams]);
+  // ── Lazy-load facets helpers ──────────────────────────────────────────────
+  const fetchIsActiveFacet = useCallback(
+    async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getCompanyUserSingleFacet('is_active', companyId, params);
+      if (!result) return { options: [], counts: new Map() };
 
-  // ── Facets del servidor (con cross-filter) ────────────────────────────────
-  const { data: facets, isFetching: isFetchingFacets } = useQuery({
-    queryKey: ['company-user-facets', companyId, facetParams],
-    queryFn: () => getCompanyUserFacets(companyId, facetParams),
-    staleTime: 5 * 60 * 1000,
-  });
+      const options = [
+        { value: 'true', label: 'Activo', icon: CheckCircle2 },
+        { value: 'false', label: 'Baneado', icon: Ban },
+      ];
 
-  // ── Roles disponibles para opciones de filtro ─────────────────────────────
-  const { data: availableRoles } = useQuery({
-    queryKey: ['available-roles'],
-    queryFn: () => getAvailableRoles(),
-    staleTime: 5 * 60 * 1000,
-  });
+      return { options, counts: result.counts };
+    },
+    [companyId]
+  );
 
-  // ── Opciones de filtro de roles ───────────────────────────────────────────
-  const roleOptions = useMemo(() => {
-    if (!availableRoles) return [];
+  const fetchRoleFacet = useCallback(
+    async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getCompanyUserSingleFacet('role', companyId, params);
+      if (!result) return { options: [], counts: new Map() };
 
-    const options = availableRoles.map((role) => ({
-      value: String(role.id),
-      label: role.name ?? 'Sin nombre',
-      icon: Shield,
-    }));
+      const options: DataTableFilterOption[] = (result.resolvedOptions ?? []).map((o) => ({
+        ...o,
+        icon: Shield,
+      }));
 
-    // "Sin rol" si hay usuarios sin roles
-    if (facets?.roles?.has(NULL_FILTER_VALUE)) {
-      options.push({
-        value: NULL_FILTER_VALUE,
-        label: 'Sin rol',
-        icon: CircleOff,
-      });
-    }
+      // Agregar "Sin rol" si existe
+      if (result.counts.has(NULL_FILTER_VALUE)) {
+        options.push({
+          value: NULL_FILTER_VALUE,
+          label: 'Sin rol',
+          icon: CircleOff,
+        });
+      }
 
-    return options;
-  }, [availableRoles, facets]);
+      return { options, counts: result.counts };
+    },
+    [companyId]
+  );
 
-  // ── Configuración de filtros facetados ────────────────────────────────────
+  const fetchLinkedEmployeeFacet = useCallback(
+    async (params: DataTableSearchParams): Promise<FacetResult> => {
+      const result = await getCompanyUserSingleFacet('linked_employee', companyId, params);
+      if (!result) return { options: [], counts: new Map() };
+
+      const options: DataTableFilterOption[] = [...(result.resolvedOptions ?? [])];
+
+      if (result.counts.has(NULL_FILTER_VALUE)) {
+        options.push({
+          value: NULL_FILTER_VALUE,
+          label: 'Sin vincular',
+          icon: CircleOff,
+        });
+      }
+
+      return { options, counts: result.counts };
+    },
+    [companyId]
+  );
+
+  // ── Configuracion de filtros facetados (lazy-load) ────────────────────────
   const facetedFilters: DataTableFacetedFilterConfig[] = useMemo(
     () => [
       {
+        columnId: 'is_active',
+        title: 'Estado',
+        fetchFacet: fetchIsActiveFacet,
+      },
+      {
         columnId: 'role',
         title: 'Rol',
-        options: roleOptions,
-        externalCounts: facets?.roles,
+        fetchFacet: fetchRoleFacet,
+      },
+      {
+        columnId: 'linked_employee',
+        title: 'Empleado vinculado',
+        fetchFacet: fetchLinkedEmployeeFacet,
       },
       {
         columnId: 'created_at',
@@ -113,17 +162,17 @@ export function _UsersDataTable({
         type: 'text' as const,
       },
     ],
-    [roleOptions, facets]
+    [fetchIsActiveFacet, fetchRoleFacet, fetchLinkedEmployeeFacet]
   );
 
-  // ── Botón de crear usuario (dentro del toolbar de la tabla) ───────────────
+  // ── Boton de crear usuario ────────────────────────────────────────────────
   const toolbarActions = canCreate ? (
     <PermissionGuard module="empresa" tab="usuarios-empleados" action="create">
       <CreateUserModal />
     </PermissionGuard>
   ) : undefined;
 
-  // ── Visibilidad de filtros (preferencias BD tienen prioridad) ─────────────
+  // ── Visibilidad de filtros ────────────────────────────────────────────────
   const mergedFilterVisibility = useMemo(() => {
     if (initialFilterVisibility && Object.keys(initialFilterVisibility).length > 0) {
       return initialFilterVisibility;
@@ -131,7 +180,7 @@ export function _UsersDataTable({
     return Object.fromEntries(facetedFilters.map((f) => [f.columnId, DEFAULT_VISIBLE_FILTERS.includes(f.columnId)]));
   }, [initialFilterVisibility, facetedFilters]);
 
-  // ── Export config ─────────────────────────────────────────────────────────
+  // ── Export config (usa currentParams para respetar filtros activos) ────────
   const exportConfig = useMemo(
     () => ({
       options: {
@@ -139,10 +188,11 @@ export function _UsersDataTable({
         sheetName: 'Usuarios',
         title: 'Usuarios de la Empresa',
       },
-      fetchAllData: () => getAllCompanyUsersForExport(companyId, searchParams),
+      fetchAllData: () => getAllCompanyUsersForExport(companyId, currentParams),
       formatters: {
         fullname: (_val: unknown, row: CompanyUserListItem) => row.profile?.fullname ?? '',
         email: (_val: unknown, row: CompanyUserListItem) => row.profile?.email ?? '',
+        is_active: (_val: unknown, row: CompanyUserListItem) => (row.is_active ? 'Activo' : 'Baneado'),
         role: (_val: unknown, row: CompanyUserListItem) => {
           const roles = row.profile?.user_roles ?? [];
           if (row.isOwner && roles.length === 0) return 'Propietario';
@@ -155,13 +205,13 @@ export function _UsersDataTable({
         linked_employee: (_val: unknown, row: CompanyUserListItem) => {
           const emp = row.profile?.employees;
           if (!emp) return 'Sin vincular';
-          return `${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
+          return `[${emp.file}] ${emp.lastname ?? ''} ${emp.firstname ?? ''}`.trim();
         },
         created_at: (_val: unknown, row: CompanyUserListItem) =>
           row.created_at && row.created_at.getTime() !== 0 ? moment(row.created_at).format('DD/MM/YYYY') : '',
       } as Record<string, (value: unknown, row: CompanyUserListItem) => string>,
     }),
-    [searchParams]
+    [companyId, currentParams]
   );
 
   return (
@@ -170,10 +220,12 @@ export function _UsersDataTable({
       data={data}
       totalRows={totalRows}
       searchParams={searchParams}
+      queryFn={tableQueryFn}
+      queryKey={['company-users', companyId]}
+      onStateChange={handleStateChange}
       tableId={tableId}
       paramNamespace={TABLE_ID}
       facetedFilters={facetedFilters}
-      isFetchingFacets={isFetchingFacets}
       exportConfig={exportConfig}
       initialColumnVisibility={initialColumnVisibility}
       initialFilterVisibility={mergedFilterVisibility}
